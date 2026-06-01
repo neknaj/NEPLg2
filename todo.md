@@ -1,13 +1,10 @@
 2026-06-01 GUI/TUI standard library
 
-- `core/gui/text_measure.nepl` に `TextMeasurer` contract、text metrics、terminal cell width 用 request / result 型を追加する
-- `core/gui/draw_target.nepl` / `render_target.nepl` に no_alloc streaming sink と fallback contract を追加する
 - `alloc/gui/layout` / `alloc/gui/widget` / `alloc/gui/accessibility` を `GuiEvent`、`ActionId`、`ViewTree`、semantic tree 境界で実装する
-- `std/gui` に `GuiHost`、runtime、window、timer、clipboard、IME、host text measurer、accessibility host、error display を追加する
 - Web Playground backend を `platforms/gui/web` と TypeScript host bridge へ接続し、Canvas / DOM-backed surface の smoke test を追加する
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
 - `features/tui` を互換 path として保ちながら、内部を `features/gui` + terminal backend へ差し替える
-- embedded backend の `MockDrawTarget`、fixed-capacity dirty region、optional `FlushTarget`、polling input を追加して no_alloc contract を実機風に検査する
+- embedded backend の fixed-capacity dirty region、display adapter、optional `FlushTarget`、polling input を追加して no_alloc contract を実機風に検査する
 
 2026-04-26 NEPLg2 Self-host
 

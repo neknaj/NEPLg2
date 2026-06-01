@@ -10,6 +10,7 @@
 //: - `core/gui/color` と `core/gui/pixel` は pixel backend [向/む]けの[軽量/けいりょう] value を[扱/あつか]います。
 //: - `core/gui/capability` は backend [差異/さい]を enum と struct で[表/あらわ]します。
 //: - `core/gui/event` と `core/gui/render_command` は GUI/TUI [共通/きょうつう]の input/output [境界/きょうかい]を[定義/ていぎ]します。
+//: - `core/gui/draw_target`、`render_target`、`text_measure` は backend [実装/じっそう]を[注入/ちゅうにゅう]する contract を[定義/ていぎ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - この facade は no_alloc core [基盤/きばん]です。文字列 buffer、DOM handle、OS handle、terminal raw byte sequence は[保持/ほじ]しません。
@@ -33,3 +34,6 @@ pub #import "./gui/capability" as @merge
 pub #import "./gui/error" as @merge
 pub #import "./gui/event" as @merge
 pub #import "./gui/render_command" as @merge
+pub #import "./gui/text_measure" as @merge
+pub #import "./gui/draw_target" as @merge
+pub #import "./gui/render_target" as @merge

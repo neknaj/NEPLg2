@@ -62,13 +62,15 @@ stdlib/core/gui/geometry.nepl
 stdlib/core/gui/color.nepl
 stdlib/core/gui/pixel.nepl
 stdlib/core/gui/text_measure.nepl
+stdlib/core/gui/draw_target.nepl
+stdlib/core/gui/render_target.nepl
 stdlib/core/gui/capability.nepl
 stdlib/core/gui/error.nepl
 stdlib/core/gui/event.nepl
 stdlib/core/gui/render_command.nepl
 ```
 
-最初の checkpoint では trait-based drawing の本体へ深く踏み込まず、型・constructor・軽量 helper・doctest を先に固定する。ただし、embedded を最低制約にするため、`core/gui` が `alloc` / `std` / `platforms` へ依存しないことは Phase 1 で検査する。
+最初の checkpoint では trait-based drawing の実 backend へ深く踏み込まず、型・constructor・軽量 helper・mock target・doctest を先に固定する。ただし、embedded を最低制約にするため、`core/gui` が `alloc` / `std` / `platforms` へ依存しないことは Phase 1 で検査する。検査は focused doctest だけにせず、`nodesrc/test_stdlib_gui_layering_policy.js` で core/platform 依存方向と terminal TextGrid 型の再定義禁止も固定する。
 
 検証:
 
@@ -97,6 +99,7 @@ stdlib/platforms/gui/terminal/render_target.nepl
 - `features/gui` を新しい UI substrate の public facade にする。
 - `features/tui` は compatibility facade として残し、内部で terminal backend へ寄せる。
 - terminal は `SurfaceKind::TextGrid` capability を持つ backend として定義する。
+- terminal 固有の cols / rows は `TerminalProfile` に置き、共通 capability と text-cell command は `core/gui` の型を再利用する。custom capability を受ける helper は `Result` を返し、`SurfaceKind::TextGrid` 以外を拒否する。
 - 既存 `line_top` / `line_box` / `buffer_present_diff` などを一気に消さず、terminal backend の compatibility helper として段階的に移す。
 - この Phase は terminal backend の型境界を先に作るための橋渡しであり、最初の complete backend は Web Playground のままとする。
 

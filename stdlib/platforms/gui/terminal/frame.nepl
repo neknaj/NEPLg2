@@ -1,33 +1,29 @@
 //: # platforms/gui/terminal/frame
-//: terminal TextGrid frame の初期型
+//: terminal TextGrid frame boundary
 //:
 //: ### [目的/もくてき]
-//: - application 側の render command と terminal host presentation の間に置く frame 境界を定義します。
-//: - 初期実装では 1 個の `TextCellRun` を保持する小さな frame とし、後続で run list / diff present / host effect へ拡張します。
+//: - core の `TextCellRun` と terminal profile を 1 frame の presentation input として[束/たば]ねます。
+//: - ANSI 出力、raw mode、TTY handle、buffer diff は frame ではなく backend implementation detail として[扱/あつか]います。
 //:
-//: ### [注意/ちゅうい]
-//: - ここでは ANSI 出力、raw mode、TTY handle、buffer diff の実装を持ちません。
-//: - `TextGridCapability` によって、terminal が `TextGrid` surface であることを静的に確認できる形にしています。
+//: ### [契約/けいやく]
+//: - `TerminalFrame` は core `TextCellRun` を[保持/ほじ]します。terminal [固有/こゆう]の直接 `str` run は[保持/ほじ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "platforms/gui/terminal/frame" as *
+//: ```
 
 #indent 4
 
-#import "core/field" as *
+#import "core/field" as field
+#import "core/gui" as *
 #import "core/traits/copy" as *
 #import "platforms/gui/terminal/capability" as *
 #import "platforms/gui/terminal/text_grid" as *
 
-//: TerminalFrame: terminal backend に渡す 1 frame 分の TextGrid 入力
-//:
-//: [目的/もくてき]:
-//: - capability と描画 run を同じ値としてまとめ、renderer と host presenter の境界を明示します。
-//:
-//: [実装/じっそう]:
-//: - 初期実装では単一の `TextCellRun` だけを保持します。複数 run は後続で allocator backed list として追加します。
-//:
-//: [注意/ちゅうい]:
-//: - frame は presentation の入力であり、terminal state owner ではありません。
+//: TerminalFrame: terminal backend に[渡/わた]す 1 frame 分の TextGrid 入力
 pub struct TerminalFrame:
-    capability %TextGridCapability
+    profile %TerminalProfile
     run %TextCellRun
 
 impl Clone for TerminalFrame:
@@ -38,39 +34,36 @@ impl Copy for TerminalFrame:
     fn copy_mark %fn TerminalFrame TerminalFrame \frame:
         frame
 
-//: terminal_frame: capability と run から TerminalFrame を構築する
-pub fn terminal_frame %fn TextGridCapability fn TextCellRun TerminalFrame \capability\run:
-    TerminalFrame capability run
+//: terminal_frame: profile と core TextCellRun から TerminalFrame を[作/つく]る
+pub fn terminal_frame %fn TerminalProfile fn TextCellRun TerminalFrame \profile\run:
+    TerminalFrame profile run
 
-//: terminal_frame_empty: 空 text run を持つ TerminalFrame を構築する
-//:
-//: [目的/もくてき]:
-//: - 初期化直後や no-op redraw の frame を、raw buffer ではなく typed value として表します。
-pub fn terminal_frame_empty %fn TextGridCapability TerminalFrame \capability:
-    let origin %TextGridPoint text_grid_origin
-    let run %TextCellRun text_cell_plain_run origin ""
-    terminal_frame capability run
+//: terminal_frame_empty: 空 text run を[持/も]つ TerminalFrame を[作/つく]る
+pub fn terminal_frame_empty %fn TerminalProfile TerminalFrame \profile:
+    let origin %TextGridPoint terminal_text_grid_origin
+    let run_id %TextRunId text_run_id_new 0
+    let run %TextCellRun terminal_text_cell_default_run origin run_id 0
+    terminal_frame profile run
 
-//: terminal_frame_capability: frame の capability を返す
-pub fn terminal_frame_capability %fn &TerminalFrame TextGridCapability \frame:
-    *get_ref frame "capability"
+//: terminal_frame_profile: frame の terminal profile を[返/かえ]す
+pub fn terminal_frame_profile %fn &TerminalFrame TerminalProfile \frame:
+    *field::get_ref frame "profile"
 
-//: terminal_frame_run: frame の text run を返す
+//: terminal_frame_run: frame の core TextCellRun を[返/かえ]す
 pub fn terminal_frame_run %fn &TerminalFrame TextCellRun \frame:
-    *get_ref frame "run"
+    *field::get_ref frame "run"
 
-//: terminal_frame_cols: frame の grid 列数を返す
+//: terminal_frame_cols: frame の grid cols を[返/かえ]す
 pub fn terminal_frame_cols %fn &TerminalFrame i32 \frame:
-    let cap %TextGridCapability terminal_frame_capability frame
-    text_grid_capability_cols &cap
+    let profile %TerminalProfile terminal_frame_profile frame
+    terminal_profile_cols &profile
 
-//: terminal_frame_rows: frame の grid 行数を返す
+//: terminal_frame_rows: frame の grid rows を[返/かえ]す
 pub fn terminal_frame_rows %fn &TerminalFrame i32 \frame:
-    let cap %TextGridCapability terminal_frame_capability frame
-    text_grid_capability_rows &cap
+    let profile %TerminalProfile terminal_frame_profile frame
+    terminal_profile_rows &profile
 
-//: terminal_frame_surface_is_text_grid: frame の surface kind が TextGrid か判定する
+//: terminal_frame_surface_is_text_grid: frame の surface kind が TextGrid か[判定/はんてい]する
 pub fn terminal_frame_surface_is_text_grid %fn &TerminalFrame bool \frame:
-    let cap %TextGridCapability terminal_frame_capability frame
-    let kind %TerminalSurfaceKind text_grid_capability_kind &cap
-    terminal_surface_is_text_grid kind
+    let profile %TerminalProfile terminal_frame_profile frame
+    terminal_profile_is_text_grid &profile

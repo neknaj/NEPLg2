@@ -1,59 +1,93 @@
 //: # platforms/gui/terminal/capability
-//: terminal backend capability の型境界
+//: terminal backend profile capability
 //:
 //: ### [目的/もくてき]
-//: - terminal を GUI substrate の `TextGrid` surface backend として表します。
-//: - 画面サイズ、keyboard/text input の有無、flush 要否を struct にまとめ、raw terminal state と application model を分離します。
+//: - terminal を GUI substrate の `SurfaceKind::TextGrid` backend として[表/あらわ]します。
+//: - 共通 capability は `core/gui::GuiCapabilities` を[使/つか]い、terminal [固有/こゆう]の cols / rows だけを profile payload として[保持/ほじ]します。
 //:
-//: ### [設計/せっけい]
-//: - surface kind は enum で表し、`match` による静的検査が効く形にします。
-//: - capability は現在の frame size と host 能力を持つだけで、ANSI code や TTY handle は保持しません。
+//: ### [契約/けいやく]
+//: - `TerminalProfile` は必ず `SurfaceKind::TextGrid` capability だけを[保持/ほじ]します。
+//: - `terminal_profile_full` は TextGrid ではない capability を `GuiError::Unsupported` として[拒否/きょひ]します。
+//: - ANSI escape sequence、TTY raw mode、WASIX handle はこの payload に[入/い]れません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - constructor と accessor は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "platforms/gui/terminal/capability" as *
+//: ```
 
 #indent 4
 
-#import "core/field" as *
+#import "core/field" as field
+#import "core/gui" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
-//: TerminalSurfaceKind: terminal backend が提供する surface kind
-//:
-//: [目的/もくてき]:
-//: - terminal backend が pixel surface ではなく text-cell grid であることを enum として表します。
-//:
-//: [注意/ちゅうい]:
-//: - 共通 `core/gui` の `SurfaceKind` が追加された後は、同じ概念をそちらへ移します。
-pub enum TerminalSurfaceKind:
-    TextGrid
-
-impl Clone for TerminalSurfaceKind:
-    fn clone %fn &TerminalSurfaceKind TerminalSurfaceKind \kind:
-        *kind
-
-impl Copy for TerminalSurfaceKind:
-    fn copy_mark %fn TerminalSurfaceKind TerminalSurfaceKind \kind:
-        kind
-
-//: TextGridCapability: TextGrid surface backend の capability
-//:
-//: [目的/もくてき]:
-//: - terminal frame の大きさと、backend が application event へ変換できる入力能力を表します。
-//:
-//: [実装/じっそう]:
-//: - `kind` は常に `TerminalSurfaceKind::TextGrid` です。
-//: - `cols` / `rows` は host から得た現在の grid size です。不明な場合は 0 を許します。
-//:
-//: [注意/ちゅうい]:
-//: - raw ANSI、TTY state、DOM handle はここに入れません。
-pub struct TextGridCapability:
-    kind %TerminalSurfaceKind
+//: TerminalProfile: TextGrid backend の terminal [固有/こゆう]情報
+pub struct TerminalProfile:
+    capabilities %GuiCapabilities
     cols %i32
     rows %i32
-    has_keyboard %bool
-    has_text_input %bool
-    requires_flush %bool
+
+impl Clone for TerminalProfile:
+    fn clone %fn &TerminalProfile TerminalProfile \profile:
+        *profile
+
+impl Copy for TerminalProfile:
+    fn copy_mark %fn TerminalProfile TerminalProfile \profile:
+        profile
+
+//: terminal_profile_full: TextGrid capability から terminal profile を[作/つく]る
+pub fn terminal_profile_full %fn i32 fn i32 fn GuiCapabilities Result TerminalProfile GuiError \cols\rows\capabilities:
+    if surface_kind_is_text_grid gui_capabilities_surface_kind &capabilities:
+        then Result::Ok TerminalProfile capabilities cols rows
+        else Result::Err GuiError::Unsupported
+
+//: terminal_profile: terminal TextGrid profile を[標準/ひょうじゅん] capability で[作/つく]る
+pub fn terminal_profile %fn i32 fn i32 TerminalProfile \cols\rows:
+    TerminalProfile gui_capabilities_text_grid cols rows
+
+//: terminal_profile_capabilities: 共通 GuiCapabilities を[読/よ]む
+pub fn terminal_profile_capabilities %fn &TerminalProfile GuiCapabilities \profile:
+    *field::get_ref profile "capabilities"
+
+//: terminal_profile_cols: grid cols を[読/よ]む
+pub fn terminal_profile_cols %fn &TerminalProfile i32 \profile:
+    *field::get_ref profile "cols"
+
+//: terminal_profile_rows: grid rows を[読/よ]む
+pub fn terminal_profile_rows %fn &TerminalProfile i32 \profile:
+    *field::get_ref profile "rows"
+
+//: terminal_profile_surface_kind: terminal profile の共通 surface kind を[読/よ]む
+pub fn terminal_profile_surface_kind %fn &TerminalProfile SurfaceKind \profile:
+    let caps %GuiCapabilities terminal_profile_capabilities profile
+    gui_capabilities_surface_kind &caps
+
+//: terminal_profile_requires_flush: terminal profile が flush を[要求/ようきゅう]するか[読/よ]む
+pub fn terminal_profile_requires_flush %fn &TerminalProfile bool \profile:
+    let caps %GuiCapabilities terminal_profile_capabilities profile
+    gui_capabilities_requires_flush &caps
+
+//: terminal_profile_has_non_negative_size: grid size が 0 以上か[確認/かくにん]する
+pub fn terminal_profile_has_non_negative_size %fn &TerminalProfile bool \profile:
+    let cols %i32 terminal_profile_cols profile
+    let rows %i32 terminal_profile_rows profile
+    and not lt cols 0 not lt rows 0
+
+//: terminal_profile_is_text_grid: terminal profile が TextGrid surface か[判定/はんてい]する
+pub fn terminal_profile_is_text_grid %fn &TerminalProfile bool \profile:
+    surface_kind_is_text_grid terminal_profile_surface_kind profile
+
+//: TextGridCapability: 旧 terminal bridge 名の互換 alias payload
+//:
+//: [注意/ちゅうい]:
+//: - 新しい code は `TerminalProfile` を[使/つか]います。この alias は初期 bridge test の import path を[壊/こわ]さず、内部表現を `GuiCapabilities` [中心/ちゅうしん]へ寄せるために[残/のこ]しています。
+pub struct TextGridCapability:
+    profile %TerminalProfile
 
 impl Clone for TextGridCapability:
     fn clone %fn &TextGridCapability TextGridCapability \cap:
@@ -63,64 +97,47 @@ impl Copy for TextGridCapability:
     fn copy_mark %fn TextGridCapability TextGridCapability \cap:
         cap
 
-//: text_grid_capability_full: terminal TextGrid capability を明示的に構築する
-//:
-//: [目的/もくてき]:
-//: - host が把握している入力能力まで含めて capability を作ります。
-//:
-//: [注意/ちゅうい]:
-//: - `cols` / `rows` は 0 以上を想定します。検査は `text_grid_capability_has_non_negative_size` で行えます。
-pub fn text_grid_capability_full %fn i32 fn i32 fn bool fn bool fn bool TextGridCapability \cols\rows\has_keyboard\has_text_input\requires_flush:
-    TextGridCapability TerminalSurfaceKind::TextGrid cols rows has_keyboard has_text_input requires_flush
-
-//: text_grid_capability: terminal TextGrid capability を標準値で構築する
-//:
-//: [目的/もくてき]:
-//: - terminal backend の最小 smoke test や mock backend で使う標準 capability を作ります。
-//:
-//: [実装/じっそう]:
-//: - keyboard と text input は有効、presentation には flush が必要、という terminal host の既定値を入れます。
+//: text_grid_capability: 互換 helper として terminal profile を[包/つつ]む
 pub fn text_grid_capability %fn i32 fn i32 TextGridCapability \cols\rows:
-    text_grid_capability_full cols rows true true true
+    TextGridCapability terminal_profile cols rows
 
-//: text_grid_capability_kind: capability の surface kind を返す
-pub fn text_grid_capability_kind %fn &TextGridCapability TerminalSurfaceKind \cap:
-    *get_ref cap "kind"
+//: text_grid_capability_profile: 互換 payload から profile を[読/よ]む
+pub fn text_grid_capability_profile %fn &TextGridCapability TerminalProfile \cap:
+    *field::get_ref cap "profile"
 
-//: text_grid_capability_cols: capability の列数を返す
+//: text_grid_capability_kind: 共通 SurfaceKind を[返/かえ]す
+pub fn text_grid_capability_kind %fn &TextGridCapability SurfaceKind \cap:
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_surface_kind &profile
+
+//: text_grid_capability_cols: grid cols を[返/かえ]す
 pub fn text_grid_capability_cols %fn &TextGridCapability i32 \cap:
-    *get_ref cap "cols"
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_cols &profile
 
-//: text_grid_capability_rows: capability の行数を返す
+//: text_grid_capability_rows: grid rows を[返/かえ]す
 pub fn text_grid_capability_rows %fn &TextGridCapability i32 \cap:
-    *get_ref cap "rows"
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_rows &profile
 
-//: text_grid_capability_has_keyboard: keyboard event へ変換できるか返す
+//: text_grid_capability_has_keyboard: keyboard capability を[返/かえ]す
 pub fn text_grid_capability_has_keyboard %fn &TextGridCapability bool \cap:
-    *get_ref cap "has_keyboard"
+    true
 
-//: text_grid_capability_has_text_input: text input event へ変換できるか返す
+//: text_grid_capability_has_text_input: text input capability を[返/かえ]す
 pub fn text_grid_capability_has_text_input %fn &TextGridCapability bool \cap:
-    *get_ref cap "has_text_input"
+    true
 
-//: text_grid_capability_requires_flush: present に flush が必要か返す
+//: text_grid_capability_requires_flush: flush 要否を[返/かえ]す
 pub fn text_grid_capability_requires_flush %fn &TextGridCapability bool \cap:
-    *get_ref cap "requires_flush"
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_requires_flush &profile
 
-//: terminal_surface_is_text_grid: surface kind が TextGrid であることを判定する
-//:
-//: [目的/もくてき]:
-//: - 呼び出し側が enum の variant 名に直接依存せず、terminal backend capability の smoke check を書けるようにします。
-pub fn terminal_surface_is_text_grid %fn TerminalSurfaceKind bool \kind:
-    match kind:
-        TerminalSurfaceKind::TextGrid:
-            true
+//: terminal_surface_is_text_grid: 共通 SurfaceKind が TextGrid か[判定/はんてい]する
+pub fn terminal_surface_is_text_grid %fn SurfaceKind bool \kind:
+    surface_kind_is_text_grid kind
 
-//: text_grid_capability_has_non_negative_size: grid size が 0 以上か確認する
-//:
-//: [目的/もくてき]:
-//: - TTY size が不明な backend でも 0,0 は許し、負値だけを capability boundary の異常として扱います。
+//: text_grid_capability_has_non_negative_size: grid size が 0 以上か[確認/かくにん]する
 pub fn text_grid_capability_has_non_negative_size %fn &TextGridCapability bool \cap:
-    let cols %i32 text_grid_capability_cols cap
-    let rows %i32 text_grid_capability_rows cap
-    and not lt cols 0 not lt rows 0
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_has_non_negative_size &profile

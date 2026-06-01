@@ -90,3 +90,114 @@ fn main %fn unit i32 \unit:
     assert_eq_i32 0 lifecycle_code event
     0
 ```
+
+## text measurement mock
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target core
+#indent 4
+
+#import "core/gui" as *
+#import "core/result" as *
+#import "core/test" as *
+
+fn main %fn unit i32 \unit:
+    let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+    let request %TextMeasureRequest text_measure_request_new text_run_id_new 4 font_id_new 1 200 5
+    match measure_text measurer request:
+        Result::Ok metrics:
+            assert_eq_i32 40 text_measure_result_width &metrics
+            assert_eq_i32 16 text_measure_result_height &metrics
+            assert_eq_i32 12 text_measure_result_baseline &metrics
+            0
+        Result::Err _e:
+            1
+```
+
+## draw target mock and flush separation
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target core
+#indent 4
+
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/result" as *
+#import "core/test" as *
+
+fn main %fn unit i32 \unit:
+    let r %u8 cast 1
+    let g %u8 cast 2
+    let b %u8 cast 3
+    let a %u8 cast 255
+    let color %Rgba8888 rgba8888_new r g b a
+    let target0 %MockDrawTarget mock_draw_target_new 4 4
+    let inside_point %GuiPoint gui_point_new 1 1
+    let outside_point %GuiPoint gui_point_new 10 10
+    let inside %Pixel Rgba8888 pixel_new inside_point color
+    let outside %Pixel Rgba8888 pixel_new outside_point color
+    match draw_pixel target0 inside:
+        Result::Ok target1:
+            match draw_pixel target1 outside:
+                Result::Ok target2:
+                    match fill_solid target2 gui_rect_new 0 0 2 2 color:
+                        Result::Ok target3:
+                            match clear target3 color:
+                                Result::Ok target4:
+                                    match flush target4:
+                                        Result::Ok target5:
+                                            assert_eq_i32 1 mock_draw_target_pixel_count &target5
+                                            assert_eq_i32 1 mock_draw_target_fill_count &target5
+                                            assert_eq_i32 1 mock_draw_target_clear_count &target5
+                                            assert_eq_i32 1 mock_draw_target_flush_count &target5
+                                            0
+                                        Result::Err _e:
+                                            1
+                                Result::Err _e:
+                                    1
+                        Result::Err _e:
+                            1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1
+```
+
+## render target mock command stream
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target core
+#indent 4
+
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/result" as *
+#import "core/test" as *
+
+fn main %fn unit i32 \unit:
+    let zero %u8 cast 0
+    let full %u8 cast 255
+    let fg %Rgba8888 rgba8888_new full full full full
+    let bg %Rgba8888 rgba8888_new zero zero zero full
+    let style %TextCellStyle text_cell_style_new fg bg
+    let point %TextGridPoint text_grid_point_new 2 3
+    let run_id %TextRunId text_run_id_new 7
+    let run %TextCellRun text_cell_run_new point run_id 5 style
+    let command %RenderCommand render_command_text_cell_run run
+    match render_one mock_render_target_new command:
+        Result::Ok target:
+            assert_eq_i32 1 mock_render_target_command_count &target
+            assert_eq_i32 1 mock_render_target_text_cell_count &target
+            0
+        Result::Err _e:
+            1
+```

@@ -3,16 +3,17 @@
 //:
 //: ### [目的/もくてき]
 //: - GUI と TUI を別系統の API として育てず、terminal も text-cell surface を持つ backend として公開します。
-//: - 利用者は terminal backend の初期型を `features/gui` から import でき、将来 `core/gui` が入っても入口を固定できます。
+//: - 利用者は core / alloc の共通 UI substrate と、明示的な terminal profile helper を `features/gui` から import できます。
 //:
 //: ### [実装/じっそう]
-//: - 現段階では `platforms/gui/terminal` を公開 merge import する薄い facade です。
+//: - 現段階では `alloc/gui` と `platforms/gui/terminal` を公開 merge import します。`alloc/gui` は `core/gui` を再公開します。
 //: - DOM、OS、ANSI escape、TTY raw mode には依存せず、backend capability と frame 境界だけを再公開します。
 //:
 //: ### [注意/ちゅうい]
 //: - 既存 `features/tui` との互換差し替えは後続 phase で行います。この file は新 substrate 側の入口です。
-//: - `core/gui` が追加された後は、共通型をそちらへ移し、この facade は import path を保つために再公開します。
+//: - terminal 固有 API は `TerminalProfile` のように明示的な名前にし、`TextGridPoint` などの共通型は `core/gui` の定義を正とします。
 
 #indent 4
 
+pub #import "alloc/gui" as @merge
 pub #import "platforms/gui/terminal" as @merge

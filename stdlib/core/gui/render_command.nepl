@@ -271,13 +271,45 @@ pub fn transform2d_identity %fn unit Transform2d \unit:
 pub fn text_grid_point_new %fn i32 fn i32 TextGridPoint \column\row:
     TextGridPoint column row
 
+//: text_grid_point_column: text grid point の column を[読/よ]む
+pub fn text_grid_point_column %fn &TextGridPoint i32 \point:
+    *field::get_ref point "column"
+
+//: text_grid_point_row: text grid point の row を[読/よ]む
+pub fn text_grid_point_row %fn &TextGridPoint i32 \point:
+    *field::get_ref point "row"
+
 //: text_cell_style_new: text cell style を[作/つく]る
 pub fn text_cell_style_new %fn Rgba8888 fn Rgba8888 TextCellStyle \foreground\background:
     TextCellStyle foreground background
 
+//: text_cell_style_foreground: foreground color を[読/よ]む
+pub fn text_cell_style_foreground %fn &TextCellStyle Rgba8888 \style:
+    *field::get_ref style "foreground"
+
+//: text_cell_style_background: background color を[読/よ]む
+pub fn text_cell_style_background %fn &TextCellStyle Rgba8888 \style:
+    *field::get_ref style "background"
+
 //: text_cell_run_new: text cell run を[作/つく]る
 pub fn text_cell_run_new %fn TextGridPoint fn TextRunId fn i32 fn TextCellStyle TextCellRun \point\run_id\cell_count\style:
     TextCellRun point run_id cell_count style
+
+//: text_cell_run_point: text cell run の[開始/かいし] point を[読/よ]む
+pub fn text_cell_run_point %fn &TextCellRun TextGridPoint \run:
+    *field::get_ref run "point"
+
+//: text_cell_run_id: text cell run の text run id を[読/よ]む
+pub fn text_cell_run_id %fn &TextCellRun TextRunId \run:
+    *field::get_ref run "run_id"
+
+//: text_cell_run_cell_count: text cell run の cell count を[読/よ]む
+pub fn text_cell_run_cell_count %fn &TextCellRun i32 \run:
+    *field::get_ref run "cell_count"
+
+//: text_cell_run_style: text cell run の style を[読/よ]む
+pub fn text_cell_run_style %fn &TextCellRun TextCellStyle \run:
+    *field::get_ref run "style"
 
 //: render_command_fill_rect: fill rect command を[作/つく]る
 pub fn render_command_fill_rect %fn GuiRect fn GuiPaint RenderCommand \rect\paint:
