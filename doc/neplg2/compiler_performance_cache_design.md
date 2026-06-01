@@ -1802,6 +1802,57 @@ fresh `TypeCtx` / `Env` へ投影する前提条件が揃ったことだけを�
 `PublicTypeTerm -> TypeId` の復元、local public callable の `Env` 注入、Open / simple named import
 の projection を小さく実装する。
 
+### 2026-06-01 `.neplmeta` typecheck materializer callable MVP checkpoint
+
+`nepl-core/src/typecheck/materializer.rs` を追加し、`.neplmeta` の structured public surface を
+現在 compile session の fresh `TypeCtx` / `Env` へ投影する最初の内部 API を実装した。
+
+この checkpoint は stdlib dependency body skip そのものではない。目的は、artifact-level gate を
+通過した public callable surface について、依存側の prefix call 解決が読む callable 候補を
+`TypeId` と `Binding` として安全に再構築できるかを固定することである。`TypeId`、`Span`、
+`SourceMap`、typed HIR、Resource IR proof は `.neplmeta` から復元しない。
+
+受け入れる型:
+
+- `unit` / `i32` / `u8` / `f32` / `bool` / `char` / `str` / `never`。
+- tuple。
+- function type。`PublicTypeParamRef { binder_depth, index }` は binder stack で解決する。
+- box / reference type。これは型境界の復元だけであり、owner / borrow proof の再利用ではない。
+
+拒否する surface:
+
+- callable 以外の struct / enum / trait / impl surface。
+- stable link symbol を持たない callable。
+- link symbol name と entry name が一致しない callable。
+- field accessor callable。
+- trait bound を持つ generic callable。
+- name-only または stable identity 付きであっても、まだ名義型 materializer がない named type。
+- `TraitSelf`、unbound generic parameter、type application。
+- 既存 value との name conflict、および `no_shadow` 同signature conflict。
+
+subagent review 後、materializer は two-phase staging にした。table 内の後続 entry で拒否が
+起きた場合、前半で staging した binding は `Env` へ入れない。これにより、artifact materialize
+失敗後に通常 source load / typecheck fallback へ戻っても、半端な imported callable 候補が
+残らない。
+
+また callable surface の内部整合性も materialize 前に確認する。entry kind が callable であること、
+`surface.ty` が function type であること、`arity` と parameter 数、surface effect と function
+type effect、`PublicCallableLinkSymbol.signature_hash` と public type term stable hash が一致する
+ことを検査する。壊れた `.neplmeta` payload が self-consistent な outer hash を持っていても、
+この局所 boundary で fail-closed に止める。
+
+materialized callable symbol は `PublicCallableLinkSymbol` の source path / name / signature hash から
+決定的に作る。span-derived mangle は使わないため、同じ dependency artifact を別 compile
+session で読んでも同じ callable symbol になる。一方で `def_id` は `None` のままであるため、
+`@func` / `memo_call @func` のような function value identity 依存の経路は、stable function
+identity materializer が入るまで通常 source typecheck fallback 側に残す。
+
+この実装により、`.neplmeta` は typed public surface を「保存できる」だけでなく、
+primitive / generic callable に限って typecheck candidate として復元できる段階へ進んだ。
+次の根本対応は、import / prelude boundary で target artifact を引いて local export と
+Open / simple named import projection をこの materializer へ渡すこと、および named type /
+trait bound / field accessor / function value identity を専用 authority で順に追加することである。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`

@@ -75,3 +75,38 @@ Web `CompilerSession` stats JSON には `nepl_meta_artifact_materializer_mvp_rea
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
 - `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
 - `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+
+## 2026-06-01 typecheck materializer callable MVP checkpoint
+
+`nepl-core/src/typecheck/materializer.rs` を追加し、`.neplmeta` の `TypedPublicSurfaceTable` から
+local public callable を現在 compile session の fresh `TypeCtx` / `Env` へ投影する内部 API を
+実装した。
+
+今回の受け入れ範囲:
+
+- primitive / tuple / function / generic parameter / box / reference type。
+- `PublicCallableLinkSymbol` を持つ local public callable。
+- `PublicTypeParamRef { binder_depth, index }` による generic binder 対応。
+- 同じ stable link symbol の再 materialize は idempotent に skip。
+
+今回の fail-closed 範囲:
+
+- callable 以外の surface。
+- entry kind mismatch、function type ではない callable type、arity mismatch、effect mismatch、signature hash mismatch。
+- link symbol 欠落または entry name との不一致。
+- field accessor、trait bound、named type、`TraitSelf`、unbound generic、type application。
+- existing value conflict と `no_shadow` 同signature conflict。
+
+subagent review 後、materializer は two-phase staging に変更した。後続 entry で reject した場合、
+先に検査済みの callable も `Env` へ挿入しない。通常 source typecheck fallback へ戻るための
+fail-closed 境界として、`Env` を半端に汚さないことを regression で固定した。
+
+この checkpoint は body skip 完了ではない。`def_id` は `None` のため `@func` / `memo_call @func`
+のような function value identity 依存経路は、stable function identity materializer が入るまで
+通常 source load / typecheck fallback に残す。次は import / prelude boundary で target
+artifact を引き、local export / Open / simple named import projection をこの materializer へ
+接続する。
+
+追加検証:
+
+- `cargo test -p nepl-core materializer --lib -- --nocapture`

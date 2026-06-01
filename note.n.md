@@ -1,3 +1,18 @@
+# 2026-06-01 .neplmeta typecheck materializer callable MVP checkpoint
+
+- Zenn 記事の static check、enum/struct による authority 明示、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `84751896 Add neplmeta materializer MVP gate` まで同期済みで、現在 branch `perf/neplmeta-typecheck-materializer-20260601` の基点は `origin/main` と一致している。
+- subagent review で、`.neplmeta` typecheck materializer の初回 checkpoint は primitive / function / binder-indexed generic callable に絞り、named type、trait bound、field accessor、impl lookup、function value identity は fail-closed に残すべきと確認した。
+- `nepl-core/src/typecheck/materializer.rs` を追加し、`TypedPublicSurfaceTable` から local public callable を fresh `TypeCtx` / `Env` へ投影する内部 API を実装した。
+- materializer は primitive / tuple / function / generic parameter / box / reference type を復元する。generic parameter は `PublicTypeParamRef { binder_depth, index }` を binder stack で解決し、名前一致では対応付けない。
+- callable は `PublicCallableLinkSymbol` の source path / name / signature hash から決定的な symbol を作る。span-derived mangle は使わず、同じ link symbol の再 materialize は idempotent に skip する。
+- subagent follow-up review で、empty generic binder が外側 generic を隠す問題、malformed callable surface の内部整合性不足、reject 時の `Env` 半端挿入が指摘された。これを受け、empty binder では binder stack を押さず、entry kind / function type / arity / effect / signature hash の整合性を確認し、two-phase staging で全 entry が通るまで `Env` へ挿入しないようにした。
+- fail-closed reason は enum として追加した。callable 以外、entry kind mismatch、malformed callable metadata、link symbol 欠落、link name mismatch、field accessor、trait bound、named type、`TraitSelf`、unbound generic、type application、existing value conflict、`no_shadow` 同signature conflict は通常 source load / typecheck fallback へ戻す。
+- この checkpoint は body skip 完了ではない。`def_id=None` のため `@func` / `memo_call @func` のような function value identity 依存経路は、stable function identity materializer が入るまで対象外にする。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7` に checkpoint を追記した。
+- 現時点の focused verification は `cargo test -p nepl-core materializer --lib -- --nocapture` を通した。
+- 残件: import / prelude boundary で target `.neplmeta` artifact を引き、local export / Open / simple named import projection を materializer へ接続する。named type / trait bound / field accessor / function value identity は専用 authority を追加してから扱う。
+
 # 2026-06-01 .neplmeta materializer MVP gate checkpoint
 
 - Zenn 記事の静的検査、enum / struct による authority 明示、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。

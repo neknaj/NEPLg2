@@ -31,6 +31,7 @@ mod generic_call_constraints;
 mod hir_finalize;
 mod indirect_apply;
 mod match_check;
+mod materializer;
 mod memo_call;
 mod model;
 mod name_lookup;
@@ -63,6 +64,10 @@ use traits::BoundEnv;
 pub use driver::{typecheck, TypeCheckResult};
 pub use public_signature::{
     TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+};
+pub use materializer::{
+    PublicSurfaceMaterializeReject, PublicSurfaceMaterializeRejectReason,
+    PublicSurfaceMaterializeReport,
 };
 pub use public_surface::{
     PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicEnumSurface,

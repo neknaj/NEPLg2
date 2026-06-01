@@ -1001,7 +1001,7 @@ fn public_callable_link_symbol(
     })
 }
 
-fn public_type_term_stable_hash(term: &PublicTypeTerm) -> u64 {
+pub(super) fn public_type_term_stable_hash(term: &PublicTypeTerm) -> u64 {
     let mut hash = FNV1A64_OFFSET;
     hash_str(&mut hash, "neplg2-public-type-term-v1");
     hash_public_type_term(&mut hash, term);
