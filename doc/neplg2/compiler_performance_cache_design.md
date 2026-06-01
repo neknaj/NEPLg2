@@ -1940,6 +1940,31 @@ Web `CompilerSession` の stats JSON には `nepl_meta_artifact_source_key_hash`
 値が 0 の場合は artifact がない、または source key を作れないことを表す観測値であり、
 artifact payload 本体や source text は公開しない。
 
+### 2026-06-01 `.neplmeta` pre-typecheck store projection checkpoint
+
+`NeplMetaArtifactStore` に `materializer_import_public_surface_pre_typecheck_mvp` を追加した。
+この API は body skip そのものではなく、loader/import boundary で target module の source と
+module edge surface が分かった段階で、保存済み `.neplmeta` artifact から materializer 入力を
+取り出せるかを probe するための境界である。
+
+従来の store projection は full `NeplMetaArtifactHeader` を expected value として要求していた。
+しかし full header には typed public signature hash と structured public surface hash が含まれ、
+それらは target module body の typecheck 後にしか得られない。新しい API は
+`NeplMetaArtifactPreTypecheckEnvelope` を受け取り、payload decode 前に確認できる
+schema、compiler identity、target/profile、stdlib content hash、source key、dependency public
+surface hash、module surface hash、source capability policy、private effect policy だけを照合する。
+
+pre-typecheck envelope が通った後も、store は payload consistency と MVP projection を続けて
+確認する。成功時に返るのは `TypedPublicSurfaceTable` だけであり、`TypeCtx` / `Env` への注入や
+依存 module AST inline の省略はまだ行わない。失敗時は `MissingArtifact`、`PayloadConsistency`、
+`Compatibility(SourceKey / DependencyPublicSurface / ModuleSurface / ...)`、
+`Projection(...)` の enum reason で通常 load / typecheck fallback へ戻す。
+
+この checkpoint により、次の loader/import probe は「artifact がない」「source が古い」
+「dependency surface が違う」「import clause が MVP 範囲外」のどれで fallback したかを
+文字列解析なしに区別できる。body skip を有効化する前に、この probe の hit/reject 統計を
+Web `CompilerSession` から観測できるようにする。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

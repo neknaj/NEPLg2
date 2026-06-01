@@ -263,3 +263,25 @@ SourceMap や canonical module path が欠落した artifact は、通常 source
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
 - `cargo test -p nepl-core materializer --lib -- --nocapture`
 - `node tests\compiler\tree\run.js`
+
+## 2026-06-01 pre-typecheck store projection checkpoint
+
+`NeplMetaArtifactStore` に `materializer_import_public_surface_pre_typecheck_mvp` を追加した。
+これは body skip ではなく、loader/import boundary が target module source と module edge surface
+を得た段階で、保存済み `.neplmeta` artifact を materializer 入力へ投影できるかを確認する
+probe API である。
+
+full typed header を要求する既存 projection は、typed public signature / structured public surface
+を expected value として持つため、target module body typecheck 前には使えない。新しい API は
+`NeplMetaArtifactPreTypecheckEnvelope` を受け取り、source key、dependency public surface、
+module surface、source capability policy、private effect policy など payload decode 前に分かる
+field だけを先に照合する。
+
+pre-typecheck envelope が通っても、payload consistency と MVP projection は従来通り確認する。
+成功しても `TypeCtx` / `Env` への注入や dependency AST inline の省略はまだ行わない。
+失敗時は `MissingArtifact`、`PayloadConsistency`、`Compatibility(SourceKey / DependencyPublicSurface / ModuleSurface)`、
+`Projection` の enum reason で fallback できる。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`

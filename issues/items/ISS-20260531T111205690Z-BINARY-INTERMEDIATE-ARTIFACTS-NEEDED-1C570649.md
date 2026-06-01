@@ -206,3 +206,22 @@ artifact が compatible 扱いになる経路を閉じた。
 
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
 - `node tests\compiler\tree\run.js`
+
+## 2026-06-01 checkpoint 9
+
+`.neplmeta` store projection に pre-typecheck envelope 用 API を追加した。
+`materializer_import_public_surface_pre_typecheck_mvp` は full typed header を要求せず、
+loader/source map 由来の `NeplMetaArtifactPreTypecheckEnvelope` で artifact header を先に照合する。
+
+この API は `.neplmeta` を body skip に使う実装ではない。成功時に返すのは materializer 入力の
+`TypedPublicSurfaceTable` だけであり、依存 module AST inline、typecheck、Resource IR proof は
+従来通り実行される。目的は、loader/import/prelude boundary で「この edge の public callable
+surface は artifact から復元可能か」を fail-closed に観測することである。
+
+source key、dependency public surface、module surface の mismatch は
+`NeplMetaArtifactCompatibilityReject` の enum reason として拒否する。projection unsupported や
+payload inconsistency も既存 reason で区別する。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`

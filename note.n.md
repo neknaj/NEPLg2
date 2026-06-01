@@ -1,3 +1,15 @@
+# 2026-06-01 .neplmeta pre-typecheck store projection checkpoint
+
+- Zenn 記事の静的検査、enum reason、core/no_std 境界、純粋 query cache による探索空間削減方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `d9d0b95e Add neplmeta source key envelope` まで同期済みで、branch `work/neplmeta-loader-boundary-20260601` の基点は `origin/main` と一致している。
+- subagent review で、body skip へ直行せず「loader が解決した import/prelude edge 1 本について、既存 `.neplmeta` store から pre-typecheck envelope で投影可能かを probe し、必ず通常 load/typecheck fallback を残す」のが次の安全な単位だと確認した。
+- `NeplMetaArtifactStore::materializer_import_public_surface_pre_typecheck_mvp` を追加した。full typed header ではなく `NeplMetaArtifactPreTypecheckEnvelope` を受け取り、body typecheck 前に source key、dependency public surface、module surface、source capability policy、private effect policy を照合する。
+- envelope 通過後も payload consistency と MVP projection を確認する。成功時に返すのは `TypedPublicSurfaceTable` だけであり、`TypeCtx` / `Env` 注入や dependency body skip はまだ行わない。
+- regression では Open import の成功、body token edit による `SourceKey` reject、dependency public surface mismatch、module surface mismatch を固定した。
+- memo_call 側の subagent review では、今回の `.neplmeta` 高速化と混ぜず、次に進めるなら sealed private cache region / non-escape proof の issue/doc/test contract を別 checkpoint にするべきと確認した。
+- `doc/neplg2/compiler_performance_cache_design.md`、中間 artifact issue、`.neplmeta` materializer issue に checkpoint を追記した。
+- 検証: `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-pretypecheck-store-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta source key invalidation checkpoint
 
 - Zenn 記事の core/no_std 分離、純粋 query cache、静的検査境界を enum / struct と fail-closed な key で明示する方針を再確認した。`plan.md` は変更していない。

@@ -890,6 +890,46 @@ impl NeplMetaArtifactStore {
             }
         }
     }
+
+    /// pre-typecheck envelope で照合したうえで materializer 入力を返す。
+    ///
+    /// dependency body skip の入口では、target module の typed public signature や
+    /// structured public surface をまだ作れない。ここでは loader/source-map 由来の
+    /// envelope だけを先に照合し、payload が self-consistent で projection も MVP 範囲に
+    /// 入る場合だけ `TypedPublicSurfaceTable` を返す。caller はこの結果を fresh
+    /// `TypeCtx` / `Env` へ materialize する前に、通常 source fallback を保持する。
+    pub fn materializer_import_public_surface_pre_typecheck_mvp(
+        &mut self,
+        module_path: &str,
+        expected_envelope: NeplMetaArtifactPreTypecheckEnvelope,
+        import_clause: Option<&NeplMetaImportClause>,
+    ) -> Result<TypedPublicSurfaceTable, NeplMetaArtifactStoreReject> {
+        let Some(artifact) = self.artifacts.get(module_path) else {
+            self.stats.misses += 1;
+            return Err(NeplMetaArtifactStoreReject::MissingArtifact {
+                module_path: String::from(module_path),
+            });
+        };
+        self.stats.hits += 1;
+        if let Some(reject) = artifact.payload_consistency_reject() {
+            self.stats.payload_rejects += 1;
+            return Err(NeplMetaArtifactStoreReject::PayloadConsistency(reject));
+        }
+        if let Some(reject) = artifact
+            .header()
+            .pre_typecheck_compatibility_reject(expected_envelope)
+        {
+            self.stats.compatibility_rejects += 1;
+            return Err(NeplMetaArtifactStoreReject::Compatibility(reject));
+        }
+        match artifact.materializer_import_public_surface_mvp(import_clause) {
+            Ok(table) => Ok(table),
+            Err(reject) => {
+                self.stats.projection_rejects += 1;
+                Err(NeplMetaArtifactStoreReject::Projection(reject))
+            }
+        }
+    }
 }
 
 /// `.neplmeta` artifact store が materializer 入力を返せなかった理由。
@@ -1915,6 +1955,160 @@ mod tests {
         assert_eq!(store.stats().stores, 1);
         assert_eq!(store.stats().hits, 1);
         assert_eq!(store.stats().misses, 0);
+    }
+
+    /// body skip の入口では typed public signature をまだ再計算できない。
+    /// store は pre-typecheck envelope だけで source identity と compile context を照合し、
+    /// その後に payload consistency と projection を確認してから materializer 入力を返す。
+    #[test]
+    fn neplmeta_store_projects_with_pre_typecheck_envelope() {
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let artifact = artifact_for_materializer_with_names(
+            module_surface.clone(),
+            materializable_multi_surface_table(&["answer", "zero"]),
+            &["answer", "zero"],
+        );
+        let mut source_map = SourceMap::new();
+        source_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+        );
+        let envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&source_map),
+            &module_surface,
+        )
+        .expect("matching source should produce pre-typecheck envelope");
+        let mut store = NeplMetaArtifactStore::new();
+
+        store.store(artifact).unwrap();
+        let projected = store
+            .materializer_import_public_surface_pre_typecheck_mvp(
+                "/stdlib/core/math.nepl",
+                envelope,
+                Some(&NeplMetaImportClause::Open),
+            )
+            .unwrap();
+
+        let names = projected
+            .entries
+            .iter()
+            .map(|entry| entry.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(names, Vec::from(["answer", "zero"]));
+        assert_eq!(store.stats().hits, 1);
+        assert_eq!(store.stats().compatibility_rejects, 0);
+    }
+
+    /// pre-typecheck envelope は source key を含むため、public signature を再計算する前でも
+    /// body token が違う stale artifact を拒否できる。
+    #[test]
+    fn neplmeta_store_pre_typecheck_envelope_rejects_stale_source_key() {
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let artifact = artifact_for_materializer(
+            module_surface.clone(),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+        let mut edited_source_map = SourceMap::new();
+        edited_source_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    2\n".into(),
+        );
+        let edited_envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&edited_source_map),
+            &module_surface,
+        )
+        .expect("edited source should still produce a pre-typecheck envelope");
+        let mut store = NeplMetaArtifactStore::new();
+
+        store.store(artifact).unwrap();
+        assert_eq!(
+            store.materializer_import_public_surface_pre_typecheck_mvp(
+                "/stdlib/core/math.nepl",
+                edited_envelope,
+                Some(&NeplMetaImportClause::Open),
+            ),
+            Err(NeplMetaArtifactStoreReject::Compatibility(
+                NeplMetaArtifactCompatibilityReject::SourceKey
+            ))
+        );
+        assert_eq!(store.stats().hits, 1);
+        assert_eq!(store.stats().compatibility_rejects, 1);
+    }
+
+    /// pre-typecheck envelope は source key だけでなく dependency surface と module edge
+    /// surface も見る。source が同じでも、依存候補や import/prelude edge が違えば
+    /// materializer 入力の authority は別物として拒否する。
+    #[test]
+    fn neplmeta_store_pre_typecheck_envelope_rejects_dependency_and_module_surface_mismatch() {
+        let stored_module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let artifact = artifact_for_materializer(
+            stored_module_surface.clone(),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+        let mut source_map = SourceMap::new();
+        source_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+        );
+        let dependency_mismatch = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            Some(99),
+            Some(&source_map),
+            &stored_module_surface,
+        )
+        .expect("matching source should produce envelope");
+        let mut store = NeplMetaArtifactStore::new();
+        store.store(artifact).unwrap();
+
+        assert_eq!(
+            store.materializer_import_public_surface_pre_typecheck_mvp(
+                "/stdlib/core/math.nepl",
+                dependency_mismatch,
+                Some(&NeplMetaImportClause::Open),
+            ),
+            Err(NeplMetaArtifactStoreReject::Compatibility(
+                NeplMetaArtifactCompatibilityReject::DependencyPublicSurface
+            ))
+        );
+
+        let changed_module_surface = module_surface("/stdlib/core/math.nepl");
+        let module_surface_mismatch =
+            nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+                CompileTarget::Wasm,
+                BuildProfile::Debug,
+                Some(7),
+                None,
+                Some(&source_map),
+                &changed_module_surface,
+            )
+            .expect("same source with different module surface should produce envelope");
+        let artifact = artifact_for_materializer(
+            stored_module_surface,
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+        let mut store = NeplMetaArtifactStore::new();
+        store.store(artifact).unwrap();
+
+        assert_eq!(
+            store.materializer_import_public_surface_pre_typecheck_mvp(
+                "/stdlib/core/math.nepl",
+                module_surface_mismatch,
+                Some(&NeplMetaImportClause::Open),
+            ),
+            Err(NeplMetaArtifactStoreReject::Compatibility(
+                NeplMetaArtifactCompatibilityReject::ModuleSurface
+            ))
+        );
     }
 
     #[test]
