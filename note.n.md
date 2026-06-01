@@ -1,3 +1,16 @@
+# 2026-06-02 .neplobj same-session direct-call fragment store checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で同期済みで、branch `perf/neplobj-session-object-store-20260602` はその `main` から作成した。
+- subagent review で、`.neplobj` direct-call fragment は direct call 専用であり、`FnValue`、`MemoizedFunctionValue`、`CallIndirect`、`memo_call` / PrivateCache proof を代替してはならないことを再確認した。
+- `NeplObjDirectCallFragmentStore` を追加し、same-session の direct-call fragment を完全 key で保存・照合する境界を作った。照合は target/profile、stdlib content hash、source key、dependency public surface hash、source capability policy hash、backend feature set、private effect policy hash、link symbol をすべて確認する。
+- 同じ direct-call key に異なる backend payload が保存される場合は reject する。完全 key が同じなら backend lowering は決定的でなければならず、上書きは stale object を隠すため許可しない。
+- Web `CompilerSession` に `.neplobj` direct-call fragment store を接続し、materialized public surface から一致した fragment だけを `PublicInterfaceArtifactInputs::with_neplobj_direct_call_fragments` へ渡すようにした。
+- body-missing negative skip は、同じ edge context の object fragment candidate が store にある場合は materialized probe を省略しない。これにより、将来 source fallback / full compile から fragment producer が入った時に古い skip entry が object hit を隠さない。
+- store stats を `loader_cache_stats_json` に追加し、entries / stores / duplicate stores / rejects / lookup attempts / hits / misses / context rejects / returned fragments を観測できるようにした。
+- この checkpoint は fragment producer ではない。source fallback / full compile から `NeplObjDirectCallFragmentArtifact` を生成して store へ保存する経路、generic instantiation hash、raw wasm/LLVM body の relocatable representation、function value / memoized value backend は引き続き未実装で fail-closed に残す。
+- 検証: `cargo check --manifest-path nepl-web/Cargo.toml`、`cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core neplobj_direct_call_fragment_store --lib -- --nocapture`、`cargo test -p nepl-core materialized_body_missing_diagnostics --lib -- --nocapture`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture`、`cargo test -p nepl-core private_cache --lib -- --nocapture`、`trunk build --release`、`node tests/compiler/tree/20_compiler_session_outputs_cache.js`、`node tests/compiler/tree/run.js`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplobj-store-20260602-rerun.json`、`node nodesrc/test_run_test_compiler_session_stats_delta.js`、`node nodesrc/test_compare_git_versions_summary.js`、`node nodesrc/issues.js index --dir issues`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta materialized compile performance report checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は確認し、変更していない。
