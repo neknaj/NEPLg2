@@ -2091,6 +2091,41 @@ producer では edge target を non-root module として読み直す。これ�
   public surface について projection reject まで進む。これにより、次に直すべき理由が「artifact 未生成」ではなく
   「materializer が未対応」に移る。
 
+### 2026-06-01 `.neplmeta` projection blocker detail checkpoint
+
+`.neplmeta` store stats に、projection reject が `PublicSurfaceBlocker` だった場合の
+blocker reason code と entry kind code を追加した。これは性能改善そのものではなく、
+次の materializer 実装単位を誤らないための観測 boundary である。
+
+これまで Web stats は `rejectKind=Projection` / `rejectCode=6` までしか持たず、
+`PublicSurfaceBlocker` の中身を失っていた。`MissingTraitIdentity`、`MissingNamedTypeIdentity`、
+`MissingCallableLinkSymbol`、`UnboundGenericParam` などは必要な materializer authority が異なるため、
+同じ code へ丸めると次の高速化作業が根拠を失う。
+
+今回追加した値:
+
+- `nepl_meta_artifact_materializer_mvp_public_surface_blocker_reason_code`
+- `nepl_meta_artifact_materializer_mvp_public_surface_blocker_entry_kind_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_reason_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_entry_kind_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_reason_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code`
+
+`std/prelude_base` の dependency artifact は 3 回目 compile で `MissingArtifact` を増やさず、
+`PublicSurfaceBlocker` まで進む。最初の blocker は
+`MissingTraitIdentity` (`reason_code=7`) かつ `Impl` surface (`entry_kind_code=5`) である。
+具体的には `std/prelude_base` が `core/traits/copy` を `@merge` import し、
+そこから `copy/primitive` の `Clone` / `Copy` trait と primitive impl 群が入る。
+これらの trait は public export API ではないが、prelude capability registration には必要な
+semantic surface である。
+
+次の根本対応は、callable-only materializer を拡張して `Clone` / `Copy` を例外的に通すことではない。
+trait table、impl table、capability registration を `.neplmeta` から fail-closed に復元する
+[`.neplmeta trait and impl materializer needed for prelude capability surface`](../../issues/items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)
+を進める。`memo_call` / private cache purity / function value identity はこの surface
+materializer の authority ではないため、`.neplmeta` 由来 callable は引き続き `def_id=None`
+の direct call 専用に留める。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
@@ -2106,3 +2141,4 @@ producer では edge target を non-root module として読み直す。これ�
 - [ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92](../../issues/items/ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92.md)
 - [ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D](../../issues/items/ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D.md)
 - [ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649](../../issues/items/ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649.md)
+- [ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1](../../issues/items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)

@@ -374,3 +374,38 @@ pre-typecheck envelope が通っても、payload consistency と MVP projection 
 追加検証:
 
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+
+## 2026-06-01 projection blocker detail checkpoint
+
+`.neplmeta` pre-typecheck probe の projection reject が `PublicSurfaceBlocker` で止まった場合に、
+blocker reason と entry kind を stats へ保持するようにした。
+
+これまでは `rejectKind=Projection` / `rejectCode=6` までしか Web stats から分からず、次に直すべき
+materializer authority が trait、impl、named type、callable link symbol のどれなのかを外部から
+判断できなかった。`PublicSurfaceMaterializerBlockerReason::code()` と
+`TypedPublicSignatureKind::code()` を追加し、root probe と edge probe の両方で次を出す。
+
+- `last_pre_typecheck_probe_projection_blocker_reason_code`
+- `last_pre_typecheck_probe_projection_blocker_entry_kind_code`
+- `last_pre_typecheck_edge_probe_projection_blocker_reason_code`
+- `last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code`
+
+`std/prelude_base` edge artifact の 3 回目 compile では、最初の blocker が
+`MissingTraitIdentity` (`reason_code=7`) かつ `Impl` surface (`entry_kind_code=5`) であることを
+固定した。subagent review でも同じ結論で、`prelude_base -> core/traits/copy -> copy/primitive`
+経由の `Clone` / `Copy` impl が private capability trait identity を要求している。
+
+次の根本対応は、callable-only MVP を延命することではなく、trait table / impl table /
+capability registration を `.neplmeta` から fail-closed に復元する
+[ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1](./ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)
+である。`memo_call` や function value identity はこの materializer で bypass せず、`def_id=None`
+の callable は引き続き direct call 専用に留める。
+
+追加検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `cargo test -p nepl-core neplmeta_store_pre_typecheck_probe_records_projection_reject_reason --lib -- --nocapture`
+- `cargo test -p nepl-core materializer_mvp --lib -- --nocapture`
+- `trunk build --release`
+- `node tests\compiler\tree\run.js`

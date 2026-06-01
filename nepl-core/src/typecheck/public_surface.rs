@@ -94,6 +94,26 @@ pub enum PublicSurfaceMaterializerBlockerReason {
     TraitSelfOutsideTraitMethod,
 }
 
+impl PublicSurfaceMaterializerBlockerReason {
+    /// Web playground や regression test が文字列解析なしに blocker を分類するための
+    /// stable code。
+    ///
+    /// この code は user diagnostic の表示文ではなく、`.neplmeta` materializer が
+    /// fail-closed で source fallback へ戻った理由を性能調査用に集計する境界である。
+    pub fn code(&self) -> u32 {
+        match self {
+            Self::MissingStructIdentity => 1,
+            Self::MissingEnumIdentity => 2,
+            Self::MissingNamedTypeIdentity { .. } => 3,
+            Self::MissingCallableLinkSymbol { .. } => 4,
+            Self::UnboundGenericParam { .. } => 5,
+            Self::UnboundTraitBoundTarget { .. } => 6,
+            Self::MissingTraitIdentity { .. } => 7,
+            Self::TraitSelfOutsideTraitMethod => 8,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TypedPublicSurfaceEntry {
     pub kind: TypedPublicSignatureKind,

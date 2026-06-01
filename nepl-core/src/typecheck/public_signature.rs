@@ -103,6 +103,20 @@ fn hash_bytes(hash: &mut u64, bytes: &[u8]) {
 }
 
 impl TypedPublicSignatureKind {
+    /// `.neplmeta` の性能統計で entry kind を文字列解析なしに分類するための stable code。
+    ///
+    /// この値は diagnostic 表示や serialized public signature ではなく、cache fallback の
+    /// 根本原因を集計するための小さい数値である。
+    pub fn code(self) -> u32 {
+        match self {
+            Self::Callable => 1,
+            Self::Struct => 2,
+            Self::Enum => 3,
+            Self::Trait => 4,
+            Self::Impl => 5,
+        }
+    }
+
     pub(super) fn as_str(self) -> &'static str {
         match self {
             Self::Callable => "callable",

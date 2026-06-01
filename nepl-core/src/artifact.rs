@@ -4,7 +4,7 @@ use crate::compiler::{BuildProfile, CompileTarget};
 use crate::source_cache_key::compiled_source_cache_key_part;
 use crate::source_map::SourceMap;
 use crate::typecheck::{
-    PublicSurfaceMaterializerBlockerReason, TypedPublicSignatureKind,
+    PublicSurfaceMaterializerBlocker, TypedPublicSignatureKind,
     TypedPublicSignatureTable, TypedPublicSurfaceTable,
 };
 use alloc::collections::BTreeMap;
@@ -663,9 +663,7 @@ impl NeplMetaArtifact {
             None => return Some(NeplMetaMaterializerMvpReject::MissingExportSurface),
         };
         if let Some(blocker) = self.public_surface.materializer_blockers().into_iter().next() {
-            return Some(NeplMetaMaterializerMvpReject::PublicSurfaceBlocker(
-                blocker.reason,
-            ));
+            return Some(NeplMetaMaterializerMvpReject::PublicSurfaceBlocker(blocker));
         }
         if self
             .public_surface
@@ -787,7 +785,7 @@ impl NeplMetaArtifact {
         }
         if let Some(blocker) = self.public_surface.materializer_blockers().into_iter().next() {
             return Err(NeplMetaMaterializerProjectionReject::PublicSurfaceBlocker(
-                blocker.reason,
+                blocker,
             ));
         }
         let requested_names = requested_materializer_export_names(import_clause)?;
@@ -873,6 +871,8 @@ pub struct NeplMetaArtifactStoreStats {
     pub pre_typecheck_probe_projected_entries: usize,
     pub last_pre_typecheck_probe_reject_kind: NeplMetaArtifactProbeRejectKind,
     pub last_pre_typecheck_probe_reject_code: u32,
+    pub last_pre_typecheck_probe_projection_blocker_reason_code: u32,
+    pub last_pre_typecheck_probe_projection_blocker_entry_kind_code: u32,
     pub last_pre_typecheck_probe_projected_entries: usize,
     pub pre_typecheck_edge_probe_attempts: usize,
     pub pre_typecheck_edge_probe_projected: usize,
@@ -883,6 +883,8 @@ pub struct NeplMetaArtifactStoreStats {
     pub pre_typecheck_edge_probe_projected_entries: usize,
     pub last_pre_typecheck_edge_probe_reject_kind: NeplMetaArtifactProbeRejectKind,
     pub last_pre_typecheck_edge_probe_reject_code: u32,
+    pub last_pre_typecheck_edge_probe_projection_blocker_reason_code: u32,
+    pub last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code: u32,
     pub last_pre_typecheck_edge_probe_projected_entries: usize,
 }
 
@@ -942,6 +944,8 @@ impl NeplMetaArtifactStoreStats {
                 self.pre_typecheck_probe_projected_entries += entry_count;
                 self.last_pre_typecheck_probe_reject_kind = NeplMetaArtifactProbeRejectKind::None;
                 self.last_pre_typecheck_probe_reject_code = 0;
+                self.last_pre_typecheck_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_probe_projected_entries = entry_count;
             }
             NeplMetaArtifactPreTypecheckProbeScope::Edge => {
@@ -950,6 +954,8 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_edge_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::None;
                 self.last_pre_typecheck_edge_probe_reject_code = 0;
+                self.last_pre_typecheck_edge_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_edge_probe_projected_entries = entry_count;
             }
         }
@@ -965,6 +971,8 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::MissingArtifact;
                 self.last_pre_typecheck_probe_reject_code = 0;
+                self.last_pre_typecheck_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_probe_projected_entries = 0;
             }
             NeplMetaArtifactPreTypecheckProbeScope::Edge => {
@@ -972,6 +980,8 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_edge_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::MissingArtifact;
                 self.last_pre_typecheck_edge_probe_reject_code = 0;
+                self.last_pre_typecheck_edge_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_edge_probe_projected_entries = 0;
             }
         }
@@ -988,6 +998,8 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::Compatibility;
                 self.last_pre_typecheck_probe_reject_code = reject.code();
+                self.last_pre_typecheck_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_probe_projected_entries = 0;
             }
             NeplMetaArtifactPreTypecheckProbeScope::Edge => {
@@ -995,6 +1007,8 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_edge_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::Compatibility;
                 self.last_pre_typecheck_edge_probe_reject_code = reject.code();
+                self.last_pre_typecheck_edge_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_edge_probe_projected_entries = 0;
             }
         }
@@ -1011,6 +1025,8 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::PayloadConsistency;
                 self.last_pre_typecheck_probe_reject_code = reject.code();
+                self.last_pre_typecheck_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_probe_projected_entries = 0;
             }
             NeplMetaArtifactPreTypecheckProbeScope::Edge => {
@@ -1018,6 +1034,8 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_edge_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::PayloadConsistency;
                 self.last_pre_typecheck_edge_probe_reject_code = reject.code();
+                self.last_pre_typecheck_edge_probe_projection_blocker_reason_code = 0;
+                self.last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code = 0;
                 self.last_pre_typecheck_edge_probe_projected_entries = 0;
             }
         }
@@ -1034,6 +1052,10 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::Projection;
                 self.last_pre_typecheck_probe_reject_code = reject.code();
+                self.last_pre_typecheck_probe_projection_blocker_reason_code =
+                    reject.public_surface_blocker_reason_code();
+                self.last_pre_typecheck_probe_projection_blocker_entry_kind_code =
+                    reject.public_surface_blocker_entry_kind_code();
                 self.last_pre_typecheck_probe_projected_entries = 0;
             }
             NeplMetaArtifactPreTypecheckProbeScope::Edge => {
@@ -1041,6 +1063,10 @@ impl NeplMetaArtifactStoreStats {
                 self.last_pre_typecheck_edge_probe_reject_kind =
                     NeplMetaArtifactProbeRejectKind::Projection;
                 self.last_pre_typecheck_edge_probe_reject_code = reject.code();
+                self.last_pre_typecheck_edge_probe_projection_blocker_reason_code =
+                    reject.public_surface_blocker_reason_code();
+                self.last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code =
+                    reject.public_surface_blocker_entry_kind_code();
                 self.last_pre_typecheck_edge_probe_projected_entries = 0;
             }
         }
@@ -1320,7 +1346,7 @@ pub enum NeplMetaMaterializerMvpReject {
     MissingExportSurface,
     MissingModuleIdentity,
     MissingReexportTarget,
-    PublicSurfaceBlocker(PublicSurfaceMaterializerBlockerReason),
+    PublicSurfaceBlocker(PublicSurfaceMaterializerBlocker),
     UnsupportedInclude,
     UnsupportedMerge,
     UnsupportedAlias,
@@ -1340,7 +1366,7 @@ pub enum NeplMetaMaterializerProjectionReject {
     MissingModuleSurface,
     MissingExportSurface,
     MissingModuleIdentity,
-    PublicSurfaceBlocker(PublicSurfaceMaterializerBlockerReason),
+    PublicSurfaceBlocker(PublicSurfaceMaterializerBlocker),
     UnsupportedReexportProjection,
     UnsupportedAlias,
     UnsupportedMerge,
@@ -1386,6 +1412,20 @@ impl NeplMetaMaterializerProjectionReject {
             Self::ExportAliasUnsupported { .. } => 15,
         }
     }
+
+    pub fn public_surface_blocker_reason_code(&self) -> u32 {
+        match self {
+            Self::PublicSurfaceBlocker(blocker) => blocker.reason.code(),
+            _ => 0,
+        }
+    }
+
+    pub fn public_surface_blocker_entry_kind_code(&self) -> u32 {
+        match self {
+            Self::PublicSurfaceBlocker(blocker) => blocker.entry_kind.code(),
+            _ => 0,
+        }
+    }
 }
 
 impl NeplMetaMaterializerMvpReject {
@@ -1403,6 +1443,20 @@ impl NeplMetaMaterializerMvpReject {
             Self::UnsupportedGlob => 10,
             Self::UnsupportedImplLookup => 11,
             Self::MissingSourceKey => 12,
+        }
+    }
+
+    pub fn public_surface_blocker_reason_code(&self) -> u32 {
+        match self {
+            Self::PublicSurfaceBlocker(blocker) => blocker.reason.code(),
+            _ => 0,
+        }
+    }
+
+    pub fn public_surface_blocker_entry_kind_code(&self) -> u32 {
+        match self {
+            Self::PublicSurfaceBlocker(blocker) => blocker.entry_kind.code(),
+            _ => 0,
         }
     }
 }

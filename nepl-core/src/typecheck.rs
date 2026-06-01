@@ -75,7 +75,7 @@ pub use public_surface::{
     PublicImplSurface, PublicNominalTypeIdentity, PublicNominalTypeKind,
     PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceShape, PublicTraitCapability,
     PublicTraitIdentity, PublicTraitMethodSurface, PublicTraitRef, PublicTraitSurface,
-    PublicSurfaceMaterializerBlockerReason, PublicTypeParam, PublicTypeParamBoundTarget,
-    PublicTypeParamBounds, PublicTypeParamRef, PublicTypeTerm, TypedPublicSurfaceEntry,
-    TypedPublicSurfaceTable,
+    PublicSurfaceMaterializerBlocker, PublicSurfaceMaterializerBlockerReason, PublicTypeParam,
+    PublicTypeParamBoundTarget, PublicTypeParamBounds, PublicTypeParamRef, PublicTypeTerm,
+    TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
 };

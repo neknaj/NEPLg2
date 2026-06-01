@@ -40,6 +40,8 @@ function neplMetaPreTypecheckProbeStats(session) {
         'nepl_meta_artifact_store_pre_typecheck_probe_projected_entries',
         'nepl_meta_artifact_store_last_pre_typecheck_probe_reject_kind',
         'nepl_meta_artifact_store_last_pre_typecheck_probe_reject_code',
+        'nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_reason_code',
+        'nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_entry_kind_code',
         'nepl_meta_artifact_store_last_pre_typecheck_probe_projected_entries',
     ];
     for (const key of keys) {
@@ -56,6 +58,8 @@ function neplMetaPreTypecheckProbeStats(session) {
         projectionRejects: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_projection_rejects || 0),
         rejectKind: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_reject_kind || 0),
         rejectCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_reject_code || 0),
+        projectionBlockerReasonCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_reason_code || 0),
+        projectionBlockerEntryKindCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_entry_kind_code || 0),
     };
 }
 
@@ -71,6 +75,8 @@ function neplMetaPreTypecheckEdgeProbeStats(session) {
         'nepl_meta_artifact_store_pre_typecheck_edge_probe_projected_entries',
         'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_kind',
         'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_code',
+        'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_reason_code',
+        'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code',
         'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projected_entries',
     ];
     for (const key of keys) {
@@ -87,6 +93,8 @@ function neplMetaPreTypecheckEdgeProbeStats(session) {
         projectionRejects: Number(s.nepl_meta_artifact_store_pre_typecheck_edge_probe_projection_rejects || 0),
         rejectKind: Number(s.nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_kind || 0),
         rejectCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_code || 0),
+        projectionBlockerReasonCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_reason_code || 0),
+        projectionBlockerEntryKindCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code || 0),
     };
 }
 
@@ -158,12 +166,12 @@ fn main <()->i32> ():
         assert.equal(firstMetaStore.rejects, 0, 'valid .neplmeta artifact must not be rejected');
         assert.deepEqual(
             neplMetaPreTypecheckProbeStats(cacheSession),
-            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
             'first compile must expose pre-typecheck probe stats without probing an empty artifact store',
         );
         assert.deepEqual(
             neplMetaPreTypecheckEdgeProbeStats(cacheSession),
-            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
             'first compile must expose edge probe stats without probing an empty artifact store',
         );
         assert.notEqual(
@@ -225,7 +233,7 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaPreTypecheckProbeStats(cacheSession),
-            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 6 },
+            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 6, projectionBlockerReasonCode: 7, projectionBlockerEntryKindCode: 5 },
             'dependency body-only edit must still report a projection blocker instead of treating a root artifact hit as body-skip ready',
         );
         const dependencyEditEdgeProbe = neplMetaPreTypecheckEdgeProbeStats(cacheSession);
@@ -264,7 +272,7 @@ fn main %fn unit i32 \\unit:
         );
         assert.deepEqual(
             neplMetaPreTypecheckEdgeProbeStats(stdlibDependencyArtifactSession),
-            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
             'the initial compile must not expand the empty .neplmeta store into dependency edge probes',
         );
         stdlibDependencyArtifactSession.compile_outputs_with_vfs(
@@ -309,6 +317,20 @@ fn main %fn unit i32 \\unit:
         assert.ok(
             thirdStdlibEdgeProbe.missing < thirdStdlibEdgeProbe.attempts,
             'stored stdlib dependency artifacts must move later edge probes beyond the missing-artifact boundary',
+        );
+        assert.ok(
+            thirdStdlibEdgeProbe.projectionRejects > 0,
+            'stored stdlib dependency artifacts must report explicit projection blockers until materializer support is added',
+        );
+        assert.equal(
+            thirdStdlibEdgeProbe.projectionBlockerReasonCode,
+            7,
+            'stdlib prelude_base dependency artifacts currently stop at MissingTraitIdentity, which is the next materializer root gap',
+        );
+        assert.equal(
+            thirdStdlibEdgeProbe.projectionBlockerEntryKindCode,
+            5,
+            'the first stdlib edge blocker is an impl surface, so trait/impl materialization must be the next root fix',
         );
 
         const stdlibOverlaySession = newSession(api);
@@ -364,7 +386,7 @@ fn main <()->i32> ():
         const secondArtifactStats = neplMetaArtifactStats(sourceKeySession);
         assert.deepEqual(
             neplMetaPreTypecheckProbeStats(sourceKeySession),
-            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 1, projectionRejects: 0, rejectKind: 3, rejectCode: 6 },
+            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 1, projectionRejects: 0, rejectKind: 3, rejectCode: 6, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
             'root body token edit must reject the previous .neplmeta artifact by source key before typecheck reuse',
         );
         assert.equal(
@@ -408,7 +430,7 @@ fn main %fn unit i32 \\unit:
         );
         assert.deepEqual(
             neplMetaPreTypecheckEdgeProbeStats(includeSession),
-            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
             '#include must not be treated as a dependency artifact edge',
         );
 

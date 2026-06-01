@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T08:09:09.621Z",
+  "generated_at": "2026-06-01T10:33:16.404Z",
   "counts": {
-    "total": 1301,
-    "open": 30,
+    "total": 1302,
+    "open": 31,
     "resolved": 1271,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 656,
-        "open": 23,
+        "total": 657,
+        "open": 24,
         "resolved": 633
       },
       "neplg21": {
@@ -458,6 +458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2.md"
+    },
+    {
+      "id": "ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1",
+      "title": ".neplmeta trait and impl materializer needed for prelude capability surface",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",

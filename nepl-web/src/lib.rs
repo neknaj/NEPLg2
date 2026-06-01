@@ -4044,6 +4044,22 @@ impl CompilerSession {
                 .unwrap_or(0)
                 .to_string(),
         );
+        out.push_str(",\"nepl_meta_artifact_materializer_mvp_public_surface_blocker_reason_code\":");
+        out.push_str(
+            &nepl_meta_materializer_mvp_reject
+                .as_ref()
+                .map(|reject| reject.public_surface_blocker_reason_code())
+                .unwrap_or(0)
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_materializer_mvp_public_surface_blocker_entry_kind_code\":");
+        out.push_str(
+            &nepl_meta_materializer_mvp_reject
+                .as_ref()
+                .map(|reject| reject.public_surface_blocker_entry_kind_code())
+                .unwrap_or(0)
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_artifact_structured_public_surface_entries\":");
         out.push_str(
             &nepl_meta_header
@@ -4141,6 +4157,22 @@ impl CompilerSession {
                 .last_pre_typecheck_probe_reject_code
                 .to_string(),
         );
+        out.push_str(
+            ",\"nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_reason_code\":",
+        );
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_probe_projection_blocker_reason_code
+                .to_string(),
+        );
+        out.push_str(
+            ",\"nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_entry_kind_code\":",
+        );
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_probe_projection_blocker_entry_kind_code
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_probe_projected_entries\":");
         out.push_str(
             &nepl_meta_artifact_store_stats
@@ -4200,6 +4232,22 @@ impl CompilerSession {
         out.push_str(
             &nepl_meta_artifact_store_stats
                 .last_pre_typecheck_edge_probe_reject_code
+                .to_string(),
+        );
+        out.push_str(
+            ",\"nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_reason_code\":",
+        );
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_edge_probe_projection_blocker_reason_code
+                .to_string(),
+        );
+        out.push_str(
+            ",\"nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code\":",
+        );
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code
                 .to_string(),
         );
         out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projected_entries\":");

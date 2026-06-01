@@ -48812,6 +48812,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - verification は `cargo test -p nepl-core --test typeannot -- --nocapture`、`cargo test -p nepl-core --test overload -- --nocapture`、`cargo test -p nepl-core --test typectx_checkpoint -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node nodesrc/test_ci_llvm_dual_shard_job.js`、`node nodesrc/test_ci_examples_doctest_job.js`、`node nodesrc/test_type_expectation_model_policy.js`、`node nodesrc/test_tests_js_shard_policy.js`、`node nodesrc/test_merge_doctest_json.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - release Web bundle で pipe 付き `with_capacity` 再現は成功したが、debug compile は小さい入力でも `compile_ms` 相当で約 3.8 秒だった。edit compile は改善している一方、base compile は引き続き `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` と `.neplmeta` / `.neplproof` prechecked artifact 側で削る必要がある。
 
+## 2026-06-01 Agent `.neplmeta` projection blocker detail checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-projection-materializer-20260601` branch で、`.neplmeta` stdlib dependency artifact producer 後に残る projection blocker を調査した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、性能追求方針を再確認し、`rejectCode=6` を場当たりに解消するのではなく、blocker reason と entry kind を stats に残して次の materializer authority を根拠付きで切る方針にした。
+- subagent review では、`.neplmeta` materializer は direct call 用 public surface に留め、`memo_call` / function value identity / `PrivateCache` mask proof / Resource IR proof の authority へ昇格させないことを確認した。
+- `PublicSurfaceMaterializerBlockerReason::code()` と `TypedPublicSignatureKind::code()` を追加し、root probe / edge probe / artifact MVP gate の `PublicSurfaceBlocker` 詳細を Web stats へ出すようにした。
+- 3 回目の `std/prelude_base` dependency artifact probe は `MissingArtifact` を増やさず、`PublicSurfaceBlocker` まで進む。実 blocker は `MissingTraitIdentity` (`reason_code=7`) かつ `Impl` surface (`entry_kind_code=5`) であり、`core/traits/copy` -> `copy/primitive` の `Clone` / `Copy` impl surface が trait identity を要求している。
+- `ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1` を追加し、次の根本対応を trait table / impl table / capability registration materializer として切り出した。`todo.md` と `doc/neplg2/compiler_performance_cache_design.md` も更新した。
+- focused verification は `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_store_pre_typecheck_probe_records_projection_reject_reason --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_materializer_mvp_rejects_public_surface_blocker --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
 ## 2026-06-01 Agent `.neplmeta` stable trait surface checkpoint
 
 - remote/main と同期済みの `perf/neplmeta-trait-identity-20260601` branch で、`.neplmeta` structured public surface の trait identity 残件を進めた。`plan.md` は変更していない。
