@@ -29,14 +29,18 @@ function runWebGuiFloatingWindowSourceRegression() {
     assert.match(managerSource, /previousMode: this\.restorableMode\(windowState\.mode\)/);
     assert.match(managerSource, /windowState\.mode = windowState\.mode\.previousMode/);
     assert.match(managerSource, /WindowLookup =[\s\S]*kind: 'missing'/);
-    assert.match(panelSource, /GuiPreviewSource =[\s\S]*kind: 'none'[\s\S]*kind: 'path'/);
-    assert.match(managerSource, /openWindowForSourcePath/);
-    assert.match(managerSource, /openWindowForKind/);
+    assert.match(panelSource, /GuiHostFrameState =[\s\S]*kind: 'none'[\s\S]*kind: 'presented'/);
+    assert.match(managerSource, /presentHostFrame\(input: unknown\): GuiWebHostResult<string>/);
+    assert.match(managerSource, /closeHostFrameWindow\(windowId: number\): GuiWebHostResult<string>/);
+    assert.match(managerSource, /closeWindowState\(lookup\.windowState, \{ emitCloseRequest: true \}\)/);
+    assert.match(managerSource, /closeWindowState\(lookup\.windowState, \{ emitCloseRequest: false \}\)/);
     assert.match(managerSource, /minimizeWindow/);
     assert.match(managerSource, /toggleMaximizeWindow/);
     assert.match(managerSource, /startDrag/);
     assert.match(managerSource, /startResize/);
     assert.match(managerSource, /gui-window-dock/);
+    assert.doesNotMatch(managerSource, /source-path|preview-kind|openWindowForSourcePath|openWindowForKind/);
+    assert.doesNotMatch(panelSource, /createGuiPreviewScene|renderGuiPreviewSceneToCanvas|HTMLSelectElement/);
     for (const [name, source] of guardedSources) {
         assert.doesNotMatch(source, /!\)/, `${name} must not use non-null assertion before a call`);
         assert.doesNotMatch(source, /!\./, `${name} must not use non-null assertion before property access`);
@@ -48,11 +52,9 @@ function runWebGuiFloatingWindowSourceRegression() {
         assert.doesNotMatch(source, /maximized:\s*boolean/, `${name} must not model window mode as independent booleans`);
     }
     assert.match(panelManagerSource, /new GuiFloatingWindowManager/);
-    assert.match(panelManagerSource, /floatingGui\.openWindowForSourcePath/);
-    assert.match(panelManagerSource, /floatingGui\.openWindowForKind/);
     assert.doesNotMatch(panelManagerSource, /Open GUI preview/);
     assert.doesNotMatch(panelManagerSource, /createPanelButton\('G'/);
-    assert.doesNotMatch(panelManagerSource, /showGuiPreviewForActiveFile\(\) \{\s*const previewLeafId = this\.ensureGuiPreviewLeaf/s);
+    assert.doesNotMatch(panelManagerSource, /showGuiPreviewForActiveFile|ensureGuiPreviewLeaf|createGuiPreviewRuntime/);
     assert.match(css, /\.gui-window-layer/);
     assert.match(css, /\.gui-floating-window/);
     assert.match(css, /\.gui-window-resize-se/);
@@ -62,7 +64,7 @@ function runWebGuiFloatingWindowSourceRegression() {
         checks: [
             "Web Playground exposes a GUI window layer above the workspace",
             "GUI floating windows support minimize, maximize, drag, and resize handlers",
-            "manual GUI preview buttons are not exposed; NEPL execution opens windows through the host bridge",
+            "manual GUI preview panes are not exposed; NEPL execution opens host-frame windows",
         ],
     };
 }

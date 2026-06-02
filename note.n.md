@@ -10,6 +10,19 @@
 - この checkpoint は同一 branch 内基準で RPN cold base static check median を `2922ms -> 1539ms`、`origin/main` merge 後の current tree では `1500ms` へ下げた。ただし 0.5 秒未満目標にはまだ届かないため、次は actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror を継続する。
 - focused 検証: `node nodesrc\tests.js -i stdlib\std\stdio\print.nepl -i stdlib\std\stdio\write\byte.nepl -i examples\rpn.nepl --no-tree -o tmp\rpn-print-i32-direct-tests-final-20260602.json -j 2 --assert-io` は 9/9 pass。edge doctest で `0`、負数、`-2147483648`、`2147483647` の出力を固定し、RPN の stack count error path も `stdin: "1 2\n"` で固定した。RPN native release stage-only 5 run は pass。
 
+# 2026-06-02 GUI Web host-frame lifecycle / queue checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 境界、`Option` / `Result` / union による明示状態、旧 mock / simulation を本経路に残さない方針を再確認した。
+- `web/src/gui-preview/renderer.ts` と workspace の `gui-preview` pane 経路を削除した。Web Playground の GUI window は、NEPL 実行が stdout protocol または runtime bridge で出した host frame だけを `GuiFloatingWindowManager` に渡して開く。古い persisted `gui-preview` pane は `panel-layout.ts` の normalize で editor leaf へ戻す。
+- `GuiPreviewPanel` は host-frame surface 専用にし、`createGuiPreviewScene` / select toolbar / TS 側 Counter increment simulation を持たない。Canvas 固有の描画は `canvas-renderer.ts` に閉じ、`panel.ts` は host frame の command と input target だけを扱う。
+- `runtime-bridge.ts` に `closeWindow` / `closeGuiWebRuntimeHostFrameWindow` を追加し、terminal stop / process finish から host-frame window を idempotent に削除できるようにした。window close button は window を削除した後、typed listener 経由で Shell の active worker を interrupt する。
+- `shared-event-queue.ts` は `event-queue-full` / `action-queue-full` を producer error として返さない bounded queue に変更した。pointer move と window state は write tail 直前の同一 record だけを最新値へ coalesce し、`up` / action / keyboard / text input / close lifecycle などの barrier をまたいで古い slot を更新しない。容量到達時は古い unread record を押し出す。close lifecycle は queue 読み取りに依存せず Shell listener で処理する。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、old renderer / GUI preview pane 削除、host-frame-only 表示、no-overflow queue policy、close/stop lifecycle cleanup に合わせて更新した。
+- focused 検証: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/test_web_gui_runtime_bridge.js`、`node nodesrc/test_web_gui_shared_event_queue.js`、`node nodesrc/test_web_gui_floating_window_source.js`、`node nodesrc/playground_workspace_test_runner.js`、`node nodesrc/test_web_gui_host_bridge.js`、`node nodesrc/test_web_gui_input_bridge.js`、`node nodesrc/test_web_gui_stdout_protocol.js`、`node nodesrc/tests.js -i examples/gui_life.nepl -i examples/gui_mandelbrot.nepl -i examples/gui_counter.nepl --no-tree -o tmp/gui-examples-window-lifecycle.json -j 1 --dist web/dist`、`node nodesrc/tests.js -i tests/stdlib/gui_web_input.n.md --no-tree -o tmp/gui-web-input-window-lifecycle.json -j 1 --dist web/dist --assert-io`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-window-lifecycle.json` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は GUI 関連 regression を含めて通過したが、既存の resource/parser/builder 系 warning が 7 件残る。Browser plugin は利用不可で、`npx playwright` は CLI としては起動できたが API script から `require "playwright"` を解決できなかったため、rendered screenshot は未実施。
+- 実装後の subagent 再レビューは `MERGE_APPROVED`。前回 blocker だった `move -> up -> move` と `resize -> action -> resize` の barrier またぎ coalescing は、write tail 直前だけを置換する実装と behavioral regression により解消済みと判定された。
+- `origin/main` `3d41195e` への merge 後も GUI 関連 verifier は通過した。`node nodesrc/run_source_policy_regressions.js --warn-only` は GUI 関連 regression を含めて通過したが、`origin/main` 側の `print_i32` policy を含む非 GUI warning が 8 件残る。
+
 # 2026-06-02 RPN cold base proof-backed check gate checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱めずに RPN cold base の根本経路である `.neplproof` preseed 入口を整理した。

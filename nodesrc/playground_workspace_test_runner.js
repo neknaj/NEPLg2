@@ -27,32 +27,25 @@ async function runWorkspaceRegression() {
     snapshot.root = layout.splitLeaf(snapshot.root, editor.id, 'h', secondEditor, 'after');
     assert.equal(layout.countLeavesByKind(snapshot.root, 'editor'), 2);
 
-    const guiPreview = layout.createLeaf('gui-preview');
-    guiPreview.previewKind = 'life';
-    snapshot.root = layout.splitLeaf(snapshot.root, secondEditor.id, 'v', guiPreview, 'after');
-    assert.equal(layout.countLeavesByKind(snapshot.root, 'gui-preview'), 1);
-
     const moved = layout.moveLeaf(snapshot.root, secondEditor.id, terminal.id, 'bottom');
     assert.equal(layout.countLeavesByKind(moved, 'editor'), 2);
-    assert.equal(layout.countLeavesByKind(moved, 'gui-preview'), 1);
+    assert.equal(layout.countLeavesByKind(moved, 'gui-preview'), 0);
 
     const afterClose = layout.closeLeaf(moved, secondEditor.id);
     assert.equal(layout.countLeavesByKind(afterClose, 'editor'), 1);
-    assert.equal(layout.countLeavesByKind(afterClose, 'gui-preview'), 1);
+    assert.equal(layout.countLeavesByKind(afterClose, 'gui-preview'), 0);
 
     const clone = layout.cloneWorkspaceSnapshot({ root: afterClose, focusedLeafId: editor.id });
     assert.equal(clone.focusedLeafId, editor.id);
     assert.equal(layout.countLeavesByKind(clone.root, 'explorer'), 1);
     assert.equal(layout.countLeavesByKind(clone.root, 'terminal'), 1);
-    assert.equal(layout.countLeavesByKind(clone.root, 'gui-preview'), 1);
+    assert.equal(layout.countLeavesByKind(clone.root, 'gui-preview'), 0);
 
     editor.zoom = 1.4;
     editor.pathZooms = { '/examples/demo.nepl': 1.4 };
     const normalizedLeaf = layout.normalizeTree(editor);
     assert.equal(normalizedLeaf.zoom, 1.4);
     assert.equal(normalizedLeaf.pathZooms['/examples/demo.nepl'], 1.4);
-    const normalizedPreview = layout.normalizeTree(guiPreview);
-    assert.equal(normalizedPreview.previewKind, 'life');
 
     const badSnapshot = layout.normalizeWorkspaceSnapshot({
         root: {
@@ -61,27 +54,39 @@ async function runWorkspaceRegression() {
             panelKind: 'unknown-panel-kind',
             paths: ['/examples/demo.nepl'],
             activePath: '/examples/missing.nepl',
-            previewKind: 'unknown-preview-kind',
             zoom: Number.NaN,
         },
         focusedLeafId: 'missing-panel',
     });
     assert.equal(badSnapshot.root.panelKind, 'editor');
-    assert.equal(badSnapshot.root.previewKind, null);
     assert.equal(badSnapshot.root.activePath, '/examples/demo.nepl');
     assert.equal(badSnapshot.root.zoom, 1);
     assert.equal(badSnapshot.focusedLeafId, 'bad-panel');
+
+    const oldPreviewSnapshot = layout.normalizeWorkspaceSnapshot({
+        root: {
+            kind: 'leaf',
+            id: 'old-preview',
+            panelKind: 'gui-preview',
+            paths: [],
+            activePath: null,
+            zoom: 1.2,
+        },
+        focusedLeafId: 'old-preview',
+    });
+    assert.equal(oldPreviewSnapshot.root.panelKind, 'editor');
+    assert.equal(layout.countLeavesByKind(oldPreviewSnapshot.root, 'gui-preview'), 0);
 
     return {
         ok: true,
         checks: [
             'default workspace contains explorer, editor, and terminal leaves',
             'editor leaves can be split and moved in the tree',
-            'GUI preview leaves preserve their selected preview kind',
             'closing a leaf normalizes the split tree',
             'workspace snapshots can be cloned without losing panel kinds',
             'leaf zoom state survives normalize and clone operations',
-            'invalid persisted panel kinds, preview kinds, and focus ids are normalized',
+            'invalid persisted panel kinds and focus ids are normalized',
+            'old GUI preview panes are normalized away from the workspace layout',
         ],
     };
 }

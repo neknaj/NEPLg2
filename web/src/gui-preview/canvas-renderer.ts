@@ -4,7 +4,6 @@ import type {
     GuiPreviewDrawCommand,
     GuiPreviewTextAlign,
 } from './commands.js';
-import type { GuiPreviewScene } from './renderer.js';
 
 export type GuiPreviewCanvasViewport = {
     left: number;
@@ -51,16 +50,6 @@ export function renderGuiPreviewFrameToCanvas(
     ctx.fillText(frame.title, 12, 10);
 
     return { viewport };
-}
-
-export function renderGuiPreviewSceneToCanvas(
-    ctx: CanvasRenderingContext2D,
-    scene: GuiPreviewScene,
-    width: number,
-    height: number,
-    options: GuiPreviewCanvasRenderOptions,
-): GuiPreviewCanvasRenderResult {
-    return renderGuiPreviewFrameToCanvas(ctx, scene, width, height, options);
 }
 
 function renderGuiPreviewCommand(

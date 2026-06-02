@@ -113,13 +113,9 @@ async function runWebGuiStdoutProtocolRegression() {
     assert.match(shellSource, /GuiWebStdoutProtocolParser/);
     assert.match(shellSource, /presentGuiWebRuntimeFrame/);
     assert.match(shellSource, /message\.fd === 1/, "GUI stdout protocol must only parse stdout fd=1");
-    const renderStart = panelSource.indexOf("    render() {");
-    const renderEnd = panelSource.indexOf("    handleCanvasClick", renderStart);
-    const renderBody = panelSource.slice(renderStart, renderEnd);
-    assert.ok(
-        renderBody.indexOf("if (this.hostFrame.kind === 'presented')") < renderBody.indexOf("const scene = createGuiPreviewScene"),
-        "host frame rendering must not build TS preview scenes first",
-    );
+    assert.match(panelSource, /renderGuiPreviewFrameToCanvas/);
+    assert.match(panelSource, /waiting for host frame/);
+    assert.doesNotMatch(panelSource, /createGuiPreviewScene|summarizeGuiPreviewScene|renderGuiPreviewSceneToCanvas/);
     for (const [name, source] of [
         ["stdout-protocol.ts", protocolSource],
         ["shell.ts", shellSource],
