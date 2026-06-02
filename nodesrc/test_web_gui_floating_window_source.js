@@ -30,8 +30,16 @@ function runWebGuiFloatingWindowSourceRegression() {
     assert.match(managerSource, /windowState\.mode = windowState\.mode\.previousMode/);
     assert.match(managerSource, /WindowLookup =[\s\S]*kind: 'missing'/);
     assert.match(panelSource, /GuiHostFrameState =[\s\S]*kind: 'none'[\s\S]*kind: 'presented'/);
+    assert.match(panelSource, /GuiPreviewDebugSink =[\s\S]*kind: 'none'[\s\S]*kind: 'present'/);
+    assert.doesNotMatch(panelSource, /metricsEl|gui-preview-metrics|host commands|queued action/);
     assert.match(managerSource, /presentHostFrame\(input: unknown\): GuiWebHostResult<string>/);
     assert.match(managerSource, /closeHostFrameWindow\(windowId: number\): GuiWebHostResult<string>/);
+    assert.match(managerSource, /class GuiWindowDebugPanel/);
+    assert.match(managerSource, /new GuiPreviewPanel\(contentEl, \{[\s\S]*kind: 'present'/);
+    assert.match(managerSource, /debugPanel\.record/);
+    assert.match(managerSource, /setAttribute\('aria-live', 'off'\)/);
+    assert.match(managerSource, /setAttribute\('aria-expanded'/);
+    assert.match(managerSource, /setAttribute\('aria-hidden'/);
     assert.match(managerSource, /closeWindowState\(lookup\.windowState, \{ emitCloseRequest: true \}\)/);
     assert.match(managerSource, /closeWindowState\(lookup\.windowState, \{ emitCloseRequest: false \}\)/);
     assert.match(managerSource, /minimizeWindow/);
@@ -58,6 +66,12 @@ function runWebGuiFloatingWindowSourceRegression() {
     assert.match(css, /\.gui-window-layer/);
     assert.match(css, /\.gui-floating-window/);
     assert.match(css, /\.gui-window-resize-se/);
+    assert.doesNotMatch(css, /\.gui-preview-metrics/);
+    assert.match(css, /\.gui-debug-panel/);
+    assert.match(css, /\.gui-debug-detail/);
+    assert.match(css, /\.gui-debug-panel[\s\S]*z-index: 70/);
+    assert.match(css, /\.gui-debug-panel[\s\S]*pointer-events: none/);
+    assert.match(css, /\.gui-debug-toggle[\s\S]*pointer-events: auto/);
 
     return {
         ok: true,
@@ -65,6 +79,7 @@ function runWebGuiFloatingWindowSourceRegression() {
             "Web Playground exposes a GUI window layer above the workspace",
             "GUI floating windows support minimize, maximize, drag, and resize handlers",
             "manual GUI preview panes are not exposed; NEPL execution opens host-frame windows",
+            "host event and queue status is separated from the GUI window content",
         ],
     };
 }

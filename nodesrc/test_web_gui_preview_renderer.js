@@ -25,7 +25,10 @@ function runWebGuiPreviewRendererRegression() {
     assert.match(commandSource, /GuiPreviewCommandFrame/);
     assert.match(canvasSource, /renderGuiPreviewFrameToCanvas/);
     assert.match(panelSource, /presentHostFrame\(frame: GuiPreviewCommandFrame, windowId: number\)/);
-    assert.match(panelSource, /waiting for host frame/);
+    assert.match(panelSource, /GuiPreviewDebugSink/);
+    assert.match(panelSource, /waiting-for-frame/);
+    assert.doesNotMatch(panelSource, /waiting for host frame/);
+    assert.doesNotMatch(panelSource, /metricsEl|gui-preview-metrics|host commands/);
     assert.doesNotMatch(commandSource, /GuiPreviewKind/);
     assert.doesNotMatch(canvasSource, /renderGuiPreviewSceneToCanvas|GuiPreviewScene|renderer\.js/);
     assert.doesNotMatch(panelSource, /createGuiPreviewScene|summarizeGuiPreviewScene|guiPreviewKindFromPath|renderGuiPreviewSceneToCanvas/);
@@ -41,6 +44,7 @@ function runWebGuiPreviewRendererRegression() {
             "Web GUI canvas renderer accepts only host command frames",
             "Web GUI panel no longer simulates NEPL examples",
             "workspace panel layout no longer exposes GUI preview panes",
+            "Web GUI panel keeps debug/status text out of the window content",
         ],
     };
 }

@@ -1,3 +1,19 @@
+# 2026-06-02 Agent2 Web GUI debug panel separation checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / discriminated union による明示状態、debug / host detail を標準 API の public surface に混ぜない方針を再確認した。
+- Web Playground の floating GUI window から `gui-preview-metrics` と host event / queue status 文字列を削除し、window body は `GuiPreviewPanel` の canvas surface だけを含む形にした。これにより通常の GUI window は host frame 描画だけを見せ、queue 状態表示を window content に挟まない。
+- `GuiPreviewPanel` は `GuiPreviewDebugRecord` / `GuiPreviewDebugSink` の union で frame presented、input queued、input error、canvas unavailable などを window manager へ報告する。DOM text status を直接所有せず、描画 surface と debug surface を分離する。
+- `GuiFloatingWindowManager` に折りたたみ式 `GuiWindowDebugPanel` を追加した。直近 8 件の host frame / input / window event record を separate panel に表示し、collapsed 時は `Debug` toggle だけを出す。
+- subagent 指摘に合わせ、debug panel は通常 floating window より低い `z-index: 70` とし、root は `pointer-events: none`、toggle / detail だけを `pointer-events: auto` にした。これにより maximized / focused GUI window の右下操作を debug overlay が奪いにくい。
+- 同じく subagent 指摘に合わせ、debug root / summary / detail は `aria-live="off"`、toggle は `aria-controls` と `aria-expanded`、detail は `aria-hidden` を持つようにし、`gui-window-layer aria-live="polite"` 配下でも高頻度 queue 更新を読み上げ対象に混ぜない。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、host event / queue status の window content からの分離、debug panel の低 z-layer / pointer capture / aria-live contract を追記した。
+- source regression は、`panel.ts` に metrics / host commands text を戻さないこと、`window-manager.ts` に separate debug panel と aria state を持つこと、CSS に `.gui-preview-metrics` を戻さず debug panel を補助 layer とすることを固定した。
+- focused 検証: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_floating_window_source.js`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/test_web_gui_stdout_protocol.js`、`node nodesrc/test_web_gui_host_bridge.js`、`node nodesrc/test_web_gui_runtime_bridge.js`、`node nodesrc/test_web_gui_input_bridge.js`、`node nodesrc/test_web_gui_shared_event_queue.js` は pass。
+- broader 検証: `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-debug-panel-final.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。playground editor JSON は 13/13 pass。
+- Playwright rendered validation は Browser plugin 不在のため `npx playwright` + 一時 Chromium + `tmp/gui-debug-panel-check.cjs` で実施した。host frame を `neplGuiHost.presentCommands` へ渡し、`.gui-window-content` が canvas surface だけを含むこと、host event / queue text が window body に漏れないこと、Debug panel が別表示で frame / queue history を表示することを確認した。screenshot は `tmp/gui-debug-panel-qa.png`。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は GUI 関連 regression を含めて通過したが、origin/main 側の resource/parser/diagnostic/builder/print_i32 系の非 GUI warning が 8 件残る。
+- subagent review は 2 件とも blocking なし。policy/spec 角度では Zenn 方針、GUI/TUI doc、DOM / Canvas の Web backend 隔離、debug/status DOM の window content 非混入を確認し merge acceptable。implementation/UI 角度では初回の overlay / aria-live non-blocking 指摘を反映後、再レビューで解消十分かつ merge acceptable と判定された。
+
 # 2026-06-02 Agent2 native GUI platform behavior checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / enum / struct による明示状態、契約と現状実装の分離、環境差が出る内容へのテスト整備方針を再確認した。
