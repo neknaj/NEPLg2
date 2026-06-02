@@ -44,9 +44,7 @@ const GUI_WEB_EVENT_SLOT_VALUE3 = 7;
 
 export type GuiWebSharedEventQueueErrorKind =
     | 'shared-event-buffer-unavailable'
-    | 'unsupported-event-kind'
-    | 'event-queue-full'
-    | 'action-queue-full';
+    | 'unsupported-event-kind';
 
 export type GuiWebSharedEventQueueError = {
     kind: GuiWebSharedEventQueueErrorKind;
@@ -100,6 +98,10 @@ export type GuiWebSharedInputEventTakeResult =
     | { kind: 'empty' }
     | { kind: 'event'; event: GuiWebSharedInputEventRecord }
     | { kind: 'invalid'; rawKind: number };
+
+type GuiWebSharedQueueSlotLookup =
+    | { kind: 'missing' }
+    | { kind: 'found'; index: number };
 
 export function createGuiWebSharedEventBuffer(): GuiWebSharedEventQueueResult<SharedArrayBuffer> {
     if (typeof SharedArrayBuffer === 'undefined') {
@@ -389,7 +391,12 @@ function writeGuiWebSharedPointerEvent(
     event: Extract<GuiWebInputEvent, { kind: 'pointer' }>,
 ): GuiWebSharedEventQueueResult<'queued'> {
     const queue = new Int32Array(buffer);
-    const eventWrite = guiWebSharedEventWritePlan(queue);
+    const replacement = event.pointerKind === 'move'
+        ? guiWebSharedFindPointerMoveSlot(queue, event)
+        : { kind: 'missing' } as GuiWebSharedQueueSlotLookup;
+    const eventWrite = replacement.kind === 'found'
+        ? { kind: 'ok' as const, value: { writeIndex: replacement.index, nextWriteIndex: replacement.index } }
+        : guiWebSharedEventWritePlan(queue);
     if (eventWrite.kind === 'err') {
         return eventWrite;
     }
@@ -403,7 +410,9 @@ function writeGuiWebSharedPointerEvent(
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, guiWebSharedPointerKindToRaw(event.pointerKind));
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, event.pointerId);
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, guiWebSharedPointerButtonToRaw(event.button));
-    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    if (replacement.kind === 'missing') {
+        Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    }
     Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
     return { kind: 'ok', value: 'queued' };
 }
@@ -461,7 +470,12 @@ function writeGuiWebSharedWindowEvent(
     event: Extract<GuiWebInputEvent, { kind: 'window' }>,
 ): GuiWebSharedEventQueueResult<'queued'> {
     const queue = new Int32Array(buffer);
-    const eventWrite = guiWebSharedEventWritePlan(queue);
+    const replacement = event.windowKind === 'close-requested'
+        ? { kind: 'missing' } as GuiWebSharedQueueSlotLookup
+        : guiWebSharedFindWindowStateSlot(queue, event);
+    const eventWrite = replacement.kind === 'found'
+        ? { kind: 'ok' as const, value: { writeIndex: replacement.index, nextWriteIndex: replacement.index } }
+        : guiWebSharedEventWritePlan(queue);
     if (eventWrite.kind === 'err') {
         return eventWrite;
     }
@@ -475,7 +489,9 @@ function writeGuiWebSharedWindowEvent(
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, event.size.width);
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, event.size.height);
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, 0);
-    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    if (replacement.kind === 'missing') {
+        Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    }
     Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
     return { kind: 'ok', value: 'queued' };
 }
@@ -485,7 +501,7 @@ function guiWebSharedEventWritePlan(queue: Int32Array): GuiWebSharedEventQueueRe
     const writeIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX);
     const nextWriteIndex = guiWebSharedEventNextIndex(writeIndex);
     if (nextWriteIndex === readIndex) {
-        return err('event-queue-full', '$', 'available event queue slot', 'full');
+        Atomics.store(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX, guiWebSharedEventNextIndex(readIndex));
     }
     return { kind: 'ok', value: { writeIndex, nextWriteIndex } };
 }
@@ -495,9 +511,61 @@ function guiWebSharedActionWritePlan(queue: Int32Array): GuiWebSharedEventQueueR
     const writeIndex = Atomics.load(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX);
     const nextWriteIndex = guiWebSharedActionNextIndex(writeIndex);
     if (nextWriteIndex === readIndex) {
-        return err('action-queue-full', '$.action', 'available action queue slot', 'full');
+        Atomics.store(queue, GUI_WEB_ACTION_QUEUE_READ_INDEX, guiWebSharedActionNextIndex(readIndex));
     }
     return { kind: 'ok', value: { writeIndex, nextWriteIndex } };
+}
+
+function guiWebSharedFindPointerMoveSlot(
+    queue: Int32Array,
+    event: Extract<GuiWebInputEvent, { kind: 'pointer' }>,
+): GuiWebSharedQueueSlotLookup {
+    const latestSlot = guiWebSharedFindLatestEventSlot(queue);
+    if (latestSlot.kind === 'missing') {
+        return latestSlot;
+    }
+    const base = guiWebSharedEventSlotBase(latestSlot.index);
+    if (
+        Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_KIND) === GUI_WEB_EVENT_KIND_POINTER
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID) === event.windowId
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE1) === GUI_WEB_POINTER_KIND_MOVE
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE2) === event.pointerId
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE3) === guiWebSharedPointerButtonToRaw(event.button)
+    ) {
+        return latestSlot;
+    }
+    return { kind: 'missing' };
+}
+
+function guiWebSharedFindWindowStateSlot(
+    queue: Int32Array,
+    event: Extract<GuiWebInputEvent, { kind: 'window' }>,
+): GuiWebSharedQueueSlotLookup {
+    const latestSlot = guiWebSharedFindLatestEventSlot(queue);
+    if (latestSlot.kind === 'missing') {
+        return latestSlot;
+    }
+    const base = guiWebSharedEventSlotBase(latestSlot.index);
+    const windowKind = guiWebSharedWindowKindToRaw(event.windowKind);
+    if (
+        Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_KIND) === GUI_WEB_EVENT_KIND_WINDOW
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID) === event.windowId
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE0) === windowKind
+        && windowKind !== GUI_WEB_WINDOW_KIND_CLOSE_REQUESTED
+    ) {
+        return latestSlot;
+    }
+    return { kind: 'missing' };
+}
+
+function guiWebSharedFindLatestEventSlot(queue: Int32Array): GuiWebSharedQueueSlotLookup {
+    const readIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX);
+    const writeIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX);
+    if (readIndex === writeIndex) {
+        return { kind: 'missing' };
+    }
+    const index = (writeIndex + GUI_WEB_EVENT_QUEUE_CAPACITY - 1) % GUI_WEB_EVENT_QUEUE_CAPACITY;
+    return { kind: 'found', index };
 }
 
 function guiWebSharedEventNextIndex(index: number): number {

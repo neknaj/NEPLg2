@@ -6,6 +6,7 @@ import type { GuiWebInputEvent, GuiWebInputResult } from './input-bridge.js';
 
 export type GuiWebRuntimePresenter = {
     presentHostFrame: (input: unknown) => GuiWebHostResult<string>;
+    closeHostFrameWindow: (windowId: number) => GuiWebHostResult<string>;
 };
 
 export type GuiWebRuntimePresenterState =
@@ -15,6 +16,7 @@ export type GuiWebRuntimePresenterState =
 export type GuiWebRuntimeBridge = {
     kind: 'gui-runtime-bridge';
     presentCommands: (input: unknown) => GuiWebRuntimeResult<string>;
+    closeWindow: (input: unknown) => GuiWebRuntimeResult<string>;
     beginFrame: (input: unknown) => GuiWebRuntimeResult<number>;
     pushCommand: (input: unknown) => GuiWebRuntimeResult<'pushed'>;
     endFrame: (input: unknown) => GuiWebRuntimeResult<string>;
@@ -65,6 +67,7 @@ let runtimeFrameStore: GuiWebRuntimeFrameStore = {
 export const guiWebRuntimeBridge: GuiWebRuntimeBridge = {
     kind: 'gui-runtime-bridge',
     presentCommands: presentGuiWebRuntimeFrame,
+    closeWindow: closeGuiWebRuntimeHostFrameWindow,
     beginFrame: beginGuiWebRuntimeFrame,
     pushCommand: pushGuiWebRuntimeCommand,
     endFrame: endGuiWebRuntimeFrame,
@@ -97,6 +100,21 @@ export function presentGuiWebRuntimeFrame(input: unknown): GuiWebRuntimeResult<s
         return err('presenter-missing', '$', 'registered GUI runtime presenter', 'missing');
     }
     return runtimePresenterState.presenter.presentHostFrame(input);
+}
+
+export function closeGuiWebRuntimeHostFrameWindow(input: unknown): GuiWebRuntimeResult<string> {
+    if (runtimePresenterState.kind === 'missing') {
+        return err('presenter-missing', '$', 'registered GUI runtime presenter', 'missing');
+    }
+    const record = asRecord(input, '$', 'invalid-frame-state', 'window close object');
+    if (record.kind === 'err') {
+        return record;
+    }
+    const windowId = readPositiveInteger(record.value, 'windowId', '$.windowId', 'invalid-frame-state');
+    if (windowId.kind === 'err') {
+        return windowId;
+    }
+    return runtimePresenterState.presenter.closeHostFrameWindow(windowId.value);
 }
 
 export function beginGuiWebRuntimeFrame(input: unknown): GuiWebRuntimeResult<number> {

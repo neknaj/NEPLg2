@@ -1,7 +1,7 @@
 import { resolveCompilerAssets, type CompilerAssetUrls } from '../runtime/compiler-assets.js';
 import { VFS } from '../runtime/vfs.js';
 import { GuiWebStdoutProtocolParser, type GuiWebStdoutProtocolEvent } from '../gui-preview/stdout-protocol.js';
-import { presentGuiWebRuntimeFrame } from '../gui-preview/runtime-bridge.js';
+import { closeGuiWebRuntimeHostFrameWindow, presentGuiWebRuntimeFrame } from '../gui-preview/runtime-bridge.js';
 import { registerGuiWebInputEventListener, type GuiWebInputEvent } from '../gui-preview/input-bridge.js';
 import {
     createGuiWebSharedEventBuffer,
@@ -471,6 +471,10 @@ export class Shell {
         if (!this.guiRuntimeInputWindowIds.has(event.windowId)) {
             return;
         }
+        if (event.kind === 'window' && event.windowKind === 'close-requested') {
+            this.stopActiveGuiProcessFromWindowClose(event.windowId);
+            return;
+        }
         const buffer = this.ensureGuiInputBuffer();
         if (!buffer) {
             if (!this.guiInputUnavailableReported) {
@@ -536,6 +540,7 @@ export class Shell {
             const finish = (forceTerminate: boolean = false) => {
                 this.handleGuiStdoutProtocolEvents(this.guiStdoutProtocolParser.flush());
                 if (request.type === 'run-wasm') {
+                    this.closeGuiRuntimeWindows();
                     this.guiRuntimeInputActive = false;
                     this.guiRuntimeInputWindowIds = new Set();
                 }
@@ -746,6 +751,9 @@ export class Shell {
             this.compilerWorker = null;
             this.compilerWorkerAssetKey = null;
         }
+        this.closeGuiRuntimeWindows();
+        this.guiRuntimeInputActive = false;
+        this.guiRuntimeInputWindowIds = new Set();
         this.activeWorker.terminate();
         this.activeWorker = null;
         this.terminal.printError('\nProcess interrupted.');
@@ -756,6 +764,22 @@ export class Shell {
         if (this.currentProcessReject) {
             this.currentProcessReject(new Error('Process interrupted'));
             this.currentProcessReject = null;
+        }
+    }
+
+    private stopActiveGuiProcessFromWindowClose(windowId: number) {
+        if (!this.activeWorker || !this.guiRuntimeInputWindowIds.has(windowId)) {
+            return;
+        }
+        this.interrupt();
+    }
+
+    private closeGuiRuntimeWindows() {
+        for (const windowId of this.guiRuntimeInputWindowIds) {
+            const closed = closeGuiWebRuntimeHostFrameWindow({ windowId });
+            if (closed.kind === 'err') {
+                this.printGuiProtocolError(`GUI window cleanup failed: ${closed.error.kind} ${closed.error.path}`);
+            }
         }
     }
 

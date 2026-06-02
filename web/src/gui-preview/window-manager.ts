@@ -1,5 +1,4 @@
 import { GuiPreviewPanel } from './panel.js';
-import { GuiPreviewKind, guiPreviewKindFromPath } from './renderer.js';
 import { decodeGuiWebHostPresentedFrame } from './host-bridge.js';
 import type { GuiWebHostResult } from './host-bridge.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
@@ -13,8 +12,6 @@ type GuiWindowRect = {
 };
 
 type GuiWindowSource =
-    | { kind: 'source-path'; path: string }
-    | { kind: 'preview-kind'; previewKind: GuiPreviewKind }
     | { kind: 'host-frame'; windowId: number; title: string };
 
 type DockButtonState =
@@ -53,7 +50,6 @@ type WindowMoveState =
 type FloatingGuiWindow = {
     id: string;
     source: GuiWindowSource;
-    previewKind: GuiPreviewKind;
     rect: GuiWindowRect;
     mode: WindowMode;
     frameEl: HTMLElement;
@@ -97,14 +93,6 @@ export class GuiFloatingWindowManager {
         document.addEventListener('pointercancel', () => this.stopMove());
     }
 
-    openWindowForSourcePath(sourcePath: string): string {
-        return this.openWindow({ kind: 'source-path', path: sourcePath });
-    }
-
-    openWindowForKind(previewKind: GuiPreviewKind): string {
-        return this.openWindow({ kind: 'preview-kind', previewKind });
-    }
-
     presentHostFrame(input: unknown): GuiWebHostResult<string> {
         const decoded = decodeGuiWebHostPresentedFrame(input);
         if (decoded.kind === 'err') {
@@ -135,12 +123,30 @@ export class GuiFloatingWindowManager {
         return { kind: 'ok', value: id };
     }
 
+    closeHostFrameWindow(windowId: number): GuiWebHostResult<string> {
+        if (!Number.isInteger(windowId) || windowId <= 0) {
+            return {
+                kind: 'err',
+                error: {
+                    kind: 'invalid-frame',
+                    path: '$.windowId',
+                    expected: 'positive integer window id',
+                    actual: String(windowId),
+                },
+            };
+        }
+        const lookup = this.findHostFrameWindow(windowId);
+        if (lookup.kind === 'missing') {
+            return { kind: 'ok', value: `missing:${windowId}` };
+        }
+        this.closeWindowState(lookup.windowState, { emitCloseRequest: false });
+        return { kind: 'ok', value: lookup.windowState.id };
+    }
+
     private openWindow(source: GuiWindowSource): string {
-        const previewKind = this.previewKindForSource(source);
-        const existing = this.findReusableWindow(source, previewKind);
+        const existing = this.findReusableWindow(source);
         if (existing.kind === 'found') {
             existing.windowState.source = source;
-            this.applySource(existing.windowState, source);
             this.restoreWindow(existing.windowState.id);
             this.focusWindow(existing.windowState.id);
             return existing.windowState.id;
@@ -163,9 +169,9 @@ export class GuiFloatingWindowManager {
 
         const controlsEl = document.createElement('div');
         controlsEl.className = 'gui-window-controls';
-        controlsEl.appendChild(this.createControlButton('-', 'Minimize GUI window', () => this.minimizeWindow(id)));
-        controlsEl.appendChild(this.createControlButton('[]', 'Maximize or restore GUI window', () => this.toggleMaximizeWindow(id)));
-        controlsEl.appendChild(this.createControlButton('x', 'Close GUI window', () => this.closeWindow(id)));
+        controlsEl.appendChild(this.createControlButton('−', 'Minimize GUI window', () => this.minimizeWindow(id)));
+        controlsEl.appendChild(this.createControlButton('□', 'Maximize or restore GUI window', () => this.toggleMaximizeWindow(id)));
+        controlsEl.appendChild(this.createControlButton('×', 'Close GUI window', () => this.closeWindow(id), 'close'));
 
         titlebarEl.appendChild(titleEl);
         titlebarEl.appendChild(controlsEl);
@@ -175,13 +181,12 @@ export class GuiFloatingWindowManager {
         contentEl.className = 'gui-window-content';
         frameEl.appendChild(contentEl);
 
-        const preview = new GuiPreviewPanel(contentEl, { kind: previewKind });
+        const preview = new GuiPreviewPanel(contentEl);
         preview.setFontSize(this.fontSize);
 
         const windowState: FloatingGuiWindow = {
             id,
             source,
-            previewKind,
             rect,
             mode: { kind: 'normal' },
             frameEl,
@@ -191,15 +196,6 @@ export class GuiFloatingWindowManager {
             preview,
         };
 
-        preview.setOnKindChange((nextKind) => {
-            windowState.previewKind = nextKind;
-            if (windowState.source.kind === 'preview-kind') {
-                windowState.source = { kind: 'preview-kind', previewKind: nextKind };
-            }
-            this.updateTitle(windowState);
-        });
-
-        this.applySource(windowState, source);
         this.mountResizeHandles(frameEl, windowState);
         titlebarEl.addEventListener('pointerdown', (event) => this.startDrag(event, windowState));
         titlebarEl.addEventListener('dblclick', () => this.toggleMaximizeWindow(id));
@@ -231,50 +227,24 @@ export class GuiFloatingWindowManager {
         }
     }
 
-    private previewKindForSource(source: GuiWindowSource): GuiPreviewKind {
-        if (source.kind === 'source-path') {
-            return guiPreviewKindFromPath(source.path);
-        }
-        if (source.kind === 'host-frame') {
-            return 'mandelbrot';
-        }
-        return source.previewKind;
+    private sourceMatches(windowState: FloatingGuiWindow, source: GuiWindowSource): boolean {
+        return windowState.source.windowId === source.windowId;
     }
 
-    private applySource(windowState: FloatingGuiWindow, source: GuiWindowSource) {
-        if (source.kind === 'source-path') {
-            windowState.preview.setSourcePath(source.path);
-        } else if (source.kind === 'preview-kind') {
-            windowState.preview.setKind(source.previewKind);
-        }
-        windowState.previewKind = windowState.preview.kind;
-        this.updateTitle(windowState);
-    }
-
-    private sourceMatches(windowState: FloatingGuiWindow, source: GuiWindowSource, previewKind: GuiPreviewKind): boolean {
-        if (source.kind === 'source-path' && windowState.source.kind === 'source-path') {
-            return windowState.source.path === source.path;
-        }
-        if (source.kind === 'host-frame' && windowState.source.kind === 'host-frame') {
-            return windowState.source.windowId === source.windowId;
-        }
-        return source.kind === 'preview-kind'
-            && windowState.source.kind === 'preview-kind'
-            && windowState.previewKind === previewKind;
-    }
-
-    private findReusableWindow(source: GuiWindowSource, previewKind: GuiPreviewKind): WindowLookup {
+    private findReusableWindow(source: GuiWindowSource): WindowLookup {
         for (const windowState of this.windows.values()) {
-            if (this.sourceMatches(windowState, source, previewKind)) {
+            if (this.sourceMatches(windowState, source)) {
                 return { kind: 'found', windowState };
             }
         }
         return { kind: 'missing' };
     }
 
-    private createControlButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
+    private createControlButton(label: string, title: string, onClick: () => void, variant: 'default' | 'close' = 'default'): HTMLButtonElement {
         const button = document.createElement('button');
-        button.className = 'gui-window-control';
+        button.className = variant === 'close'
+            ? 'gui-window-control is-close'
+            : 'gui-window-control';
         button.type = 'button';
         button.textContent = label;
         button.title = title;
@@ -482,14 +452,22 @@ export class GuiFloatingWindowManager {
         if (lookup.kind === 'missing') {
             return;
         }
-        const windowState = lookup.windowState;
-        this.queueHostWindowEvent(windowState, 'close-requested');
+        this.closeWindowState(lookup.windowState, { emitCloseRequest: true });
+    }
+
+    private closeWindowState(windowState: FloatingGuiWindow, options: { emitCloseRequest: boolean }) {
+        if (this.activeMove.kind !== 'idle' && this.activeMove.id === windowState.id) {
+            this.stopMove();
+        }
         windowState.preview.dispose();
         if (windowState.dockButton.kind === 'mounted') {
             windowState.dockButton.button.remove();
         }
         windowState.frameEl.remove();
-        this.windows.delete(id);
+        this.windows.delete(windowState.id);
+        if (options.emitCloseRequest) {
+            this.queueHostWindowEvent(windowState, 'close-requested');
+        }
     }
 
     private lookupWindow(id: string): WindowLookup {
@@ -498,6 +476,15 @@ export class GuiFloatingWindowManager {
             return { kind: 'missing' };
         }
         return { kind: 'found', windowState };
+    }
+
+    private findHostFrameWindow(windowId: number): WindowLookup {
+        for (const windowState of this.windows.values()) {
+            if (windowState.source.kind === 'host-frame' && windowState.source.windowId === windowId) {
+                return { kind: 'found', windowState };
+            }
+        }
+        return { kind: 'missing' };
     }
 
     private ensureDockButton(windowState: FloatingGuiWindow) {
@@ -525,19 +512,7 @@ export class GuiFloatingWindowManager {
     }
 
     private titleFor(windowState: FloatingGuiWindow): string {
-        const label = windowState.previewKind === 'mandelbrot'
-            ? 'Mandelbrot'
-            : windowState.previewKind === 'life'
-                ? 'Life'
-                : 'Counter';
-        if (windowState.source.kind === 'preview-kind') {
-            return `GUI ${label}`;
-        }
-        if (windowState.source.kind === 'host-frame') {
-            return windowState.source.title;
-        }
-        const parts = windowState.source.path.split('/');
-        return `GUI ${label} - ${parts[parts.length - 1] || windowState.source.path}`;
+        return windowState.source.title;
     }
 
     private applyRect(windowState: FloatingGuiWindow, rect: GuiWindowRect) {
