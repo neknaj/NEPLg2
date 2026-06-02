@@ -1,3 +1,16 @@
+# 2026-06-02 RPN direct import / root source single-read checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針と性能方針に従い、RPN cold base を `examples/rpn.nepl` に固定して測定を続けた。
+- subagent 調査では、loader 側は native `--check` が `.neplmeta` / typed public interface artifact を使わず stdlib body merge へ進むこと、Resource 側は typecheck item classification と initialized summary replay dependency closure が残ることを確認した。
+- `examples/rpn.nepl` は `core/math` facade ではなく、実際に使う `core/math/i32` を import するようにした。RPN は i32 演算だけを使うため、代表 workload の dependency surface を実需要に合わせる整理である。
+- `Loader::load` は entry source を public module surface 作成用と通常 load 用に二重読み取りしていたため、canonical entry source を一度だけ読み、同じ snapshot を `load_from_contents` へ渡すようにした。
+- current branch 上の直前 baseline は no-stage median `968.599ms`、stage median `loader_load=380.185ms`、`check_pipeline=576.847ms`、`resource_typecheck=148ms`、`resource_static_check=394ms` だった。
+- 最終 no-stage 10 run は `953.505ms / 896.248ms / 894.861ms / 876.222ms / 865.402ms / 924.871ms / 862.790ms / 872.495ms / 928.304ms / 867.538ms`、中央値 `885.542ms` だった。`NEPL_DISABLE_CHECK_CACHE=1` を付け、exact `.neplcheck` hit は比較から除外している。
+- stage timing 付き 5 run の中央値は `execute_inner=930.302ms`、`loader_load=357.711ms`、`check_pipeline=569.216ms`、`resource_typecheck=141ms`、`resource_static_check=396ms`、`resource_initialized_moves=235ms`、`resource_initialized_raw_alias_summaries=60ms`、`resource_initialized_i32_scalar_summaries=62ms`、`resource_initialized_raw_init_summaries=60ms`、`resource_initialized_function_checks=50ms`、`resource_effect_boundaries=34ms`、`resource_owner_obligations=51ms` だった。
+- check cache が有効な wall-clock では 2 回目以降が `18ms` 台になったが、これは base compile ではない。0.5 秒未満目標では `loader_load` 約 `0.36s` と `resource_static_check` 約 `0.40s` がまだ残る。
+- 次の root task として `ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD` を作成した。native CLI `--check` で dependency body load 前に `.neplmeta` / typed public interface artifact を fail-closed に materialize し、stdlib body merge と依存先再 typecheck を避ける必要がある。
+- focused verification は `cargo check -p nepl-core`、`cargo build -p nepl-cli --release`、RPN `.neplproof` bootstrap / preseed stage/no-stage 測定を通した。commit 前に full core test、CLI check、trunk build、RPN doctest、issues check、diff check を再実行する。
+
 # 2026-06-02 RPN raw-alias proof dependency / raw pointer identity filter checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針とパフォーマンス方針に従い、RPN cold base の改善を cache policy だけでなく Resource summary 固定点の探索範囲削減として進めた。

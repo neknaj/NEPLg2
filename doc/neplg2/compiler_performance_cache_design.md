@@ -3891,6 +3891,67 @@ RPN proof-backed native wall-clock after raw-alias dependency filtering
 を bundled stdlib `.neplmeta` / typed interface artifact に接続し、stdlib body merge と依存先再 typecheck を
 避ける設計を進める。
 
+2026-06-02 の RPN direct import / root source single-read checkpoint では、RPN cold base を引き続き
+`examples/rpn.nepl` に固定し、cache に頼らない loader input surface の整理も行った。RPN は `i32` の
+`add` / `sub` / `mul` / `eq` / `lt` / `gt` だけを使うが、以前は `core/math` facade を import していた。
+この facade は `i32` 以外の数値 module と `int128` 周辺まで広く引くため、benchmark source 側を
+`core/math/i32` の direct import に狭めた。これは compiler の 0.5 秒未満達成ではなく、代表 workload が
+実際に必要とする dependency surface を明示する整理である。
+
+loader 側では `Loader::load` が entry source を public module surface 作成用に一度読み、その後
+`load_file` でもう一度読む経路をやめた。同じ canonical entry source を `load_from_contents` に渡すため、
+root source の内容、`SourceMap` label、source capability policy は同じ snapshot にそろう。これは
+数 ms 級の固定費削減にすぎないが、native `.neplmeta` pre-typecheck materialization へ進める前に
+loader の entry snapshot 境界を単純にする変更である。
+
+今回の測定では exact `.neplcheck` を `NEPL_DISABLE_CHECK_CACHE=1` で無効化し、専用 `.neplproof`
+cache を bootstrap した後の preseed compile を測った。check cache が有効な wall-clock では 2 回目以降が
+`18ms` 台になったが、これは base compile ではないため比較値から除外する。
+
+```text
+RPN proof-backed native wall-clock after direct i32 import and root single-read
+  before this checkpoint on the same branch:
+    no-stage median: 968.599ms
+    stage median:
+      execute_inner: 968.315ms
+      loader_load: 380.185ms
+      check_pipeline: 576.847ms
+        resource_typecheck: 148ms
+        resource_static_check: 394ms
+
+  after direct i32 import and root source single-read:
+    no-stage runs:
+      953.505ms / 896.248ms / 894.861ms / 876.222ms / 865.402ms /
+      924.871ms / 862.790ms / 872.495ms / 928.304ms / 867.538ms
+    no-stage median: 885.542ms
+
+    stage timing enabled:
+      execute_inner median: 930.302ms
+      loader_load median: 357.711ms
+      check_pipeline median: 569.216ms
+        resource_typecheck median: 141ms
+        resource_static_check median: 396ms
+          resource_initialized_moves median: 235ms
+            resource_initialized_raw_alias_summaries median: 60ms
+            resource_initialized_i32_scalar_summaries median: 62ms
+            resource_initialized_raw_init_summaries median: 60ms
+            resource_initialized_function_checks median: 50ms
+          resource_borrow_lifetimes median: 27ms
+          resource_effect_boundaries median: 34ms
+          resource_owner_obligations median: 51ms
+```
+
+no-stage median は `928.442ms` checkpoint から測定揺れ込みで `885.542ms` まで下がった。ただし
+`loader_load` はまだ約 `0.36s`、`resource_static_check` は約 `0.40s` 残っており、RPN cold base
+0.5 秒未満には届かない。`NEPL_LOADER_STAGE_TIMING=1` の詳細計測では、loader の支配点は引き続き
+recursive `process_directives` と dependency body merge であり、`read_file` そのものではない。
+
+このため、今回の変更は issue を閉じる根拠にはしない。次の root issue は
+[ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD](../../issues/items/ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD.md)
+として分離した。native CLI `--check` は、依存 module body を読み込む前に `.neplmeta` または同等の
+typed public interface artifact を fail-closed に materialize し、stdlib body merge と依存先再 typecheck を
+避ける必要がある。これは `.neplproof` の Resource summary preseed とは別の interface boundary である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

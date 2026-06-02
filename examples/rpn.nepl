@@ -55,7 +55,7 @@
 #target std
 #no_prelude
 
-#import "core/math" as *
+#import "core/math/i32" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
