@@ -71,6 +71,14 @@
 - i32 scalar stable entry を永続 proof から外す案も測ったが、raw-alias 除外後の主経路として採用できるほど安定しなかったため戻した。実測で改善した raw-alias kind policy だけを残した。
 - subagent review で、header-first decode、core no-std / CLI disk I/O 分離、old artifact raw-alias entry の policy 無効時不使用を確認した。残件は owner obligation pass-level snapshot、bundled stdlib `.neplproof` preseed、stdlib proof template、bootstrap proof generation 短縮である。
 - focused verification は `cargo check -p nepl-cli`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo build -p nepl-cli --release`、RPN proof-backed 5 run を通した。commit 前に issues check / diff check を再実行する。
+# 2026-06-02 Agent2 GUI window title duplication checkpoint
+
+- `plan.md` は変更していない。window title は host frame metadata として floating window chrome に表示し、app content は command frame の描画命令だけで構成する責務分離を再確認した。
+- `web/src/gui-preview/canvas-renderer.ts` が `frame.title` を canvas content 内に再描画していたため削除した。titlebar は `GuiFloatingWindowManager` が `source.title` から描画するため、同じ title を body に重複表示しない。
+- `nodesrc/test_web_gui_preview_renderer.js` は canvas renderer が `frame.title` を参照しないことを source regression として固定した。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、host frame title は titlebar の表示責務であり canvas renderer は app content だけを描くことを追記した。
+- 検証: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/test_web_gui_floating_window_source.js`、`node nodesrc/test_web_gui_stdout_protocol.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-title-dedup.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。playground editor JSON は 13/13 pass。
+
 # 2026-06-02 Agent2 HD GUI examples / interactive TEA checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum / struct による明示状態、純粋な model/update/view と effect / host 境界の分離、契約と現状実装の分離方針を再確認した。

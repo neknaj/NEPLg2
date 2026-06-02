@@ -31,6 +31,7 @@ function runWebGuiPreviewRendererRegression() {
     assert.doesNotMatch(panelSource, /metricsEl|gui-preview-metrics|host commands/);
     assert.doesNotMatch(commandSource, /GuiPreviewKind/);
     assert.doesNotMatch(canvasSource, /renderGuiPreviewSceneToCanvas|GuiPreviewScene|renderer\.js/);
+    assert.doesNotMatch(canvasSource, /frame\.title|fillText\(frame\.title/);
     assert.doesNotMatch(panelSource, /createGuiPreviewScene|summarizeGuiPreviewScene|guiPreviewKindFromPath|renderGuiPreviewSceneToCanvas/);
     assert.doesNotMatch(panelSource, /HTMLSelectElement|gui-preview-select|mountToolbar|counterValue/);
     assert.doesNotMatch(panelLayoutSource, /'gui-preview'/);
@@ -42,6 +43,7 @@ function runWebGuiPreviewRendererRegression() {
         checks: [
             "old TS GUI example renderer is removed",
             "Web GUI canvas renderer accepts only host command frames",
+            "Web GUI canvas renderer leaves frame title to the floating window titlebar",
             "Web GUI panel no longer simulates NEPL examples",
             "workspace panel layout no longer exposes GUI preview panes",
             "Web GUI panel keeps debug/status text out of the window content",
