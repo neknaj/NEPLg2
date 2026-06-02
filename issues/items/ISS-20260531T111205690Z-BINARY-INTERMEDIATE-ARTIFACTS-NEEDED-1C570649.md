@@ -754,3 +754,17 @@ binary intermediate artifact の完了ではない。
 compile で構築されている。次の artifact 側作業は、empty cache ではなく、final initialized pass、
 owner obligation、raw-init / i32 scalar summary の stable entry を header-first / fail-closed な
 `.neplproof` codec と bundled / persistent preseed へ接続することである。
+
+2026-06-02 の RPN operator / builder helper split checkpoint では、RPN source と StringBuilder helper
+の構造を Resource IR が扱いやすい粒度へ整理し、native release RPN stage-only の
+`resource_static_check` を同 branch baseline `5870ms` / `5900ms` から `5372ms` / `4927ms` へ下げた。
+per-function timing では `apply_op` raw-init が `611ms` から `426ms` へ下がり、`sb_append_result`
+wrapper は `3ms` になった。一方で、`dealloc_raw` raw-init `498ms`、`sb_append_non_empty_result`
+i32 scalar `320ms`、ByteBuilder 系 helper、owner summary / obligation はまだ cold start で再構築される。
+
+この checkpoint は binary intermediate artifact の完了ではない。局所的に関数を分けても RPN cold base
+はまだ 5 秒前後であり、0.5 秒未満へ入れるには actual `.neplproof` artifact を cold start 前に
+preseed する必要がある。`.neplproof` 側では、ResourceSummaryProofSnapshot をそのまま保存せず、
+header-first decode、stable entry codec、generic type-argument key、source capability policy hash、
+private effect policy hash を持つ fail-closed な `.neplproof` codec と bundled / persistent preseed を
+次の主経路として維持する。

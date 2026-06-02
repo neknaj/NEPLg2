@@ -3015,6 +3015,67 @@ artifact から受け取れておらず、empty cache や局所 pruning に戻�
 対応は、final initialized pass、owner obligation、raw-init / i32 scalar summary を fail-closed な
 `.neplproof` stable entry として bundled / persistent preseed へ接続することである。
 
+## 2026-06-02 RPN operator / builder helper split checkpoint
+
+`examples/rpn.nepl` を cold base の代表 workload として固定し、`str_trim` helper split 後の branch
+で再度測定した。変更前の stage-only run は `resource_static_check=5870ms` / `5900ms`、
+`resource_initialized_moves=4897ms` / `5011ms`、`resource_initialized_i32_scalar_summaries=1258ms` /
+`1273ms`、`resource_initialized_raw_init_summaries=2560ms` / `2655ms`、
+`resource_initialized_function_checks=1004ms` / `1015ms` だった。
+
+per-function timing では、RPN 固有の `apply_op__Stack_T_i32_str...` raw-init summary が `611ms`、
+`dealloc_raw` raw-init summary が `520ms`、`sb_append_result` i32 scalar summary が `441ms` だった。
+`process_token` は `+` / `-` / `*` の分類後に `apply_op` へ渡すにもかかわらず、`apply_op` 内で
+同じ token に対する `str_eq` chain を再実行していた。また、`sb_append_result` は空文字 fast path、
+ByteBuilder append、error payload cleanup を 1 関数に集めており、return fact 収集の支配点になっていた。
+
+この checkpoint では、RPN operator を `RpnOp` enum に分類する `operator_from_token` を追加し、
+`apply_op` は分類済み `RpnOp` を受け取るようにした。演算値そのものは pure helper
+`apply_op_values` に分け、Stack owner の pop / push と i32 演算選択を同一関数へ集中させない。
+StringBuilder 側は `sb_append_non_empty_result` と `sb_byte_builder_error_text` を追加し、
+public `sb_append_result` は空文字 fast path と非空 append path の接続に絞った。
+
+変更後の native release RPN stage-only run は `resource_static_check=5372ms` / `4927ms`、
+`resource_initialized_moves=4340ms` / `4013ms`、`resource_initialized_i32_scalar_summaries=1135ms` /
+`1090ms`、`resource_initialized_raw_init_summaries=2309ms` / `2047ms`、
+`resource_initialized_function_checks=824ms` / `801ms` だった。per-function timing run は計測出力の
+overhead を含み `resource_static_check=5453ms` だったが、hot function の内訳は次の通りである。
+
+```text
+RPN cold base static check
+  resource_static_check: 4927-5372ms in stage-only run
+    resource_initialized_moves: 4013-4340ms
+      resource_initialized_raw_init_summaries: 2047-2309ms
+        dealloc_raw raw-init summary: 498ms
+        apply_op raw-init summary: 426ms
+        byte_builder_push_bytes_ref raw-init summary: 232ms
+        byte_builder_push_u8 raw-init summary: 120ms
+        byte_builder_reserve raw-init summary: 112ms
+      resource_initialized_i32_scalar_summaries: 1090-1135ms
+        sb_append_non_empty_result i32 scalar summary: 320ms
+        byte_builder_reserve i32 scalar summary: 183ms
+        byte_builder_push_bytes_ref i32 scalar summary: 118ms
+        apply_op i32 scalar summary: 109ms
+        byte_builder_push_u8 i32 scalar summary: 104ms
+      resource_initialized_function_checks: 801-824ms
+        dealloc_raw final initialized check: 166ms
+        apply_op final initialized check: 99ms
+        parse_u128_radix_digits_from final initialized check: 93ms
+    resource_owner_summaries: 680-787ms
+    resource_owner_obligations: 779-901ms
+```
+
+`apply_op` raw-init summary は、文字列 token を直接受けていた変更前の `611ms` から、分類済み
+`RpnOp` を受ける形で `426ms` まで下がった。`sb_append_result` は public wrapper 自体が `3ms` へ
+下がり、残る支配点は非空 append helper の `320ms` と ByteBuilder 系 helper に移った。
+
+この改善は RPN source と StringBuilder の構造を Resource IR が扱いやすい粒度へ整理したものであり、
+base compile 0.5 秒未満を達成するものではない。残る支配点は、`dealloc_raw` / ByteBuilder / Stack owner
+flow の proof template と、stdlib-heavy Resource proof を cold start で毎回構築する固定費である。
+次の根本対応は、actual `.neplproof` artifact を header-first / fail-closed に persistent / bundled
+preseed へ接続し、final initialized pass、raw-init / i32 scalar summary、owner obligation を stdlib
+prechecked proof として再利用できるようにすることである。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
