@@ -1,6 +1,7 @@
 import { WASI } from './wasi.js';
 import { VFS } from './vfs.js';
 import type { CompilerAssetUrls } from './compiler-assets.js';
+import { takeGuiWebSharedActionId, waitGuiWebSharedActionId } from '../gui-preview/shared-event-queue.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -39,6 +40,7 @@ type RunWasmRequest = {
     env: Record<string, string>;
     vfsData: Record<string, string | Uint8Array>;
     sab: SharedArrayBuffer | null;
+    guiSab: SharedArrayBuffer | null;
 };
 
 type ExecuteNeplg2Request = {
@@ -65,15 +67,21 @@ let compilerSessionChecked = false;
 class WorkerWASI extends WASI {
     stdinBuffer: Int32Array | null = null;
     stdinData: Uint8Array | null = null;
+    guiEventBuffer: SharedArrayBuffer | null = null;
     private stdinOffset = 0;
     private stdinTotal = 0;
 
-    constructor(args: string[], env: Map<string, string>, vfs: VFS, buffer: SharedArrayBuffer | null) {
+    constructor(args: string[], env: Map<string, string>, vfs: VFS, buffer: SharedArrayBuffer | null, guiBuffer: SharedArrayBuffer | null) {
         super(args, env, vfs, null as any);
         if (buffer) {
             this.stdinBuffer = new Int32Array(buffer, 0, 1);
             this.stdinData = new Uint8Array(buffer, 4);
         }
+        this.guiEventBuffer = guiBuffer;
+        this.imports.nepl_gui_web = {
+            poll_action_id: this.nepl_gui_web_poll_action_id.bind(this),
+            wait_action_id: this.nepl_gui_web_wait_action_id.bind(this),
+        };
     }
 
     fd_write(fd: number, iovs: number, iovs_len: number, nwritten: number): number {
@@ -147,6 +155,23 @@ class WorkerWASI extends WASI {
         view.setUint32(nread, bytesRead, true);
         return 0;
     }
+
+    nepl_gui_web_poll_action_id(): number {
+        if (!this.guiEventBuffer) {
+            return 0;
+        }
+        return takeGuiWebSharedActionId(this.guiEventBuffer);
+    }
+
+    nepl_gui_web_wait_action_id(timeoutMs: number): number {
+        if (!this.guiEventBuffer) {
+            return 0;
+        }
+        const normalizedTimeout = Number.isFinite(timeoutMs) && timeoutMs >= 0
+            ? timeoutMs
+            : 0;
+        return waitGuiWebSharedActionId(this.guiEventBuffer, normalizedTimeout);
+    }
 }
 
 function postWorkerMessage(message: WorkerMessage) {
@@ -209,8 +234,15 @@ function cloneCompileOutputs(outputs: any): Record<string, string | Uint8Array> 
     return cloned;
 }
 
-async function runWasmBinary(bin: Uint8Array, args: string[], env: Record<string, string>, vfsData: Record<string, string | Uint8Array>, sab: SharedArrayBuffer | null) {
-    const wasi = new WorkerWASI(args, buildEnvMap(env), buildVfs(vfsData), sab);
+async function runWasmBinary(
+    bin: Uint8Array,
+    args: string[],
+    env: Record<string, string>,
+    vfsData: Record<string, string | Uint8Array>,
+    sab: SharedArrayBuffer | null,
+    guiSab: SharedArrayBuffer | null,
+) {
+    const wasi = new WorkerWASI(args, buildEnvMap(env), buildVfs(vfsData), sab, guiSab);
     const instanceResult: any = await WebAssembly.instantiate(bin, wasi.imports);
     const instance = instanceResult instanceof WebAssembly.Instance
         ? instanceResult
@@ -257,7 +289,8 @@ async function executeNeplg2(request: ExecuteNeplg2Request) {
         request.runArgs,
         request.env,
         request.runtimeVfsData,
-        request.sab
+        request.sab,
+        null
     );
     postWorkerMessage({ type: 'exit', code: 0 });
 }
@@ -266,7 +299,7 @@ self.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     const message = event.data;
     try {
         if (message.type === 'run-wasm') {
-            await runWasmBinary(message.bin, message.args, message.env, message.vfsData, message.sab);
+            await runWasmBinary(message.bin, message.args, message.env, message.vfsData, message.sab, message.guiSab);
             postWorkerMessage({ type: 'exit', code: 0 });
             return;
         }

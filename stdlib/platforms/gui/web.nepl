@@ -6,9 +6,10 @@
 //: - `core/gui` と `alloc/gui` は DOM、Canvas、stdout protocol を知らず、この module だけが Web host [連携/れんけい]を[扱/あつか]います。
 //:
 //: ### [注意/ちゅうい]
-//: - 現在の Web Playground backend は stdout line protocol を使います。
-//: - これは Web platform backend の transport であり、GUI 標準 API の中核 contract ではありません。
+//: - 現在の Web Playground backend は stdout line protocol と Web 専用 input host import を使います。
+//: - これらは Web platform backend の transport であり、GUI 標準 API の中核 contract ではありません。
 
 #indent 4
 
 pub #import "./web/stdout_protocol" as @merge
+pub #import "./web/input" as @merge

@@ -42,14 +42,24 @@ async function runWebGuiHostBridgeRegression() {
                 align: "left",
             },
         ],
+        inputTargets: [
+            {
+                kind: "action-rect",
+                rect: { x: 8, y: 20, width: 60, height: 24 },
+                actionId: 3,
+            },
+        ],
     };
 
     const decoded = hostBridge.decodeGuiWebHostPresentedFrame(validFrame);
     assert.equal(decoded.kind, "ok");
     assert.equal(decoded.value.windowId, 7);
     assert.equal(decoded.value.frame.commands.length, 2);
+    assert.equal(decoded.value.frame.inputTargets.length, 1);
     assert.equal(decoded.value.frame.commands[0].kind, "fill-rect");
     assert.equal(decoded.value.frame.commands[1].kind, "text-run");
+    assert.equal(decoded.value.frame.inputTargets[0].kind, "action-rect");
+    assert.equal(decoded.value.frame.inputTargets[0].actionId, 3);
 
     const invalidColor = hostBridge.decodeGuiWebHostPresentedFrame({
         ...validFrame,
@@ -77,10 +87,25 @@ async function runWebGuiHostBridgeRegression() {
     assert.equal(unsupportedCommand.kind, "err");
     assert.equal(unsupportedCommand.error.kind, "unsupported-command");
 
+    const invalidInputTarget = hostBridge.decodeGuiWebHostPresentedFrame({
+        ...validFrame,
+        inputTargets: [
+            {
+                kind: "action-rect",
+                rect: { x: 0, y: 0, width: 1, height: 1 },
+                actionId: 0,
+            },
+        ],
+    });
+    assert.equal(invalidInputTarget.kind, "err");
+    assert.equal(invalidInputTarget.error.kind, "invalid-input-target");
+    assert.equal(invalidInputTarget.error.path, "$.inputTargets.0.actionId");
+
     assert.match(hostBridgeSource, /GuiWebHostResult<Value> =[\s\S]*kind: 'ok'[\s\S]*kind: 'err'/);
     assert.match(hostBridgeSource, /decodeGuiWebHostPresentedFrame/);
     assert.match(managerSource, /presentHostFrame\(input: unknown\): GuiWebHostResult<string>/);
-    assert.match(panelSource, /presentHostFrame\(frame: GuiPreviewCommandFrame\)/);
+    assert.match(panelSource, /presentHostFrame\(frame: GuiPreviewCommandFrame, windowId: number\)/);
+    assert.match(panelSource, /queueGuiWebInputEvent/);
     assert.match(canvasSource, /renderGuiPreviewFrameToCanvas/);
     assert.doesNotMatch(hostBridgeSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(hostBridgeSource, /\|\s*null|\|\s*undefined/);
@@ -92,6 +117,7 @@ async function runWebGuiHostBridgeRegression() {
         checks: [
             "Web GUI host bridge decodes valid present-commands frames",
             "Web GUI host bridge rejects invalid color bytes with typed errors",
+            "Web GUI host bridge decodes action hit targets as input metadata",
             "Web GUI host bridge rejects unsupported command variants",
             "Floating GUI windows expose a typed presentHostFrame boundary",
             "Host bridge keeps DOM and Canvas types out of decode logic",

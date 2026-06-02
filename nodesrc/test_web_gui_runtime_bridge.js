@@ -61,6 +61,13 @@ async function runWebGuiRuntimeBridgeRegression() {
     const installed = runtimeBridge.installGuiWebRuntimeBridge(target);
     assert.equal(installed.kind, "ok");
     assert.equal(target.neplGuiHost.kind, "gui-runtime-bridge");
+    assert.equal(typeof target.neplGuiHost.takeInputEvents, "function");
+    assert.equal(typeof target.neplGuiHost.resetInputEvents, "function");
+    const resetInput = target.neplGuiHost.resetInputEvents();
+    assert.equal(resetInput.kind, "ok");
+    const emptyInput = target.neplGuiHost.takeInputEvents();
+    assert.equal(emptyInput.kind, "ok");
+    assert.equal(emptyInput.value.length, 0);
     const globalPresented = target.neplGuiHost.presentCommands(validFrame);
     assert.equal(globalPresented.kind, "ok");
     assert.equal(globalPresented.value, "gui-window-runtime");
@@ -193,6 +200,8 @@ async function runWebGuiRuntimeBridgeRegression() {
     assert.match(runtimeBridgeSource, /pushCommand: pushGuiWebRuntimeCommand/);
     assert.match(runtimeBridgeSource, /endFrame: endGuiWebRuntimeFrame/);
     assert.match(runtimeBridgeSource, /discardFrame: discardGuiWebRuntimeFrame/);
+    assert.match(runtimeBridgeSource, /takeInputEvents: takeGuiWebInputEvents/);
+    assert.match(runtimeBridgeSource, /resetInputEvents: resetGuiWebInputEvents/);
     assert.match(runtimeBridgeSource, /GuiWebRuntimeFrameStore/);
     assert.match(runtimeBridgeSource, /decodeGuiWebHostFrame/);
     assert.match(runtimeBridgeSource, /installGuiWebRuntimeBridge/);

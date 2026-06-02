@@ -140,6 +140,10 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
         const module = new WebAssembly.Module(Buffer.from(wasmBytes));
         const instance = new WebAssembly.Instance(module, {
             wasi_snapshot_preview1: wasi.wasiImport,
+            nepl_gui_web: {
+                poll_action_id: () => 0,
+                wait_action_id: () => 0,
+            },
             ...extraImports,
         });
         memory = instance.exports.memory || null;

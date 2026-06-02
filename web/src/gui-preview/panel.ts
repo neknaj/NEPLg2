@@ -10,6 +10,7 @@ import {
     renderGuiPreviewSceneToCanvas,
 } from './canvas-renderer.js';
 import type { GuiPreviewCommandFrame } from './commands.js';
+import { queueGuiWebInputEvent } from './input-bridge.js';
 
 export type GuiPreviewSource =
     | { kind: 'none' }
@@ -17,7 +18,7 @@ export type GuiPreviewSource =
 
 type GuiHostFrameState =
     | { kind: 'none' }
-    | { kind: 'presented'; frame: GuiPreviewCommandFrame };
+    | { kind: 'presented'; frame: GuiPreviewCommandFrame; windowId: number };
 
 const ignoreKindChange = (_kind: GuiPreviewKind) => {};
 
@@ -123,8 +124,8 @@ export class GuiPreviewPanel {
         this.onKindChange(kind);
     }
 
-    presentHostFrame(frame: GuiPreviewCommandFrame) {
-        this.hostFrame = { kind: 'presented', frame };
+    presentHostFrame(frame: GuiPreviewCommandFrame, windowId: number) {
+        this.hostFrame = { kind: 'presented', frame, windowId };
         this.selectEl.disabled = true;
         this.render();
     }
@@ -169,6 +170,21 @@ export class GuiPreviewPanel {
 
     handleCanvasClick(event: MouseEvent) {
         if (this.hostFrame.kind === 'presented') {
+            const point = this.toScenePoint(event);
+            const target = this.hitHostInputTarget(this.hostFrame.frame, point);
+            if (target.kind === 'found') {
+                const queued = queueGuiWebInputEvent({
+                    kind: 'action',
+                    windowId: this.hostFrame.windowId,
+                    actionId: target.actionId,
+                    point,
+                });
+                if (queued.kind === 'ok') {
+                    this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length} / queued action ${target.actionId}`;
+                } else {
+                    this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+                }
+            }
             return;
         }
         const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
@@ -190,7 +206,9 @@ export class GuiPreviewPanel {
 
     handleCanvasPointer(event: MouseEvent) {
         if (this.hostFrame.kind === 'presented') {
-            this.canvas.style.cursor = 'default';
+            const point = this.toScenePoint(event);
+            const target = this.hitHostInputTarget(this.hostFrame.frame, point);
+            this.canvas.style.cursor = target.kind === 'found' ? 'pointer' : 'default';
             return;
         }
         const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
@@ -210,6 +228,20 @@ export class GuiPreviewPanel {
             x: (event.clientX - rect.left - this.viewport.left) / this.viewport.scale,
             y: (event.clientY - rect.top - this.viewport.top) / this.viewport.scale,
         };
+    }
+
+    hitHostInputTarget(frame: GuiPreviewCommandFrame, point: { x: number; y: number }): { kind: 'missing' } | { kind: 'found'; actionId: number } {
+        for (const target of frame.inputTargets) {
+            if (
+                point.x >= target.rect.x
+                && point.y >= target.rect.y
+                && point.x < target.rect.x + target.rect.width
+                && point.y < target.rect.y + target.rect.height
+            ) {
+                return { kind: 'found', actionId: target.actionId };
+            }
+        }
+        return { kind: 'missing' };
     }
 
     dispose() {

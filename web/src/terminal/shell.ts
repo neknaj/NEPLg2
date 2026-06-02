@@ -2,6 +2,12 @@ import { resolveCompilerAssets, type CompilerAssetUrls } from '../runtime/compil
 import { VFS } from '../runtime/vfs.js';
 import { GuiWebStdoutProtocolParser, type GuiWebStdoutProtocolEvent } from '../gui-preview/stdout-protocol.js';
 import { presentGuiWebRuntimeFrame } from '../gui-preview/runtime-bridge.js';
+import { registerGuiWebInputEventListener, type GuiWebInputEvent } from '../gui-preview/input-bridge.js';
+import {
+    createGuiWebSharedEventBuffer,
+    resetGuiWebSharedEventBuffer,
+    writeGuiWebSharedInputEvent,
+} from '../gui-preview/shared-event-queue.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -40,6 +46,7 @@ type RunWasmWorkerRequest = {
     env: Record<string, string>;
     vfsData: Record<string, string | Uint8Array>;
     sab: SharedArrayBuffer | null;
+    guiSab: SharedArrayBuffer | null;
 };
 
 type ExecuteNeplg2WorkerRequest = {
@@ -78,6 +85,9 @@ export class Shell {
     private sab: SharedArrayBuffer | null;
     private stdinBuffer: Int32Array | null;
     private stdinData: Uint8Array | null;
+    private guiInputSab: SharedArrayBuffer | null;
+    private guiRuntimeInputActive: boolean;
+    private guiInputUnavailableReported: boolean;
     private currentProcessReject: ((reason?: any) => void) | null;
     private guiStdoutProtocolParser: GuiWebStdoutProtocolParser;
 
@@ -98,8 +108,15 @@ export class Shell {
         this.sab = null;
         this.stdinBuffer = null;
         this.stdinData = null;
+        this.guiInputSab = null;
+        this.guiRuntimeInputActive = false;
+        this.guiInputUnavailableReported = false;
         this.currentProcessReject = null;
         this.guiStdoutProtocolParser = new GuiWebStdoutProtocolParser();
+        registerGuiWebInputEventListener({
+            kind: 'gui-input-listener',
+            onInputEvent: (event) => this.handleGuiInputEvent(event),
+        });
     }
 
     async executeLine(line: string) {
@@ -277,6 +294,7 @@ export class Shell {
                 env: Object.fromEntries(this.env),
                 vfsData: this.vfs.serialize(),
                 sab: this.ensureStdinBuffer(),
+                guiSab: this.ensureGuiInputBuffer(),
             });
         } catch (error: any) {
             return `Execution Failed: ${error?.message ? error.message : error}`;
@@ -307,6 +325,7 @@ export class Shell {
                 env: Object.fromEntries(this.env),
                 vfsData: this.vfs.serialize(),
                 sab: this.ensureStdinBuffer(),
+                guiSab: this.ensureGuiInputBuffer(),
             });
         } catch (error: any) {
             return `Execution Failed: ${error?.message ? error.message : error}`;
@@ -422,6 +441,45 @@ export class Shell {
         return this.sab;
     }
 
+    private ensureGuiInputBuffer(): SharedArrayBuffer | null {
+        if (this.guiInputSab) {
+            return this.guiInputSab;
+        }
+
+        const created = createGuiWebSharedEventBuffer();
+        if (created.kind === 'err') {
+            return null;
+        }
+        this.guiInputSab = created.value;
+        return this.guiInputSab;
+    }
+
+    private resetGuiInputBuffer() {
+        const buffer = this.ensureGuiInputBuffer();
+        if (!buffer) {
+            return;
+        }
+        resetGuiWebSharedEventBuffer(buffer);
+    }
+
+    private handleGuiInputEvent(event: GuiWebInputEvent) {
+        if (!this.guiRuntimeInputActive) {
+            return;
+        }
+        const buffer = this.ensureGuiInputBuffer();
+        if (!buffer) {
+            if (!this.guiInputUnavailableReported) {
+                this.guiInputUnavailableReported = true;
+                this.printGuiProtocolError('GUI input unavailable: SharedArrayBuffer is not available');
+            }
+            return;
+        }
+        const queued = writeGuiWebSharedInputEvent(buffer, event);
+        if (queued.kind === 'err') {
+            this.printGuiProtocolError(`GUI input dropped: ${queued.error.kind} ${queued.error.path}`);
+        }
+    }
+
     private createWorker(): Worker {
         return new Worker(new URL('../runtime/worker.js', import.meta.url), { type: 'module' });
     }
@@ -454,6 +512,11 @@ export class Shell {
         if (this.stdinBuffer) {
             Atomics.store(this.stdinBuffer, 0, 0);
         }
+        if (request.type === 'run-wasm') {
+            this.guiRuntimeInputActive = true;
+            this.guiInputUnavailableReported = false;
+            this.resetGuiInputBuffer();
+        }
         this.guiStdoutProtocolParser.reset();
 
         return new Promise((resolve, reject) => {
@@ -466,6 +529,9 @@ export class Shell {
             const shouldKeepWorker = options.keepWorkerAlive && worker === this.compilerWorker;
             const finish = (forceTerminate: boolean = false) => {
                 this.handleGuiStdoutProtocolEvents(this.guiStdoutProtocolParser.flush());
+                if (request.type === 'run-wasm') {
+                    this.guiRuntimeInputActive = false;
+                }
                 this.activeWorker = null;
                 this.currentProcessReject = null;
                 worker.onmessage = null;
@@ -531,6 +597,10 @@ export class Shell {
                 if (presented.kind === 'err') {
                     this.printGuiProtocolError(`GUI frame rejected: ${presented.error.kind} ${presented.error.path}`);
                 }
+            } else if (event.kind === 'session-state') {
+                continue;
+            } else if (event.kind === 'animation-timer') {
+                continue;
             } else {
                 this.printGuiProtocolError(`GUI stdout protocol error: ${event.error.kind} ${event.error.path}`);
             }

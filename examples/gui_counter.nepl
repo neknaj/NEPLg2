@@ -1,25 +1,29 @@
 //: neplg2:test[gui_counter, normalize_newlines]
 //: [目的/もくてき]: ButtonConfig の ActionId が update へ渡り counter model を更新し、Web Playground host protocol へ frame を出力できることを確認する
+//: argv: ["--once"]
 //:
 //: gui_counter: button action で数字を increment する GUI app model の例
 //:
 //: [目的/もくてき]:
 //: - button が closure ではなく `ActionId` を持つ設計を実行例として示します。
 //: - `GuiEvent::Action` を `update` で受け取り、model と `GuiEffect` を data として返します。
-//: - 更新後の model から Web Playground stdout protocol frame を出力し、Run 時に floating GUI window へ渡します。
+//: - Web backend の input host queue を `gui_web_wait_action` で読み、NEPL 側で状態更新と再描画を行います。
+//: - button rect は `ActionId` 付き hit target として出力し、Web backend の input event bridge が click を action event として渡せるようにします。
 //:
 //: [実装/じっそう]:
 //: - `counter_view` は increment 用 button を返します。
 //: - `counter_update` は action id を `match` と比較で扱い、counter を 1 増やして redraw effect を返します。
 //:
 //: [注意/ちゅうい]:
-//: - この例は app model の contract を示すもので、real button event backend は使いません。
-//: - Web stdout protocol は `platforms/gui/web` の一時 transport であり、正式 host import ABI と input event bridge へ置き換える予定です。
+//: - doctest は `--once` で 1 回だけ update/render して終了します。
+//: - 通常実行では Web Playground の worker 内で event loop を続け、button click ごとに再描画します。
+//: - Web stdout protocol は `platforms/gui/web` の presentation fallback であり、正式 host import presentation ABI へ置き換える予定です。
 #entry main
 #indent 4
 #target std
 
 #import "alloc/gui/app" as *
+#import "alloc/string" as *
 #import "core/cast" as *
 #import "core/field" as field
 #import "core/gui" as *
@@ -28,6 +32,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "platforms/gui/web" as *
+#import "std/env/cliarg" as *
 #import "std/stdio" as *
 
 struct CounterModel:
@@ -99,6 +104,29 @@ fn counter_effect_redraw_target %fn GuiEffect i32 \effect:
         _:
             -1
 
+fn counter_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--once"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            counter_has_once_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    counter_has_once_flag_loop next_idx count
+
+fn counter_has_once_flag %impure fn unit bool \unit:
+    let count %i32 cliarg_count
+    counter_has_once_flag_loop 1 count
+
 fn counter_color_background %fn unit Rgba8888 \unit:
     let r %u8 cast 16
     let g %u8 cast 24
@@ -130,21 +158,29 @@ fn counter_color_text %fn unit Rgba8888 \unit:
 fn counter_present_frame_end %impure fn unit Result unit GuiError \unit:
     gui_web_stdout_frame_end
 
-fn counter_present_button_label %impure fn GuiPoint impure fn Rgba8888 Result unit GuiError \button_origin\text_color:
-    gui_web_stdout_text_run button_origin 14 GuiWebTextAlign::Center text_color "Increment"
+fn counter_present_action_rect %impure fn GuiRect Result unit GuiError \button_rect:
+    let action %ActionId counter_increment_action
+    gui_web_stdout_action_rect button_rect action
 
-fn counter_present_value %impure fn GuiPoint impure fn Rgba8888 impure fn i32 Result unit GuiError \value_origin\text_color\value:
+fn counter_present_button_label %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 Result unit GuiError \button_rect\button_origin\text_color:
+    match gui_web_stdout_text_run button_origin 14 GuiWebTextAlign::Center text_color "Increment":
+        Result::Ok _:
+            counter_present_action_rect button_rect
+        Result::Err err:
+            Result::Err err
+
+fn counter_present_value %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn i32 Result unit GuiError \button_rect\value_origin\text_color\value:
     match gui_web_stdout_text_i32 value_origin 28 GuiWebTextAlign::Center text_color value:
         Result::Ok _:
             let button_origin %GuiPoint gui_point_new 110 97
-            counter_present_button_label button_origin text_color
+            counter_present_button_label button_rect button_origin text_color
         Result::Err err:
             Result::Err err
 
 fn counter_present_button_rect %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn Rgba8888 impure fn i32 Result unit GuiError \button_rect\value_origin\button_color\text_color\value:
     match gui_web_stdout_fill_rect button_rect button_color:
         Result::Ok _:
-            counter_present_value value_origin text_color value
+            counter_present_value button_rect value_origin text_color value
         Result::Err err:
             Result::Err err
 
@@ -178,30 +214,65 @@ fn counter_present_frame %impure fn CounterModel Result unit GuiError \model:
         Result::Err err:
             Result::Err err
 
-fn main %impure fn unit unit \unit:
-    let model0 %CounterModel counter_model_new 0
-    let view0 %ViewNode counter_view model0
-    let action %ActionId counter_view_action view0
+fn counter_first_effect %fn &Update CounterModel GuiEffect \update:
+    let effects %GuiEffectBatch *field::get_ref update "effects"
+    match gui_effect_batch_first &effects:
+        Option::Some found:
+            found
+        Option::None:
+            GuiEffect::None
+
+fn counter_print_status %impure fn ActionId impure fn CounterModel impure fn GuiEffect unit \action\model\effect:
+    print "counter action = "
+    let action_value %i32 action_id_value action
+    println_i32 action_value
+    print "counter value = "
+    let counter_value %i32 counter_model_value &model
+    println_i32 counter_value
+    print "counter redraw target = "
+    let redraw_target %i32 counter_effect_redraw_target effect
+    println_i32 redraw_target
+
+fn counter_run_once %impure fn CounterModel unit \model:
+    let action %ActionId counter_increment_action
     let event %GuiEvent gui_event_action action
-    let update %Update CounterModel counter_update model0 event
+    let update %Update CounterModel counter_update model event
     let model1 %CounterModel *field::get_ref &update "model"
-    let effects %GuiEffectBatch *field::get_ref &update "effects"
-    let effect %GuiEffect:
-        match gui_effect_batch_first &effects:
-            Option::Some found:
-                found
-            Option::None:
-                GuiEffect::None
+    let effect %GuiEffect counter_first_effect &update
     match counter_present_frame model1:
         Result::Ok _:
-            print "counter action = "
-            let action_value %i32 action_id_value action
-            println_i32 action_value
-            print "counter value = "
-            let counter_value %i32 counter_model_value &model1
-            println_i32 counter_value
-            print "counter redraw target = "
-            let redraw_target %i32 counter_effect_redraw_target effect
-            println_i32 redraw_target
+            counter_print_status action model1 effect
         Result::Err _:
             println "counter gui protocol error"
+
+fn counter_event_loop %impure fn CounterModel unit \initial_model:
+    let mut model %CounterModel initial_model
+    let mut running %bool true
+    while running:
+        do:
+            match gui_web_wait_action 60000:
+                Option::Some action:
+                    let event %GuiEvent gui_event_action action
+                    let update %Update CounterModel counter_update model event
+                    let next_model %CounterModel *field::get_ref &update "model"
+                    match counter_present_frame next_model:
+                        Result::Ok _:
+                            set model next_model
+                        Result::Err _:
+                            println "counter gui protocol error";
+                            set running false
+                Option::None:
+                    unit
+
+fn main %impure fn unit unit \unit:
+    let model0 %CounterModel counter_model_new 0
+    if:
+        counter_has_once_flag
+        then:
+            counter_run_once model0
+        else:
+            match counter_present_frame model0:
+                Result::Ok _:
+                    counter_event_loop model0
+                Result::Err _:
+                    println "counter gui protocol error"

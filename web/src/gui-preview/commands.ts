@@ -22,6 +22,13 @@ export type GuiPreviewColor = {
 
 export type GuiPreviewTextAlign = 'left' | 'center' | 'right';
 
+export type GuiPreviewInputTarget =
+    | {
+        kind: 'action-rect';
+        rect: GuiPreviewRect;
+        actionId: number;
+    };
+
 export type GuiPreviewDrawCommand =
     | {
         kind: 'fill-rect';
@@ -42,6 +49,7 @@ export type GuiPreviewCommandFrame = {
     width: number;
     height: number;
     commands: GuiPreviewDrawCommand[];
+    inputTargets: GuiPreviewInputTarget[];
 };
 
 export function guiPreviewRgb(red: number, green: number, blue: number): GuiPreviewColor {

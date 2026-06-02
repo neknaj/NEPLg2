@@ -126,7 +126,7 @@ export class GuiFloatingWindowManager {
                 },
             };
         }
-        lookup.windowState.preview.presentHostFrame(decoded.value.frame);
+        lookup.windowState.preview.presentHostFrame(decoded.value.frame, decoded.value.windowId);
         lookup.windowState.source = source;
         this.updateTitle(lookup.windowState);
         this.focusWindow(id);

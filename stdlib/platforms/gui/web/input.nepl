@@ -1,0 +1,72 @@
+//: # platforms/gui/web/input
+//: Web Playground GUI input host boundary
+//:
+//: ### [目的/もくてき]
+//: - Web Playground host が保持する GUI event queue から、NEPLg2 app が action event を[取/と]り[出/だ]します。
+//: - raw host import はこの module に閉じ、application code には `Option ActionId` として公開します。
+//:
+//: ### [契約/けいやく]
+//: - event がある場合は `Option::Some action` を返します。
+//: - event がない場合、または host が GUI input queue を持たない場合は `Option::None` を返します。
+//: - raw host import の 0 以下 sentinel はこの module の境界内でだけ扱います。
+//:
+//: ### [現状/げんじょう]
+//: - Phase 1 では Web Playground の action event だけを扱います。
+//: - pointer position や window id は host queue に保持されていますが、NEPL public API へ渡す typed event record は後続 phase で追加します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #target std
+//:| #import "platforms/gui/web" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/app" as app
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+
+#extern "nepl_gui_web" "poll_action_id" fn gui_web_poll_action_id_raw %impure fn unit i32
+#extern "nepl_gui_web" "wait_action_id" fn gui_web_wait_action_id_raw %impure fn i32 i32
+
+//: gui_web_action_from_raw: host raw action id を `Option ActionId` へ[正規化/せいきか]する
+//:
+//: [目的/もくてき]:
+//: - host import が返す 0 以下の sentinel を public API に漏らさず、型付きの `Option ActionId` に変換します。
+//:
+//: [契約/けいやく]:
+//: - raw が 1 以上なら `Option::Some` を返します。
+//: - raw が 0 以下なら `Option::None` を返します。
+fn gui_web_action_from_raw %fn i32 Option ActionId \raw:
+    if:
+        gt raw 0
+        then:
+            Option::Some app::action_id raw
+        else:
+            Option::None
+
+//: gui_web_poll_action: GUI action event を非 blocking に[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - Web host queue に溜まった action event を 1 件だけ読みます。
+//: - event loop が別の work を進めたい場合に使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn gui_web_poll_action %impure fn unit Option ActionId \unit:
+    let raw %i32 gui_web_poll_action_id_raw
+    gui_web_action_from_raw raw
+
+//: gui_web_wait_action: GUI action event を待って[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - Web host queue に action event が来るまで、最大 timeout_ms だけ待ちます。
+//: - interactive app が busy loop を避けるために使います。
+//:
+//: [契約/けいやく]:
+//: - timeout_ms は 0 以上を渡します。負の値は host 側で 0 として扱われます。
+//: - event が来た場合は `Option::Some action`、timeout または unsupported の場合は `Option::None` を返します。
+pub fn gui_web_wait_action %impure fn i32 Option ActionId \timeout_ms:
+    let raw %i32 gui_web_wait_action_id_raw timeout_ms
+    gui_web_action_from_raw raw

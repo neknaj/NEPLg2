@@ -2,6 +2,7 @@ import {
     GuiPreviewColor,
     GuiPreviewCommandFrame,
     GuiPreviewDrawCommand,
+    GuiPreviewInputTarget,
     GuiPreviewRect,
     GuiPreviewTextAlign,
     guiPreviewRgba,
@@ -18,6 +19,7 @@ export type GuiWebHostDecodeErrorKind =
     | 'invalid-rect'
     | 'invalid-color'
     | 'invalid-text'
+    | 'invalid-input-target'
     | 'unsupported-command';
 
 export type GuiWebHostDecodeError = {
@@ -86,6 +88,10 @@ function decodeGuiWebHostFrameFromRecord(frame: UnknownRecord, context: DecodeCo
     if (commandValues.kind === 'err') {
         return commandValues;
     }
+    const inputTargetValues = readOptionalArray(frame, 'inputTargets', child(context, 'inputTargets'), 'invalid-frame');
+    if (inputTargetValues.kind === 'err') {
+        return inputTargetValues;
+    }
 
     const commands: GuiPreviewDrawCommand[] = [];
     for (let index = 0; index < commandValues.value.length; index += 1) {
@@ -95,6 +101,14 @@ function decodeGuiWebHostFrameFromRecord(frame: UnknownRecord, context: DecodeCo
         }
         commands.push(command.value);
     }
+    const inputTargets: GuiPreviewInputTarget[] = [];
+    for (let index = 0; index < inputTargetValues.value.length; index += 1) {
+        const inputTarget = decodeGuiWebHostInputTarget(inputTargetValues.value[index], child(context, `inputTargets.${index}`));
+        if (inputTarget.kind === 'err') {
+            return inputTarget;
+        }
+        inputTargets.push(inputTarget.value);
+    }
 
     return {
         kind: 'ok',
@@ -103,6 +117,7 @@ function decodeGuiWebHostFrameFromRecord(frame: UnknownRecord, context: DecodeCo
             width: width.value,
             height: height.value,
             commands,
+            inputTargets,
         },
     };
 }
@@ -123,6 +138,36 @@ function decodeGuiWebHostCommand(input: unknown, context: DecodeContext): GuiWeb
         return decodeGuiWebHostTextRun(command.value, context);
     }
     return err('unsupported-command', child(context, 'kind'), 'fill-rect or text-run', kind.value);
+}
+
+function decodeGuiWebHostInputTarget(input: unknown, context: DecodeContext): GuiWebHostResult<GuiPreviewInputTarget> {
+    const target = asRecord(input, context, 'invalid-input-target', 'object input target');
+    if (target.kind === 'err') {
+        return target;
+    }
+    const kind = readString(target.value, 'kind', child(context, 'kind'), 'invalid-input-target');
+    if (kind.kind === 'err') {
+        return kind;
+    }
+    if (kind.value !== 'action-rect') {
+        return err('invalid-input-target', child(context, 'kind'), 'action-rect', kind.value);
+    }
+    const rect = decodeGuiWebHostRect(target.value, child(context, 'rect'));
+    if (rect.kind === 'err') {
+        return remapDecodeErrorKind(rect.error, 'invalid-input-target');
+    }
+    const actionId = readPositiveInteger(target.value, 'actionId', child(context, 'actionId'), 'invalid-input-target');
+    if (actionId.kind === 'err') {
+        return actionId;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'action-rect',
+            rect: rect.value,
+            actionId: actionId.value,
+        },
+    };
 }
 
 function decodeGuiWebHostFillRect(command: UnknownRecord, context: DecodeContext): GuiWebHostResult<GuiPreviewDrawCommand> {
@@ -289,6 +334,13 @@ function readArray(record: UnknownRecord, name: string, context: DecodeContext, 
     return err(kind, context, 'array', actualType(value));
 }
 
+function readOptionalArray(record: UnknownRecord, name: string, context: DecodeContext, kind: GuiWebHostDecodeErrorKind): GuiWebHostResult<unknown[]> {
+    if (!Object.prototype.hasOwnProperty.call(record, name)) {
+        return { kind: 'ok', value: [] };
+    }
+    return readArray(record, name, context, kind);
+}
+
 function readString(record: UnknownRecord, name: string, context: DecodeContext, kind: GuiWebHostDecodeErrorKind): GuiWebHostResult<string> {
     const value = record[name];
     if (typeof value === 'string') {
@@ -372,6 +424,10 @@ function err(kind: GuiWebHostDecodeErrorKind, context: DecodeContext, expected: 
             actual,
         },
     };
+}
+
+function remapDecodeErrorKind(error: GuiWebHostDecodeError, kind: GuiWebHostDecodeErrorKind): GuiWebHostResult<never> {
+    return err(kind, { path: error.path }, error.expected, error.actual);
 }
 
 function actualType(value: unknown): string {

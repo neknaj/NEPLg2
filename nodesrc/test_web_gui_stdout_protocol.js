@@ -24,6 +24,7 @@ async function runWebGuiStdoutProtocolRegression() {
         "NEPLG2_GUI_FRAME_BEGIN 7 64 32 NEPL stdout frame\n",
         "NEPLG2_GUI_FILL_RECT 1 2 3 4 5 6 7 255\n",
         "NEPLG2_GUI_TEXT_RUN 8 9 10 center 11 12 13 255 Count 1\n",
+        "NEPLG2_GUI_ACTION_RECT 18 20 30 40 9\n",
         "NEPLG2_GUI_FRAME_END\n",
         "after frame\n",
     ].join(""));
@@ -34,11 +35,22 @@ async function runWebGuiStdoutProtocolRegression() {
     assert.equal(events[1].frame.windowId, 7);
     assert.equal(events[1].frame.title, "NEPL stdout frame");
     assert.equal(events[1].frame.commands.length, 2);
+    assert.equal(events[1].frame.inputTargets.length, 1);
     assert.equal(events[1].frame.commands[0].kind, "fill-rect");
     assert.equal(events[1].frame.commands[1].kind, "text-run");
     assert.equal(events[1].frame.commands[1].text, "Count 1");
+    assert.equal(events[1].frame.inputTargets[0].kind, "action-rect");
+    assert.equal(events[1].frame.inputTargets[0].actionId, 9);
     assert.equal(events[2].kind, "text");
     assert.equal(events[2].text, "after frame\n");
+
+    parser.reset();
+    events = parser.pushText("NEPLG2_GUI_SESSION_STATE counter:1\nNEPLG2_GUI_ANIMATE_MS 16\n");
+    assert.equal(events.length, 2);
+    assert.equal(events[0].kind, "session-state");
+    assert.equal(events[0].state, "counter:1");
+    assert.equal(events[1].kind, "animation-timer");
+    assert.equal(events[1].intervalMs, 16);
 
     parser.reset();
     events = [
@@ -77,6 +89,13 @@ async function runWebGuiStdoutProtocolRegression() {
     assert.equal(events[1].error.kind, "invalid-frame-state");
 
     parser.reset();
+    events = parser.pushText("NEPLG2_GUI_FRAME_BEGIN 1 10 10 Bad\nNEPLG2_GUI_ACTION_RECT 0 0 1 1 0\n");
+    assert.equal(events.length, 1);
+    assert.equal(events[0].kind, "error");
+    assert.equal(events[0].error.kind, "invalid-action-rect");
+    assert.equal(events[0].error.path, "$.actionId");
+
+    parser.reset();
     events = parser.pushText("NEPLG2_GUI_FRAME_BEGIN 1 10 10 Missing end\n");
     events.push(...parser.flush());
     assert.equal(events.length, 1);
@@ -88,6 +107,8 @@ async function runWebGuiStdoutProtocolRegression() {
     const panelSource = readRepoFile("web", "src", "gui-preview", "panel.ts");
     assert.match(protocolSource, /GuiWebStdoutProtocolParser/);
     assert.match(protocolSource, /NEPLG2_GUI_FRAME_BEGIN/);
+    assert.match(protocolSource, /NEPLG2_GUI_ACTION_RECT/);
+    assert.match(protocolSource, /NEPLG2_GUI_SESSION_STATE/);
     assert.match(protocolSource, /GuiWebStdoutProtocolErrorKind/);
     assert.match(shellSource, /GuiWebStdoutProtocolParser/);
     assert.match(shellSource, /presentGuiWebRuntimeFrame/);
@@ -112,6 +133,8 @@ async function runWebGuiStdoutProtocolRegression() {
         ok: true,
         checks: [
             "NEPL stdout GUI protocol decodes chunked frame output into typed command frames",
+            "NEPL stdout GUI protocol decodes action hit targets without drawing simulation",
+            "NEPL stdout GUI protocol decodes session state and animation timer events",
             "protocol errors are explicit discriminated error values",
             "Web shell presents NEPL-emitted frames without TS example simulation",
         ],

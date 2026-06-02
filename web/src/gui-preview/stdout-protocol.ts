@@ -1,6 +1,7 @@
 import {
     GuiPreviewCommandFrame,
     GuiPreviewDrawCommand,
+    GuiPreviewInputTarget,
     GuiPreviewTextAlign,
     guiPreviewRgba,
 } from './commands.js';
@@ -8,6 +9,9 @@ import {
 export const GUI_STDOUT_FRAME_BEGIN = 'NEPLG2_GUI_FRAME_BEGIN';
 export const GUI_STDOUT_FILL_RECT = 'NEPLG2_GUI_FILL_RECT';
 export const GUI_STDOUT_TEXT_RUN = 'NEPLG2_GUI_TEXT_RUN';
+export const GUI_STDOUT_ACTION_RECT = 'NEPLG2_GUI_ACTION_RECT';
+export const GUI_STDOUT_SESSION_STATE = 'NEPLG2_GUI_SESSION_STATE';
+export const GUI_STDOUT_ANIMATE_MS = 'NEPLG2_GUI_ANIMATE_MS';
 export const GUI_STDOUT_FRAME_END = 'NEPLG2_GUI_FRAME_END';
 
 export type GuiWebStdoutProtocolErrorKind =
@@ -15,6 +19,9 @@ export type GuiWebStdoutProtocolErrorKind =
     | 'invalid-frame-state'
     | 'invalid-fill-rect'
     | 'invalid-text-run'
+    | 'invalid-action-rect'
+    | 'invalid-session-state'
+    | 'invalid-animation-timer'
     | 'invalid-color'
     | 'unsupported-protocol-line';
 
@@ -28,6 +35,8 @@ export type GuiWebStdoutProtocolError = {
 export type GuiWebStdoutProtocolEvent =
     | { kind: 'text'; text: string }
     | { kind: 'frame'; frame: GuiPreviewCommandFrame & { windowId: number } }
+    | { kind: 'session-state'; state: string }
+    | { kind: 'animation-timer'; intervalMs: number }
     | { kind: 'error'; error: GuiWebStdoutProtocolError };
 
 type GuiWebStdoutProtocolState =
@@ -39,6 +48,7 @@ type GuiWebStdoutProtocolState =
         width: number;
         height: number;
         commands: GuiPreviewDrawCommand[];
+        inputTargets: GuiPreviewInputTarget[];
     };
 
 type ProtocolResult<Value> =
@@ -111,6 +121,15 @@ export class GuiWebStdoutProtocolParser {
         if (line.startsWith(GUI_STDOUT_TEXT_RUN)) {
             return this.handleTextRun(line);
         }
+        if (line.startsWith(GUI_STDOUT_ACTION_RECT)) {
+            return this.handleActionRect(line);
+        }
+        if (line.startsWith(GUI_STDOUT_SESSION_STATE)) {
+            return this.handleSessionState(line);
+        }
+        if (line.startsWith(GUI_STDOUT_ANIMATE_MS)) {
+            return this.handleAnimationTimer(line);
+        }
         return [{
             kind: 'error',
             error: err('unsupported-protocol-line', '$.line', 'known GUI protocol command', line),
@@ -149,6 +168,7 @@ export class GuiWebStdoutProtocolParser {
             width: width.value,
             height: height.value,
             commands: [],
+            inputTargets: [],
         };
         return [];
     }
@@ -170,6 +190,7 @@ export class GuiWebStdoutProtocolParser {
                 width: frame.width,
                 height: frame.height,
                 commands: frame.commands,
+                inputTargets: frame.inputTargets,
             },
         }];
     }
@@ -190,6 +211,22 @@ export class GuiWebStdoutProtocolParser {
         return [];
     }
 
+    private handleActionRect(line: string): GuiWebStdoutProtocolEvent[] {
+        if (this.state.kind === 'idle') {
+            return [{
+                kind: 'error',
+                error: err('invalid-frame-state', '$', GUI_STDOUT_FRAME_BEGIN, GUI_STDOUT_ACTION_RECT),
+            }];
+        }
+        const tokens = splitFields(line);
+        const parsed = parseActionRect(tokens);
+        if (parsed.kind === 'err') {
+            return this.abortFrameWithError(parsed.error);
+        }
+        this.state.inputTargets.push(parsed.value);
+        return [];
+    }
+
     private handleTextRun(line: string): GuiWebStdoutProtocolEvent[] {
         if (this.state.kind === 'idle') {
             return [{
@@ -206,10 +243,64 @@ export class GuiWebStdoutProtocolParser {
         return [];
     }
 
+    private handleSessionState(line: string): GuiWebStdoutProtocolEvent[] {
+        if (this.state.kind === 'building-frame') {
+            return this.abortFrameWithError(
+                err('invalid-frame-state', '$', GUI_STDOUT_FRAME_END, GUI_STDOUT_SESSION_STATE),
+            );
+        }
+        const tokens = splitFields(line);
+        const state = readRest(tokens, 1, '$.state', 'invalid-session-state');
+        if (state.kind === 'err') {
+            return [{ kind: 'error', error: state.error }];
+        }
+        return [{ kind: 'session-state', state: state.value }];
+    }
+
+    private handleAnimationTimer(line: string): GuiWebStdoutProtocolEvent[] {
+        if (this.state.kind === 'building-frame') {
+            return this.abortFrameWithError(
+                err('invalid-frame-state', '$', GUI_STDOUT_FRAME_END, GUI_STDOUT_ANIMATE_MS),
+            );
+        }
+        const tokens = splitFields(line);
+        const intervalMs = readNonNegativeInteger(tokens, 1, '$.intervalMs', 'invalid-animation-timer');
+        if (intervalMs.kind === 'err') {
+            return [{ kind: 'error', error: intervalMs.error }];
+        }
+        return [{ kind: 'animation-timer', intervalMs: intervalMs.value }];
+    }
+
     private abortFrameWithError(error: GuiWebStdoutProtocolError): GuiWebStdoutProtocolEvent[] {
         this.state = { kind: 'idle' };
         return [{ kind: 'error', error }];
     }
+}
+
+function parseActionRect(tokens: string[]): ProtocolResult<GuiPreviewInputTarget> {
+    const x = readInteger(tokens, 1, '$.rect.x', 'invalid-action-rect');
+    if (x.kind === 'err') return x;
+    const y = readInteger(tokens, 2, '$.rect.y', 'invalid-action-rect');
+    if (y.kind === 'err') return y;
+    const width = readNonNegativeInteger(tokens, 3, '$.rect.width', 'invalid-action-rect');
+    if (width.kind === 'err') return width;
+    const height = readNonNegativeInteger(tokens, 4, '$.rect.height', 'invalid-action-rect');
+    if (height.kind === 'err') return height;
+    const actionId = readPositiveInteger(tokens, 5, '$.actionId', 'invalid-action-rect');
+    if (actionId.kind === 'err') return actionId;
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'action-rect',
+            rect: {
+                x: x.value,
+                y: y.value,
+                width: width.value,
+                height: height.value,
+            },
+            actionId: actionId.value,
+        },
+    };
 }
 
 function parseFillRect(tokens: string[]): ProtocolResult<GuiPreviewDrawCommand> {

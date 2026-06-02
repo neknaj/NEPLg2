@@ -1,6 +1,8 @@
 import { decodeGuiWebHostFrame } from './host-bridge.js';
 import type { GuiPreviewCommandFrame, GuiPreviewDrawCommand } from './commands.js';
 import type { GuiWebHostDecodeError, GuiWebHostResult } from './host-bridge.js';
+import { resetGuiWebInputEvents, takeGuiWebInputEvents } from './input-bridge.js';
+import type { GuiWebInputEvent, GuiWebInputResult } from './input-bridge.js';
 
 export type GuiWebRuntimePresenter = {
     presentHostFrame: (input: unknown) => GuiWebHostResult<string>;
@@ -17,6 +19,8 @@ export type GuiWebRuntimeBridge = {
     pushCommand: (input: unknown) => GuiWebRuntimeResult<'pushed'>;
     endFrame: (input: unknown) => GuiWebRuntimeResult<string>;
     discardFrame: (input: unknown) => GuiWebRuntimeResult<'discarded'>;
+    takeInputEvents: () => GuiWebInputResult<GuiWebInputEvent[]>;
+    resetInputEvents: () => GuiWebInputResult<'reset'>;
 };
 
 export type GuiWebRuntimeErrorKind =
@@ -65,6 +69,8 @@ export const guiWebRuntimeBridge: GuiWebRuntimeBridge = {
     pushCommand: pushGuiWebRuntimeCommand,
     endFrame: endGuiWebRuntimeFrame,
     discardFrame: discardGuiWebRuntimeFrame,
+    takeInputEvents: takeGuiWebInputEvents,
+    resetInputEvents: resetGuiWebInputEvents,
 };
 
 export function registerGuiWebRuntimePresenter(presenter: GuiWebRuntimePresenter): GuiWebRuntimeBridge {
@@ -170,6 +176,7 @@ export function endGuiWebRuntimeFrame(input: unknown): GuiWebRuntimeResult<strin
         width: frame.value.width,
         height: frame.value.height,
         commands: frame.value.commands,
+        inputTargets: [],
     };
     const presented = presentGuiWebRuntimeFrame(presentedFrame);
     if (presented.kind === 'ok') {

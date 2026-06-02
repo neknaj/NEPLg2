@@ -1,3 +1,14 @@
+# 2026-06-02 Agent2 Web GUI input event bridge checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`null` / `undefined` 禁止、enum / struct / Result による静的検査、契約と現状実装の分離方針を再確認してから作業した。
+- ユーザー指摘の通り、TS による `examples/*.nepl` の simulation は GUI example 実行として扱わない。現在の Run 経路では、`examples/gui_mandelbrot.nepl`、`examples/gui_life.nepl`、`examples/gui_counter.nepl` が NEPL として実行され、stdout frame protocol を通して floating GUI window を開く。
+- `commands.ts` の command frame に `inputTargets` を追加し、Web / stdout frame の input hit target を typed data として持てるようにした。Counter の button 領域は `NEPLG2_GUI_ACTION_RECT` で `ActionId` 1 として出力される。
+- `host-bridge.ts` と `stdout-protocol.ts` は input target / action rect を typed Result で decode し、invalid input target / invalid action rect を string parse の副作用や silent no-op ではなく typed error として返す。
+- `input-bridge.ts` は DOM / Canvas に依存しない typed queue として `GuiWebInputEvent::action` を保持する。`runtime-bridge.ts` は global `neplGuiHost.takeInputEvents` / `resetInputEvents` を公開し、Web 側で queue された入力を JS shim / formal ABI 側が取り出せる境界を持つ。
+- `panel.ts` は host frame 表示中に compatibility scene を生成せず、NEPL 実行が出した command frame の `inputTargets` だけを hit test して typed input queue へ入れる。
+- この checkpoint でも、queued input event を long-running NEPL app の `GuiEvent` / `ActionId` update loop へ再投入し、resolution 指定、Life の next step / animate、Counter の button click で NEPL 側再描画を起こす接続は未実装である。残件は `todo.md` に「NEPL update loop への再投入」として残した。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、Web 側 input bridge は hit target decode と typed queue まで実装済み、formal host import ABI と NEPL update loop 再投入は未実装という状態に合わせて更新した。
+
 # 2026-06-02 Agent2 Web GUI NEPL stdout host bridge checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`null` / `undefined` 禁止、enum / struct による静的検査、契約と現状実装の分離方針を再確認してから作業した。
@@ -49580,3 +49591,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - per-function timing は `tmp\rpn_cold_base_operator_values_sb_split_20260602_per_function.txt` で、計測 overhead 込みの `resource_static_check=5453ms` だった。上位は `dealloc_raw` raw-init `498ms`、`apply_op` raw-init `426ms`、`sb_append_non_empty_result` i32 scalar `320ms`、`byte_builder_push_bytes_ref` raw-init `232ms`、`byte_builder_reserve` i32 scalar `183ms` である。
 - 今回の改善で `apply_op` raw-init は `611ms` から `426ms` へ下がり、`sb_append_result` wrapper は `3ms` になった。ただし RPN cold base はまだ 5 秒前後であり、base 0.5 秒未満には actual `.neplproof` artifact の bundled / persistent preseed と stdlib proof template が必要である。
 - focused verification は `node nodesrc/tests.js -i stdlib/alloc/string/builder/append.nepl -i examples/rpn.nepl --no-tree -o tmp/rpn-operator-values-sb-split-tests-20260602.json -j 2` を通した。Rust / Web source は変更していないため trunk build はこの focused checkpoint では実行していない。commit 前に issue check と diff check を再実行する。
+## 2026-06-02 Agent2 Web GUI interactive input host import checkpoint
+
+- Zenn 記事の platform 境界、Option/Result/enum による静的検査、副作用表層化の方針と、`doc/neplg2/gui_standard_library_spec.md` / `doc/neplg2/gui_tui_implementation_plan.md` を再確認した。subagent review は条件付き承認で、busy spin 回避、raw sentinel の public API 漏れ防止、Web-only host import 名、run/session queue reset、TS simulation 禁止を修正条件として確認した。
+- Web Playground は `GuiWebInputEvent::action` を `web/src/gui-preview/input-bridge.ts` の typed listener 経由で `shared-event-queue.ts` の SharedArrayBuffer ring buffer へ渡す。`web/src/terminal/shell.ts` は run-wasm 中だけ queue を active にし、開始時に reset、終了時に inactive に戻すため、古い click が次の実行へ流れない。
+- `web/src/runtime/worker.ts` は Web-only MVP host import module `nepl_gui_web` に `poll_action_id` / `wait_action_id` を追加した。`wait_action_id` は Atomics wait を使うため、NEPL app が空 poll busy loop にならず worker 内で event を待てる。
+- `stdlib/platforms/gui/web/input.nepl` は raw host import の 0 sentinel を `Option ActionId` へ正規化する。raw i32 は `platforms/gui/web` の境界内だけに閉じ、application code は `gui_web_wait_action` を使う。
+- `examples/gui_counter.nepl` は通常実行では NEPL 側 event loop を継続し、button click ごとに `counter_update` と stdout fallback render を再実行する。doctest では `--once` で 1 回だけ update/render して終了するため、test runner は hang しない。
+- stdout frame protocol は presentation fallback として維持している。正式な host import presentation ABI、full `GuiEvent` poll ABI、Life next/animate、Mandelbrot resolution/progressive rendering は未完了である。
+- 追加検証: `nodesrc/test_web_gui_shared_event_queue.js` は FIFO / overflow、worker import、stdlib wrapper、TS simulation 禁止を確認する。`nodesrc/run_test.js` は doctest 用に `nepl_gui_web` の no-event stub を持つ。

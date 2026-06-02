@@ -1,5 +1,6 @@
 import {
     GuiPreviewDrawCommand,
+    GuiPreviewInputTarget,
     GuiPreviewKind,
     guiPreviewRgb,
 } from './commands.js';
@@ -40,6 +41,7 @@ export type GuiPreviewScene = {
     width: number;
     height: number;
     commands: GuiPreviewDrawCommand[];
+    inputTargets: GuiPreviewInputTarget[];
     hitTargets: GuiPreviewHitTarget[];
     metrics: GuiPreviewMetrics;
 };
@@ -120,6 +122,7 @@ function createMandelbrotScene(): GuiPreviewScene {
         width: width * cellSize,
         height: height * cellSize,
         commands,
+        inputTargets: [],
         hitTargets: [],
         metrics: {
             kind: 'mandelbrot',
@@ -205,6 +208,7 @@ function createLifeScene(): GuiPreviewScene {
         width: width * cellSize - 2,
         height: height * cellSize - 2,
         commands,
+        inputTargets: [],
         hitTargets: [],
         metrics: {
             kind: 'life',
@@ -303,6 +307,9 @@ function createCounterScene(counterValue: number): GuiPreviewScene {
         width: 220,
         height: 142,
         commands,
+        inputTargets: [
+            { kind: 'action-rect', rect: { x: 18, y: 88, width: 184, height: 34 }, actionId: 1 },
+        ],
         hitTargets: [
             { x: 18, y: 88, width: 184, height: 34, action: 'increment-counter' },
         ],

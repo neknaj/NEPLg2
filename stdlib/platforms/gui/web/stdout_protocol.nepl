@@ -72,6 +72,10 @@ fn gui_web_stdout_rect_is_invalid %fn &GuiRect bool \rect:
     let invalid_height %bool lt height 0
     or invalid_width invalid_height
 
+fn gui_web_stdout_action_is_invalid %fn ActionId bool \action:
+    let raw %i32 action_id_raw &action
+    le raw 0
+
 //: gui_web_stdout_frame_begin: GUI frame protocol の開始行を出力する
 //:
 //: [契約/けいやく]:
@@ -217,3 +221,37 @@ pub fn gui_web_stdout_text_i32 %impure fn GuiPoint impure fn i32 impure fn GuiWe
             print " ";
             println_i32 value;
             Result::Ok unit
+
+//: gui_web_stdout_action_rect: action hit target を 1 行で出力する
+//:
+//: [契約/けいやく]:
+//: - rect の width と height は 0 以上です。
+//: - action id は 1 以上です。0 は未設定 sentinel として扱うため `GuiError::InvalidGeometry` を返します。
+//: - Web host はこの行を drawing command ではなく input target として decode します。
+pub fn gui_web_stdout_action_rect %impure fn GuiRect impure fn ActionId Result unit GuiError \rect\action:
+    if:
+        gui_web_stdout_rect_is_invalid &rect
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            if:
+                gui_web_stdout_action_is_invalid action
+                then:
+                    Result::Err GuiError::InvalidGeometry
+                else:
+                    let rect_x %i32 gui_rect_x &rect
+                    let rect_y %i32 gui_rect_y &rect
+                    let rect_width %i32 gui_rect_width &rect
+                    let rect_height %i32 gui_rect_height &rect
+                    let action_raw %i32 action_id_raw &action
+                    print "NEPLG2_GUI_ACTION_RECT ";
+                    print_i32 rect_x;
+                    print " ";
+                    print_i32 rect_y;
+                    print " ";
+                    print_i32 rect_width;
+                    print " ";
+                    print_i32 rect_height;
+                    print " ";
+                    println_i32 action_raw;
+                    Result::Ok unit
