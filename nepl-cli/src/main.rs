@@ -4,6 +4,7 @@ use std::io::{self, Read, Write};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
 use std::path::{Component, Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -533,6 +534,7 @@ fn panic_payload_message(payload: &(dyn std::any::Any + Send + 'static)) -> Stri
 }
 
 fn execute_inner(cli: Cli) -> Result<()> {
+    let _execute_stage = CliStageGuard::new("execute_inner");
     nepl_core::log::set_verbose(cli.verbose);
     if let Some(Command::Test(args)) = cli.command {
         return run_tests(args, cli.verbose, cli.stdlib_root.as_deref());
@@ -547,7 +549,9 @@ fn execute_inner(cli: Cli) -> Result<()> {
             "Either --run, --check or --output is required"
         ));
     }
+    let stage = cli_stage_start();
     let std_root = stdlib_root(cli.stdlib_root.as_deref())?;
+    cli_stage_finish("stdlib_root", stage);
     let target_override = cli.target.as_deref().map(|t| match t {
         "wasm" | "core" => CompileTarget::Wasm,
         "wasi" | "std" => CompileTarget::Wasi,
@@ -562,6 +566,7 @@ fn execute_inner(cli: Cli) -> Result<()> {
     let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
     let program_name = cli.input.clone().unwrap_or_else(|| "<stdin>".to_string());
     let input_path = cli.input.clone();
+    let stage = cli_stage_start();
     let pre_load_check_cache_path = if cli.check {
         match (&input_path, target_override) {
             (Some(path), Some(target)) => ExactCheckCacheProbe::path_for_input(
@@ -575,13 +580,18 @@ fn execute_inner(cli: Cli) -> Result<()> {
     } else {
         None
     };
+    cli_stage_finish("exact_check_path_probe", stage);
     if let Some(path) = pre_load_check_cache_path.as_ref() {
+        let stage = cli_stage_start();
         if ExactCheckCacheProbe::hit_manifest_at(path) {
+            cli_stage_finish("exact_check_preload_hit_probe", stage);
             cli_verbose!(cli.verbose, "DEBUG: pre-load exact --check cache hit");
             println!("Check successful");
             return Ok(());
         }
+        cli_stage_finish("exact_check_preload_hit_probe", stage);
     }
+    let stage = cli_stage_start();
     let (module, source_map) = match &cli.input {
         Some(path) => {
             cli_verbose!(cli.verbose, "DEBUG: Creating Loader for path: {}", path);
@@ -617,6 +627,7 @@ fn execute_inner(cli: Cli) -> Result<()> {
             }
         }
     };
+    cli_stage_finish("loader_load", stage);
 
     let mut emits = expand_emits(&cli.emit);
 
@@ -640,23 +651,29 @@ fn execute_inner(cli: Cli) -> Result<()> {
         profile,
     };
     if is_check {
+        let stage = cli_stage_start();
         let exact_check_cache = ExactCheckCacheProbe::new(
             &source_map,
             run_target,
             active_profile,
             pre_load_check_cache_path,
         );
-        if exact_check_cache
+        cli_stage_finish("exact_check_manifest_build", stage);
+        let stage = cli_stage_start();
+        let exact_check_manifest_hit = exact_check_cache
             .as_ref()
-            .is_some_and(ExactCheckCacheProbe::hit)
-        {
+            .is_some_and(ExactCheckCacheProbe::hit);
+        cli_stage_finish("exact_check_manifest_hit_probe", stage);
+        if exact_check_manifest_hit {
             cli_verbose!(cli.verbose, "DEBUG: exact --check cache hit");
             println!("Check successful");
             return Ok(());
         }
+        let stage = cli_stage_start();
         let proof_cache = input_path.as_ref().and_then(|path| {
             ResourceProofCacheProbe::new(Path::new(path), &std_root, run_target, active_profile)
         });
+        cli_stage_finish("proof_cache_probe", stage);
         let use_proof_cache = proof_cache
             .as_ref()
             .is_some_and(|cache| cache.has_preseed_bytes() || cache.should_bootstrap_on_miss());
@@ -671,13 +688,17 @@ fn execute_inner(cli: Cli) -> Result<()> {
                     .only_after_accepted_preseed(),
                 None => ResourceSummaryProofArtifactCacheOptions::none(),
             };
-            match check_module_with_source_map_resource_summary_value_cache_and_neplproof(
-                module,
-                Some(&source_map),
-                options,
-                Some(&mut resource_summary_value_cache),
-                proof_options,
-            ) {
+            let stage = cli_stage_start();
+            let check_result =
+                check_module_with_source_map_resource_summary_value_cache_and_neplproof(
+                    module,
+                    Some(&source_map),
+                    options,
+                    Some(&mut resource_summary_value_cache),
+                    proof_options,
+                );
+            cli_stage_finish("check_pipeline", stage);
+            match check_result {
                 Ok(result) => {
                     if let Some(report) = result.resource_summary_proof_preseed_report {
                         cli_verbose!(
@@ -696,9 +717,11 @@ fn execute_inner(cli: Cli) -> Result<()> {
                             result.resource_summary_proof_preseed_report,
                             cache_stats,
                         ) {
+                            let stage = cli_stage_start();
                             let artifact = resource_summary_value_cache
                                 .export_neplproof_artifact(result.resource_summary_proof_header);
                             cache.store_artifact(&artifact)?;
+                            cli_stage_finish("proof_cache_export_store", stage);
                         } else {
                             cli_verbose!(
                                 cli.verbose,
@@ -707,7 +730,9 @@ fn execute_inner(cli: Cli) -> Result<()> {
                         }
                     }
                     if let Some(cache) = exact_check_cache.as_ref() {
+                        let stage = cli_stage_start();
                         cache.store_success()?;
+                        cli_stage_finish("exact_check_store", stage);
                     }
                     println!("Check successful");
                     return Ok(());
@@ -721,10 +746,15 @@ fn execute_inner(cli: Cli) -> Result<()> {
                 }
             }
         }
-        match check_module_with_source_map(module, Some(&source_map), options) {
+        let stage = cli_stage_start();
+        let check_result = check_module_with_source_map(module, Some(&source_map), options);
+        cli_stage_finish("check_pipeline", stage);
+        match check_result {
             Ok(()) => {
                 if let Some(cache) = exact_check_cache.as_ref() {
+                    let stage = cli_stage_start();
                     cache.store_success()?;
+                    cli_stage_finish("exact_check_store", stage);
                 }
                 println!("Check successful");
                 return Ok(());
@@ -836,6 +866,44 @@ fn execute_inner(cli: Cli) -> Result<()> {
         }
     }
     Ok(())
+}
+
+struct CliStageGuard {
+    stage: &'static str,
+    start: Option<Instant>,
+}
+
+impl CliStageGuard {
+    fn new(stage: &'static str) -> Self {
+        Self {
+            stage,
+            start: cli_stage_start(),
+        }
+    }
+}
+
+impl Drop for CliStageGuard {
+    fn drop(&mut self) {
+        cli_stage_finish(self.stage, self.start.take());
+    }
+}
+
+fn cli_stage_start() -> Option<Instant> {
+    cli_stage_timing_enabled().then(Instant::now)
+}
+
+fn cli_stage_finish(stage: &str, start: Option<Instant>) {
+    if let Some(start) = start {
+        eprintln!("[cli-stage] {}={}us", stage, start.elapsed().as_micros());
+    }
+}
+
+fn cli_stage_timing_enabled() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var_os("NEPL_CLI_STAGE_TIMING").is_some()
+            || std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some()
+    })
 }
 
 fn run_tests(args: TestArgs, verbose: bool, stdlib_root_override: Option<&Path>) -> Result<()> {

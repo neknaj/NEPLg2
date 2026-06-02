@@ -3744,6 +3744,52 @@ proof decode / process overhead を base compile 前から減らすことであ�
 `.neplmeta` / `.neplproof` preseed と typecheck/interface artifact であり、`.neplproof` store policy
 だけでは base compile 目標を満たせない。
 
+2026-06-02 の RPN loader/process-directives checkpoint では、Resource static check が 0.4 秒前後へ
+下がった後の native CLI wall-clock を分解した。`NEPL_CLI_STAGE_TIMING=1` を追加し、
+`NEPL_COMPILE_STAGE_TIMING=1` と同じ run で CLI 外枠の `loader_load`、proof cache read、
+check pipeline を測れるようにした。proof cache read は RPN で約 `0.7-0.9ms` しかなく、
+支配点ではなかった。
+
+一時的な loader 詳細計測では、`loader_load` 約 `450ms` のほとんどが `load_file_tree` で、
+root `examples/rpn.nepl` の `process_directives` が約 `401ms` を占めた。これは import/prelude/include
+された module body を親 module へ merge する際に `directives` / `root.items` / `Module` 全体を
+clone していたこと、さらに stdlib-heavy program では body merge そのものが大きいことを示す。
+詳細 loader timing hook は通常 run の固定費になるため残さず、測定結果だけをこの節に残す。
+
+対応として、`process_directives` と provider-backed `process_directives_with` は、所有している
+`Module` を分解して再構築する形にした。import/include した module の中身を親へ渡す処理は
+`append_loaded_module_contents` にまとめ、`#entry` / `#target` / `#indent` の file-scoped directive を
+親へ伝播しない既存仕様を維持した。さらに RPN は必要 dependency を明示 import しているため、
+`examples/rpn.nepl` に `#no_prelude` を追加して default prelude の自動注入を避けた。
+
+最終 release CLI で専用 `.neplproof` cache を bootstrap し直した RPN proof-backed run は次の通りである。
+exact `.neplcheck` は無効化し、`.neplproof` preseed と loader/check pipeline の実時間を測っている。
+
+```text
+RPN proof-backed native wall-clock after loader/process-directives cleanup
+  stage timing enabled:
+    wall-clock runs: 968.434ms / 960.807ms / 1024.325ms / 1012.376ms / 900.397ms
+    wall-clock median: 968.434ms
+    loader_load median: 421.186ms
+    check_pipeline median: 539.710ms
+      resource_typecheck median: 130ms
+      resource_static_check median: 379ms
+        resource_initialized_moves median-near: 214ms
+        resource_owner_obligations median-near: 53ms
+    proof_cache_read: about 0.7-0.9ms
+
+  no stage timing:
+    runs: 896.264ms / 999.762ms / 890.711ms / 971.797ms / 997.530ms /
+          992.493ms / 994.404ms / 888.448ms / 945.789ms / 889.620ms /
+          992.704ms / 950.586ms / 996.466ms / 958.770ms
+    median: 965.283ms
+```
+
+この checkpoint でも 0.5 秒未満には届かない。`resource_static_check` は `.neplproof` により
+約 `0.34-0.39s` まで下がっているため、次の大きい削減対象は `loader_load` 約 `0.39-0.44s` と
+`resource_typecheck` 約 `0.13-0.15s` である。したがって次の主経路は、stdlib body merge と
+依存先再 typecheck を避ける bundled stdlib `.neplmeta` / typed interface artifact である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

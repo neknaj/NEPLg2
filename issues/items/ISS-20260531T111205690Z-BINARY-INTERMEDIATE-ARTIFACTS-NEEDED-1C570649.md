@@ -837,3 +837,23 @@ RPN no-stage wall-clock 15 run の中央値は `1048.574ms` であり、stage ti
 store skip は同一 artifact への不要 I/O と競合窓を減らす正しい policy だが、binary intermediate
 artifact issue の本筋はまだ loader / typecheck / proof decode を含む base compile 前半である。次は
 bundled stdlib `.neplmeta` / `.neplproof` preseed と typecheck/interface artifact を優先する。
+
+2026-06-02 の RPN loader/process-directives checkpoint では、native CLI の cold base を
+`NEPL_CLI_STAGE_TIMING=1` で分解し、`.neplproof` read が RPN では約 `0.7-0.9ms` しかないことを確認した。
+同じ release CLI の proof-backed run では、stage timing 付き 5 run の wall-clock 中央値が `968.434ms`、
+no-stage 14 run の wall-clock 中央値が `965.283ms` だった。階層は `loader_load=421.186ms`、
+`check_pipeline=539.710ms`、`resource_typecheck=130ms`、`resource_static_check=379ms` であり、
+binary intermediate artifact の次の削減対象は proof cache I/O ではなく loader / dependency surface /
+typecheck 境界である。
+
+一時的な loader 詳細計測では、`loader_load` 約 `450ms` のほとんどが `load_file_tree` で、root
+`examples/rpn.nepl` の `process_directives` が約 `401ms` を占めた。`process_directives` と
+`process_directives_with` は所有済み `Module` の `directives` / `root.items` を clone せず move して
+再構築する形へ修正し、`examples/rpn.nepl` には明示 import と整合する `#no_prelude` を追加した。
+それでも wall-clock はまだ約 `0.96s` であり、この checkpoint は `.neplmeta` / typed interface artifact
+の必要性を強める結果である。
+
+したがって、この issue の次 checkpoint は、native CLI `--check` が bundled stdlib `.neplmeta` または
+materialized typed public surface から依存先 environment を構成し、stdlib body merge と依存先再
+typecheck を避ける設計・実装である。`.neplobj` や codegen fragment より前に、`import` / `prelude` を
+interface boundary として扱えるようにする。

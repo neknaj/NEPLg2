@@ -9,7 +9,8 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::OnceLock;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use nepl_core::{
@@ -40,13 +41,24 @@ impl ResourceProofCacheProbe {
         target: CompileTarget,
         profile: BuildProfile,
     ) -> Option<Self> {
+        let stage = proof_cache_stage_start();
         if proof_cache_disabled() {
+            proof_cache_stage_finish("proof_cache_new_disabled", stage);
             return None;
         }
-        let path = Self::path_for_input(input_path, std_root, target, profile)?;
+        let path_stage = proof_cache_stage_start();
+        let Some(path) = Self::path_for_input(input_path, std_root, target, profile) else {
+            proof_cache_stage_finish("proof_cache_path", path_stage);
+            proof_cache_stage_finish("proof_cache_new_no_path", stage);
+            return None;
+        };
+        proof_cache_stage_finish("proof_cache_path", path_stage);
+        let read_stage = proof_cache_stage_start();
         let preseed_bytes = fs::read(&path).ok();
+        proof_cache_stage_finish("proof_cache_read", read_stage);
         let bootstrap_on_miss =
             preseed_bytes.is_none() && std::env::var_os(NEPL_BOOTSTRAP_PROOF_CACHE_ENV).is_some();
+        proof_cache_stage_finish("proof_cache_new", stage);
         Some(Self {
             path,
             preseed_bytes,
@@ -110,10 +122,13 @@ impl ResourceProofCacheProbe {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;
         }
+        let encode_stage = proof_cache_stage_start();
         let bytes = artifact
             .to_neplproof_bytes()
             .map_err(|err| anyhow::anyhow!("failed to encode .neplproof artifact: {err:?}"))?;
+        proof_cache_stage_finish("proof_cache_encode", encode_stage);
         let tmp = self.path.with_extension("neplproof.tmp");
+        let write_stage = proof_cache_stage_start();
         fs::write(&tmp, bytes)?;
         match fs::remove_file(&self.path) {
             Ok(()) => {}
@@ -121,6 +136,7 @@ impl ResourceProofCacheProbe {
             Err(err) => return Err(err.into()),
         }
         fs::rename(tmp, &self.path)?;
+        proof_cache_stage_finish("proof_cache_write", write_stage);
         Ok(())
     }
 
@@ -144,6 +160,24 @@ fn proof_cache_disabled() -> bool {
     std::env::var_os(NEPL_DISABLE_PROOF_CACHE_ENV).is_some()
         || std::env::var_os("NEPL_RESOURCE_PER_FUNCTION_TIMING").is_some()
         || std::env::var_os("NEPL_RESOURCE_OP_TIMING").is_some()
+}
+
+fn proof_cache_stage_start() -> Option<Instant> {
+    proof_cache_stage_timing_enabled().then(Instant::now)
+}
+
+fn proof_cache_stage_finish(stage: &str, start: Option<Instant>) {
+    if let Some(start) = start {
+        eprintln!("[cli-stage] {}={}us", stage, start.elapsed().as_micros());
+    }
+}
+
+fn proof_cache_stage_timing_enabled() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var_os("NEPL_CLI_STAGE_TIMING").is_some()
+            || std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some()
+    })
 }
 
 fn proof_stats_observed_new_stable_entries(stats: ResourceSummaryValueCacheStats) -> bool {

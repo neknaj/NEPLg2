@@ -1,3 +1,16 @@
+# 2026-06-02 RPN loader/process-directives cold base checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、RPN cold base の支配点を Resource IR だけでなく native CLI / loader / proof I/O まで分解した。
+- `NEPL_CLI_STAGE_TIMING=1` を追加し、native CLI の `stdlib_root`、exact check cache probe、loader、proof cache read、check pipeline、proof export/store を `us` 単位で測れるようにした。`NEPL_COMPILE_STAGE_TIMING=1` でも同じ CLI stage を出すため、既存 Resource stage と同じ run で階層を比較できる。
+- `ResourceProofCacheProbe` も path 算出、`.neplproof` read、encode/write を分けて測る。RPN proof-backed run では `.neplproof` read は約 `0.7-0.9ms` で、現時点の支配点ではない。
+- 一時的な loader 詳細計測では、`loader_load` 約 `450ms` のほとんどが `load_file_tree` で、`process_directives` の再帰的な import/prelude/include merge が支配的だった。特に root `examples/rpn.nepl` の directive processing は約 `401ms` だった。詳細計測 hook は通常 run の固定費になるため commit 対象から外し、結果だけ記録した。
+- `process_directives` / `process_directives_with` は `Module` を所有しているにもかかわらず `directives` / `root.items` / `module` 全体を clone していたため、所有値を分解して再構築する形へ変更した。file-scoped な `#entry` / `#target` / `#indent` を親へ伝播しない既存仕様は `append_loaded_module_contents` にまとめて維持している。
+- `examples/rpn.nepl` は必要 module を明示 import しているため、default prelude を読み込まない `#no_prelude` を追加した。到達関数数は `271 kept=268` のままで Resource graph は大きく変わらないが、loader input surface は少し小さくなる。
+- 最終 release CLI で専用 `.neplproof` cache を作り直した proof-backed RPN stage 5 run は、wall-clock `968.434ms / 960.807ms / 1024.325ms / 1012.376ms / 900.397ms`、中央値 `968.434ms`。階層中央値付近は `loader_load=421.186ms`、`check_pipeline=539.710ms`、`resource_typecheck=130ms`、`resource_static_check=379ms`、`proof_cache_read=0.752-0.828ms`。
+- 同じ proof cache の no-stage 14 run は `896.264ms / 999.762ms / 890.711ms / 971.797ms / 997.53ms / 992.493ms / 994.404ms / 888.448ms / 945.789ms / 889.62ms / 992.704ms / 950.586ms / 996.466ms / 958.77ms`、中央値 `965.283ms`。
+- この checkpoint でも RPN cold base は 0.5 秒未満ではない。`resource_static_check` は `.neplproof` で約 `0.34-0.39s` まで下がっているため、次の主経路は loader が stdlib body を merge する時間と typecheck の `0.13-0.15s` を `.neplmeta` / interface artifact で削ることである。
+- focused verification は `cargo check -p nepl-cli`、`cargo test -p nepl-cli --bin nepl-cli proof_cache -- --nocapture`、`cargo test -p nepl-core loader --lib -- --nocapture`、loader cache 境界 exact test 2 件、`cargo build -p nepl-cli --release`、`node nodesrc\tests.js -i examples\rpn.nepl --no-tree -o tmp\rpn-loader-process-directives-rpn-final-20260602.json -j 2 --assert-io`、release CLI の RPN `--check`、`node nodesrc\issues.js check --dir issues`、`git diff --check` を通した。
+
 # 2026-06-02 RPN `.neplproof` no-op rewrite skip checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査結果を緩めず、既存 `.neplproof` artifact を完全に再利用できた native cold run で同じ巨大 payload を再書き込みしない方針へ整理した。

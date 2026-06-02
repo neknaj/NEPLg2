@@ -656,6 +656,31 @@ verbose run では `.neplproof preseed accepted=869` の後に
 全体の残件は process / loader / typecheck / proof decode / host overhead であり、次の主経路は bundled
 stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof generation 短縮である。
 
+2026-06-02 の RPN loader/process-directives checkpoint では、`.neplproof` preseed 後に残る native CLI
+wall-clock を CLI stage まで分解した。`NEPL_CLI_STAGE_TIMING=1` を追加し、`loader_load`、
+`proof_cache_read`、`check_pipeline` を既存の `NEPL_COMPILE_STAGE_TIMING=1` と同じ run で確認できるようにした。
+
+一時的な loader 詳細計測では、`loader_load` 約 `450ms` のほとんどが `load_file_tree` で、root
+`examples/rpn.nepl` の `process_directives` が約 `401ms` を占めた。詳細 loader hook は通常 run の
+固定費になるため残していないが、結果から import/prelude/include body merge が Resource static check 後の
+支配点であることを確認した。
+
+対応として `process_directives` / `process_directives_with` は、所有している `Module` を clone してから
+書き換えるのではなく、`directives` と `root.items` を move して再構築する形にした。file-scoped な
+`#entry` / `#target` / `#indent` を親へ伝播しない仕様は `append_loaded_module_contents` へ集約して維持している。
+また、RPN は必要 dependency を明示 import しているため `#no_prelude` を追加した。
+
+最終 release CLI で専用 `.neplproof` cache を bootstrap し直した RPN proof-backed stage 5 run は
+`968.434ms / 960.807ms / 1024.325ms / 1012.376ms / 900.397ms`、中央値 `968.434ms` だった。階層中央値付近は
+`loader_load=421.186ms`、`check_pipeline=539.710ms`、`resource_typecheck=130ms`、
+`resource_static_check=379ms`、`proof_cache_read=0.752-0.828ms` である。no-stage 14 run は
+`896.264ms / 999.762ms / 890.711ms / 971.797ms / 997.530ms / 992.493ms / 994.404ms / 888.448ms /
+945.789ms / 889.620ms / 992.704ms / 950.586ms / 996.466ms / 958.770ms`、中央値 `965.283ms` だった。
+
+この checkpoint でも issue は解決しない。Resource static check は約 `0.34-0.39s` まで下がったが、
+`loader_load` と typecheck が残るため、次の主経路は stdlib body merge と依存先再 typecheck を避ける
+bundled stdlib `.neplmeta` / typed interface artifact である。
+
 ## 検証
 
 - `trunk build`
