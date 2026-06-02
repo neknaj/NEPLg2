@@ -1,5 +1,6 @@
 import { createPlaygroundEditor, PlaygroundEditor } from '../editor-core/browser-adapter.js';
 import { GuiPreviewPanel } from '../gui-preview/panel.js';
+import { installGuiWebRuntimeBridge, registerGuiWebRuntimePresenter } from '../gui-preview/runtime-bridge.js';
 import { GuiFloatingWindowManager } from '../gui-preview/window-manager.js';
 import { FileExplorer } from '../library/explorer.js';
 import { TabManager } from '../library/tabs.js';
@@ -114,6 +115,11 @@ export class PlaygroundPanelManager {
     constructor(options: PanelManagerOptions) {
         this.root = options.root;
         this.floatingGui = new GuiFloatingWindowManager(options.guiWindowLayer);
+        registerGuiWebRuntimePresenter(this.floatingGui);
+        const guiRuntimeInstall = installGuiWebRuntimeBridge(globalThis);
+        if (guiRuntimeInstall.kind === 'err') {
+            console.warn('[Playground] Failed to install GUI runtime bridge', guiRuntimeInstall.error);
+        }
         this.popup = options.popup;
         this.vfs = options.vfs;
         this.createNeplProvider = options.createNeplProvider;

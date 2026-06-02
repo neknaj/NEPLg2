@@ -1,3 +1,15 @@
+# 2026-06-02 Agent2 Web GUI runtime bridge checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` と local branch が 0/0 で同期済みであることを確認し、`agent2/gui-web-runtime-bridge` 上で作業している。
+- Zenn 記事の platform 依存隔離、`null` / `undefined` 禁止、enum / struct による静的検査、契約と現状実装の分離方針に従い、Web Playground runtime から floating GUI window presenter へ渡す TypeScript 側 runtime bridge を追加した。
+- `web/src/gui-preview/runtime-bridge.ts` は `GuiWebRuntimePresenterState`、`GuiWebRuntimeResult`、`GuiWebRuntimeErrorKind` を union で表し、presenter 未登録、install target 不正、host decode error を typed Result として返す。DOM / Canvas 型や throw、`any`、nullable union には依存しない。
+- `web/src/workspace/panel-manager.ts` は `GuiFloatingWindowManager` を runtime presenter として登録し、global `neplGuiHost.presentCommands` を install する。これにより Web Playground の runtime / JS shim は `host-bridge.ts` の decode 境界を通して command frame を floating window surface へ渡せる。
+- `nodesrc/test_web_gui_runtime_bridge.js` を追加し、未登録時エラー、登録後 present、global install、DOM / Canvas 非依存、panel manager registration を固定した。`nodesrc/run_source_policy_regressions.js` にも接続した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、runtime bridge は実装済み、NEPL/Wasm 生成 `DrawCommand` stream から `neplGuiHost.presentCommands` への実接続は未実装という状態に合わせて更新した。
+- focused 検証: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_runtime_bridge.js`、`node nodesrc/test_web_gui_host_bridge.js`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/test_web_gui_floating_window_source.js`、`node nodesrc/playground_workspace_test_runner.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-runtime-bridge.json` は pass。playground editor JSON は 13/13 pass。
+- `node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、既存 warning として stdlib doctest gap、static check boundary、resource checker responsibility、parser backend responsibility、resource gate order、diagnostic code registry の 6 件が残る。
+- subagent review は、runtime bridge が DOM / Canvas / throw / any / nullable union に依存せず typed Result と union で失敗を表すこと、panel manager の登録処理が Web Playground 表層の副作用として妥当であること、docs / todo が runtime bridge 実装済みと NEPL/Wasm 生成 command stream 接続残件を正しく分けていることを確認し、findings なしで `MERGE_APPROVED`。
+
 # 2026-06-02 Agent2 Web GUI host bridge checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` を fetch し、local `main` と `origin/main` が 0/0 で同期済みであることを確認してから `agent2/gui-web-host-bridge` を作成した。
