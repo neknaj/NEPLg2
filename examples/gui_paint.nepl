@@ -1,0 +1,483 @@
+//: neplg2:test[gui_paint, normalize_newlines]
+//: [目的/もくてき]: Paint GUI app が pointer event と ActionId を NEPL 側の update で処理できることを確認する
+//: argv: ["--once"]
+//:
+//: gui_paint: pointer input を使う小さな paint app example
+//:
+//: [目的/もくてき]:
+//: - button action だけでなく、full `GuiWebEvent` の pointer position を model update に使います。
+//: - model は直近 3 stroke slot、選択色、次 slot を encoded i32 として保持します。
+//:
+//: [注意/ちゅうい]:
+//: - 現在は stdout fallback の軽量 example なので、永続 canvas は 3 stroke slot だけです。
+//: - 任意長 stroke buffer は `alloc/gui` の collection-backed widget state が安定した後に拡張します。
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui/app" as *
+#import "alloc/string" as *
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/web" as *
+#import "std/env/cliarg" as *
+#import "std/stdio" as *
+
+struct PaintModel:
+    encoded %i32
+
+impl Clone for PaintModel:
+    fn clone %fn &PaintModel PaintModel \model:
+        *model
+
+impl Copy for PaintModel:
+    fn copy_mark %fn PaintModel PaintModel \model:
+        model
+
+fn paint_model_new %fn i32 fn i32 fn i32 fn i32 fn i32 PaintModel \slot0\slot1\slot2\color\next_slot:
+    let slot1_part %i32 shl slot1 8
+    let slot2_part %i32 shl slot2 16
+    let color_part %i32 shl color 24
+    let next_part %i32 shl next_slot 26
+    let a %i32 or slot0 slot1_part
+    let b %i32 or slot2_part color_part
+    let c %i32 or a b
+    let encoded %i32 or c next_part
+    PaintModel encoded
+
+fn paint_model_empty %fn unit PaintModel \unit:
+    paint_model_new 255 255 255 0 0
+
+fn paint_model_encoded %fn &PaintModel i32 \model:
+    *field::get_ref model "encoded"
+
+fn paint_slot0 %fn &PaintModel i32 \model:
+    let encoded %i32 paint_model_encoded model
+    and encoded 255
+
+fn paint_slot1 %fn &PaintModel i32 \model:
+    let encoded %i32 paint_model_encoded model
+    let shifted %i32 shr_u encoded 8
+    and shifted 255
+
+fn paint_slot2 %fn &PaintModel i32 \model:
+    let encoded %i32 paint_model_encoded model
+    let shifted %i32 shr_u encoded 16
+    and shifted 255
+
+fn paint_color_code %fn &PaintModel i32 \model:
+    let encoded %i32 paint_model_encoded model
+    let shifted %i32 shr_u encoded 24
+    and shifted 3
+
+fn paint_next_slot %fn &PaintModel i32 \model:
+    let encoded %i32 paint_model_encoded model
+    let shifted %i32 shr_u encoded 26
+    and shifted 3
+
+fn paint_canvas_x %fn unit i32 \unit:
+    20
+
+fn paint_canvas_y %fn unit i32 \unit:
+    20
+
+fn paint_cell_size %fn unit i32 \unit:
+    32
+
+fn paint_grid_width %fn unit i32 \unit:
+    16
+
+fn paint_grid_height %fn unit i32 \unit:
+    12
+
+fn paint_canvas_width %fn unit i32 \unit:
+    mul paint_grid_width paint_cell_size
+
+fn paint_canvas_height %fn unit i32 \unit:
+    mul paint_grid_height paint_cell_size
+
+fn paint_action_color_a %fn unit ActionId \unit:
+    action_id 1
+
+fn paint_action_color_b %fn unit ActionId \unit:
+    action_id 2
+
+fn paint_action_color_c %fn unit ActionId \unit:
+    action_id 3
+
+fn paint_action_clear %fn unit ActionId \unit:
+    action_id 4
+
+fn paint_action_raw %fn ActionId i32 \action:
+    action_id_value action
+
+fn paint_slot_from_cell %fn i32 fn i32 i32 \cell_x\cell_y:
+    let row %i32 mul cell_y 16
+    add row cell_x
+
+fn paint_slot_x %fn i32 i32 \slot:
+    rem_s slot 16
+
+fn paint_slot_y %fn i32 i32 \slot:
+    div_s slot 16
+
+fn paint_next_slot_index %fn i32 i32 \slot:
+    let next %i32 add slot 1
+    rem_s next 3
+
+fn paint_set_cell %fn PaintModel fn i32 fn i32 PaintModel \model\cell_x\cell_y:
+    let slot_value %i32 paint_slot_from_cell cell_x cell_y
+    let next_slot %i32 paint_next_slot &model
+    let color %i32 paint_color_code &model
+    let slot0 %i32 paint_slot0 &model
+    let slot1 %i32 paint_slot1 &model
+    let slot2 %i32 paint_slot2 &model
+    let out0 %i32:
+        if:
+            eq next_slot 0
+            then:
+                slot_value
+            else:
+                slot0
+    let out1 %i32:
+        if:
+            eq next_slot 1
+            then:
+                slot_value
+            else:
+                slot1
+    let out2 %i32:
+        if:
+            eq next_slot 2
+            then:
+                slot_value
+            else:
+                slot2
+    let next_index %i32 paint_next_slot_index next_slot
+    paint_model_new out0 out1 out2 color next_index
+
+fn paint_set_color %fn PaintModel fn i32 PaintModel \model\color:
+    let slot0 %i32 paint_slot0 &model
+    let slot1 %i32 paint_slot1 &model
+    let slot2 %i32 paint_slot2 &model
+    let next_slot %i32 paint_next_slot &model
+    paint_model_new slot0 slot1 slot2 color next_slot
+
+fn paint_update_action %fn PaintModel fn ActionId PaintModel \model\action:
+    let raw %i32 paint_action_raw action
+    if:
+        eq raw 1
+        then:
+            paint_set_color model 0
+        else:
+            if:
+                eq raw 2
+                then:
+                    paint_set_color model 1
+                else:
+                    if:
+                        eq raw 3
+                        then:
+                            paint_set_color model 2
+                        else:
+                            if:
+                                eq raw 4
+                                then:
+                                    paint_model_empty
+                                else:
+                                    model
+
+fn paint_point_to_cell_x %fn GuiPoint i32 \point_milli:
+    let x_milli %i32 gui_point_x &point_milli
+    let x %i32 div_s x_milli 1000
+    let local_x %i32 sub x paint_canvas_x
+    div_s local_x paint_cell_size
+
+fn paint_point_to_cell_y %fn GuiPoint i32 \point_milli:
+    let y_milli %i32 gui_point_y &point_milli
+    let y %i32 div_s y_milli 1000
+    let local_y %i32 sub y paint_canvas_y
+    div_s local_y paint_cell_size
+
+fn paint_cell_is_inside %fn i32 fn i32 bool \cell_x\cell_y:
+    let inside_x_left %bool ge cell_x 0
+    let inside_x_right %bool lt cell_x paint_grid_width
+    let inside_y_top %bool ge cell_y 0
+    let inside_y_bottom %bool lt cell_y paint_grid_height
+    let inside_x %bool and inside_x_left inside_x_right
+    let inside_y %bool and inside_y_top inside_y_bottom
+    and inside_x inside_y
+
+fn paint_pointer_button_is_primary %fn &PointerEvent bool \pointer:
+    match pointer_event_button pointer:
+        PointerButton::Primary:
+            true
+        _:
+            false
+
+fn paint_pointer_should_draw %fn &PointerEvent bool \pointer:
+    match pointer_event_kind pointer:
+        PointerEventKind::Down:
+            paint_pointer_button_is_primary pointer
+        PointerEventKind::Move:
+            paint_pointer_button_is_primary pointer
+        _:
+            false
+
+fn paint_update_pointer %fn PaintModel fn GuiWebEvent fn PointerEvent PaintModel \model\web_event\pointer:
+    if:
+        paint_pointer_should_draw &pointer
+        then:
+            let point_milli %GuiPoint gui_web_event_point_milli &web_event
+            let cell_x %i32 paint_point_to_cell_x point_milli
+            let cell_y %i32 paint_point_to_cell_y point_milli
+            if:
+                paint_cell_is_inside cell_x cell_y
+                then:
+                    paint_set_cell model cell_x cell_y
+                else:
+                    model
+        else:
+            model
+
+fn paint_update_event %fn PaintModel fn GuiWebEvent PaintModel \model\web_event:
+    match gui_web_event_action &web_event:
+        Option::Some action:
+            paint_update_action model action
+        Option::None:
+            match gui_web_event_pointer &web_event:
+                Option::Some pointer:
+                    paint_update_pointer model web_event pointer
+                Option::None:
+                    model
+
+fn paint_color_background %fn unit Rgba8888 \unit:
+    let r %u8 cast 11
+    let g %u8 cast 15
+    let b %u8 cast 20
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn paint_color_canvas %fn unit Rgba8888 \unit:
+    let r %u8 cast 235
+    let g %u8 cast 239
+    let b %u8 cast 232
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn paint_color_panel %fn unit Rgba8888 \unit:
+    let r %u8 cast 22
+    let g %u8 cast 31
+    let b %u8 cast 39
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn paint_color_text %fn unit Rgba8888 \unit:
+    let r %u8 cast 238
+    let g %u8 cast 244
+    let b %u8 cast 241
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn paint_color_for_code %fn i32 Rgba8888 \code:
+    let a %u8 cast 255
+    if:
+        eq code 0
+        then:
+            let r %u8 cast 36
+            let g %u8 cast 116
+            let b %u8 cast 210
+            rgba8888_new r g b a
+        else:
+            if:
+                eq code 1
+                then:
+                    let r %u8 cast 58
+                    let g %u8 cast 166
+                    let b %u8 cast 96
+                    rgba8888_new r g b a
+                else:
+                    let r %u8 cast 214
+                    let g %u8 cast 74
+                    let b %u8 cast 70
+                    rgba8888_new r g b a
+
+fn paint_present_slot %impure fn PaintModel impure fn i32 Result unit GuiError \model\slot:
+    if:
+        eq slot 255
+        then:
+            Result::Ok unit
+        else:
+            let cell_x %i32 paint_slot_x slot
+            let cell_y %i32 paint_slot_y slot
+            let x_offset %i32 mul cell_x paint_cell_size
+            let y_offset %i32 mul cell_y paint_cell_size
+            let x %i32 add paint_canvas_x x_offset
+            let y %i32 add paint_canvas_y y_offset
+            let draw_size %i32 sub paint_cell_size 4
+            let rect %GuiRect gui_rect_new x y draw_size draw_size
+            let color_code %i32 paint_color_code &model
+            let color %Rgba8888 paint_color_for_code color_code
+            gui_web_stdout_fill_rect rect color
+
+fn paint_present_slots %impure fn PaintModel Result unit GuiError \model:
+    match paint_present_slot model paint_slot0 &model:
+        Result::Ok _:
+            match paint_present_slot model paint_slot1 &model:
+                Result::Ok _:
+                    paint_present_slot model paint_slot2 &model
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
+
+fn paint_palette_rect %fn i32 GuiRect \index:
+    let x_offset %i32 mul index 58
+    let x %i32 add 558 x_offset
+    gui_rect_new x 58 44 36
+
+fn paint_button_clear_rect %fn unit GuiRect \unit:
+    gui_rect_new 558 120 160 36
+
+fn paint_present_palette_button %impure fn i32 impure fn ActionId Result unit GuiError \color_code\action:
+    let rect %GuiRect paint_palette_rect color_code
+    let color %Rgba8888 paint_color_for_code color_code
+    match gui_web_stdout_fill_rect rect color:
+        Result::Ok _:
+            gui_web_stdout_action_rect rect action
+        Result::Err error:
+            Result::Err error
+
+fn paint_present_controls %impure fn PaintModel Result unit GuiError \model:
+    let panel_rect %GuiRect gui_rect_new 544 20 192 420
+    match gui_web_stdout_fill_rect panel_rect paint_color_panel:
+        Result::Ok _:
+            match paint_present_palette_button 0 paint_action_color_a:
+                Result::Ok _:
+                    match paint_present_palette_button 1 paint_action_color_b:
+                        Result::Ok _:
+                            match paint_present_palette_button 2 paint_action_color_c:
+                                Result::Ok _:
+                                    let clear_rect %GuiRect paint_button_clear_rect
+                                    match gui_web_stdout_fill_rect clear_rect paint_color_background:
+                                        Result::Ok _:
+                                            let origin %GuiPoint gui_point_new 638 130
+                                            match gui_web_stdout_text_run origin 13 GuiWebTextAlign::Center paint_color_text "Clear":
+                                                Result::Ok _:
+                                                    gui_web_stdout_action_rect clear_rect paint_action_clear
+                                                Result::Err error:
+                                                    Result::Err error
+                                        Result::Err error:
+                                            Result::Err error
+                                Result::Err error:
+                                    Result::Err error
+                        Result::Err error:
+                            Result::Err error
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
+
+fn paint_present_frame %impure fn PaintModel Result unit GuiError \model:
+    match gui_web_stdout_frame_begin 12 756 464 "NEPLg2 Paint":
+        Result::Ok _:
+            let background %GuiRect gui_rect_new 0 0 756 464
+            match gui_web_stdout_fill_rect background paint_color_background:
+                Result::Ok _:
+                    let canvas_rect %GuiRect gui_rect_new paint_canvas_x paint_canvas_y paint_canvas_width paint_canvas_height
+                    match gui_web_stdout_fill_rect canvas_rect paint_color_canvas:
+                        Result::Ok _:
+                            match paint_present_slots model:
+                                Result::Ok _:
+                                    match paint_present_controls model:
+                                        Result::Ok _:
+                                            gui_web_stdout_frame_end
+                                        Result::Err error:
+                                            Result::Err error
+                                Result::Err error:
+                                    Result::Err error
+                        Result::Err error:
+                            Result::Err error
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
+
+fn paint_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--once"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            paint_has_once_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    paint_has_once_flag_loop next_idx count
+
+fn paint_has_once_flag %impure fn unit bool \unit:
+    let count %i32 cliarg_count
+    paint_has_once_flag_loop 1 count
+
+fn paint_print_status %impure fn PaintModel unit \model:
+    print "paint slot0 = "
+    let slot0 %i32 paint_slot0 &model
+    println_i32 slot0
+    print "paint color = "
+    let color %i32 paint_color_code &model
+    println_i32 color
+
+fn paint_run_once %impure fn PaintModel unit \model:
+    let model1 %PaintModel paint_set_cell model 2 3
+    match paint_present_frame model1:
+        Result::Ok _:
+            paint_print_status model1
+        Result::Err _:
+            println "paint gui protocol error"
+
+fn paint_event_loop %impure fn PaintModel unit \initial_model:
+    let mut model %PaintModel initial_model
+    let mut running %bool true
+    while running:
+        do:
+            match gui_web_wait_event_result 60000:
+                Result::Ok event_result:
+                    match event_result:
+                        Option::Some web_event:
+                            set model paint_update_event model web_event
+                            match paint_present_frame model:
+                                Result::Ok _:
+                                    unit
+                                Result::Err _:
+                                    println "paint gui protocol error";
+                                    set running false
+                        Option::None:
+                            unit
+                Result::Err _:
+                    println "paint gui input unsupported";
+                    set running false
+
+fn main %impure fn unit unit \unit:
+    let model0 %PaintModel paint_model_empty
+    if:
+        paint_has_once_flag
+        then:
+            paint_run_once model0
+        else:
+            match paint_present_frame model0:
+                Result::Ok _:
+                    paint_event_loop model0
+                Result::Err _:
+                    println "paint gui protocol error"

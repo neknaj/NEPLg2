@@ -1,3 +1,20 @@
+# 2026-06-02 Agent2 HD GUI examples / interactive TEA checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum / struct による明示状態、純粋な model/update/view と effect / host 境界の分離、契約と現状実装の分離方針を再確認した。
+- `examples/gui_mandelbrot.nepl` は preview / HD / detail の解像度 action を持つ The Elm Architecture 形の model / update / view へ拡張した。HD mode は 1280x720 logical surface に bounded sample rectangle stream を描画する。
+- `examples/gui_life.nepl` は 1280x640 logical surface、next step、animate、cell size / HD action を持つ model / update / view へ拡張した。現在は Life pattern renderer であり、任意の board 全体を永続保持する full board editor は後続作業に残した。
+- `examples/gui_calculator.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_paint.nepl`、`examples/gui_breakout.nepl` を追加した。いずれも NEPL 側で `gui_web_wait_event_result` から full `GuiWebEvent` を受け取り、ActionId / pointer event / timer timeout を update に渡して redraw する。
+- Paint は subagent 初回レビューで hover move でも描画される blocker が見つかったため、NEPL 側では `PointerEventKind::Down` または `PointerEventKind::Move` かつ `PointerButton::Primary` の時だけ stroke を更新するよう修正した。
+- Web Playground の pointer move contract は DOM `event.button` ではなく `event.buttons` bitmask から現在押下中の button を復元するよう修正した。down / up は DOM `button`、move は DOM `buttons` という差を backend 境界に閉じ込め、NEPL app には typed `PointerButton` として渡す。
+- `doc/examples.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` は、HD logical surface、bounded sample rectangle の現状制約、新規 interactive examples、pointer move button-state contract、TypeScript simulation 不使用を追記した。
+- `todo.md` には true HD raster transport、arbitrary Life board、persistent Paint canvas、Breakout timer scheduler、packed `i32` state から typed struct / enum model へ移行する後続作業だけを残した。
+- source regression は、新規 example が TS simulation ではなく NEPL source と host event queue で動くこと、Paint が full pointer event と primary button を見ること、Web panel が pointermove を DOM `buttons` bitmask から変換することを固定した。
+- focused 検証: `npm --prefix web run build:ts`、`node nodesrc/tests.js -i examples/gui_mandelbrot.nepl -i examples/gui_life.nepl -i examples/gui_counter.nepl -i examples/gui_calculator.nepl -i examples/gui_scientific_calculator.nepl -i examples/gui_paint.nepl -i examples/gui_breakout.nepl --no-tree -o tmp/gui-examples-hd-interactive-after-pointer-fix.json -j 1 --dist web/dist --assert-io`、`node nodesrc/test_web_gui_input_bridge.js`、`node nodesrc/test_web_gui_shared_event_queue.js`、`node nodesrc/test_web_gui_stdout_protocol.js`、`node nodesrc/test_web_gui_runtime_bridge.js`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/test_web_gui_floating_window_source.js` は pass。
+- broader 検証: `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-hd-interactive-after-pointer-fix.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。playground editor JSON は 13/13 pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は GUI 関連 regression を含めて通過したが、origin/main 側の resource/parser/diagnostic/builder/print_i32 系の非 GUI warning が 8 件残る。
+- NEPL example の括弧不使用は `rg -n "[()]" examples/gui_mandelbrot.nepl examples/gui_life.nepl examples/gui_calculator.nepl examples/gui_scientific_calculator.nepl examples/gui_paint.nepl examples/gui_breakout.nepl` が no match であることを確認した。
+- subagent review は初回 blocker を修正後、再レビューで blocker resolved と判定された。直接関連する差分については merge blocker は残っていない。
+
 # 2026-06-02 Agent2 Web GUI debug panel separation checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / discriminated union による明示状態、debug / host detail を標準 API の public surface に混ぜない方針を再確認した。

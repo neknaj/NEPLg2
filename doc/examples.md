@@ -32,9 +32,17 @@ node nodesrc/tests.js -i examples --no-tree -o tmp/examples-tests.json -j 4
 - `gui_counter.nepl`
   `ButtonConfig` の `ActionId` を `GuiEvent::Action` と `Update` へ接続する headless GUI app model 例
 - `gui_life.nepl`
-  Life board を `FillRect` command stream として `MockRenderTarget` へ描画する GUI rendering 例
+  Life pattern を Web stdout frame protocol へ描画し、next step、animate、cell size、HD view を NEPL 側 update loop で扱う GUI 例
 - `gui_mandelbrot.nepl`
-  Mandelbrot preview を fixed point 計算から GUI render command stream へ変換する例
+  Mandelbrot preview を fixed point 計算から Web stdout frame protocol へ変換し、Preview / HD / Detail の sample 解像度を `ActionId` で切り替える例
+- `gui_calculator.nepl`
+  The Elm Architecture 風に `Model`、`ActionId` update、view を分けた四則電卓 GUI 例
+- `gui_scientific_calculator.nepl`
+  square、integer sqrt、negate、double、half を純粋な update 関数で扱う関数電卓 GUI 例
+- `gui_paint.nepl`
+  full `GuiWebEvent` の pointer position と palette action を使う軽量 paint GUI 例
+- `gui_breakout.nepl`
+  `ActionId` と timeout tick で paddle / ball state を進めるブロック崩し GUI 例
 - `stdio.nepl`
   ASCII / UTF-8 の 1 行入力の基本例
 - `bf.nepl`

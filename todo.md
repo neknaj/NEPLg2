@@ -4,8 +4,13 @@
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
 - Web Playground の stdout protocol fallback を正式な Wasm host import ABI へ置き換え、NEPL/Wasm が生成した `DrawCommand` stream を `neplGuiHost.beginFrame` / `pushCommand` / `endFrame` 相当へ直接渡す
+- Web / native の formal presentation ABI に tile / bitmap / row / RLE payload を追加し、Mandelbrot などの true HD raster を stdout の大量 `fill_rect` stream ではなく bounded command transport で扱う
 - Web Playground の `GuiWebEvent` action / pointer down-move-up-cancel / keyboard / single-scalar text input / window resized-close checkpoint を、IME composition / multi-scalar text、window focus-unfocus policy、timer / lifecycle variant、session id formalization へ拡張する
 - Mandelbrot progressive rendering を NEPL app の update loop で処理する
+- Life example を bounded pattern renderer から arbitrary-size board storage と checked next-generation update へ拡張する
+- Paint example を直近 stroke slot の軽量 model から persistent canvas / stroke storage へ拡張する
+- Breakout example の timeout fallback を正式 `GuiEvent::Timer` と scheduler / timeslice contract へ移す
+- Calculator / Paint / Breakout example の packed i32 state を、`alloc/gui` collection と state ownership contract が安定した段階で typed struct / enum model へ置き換える
 - `nepl-gui-native` の framebuffer renderer を、`std/gui::GuiHost` と `platforms/gui/native` の正式 `present` 実装へ寄せる
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
 - `features/tui` を互換 path として保ちながら、内部を `features/gui` + terminal backend へ差し替える

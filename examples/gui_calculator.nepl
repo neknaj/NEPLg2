@@ -1,0 +1,634 @@
+//: neplg2:test[gui_calculator, normalize_newlines]
+//: [目的/もくてき]: 電卓 GUI app が NEPL 側の model / update / view だけで入力と再描画を扱えることを確認する
+//: argv: ["--once"]
+//:
+//: gui_calculator: The Elm Architecture 風の四則電卓 example
+//:
+//: [目的/もくてき]:
+//: - button closure ではなく `ActionId` を view に埋め込み、update が action を解釈します。
+//: - Web backend の action / pointer host detail は `platforms/gui/web` に閉じ、example は typed event だけを読みます。
+//:
+//: [実装/じっそう]:
+//: - `CalculatorModel` は表示値、保留値、演算子、入力中フラグを持ちます。
+//: - `calculator_update_action` は数字、四則演算、等号、clear を純粋に model 変換します。
+//: - `calculator_present_frame` は display と 4x4 button grid を stdout protocol へ出力します。
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui/app" as *
+#import "alloc/string" as *
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/web" as *
+#import "std/env/cliarg" as *
+#import "std/stdio" as *
+
+struct CalculatorModel:
+    encoded %i32
+
+impl Clone for CalculatorModel:
+    fn clone %fn &CalculatorModel CalculatorModel \model:
+        *model
+
+impl Copy for CalculatorModel:
+    fn copy_mark %fn CalculatorModel CalculatorModel \model:
+        model
+
+fn calculator_state_base %fn unit i32 \unit:
+    4096
+
+fn calculator_state_offset %fn unit i32 \unit:
+    2048
+
+fn calculator_state_base_square %fn unit i32 \unit:
+    mul calculator_state_base calculator_state_base
+
+fn calculator_clamp_component %fn i32 i32 \value:
+    if:
+        lt value -2048
+        then:
+            -2048
+        else:
+            if:
+                gt value 2047
+                then:
+                    2047
+                else:
+                    value
+
+fn calculator_encode_component %fn i32 i32 \value:
+    let clamped %i32 calculator_clamp_component value
+    add clamped calculator_state_offset
+
+fn calculator_decode_component %fn i32 i32 \encoded:
+    sub encoded calculator_state_offset
+
+fn calculator_model_new %fn i32 fn i32 fn i32 fn i32 CalculatorModel \value\pending\op\entering:
+    let value_part %i32 calculator_encode_component value
+    let pending_encoded %i32 calculator_encode_component pending
+    let pending_part %i32 mul pending_encoded calculator_state_base
+    let op_part %i32 mul op 10
+    let mode_code %i32 add op_part entering
+    let mode_part %i32 mul mode_code calculator_state_base_square
+    let value_pending %i32 add value_part pending_part
+    let encoded %i32 add value_pending mode_part
+    CalculatorModel encoded
+
+fn calculator_model_encoded %fn &CalculatorModel i32 \model:
+    *field::get_ref model "encoded"
+
+fn calculator_model_value %fn &CalculatorModel i32 \model:
+    let encoded %i32 calculator_model_encoded model
+    let value_part %i32 rem_s encoded calculator_state_base
+    calculator_decode_component value_part
+
+fn calculator_model_pending %fn &CalculatorModel i32 \model:
+    let encoded %i32 calculator_model_encoded model
+    let pending_scaled %i32 div_s encoded calculator_state_base
+    let pending_part %i32 rem_s pending_scaled calculator_state_base
+    calculator_decode_component pending_part
+
+fn calculator_model_op %fn &CalculatorModel i32 \model:
+    let encoded %i32 calculator_model_encoded model
+    let mode_code %i32 div_s encoded calculator_state_base_square
+    div_s mode_code 10
+
+fn calculator_model_entering_code %fn &CalculatorModel i32 \model:
+    let encoded %i32 calculator_model_encoded model
+    let mode_code %i32 div_s encoded calculator_state_base_square
+    rem_s mode_code 10
+
+fn calculator_model_is_entering %fn &CalculatorModel bool \model:
+    let code %i32 calculator_model_entering_code model
+    ne code 0
+
+fn calculator_init %fn unit CalculatorModel \unit:
+    calculator_model_new 0 0 0 0
+
+fn calculator_action_digit %fn i32 ActionId \digit:
+    if:
+        eq digit 0
+        then:
+            action_id 10
+        else:
+            action_id digit
+
+fn calculator_action_add %fn unit ActionId \unit:
+    action_id 20
+
+fn calculator_action_sub %fn unit ActionId \unit:
+    action_id 21
+
+fn calculator_action_mul %fn unit ActionId \unit:
+    action_id 22
+
+fn calculator_action_div %fn unit ActionId \unit:
+    action_id 23
+
+fn calculator_action_eq %fn unit ActionId \unit:
+    action_id 24
+
+fn calculator_action_clear %fn unit ActionId \unit:
+    action_id 25
+
+fn calculator_action_raw %fn ActionId i32 \action:
+    action_id_value action
+
+fn calculator_action_is_digit %fn ActionId bool \action:
+    let raw %i32 calculator_action_raw action
+    let is_zero %bool eq raw 10
+    let is_positive_digit %bool and ge raw 1 le raw 9
+    or is_zero is_positive_digit
+
+fn calculator_action_digit_value %fn ActionId i32 \action:
+    let raw %i32 calculator_action_raw action
+    if:
+        eq raw 10
+        then:
+            0
+        else:
+            raw
+
+fn calculator_safe_div %fn i32 fn i32 i32 \left\right:
+    if:
+        eq right 0
+        then:
+            left
+        else:
+            div_s left right
+
+fn calculator_apply_op %fn i32 fn i32 fn i32 i32 \op\left\right:
+    if:
+        eq op 1
+        then:
+            add left right
+        else:
+            if:
+                eq op 2
+                then:
+                    sub left right
+                else:
+                    if:
+                        eq op 3
+                        then:
+                            mul left right
+                        else:
+                            if:
+                                eq op 4
+                                then:
+                                    calculator_safe_div left right
+                                else:
+                                    right
+
+fn calculator_next_digit_value %fn CalculatorModel fn i32 i32 \model\digit:
+    let entering %bool calculator_model_is_entering &model
+    if:
+        entering
+        then:
+            let current %i32 calculator_model_value &model
+            let shifted %i32 mul current 10
+            add shifted digit
+        else:
+            digit
+
+fn calculator_update_digit %fn CalculatorModel fn i32 CalculatorModel \model\digit:
+    let next_value %i32 calculator_next_digit_value model digit
+    let pending %i32 calculator_model_pending &model
+    let op %i32 calculator_model_op &model
+    calculator_model_new next_value pending op 1
+
+fn calculator_start_op %fn CalculatorModel fn i32 CalculatorModel \model\next_op:
+    let value %i32 calculator_model_value &model
+    let pending %i32 calculator_model_pending &model
+    let op %i32 calculator_model_op &model
+    let entering %bool calculator_model_is_entering &model
+    let base %i32:
+        if:
+            eq op 0
+            then:
+                value
+            else:
+                if:
+                    entering
+                    then:
+                        calculator_apply_op op pending value
+                    else:
+                        pending
+    calculator_model_new base base next_op 0
+
+fn calculator_equal %fn CalculatorModel CalculatorModel \model:
+    let value %i32 calculator_model_value &model
+    let pending %i32 calculator_model_pending &model
+    let op %i32 calculator_model_op &model
+    let result %i32 calculator_apply_op op pending value
+    calculator_model_new result 0 0 0
+
+fn calculator_update_action %fn CalculatorModel fn ActionId CalculatorModel \model\action:
+    if:
+        calculator_action_is_digit action
+        then:
+            let digit %i32 calculator_action_digit_value action
+            calculator_update_digit model digit
+        else:
+            let raw %i32 calculator_action_raw action
+            if:
+                eq raw 20
+                then:
+                    calculator_start_op model 1
+                else:
+                    if:
+                        eq raw 21
+                        then:
+                            calculator_start_op model 2
+                        else:
+                            if:
+                                eq raw 22
+                                then:
+                                    calculator_start_op model 3
+                                else:
+                                    if:
+                                        eq raw 23
+                                        then:
+                                            calculator_start_op model 4
+                                        else:
+                                            if:
+                                                eq raw 24
+                                                then:
+                                                    calculator_equal model
+                                                else:
+                                                    if:
+                                                        eq raw 25
+                                                        then:
+                                                            calculator_init
+                                                        else:
+                                                            model
+
+fn calculator_update_event %fn CalculatorModel fn GuiWebEvent CalculatorModel \model\web_event:
+    match gui_web_event_action &web_event:
+        Option::Some action:
+            calculator_update_action model action
+        Option::None:
+            model
+
+fn calculator_color_background %fn unit Rgba8888 \unit:
+    let r %u8 cast 10
+    let g %u8 cast 16
+    let b %u8 cast 22
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn calculator_color_display %fn unit Rgba8888 \unit:
+    let r %u8 cast 18
+    let g %u8 cast 30
+    let b %u8 cast 34
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn calculator_color_button %fn unit Rgba8888 \unit:
+    let r %u8 cast 35
+    let g %u8 cast 61
+    let b %u8 cast 86
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn calculator_color_button_op %fn unit Rgba8888 \unit:
+    let r %u8 cast 86
+    let g %u8 cast 90
+    let b %u8 cast 48
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn calculator_color_text %fn unit Rgba8888 \unit:
+    let r %u8 cast 236
+    let g %u8 cast 244
+    let b %u8 cast 244
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn calculator_button_label %fn i32 str \index:
+    if:
+        eq index 0
+        then:
+            "7"
+        else:
+            if:
+                eq index 1
+                then:
+                    "8"
+                else:
+                    if:
+                        eq index 2
+                        then:
+                            "9"
+                        else:
+                            if:
+                                eq index 3
+                                then:
+                                    "/"
+                                else:
+                                    if:
+                                        eq index 4
+                                        then:
+                                            "4"
+                                        else:
+                                            if:
+                                                eq index 5
+                                                then:
+                                                    "5"
+                                                else:
+                                                    if:
+                                                        eq index 6
+                                                        then:
+                                                            "6"
+                                                        else:
+                                                            if:
+                                                                eq index 7
+                                                                then:
+                                                                    "*"
+                                                                else:
+                                                                    if:
+                                                                        eq index 8
+                                                                        then:
+                                                                            "1"
+                                                                        else:
+                                                                            if:
+                                                                                eq index 9
+                                                                                then:
+                                                                                    "2"
+                                                                                else:
+                                                                                    if:
+                                                                                        eq index 10
+                                                                                        then:
+                                                                                            "3"
+                                                                                        else:
+                                                                                            if:
+                                                                                                eq index 11
+                                                                                                then:
+                                                                                                    "-"
+                                                                                                else:
+                                                                                                    if:
+                                                                                                        eq index 12
+                                                                                                        then:
+                                                                                                            "0"
+                                                                                                        else:
+                                                                                                            if:
+                                                                                                                eq index 13
+                                                                                                                then:
+                                                                                                                    "C"
+                                                                                                                else:
+                                                                                                                    if:
+                                                                                                                        eq index 14
+                                                                                                                        then:
+                                                                                                                            "="
+                                                                                                                        else:
+                                                                                                                            "+"
+
+fn calculator_button_action %fn i32 ActionId \index:
+    if:
+        eq index 0
+        then:
+            calculator_action_digit 7
+        else:
+            if:
+                eq index 1
+                then:
+                    calculator_action_digit 8
+                else:
+                    if:
+                        eq index 2
+                        then:
+                            calculator_action_digit 9
+                        else:
+                            if:
+                                eq index 3
+                                then:
+                                    calculator_action_div
+                                else:
+                                    if:
+                                        eq index 4
+                                        then:
+                                            calculator_action_digit 4
+                                        else:
+                                            if:
+                                                eq index 5
+                                                then:
+                                                    calculator_action_digit 5
+                                                else:
+                                                    if:
+                                                        eq index 6
+                                                        then:
+                                                            calculator_action_digit 6
+                                                        else:
+                                                            if:
+                                                                eq index 7
+                                                                then:
+                                                                    calculator_action_mul
+                                                                else:
+                                                                    if:
+                                                                        eq index 8
+                                                                        then:
+                                                                            calculator_action_digit 1
+                                                                        else:
+                                                                            if:
+                                                                                eq index 9
+                                                                                then:
+                                                                                    calculator_action_digit 2
+                                                                                else:
+                                                                                    if:
+                                                                                        eq index 10
+                                                                                        then:
+                                                                                            calculator_action_digit 3
+                                                                                        else:
+                                                                                            if:
+                                                                                                eq index 11
+                                                                                                then:
+                                                                                                    calculator_action_sub
+                                                                                                else:
+                                                                                                    if:
+                                                                                                        eq index 12
+                                                                                                        then:
+                                                                                                            calculator_action_digit 0
+                                                                                                        else:
+                                                                                                            if:
+                                                                                                                eq index 13
+                                                                                                                then:
+                                                                                                                    calculator_action_clear
+                                                                                                                else:
+                                                                                                                    if:
+                                                                                                                        eq index 14
+                                                                                                                        then:
+                                                                                                                            calculator_action_eq
+                                                                                                                        else:
+                                                                                                                            calculator_action_add
+
+fn calculator_button_is_op %fn i32 bool \index:
+    let is_col_op %bool eq rem_s index 4 3
+    let is_equals %bool eq index 14
+    let is_clear %bool eq index 13
+    let eq_or_clear %bool or is_equals is_clear
+    or is_col_op eq_or_clear
+
+fn calculator_button_rect %fn i32 GuiRect \index:
+    let col %i32 rem_s index 4
+    let row %i32 div_s index 4
+    let x_offset %i32 mul col 72
+    let y_offset %i32 mul row 56
+    let x %i32 add 18 x_offset
+    let y %i32 add 96 y_offset
+    gui_rect_new x y 62 44
+
+fn calculator_present_button %impure fn i32 Result unit GuiError \index:
+    let rect %GuiRect calculator_button_rect index
+    let action %ActionId calculator_button_action index
+    let label %str calculator_button_label index
+    let color %Rgba8888:
+        if:
+            calculator_button_is_op index
+            then:
+                calculator_color_button_op
+            else:
+                calculator_color_button
+    match gui_web_stdout_fill_rect rect color:
+        Result::Ok _:
+            let x %i32 gui_rect_x &rect
+            let y %i32 gui_rect_y &rect
+            let origin_x %i32 add x 31
+            let origin_y %i32 add y 12
+            let origin %GuiPoint gui_point_new origin_x origin_y
+            match gui_web_stdout_text_run origin 16 GuiWebTextAlign::Center calculator_color_text label:
+                Result::Ok _:
+                    gui_web_stdout_action_rect rect action
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
+
+fn calculator_present_buttons %impure fn i32 Result unit GuiError \index:
+    if:
+        ge index 16
+        then:
+            Result::Ok unit
+        else:
+            match calculator_present_button index:
+                Result::Ok _:
+                    let next %i32 add index 1
+                    calculator_present_buttons next
+                Result::Err error:
+                    Result::Err error
+
+fn calculator_present_display %impure fn CalculatorModel Result unit GuiError \model:
+    let display_rect %GuiRect gui_rect_new 18 20 278 56
+    match gui_web_stdout_fill_rect display_rect calculator_color_display:
+        Result::Ok _:
+            let origin %GuiPoint gui_point_new 276 35
+            gui_web_stdout_text_i32 origin 28 GuiWebTextAlign::Right calculator_color_text calculator_model_value &model
+        Result::Err error:
+            Result::Err error
+
+fn calculator_present_frame %impure fn CalculatorModel Result unit GuiError \model:
+    match gui_web_stdout_frame_begin 10 314 338 "NEPLg2 Calculator":
+        Result::Ok _:
+            let background %GuiRect gui_rect_new 0 0 314 338
+            match gui_web_stdout_fill_rect background calculator_color_background:
+                Result::Ok _:
+                    match calculator_present_display model:
+                        Result::Ok _:
+                            match calculator_present_buttons 0:
+                                Result::Ok _:
+                                    gui_web_stdout_frame_end
+                                Result::Err error:
+                                    Result::Err error
+                        Result::Err error:
+                            Result::Err error
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
+
+fn calculator_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--once"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            calculator_has_once_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    calculator_has_once_flag_loop next_idx count
+
+fn calculator_has_once_flag %impure fn unit bool \unit:
+    let count %i32 cliarg_count
+    calculator_has_once_flag_loop 1 count
+
+fn calculator_print_status %impure fn CalculatorModel unit \model:
+    print "calculator value = "
+    let value %i32 calculator_model_value &model
+    println_i32 value
+    print "calculator op = "
+    let op %i32 calculator_model_op &model
+    println_i32 op
+
+fn calculator_run_once %impure fn CalculatorModel unit \model:
+    let mut current %CalculatorModel model
+    let action_7 %ActionId calculator_action_digit 7
+    set current calculator_update_action current action_7
+    let action_add %ActionId calculator_action_add
+    set current calculator_update_action current action_add
+    let action_5 %ActionId calculator_action_digit 5
+    set current calculator_update_action current action_5
+    let action_eq %ActionId calculator_action_eq
+    set current calculator_update_action current action_eq
+    match calculator_present_frame current:
+        Result::Ok _:
+            calculator_print_status current
+        Result::Err _:
+            println "calculator gui protocol error"
+
+fn calculator_event_loop %impure fn CalculatorModel unit \initial_model:
+    let mut model %CalculatorModel initial_model
+    let mut running %bool true
+    while running:
+        do:
+            match gui_web_wait_event_result 60000:
+                Result::Ok event_result:
+                    match event_result:
+                        Option::Some web_event:
+                            set model calculator_update_event model web_event
+                            match calculator_present_frame model:
+                                Result::Ok _:
+                                    unit
+                                Result::Err _:
+                                    println "calculator gui protocol error";
+                                    set running false
+                        Option::None:
+                            unit
+                Result::Err _:
+                    println "calculator gui input unsupported";
+                    set running false
+
+fn main %impure fn unit unit \unit:
+    let model0 %CalculatorModel calculator_init
+    if:
+        calculator_has_once_flag
+        then:
+            calculator_run_once model0
+        else:
+            match calculator_present_frame model0:
+                Result::Ok _:
+                    calculator_event_loop model0
+                Result::Err _:
+                    println "calculator gui protocol error"
