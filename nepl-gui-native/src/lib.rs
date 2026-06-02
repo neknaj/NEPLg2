@@ -44,6 +44,20 @@ pub struct RasterImage {
     pub pixels: Vec<u32>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeSurfacePlacement {
+    pub x: usize,
+    pub y: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeSurfaceState {
+    Drawable(NativeSurfacePlacement),
+    Unavailable,
+}
+
 impl FromStr for GuiDemo {
     type Err = String;
 
@@ -97,6 +111,75 @@ pub fn counter_hit(frame: &GuiFrame, scene_x: usize, scene_y: usize) -> bool {
         && scene_x < target.x + target.width
         && scene_y >= target.y
         && scene_y < target.y + target.height
+}
+
+pub fn native_aspect_ratio_placement(
+    window_width: usize,
+    window_height: usize,
+    image_width: usize,
+    image_height: usize,
+) -> NativeSurfaceState {
+    if window_width == 0 || window_height == 0 || image_width == 0 || image_height == 0 {
+        return NativeSurfaceState::Unavailable;
+    }
+
+    let window_wide = (window_width as u128) * (image_height as u128)
+        > (window_height as u128) * (image_width as u128);
+    let (width, height) = if window_wide {
+        let height = window_height;
+        let width = ((height as u128) * (image_width as u128) / (image_height as u128))
+            .max(1)
+            .min(window_width as u128) as usize;
+        (width, height)
+    } else {
+        let width = window_width;
+        let height = ((width as u128) * (image_height as u128) / (image_width as u128))
+            .max(1)
+            .min(window_height as u128) as usize;
+        (width, height)
+    };
+
+    NativeSurfaceState::Drawable(NativeSurfacePlacement {
+        x: (window_width - width) / 2,
+        y: (window_height - height) / 2,
+        width,
+        height,
+    })
+}
+
+pub fn map_native_window_point_to_image(
+    window_width: usize,
+    window_height: usize,
+    image_width: usize,
+    image_height: usize,
+    point_x: f32,
+    point_y: f32,
+) -> Option<(usize, usize)> {
+    if !point_x.is_finite() || !point_y.is_finite() || point_x < 0.0 || point_y < 0.0 {
+        return None;
+    }
+    let NativeSurfaceState::Drawable(placement) =
+        native_aspect_ratio_placement(window_width, window_height, image_width, image_height)
+    else {
+        return None;
+    };
+
+    let x = point_x.floor() as usize;
+    let y = point_y.floor() as usize;
+    if x < placement.x
+        || y < placement.y
+        || x >= placement.x + placement.width
+        || y >= placement.y + placement.height
+    {
+        return None;
+    }
+
+    let image_x = ((x - placement.x) as u128) * (image_width as u128) / (placement.width as u128);
+    let image_y = ((y - placement.y) as u128) * (image_height as u128) / (placement.height as u128);
+    Some((
+        (image_x as usize).min(image_width - 1),
+        (image_y as usize).min(image_height - 1),
+    ))
 }
 
 fn render_mandelbrot_frame() -> GuiFrame {
@@ -458,5 +541,91 @@ mod tests {
         assert_eq!(image.width, 288);
         assert_eq!(image.height, 288);
         assert_eq!(checksum_pixels(&image.pixels), 17_705_978_859_225_436_581);
+    }
+
+    #[test]
+    fn native_surface_placement_preserves_aspect_ratio_inside_window() {
+        let state = native_aspect_ratio_placement(800, 600, 400, 400);
+        assert_eq!(
+            state,
+            NativeSurfaceState::Drawable(NativeSurfacePlacement {
+                x: 100,
+                y: 0,
+                width: 600,
+                height: 600,
+            })
+        );
+    }
+
+    #[test]
+    fn native_surface_placement_reports_unavailable_zero_surface() {
+        assert_eq!(
+            native_aspect_ratio_placement(0, 600, 400, 400),
+            NativeSurfaceState::Unavailable
+        );
+        assert_eq!(
+            native_aspect_ratio_placement(800, 600, 0, 400),
+            NativeSurfaceState::Unavailable
+        );
+    }
+
+    #[test]
+    fn native_window_point_mapping_rejects_letterbox_and_maps_to_image() {
+        assert_eq!(
+            map_native_window_point_to_image(800, 600, 400, 400, 99.0, 10.0),
+            None
+        );
+        assert_eq!(
+            map_native_window_point_to_image(800, 600, 400, 400, 100.0, 0.0),
+            Some((0, 0))
+        );
+        assert_eq!(
+            map_native_window_point_to_image(800, 600, 400, 400, 699.0, 599.0),
+            Some((399, 399))
+        );
+    }
+
+    #[test]
+    fn native_window_point_mapping_handles_shrunken_window() {
+        assert_eq!(
+            map_native_window_point_to_image(100, 50, 400, 200, 99.0, 49.0),
+            Some((396, 196))
+        );
+    }
+
+    #[test]
+    fn native_window_point_mapping_rejects_top_bottom_letterbox() {
+        assert_eq!(
+            map_native_window_point_to_image(600, 800, 400, 400, 10.0, 99.0),
+            None
+        );
+        assert_eq!(
+            map_native_window_point_to_image(600, 800, 400, 400, 0.0, 100.0),
+            Some((0, 0))
+        );
+        assert_eq!(
+            map_native_window_point_to_image(600, 800, 400, 400, 599.0, 699.0),
+            Some((399, 399))
+        );
+    }
+
+    #[test]
+    fn native_window_point_mapping_rejects_unavailable_and_invalid_points() {
+        assert_eq!(
+            map_native_window_point_to_image(0, 600, 400, 400, 10.0, 10.0),
+            None
+        );
+        assert_eq!(
+            map_native_window_point_to_image(800, 600, 400, 400, -1.0, 10.0),
+            None
+        );
+        assert_eq!(
+            map_native_window_point_to_image(800, 600, 400, 400, f32::NAN, 10.0),
+            None
+        );
+        assert_eq!(
+            map_native_window_point_to_image(800, 600, 400, 400, f32::INFINITY, 10.0),
+            None
+        );
     }
 }
