@@ -3315,6 +3315,14 @@ formatter 後の native release RPN stage-only 3 run は次の通りである。
 | `resource_owner_obligations` | 865ms | 754ms | 839ms | 839ms |
 | `resource_static_check` | 3979ms | 3433ms | 3538ms | 3538ms |
 
+`origin/main` `9812d619` を取り込んで main へ merge した後の再測定では、
+`resource_static_check=4083ms / 4177ms / 4082ms`、`resource_initialized_moves=3039ms / 3138ms / 3095ms`、
+`resource_initialized_i32_scalar_summaries=1065ms / 1087ms / 1034ms`、
+`resource_initialized_raw_init_summaries=998ms / 1030ms / 1037ms`、
+`resource_initialized_function_checks=896ms / 934ms / 942ms`、
+`resource_owner_obligations=894ms / 896ms / 848ms` だった。post-merge median は
+`resource_static_check=4083ms` であり、RPN の基準値としてはこの値も併記する。
+
 per-function timing は次の階層を示している。ログ overhead を含むため総量比較ではなく、残る支配点の順位として扱う。
 
 ```text

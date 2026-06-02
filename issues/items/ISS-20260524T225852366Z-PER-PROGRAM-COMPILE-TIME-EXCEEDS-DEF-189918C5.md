@@ -398,6 +398,15 @@ formatter 後の native release RPN stage-only 3 run は `resource_static_check=
 `resource_owner_obligations=865ms / 754ms / 839ms` だった。median `resource_static_check=3538ms` まで
 下がったが、0.5 秒未満目標にはまだ届かない。
 
+`origin/main` `9812d619` を取り込んで main へ merge した後の再測定では、
+`resource_static_check=4083ms / 4177ms / 4082ms`、
+`resource_initialized_moves=3039ms / 3138ms / 3095ms`、
+`resource_initialized_i32_scalar_summaries=1065ms / 1087ms / 1034ms`、
+`resource_initialized_raw_init_summaries=998ms / 1030ms / 1037ms`、
+`resource_initialized_function_checks=896ms / 934ms / 942ms`、
+`resource_owner_obligations=894ms / 896ms / 848ms` だった。post-merge median の
+`resource_static_check=4083ms` も RPN cold base の現行基準として扱う。
+
 per-function timing の階層は、`resource_static_check=3723ms` のうち
 `resource_initialized_moves=2705ms`、その内訳として i32 scalar `929ms`、raw-init `890ms`、function check
 `811ms`、さらに owner obligations `881ms` が残る形である。上位関数は i32 scalar が
