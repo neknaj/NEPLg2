@@ -22,6 +22,7 @@ use super::owner_summary_record::{
     owner_source_for_storage, record_projection_marker, record_projection_maybe_owner_return,
     record_projection_owner_return, record_root_owner_return,
 };
+use super::owner_summary_relevance::owner_summary_relevant_functions;
 use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_from_return;
 use super::owner_summary_size_return::record_size_returns;
 use super::owner_summary_storage_origin::record_storage_origin_marker;
@@ -42,7 +43,8 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> (Vec<OwnerReturnSummary>, usize) {
-    let mut worklist = SummaryWorklist::new(module);
+    let relevant_functions = owner_summary_relevant_functions(module, types);
+    let mut worklist = SummaryWorklist::new_filtered(module, relevant_functions.clone());
     let mut summaries = Vec::new();
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
@@ -61,6 +63,13 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
             "[compile-stage] resource_owner_summary_recomputations={} summaries={}",
             worklist.recomputations(),
             summaries.len()
+        );
+        std::eprintln!(
+            "[compile-stage] resource_owner_summary_relevant_functions={}",
+            relevant_functions
+                .iter()
+                .filter(|is_relevant| **is_relevant)
+                .count()
         );
     }
     let recomputations = worklist.recomputations();

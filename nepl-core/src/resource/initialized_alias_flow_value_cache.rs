@@ -18,6 +18,7 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     module: &ResourceModule,
+    relevant_functions: &[bool],
     dependencies: &[Vec<usize>],
     initially_skipped_functions: &mut [bool],
     preseeded_functions: &mut [bool],
@@ -28,6 +29,13 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
         return;
     }
     for (function_index, function) in module.functions.iter().enumerate() {
+        if !relevant_functions
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
         let type_params = owner_summary_type_params(types, function);
         if let Some(plan) = replay_plan.as_deref_mut() {
             if let Some(summary) = cache.replay_raw_alias_return_entry_from_plan(
@@ -83,6 +91,7 @@ pub(super) fn record_raw_alias_return_summary_value_cache_candidates(
     types: &TypeCtx,
     module: &ResourceModule,
     dependencies: &[Vec<usize>],
+    relevant_functions: &[bool],
     preseeded_functions: &[bool],
     summaries: &[RawCellAddressReturnSummary],
     mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
@@ -98,6 +107,13 @@ pub(super) fn record_raw_alias_return_summary_value_cache_candidates(
         summary_by_function.insert(summary.function.as_str(), summary);
     }
     for (function_index, function) in module.functions.iter().enumerate() {
+        if !relevant_functions
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
         if preseeded_functions
             .get(function_index)
             .copied()

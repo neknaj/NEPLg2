@@ -185,12 +185,17 @@ fn check_resource_initialized_moves_inner(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        (Some(cache), Some(context)) => Some(cache.begin_initialized_function_check_pass_plan(
-            context,
-            types,
-            module,
-            &dependency_graph,
-        )),
+        (Some(cache), Some(context))
+            if cache.stable_entry_collection_enabled()
+                || cache.has_initialized_function_check_pass_snapshot() =>
+        {
+            Some(cache.begin_initialized_function_check_pass_plan(
+                context,
+                types,
+                module,
+                &dependency_graph,
+            ))
+        }
         _ => None,
     };
     let can_replay_function_check_entries =

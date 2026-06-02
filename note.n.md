@@ -1,3 +1,15 @@
+# 2026-06-02 RPN Resource summary relevance pruning checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針と静的検査を弱めない方針に従い、RPN cold base の Resource summary 固定点を「不要と証明できる関数だけ worklist から外す」形で縮小した。
+- raw-address return summary は scalar-only signature を除外し、value-projection carrier を含む aggregate / reference / box は維持した。RPN native cold では raw-alias recomputations が `268 -> 82`、Web cold でも `82` になった。
+- owner return summary は owner leaf を持つ signature、raw memory / raw view / storage origin / indirect call / non-pure call を持つ関数だけ relevant にした。RPN native cold では owner recomputations が `269 -> 222`、Web cold でも `222` になった。
+- Web stable collection 無効かつ previous pass snapshot なしの cold compile では initialized / owner pass plan を構築しないようにし、使えない fingerprint snapshot 構築を避けた。stable collection 有効時や preseed snapshot ありでは従来通り plan を構築する。
+- RPN Web cold base は merge 後 `compile_ms=2595` / `resource_static_check=1913ms` から、最終検証で `compile_ms=2435` / `resource_static_check=1751ms` に下がった。same-session exact cache は `4ms / 4ms`。
+- RPN native cold detail は `resource_static_check=1787ms` から `1575ms`、`initialized_moves=1207ms -> 1069ms`、`owner_obligations=459ms -> 399ms`。
+- Materialized edit bench は `cold_base=142ms`、`body_edit_candidate=65ms`、`body_edit_repeat=66ms` で、materialized attempts / fallbacks はすべて `0` だった。
+- まだ Web RPN cold base は 0.5 秒未満ではない。次の支配点は native detail で `resource_initialized_raw_init_summaries=398ms`、`resource_initialized_function_checks=448ms`、`resource_initialized_i32_scalar_summaries=203ms` であり、raw-init summary relevance と control-flow state clone / merge の改善が必要である。
+- focused verification は `cargo test -p nepl-core owner_summary_relevance --lib -- --nocapture`、`cargo test -p nepl-core initialized_alias_flow --lib -- --nocapture`、`cargo test -p nepl-core owner_obligation_value_cache --lib -- --nocapture`、`cargo test -p nepl-core initialized_function_check_value_cache --lib -- --nocapture`、`cargo check -p nepl-core`、`cargo test -p nepl-core resource_summary_value_cache --lib -- --nocapture`、`cargo build -p nepl-cli --release`、`trunk build`、RPN Web cold base test、materialized compile bench、issues check、diff check を通した。
+
 # 2026-06-02 RPN shallow arity path snapshot cold base checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の性能方針に従い、RPN cold base の残支配点である loader/typecheck 側を継続して計測した。

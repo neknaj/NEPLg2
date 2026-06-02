@@ -60,7 +60,10 @@ fn check_resource_owner_obligations_inner(
         summary_value_cache_context,
         dependency_graph.as_ref(),
     ) {
-        (Some(cache), Some(context), Some(graph)) => {
+        (Some(cache), Some(context), Some(graph))
+            if cache.stable_entry_collection_enabled()
+                || cache.has_owner_obligation_check_pass_snapshot() =>
+        {
             Some(cache.begin_owner_obligation_check_pass_plan(context, types, module, graph))
         }
         _ => None,

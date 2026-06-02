@@ -65,6 +65,15 @@ struct OwnerObligationCheckPassSnapshotEntry {
 }
 
 impl ResourceSummaryValueCache {
+    /// 前回の initialized pass snapshot があるかを返す。
+    ///
+    /// stable entry collection が無効な cold compile では、新しい snapshot を保存しない。
+    /// その場合に previous snapshot も無ければ pass plan は全関数 affected になるだけなので、
+    /// 呼び出し側はこの query で fingerprint 構築を省ける。
+    pub(in crate::resource) fn has_initialized_function_check_pass_snapshot(&self) -> bool {
+        self.initialized_function_check_pass_snapshot.is_some()
+    }
+
     pub(in crate::resource) fn begin_initialized_function_check_pass_plan(
         &self,
         context: &ResourceSummaryValueCacheContext,
@@ -134,6 +143,15 @@ impl ResourceSummaryValueCache {
             module,
             dependency_graph,
         )
+    }
+
+    /// 前回の owner obligation pass snapshot があるかを返す。
+    ///
+    /// owner obligation は owner return summary の変化を reverse dependency closure へ
+    /// 広げるため、snapshot が無い cold compile では plan skip が発生しない。stable entry
+    /// collection も無効なら、plan 自体を作らない方が同じ検査結果を少ない work で得られる。
+    pub(in crate::resource) fn has_owner_obligation_check_pass_snapshot(&self) -> bool {
+        self.owner_obligation_check_pass_snapshot.is_some()
     }
 
     pub(in crate::resource) fn replay_unchanged_owner_obligation_check_pass(
