@@ -354,6 +354,32 @@ constant endpoint は保持するため、既存の condition proof 能力は維
 ByteBuilder / StringBuilder 系 i32 scalar condition proof の探索空間削減、`dealloc_raw` / `apply_op`
 / Stack owner flow の Resource proof template 化、bundled / persistent `.neplproof` preseed である。
 
+2026-06-02 の RPN i32 scalar variant projection filter checkpoint では、`Result` の Ok / Err のような
+concrete variant で到達不能な sibling payload leaf まで i32 scalar return fact 収集が開始されることを
+確認した。direct parameter condition の path 間 intersection は
+`resource_initialized_i32_scalar_summaries=1314ms / 1270ms / 1062ms` へ悪化したため採用していない。
+
+採用した対応は、return leaf 収集前に `state.concrete_variants.projection_is_possible` で不可能な projection
+を除外する filter である。variant が不明な場合は fail-open で従来通り全 leaf を探索するため、
+静的検査の意味は弱めない。focused test では、到達不能 leaf の constant fact 削減、fail-open、
+parameter condition 保持、到達可能 leaf 同士の offset 由来 relation 保持を固定した。
+
+変更後の native release RPN stage-only 3 run は `resource_static_check=3834ms / 3793ms / 3684ms`、
+`resource_initialized_moves=2897ms / 2850ms / 2763ms`、
+`resource_initialized_i32_scalar_summaries=1107ms / 1040ms / 993ms`、
+`resource_initialized_raw_init_summaries=894ms / 901ms / 893ms`、
+`resource_initialized_function_checks=817ms / 839ms / 804ms`、
+`resource_owner_obligations=804ms / 805ms / 792ms` だった。直前 checkpoint median から
+`resource_static_check=3878ms -> 3793ms`、`resource_initialized_i32_scalar_summaries=1076ms -> 1040ms`
+への小幅改善であり、issue の 0.5 秒未満目標にはまだ届いていない。
+
+per-function timing では i32 scalar summary の上位が `sb_append_non_empty_result=317ms`、
+`byte_builder_reserve=189ms`、`byte_builder_push_bytes_ref=118ms`、`apply_op=112ms`、
+`byte_builder_push_u8=100ms` だった。raw-init summary は `apply_op=195ms`、`dealloc_raw=164ms`、
+function check は `dealloc_raw=175ms`、`parse_u128_radix_digits_from=106ms`、`apply_op=100ms` が
+残っている。次の根本対応は actual `.neplproof` preseed を native `--check` cold path に接続することと、
+stdlib-heavy proof の事前検査済み artifact 化である。
+
 ## 検証
 
 - `trunk build`

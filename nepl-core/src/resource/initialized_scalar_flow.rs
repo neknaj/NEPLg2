@@ -10,7 +10,8 @@ use super::cell_state::CellTable;
 use super::condition_fact::record_condition_fact_value_constraints;
 use super::function_alias::FunctionAliasTable;
 use super::i32_scalar_return_facts::{
-    apply_i32_scalar_return_facts, collect_i32_scalar_return_facts_for_value_suffix_cached,
+    apply_i32_scalar_return_facts,
+    collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter,
     I32ScalarReturnFacts,
 };
 use super::initialized_alias::RawCellAddressAliases;
@@ -324,13 +325,18 @@ fn function_i32_scalar_return_summary(
                 let path_facts = value
                     .as_ref()
                     .map(|value| {
-                        collect_i32_scalar_return_facts_for_value_suffix_cached(
+                        collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
                             &function.params,
                             types,
                             &state.raw_aliases,
                             value,
                             &[],
                             &mut i32_leaf_cache,
+                            |projection| {
+                                state
+                                    .concrete_variants
+                                    .projection_is_possible(types, value, projection)
+                            },
                         )
                     })
                     .unwrap_or_default();

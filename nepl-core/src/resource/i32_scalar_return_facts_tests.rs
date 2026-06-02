@@ -1,7 +1,8 @@
 use alloc::string::String;
 use alloc::vec;
+use alloc::vec::Vec;
 
-use crate::types::TypeCtx;
+use crate::types::{EnumVariantInfo, TypeCtx, TypeKind};
 
 use super::super::initialized_alias::RawCellAddressAliases;
 use super::super::model::{I32ValueCondition, Place, ResourceI32RelationOp, ResourceLocal};
@@ -179,4 +180,262 @@ fn i32_return_facts_preserve_offset_constant_parameter_conditions() {
         }),
         "literal 起点の offset から導ける引数 condition は summary に保存される必要がある"
     );
+}
+
+/// concrete variant などの上位解析で到達不能だと分かっている return leaf は、
+/// fact 収集の前に除外できる。
+///
+/// Result の Ok / Err のような sibling variant payload を後から捨てるのではなく、
+/// 不可能な projection への condition 探索を開始しないことを確認する。filter が
+/// 不明な場合は caller が常に true を返すため、従来の保守的な全探索に戻る。
+#[test]
+fn i32_return_facts_projection_filter_skips_impossible_leaf() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let pair_ty = types.tuple(vec![i32_ty, i32_ty]);
+    let returned_value = Place::local(String::from("pair"), pair_ty);
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.set_i32_value(&leaves[0].place, 10);
+    source_aliases.set_i32_value(&leaves[1].place, 20);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+        &[],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+        &mut leaf_cache,
+        |projection| projection == leaves[0].suffix.as_slice(),
+    );
+
+    assert!(
+        facts.constants.iter().any(|constant| {
+            constant.return_projection == leaves[0].suffix && constant.value == 10
+        }),
+        "到達可能な leaf の constant fact は保持する必要がある"
+    );
+    assert!(
+        !facts.constants.iter().any(|constant| {
+            constant.return_projection == leaves[1].suffix && constant.value == 20
+        }),
+        "到達不能な leaf の constant fact は収集しない"
+    );
+}
+
+/// filter が不明な場合は、到達不能かもしれない projection も保守的に残す。
+///
+/// concrete variant がまだ分からない時点で sibling payload を削ると、後続の path merge で
+/// 別 path から戻る payload fact を失う。caller が常に true を返す fail-open 経路では、
+/// 従来と同じ全 leaf 収集になることを固定する。
+#[test]
+fn i32_return_facts_projection_filter_fail_open_keeps_all_leaves() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let result_ty = result_i32_i32_type(&mut types, i32_ty);
+    let returned_value = Place::local(String::from("result"), result_ty);
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.set_i32_value(&leaves[0].place, 10);
+    source_aliases.set_i32_value(&leaves[1].place, 20);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+        &[],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+        &mut leaf_cache,
+        |_| true,
+    );
+
+    assert!(
+        facts.constants.iter().any(|constant| {
+            constant.return_projection == leaves[0].suffix && constant.value == 10
+        }),
+        "fail-open では先頭 variant payload の constant fact を保持する必要がある"
+    );
+    assert!(
+        facts.constants.iter().any(|constant| {
+            constant.return_projection == leaves[1].suffix && constant.value == 20
+        }),
+        "fail-open では sibling variant payload の constant fact も保持する必要がある"
+    );
+}
+
+/// return leaf の filter は、戻り値 leaf の探索だけを狭め、引数 condition は落とさない。
+///
+/// 引数 condition は呼び出し元の事前条件として扱う fact であり、戻り値の concrete variant
+/// payload が片側だけ可能な場合でも、関数本体で要求される parameter condition は
+/// summary に残す必要がある。
+#[test]
+fn i32_return_facts_projection_filter_preserves_parameter_conditions() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let result_ty = result_i32_i32_type(&mut types, i32_ty);
+    let returned_value = Place::local(String::from("result"), result_ty);
+    let param = ResourceLocal {
+        name: String::from("value"),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local(String::from("value"), i32_ty),
+    };
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.add_i32_condition(&param.place, I32ValueCondition::NonNegative);
+    source_aliases.set_i32_value(&leaves[0].place, 10);
+    source_aliases.set_i32_value(&leaves[1].place, 20);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+        &[param.clone()],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+        &mut leaf_cache,
+        |projection| projection == leaves[0].suffix.as_slice(),
+    );
+
+    assert!(
+        !facts.constants.iter().any(|constant| {
+            constant.return_projection == leaves[1].suffix && constant.value == 20
+        }),
+        "到達不能な sibling payload の戻り値 fact は収集しない"
+    );
+    assert!(
+        facts.parameter_conditions.iter().any(|condition| {
+            condition.parameter_index == 0
+                && condition.parameter_projection.is_empty()
+                && condition.condition == I32ValueCondition::NonNegative
+        }),
+        "戻り値 projection filter は引数 condition を削ってはならない"
+    );
+}
+
+/// 到達可能な leaf の offset 由来 relation は保持し、到達不能 sibling leaf だけを落とす。
+///
+/// collection summary では offset graph から戻り値 leaf の等価性を復元するため、
+/// filter は「到達不能 leaf を候補に入れない」だけに留め、到達可能 leaf 同士の
+/// relation proof を壊してはならない。
+#[test]
+fn i32_return_facts_projection_filter_keeps_possible_offset_relation() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let ok_pair_ty = types.tuple(vec![i32_ty, i32_ty]);
+    let result_ty = types.register_named(
+        String::from("Result"),
+        TypeKind::Enum {
+            name: String::from("Result"),
+            type_params: Vec::new(),
+            variants: vec![
+                EnumVariantInfo {
+                    name: String::from("Ok"),
+                    payload: Some(ok_pair_ty),
+                },
+                EnumVariantInfo {
+                    name: String::from("Err"),
+                    payload: Some(i32_ty),
+                },
+            ],
+        },
+    );
+    let returned_value = Place::local(String::from("result"), result_ty);
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+    let base = Place::local(String::from("base"), i32_ty);
+    let mut source_aliases = RawCellAddressAliases::default();
+    let ok_first = leaves
+        .iter()
+        .find(|leaf| {
+            matches!(
+                leaf.suffix.first(),
+                Some(PlaceProjection::EnumPayload { variant }) if variant == "Ok"
+            ) && matches!(
+                leaf.suffix.get(1),
+                Some(PlaceProjection::TupleField { index: 0, .. })
+            )
+        })
+        .expect("Ok first tuple leaf must exist");
+    let ok_second = leaves
+        .iter()
+        .find(|leaf| {
+            matches!(
+                leaf.suffix.first(),
+                Some(PlaceProjection::EnumPayload { variant }) if variant == "Ok"
+            ) && matches!(
+                leaf.suffix.get(1),
+                Some(PlaceProjection::TupleField { index: 1, .. })
+            )
+        })
+        .expect("Ok second tuple leaf must exist");
+    let err_leaf = leaves
+        .iter()
+        .find(|leaf| {
+            matches!(
+                leaf.suffix.first(),
+                Some(PlaceProjection::EnumPayload { variant }) if variant == "Err"
+            )
+        })
+        .expect("Err payload leaf must exist");
+
+    source_aliases.add_i32_offset(&base, &ok_first.place, 1);
+    source_aliases.add_i32_offset(&base, &ok_second.place, 1);
+    source_aliases.add_i32_offset(&base, &err_leaf.place, 1);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+        &[],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+        &mut leaf_cache,
+        |projection| {
+            matches!(
+                projection.first(),
+                Some(PlaceProjection::EnumPayload { variant }) if variant == "Ok"
+            )
+        },
+    );
+
+    assert!(
+        facts.relations.iter().any(|relation| {
+            relation.left_return_projection == ok_first.suffix
+                && relation.op == ResourceI32RelationOp::Eq
+                && relation.right_return_projection == ok_second.suffix
+        }),
+        "到達可能な Ok payload leaf 同士の offset 由来 Eq relation は保持する必要がある"
+    );
+    assert!(
+        !facts.relations.iter().any(|relation| {
+            relation.left_return_projection == err_leaf.suffix
+                || relation.right_return_projection == err_leaf.suffix
+        }),
+        "到達不能な Err payload leaf を含む relation は収集しない"
+    );
+}
+
+fn result_i32_i32_type(types: &mut TypeCtx, i32_ty: crate::types::TypeId) -> crate::types::TypeId {
+    types.register_named(
+        String::from("Result"),
+        TypeKind::Enum {
+            name: String::from("Result"),
+            type_params: Vec::new(),
+            variants: vec![
+                EnumVariantInfo {
+                    name: String::from("Ok"),
+                    payload: Some(i32_ty),
+                },
+                EnumVariantInfo {
+                    name: String::from("Err"),
+                    payload: Some(i32_ty),
+                },
+            ],
+        },
+    )
 }
