@@ -768,3 +768,11 @@ preseed する必要がある。`.neplproof` 側では、ResourceSummaryProofSna
 header-first decode、stable entry codec、generic type-argument key、source capability policy hash、
 private effect policy hash を持つ fail-closed な `.neplproof` codec と bundled / persistent preseed を
 次の主経路として維持する。
+
+2026-06-02 の proof-backed check gate checkpoint では、actual `.neplproof` codec の前段として
+native check 用の core wrapper と cache activation gate を追加した。
+`check_module_with_source_map_resource_summary_value_cache_and_neplproof` は artifact emission へ進まず、
+通常 `--check` と同じ Resource IR static gate を通る。`ResourceSummaryValueCacheActivation::OnlyAfterAcceptedPreseed`
+を指定した場合は、matching header でも empty snapshot なら cache を起動しない。これにより、
+disk / bundled artifact loader を追加する次 checkpoint で、empty cache を渡しただけの RPN cold base
+regression を起こさず、accepted usable entry を持つ artifact だけを cold path へ接続できる。

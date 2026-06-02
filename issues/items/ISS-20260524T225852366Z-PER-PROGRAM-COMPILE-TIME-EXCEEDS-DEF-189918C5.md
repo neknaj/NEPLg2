@@ -437,6 +437,19 @@ i32 scalar `1177ms`、raw-init `1053ms`、function check `959ms`。関数別上�
 actual `.neplproof` stable codec、native `--check` preseed、stdlib proof template、owner return summary
 stable mirror へ絞る。
 
+2026-06-02 の proof-backed check gate checkpoint では、native cold `--check` に空の
+`ResourceSummaryValueCache` を接続して悪化させる経路を防ぐため、`ResourceSummaryValueCacheActivation`
+を追加した。既定の `Always` は Web `CompilerSession` などの same-session cache 収集を維持する。
+`OnlyAfterAcceptedPreseed` は `.neplproof` preseed report が usable entry を持つ場合だけ Resource static
+check へ cache を渡し、artifact missing / compatibility reject / empty artifact では cache と context を
+渡さない。
+
+この checkpoint の RPN release stage-only 3 run は、変更前確認が
+`resource_static_check=3785ms / 3359ms / 3563ms`、変更後が
+`resource_static_check=3882ms / 3856ms / 3563ms` だった。通常 CLI path は baseline 範囲内だが、
+0.5 秒未満目標にはまだ届いていない。この変更は actual `.neplproof` を速くするものではなく、次の
+persistent / bundled proof artifact を native `--check` cold path へ安全に接続するための境界である。
+
 ## 検証
 
 - `trunk build`

@@ -161,6 +161,38 @@ pub struct ResourceSummaryProofArtifactPreseedReport {
         Option<crate::resource::ResourceSummaryProofArtifactCompatibilityReject>,
 }
 
+impl ResourceSummaryProofArtifactPreseedReport {
+    pub fn usable_entries(self) -> usize {
+        if self.compatibility_reject.is_some() {
+            0
+        } else {
+            self.accepted_entries + self.existing_matching_entries
+        }
+    }
+
+    pub fn has_usable_entries(self) -> bool {
+        self.usable_entries() > 0
+    }
+}
+
+/// Resource summary value cache を Resource static check へ接続する条件。
+///
+/// same-session compile では空 cache から stable summary を収集する必要がある。一方で、
+/// native cold `--check` のような単発確認では、空 cache を渡すだけで replay / plan machinery
+/// の固定費が増える。永続 `.neplproof` がまだ無い経路では cache を起動せず、accepted preseed
+/// entry があるときだけ Resource static check へ渡すため、この条件を options として分ける。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceSummaryValueCacheActivation {
+    Always,
+    OnlyAfterAcceptedPreseed,
+}
+
+impl Default for ResourceSummaryValueCacheActivation {
+    fn default() -> Self {
+        Self::Always
+    }
+}
+
 /// Resource summary proof artifact を compile pipeline へ接続するための入力。
 ///
 /// `.neplproof` の expected header は typecheck 後に確定する typed public signature と
@@ -172,6 +204,7 @@ pub struct ResourceSummaryProofArtifactCacheOptions<'a> {
     pub preseed_artifact: Option<&'a crate::resource::ResourceSummaryProofArtifact>,
     pub stdlib_content_hash: Option<u64>,
     pub preseed_report_out: Option<&'a mut Option<ResourceSummaryProofArtifactPreseedReport>>,
+    pub value_cache_activation: ResourceSummaryValueCacheActivation,
 }
 
 impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
@@ -180,6 +213,7 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
             preseed_artifact: None,
             stdlib_content_hash: None,
             preseed_report_out: None,
+            value_cache_activation: ResourceSummaryValueCacheActivation::Always,
         }
     }
 
@@ -191,6 +225,7 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
             preseed_artifact: Some(artifact),
             stdlib_content_hash,
             preseed_report_out: None,
+            value_cache_activation: ResourceSummaryValueCacheActivation::Always,
         }
     }
 
@@ -203,7 +238,13 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
             preseed_artifact: Some(artifact),
             stdlib_content_hash,
             preseed_report_out: Some(preseed_report_out),
+            value_cache_activation: ResourceSummaryValueCacheActivation::Always,
         }
+    }
+
+    pub fn only_after_accepted_preseed(mut self) -> Self {
+        self.value_cache_activation = ResourceSummaryValueCacheActivation::OnlyAfterAcceptedPreseed;
+        self
     }
 }
 
@@ -779,6 +820,52 @@ pub fn check_module_with_source_map(
         &module, target, profile, source_map, None,
     )?;
     Ok(())
+}
+
+/// Resource summary proof artifact を使う確認 pipeline の結果。
+///
+/// `--check` は成果物を出さないが、`.neplproof` の expected header は typecheck 後の公開
+/// signature と source capability policy からしか作れない。確認用途でもこの header を core
+/// から返すことで、host 側は hash 境界を再実装せずに proof artifact の保存・照合へ進める。
+pub struct ResourceSummaryProofCheckResult {
+    pub resource_summary_proof_header: crate::resource::ResourceSummaryProofArtifactHeader,
+    pub resource_summary_proof_preseed_report: Option<ResourceSummaryProofArtifactPreseedReport>,
+}
+
+/// Resource summary value cache と `.neplproof` preseed artifact を受け取る確認 pipeline。
+///
+/// artifact emission や codegen には進まず、通常の `check_module_with_source_map` と同じ
+/// Resource IR static gate までを共有する。`resource_summary_proof_options` で
+/// `only_after_accepted_preseed` を選ぶと、accepted preseed entry が無い cold path では
+/// cache を Resource static check へ渡さず、空 cache 起動による固定費を避ける。
+pub fn check_module_with_source_map_resource_summary_value_cache_and_neplproof(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+) -> Result<ResourceSummaryProofCheckResult, CoreError> {
+    crate::log::set_verbose(options.verbose);
+    let target = resolve_target(&module, options)?;
+    let profile = options
+        .profile
+        .unwrap_or(BuildProfile::default_source_profile());
+    let mut stage_recorder = CompileStageRecorder::disabled();
+    let prepared = prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        &module,
+        target,
+        profile,
+        source_map,
+        PublicInterfaceArtifactInputs::new(None, None, &[]),
+        resource_summary_value_cache,
+        resource_summary_proof_options,
+        &mut stage_recorder,
+    )?;
+
+    Ok(ResourceSummaryProofCheckResult {
+        resource_summary_proof_header: prepared.resource_summary_proof_header,
+        resource_summary_proof_preseed_report: prepared.resource_summary_proof_preseed_report,
+    })
 }
 
 /// 依存 module 用の `.neplmeta` interface artifact だけを生成する。
@@ -2021,6 +2108,29 @@ mod tests {
         .resource_summary_cache_namespace_key
     }
 
+    fn check_test_module_with_resource_summary_cache_options(
+        source: &str,
+        cache: &mut crate::resource::ResourceSummaryValueCache,
+        options: ResourceSummaryProofArtifactCacheOptions<'_>,
+    ) -> ResourceSummaryProofCheckResult {
+        let module = parse_test_module(source);
+        let mut source_map = SourceMap::new();
+        source_map.add("/virtual/entry.nepl", String::from(source));
+
+        check_module_with_source_map_resource_summary_value_cache_and_neplproof(
+            module,
+            Some(&source_map),
+            CompileOptions {
+                target: Some(CompileTarget::Wasm),
+                verbose: false,
+                profile: Some(BuildProfile::Debug),
+            },
+            Some(cache),
+            options,
+        )
+        .expect("test module should pass proof-backed check")
+    }
+
     #[test]
     fn resource_reachability_keeps_only_entry_direct_graph() {
         let mut types = crate::types::TypeCtx::new();
@@ -2244,6 +2354,82 @@ mod tests {
                 .resource_summary_proof_header
                 .private_effect_policy_hash,
             Some(resource_summary_private_effect_policy_hash())
+        );
+    }
+
+    #[test]
+    fn check_resource_summary_cache_default_activation_keeps_session_cache_path() {
+        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let mut cache = crate::resource::ResourceSummaryValueCache::new();
+
+        let result = check_test_module_with_resource_summary_cache_options(
+            source,
+            &mut cache,
+            ResourceSummaryProofArtifactCacheOptions::none(),
+        );
+
+        assert_eq!(result.resource_summary_proof_preseed_report, None);
+        assert!(
+            cache.stats().resource_static_function_count > 0,
+            "default activation is the same-session path and must keep cache instrumentation active"
+        );
+    }
+
+    #[test]
+    fn check_resource_summary_cache_preseed_only_disables_missing_artifact() {
+        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let mut cache = crate::resource::ResourceSummaryValueCache::new();
+
+        let result = check_test_module_with_resource_summary_cache_options(
+            source,
+            &mut cache,
+            ResourceSummaryProofArtifactCacheOptions::none().only_after_accepted_preseed(),
+        );
+
+        assert_eq!(result.resource_summary_proof_preseed_report, None);
+        assert_eq!(
+            cache.stats().resource_static_function_count,
+            0,
+            "cold check must not start empty Resource summary cache machinery without a usable proof preseed"
+        );
+    }
+
+    #[test]
+    fn check_resource_summary_cache_preseed_only_disables_empty_artifact() {
+        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let mut header_cache = crate::resource::ResourceSummaryValueCache::new();
+        let header_result = check_test_module_with_resource_summary_cache_options(
+            source,
+            &mut header_cache,
+            ResourceSummaryProofArtifactCacheOptions::none().only_after_accepted_preseed(),
+        );
+        let artifact = crate::resource::ResourceSummaryProofArtifact::new(
+            header_result.resource_summary_proof_header,
+            crate::resource::ResourceSummaryProofSnapshot::default(),
+        );
+        let mut cache = crate::resource::ResourceSummaryValueCache::new();
+        let mut report_out = None;
+
+        let result = check_test_module_with_resource_summary_cache_options(
+            source,
+            &mut cache,
+            ResourceSummaryProofArtifactCacheOptions::preseed_with_report(
+                &artifact,
+                None,
+                &mut report_out,
+            )
+            .only_after_accepted_preseed(),
+        );
+
+        assert_eq!(
+            result.resource_summary_proof_preseed_report,
+            Some(ResourceSummaryProofArtifactPreseedReport::default())
+        );
+        assert_eq!(report_out, result.resource_summary_proof_preseed_report);
+        assert_eq!(
+            cache.stats().resource_static_function_count,
+            0,
+            "an accepted but empty proof artifact is not enough to enable cold Resource summary cache replay"
         );
     }
 
@@ -4294,11 +4480,6 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
             source_map,
             resource_summary_proof_options.stdlib_content_hash,
         );
-    let resource_summary_value_cache_context = if resource_summary_value_cache.is_some() {
-        resource_summary_value_cache_context(&resource_summary_cache_namespace_key, source_map)
-    } else {
-        None
-    };
     let resource_summary_proof_preseed_report =
         if let Some(artifact) = resource_summary_proof_options.preseed_artifact {
             resource_summary_value_cache.as_deref_mut().map(|cache| {
@@ -4321,6 +4502,20 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     if let Some(report_out) = resource_summary_proof_options.preseed_report_out.as_mut() {
         **report_out = resource_summary_proof_preseed_report;
     }
+    if matches!(
+        resource_summary_proof_options.value_cache_activation,
+        ResourceSummaryValueCacheActivation::OnlyAfterAcceptedPreseed
+    ) && !resource_summary_proof_preseed_report
+        .map(ResourceSummaryProofArtifactPreseedReport::has_usable_entries)
+        .unwrap_or(false)
+    {
+        resource_summary_value_cache = None;
+    }
+    let resource_summary_value_cache_context = if resource_summary_value_cache.is_some() {
+        resource_summary_value_cache_context(&resource_summary_cache_namespace_key, source_map)
+    } else {
+        None
+    };
     let neplobj_direct_call_symbols = neplobj_direct_call_fragment_symbol_set(
         public_interface_artifacts.neplobj_direct_call_fragments,
     );

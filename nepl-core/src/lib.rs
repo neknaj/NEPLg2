@@ -78,7 +78,8 @@ pub use codegen_wasm::{
     NeplObjWasmResolvedDirectCallRelocation,
 };
 pub use compiler::{
-    check_module, check_module_with_source_map, compile_module,
+    check_module, check_module_with_source_map,
+    check_module_with_source_map_resource_summary_value_cache_and_neplproof, compile_module,
     compile_module_with_artifact_options, compile_module_with_source_map,
     compile_module_with_source_map_and_artifact_options,
     compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof,
@@ -93,5 +94,6 @@ pub use compiler::{
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions,
     CompileStageTimings, CompileTarget, PublicInterfaceArtifactInputs,
     ResourceSummaryProofArtifactCacheOptions, ResourceSummaryProofArtifactPreseedReport,
+    ResourceSummaryProofCheckResult, ResourceSummaryValueCacheActivation,
 };
 pub use error::CoreError;

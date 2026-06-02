@@ -3400,6 +3400,25 @@ summary stable mirror である。
 preseed することである。owner return summary はまだ `.neplproof` payload に入っていないため、owner
 return summary stable mirror も同じ優先度で進める。
 
+2026-06-02 の proof-backed check gate checkpoint では、native cold `--check` に空の
+`ResourceSummaryValueCache` を渡す経路を避けるため、cache 起動条件を Resource proof preseed の
+有効性から分離した。追加した境界は `ResourceSummaryValueCacheActivation::OnlyAfterAcceptedPreseed`
+である。same-session compile は既定の `Always` を使い、これまで通り空 cache から stable summary
+entry を収集できる。一方、proof-backed check wrapper は `.neplproof` が missing / rejected / empty の
+場合に Resource static check へ cache と context を渡さない。
+
+この checkpoint の native release RPN stage-only 3 run は、変更前確認が
+`resource_static_check=3785ms / 3359ms / 3563ms`、変更後が
+`resource_static_check=3882ms / 3856ms / 3563ms` だった。通常 CLI path は baseline 範囲内だが、
+RPN cold base はまだ秒単位であり、今回の変更は速度達成ではなく、persistent / bundled `.neplproof`
+preseed を安全に接続するための root boundary である。
+
+追加 regression は、既定 activation が従来の same-session cache instrumentation を維持すること、
+`OnlyAfterAcceptedPreseed` では artifact が無い場合と matching header の empty artifact の場合に
+cache instrumentation が起動しないことを固定する。次は disk / bundled artifact loader で
+accepted usable entry を持つ `.neplproof` を渡し、RPN cold base の initialized moves と owner
+obligations を初回から replay できるかを測る。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

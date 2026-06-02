@@ -1,3 +1,13 @@
+# 2026-06-02 RPN cold base proof-backed check gate checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱めずに RPN cold base の根本経路である `.neplproof` preseed 入口を整理した。
+- 現ソースで release CLI を再ビルドし、`target\release\nepl-cli.exe --check -i examples\rpn.nepl --target std --stdlib-root stdlib` を 3 run 測定した。変更前確認は `resource_static_check=3785ms / 3359ms / 3563ms`、`resource_initialized_moves=2787ms / 2505ms / 2702ms`、`resource_owner_obligations=863ms / 731ms / 739ms` だった。
+- subagent review では、native cold `--check` に空の `ResourceSummaryValueCache` を接続するのではなく、現在 compile の `.neplproof` header と一致し、かつ preseed 後に usable entry がある場合だけ cache を有効にする方針が妥当だと確認した。
+- `ResourceSummaryProofArtifactPreseedReport::usable_entries` と `ResourceSummaryValueCacheActivation::OnlyAfterAcceptedPreseed` を追加し、`check_module_with_source_map_resource_summary_value_cache_and_neplproof` を公開した。通常の same-session compile は既定 `Always` のまま維持し、proof-backed check wrapper だけが missing / rejected / empty artifact で cache を Resource static check へ渡さないようにした。
+- 追加 test は、既定 activation が従来の session cache path を維持すること、missing artifact では cache instrumentation が動かないこと、matching header でも empty artifact では cold cache machinery を起動しないことを固定する。
+- 変更後の RPN cold base 3 run は `resource_static_check=3882ms / 3856ms / 3563ms`、`resource_initialized_moves=2932ms / 2962ms / 2586ms`、`resource_initialized_i32_scalar_summaries=969ms / 1058ms / 864ms`、`resource_initialized_raw_init_summaries=904ms / 1018ms / 866ms`、`resource_initialized_function_checks=985ms / 804ms / 790ms`、`resource_owner_obligations=814ms / 762ms / 845ms` だった。通常 CLI path は baseline 範囲内だが、0.5 秒未満にはまだ届いていない。
+- 残件は、`.neplproof` の persistent / bundled codec、CLI disk cache loader、stdlib proof artifact preseed、owner return summary stable mirror、`dealloc_raw` / `apply_op` / ByteBuilder 系 proof template である。
+
 # 2026-06-02 RPN cold base remeasure / rejected local-cache checkpoint
 
 - `plan.md` は変更していない。`perf/rpn-cold-base-next-20260602` で `origin/main` を fetch し、`examples/rpn.nepl` の native release `--check` を cold base 基準として再測定した。
