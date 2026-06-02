@@ -2986,6 +2986,35 @@ stable entry map も private である。したがって、disk / IndexedDB / bu
 進めるには、header first decode、stable entry codec、generic type-argument key、source capability
 policy set hash、private effect policy hash を含む永続 codec を別 checkpoint として実装する必要がある。
 
+## 2026-06-02 `str_trim` scan helper split checkpoint
+
+remote/main の追加変更を取り込んだ後、RPN cold base を改めて同一 native release CLI で測定した。
+stage-only run は `resource_static_check=7565ms` / `7455ms`、`resource_initialized_moves=6452ms` /
+`6351ms`、`resource_initialized_raw_init_summaries=2980ms` / `2946ms`、
+`resource_initialized_function_checks=2014ms` / `1974ms` だった。per-function timing では
+`str_trim__str__str__pure` の final initialized function check が `1117ms` で最大の単一関数 cost
+になっていた。
+
+この checkpoint では、`str_trim` の意味を変えずに先頭側 scan と末尾側 scan を private helper へ
+分けた。`str_trim_left_index` は先頭側の ASCII 空白が終わる byte index を返し、
+`str_trim_right_index` は `start` より前へ戻らない末尾側の byte index を返す。public `str_trim`
+は `len`、left scan、right scan、`str_slice` だけを接続する。これは Resource IR の検査規則や
+stdlib の公開 API を変えず、1 つの関数に両方向 scan の loop / branch merge が集中する形を避ける
+ための stdlib 構造改善である。
+
+変更後の native release RPN stage-only 測定では、後続 run で `resource_static_check=5787ms` /
+`5397ms`、`resource_initialized_moves=4742ms` / `4514ms`、
+`resource_initialized_raw_init_summaries=2354ms` / `2394ms`、
+`resource_initialized_function_checks=1029ms` / `921ms` だった。per-function timing では `str_trim`
+が上位 50 件から外れ、残る上位は `apply_op` / `dealloc_raw` の raw-init summary と
+`sb_append_result` の i32 scalar summary になった。
+
+この変更は `str_trim` 由来の単一関数 cost を下げるが、RPN cold base 0.5 秒未満を達成するものでは
+ない。subagent review でも、native `--check` はまだ `.neplproof` preseed を実際の stdlib proof
+artifact から受け取れておらず、empty cache や局所 pruning に戻るべきではないと確認した。次の根本
+対応は、final initialized pass、owner obligation、raw-init / i32 scalar summary を fail-closed な
+`.neplproof` stable entry として bundled / persistent preseed へ接続することである。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

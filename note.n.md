@@ -49514,3 +49514,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - native release RPN stage-only の単独計測は、変更後に `resource_static_check=6267ms / 6381ms`、`resource_initialized_moves=5208ms / 5484ms` だった。per-function timing では `str_trim` final check が `895ms`、`apply_op` raw-init summary が `552ms` まで下がった。過去 checkpoint の最良値とは測定揺れがあるため、同一 followup の clean baseline からの改善として扱う。
 - remote/main の GUI 関連変更を取り込んだ main 上で release CLI を再ビルドした後の確認値は、`tmp\rpn_cold_base_cell_availability_merged_main_20260602.txt` で `resource_static_check=6937ms`、`resource_initialized_moves=5876ms`、`resource_initialized_raw_init_summaries=2378ms`、`resource_initialized_function_checks=1905ms` だった。
 - この checkpoint は availability query の探索構造を軽くしただけで、RPN cold base 0.5 秒未満を達成するものではない。次の大きな改善経路は引き続き bundled / persistent `.neplproof` preseed、stdlib proof template、changed-expression query cache である。
+
+## 2026-06-02 Agent RPN `str_trim` scan helper split checkpoint
+
+- remote/main と同期済みの `perf/rpn-cold-base-merge-cost-20260602` branch で、`examples/rpn.nepl` の cold base を改めて native release CLI で測定した。`plan.md` は変更していない。
+- 同期後 baseline は `tmp\rpn_cold_base_after_sync_20260602_run1.txt` / `run2.txt` で `resource_static_check=7565ms` / `7455ms`、`resource_initialized_moves=6452ms` / `6351ms`、`resource_initialized_function_checks=2014ms` / `1974ms` だった。per-function timing では `str_trim__str__str__pure` の final initialized check が `1117ms` で上位だった。
+- `stdlib/alloc/string/slice/trim.nepl` で、先頭側 scan を `str_trim_left_index`、末尾側 scan を `str_trim_right_index` に分けた。public `str_trim` は `len`、左右の index、`str_slice` だけを接続する。公開 API、ASCII 空白判定、範囲確認境界、allocation failure の扱いは変えていない。
+- 変更後の RPN stage-only 後続 run は `tmp\rpn_cold_base_str_trim_helper_split_20260602_run3.txt` / `run4.txt` で `resource_static_check=5787ms` / `5397ms`、`resource_initialized_moves=4742ms` / `4514ms`、`resource_initialized_function_checks=1029ms` / `921ms` だった。per-function timing では `str_trim` が上位 50 件から外れた。
+- subagent review では、native `--check` は actual `.neplproof` artifact を preseed できておらず、empty cache や局所 pruning へ戻らず bundled / persistent `.neplproof` preseed を進めるべきだと確認した。
+- focused verification は `node nodesrc/tests.js -i stdlib/alloc/string/slice/trim.nepl --no-tree -o tmp/string-trim-helper-split-tests-20260602.json -j 2` と `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-helper-split-tests-20260602.json -j 2` を通した。commit 前に issue check と diff check を再実行する。

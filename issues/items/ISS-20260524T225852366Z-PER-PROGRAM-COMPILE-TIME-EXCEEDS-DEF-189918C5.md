@@ -244,6 +244,25 @@ remote/main の GUI 関連変更を取り込んだ main 上で release CLI を�
 主経路は引き続き bundled / persistent `.neplproof` preseed、stdlib proof template、changed-expression
 query cache である。
 
+2026-06-02 の `str_trim` scan helper split checkpoint では、remote/main 同期後の native release
+RPN baseline を再測定した。同期後の stage-only run は `resource_static_check=7565ms` / `7455ms`、
+`resource_initialized_moves=6452ms` / `6351ms`、`resource_initialized_function_checks=2014ms` /
+`1974ms` で、per-function timing では `str_trim__str__str__pure` の final initialized check が
+`1117ms` だった。
+
+対応として、`str_trim` の先頭側 scan と末尾側 scan を `str_trim_left_index` /
+`str_trim_right_index` の private helper へ分け、public `str_trim` は `len`、左右 index、
+`str_slice` を接続するだけにした。公開 API、空白判定、範囲確認境界、allocation failure の扱いは
+変えていない。変更後の native release RPN stage-only 後続 run は `resource_static_check=5787ms` /
+`5397ms`、`resource_initialized_moves=4742ms` / `4514ms`、
+`resource_initialized_function_checks=1029ms` / `921ms` だった。per-function timing では `str_trim`
+が上位 50 件から外れた。
+
+この改善でも RPN cold base は 0.5 秒未満から遠いため、この issue は open のまま維持する。残る
+支配点は `apply_op` / `dealloc_raw` の raw-init summary、`sb_append_result` の i32 scalar summary、
+および stdlib-heavy Resource proof を初回 compile ごとに構築する固定費である。次の根本対応は
+bundled / persistent `.neplproof` preseed と stdlib proof template である。
+
 ## 検証
 
 - `trunk build`
