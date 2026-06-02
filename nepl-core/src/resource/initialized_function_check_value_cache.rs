@@ -99,6 +99,9 @@ pub(super) fn record_initialized_function_check_value_cache_candidate(
         (Some(cache), Some(context), Some(input)) => (cache, context, input),
         _ => return false,
     };
+    if !cache.stable_entry_collection_enabled() {
+        return false;
+    }
     if function_has_diagnostics {
         cache.record_initialized_function_check_diagnostic_bypass(function_op_count);
         return false;

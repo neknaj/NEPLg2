@@ -92,31 +92,38 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        (Some(cache), Some(context)) => Some(cache.begin_raw_init_summary_replay_plan(
-            context,
-            types,
-            module,
-            dependency_graph,
-            &relevant,
-        )),
+        (Some(cache), Some(context))
+            if cache.stable_entry_collection_enabled()
+                || cache.has_raw_init_complete_leaf_replay_entries(context) =>
+        {
+            Some(cache.begin_raw_init_summary_replay_plan(
+                context,
+                types,
+                module,
+                dependency_graph,
+                &relevant,
+            ))
+        }
         _ => None,
     };
     if let (Some(cache), Some(context)) = (
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        preseed_raw_cell_initialization_summaries_from_value_cache(
-            cache,
-            context,
-            types,
-            module,
-            &relevant,
-            dependency_graph.dependencies(),
-            &mut worklist_relevant_functions,
-            &mut preseeded_functions,
-            &mut summaries,
-            replay_plan.as_mut(),
-        );
+        if cache.has_raw_init_complete_leaf_replay_entries(context) {
+            preseed_raw_cell_initialization_summaries_from_value_cache(
+                cache,
+                context,
+                types,
+                module,
+                &relevant,
+                dependency_graph.dependencies(),
+                &mut worklist_relevant_functions,
+                &mut preseeded_functions,
+                &mut summaries,
+                replay_plan.as_mut(),
+            );
+        }
     }
     let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
         module,
@@ -150,18 +157,21 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        let candidate_skipped_functions = worklist.unrecomputed_initial_skips(&preseeded_functions);
-        record_raw_cell_initialization_summary_value_cache_candidates(
-            cache,
-            context,
-            types,
-            module,
-            dependency_graph.dependencies(),
-            &relevant,
-            &candidate_skipped_functions,
-            &summaries,
-            replay_plan.as_mut(),
-        );
+        if cache.stable_entry_collection_enabled() {
+            let candidate_skipped_functions =
+                worklist.unrecomputed_initial_skips(&preseeded_functions);
+            record_raw_cell_initialization_summary_value_cache_candidates(
+                cache,
+                context,
+                types,
+                module,
+                dependency_graph.dependencies(),
+                &relevant,
+                &candidate_skipped_functions,
+                &summaries,
+                replay_plan.as_mut(),
+            );
+        }
     }
     if let (Some(cache), Some(plan)) = (summary_value_cache.as_deref_mut(), replay_plan) {
         cache.finish_raw_init_summary_replay_plan(plan);

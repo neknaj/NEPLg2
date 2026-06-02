@@ -66,6 +66,16 @@ fn check_resource_owner_obligations_inner(
         _ => None,
     };
     let mut pending_checks = Vec::new();
+    let can_replay_owner_obligation_entries =
+        match (summary_value_cache.as_ref(), summary_value_cache_context) {
+            (Some(cache), Some(context)) => {
+                cache.has_owner_obligation_check_replay_entries(context)
+            }
+            _ => false,
+        };
+    let can_record_owner_obligation_entries = summary_value_cache
+        .as_ref()
+        .is_some_and(|cache| cache.stable_entry_collection_enabled());
     if summary_value_cache.is_some() && summary_value_cache_context.is_some() {
         for (function_index, function) in module.functions.iter().enumerate() {
             let function_op_count = resource_function_op_count(function);
@@ -84,38 +94,45 @@ fn check_resource_owner_obligations_inner(
                     continue;
                 }
             }
-            let function_check_cache_input = owner_obligation_check_cache_input(
-                summary_value_cache.as_deref_mut(),
-                summary_value_cache_context,
-                types,
-                module,
-                dependency_graph
-                    .as_ref()
-                    .map(ResourceSummaryDependencyGraph::dependencies),
-                function_index,
-                function,
-                function_op_count,
-            );
-            if let Some(cache) = summary_value_cache.as_deref_mut() {
-                cache.record_owner_obligation_check_replay_probe_function();
-            }
-            if let Some(replayed_check) = replay_owner_obligation_check_from_value_cache(
-                summary_value_cache.as_deref_mut(),
-                summary_value_cache_context,
-                types,
-                function,
-                function_check_cache_input.as_ref(),
-                function_op_count,
-            ) {
-                merge_owner_deferred(&mut deferred, replayed_check.deferred);
-                if let Some(plan) = owner_check_pass_plan.as_mut() {
-                    plan.record_pass(function_index, replayed_check.deferred);
+            let function_check_cache_input =
+                if can_replay_owner_obligation_entries || can_record_owner_obligation_entries {
+                    owner_obligation_check_cache_input(
+                        summary_value_cache.as_deref_mut(),
+                        summary_value_cache_context,
+                        types,
+                        module,
+                        dependency_graph
+                            .as_ref()
+                            .map(ResourceSummaryDependencyGraph::dependencies),
+                        function_index,
+                        function,
+                        function_op_count,
+                    )
+                } else {
+                    None
+                };
+            if can_replay_owner_obligation_entries {
+                if let Some(cache) = summary_value_cache.as_deref_mut() {
+                    cache.record_owner_obligation_check_replay_probe_function();
                 }
-                function_results[function_index] = Some(replayed_check);
-                continue;
-            }
-            if let Some(cache) = summary_value_cache.as_deref_mut() {
-                cache.record_owner_obligation_check_replay_miss_function();
+                if let Some(replayed_check) = replay_owner_obligation_check_from_value_cache(
+                    summary_value_cache.as_deref_mut(),
+                    summary_value_cache_context,
+                    types,
+                    function,
+                    function_check_cache_input.as_ref(),
+                    function_op_count,
+                ) {
+                    merge_owner_deferred(&mut deferred, replayed_check.deferred);
+                    if let Some(plan) = owner_check_pass_plan.as_mut() {
+                        plan.record_pass(function_index, replayed_check.deferred);
+                    }
+                    function_results[function_index] = Some(replayed_check);
+                    continue;
+                }
+                if let Some(cache) = summary_value_cache.as_deref_mut() {
+                    cache.record_owner_obligation_check_replay_miss_function();
+                }
             }
             pending_checks.push(OwnerObligationPendingCheck {
                 function_index,

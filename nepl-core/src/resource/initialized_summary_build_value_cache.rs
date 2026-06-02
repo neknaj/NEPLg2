@@ -26,6 +26,9 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
     summaries: &mut Vec<RawCellInitializationFunctionSummary>,
     mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
+    if !cache.has_raw_init_complete_leaf_replay_entries(context) {
+        return;
+    }
     for (function_index, function) in module.functions.iter().enumerate() {
         if !relevant_functions
             .get(function_index)
@@ -97,6 +100,9 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
     summaries: &[RawCellInitializationFunctionSummary],
     mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
+    if !cache.stable_entry_collection_enabled() {
+        return;
+    }
     let mut candidates = Vec::new();
     let mut functions = BTreeMap::new();
     for (index, function) in module.functions.iter().enumerate() {

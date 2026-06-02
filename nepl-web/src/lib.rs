@@ -3820,6 +3820,8 @@ fn compile_wasm_with_bundled_sources_and_cache(
             nepl_core::loader::LoaderError::Io(msg)
         })
     };
+    let mut stage_timings = stage_timings;
+    let stage_start = compile_stage_now_ms();
     let loaded = if let Some(cache) = loader_cache.as_deref_mut() {
         match nepl_meta_artifact_store.as_deref_mut() {
             Some(store) if !store.is_empty() => {
@@ -3869,8 +3871,10 @@ fn compile_wasm_with_bundled_sources_and_cache(
         loader.load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
     }
     .map_err(|e| render_loader_error(e, loader.source_map()))?;
+    record_web_compile_stage(&mut stage_timings, "web_loader_load", stage_start);
     // dependency aggregate は compile path が実際に必要とする namespace key 入力である。
     // prewarm では計算せず、stdlib overlay で cache を bypass した場合も利用しない。
+    let stage_start = compile_stage_now_ms();
     let dependency_public_surface_hash = if let Some(cache) = loader_cache.as_deref_mut() {
         Some(
             loader
@@ -3885,6 +3889,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
     } else {
         None
     };
+    record_web_compile_stage(
+        &mut stage_timings,
+        "web_dependency_public_surface_hash",
+        stage_start,
+    );
     let options = CompileOptions {
         target: None,
         verbose: false,
@@ -3899,6 +3908,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         module_surface.as_ref(),
     ) {
         if !store.is_empty() {
+            let stage_start = compile_stage_now_ms();
             if let Ok(envelope) = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
                 CompileTarget::Wasm,
                 active_profile,
@@ -3915,11 +3925,16 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     None,
                 );
             }
+            record_web_compile_stage(
+                &mut stage_timings,
+                "web_nepl_meta_pre_typecheck_probe",
+                stage_start,
+            );
         }
     }
-    let proof_artifact_enabled =
-        resource_summary_value_cache.is_some() && stdlib_content_hash.is_some();
-    let mut stage_timings = stage_timings;
+    let proof_artifact_enabled = preseed_resource_summary_proof_artifact.is_some()
+        && resource_summary_value_cache.is_some()
+        && stdlib_content_hash.is_some();
     let loaded_source_map = loaded.source_map;
     let loaded_nepl_meta_edge_probes = loaded.nepl_meta_edge_probes;
     let loaded_materialized_public_surfaces = loaded.materialized_public_surfaces;
@@ -3928,6 +3943,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
             stats.record_attempt(loaded_materialized_public_surfaces.len());
         }
     }
+    let stage_start = compile_stage_now_ms();
     let neplobj_direct_call_fragments =
         if let Some(store) = nepl_obj_direct_call_fragment_store.as_deref_mut() {
             let lookup_probes = loaded_materialized_public_surfaces
@@ -3955,6 +3971,12 @@ fn compile_wasm_with_bundled_sources_and_cache(
         } else {
             Vec::new()
         };
+    record_web_compile_stage(
+        &mut stage_timings,
+        "web_neplobj_direct_call_lookup",
+        stage_start,
+    );
+    let stage_start = compile_stage_now_ms();
     let artifact_attempt = compile_loaded_module_with_public_interface_artifacts(
         loaded.module,
         &loaded_source_map,
@@ -3983,6 +4005,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         },
         stage_timings.as_deref_mut(),
     );
+    record_web_compile_stage(&mut stage_timings, "web_core_compile_attempt", stage_start);
     let (artifact, nepl_meta_edge_probes) = match artifact_attempt {
         Ok(artifact) => (artifact, loaded_nepl_meta_edge_probes),
         Err(err) if !loaded_materialized_public_surfaces.is_empty() => {
@@ -4033,6 +4056,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     &loaded_nepl_meta_edge_probes,
                     &loaded_materialized_public_surfaces,
                 );
+            let stage_start = compile_stage_now_ms();
             let fallback_artifact = compile_loaded_module_with_public_interface_artifacts(
                 fallback_loaded.module,
                 &fallback_source_map,
@@ -4060,6 +4084,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     value_cache_activation: ResourceSummaryValueCacheActivation::Always,
                 },
                 stage_timings.as_deref_mut(),
+            );
+            record_web_compile_stage(
+                &mut stage_timings,
+                "web_core_compile_source_fallback",
+                stage_start,
             );
             let artifact = match fallback_artifact {
                 Ok(artifact) => {
@@ -4090,33 +4119,33 @@ fn compile_wasm_with_bundled_sources_and_cache(
             artifact.resource_summary_proof_header,
             resource_summary_value_cache.as_deref(),
         ) {
-            Some(cache.export_neplproof_artifact(header))
+            let stage_start = compile_stage_now_ms();
+            let artifact = cache.export_neplproof_artifact(header);
+            record_web_compile_stage(&mut stage_timings, "web_neplproof_export", stage_start);
+            Some(artifact)
         } else {
             None
         }
     } else {
         None
     };
-    if let Some(store) = nepl_meta_artifact_store.as_deref_mut() {
-        if !overlay_overrides_stdlib && !nepl_meta_edge_probes.is_empty() {
-            populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
-                store,
-                active_profile,
-                stdlib_content_hash,
-                stdlib_root,
-                bundled_sources,
-                &overlay_sources,
-                loader_cache.as_deref_mut(),
-                &nepl_meta_edge_probes,
-            );
-        }
-    }
+    // `.neplmeta` producer は明示 preseed API の責務であり、通常 compile の同期経路では
+    // 走らせない。RPN cold base ではここで stdlib dependency を再ロード・再型検査する
+    // 固定費が compile 本体を上回っていたため、compile path は既存 artifact の消費だけを
+    // 行い、新規作成は `preseed_nepl_meta_artifacts_for_source*` に限定する。
+    let _ = nepl_meta_edge_probes;
     let neplobj_direct_call_fragments = artifact.neplobj_direct_call_fragments.clone();
     if !overlay_overrides_stdlib {
         if let Some(store) = nepl_obj_direct_call_fragment_store.as_deref_mut() {
+            let stage_start = compile_stage_now_ms();
             for fragment in &neplobj_direct_call_fragments {
                 let _ = store.store(fragment.clone());
             }
+            record_web_compile_stage(
+                &mut stage_timings,
+                "web_neplobj_direct_call_store",
+                stage_start,
+            );
         }
     }
     Ok(CompiledWasm {
@@ -4143,6 +4172,17 @@ fn compile_stage_now_ms() -> f64 {
         }
     }
     js_sys::Date::now()
+}
+
+fn record_web_compile_stage(
+    stage_timings: &mut Option<&mut CompileStageTimings>,
+    stage: &'static str,
+    start_ms: f64,
+) {
+    let elapsed_ms = compile_stage_now_ms() - start_ms;
+    if let Some(stage_timings) = stage_timings.as_deref_mut() {
+        stage_timings.record(stage, elapsed_ms);
+    }
 }
 
 /// WASM instance 内で再利用するコンパイラセッション。
@@ -4249,13 +4289,15 @@ impl CompilerSession {
     pub fn new() -> CompilerSession {
         let stdlib_root = PathBuf::from("/stdlib");
         let bundled_sources = stdlib_sources(&stdlib_root);
+        let mut resource_summary_value_cache = ResourceSummaryValueCache::new();
+        resource_summary_value_cache.disable_stable_entry_collection();
         CompilerSession {
             stdlib_root,
             bundled_sources,
             loader_cache: RefCell::new(LoaderSessionCache::new_content_addressed_stdlib(
                 stdlib_hash(),
             )),
-            resource_summary_value_cache: RefCell::new(ResourceSummaryValueCache::new()),
+            resource_summary_value_cache: RefCell::new(resource_summary_value_cache),
             nepl_meta_artifact: RefCell::new(None),
             nepl_meta_artifact_store: RefCell::new(NeplMetaArtifactStore::new()),
             nepl_obj_direct_call_fragment_store: RefCell::new(

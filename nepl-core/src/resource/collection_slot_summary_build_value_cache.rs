@@ -27,6 +27,9 @@ pub(super) fn preseed_collection_slot_lifecycle_summaries_from_value_cache(
     preseeded_functions: &mut [bool],
     summaries: &mut Vec<CollectionSlotLifecycleFunctionSummary>,
 ) {
+    if !cache.has_drop_traversal_forall_replay_entries(context) {
+        return;
+    }
     for (function_index, function) in module.functions.iter().enumerate() {
         if !relevant_functions
             .get(function_index)
@@ -78,6 +81,9 @@ pub(super) fn record_resource_summary_value_cache_candidates(
     preseeded_functions: &[bool],
     summaries: &[CollectionSlotLifecycleFunctionSummary],
 ) {
+    if !cache.stable_entry_collection_enabled() {
+        return;
+    }
     let mut candidates = Vec::new();
     let mut functions = BTreeMap::new();
     for (index, function) in module.functions.iter().enumerate() {

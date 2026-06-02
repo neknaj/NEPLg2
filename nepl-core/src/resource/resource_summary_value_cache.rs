@@ -295,6 +295,7 @@ pub(super) enum ResourceSummaryComputationStage {
 #[derive(Debug)]
 pub struct ResourceSummaryValueCache {
     stats: ResourceSummaryValueCacheStats,
+    stable_entry_collection_enabled: bool,
     raw_alias_return_entry_collection_enabled: bool,
     drop_traversal_forall_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
@@ -320,6 +321,7 @@ impl Default for ResourceSummaryValueCache {
     fn default() -> Self {
         Self {
             stats: ResourceSummaryValueCacheStats::default(),
+            stable_entry_collection_enabled: true,
             raw_alias_return_entry_collection_enabled: true,
             drop_traversal_forall_leaf_entries: BTreeMap::new(),
             raw_alias_return_entries: BTreeMap::new(),
@@ -915,6 +917,29 @@ impl ResourceSummaryValueCache {
         self.raw_init_complete_leaf_summary_snapshot = None;
     }
 
+    /// `.neplproof` へ永続化できる stable entry の収集を止める。
+    ///
+    /// 同一 `CompilerSession` 内の微小編集には changed-function pass plan が効くため、
+    /// Web playground の通常 compile では `TypeId` を含む検査結果を stable mirror へ
+    /// 変換する固定費を払わない。disk-backed `.neplproof` を作る CLI 経路や、明示的に
+    /// proof artifact を扱う検証では default の有効状態を使う。
+    pub fn disable_stable_entry_collection(&mut self) {
+        self.stable_entry_collection_enabled = false;
+        self.drop_traversal_forall_leaf_entries.clear();
+        self.raw_alias_return_entries.clear();
+        self.i32_scalar_return_facts_entries.clear();
+        self.initialized_function_check_entries.clear();
+        self.owner_obligation_check_entries.clear();
+        self.raw_init_complete_leaf_entries.clear();
+        self.raw_alias_return_summary_snapshot = None;
+        self.i32_scalar_return_summary_snapshot = None;
+        self.raw_init_complete_leaf_summary_snapshot = None;
+    }
+
+    pub(in crate::resource) fn stable_entry_collection_enabled(&self) -> bool {
+        self.stable_entry_collection_enabled
+    }
+
     /// raw-alias return summary の stable entry 収集を止める。
     ///
     /// RPN cold base の計測では、raw-alias summary 本体の再計算は十分軽い一方で、
@@ -930,6 +955,79 @@ impl ResourceSummaryValueCache {
 
     pub(in crate::resource) fn raw_alias_return_entry_collection_enabled(&self) -> bool {
         self.raw_alias_return_entry_collection_enabled
+    }
+
+    /// Raw-alias summary replay が現在の cache 内容から hit し得るかを返す。
+    ///
+    /// 空の entry kind に対して stable key や dependency closure を構成しても、結果は
+    /// 必ず miss になる。cold base compile ではその探索自体が WebAssembly 上の固定費に
+    /// なるため、各 checker は replay 可能な kind だけを probing する。一方で store 側は
+    /// この判定とは独立に動かし、次の微小編集で使う proof surface を残す。
+    pub(in crate::resource) fn has_raw_alias_return_replay_entries(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+    ) -> bool {
+        let namespace_hash = context.namespace_hash().as_u64();
+        self.raw_alias_return_entry_collection_enabled
+            && self
+                .raw_alias_return_entries
+                .keys()
+                .any(|key| key.namespace_hash() == namespace_hash)
+    }
+
+    /// i32 scalar summary replay が現在の cache 内容から hit し得るかを返す。
+    pub(in crate::resource) fn has_i32_scalar_return_replay_entries(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+    ) -> bool {
+        let namespace_hash = context.namespace_hash().as_u64();
+        self.i32_scalar_return_facts_entries
+            .keys()
+            .any(|key| key.namespace_hash() == namespace_hash)
+    }
+
+    /// raw-init complete leaf summary replay が現在の cache 内容から hit し得るかを返す。
+    pub(in crate::resource) fn has_raw_init_complete_leaf_replay_entries(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+    ) -> bool {
+        let namespace_hash = context.namespace_hash().as_u64();
+        self.raw_init_complete_leaf_entries
+            .keys()
+            .any(|key| key.namespace_hash() == namespace_hash)
+    }
+
+    /// collection slot drop traversal replay が現在の cache 内容から hit し得るかを返す。
+    pub(in crate::resource) fn has_drop_traversal_forall_replay_entries(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+    ) -> bool {
+        let namespace_hash = context.namespace_hash().as_u64();
+        self.drop_traversal_forall_leaf_entries
+            .keys()
+            .any(|key| key.namespace_hash() == namespace_hash)
+    }
+
+    /// final initialized check の stable entry replay が hit し得るかを返す。
+    pub(in crate::resource) fn has_initialized_function_check_replay_entries(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+    ) -> bool {
+        let namespace_hash = context.namespace_hash().as_u64();
+        self.initialized_function_check_entries
+            .keys()
+            .any(|key| key.namespace_hash() == namespace_hash)
+    }
+
+    /// owner obligation check の stable entry replay が hit し得るかを返す。
+    pub(in crate::resource) fn has_owner_obligation_check_replay_entries(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+    ) -> bool {
+        let namespace_hash = context.namespace_hash().as_u64();
+        self.owner_obligation_check_entries
+            .keys()
+            .any(|key| key.namespace_hash() == namespace_hash)
     }
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {

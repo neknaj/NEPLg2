@@ -24,6 +24,9 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
     summaries: &mut Vec<RawCellAddressReturnSummary>,
     mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
+    if !cache.has_raw_alias_return_replay_entries(context) {
+        return;
+    }
     for (function_index, function) in module.functions.iter().enumerate() {
         let type_params = owner_summary_type_params(types, function);
         if let Some(plan) = replay_plan.as_deref_mut() {
@@ -84,6 +87,11 @@ pub(super) fn record_raw_alias_return_summary_value_cache_candidates(
     summaries: &[RawCellAddressReturnSummary],
     mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
+    if !cache.stable_entry_collection_enabled()
+        || !cache.raw_alias_return_entry_collection_enabled()
+    {
+        return;
+    }
     let mut candidates = Vec::new();
     let mut summary_by_function = BTreeMap::new();
     for summary in summaries {

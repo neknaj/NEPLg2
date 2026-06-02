@@ -102,7 +102,10 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        (Some(cache), Some(context)) if cache.raw_alias_return_entry_collection_enabled() => {
+        (Some(cache), Some(context))
+            if cache.stable_entry_collection_enabled()
+                || cache.has_raw_alias_return_replay_entries(context) =>
+        {
             Some(cache.begin_raw_alias_summary_replay_plan(
                 context,
                 types,
@@ -117,7 +120,7 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        if cache.raw_alias_return_entry_collection_enabled() {
+        if cache.has_raw_alias_return_replay_entries(context) {
             preseed_raw_alias_return_summaries_from_value_cache(
                 cache,
                 context,
@@ -153,7 +156,9 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        if cache.raw_alias_return_entry_collection_enabled() {
+        if cache.stable_entry_collection_enabled()
+            && cache.raw_alias_return_entry_collection_enabled()
+        {
             let candidate_skipped_functions =
                 worklist.unrecomputed_initial_skips(&preseeded_functions);
             record_raw_alias_return_summary_value_cache_candidates(

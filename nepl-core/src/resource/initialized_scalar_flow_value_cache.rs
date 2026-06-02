@@ -26,6 +26,9 @@ pub(super) fn preseed_i32_scalar_return_summaries_from_value_cache(
     summaries: &mut Vec<I32ScalarReturnSummary>,
     mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
+    if !cache.has_i32_scalar_return_replay_entries(context) {
+        return;
+    }
     for (function_index, function) in module.functions.iter().enumerate() {
         if !relevant_functions
             .get(function_index)
@@ -100,6 +103,9 @@ pub(super) fn record_i32_scalar_return_summary_value_cache_candidates(
     summaries: &[I32ScalarReturnSummary],
     mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
+    if !cache.stable_entry_collection_enabled() {
+        return;
+    }
     let mut candidates = Vec::new();
     let mut summary_by_function = BTreeMap::new();
     for summary in summaries {

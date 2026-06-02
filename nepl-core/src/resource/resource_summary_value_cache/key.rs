@@ -56,6 +56,10 @@ pub(super) enum ResourceSummaryValueKind {
 }
 
 impl ResourceSummaryValueCacheKey {
+    pub(super) fn namespace_hash(&self) -> u64 {
+        self.namespace_hash
+    }
+
     pub(super) fn new_drop_traversal_forall_leaf_entry(
         namespace_hash: u64,
         function_identity: ResourceSummaryFunctionIdentity,

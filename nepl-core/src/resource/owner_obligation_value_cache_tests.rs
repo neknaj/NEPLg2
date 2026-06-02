@@ -94,7 +94,7 @@ fn owner_obligation_check_replays_without_rerunning_checker() {
     );
     assert_eq!(stats.resource_summary_value_owner_obligation_check_hits, 1);
     assert_eq!(
-        stats.resource_summary_value_owner_obligation_check_replay_hit_functions,
+        stats.resource_summary_value_owner_obligation_check_plan_skip_functions,
         1
     );
     assert_eq!(stats.resource_owner_return_summary_recomputations, 1);
