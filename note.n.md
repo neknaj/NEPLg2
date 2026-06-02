@@ -50035,6 +50035,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification は `cargo check -p nepl-core`、`cargo test -p nepl-core resource_summary_value_cache --lib -- --nocapture`、`cargo test -p nepl-core initialized_function_check_value_cache --lib -- --nocapture`、`cargo test -p nepl-core owner_obligation_value_cache --lib -- --nocapture`、`trunk build`、`node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-cold-base-no-implicit-neplmeta-20260602.json -j 1 --assert-io --dist web/dist`、`node nodesrc/test_bench_materialized_compile_fallbacks.js`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/bench_materialized_compile_fallbacks.js --out tmp/materialized-bench-after-cold-slim-20260602.json --dist-hint web/dist`、`node nodesrc/issues.js check --dir issues` を通した。
 - まだ RPN cold base は 0.5 秒未満ではない。残る根本支配点は、RPN が到達する stdlib 269 関数 / 3461 Resource op を初回 compile で Resource static check していることである。次の主経路は bundled / persistent `.neplproof` preseed、stdlib proof template、owner return summary stable mirror、typed HIR / object-like artifact による stdlib 事前検査化である。
 
+## 2026-06-02 Agent2 GUI examples Zenn policy cleanup checkpoint
+
+- remote/main と同期済みの `agent2/refactor-examples-zenn-policy` branch で、Zenn 記事の静的検査活用、enum / match、struct による状態表現、丁寧な doc comment 方針を再確認して作業した。`plan.md` は確認のみで変更していない。
+- `examples/gui_calculator.nepl` は packed i32 model を `CalculatorModel` の typed fields と `CalculatorOp` / `CalculatorAction` enum へ置き換えた。`ActionId` の raw number は decode / encode 境界に閉じ、update と button view は `match` で action を扱う。
+- `examples/gui_paint.nepl` は selected color を `PaintColor`、control event を `PaintAction` として保持し、raw palette index は Web stdout / layout 境界だけの debug / presentation value にした。直近 stroke slot の軽量 model は残すが、任意長 canvas storage は `todo.md` の後続課題として分けた。
+- `examples/gui_breakout.nepl` は paddle / ball / destroyed / animate を typed fields に分け、velocity を `BreakoutDirection` enum、control を `BreakoutAction` enum へ移した。以前の flag packing / digit extraction は削除した。
+- `examples/gui_mandelbrot.nepl`、`examples/gui_life.nepl`、`examples/gui_scientific_calculator.nepl`、`examples/gui_counter.nepl` は control action や mode を enum へ decode し、update の分岐を raw `ActionId` 比較や深い `if` chain から `match` へ寄せた。
+- enum field を shared borrow から値として読むため、各 lightweight enum に `Clone` / `Copy` contract を明示した。calculator の Resource IR obligation は scalar result を中間値へ置かず、operator arm が直接 `CalculatorModel` を返す形にして解消した。
+- `todo.md` から Calculator / Paint / Breakout の packed i32 state 置換項目を削除した。Mandelbrot progressive rendering、Life arbitrary-size board、Paint persistent canvas、Breakout timer / scheduler 化は未完了なので残している。
+- focused verification は `node nodesrc/tests.js -i examples/gui_counter.nepl -i examples/gui_life.nepl -i examples/gui_mandelbrot.nepl -i examples/gui_calculator.nepl -i examples/gui_scientific_calculator.nepl -i examples/gui_paint.nepl -i examples/gui_breakout.nepl --no-tree -o tmp/examples-gui-zenn-policy.json -j 1 --dist web/dist --assert-io` を通し、7/7 passed だった。
+- repository verification は `git diff --check`、`node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-examples-zenn-policy.json` を通した。source policy は既存 global warning 7 件を warn-only で報告するが、GUI 固有 policy は通過し、playground editor JSON は 13/13 passed だった。
+
 ## 2026-06-02 Agent RPN cold base raw-init dependency / control merge checkpoint
 
 - `perf/rpn-cold-base-next-20260602` branch で、Zenn 記事の試作段階方針に従い、キャッシュ追加だけではなく Resource IR 静的検査の探索範囲と clone / merge 計算量を確認した。`plan.md` は変更していない。

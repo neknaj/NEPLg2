@@ -10,7 +10,6 @@
 - Life example を bounded pattern renderer から arbitrary-size board storage と checked next-generation update へ拡張する
 - Paint example を直近 stroke slot の軽量 model から persistent canvas / stroke storage へ拡張する
 - Breakout example の timeout fallback を正式 `GuiEvent::Timer` と scheduler / timeslice contract へ移す
-- Calculator / Paint / Breakout example の packed i32 state を、`alloc/gui` collection と state ownership contract が安定した段階で typed struct / enum model へ置き換える
 - `nepl-gui-native` の framebuffer renderer を、`std/gui::GuiHost` と `platforms/gui/native` の正式 `present` 実装へ寄せる
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
 - `features/tui` を互換 path として保ちながら、内部を `features/gui` + terminal backend へ差し替える

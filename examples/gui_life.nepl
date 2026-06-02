@@ -13,6 +13,7 @@
 //: - 盤面は 1280x640 logical px に固定し、model の cell size から cell count を決めます。
 //: - `step` から glider / blinker pattern の位置を計算し、live cell だけを command として出力します。
 //: - 通常実行では full `GuiWebEvent` を待ち、Action event だけを update message として扱います。
+//: - host の raw `ActionId` は `LifeAction` へ decode し、update は enum と `match` で遷移します。
 //:
 //: [注意/ちゅうい]:
 //: - この example は描画・event loop・TEA 形の確認用であり、任意サイズ盤面の完全保存 model は後続の `alloc/gui` collection 安定化後に追加します。
@@ -38,6 +39,27 @@ struct LifeModel:
     step %i32
     animate %bool
     cell_size %i32
+
+//: LifeAction: Life control button の typed action
+//:
+//: [目的/もくてき]:
+//: - `ActionId` の raw number と update logic を分離します。
+//: - 解像度変更、tick、animation toggle を enum variant として明示します。
+enum LifeAction:
+    Next
+    Animate
+    ResolutionDown
+    ResolutionUp
+    HD
+    Unknown
+
+impl Clone for LifeAction:
+    fn clone %fn &LifeAction LifeAction \action:
+        *action
+
+impl Copy for LifeAction:
+    fn copy_mark %fn LifeAction LifeAction \action:
+        action
 
 impl Clone for LifeModel:
     fn clone %fn &LifeModel LifeModel \model:
@@ -115,10 +137,21 @@ fn life_resolution_up_action %fn void ActionId \void:
 fn life_hd_action %fn void ActionId \void:
     action_id 5
 
-fn life_action_matches %fn ActionId fn ActionId bool \actual\expected:
-    let actual_raw %i32 action_id_value actual
-    let expected_raw %i32 action_id_value expected
-    eq actual_raw expected_raw
+fn life_decode_action %fn ActionId LifeAction \action:
+    let raw %i32 action_id_value action
+    match raw:
+        1:
+            LifeAction::Next
+        2:
+            LifeAction::Animate
+        3:
+            LifeAction::ResolutionDown
+        4:
+            LifeAction::ResolutionUp
+        5:
+            LifeAction::HD
+        _:
+            LifeAction::Unknown
 
 fn life_wrap_positive %fn i32 fn i32 i32 \value\limit:
     let shifted %i32 add value limit
@@ -494,36 +527,24 @@ fn life_update_action %fn LifeModel fn ActionId LifeModel \model\action:
     let step %i32 life_model_step &model
     let animate %bool life_model_animate &model
     let cell_size %i32 life_model_cell_size &model
-    if:
-        life_action_matches action life_next_action
-        then:
+    let typed %LifeAction life_decode_action action
+    match typed:
+        LifeAction::Next:
             let next_step %i32 life_next_step step
             life_model_new next_step animate cell_size
-        else:
-            if:
-                life_action_matches action life_animate_action
-                then:
-                    let next_animate %bool not animate
-                    life_model_new step next_animate cell_size
-                else:
-                    if:
-                        life_action_matches action life_resolution_down_action
-                        then:
-                            let next_size %i32 life_smaller_cell_size cell_size
-                            life_model_new step animate next_size
-                        else:
-                            if:
-                                life_action_matches action life_resolution_up_action
-                                then:
-                                    let next_size %i32 life_larger_cell_count_size cell_size
-                                    life_model_new step animate next_size
-                                else:
-                                    if:
-                                        life_action_matches action life_hd_action
-                                        then:
-                                            life_model_new step animate life_hd_cell_size
-                                        else:
-                                            model
+        LifeAction::Animate:
+            let next_animate %bool not animate
+            life_model_new step next_animate cell_size
+        LifeAction::ResolutionDown:
+            let next_size %i32 life_smaller_cell_size cell_size
+            life_model_new step animate next_size
+        LifeAction::ResolutionUp:
+            let next_size %i32 life_larger_cell_count_size cell_size
+            life_model_new step animate next_size
+        LifeAction::HD:
+            life_model_new step animate life_hd_cell_size
+        LifeAction::Unknown:
+            model
 
 fn life_update_event %fn LifeModel fn GuiWebEvent LifeModel \model\web_event:
     match gui_web_event_action &web_event:

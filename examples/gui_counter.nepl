@@ -38,6 +38,23 @@
 struct CounterModel:
     value %i32
 
+//: CounterAction: counter button から update へ渡す typed action
+//:
+//: [目的/もくてき]:
+//: - `ActionId` の raw number を update 本体から分離します。
+//: - 未知の action は `Unknown` として保持し、no-op の理由を enum として明示します。
+enum CounterAction:
+    Increment
+    Unknown
+
+impl Clone for CounterAction:
+    fn clone %fn &CounterAction CounterAction \action:
+        *action
+
+impl Copy for CounterAction:
+    fn copy_mark %fn CounterAction CounterAction \action:
+        action
+
 impl Clone for CounterModel:
     fn clone %fn &CounterModel CounterModel \model:
         *model
@@ -58,34 +75,38 @@ fn counter_widget_id %fn void WidgetId \void:
 fn counter_increment_action %fn void ActionId \void:
     action_id 1
 
+fn counter_decode_action %fn ActionId CounterAction \action:
+    match action_id_value action:
+        1:
+            CounterAction::Increment
+        _:
+            CounterAction::Unknown
+
+fn counter_action_debug_code %fn CounterAction i32 \action:
+    match action:
+        CounterAction::Increment:
+            1
+        CounterAction::Unknown:
+            0
+
 fn counter_view %fn CounterModel ViewNode \model:
-    let current %i32 counter_model_value &model
     let action %ActionId counter_increment_action
     let id %WidgetId counter_widget_id
-    let text %str:
-        if:
-            eq current 0
-            then:
-                "Increment"
-            else:
-                "Increment"
+    let text %str "Increment"
     let config %ButtonConfig button_config id text action
     button config
 
 fn counter_update %fn CounterModel fn GuiEvent Update CounterModel \model\event:
     match event:
         GuiEvent::Action action:
-            let action_value %i32 action_id_value action
-            let expected %i32 action_id_value counter_increment_action
-            if:
-                eq action_value expected
-                then:
+            match counter_decode_action action:
+                CounterAction::Increment:
                     let current %i32 counter_model_value &model
                     let next_value %i32 add current 1
                     let next_model %CounterModel counter_model_new next_value
                     let redraw %GuiEffect request_redraw 0
                     update_result next_model redraw
-                else:
+                CounterAction::Unknown:
                     update_result model gui_effect_none
         _:
             update_result model gui_effect_none
@@ -224,7 +245,8 @@ fn counter_first_effect %fn &Update CounterModel GuiEffect \update:
 
 fn counter_print_status %impure fn ActionId impure fn CounterModel impure fn GuiEffect unit \action\model\effect:
     print "counter action = "
-    let action_value %i32 action_id_value action
+    let typed_action %CounterAction counter_decode_action action
+    let action_value %i32 counter_action_debug_code typed_action
     println_i32 action_value
     print "counter value = "
     let counter_value %i32 counter_model_value &model

@@ -7,6 +7,7 @@
 //: [目的/もくてき]:
 //: - The Elm Architecture の `Model -> View` と `Model + Action -> Model` を小さい関数電卓で示します。
 //: - square、integer sqrt、negate、double、half を backend から独立した純粋関数として実装します。
+//: - host の raw `ActionId` は `ScientificAction` へ decode し、update は enum と `match` で分岐します。
 //:
 //: [注意/ちゅうい]:
 //: - 現段階の stdout fallback example なので、表示値は small integer に収めます。
@@ -29,6 +30,29 @@
 
 struct ScientificCalculatorModel:
     value %i32
+
+//: ScientificAction: 関数電卓 button の typed action
+//:
+//: [目的/もくてき]:
+//: - Web host 境界の `ActionId` を application logic から分離します。
+//: - digit は payload、関数 button は variant として表し、update は `match` で網羅的に扱います。
+enum ScientificAction:
+    Digit %i32
+    Square
+    Sqrt
+    Negate
+    Clear
+    Double
+    Half
+    Unknown
+
+impl Clone for ScientificAction:
+    fn clone %fn &ScientificAction ScientificAction \action:
+        *action
+
+impl Copy for ScientificAction:
+    fn copy_mark %fn ScientificAction ScientificAction \action:
+        action
 
 impl Clone for ScientificCalculatorModel:
     fn clone %fn &ScientificCalculatorModel ScientificCalculatorModel \model:
@@ -76,20 +100,62 @@ fn sci_action_half %fn void ActionId \void:
 fn sci_action_raw %fn ActionId i32 \action:
     action_id_value action
 
-fn sci_action_is_digit %fn ActionId bool \action:
+fn sci_decode_action %fn ActionId ScientificAction \action:
     let raw %i32 sci_action_raw action
-    let is_zero %bool eq raw 10
-    let is_positive_digit %bool and ge raw 1 le raw 9
-    or is_zero is_positive_digit
+    match raw:
+        1:
+            ScientificAction::Digit 1
+        2:
+            ScientificAction::Digit 2
+        3:
+            ScientificAction::Digit 3
+        4:
+            ScientificAction::Digit 4
+        5:
+            ScientificAction::Digit 5
+        6:
+            ScientificAction::Digit 6
+        7:
+            ScientificAction::Digit 7
+        8:
+            ScientificAction::Digit 8
+        9:
+            ScientificAction::Digit 9
+        10:
+            ScientificAction::Digit 0
+        20:
+            ScientificAction::Square
+        21:
+            ScientificAction::Sqrt
+        22:
+            ScientificAction::Negate
+        23:
+            ScientificAction::Clear
+        24:
+            ScientificAction::Double
+        25:
+            ScientificAction::Half
+        _:
+            ScientificAction::Unknown
 
-fn sci_action_digit_value %fn ActionId i32 \action:
-    let raw %i32 sci_action_raw action
-    if:
-        eq raw 10
-        then:
-            0
-        else:
-            raw
+fn sci_encode_action %fn ScientificAction ActionId \action:
+    match action:
+        ScientificAction::Digit digit:
+            sci_action_digit digit
+        ScientificAction::Square:
+            sci_action_square
+        ScientificAction::Sqrt:
+            sci_action_sqrt
+        ScientificAction::Negate:
+            sci_action_negate
+        ScientificAction::Clear:
+            sci_action_clear
+        ScientificAction::Double:
+            sci_action_double
+        ScientificAction::Half:
+            sci_action_half
+        ScientificAction::Unknown:
+            action_id 0
 
 fn sci_clamp %fn i32 i32 \value:
     if:
@@ -133,52 +199,32 @@ fn sci_append_digit %fn i32 fn i32 i32 \value\digit:
 
 fn sci_update_action %fn ScientificCalculatorModel fn ActionId ScientificCalculatorModel \model\action:
     let value %i32 sci_model_value &model
-    if:
-        sci_action_is_digit action
-        then:
-            let digit %i32 sci_action_digit_value action
+    let typed %ScientificAction sci_decode_action action
+    match typed:
+        ScientificAction::Digit digit:
             let next_value %i32 sci_append_digit value digit
             sci_model_new next_value
-        else:
-            let raw %i32 sci_action_raw action
-            if:
-                eq raw 20
-                then:
-                    let squared %i32 mul value value
-                    let next_value %i32 sci_clamp squared
-                    sci_model_new next_value
-                else:
-                    if:
-                        eq raw 21
-                        then:
-                            let next_value %i32 sci_integer_sqrt value
-                            sci_model_new next_value
-                        else:
-                            if:
-                                eq raw 22
-                                then:
-                                    let next_value %i32 sub 0 value
-                                    sci_model_new next_value
-                                else:
-                                    if:
-                                        eq raw 23
-                                        then:
-                                            sci_init
-                                        else:
-                                            if:
-                                                eq raw 24
-                                                then:
-                                                    let doubled %i32 mul value 2
-                                                    let next_value %i32 sci_clamp doubled
-                                                    sci_model_new next_value
-                                                else:
-                                                    if:
-                                                        eq raw 25
-                                                        then:
-                                                            let next_value %i32 div_s value 2
-                                                            sci_model_new next_value
-                                                        else:
-                                                            model
+        ScientificAction::Square:
+            let squared %i32 mul value value
+            let next_value %i32 sci_clamp squared
+            sci_model_new next_value
+        ScientificAction::Sqrt:
+            let next_value %i32 sci_integer_sqrt value
+            sci_model_new next_value
+        ScientificAction::Negate:
+            let next_value %i32 sub 0 value
+            sci_model_new next_value
+        ScientificAction::Clear:
+            sci_init
+        ScientificAction::Double:
+            let doubled %i32 mul value 2
+            let next_value %i32 sci_clamp doubled
+            sci_model_new next_value
+        ScientificAction::Half:
+            let next_value %i32 div_s value 2
+            sci_model_new next_value
+        ScientificAction::Unknown:
+            model
 
 fn sci_update_event %fn ScientificCalculatorModel fn GuiWebEvent ScientificCalculatorModel \model\web_event:
     match gui_web_event_action &web_event:
@@ -222,166 +268,101 @@ fn sci_color_text %fn void Rgba8888 \void:
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn sci_button_label %fn i32 str \index:
-    if:
-        eq index 0
-        then:
+fn sci_digit_label %fn i32 str \digit:
+    match digit:
+        0:
+            "0"
+        1:
+            "1"
+        2:
+            "2"
+        3:
+            "3"
+        4:
+            "4"
+        5:
+            "5"
+        6:
+            "6"
+        7:
             "7"
-        else:
-            if:
-                eq index 1
-                then:
-                    "8"
-                else:
-                    if:
-                        eq index 2
-                        then:
-                            "9"
-                        else:
-                            if:
-                                eq index 3
-                                then:
-                                    "x2"
-                                else:
-                                    if:
-                                        eq index 4
-                                        then:
-                                            "4"
-                                        else:
-                                            if:
-                                                eq index 5
-                                                then:
-                                                    "5"
-                                                else:
-                                                    if:
-                                                        eq index 6
-                                                        then:
-                                                            "6"
-                                                        else:
-                                                            if:
-                                                                eq index 7
-                                                                then:
-                                                                    "sqrt"
-                                                                else:
-                                                                    if:
-                                                                        eq index 8
-                                                                        then:
-                                                                            "1"
-                                                                        else:
-                                                                            if:
-                                                                                eq index 9
-                                                                                then:
-                                                                                    "2"
-                                                                                else:
-                                                                                    if:
-                                                                                        eq index 10
-                                                                                        then:
-                                                                                            "3"
-                                                                                        else:
-                                                                                            if:
-                                                                                                eq index 11
-                                                                                                then:
-                                                                                                    "neg"
-                                                                                                else:
-                                                                                                    if:
-                                                                                                        eq index 12
-                                                                                                        then:
-                                                                                                            "0"
-                                                                                                        else:
-                                                                                                            if:
-                                                                                                                eq index 13
-                                                                                                                then:
-                                                                                                                    "C"
-                                                                                                                else:
-                                                                                                                    if:
-                                                                                                                        eq index 14
-                                                                                                                        then:
-                                                                                                                            "dbl"
-                                                                                                                        else:
-                                                                                                                            "half"
+        8:
+            "8"
+        9:
+            "9"
+        _:
+            "?"
+
+fn sci_button_action_model %fn i32 ScientificAction \index:
+    match index:
+        0:
+            ScientificAction::Digit 7
+        1:
+            ScientificAction::Digit 8
+        2:
+            ScientificAction::Digit 9
+        3:
+            ScientificAction::Square
+        4:
+            ScientificAction::Digit 4
+        5:
+            ScientificAction::Digit 5
+        6:
+            ScientificAction::Digit 6
+        7:
+            ScientificAction::Sqrt
+        8:
+            ScientificAction::Digit 1
+        9:
+            ScientificAction::Digit 2
+        10:
+            ScientificAction::Digit 3
+        11:
+            ScientificAction::Negate
+        12:
+            ScientificAction::Digit 0
+        13:
+            ScientificAction::Clear
+        14:
+            ScientificAction::Double
+        15:
+            ScientificAction::Half
+        _:
+            ScientificAction::Unknown
 
 fn sci_button_action %fn i32 ActionId \index:
-    if:
-        eq index 0
-        then:
-            sci_action_digit 7
-        else:
-            if:
-                eq index 1
-                then:
-                    sci_action_digit 8
-                else:
-                    if:
-                        eq index 2
-                        then:
-                            sci_action_digit 9
-                        else:
-                            if:
-                                eq index 3
-                                then:
-                                    sci_action_square
-                                else:
-                                    if:
-                                        eq index 4
-                                        then:
-                                            sci_action_digit 4
-                                        else:
-                                            if:
-                                                eq index 5
-                                                then:
-                                                    sci_action_digit 5
-                                                else:
-                                                    if:
-                                                        eq index 6
-                                                        then:
-                                                            sci_action_digit 6
-                                                        else:
-                                                            if:
-                                                                eq index 7
-                                                                then:
-                                                                    sci_action_sqrt
-                                                                else:
-                                                                    if:
-                                                                        eq index 8
-                                                                        then:
-                                                                            sci_action_digit 1
-                                                                        else:
-                                                                            if:
-                                                                                eq index 9
-                                                                                then:
-                                                                                    sci_action_digit 2
-                                                                                else:
-                                                                                    if:
-                                                                                        eq index 10
-                                                                                        then:
-                                                                                            sci_action_digit 3
-                                                                                        else:
-                                                                                            if:
-                                                                                                eq index 11
-                                                                                                then:
-                                                                                                    sci_action_negate
-                                                                                                else:
-                                                                                                    if:
-                                                                                                        eq index 12
-                                                                                                        then:
-                                                                                                            sci_action_digit 0
-                                                                                                        else:
-                                                                                                            if:
-                                                                                                                eq index 13
-                                                                                                                then:
-                                                                                                                    sci_action_clear
-                                                                                                                else:
-                                                                                                                    if:
-                                                                                                                        eq index 14
-                                                                                                                        then:
-                                                                                                                            sci_action_double
-                                                                                                                        else:
-                                                                                                                            sci_action_half
+    let action %ScientificAction sci_button_action_model index
+    sci_encode_action action
+
+fn sci_button_label %fn i32 str \index:
+    let action %ScientificAction sci_button_action_model index
+    match action:
+        ScientificAction::Digit digit:
+            sci_digit_label digit
+        ScientificAction::Square:
+            "x2"
+        ScientificAction::Sqrt:
+            "sqrt"
+        ScientificAction::Negate:
+            "neg"
+        ScientificAction::Clear:
+            "C"
+        ScientificAction::Double:
+            "dbl"
+        ScientificAction::Half:
+            "half"
+        ScientificAction::Unknown:
+            "?"
 
 fn sci_button_is_function %fn i32 bool \index:
-    let is_function_col %bool eq rem_s index 4 3
-    let is_bottom_function %bool ge index 13
-    or is_function_col is_bottom_function
+    let action %ScientificAction sci_button_action_model index
+    match action:
+        ScientificAction::Digit _:
+            false
+        ScientificAction::Unknown:
+            false
+        _:
+            true
 
 fn sci_button_rect %fn i32 GuiRect \index:
     let col %i32 rem_s index 4
