@@ -20,7 +20,7 @@ use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 use super::summary_dependency::ResourceSummaryDependencyGraph;
-use super::summary_index::{FunctionSummary, SummaryIndex};
+use super::summary_index::{FunctionSummary, SummaryIndex, SummaryNameIndex};
 use super::summary_worklist::SummaryWorklist;
 
 pub(super) use super::initialized_alias_flow_apply::{
@@ -133,11 +133,15 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         initially_skipped_functions,
         dependency_graph,
     );
+    let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
-        let summary_index = RawCellAddressReturnSummaryIndex::new(&summaries);
-        let summary = function_raw_cell_address_return_summary(function, &summary_index, types);
-        if update_raw_cell_address_return_summary(&mut summaries, summary) {
+        let summary = {
+            let summary_index = summary_name_index.as_summary_index(&summaries);
+            function_raw_cell_address_return_summary(function, &summary_index, types)
+        };
+        if update_raw_cell_address_return_summary(&mut summaries, &mut summary_name_index, summary)
+        {
             worklist.notify_changed(function_index);
         }
     }
@@ -174,12 +178,12 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
 
 fn update_raw_cell_address_return_summary(
     summaries: &mut Vec<RawCellAddressReturnSummary>,
+    summary_name_index: &mut SummaryNameIndex,
     summary: RawCellAddressReturnSummary,
 ) -> bool {
     let has_aliases = !summary.aliases.is_empty();
-    let position = summaries
-        .iter()
-        .position(|existing| existing.function == summary.function);
+    let function = summary.function.clone();
+    let position = summary_name_index.position(&function);
     match (has_aliases, position) {
         (true, Some(index)) if summaries[index] == summary => false,
         (true, Some(index)) => {
@@ -192,11 +196,13 @@ fn update_raw_cell_address_return_summary(
             }
         }
         (true, None) => {
+            summary_name_index.insert_at_end(&function, summaries.len());
             summaries.push(summary);
             true
         }
         (false, Some(index)) => {
             summaries.remove(index);
+            summary_name_index.remove_and_shift(&function, index);
             true
         }
         (false, None) => false,

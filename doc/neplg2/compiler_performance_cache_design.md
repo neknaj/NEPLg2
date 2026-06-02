@@ -3076,6 +3076,79 @@ flow の proof template と、stdlib-heavy Resource proof を cold start で毎�
 preseed へ接続し、final initialized pass、raw-init / i32 scalar summary、owner obligation を stdlib
 prechecked proof として再利用できるようにすることである。
 
+## 2026-06-02 RPN summary fixed-point index checkpoint
+
+`examples/rpn.nepl` の cold base では、前 checkpoint 後も Resource summary 固定点の各反復で
+summary slice から関数名索引を作り直していた。これは検査規則そのものではなく、同じ
+`function -> summary position` 関係を何度も再構築する探索構造の固定費である。
+
+この checkpoint では `SummaryNameIndex` を追加し、raw alias / i32 scalar / raw-init /
+collection-slot / raw pointer / raw identity / owner summary の固定点中に、関数名から summary
+位置を引く索引を保持するようにした。summary が追加・削除された場合だけ索引を更新し、各 summary
+kind の `SummaryIndex` はこの索引を借用 view として使う。あわせて raw memory release requirement の
+対象引数表を毎回 `Vec` にせず、静的 slice として返すようにした。
+
+release CLI を再ビルドした後の native stage-only run は次の通りである。
+
+```text
+RPN cold base static check
+  resource_static_check: 5899-6314ms
+    resource_initialized_moves: 4776-5169ms
+      resource_initialized_raw_init_summaries: 2572-2866ms
+        recomputations: 156
+        summaries: 80
+      resource_initialized_i32_scalar_summaries: 1121-1227ms
+        recomputations: 214
+        summaries: 89
+      resource_initialized_function_checks: 996-1028ms
+      resource_initialized_raw_alias_summaries: 72-81ms
+      resource_initialized_collection_slot_summaries: 2-3ms
+    resource_owner_obligations: 903-986ms
+      resource_owner_summaries: 794-859ms
+      resource_owner_function_checks: 109-126ms
+    resource_typecheck: 181-189ms
+    resource_lowering + coverage: 61-65ms
+    resource_effect_boundaries: 46-49ms
+    resource_borrow_lifetimes: 37-42ms
+```
+
+同じ release rebuild 前の clean baseline は `resource_static_check=6622-6689ms`、
+`resource_initialized_moves=5416-5455ms`、`resource_initialized_raw_init_summaries=2814ms`、
+`resource_initialized_i32_scalar_summaries=1406-1428ms`、`resource_owner_obligations=1032-1061ms`
+だった。したがって、今回の固定点索引化は proof の意味を変えずに、おおよそ 5-12% 程度の cold
+static-check cost を削った。
+
+関数別 timing run はログ出力 overhead を含むため総量比較には使わないが、残る支配点の順位は次の
+通りだった。
+
+```text
+RPN per-function profiling hot spots
+  raw_init_summary
+    dealloc_raw: 1144ms in logging run
+      internal raw-init stage: release_requirements 570ms in filtered sequential run
+    apply_op: 515ms
+      internal raw-init stage: release_requirements 380ms, variant_param_cells 117ms in filtered run
+    byte_builder_push_bytes_ref: 489ms
+    byte_builder_reserve: 472ms
+    byte_builder_push_u8: 428ms
+  i32_scalar_summary
+    sb_append_non_empty_result: 377ms
+    byte_builder_reserve: 216ms
+    byte_builder_push_bytes_ref: 132ms
+    apply_op: 117ms
+    byte_builder_push_u8: 114ms
+  resource_initialized_function_check
+    dealloc_raw: 261ms
+    apply_op: 224ms
+    parse_u128_radix_digits_from: 152ms
+```
+
+この結果から、RPN cold base の次の根本対応は `dealloc_raw` / ByteBuilder / `apply_op` をさらに
+関数分割することではなく、raw-init release requirement の control-flow replay と stdlib-heavy
+Resource proof を初回 compile 前から利用できる `.neplproof` preseed に移すことである。空の
+`ResourceSummaryValueCache` を CLI `--check` に接続する試行は miss/store overhead だけが増えて
+悪化したため、persistent / bundled artifact なしの cache 接続は採用しない。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

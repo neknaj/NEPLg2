@@ -1,3 +1,14 @@
+# 2026-06-02 RPN cold base summary fixed-point index checkpoint
+
+- `plan.md` は変更していない。`examples/rpn.nepl` を cold base compile benchmark として、release CLI を再ビルドしてから `target\release\nepl-cli.exe --check -i examples\rpn.nepl` で再測定した。
+- RPN の支配点は引き続き Resource static check であり、stage-only run は `resource_static_check=6314ms / 5972ms / 5899ms`、`resource_initialized_moves=5169ms / 4914ms / 4776ms`、`resource_owner_obligations=986ms / 903ms / 968ms` だった。
+- 変更前 clean rebuild baseline は `resource_static_check=6622ms / 6689ms`、`resource_initialized_moves=5416ms / 5455ms` だったため、今回の checkpoint は検査規則を変えずに RPN cold static-check cost を約 5-12% 削った。
+- `SummaryNameIndex` を追加し、raw alias / i32 scalar / raw-init / collection-slot / raw pointer / raw identity / owner summary の固定点中に `function -> summary position` 索引を保持するようにした。summary の追加・削除時だけ索引を更新し、反復ごとの `BTreeMap` 再構築を避ける。
+- raw memory release requirement の対象引数表は毎回 `Vec` を作らず、静的 slice を返すようにした。filtered sequential timing では `dealloc_raw` raw-init summary の `release_requirements` が `570ms` を占めており、残る根本対応は control-flow replay と stdlib-heavy Resource proof の `.neplproof` preseed である。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` に、RPN の階層別 profiling と残件を追記した。
+- focused 検証: `cargo test -p nepl-core summary_name_index --lib`、`cargo test -p nepl-core resource::summary_worklist --lib`、`cargo test -p nepl-core initialized_summary_release_build --lib`、`cargo build -p nepl-cli --release`、RPN stage-only 3 run は pass。
+- full `cargo test -p nepl-core --lib` は current main 由来の loader session cache exact test 2 件で失敗するため、この performance checkpoint の merge 判定には含めない。確認した失敗は `provider_session_cache_misses_when_stdlib_source_hash_changes` と `provider_session_cache_misses_when_imported_type_arity_hints_change` であり、今回変更した Resource summary 固定点索引とは別領域である。
+
 # 2026-06-02 Agent2 Web GUI runtime bridge checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` と local branch が 0/0 で同期済みであることを確認し、`agent2/gui-web-runtime-bridge` 上で作業している。

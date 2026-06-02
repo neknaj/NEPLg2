@@ -4,15 +4,25 @@ use alloc::vec::Vec;
 
 use super::owner_summary_canonicalize::canonicalize_owner_return_summary;
 use super::summary::OwnerReturnSummary;
+use super::summary_index::SummaryNameIndex;
 
+#[cfg(test)]
 pub(super) fn update_owner_return_summary(
     summaries: &mut Vec<OwnerReturnSummary>,
+    summary: OwnerReturnSummary,
+) -> bool {
+    let mut summary_name_index = SummaryNameIndex::from_entries(summaries);
+    update_owner_return_summary_with_index(summaries, &mut summary_name_index, summary)
+}
+
+pub(super) fn update_owner_return_summary_with_index(
+    summaries: &mut Vec<OwnerReturnSummary>,
+    summary_name_index: &mut SummaryNameIndex,
     mut summary: OwnerReturnSummary,
 ) -> bool {
     canonicalize_owner_return_summary(&mut summary);
-    let position = summaries
-        .iter()
-        .position(|existing| existing.function == summary.function);
+    let function = summary.function.clone();
+    let position = summary_name_index.position(&function);
     match (owner_return_summary_has_facts(&summary), position) {
         (true, Some(index)) if summaries[index] == summary => false,
         (true, Some(index)) => {
@@ -20,11 +30,13 @@ pub(super) fn update_owner_return_summary(
             true
         }
         (true, None) => {
+            summary_name_index.insert_at_end(&function, summaries.len());
             summaries.push(summary);
             true
         }
         (false, Some(index)) => {
             summaries.remove(index);
+            summary_name_index.remove_and_shift(&function, index);
             true
         }
         (false, None) => false,

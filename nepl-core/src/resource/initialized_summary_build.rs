@@ -42,6 +42,7 @@ use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 use super::summary_dependency::ResourceSummaryDependencyGraph;
+use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -122,19 +123,25 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
         dependency_graph,
     );
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
+    let empty_collection_slot_summaries = CollectionSlotLifecycleFunctionSummaryIndex::new(&[]);
+    let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let function_start = ResourceFunctionTimer::start();
-        let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(&summaries);
-        let summary = function_raw_cell_initialization_summary(
-            function,
-            types,
-            &raw_alias_summary_index,
-            &i32_scalar_summary_index,
-            &raw_init_summary_index,
-        );
+        let summary = {
+            let raw_init_summary_index = summary_name_index.as_summary_index(&summaries);
+            function_raw_cell_initialization_summary(
+                function,
+                types,
+                &raw_alias_summary_index,
+                &i32_scalar_summary_index,
+                &raw_init_summary_index,
+                &empty_collection_slot_summaries,
+            )
+        };
         function_start.log("raw_init_summary", function);
-        if update_raw_cell_initialization_summary(&mut summaries, summary) {
+        if update_raw_cell_initialization_summary(&mut summaries, &mut summary_name_index, summary)
+        {
             worklist.notify_changed(function_index);
         }
     }
@@ -176,15 +183,15 @@ fn function_raw_cell_initialization_summary(
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
     i32_scalar_summaries: &I32ScalarReturnSummaryIndex<'_>,
     raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
+    empty_collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
 ) -> RawCellInitializationFunctionSummary {
-    let empty_collection_slot_summaries = CollectionSlotLifecycleFunctionSummaryIndex::new(&[]);
     let engine = ResourceCheckEngine {
         function: function.name.as_str(),
         types,
         raw_alias_summaries,
         i32_scalar_summaries,
         raw_init_summaries,
-        collection_slot_summaries: &empty_collection_slot_summaries,
+        collection_slot_summaries: empty_collection_slot_summaries,
         transform_range_certificates: None,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
@@ -221,7 +228,11 @@ fn function_raw_cell_initialization_summary(
     let mut guaranteed_param_cells = None;
     let mut guaranteed_param_byte_ranges = None;
     let mut variant_initializations = PendingVariantRawCellInitializations::default();
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let raw_init_timing = RawInitSummaryTiming::from_env(function);
     for block in &function.blocks {
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        let release_start = raw_init_timing.start("release_requirements");
         collect_param_release_requirements_from_ops(
             &mut out.param_release_requirements,
             &engine,
@@ -234,45 +245,63 @@ fn function_raw_cell_initialization_summary(
             raw_init_summaries,
             &block.ops,
         );
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        raw_init_timing.finish("release_requirements", release_start);
         if let ResourceTerminator::Return { value, .. } = &block.terminator {
             let mut path_return_cells = Vec::new();
             if let Some(value) = value {
+                #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+                let return_cells_start = raw_init_timing.start("return_cells");
                 collect_return_initialized_raw_cells(
                     &mut path_return_cells,
                     &cells,
                     &raw_aliases,
                     value,
                 );
+                #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+                raw_init_timing.finish("return_cells", return_cells_start);
             }
             merge_guaranteed_facts(&mut guaranteed_return_cells, path_return_cells);
 
             let mut path_return_byte_ranges = Vec::new();
             if let Some(value) = value {
+                #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+                let return_byte_ranges_start = raw_init_timing.start("return_byte_ranges");
                 collect_return_initialized_raw_byte_ranges(
                     &mut path_return_byte_ranges,
                     &cells,
                     &raw_aliases,
                     value,
                 );
+                #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+                raw_init_timing.finish("return_byte_ranges", return_byte_ranges_start);
             }
             merge_guaranteed_facts(&mut guaranteed_return_byte_ranges, path_return_byte_ranges);
 
             let mut path_param_cells = Vec::new();
+            #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+            let param_cells_start = raw_init_timing.start("param_cells");
             collect_param_initialized_raw_cells(
                 &mut path_param_cells,
                 &cells,
                 &raw_aliases,
                 &function.params,
             );
+            #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+            raw_init_timing.finish("param_cells", param_cells_start);
             merge_guaranteed_facts(&mut guaranteed_param_cells, path_param_cells);
 
             let mut path_param_byte_ranges = Vec::new();
+            #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+            let param_byte_ranges_start = raw_init_timing.start("param_byte_ranges");
             collect_param_initialized_raw_byte_ranges(
                 &mut path_param_byte_ranges,
                 &cells,
                 &raw_aliases,
                 &function.params,
             );
+            #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+            raw_init_timing.finish("param_byte_ranges", param_byte_ranges_start);
             merge_guaranteed_facts(&mut guaranteed_param_byte_ranges, path_param_byte_ranges);
         }
         if let ResourceTerminator::Return {
@@ -280,6 +309,8 @@ fn function_raw_cell_initialization_summary(
         } = &block.terminator
         {
             if ops_have_top_level_branch_output_for_return(&block.ops, value) {
+                #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+                let variant_start = raw_init_timing.start("variant_param_cells");
                 collect_variant_param_initialized_raw_cells_from_return(
                     &mut out.variant_param_cells,
                     &mut out.variant_param_byte_ranges,
@@ -293,6 +324,8 @@ fn function_raw_cell_initialization_summary(
                     &block.ops,
                     value,
                 );
+                #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+                raw_init_timing.finish("variant_param_cells", variant_start);
             }
         }
     }
@@ -319,6 +352,49 @@ fn merge_guaranteed_facts<T: Clone + Eq>(guaranteed: &mut Option<Vec<T>>, path: 
         }
         None => {
             *guaranteed = Some(path);
+        }
+    }
+}
+
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+struct RawInitSummaryTiming<'a> {
+    function_name: &'a str,
+    enabled: bool,
+}
+
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+impl<'a> RawInitSummaryTiming<'a> {
+    fn from_env(function: &'a ResourceFunction) -> Self {
+        let enabled = std::env::var_os("NEPL_RESOURCE_RAW_INIT_SUMMARY_TIMING").is_some()
+            && std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
+                .map(|filter| function.name.contains(&filter))
+                .unwrap_or(true);
+        Self {
+            function_name: function.name.as_str(),
+            enabled,
+        }
+    }
+
+    fn start(&self, stage: &'static str) -> Option<std::time::Instant> {
+        if !self.enabled {
+            return None;
+        }
+        std::eprintln!(
+            "[resource-raw-init-summary-timing] start function={} stage={}",
+            self.function_name,
+            stage
+        );
+        Some(std::time::Instant::now())
+    }
+
+    fn finish(&self, stage: &'static str, start: Option<std::time::Instant>) {
+        if let Some(start) = start {
+            std::eprintln!(
+                "[resource-raw-init-summary-timing] end function={} stage={} elapsed_ms={}",
+                self.function_name,
+                stage,
+                start.elapsed().as_millis()
+            );
         }
     }
 }

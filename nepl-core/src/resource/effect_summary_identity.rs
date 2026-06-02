@@ -19,6 +19,7 @@ use super::model::{Place, RawMemoryOp, ResourceFunction, ResourceModule, Resourc
 use super::place_utils::place_suffix_after_prefix;
 use super::private_cache_mask::PrivateCacheMaskProofIndex;
 use super::private_cache_taint::PrivateCacheRegionTaintTable;
+use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
 use crate::span::Span;
 use crate::types::TypeCtx;
@@ -31,15 +32,18 @@ pub(super) fn compute_raw_identity_return_summaries(
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
     let pointer_summary_index = RawPointerReturnSummaryIndex::new(pointer_summaries);
+    let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
-        let summary_index = RawIdentityReturnSummaryIndex::new(&summaries);
-        let summary = function_raw_identity_return_summary(
-            &module.functions[function_index],
-            &summary_index,
-            &pointer_summary_index,
-            types,
-        );
-        if update_raw_identity_return_summary(&mut summaries, summary) {
+        let summary = {
+            let summary_index = summary_name_index.as_summary_index(&summaries);
+            function_raw_identity_return_summary(
+                &module.functions[function_index],
+                &summary_index,
+                &pointer_summary_index,
+                types,
+            )
+        };
+        if update_raw_identity_return_summary(&mut summaries, &mut summary_name_index, summary) {
             worklist.notify_changed(function_index);
         }
     }
@@ -134,13 +138,13 @@ pub(super) fn filter_raw_identity_return_summary(
 
 fn update_raw_identity_return_summary(
     summaries: &mut Vec<RawIdentityReturnSummary>,
+    summary_name_index: &mut SummaryNameIndex,
     summary: RawIdentityReturnSummary,
 ) -> bool {
     let has_facts =
         !summary.parameter_returns.is_empty() || !summary.internal_alloc_returns.is_empty();
-    let position = summaries
-        .iter()
-        .position(|existing| existing.function == summary.function);
+    let function = summary.function.clone();
+    let position = summary_name_index.position(&function);
     match (has_facts, position) {
         (true, Some(index)) if summaries[index] == summary => false,
         (true, Some(index)) => {
@@ -148,11 +152,13 @@ fn update_raw_identity_return_summary(
             true
         }
         (true, None) => {
+            summary_name_index.insert_at_end(&function, summaries.len());
             summaries.push(summary);
             true
         }
         (false, Some(index)) => {
             summaries.remove(index);
+            summary_name_index.remove_and_shift(&function, index);
             true
         }
         (false, None) => false,
