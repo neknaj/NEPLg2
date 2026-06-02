@@ -538,6 +538,44 @@ RPN cold base static check after Stack pop2
 この checkpoint でも issue は解決しない。RPN cold base は大きく改善したが、0.5 秒未満にはまだ届かない。
 次の根本対応は actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
 
+2026-06-02 の native `.neplcheck` exact check cache checkpoint では、変更のない native `--check`
+再実行を loader 前で成功させる disk artifact を追加した。これは `.neplproof` ではなく、前回成功時に
+loader が読んだ全 source path / source length / source hash を manifest として保存する exact success
+cache である。target / profile / compiler executable identity / input path / stdlib root は cache path
+に含める。次回は loader を起動する前に manifest の全 source hash を照合し、1 つでも不一致なら通常
+compile へ fail-closed に戻る。
+
+RPN 実測は次の通り。
+
+```text
+RPN profiling cache-bypass stage timing
+  resource_static_check: 1430ms / 1422ms / 1441ms
+    median: 1430ms
+    resource_initialized_moves median: 971ms
+      resource_initialized_i32_scalar_summaries median: 182ms
+      resource_initialized_raw_init_summaries median: 340ms
+      resource_initialized_function_checks median: 418ms
+    resource_owner_obligations median: 361ms
+
+RPN cold/base wall time with check cache disabled
+  1959.896ms / 1993.700ms / 2679.619ms / 2140.969ms / 2064.638ms
+    median: 2064.638ms
+
+RPN .neplcheck exact cache wall time
+  first miss/store: 2196.043ms
+  second pre-load hit: 19.398ms
+```
+
+per-function timing の残支配点は、`i32_scalar_summary` では `apply_op` 31ms、`push` 28ms、
+`stdio_finish_read_buffer` 24ms、`raw_init_summary` では `apply_op` 24ms、`alloc_raw` 23ms、
+`vec_cleanup_copy_initialized_prefix` 23ms、final initialized check では
+`parse_u128_radix_digits_from` 79ms、`str_slice_result` 45ms、`eval_line` 35ms である。
+
+この checkpoint により、変更のない native cold process 再実行は 0.1 秒未満に入った。ただし初回
+RPN base compile の Resource static check はまだ 1 秒台であり、この issue は解決しない。
+初回 base 0.5 秒未満の主経路は引き続き actual `.neplproof` stable codec、stdlib proof template、
+owner return summary stable mirror、bundled `.neplmeta` / `.neplproof` preseed である。
+
 ## 検証
 
 - `trunk build`

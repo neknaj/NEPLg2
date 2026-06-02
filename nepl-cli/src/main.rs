@@ -7,6 +7,7 @@ use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use check_cache::ExactCheckCacheProbe;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use nepl_core::{
     check_module_with_source_map, compile_module_with_source_map_and_artifact_options,
@@ -18,6 +19,7 @@ use nepl_core::{
 use wasmi::{Caller, Engine, Linker, Module, Store};
 use wasmprinter::print_bytes;
 
+mod check_cache;
 mod codegen_llvm;
 
 macro_rules! cli_verbose {
@@ -540,8 +542,40 @@ fn execute_inner(cli: Cli) -> Result<()> {
         ));
     }
     let std_root = stdlib_root(cli.stdlib_root.as_deref())?;
+    let target_override = cli.target.as_deref().map(|t| match t {
+        "wasm" | "core" => CompileTarget::Wasm,
+        "wasi" | "std" => CompileTarget::Wasi,
+        "wasix" => CompileTarget::Wasix,
+        "llvm" => CompileTarget::Llvm,
+        _ => unreachable!(),
+    });
+    let profile = cli.profile.map(|p| match p {
+        ProfileArg::Debug => BuildProfile::Debug,
+        ProfileArg::Release => BuildProfile::Release,
+    });
+    let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
     let program_name = cli.input.clone().unwrap_or_else(|| "<stdin>".to_string());
     let input_path = cli.input.clone();
+    let pre_load_check_cache_path = if cli.check {
+        match (&input_path, target_override) {
+            (Some(path), Some(target)) => ExactCheckCacheProbe::path_for_input(
+                Path::new(path),
+                &std_root,
+                target,
+                active_profile,
+            ),
+            _ => None,
+        }
+    } else {
+        None
+    };
+    if let Some(path) = pre_load_check_cache_path.as_ref() {
+        if ExactCheckCacheProbe::hit_manifest_at(path) {
+            cli_verbose!(cli.verbose, "DEBUG: pre-load exact --check cache hit");
+            println!("Check successful");
+            return Ok(());
+        }
+    }
     let (module, source_map) = match &cli.input {
         Some(path) => {
             cli_verbose!(cli.verbose, "DEBUG: Creating Loader for path: {}", path);
@@ -578,14 +612,6 @@ fn execute_inner(cli: Cli) -> Result<()> {
         }
     };
 
-    let target_override = cli.target.as_deref().map(|t| match t {
-        "wasm" | "core" => CompileTarget::Wasm,
-        "wasi" | "std" => CompileTarget::Wasi,
-        "wasix" => CompileTarget::Wasix,
-        "llvm" => CompileTarget::Llvm,
-        _ => unreachable!(),
-    });
-
     let mut emits = expand_emits(&cli.emit);
 
     // If target is llvm, and no specific llvm-ish emits are requested,
@@ -602,20 +628,31 @@ fn execute_inner(cli: Cli) -> Result<()> {
         .unwrap_or(CompileTarget::Wasm);
 
     let is_check = cli.check;
-
-    let profile = cli.profile.map(|p| match p {
-        ProfileArg::Debug => BuildProfile::Debug,
-        ProfileArg::Release => BuildProfile::Release,
-    });
-    let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
     let options = CompileOptions {
         target: target_override,
         verbose: cli.verbose,
         profile,
     };
     if is_check {
+        let exact_check_cache = ExactCheckCacheProbe::new(
+            &source_map,
+            run_target,
+            active_profile,
+            pre_load_check_cache_path,
+        );
+        if exact_check_cache
+            .as_ref()
+            .is_some_and(ExactCheckCacheProbe::hit)
+        {
+            cli_verbose!(cli.verbose, "DEBUG: exact --check cache hit");
+            println!("Check successful");
+            return Ok(());
+        }
         match check_module_with_source_map(module, Some(&source_map), options) {
             Ok(()) => {
+                if let Some(cache) = exact_check_cache.as_ref() {
+                    cache.store_success()?;
+                }
                 println!("Check successful");
                 return Ok(());
             }

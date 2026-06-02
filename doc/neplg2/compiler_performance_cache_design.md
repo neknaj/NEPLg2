@@ -3466,6 +3466,51 @@ Resource IR の固定点探索が実測で下がることを示す。
 i32 scalar と raw-init、`apply_op` / parse 系 function check、owner obligation である。次の主経路は
 actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
 
+## 2026-06-02 native `.neplcheck` exact check cache checkpoint
+
+native CLI の `--check` に、同一 binary / target / profile / stdlib root / input path と、前回成功時に
+読み込まれた全 source file の byte hash が一致する場合だけ成功を再利用する `.neplcheck` artifact を
+追加した。これは `.neplproof` ではなく、Resource proof の部分再利用も行わない。前回成功した
+完全一致入力について、compiler の純粋な query result を loader 前に再利用する exact success cache
+である。
+
+`.neplcheck` の cache path は compiler executable の path / size / modified time、target、profile、
+input path、stdlib root から作る。payload には前回 loader が実際に読んだ source path、source length、
+source hash と source-set fingerprint を保存する。次回は loader を起動する前に manifest の全 path を
+読み直し、1 つでも欠ける、hash が違う、fingerprint が合わない場合は通常 compile へ fail-closed に戻る。
+失敗結果は保存しない。
+
+profiling を壊さないため、`NEPL_COMPILE_STAGE_TIMING`、`NEPL_RESOURCE_PER_FUNCTION_TIMING`、
+`NEPL_RESOURCE_OP_TIMING` が有効な場合は `.neplcheck` を bypass する。明示的に止めたい場合は
+`NEPL_DISABLE_CHECK_CACHE` を使う。保存先は既定で `target/neplg2/check-cache-v1` であり、
+`NEPL_CHECK_CACHE_DIR` で差し替えられる。
+
+RPN の実測:
+
+```text
+stage timing cache bypass:
+  resource_static_check: 1430ms / 1422ms / 1441ms
+  median resource_static_check: 1430ms
+  median resource_initialized_moves: 971ms
+  median resource_initialized_i32_scalar_summaries: 182ms
+  median resource_initialized_raw_init_summaries: 340ms
+  median resource_initialized_function_checks: 418ms
+  median resource_owner_obligations: 361ms
+
+wall time cache bypass:
+  cold/base --check: 1959.896ms / 1993.700ms / 2679.619ms / 2140.969ms / 2064.638ms
+  median cold/base --check: 2064.638ms
+
+.neplcheck exact cache wall time:
+  first miss/store: 2196.043ms
+  second pre-load hit: 19.398ms
+```
+
+この checkpoint により、変更のない native `--check` の cold process 再実行は 0.1 秒未満になった。
+一方で、初回 RPN base compile の Resource static check はまだ 1 秒台であり、0.5 秒未満目標は未達である。
+初回 base を下げる主経路は引き続き actual `.neplproof` stable codec、stdlib proof template、
+owner return summary stable mirror、`.neplmeta` / `.neplproof` bundled preseed である。
+
 2026-06-02 の RPN Stack pop2 owner-flow checkpoint では、Stack owner flow の局所支配をさらに測った。
 作業開始時点の native release stage-only 3 run は次の通りである。
 

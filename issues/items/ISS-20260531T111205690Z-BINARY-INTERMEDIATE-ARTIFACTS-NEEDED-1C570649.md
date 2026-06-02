@@ -47,6 +47,12 @@ NEPL object artifact stack を `.nepl...` 形式の artifact として設計し�
 - `.neplobj`: wasm / LLVM の function fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。
 - `.nepllink`: fragment の symbol / relocation / table index / data offset を再接続し、final wasm / LLVM artifact を生成する。
 
+補助 artifact として、native CLI の `--check` には `.neplcheck` を使う。これは `.neplproof` や
+`.neplobj` と違い、部分的な証明や code fragment を保持しない。前回成功した完全一致入力に対して、
+読み込まれた source manifest を loader 前に照合し、同じ compiler binary / target / profile /
+stdlib root / source set の場合だけ成功結果を再利用する exact success cache である。source set が
+1 つでも違う場合は通常 compile へ fail-closed に戻る。
+
 cache key には compiler version、artifact schema version、target/profile、stdlib content hash、module public surface hash、dependency public surface hash、source capability policy hash、type/effect boundary hash、generic type arguments、backend feature set を含める。どれかが再投影できない場合は stale hit を避けるため fail-closed に再計算する。
 
 実装順序は `.neplmeta`、`.neplproof`、same-session `.neplhir` query cache、`.neplobj` /
