@@ -228,6 +228,7 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(queueSource, /pointXMilli/);
     assert.match(queueSource, /GUI_WEB_EVENT_POLL_INVALID/);
     assert.doesNotMatch(queueSource, /guiWebSharedActionIdFromTakeResult/);
+    assert.doesNotMatch(queueSource, /CoalescePreviousPointerMove|guiWebSharedEventPreviousIndex/);
     assert.match(queueSource, /waitGuiWebSharedActionId/);
     assert.match(workerSource, /nepl_gui_web/);
     assert.match(workerSource, /poll_action_id/);
@@ -294,6 +295,7 @@ async function runWebGuiSharedEventQueueRegression() {
             "Web GUI shared event queue exposes keyboard records without consuming the legacy action projection",
             "Web GUI shared event queue exposes Unicode scalar text input records without consuming the legacy action projection",
             "Web GUI shared event queue reports invalid records instead of collapsing them into no event",
+            "Web GUI shared event queue stays append-only after event publication",
             "Web runtime worker exposes a dedicated nepl_gui_web host import module",
             "Web runtime worker exposes event-kind and last-event field imports for GuiEvent polling",
             "NEPL web GUI input wrapper returns Result Option ActionId instead of public raw sentinels",

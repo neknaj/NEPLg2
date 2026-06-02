@@ -11,7 +11,7 @@ import {
 } from './canvas-renderer.js';
 import type { GuiPreviewCommandFrame } from './commands.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
-import type { GuiWebKeyboardEventKind } from './input-bridge.js';
+import type { GuiWebInputEvent, GuiWebKeyboardEventKind } from './input-bridge.js';
 import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
 
 export type GuiPreviewSource =
@@ -21,6 +21,12 @@ export type GuiPreviewSource =
 type GuiHostFrameState =
     | { kind: 'none' }
     | { kind: 'presented'; frame: GuiPreviewCommandFrame; windowId: number };
+
+type GuiWebPointerInputEvent = Extract<GuiWebInputEvent, { kind: 'pointer' }>;
+
+type GuiHostPointerMoveState =
+    | { kind: 'idle' }
+    | { kind: 'scheduled'; event: GuiWebPointerInputEvent };
 
 type GuiWebKeyCodeLookup =
     | { kind: 'mapped'; keyCode: number }
@@ -53,6 +59,7 @@ export class GuiPreviewPanel {
     viewport: GuiPreviewCanvasViewport;
     onKindChange: (kind: GuiPreviewKind) => void;
     hostFrame: GuiHostFrameState;
+    hostPointerMove: GuiHostPointerMoveState;
 
     constructor(contentEl: HTMLElement, options: GuiPreviewPanelOptions = {}) {
         this.contentEl = contentEl;
@@ -79,6 +86,7 @@ export class GuiPreviewPanel {
         this.viewport = { left: 0, top: 0, scale: 1 };
         this.onKindChange = options.onKindChange || ignoreKindChange;
         this.hostFrame = { kind: 'none' };
+        this.hostPointerMove = { kind: 'idle' };
 
         this.mountToolbar();
         this.rootEl.appendChild(this.toolbarEl);
@@ -90,6 +98,7 @@ export class GuiPreviewPanel {
         });
         this.canvas.addEventListener('click', (event) => this.handleCanvasClick(event));
         this.canvas.addEventListener('pointerdown', (event) => this.handleCanvasPointerDown(event));
+        this.canvas.addEventListener('pointermove', (event) => this.handleCanvasPointerMove(event));
         this.canvas.addEventListener('pointerup', (event) => this.handleCanvasPointerUp(event));
         this.canvas.addEventListener('pointercancel', (event) => this.handleCanvasPointerCancel(event));
         this.canvas.addEventListener('mousemove', (event) => this.handleCanvasPointer(event));
@@ -121,18 +130,21 @@ export class GuiPreviewPanel {
 
     setSourcePath(path: string) {
         this.hostFrame = { kind: 'none' };
+        this.hostPointerMove = { kind: 'idle' };
         this.source = { kind: 'path', path };
         this.setKind(guiPreviewKindFromPath(path));
     }
 
     clearSourcePath() {
         this.hostFrame = { kind: 'none' };
+        this.hostPointerMove = { kind: 'idle' };
         this.source = { kind: 'none' };
         this.setKind('mandelbrot');
     }
 
     setKind(kind: GuiPreviewKind) {
         this.hostFrame = { kind: 'none' };
+        this.hostPointerMove = { kind: 'idle' };
         this.selectEl.disabled = false;
         this.kind = kind;
         this.syncSelect();
@@ -142,6 +154,7 @@ export class GuiPreviewPanel {
 
     presentHostFrame(frame: GuiPreviewCommandFrame, windowId: number) {
         this.hostFrame = { kind: 'presented', frame, windowId };
+        this.hostPointerMove = { kind: 'idle' };
         this.selectEl.disabled = true;
         this.render();
         this.focusInputSurface();
@@ -249,6 +262,10 @@ export class GuiPreviewPanel {
         this.queueHostPointerEvent(event, 'down');
     }
 
+    handleCanvasPointerMove(event: PointerEvent) {
+        this.queueHostPointerMoveEvent(event);
+    }
+
     handleCanvasPointerUp(event: PointerEvent) {
         this.queueHostPointerEvent(event, 'up');
     }
@@ -261,6 +278,7 @@ export class GuiPreviewPanel {
         if (this.hostFrame.kind !== 'presented') {
             return;
         }
+        this.flushHostPointerMoveEvent();
         this.focusInputSurface();
         const point = this.toScenePoint(event);
         const queued = queueGuiWebInputEvent({
@@ -271,6 +289,39 @@ export class GuiPreviewPanel {
             button: guiWebPointerButtonFromDomButton(event.button),
             point,
         });
+        if (queued.kind === 'err') {
+            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+        }
+    }
+
+    queueHostPointerMoveEvent(event: PointerEvent) {
+        if (this.hostFrame.kind !== 'presented') {
+            return;
+        }
+        const shouldSchedule = this.hostPointerMove.kind === 'idle';
+        this.hostPointerMove = {
+            kind: 'scheduled',
+            event: {
+                kind: 'pointer',
+                windowId: this.hostFrame.windowId,
+                pointerKind: 'move',
+                pointerId: event.pointerId,
+                button: guiWebPointerButtonFromDomButton(event.button),
+                point: this.toScenePoint(event),
+            },
+        };
+        if (shouldSchedule) {
+            window.requestAnimationFrame(() => this.flushHostPointerMoveEvent());
+        }
+    }
+
+    flushHostPointerMoveEvent() {
+        const pending = this.hostPointerMove;
+        this.hostPointerMove = { kind: 'idle' };
+        if (pending.kind === 'idle') {
+            return;
+        }
+        const queued = queueGuiWebInputEvent(pending.event);
         if (queued.kind === 'err') {
             this.metricsEl.textContent = `host input error ${queued.error.kind}`;
         }
@@ -364,6 +415,7 @@ export class GuiPreviewPanel {
     }
 
     dispose() {
+        this.hostPointerMove = { kind: 'idle' };
     }
 }
 

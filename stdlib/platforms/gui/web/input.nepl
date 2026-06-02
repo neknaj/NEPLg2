@@ -15,7 +15,7 @@
 //:
 //: ### [現状/げんじょう]
 //: - Phase 3 では Web Playground の action、pointer、keyboard、text input event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
-//: - pointer move coalescing、window / timer / lifecycle などの full event union は後続 phase で追加します。
+//: - Web backend は pointer move を SharedArrayBuffer publish 前の backend 境界で順序保存 coalescing できます。window / timer / lifecycle などの full event union は後続 phase で追加します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2

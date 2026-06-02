@@ -43,6 +43,17 @@ ret: 0
 
 fn main %impure fn unit i32 \unit:
     let point %GuiPoint gui_point_new 0 0
+    let pointer %PointerEvent pointer_event_new PointerEventKind::Move 9 point PointerButton::None
+    let pointer_web %GuiWebEvent GuiWebEvent 3 point gui_event_pointer pointer
+    match gui_web_event_pointer &pointer_web:
+        Option::Some event:
+            match pointer_event_kind &event:
+                PointerEventKind::Move:
+                    assert_eq_i32 9 pointer_event_pointer_id &event
+                _:
+                    test_fail "pointer move kind mismatch"
+        Option::None:
+            test_fail "pointer event missing"
     let keyboard %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
     let keyboard_web %GuiWebEvent GuiWebEvent 3 point gui_event_keyboard keyboard
     match gui_web_event_keyboard &keyboard_web:
