@@ -415,6 +415,28 @@ per-function timing の階層は、`resource_static_check=3723ms` のうち
 `apply_op=80ms` である。次の根本対応は bundled / persistent `.neplproof` preseed、stdlib proof template、
 owner return summary stable mirror である。
 
+2026-06-02 の RPN cold base follow-up では、HEAD 相当の native release `--check` を再ビルドし、
+stage-only 3 run と per-function timing を取り直した。stage-only は
+`resource_static_check=6303ms / 4993ms / 4115ms`、`resource_initialized_moves=4754ms / 3383ms / 3154ms`、
+`resource_initialized_i32_scalar_summaries=1114ms / 1207ms / 1118ms`、
+`resource_initialized_raw_init_summaries=2390ms / 1086ms / 1052ms`、
+`resource_initialized_function_checks=1164ms / 1005ms / 895ms`、
+`resource_owner_obligations=1400ms / 1445ms / 816ms` だった。
+
+per-function timing 1 run の階層は `resource_static_check=4358ms`、
+`resource_initialized_moves=3293ms`、`resource_owner_obligations=923ms` である。initialized moves の内訳は
+i32 scalar `1177ms`、raw-init `1053ms`、function check `959ms`。関数別上位は i32 scalar が
+`sb_append_non_empty_result=344ms`、`byte_builder_reserve=239ms`、`apply_op=103ms`、raw-init が
+`apply_op=213ms`、`dealloc_raw=186ms`、function check が `dealloc_raw=168ms`、
+`parse_u128_radix_digits_from=111ms`、`apply_op=101ms` だった。
+
+この checkpoint で試した local optimization は採用していない。condition-candidate memo は
+`Place` key の `BTreeMap` 固定費が大きく、offset 由来 parameter condition の重複削減は focused test
+通過後も RPN per-function で悪化し、owner summary relevance filter は recomputation を `295 -> 267` に
+減らしても総時間を改善しなかった。したがって、この issue の次作業は local memo ではなく
+actual `.neplproof` stable codec、native `--check` preseed、stdlib proof template、owner return summary
+stable mirror へ絞る。
+
 ## 検証
 
 - `trunk build`
