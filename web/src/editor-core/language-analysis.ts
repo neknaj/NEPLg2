@@ -102,15 +102,23 @@ export type LanguageAnalysisSnapshot = {
 export type EditorTokenType =
     | 'keyword'
     | 'string'
+    | 'literal-string'
+    | 'literal-char'
     | 'comment'
     | 'function'
     | 'number'
+    | 'literal-number'
     | 'boolean'
+    | 'literal-bool'
+    | 'literal-unit'
+    | 'literal-void'
     | 'operator'
     | 'regex'
     | 'property'
     | 'punctuation'
     | 'variable'
+    | 'constant'
+    | 'namespace'
     | 'type'
     | 'heading'
     | 'bold'
@@ -505,11 +513,16 @@ function normalizeTokenType(kind?: string, debug?: string, value?: string): Edit
         return 'default';
     }
     if (kind.startsWith('Kw') || kind.startsWith('Dir') || kind === 'At') return 'keyword';
-    if (kind.includes('String') || kind.includes('Mlstr')) return 'string';
-    if (kind.includes('BoolLiteral')) return 'boolean';
-    if (kind.includes('IntLiteral') || kind.includes('FloatLiteral')) return 'number';
+    if (kind === 'VoidMarker') return 'literal-void';
+    if (kind === 'UnitLiteral') return 'literal-unit';
+    if (kind.includes('String') || kind.includes('Mlstr')) return 'literal-string';
+    if (kind.includes('CharLiteral')) return 'literal-char';
+    if (kind.includes('BoolLiteral')) return 'literal-bool';
+    if (kind.includes('IntLiteral') || kind.includes('FloatLiteral')) return 'literal-number';
     if (kind.includes('Comment')) return 'comment';
     if (kind === 'Ident' && IDENT_KEYWORDS.has(value ?? '')) return 'keyword';
+    if (kind === 'Ident' && value === 'void') return 'literal-void';
+    if (kind === 'Ident' && value === 'unit') return 'literal-unit';
     if (kind === 'Ident' && (PRIMITIVE_TYPE_NAMES.has(value ?? '') || isUppercaseIdentifier(value))) return 'type';
     if (kind === 'Ident') return 'variable';
     if (OPERATOR_TOKEN_KINDS.has(kind)) return 'operator';
@@ -564,7 +577,7 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
                     break;
                 }
             }
-            push(offset, Math.min(cursor, text.length), 'string');
+            push(offset, Math.min(cursor, text.length), 'literal-string');
             offset = Math.min(cursor, text.length);
             continue;
         }
@@ -582,7 +595,7 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
             while (cursor < text.length && /[0-9_]/.test(text[cursor])) {
                 cursor += 1;
             }
-            push(offset, cursor, 'number');
+            push(offset, cursor, 'literal-number');
             offset = cursor;
             continue;
         }
@@ -594,9 +607,13 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
             const word = text.slice(offset, cursor);
             const type = IDENT_KEYWORDS.has(word)
                 ? 'keyword'
-                : PRIMITIVE_TYPE_NAMES.has(word) || isUppercaseIdentifier(word)
-                    ? 'type'
-                    : 'variable';
+                : word === 'void'
+                    ? 'literal-void'
+                    : word === 'unit'
+                        ? 'literal-unit'
+                        : PRIMITIVE_TYPE_NAMES.has(word) || isUppercaseIdentifier(word)
+                            ? 'type'
+                            : 'variable';
             push(offset, cursor, type);
             offset = cursor;
             continue;
@@ -654,15 +671,23 @@ function tokenSemanticAt(prepared: PreparedLanguageAnalysis, tokenIndex: number)
 const EDITOR_TOKEN_TYPE_VALUES = new Set<EditorTokenType>([
     'keyword',
     'string',
+    'literal-string',
+    'literal-char',
     'comment',
     'function',
     'number',
+    'literal-number',
     'boolean',
+    'literal-bool',
+    'literal-unit',
+    'literal-void',
     'operator',
     'regex',
     'property',
     'punctuation',
     'variable',
+    'constant',
+    'namespace',
     'type',
     'heading',
     'bold',
@@ -682,6 +707,26 @@ function normalizeEditorTokenType(value: unknown): EditorTokenType | null {
 
 function tokenClassificationAt(prepared: PreparedLanguageAnalysis, tokenIndex: number): AnalysisTokenClassification | null {
     return prepared.tokenClassificationByIndex.get(tokenIndex) ?? null;
+}
+
+function editorTokenTypeForDefinitionKind(kind?: string | null): EditorTokenType | null {
+    switch (kind) {
+        case 'fn':
+        case 'fn_alias':
+            return 'function';
+        case 'struct':
+        case 'enum':
+        case 'trait':
+            return 'type';
+        case 'let_hoisted':
+            return 'constant';
+        case 'let_mut':
+        case 'param':
+        case 'match_bind':
+            return 'variable';
+        default:
+            return null;
+    }
 }
 
 function tokenAt(prepared: PreparedLanguageAnalysis, index: number): { token: AnalysisToken; tokenIndex: number; span: NonNullable<ReturnType<typeof spanFromPrepared>> } | null {
@@ -834,12 +879,17 @@ function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
 
         let type = normalizeTokenType(kind, token?.debug, typeof token?.value === 'string' ? token.value : undefined);
         const classification = tokenClassificationAt(prepared, tokenIndex);
-        type = normalizeEditorTokenType(classification?.category) ?? type;
-        const resolution = tokenResolutionAt(prepared, tokenIndex);
-        if (resolution?.resolved_def_id != null) {
-            const definition = prepared.definitionById.get(Number(resolution.resolved_def_id));
-            if (definition && (definition.kind === 'fn' || definition.kind === 'fn_alias')) {
-                type = 'function';
+        const classifiedType = normalizeEditorTokenType(classification?.category);
+        if (classifiedType) {
+            type = classifiedType;
+        } else {
+            const resolution = tokenResolutionAt(prepared, tokenIndex);
+            if (resolution?.resolved_def_id != null) {
+                const definition = prepared.definitionById.get(Number(resolution.resolved_def_id));
+                const resolvedType = editorTokenTypeForDefinitionKind(definition?.kind);
+                if (resolvedType) {
+                    type = resolvedType;
+                }
             }
         }
 

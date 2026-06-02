@@ -143,7 +143,7 @@ async function main() {
                 token(source, "Ident", "impure", 1, "impure"),
                 token(source, "KwFn", "fn", 4),
                 token(source, "Ident", "Result", 0, "Result"),
-                token(source, "Ident", "unit", 0, "unit"),
+                token(source, "UnitLiteral", "unit", 0),
                 token(source, "Ident", "GuiError", 0, "GuiError"),
                 token(source, "Backslash", "\\", 1),
                 token(source, "Backslash", "\\", 2),
@@ -154,10 +154,70 @@ async function main() {
                 token(source, "BoolLiteral", "true", 0, "true"),
                 token(source, "Ident", "Result", 2, "Result"),
                 token(source, "PathSep", "::", 1),
-                token(source, "Ident", "Err", 0, "Err"),
+                token(source, "Ident", "Err", 1, "Err"),
                 token(source, "BoolLiteral", "false", 0, "false"),
             ],
             diagnostics: [],
+        },
+        semantics: {
+            token_classifications: [
+                {
+                    token_index: 22,
+                    category: "function",
+                    role: "function_name",
+                    span: span(source, "copy_mark", 0),
+                    enclosing_span: span(source, "copy_mark", 0),
+                },
+                {
+                    token_index: 28,
+                    category: "variable",
+                    role: "parameter_name",
+                    span: span(source, "app", 0),
+                    enclosing_span: span(source, "app", 0),
+                },
+                {
+                    token_index: 30,
+                    category: "function",
+                    role: "function_name",
+                    span: span(source, "present", 0),
+                    enclosing_span: span(source, "present", 0),
+                },
+                {
+                    token_index: 39,
+                    category: "type",
+                    role: "function_type_parameter",
+                    span: span(source, "unit", 0),
+                    enclosing_span: span(source, "Result unit GuiError", 0),
+                },
+                {
+                    token_index: 44,
+                    category: "namespace",
+                    role: "path_namespace_name",
+                    span: span(source, "Result", 1),
+                    enclosing_span: span(source, "Result", 1),
+                },
+                {
+                    token_index: 46,
+                    category: "constant",
+                    role: "path_member_name",
+                    span: span(source, "Ok", 0),
+                    enclosing_span: span(source, "Ok", 0),
+                },
+                {
+                    token_index: 48,
+                    category: "namespace",
+                    role: "path_namespace_name",
+                    span: span(source, "Result", 2),
+                    enclosing_span: span(source, "Result", 2),
+                },
+                {
+                    token_index: 50,
+                    category: "constant",
+                    role: "path_member_name",
+                    span: span(source, "Err", 0),
+                    enclosing_span: span(source, "Err", 0),
+                },
+            ],
         },
     };
 
@@ -166,7 +226,7 @@ async function main() {
     assertHighlighted(source, payload, "//: current syntax", "comment");
     assertHighlighted(source, payload, "#entry", "keyword");
     assertHighlighted(source, payload, "@", "keyword");
-    assertHighlighted(source, payload, "\"core/result\"", "string");
+    assertHighlighted(source, payload, "\"core/result\"", "literal-string");
     assertHighlighted(source, payload, "as", "keyword");
     assertHighlighted(source, payload, "@merge", "keyword");
     assertHighlighted(source, payload, "pub", "keyword");
@@ -177,14 +237,128 @@ async function main() {
     assertHighlighted(source, payload, "impure", "keyword");
     assertHighlighted(source, payload, "&", "operator");
     assertHighlighted(source, payload, "Result", "type");
+    assertHighlighted(source, payload, "Result", "namespace", 1);
     assertHighlighted(source, payload, "unit", "type");
     assertHighlighted(source, payload, "::", "operator");
-    assertHighlighted(source, payload, "Ok", "type");
-    assertHighlighted(source, payload, "true", "boolean");
-    assertHighlighted(source, payload, "false", "boolean");
+    assertHighlighted(source, payload, "Ok", "constant");
+    assertHighlighted(source, payload, "true", "literal-bool");
+    assertHighlighted(source, payload, "false", "literal-bool");
+
+    const voidSource = [
+        "fn main %fn void unit \\void:",
+        "    unit",
+        "",
+    ].join("\n");
+    const voidAnalysis = {
+        lex: {
+            tokens: [
+                token(voidSource, "KwFn", "fn", 0),
+                token(voidSource, "Ident", "main", 0, "main"),
+                token(voidSource, "Percent", "%", 0),
+                token(voidSource, "KwFn", "fn", 1),
+                token(voidSource, "VoidMarker", "void", 0),
+                token(voidSource, "UnitLiteral", "unit", 0),
+                token(voidSource, "Backslash", "\\", 0),
+                token(voidSource, "VoidMarker", "void", 1),
+                token(voidSource, "UnitLiteral", "unit", 1),
+            ],
+            diagnostics: [],
+        },
+        semantics: {
+            token_classifications: [
+                {
+                    token_index: 1,
+                    category: "function",
+                    role: "function_name",
+                    span: span(voidSource, "main", 0),
+                    enclosing_span: span(voidSource, "main", 0),
+                },
+                {
+                    token_index: 4,
+                    category: "literal-void",
+                    role: "zero_arg_void_marker",
+                    span: span(voidSource, "void", 0),
+                    enclosing_span: span(voidSource, "void", 0),
+                },
+                {
+                    token_index: 5,
+                    category: "type",
+                    role: "function_type_result",
+                    span: span(voidSource, "unit", 0),
+                    enclosing_span: span(voidSource, "unit", 0),
+                },
+                {
+                    token_index: 7,
+                    category: "literal-void",
+                    role: "zero_arg_void_marker",
+                    span: span(voidSource, "void", 1),
+                    enclosing_span: span(voidSource, "void", 1),
+                },
+                {
+                    token_index: 8,
+                    category: "literal-unit",
+                    role: "unit_literal",
+                    span: span(voidSource, "unit", 1),
+                    enclosing_span: span(voidSource, "unit", 1),
+                },
+            ],
+        },
+    };
+    const voidPayload = bridge.buildEditorUpdatePayloadFromAnalysis(voidSource, voidAnalysis);
+    assertHighlighted(voidSource, voidPayload, "main", "function");
+    assertHighlighted(voidSource, voidPayload, "void", "literal-void", 0);
+    assertHighlighted(voidSource, voidPayload, "unit", "type", 0);
+    assertHighlighted(voidSource, voidPayload, "void", "literal-void", 1);
+    assertHighlighted(voidSource, voidPayload, "unit", "literal-unit", 1);
+
+    const pathSource = [
+        "group1::group2::name",
+        "",
+    ].join("\n");
+    const pathAnalysis = {
+        lex: {
+            tokens: [
+                token(pathSource, "Ident", "group1", 0, "group1"),
+                token(pathSource, "PathSep", "::", 0),
+                token(pathSource, "Ident", "group2", 0, "group2"),
+                token(pathSource, "PathSep", "::", 1),
+                token(pathSource, "Ident", "name", 0, "name"),
+            ],
+            diagnostics: [],
+        },
+        semantics: {
+            token_classifications: [
+                {
+                    token_index: 0,
+                    category: "namespace",
+                    role: "path_namespace_name",
+                    span: span(pathSource, "group1", 0),
+                    enclosing_span: span(pathSource, "group1", 0),
+                },
+                {
+                    token_index: 2,
+                    category: "namespace",
+                    role: "path_namespace_name",
+                    span: span(pathSource, "group2", 0),
+                    enclosing_span: span(pathSource, "group2", 0),
+                },
+                {
+                    token_index: 4,
+                    category: "constant",
+                    role: "path_member_name",
+                    span: span(pathSource, "name", 0),
+                    enclosing_span: span(pathSource, "name", 0),
+                },
+            ],
+        },
+    };
+    const pathPayload = bridge.buildEditorUpdatePayloadFromAnalysis(pathSource, pathAnalysis);
+    assertHighlighted(pathSource, pathPayload, "group1", "namespace");
+    assertHighlighted(pathSource, pathPayload, "group2", "namespace");
+    assertHighlighted(pathSource, pathPayload, "name", "constant");
 
     const annotationSource = [
-        "fn main %fn unit unit \\u:",
+        "fn main %fn void unit \\void:",
         "    %widget_state value",
         "",
     ].join("\n");
@@ -218,6 +392,45 @@ async function main() {
     const annotationPayload = bridge.buildEditorUpdatePayloadFromAnalysis(annotationSource, annotationAnalysis);
     assertHighlighted(annotationSource, annotationPayload, "%", "operator", 1);
     assertHighlighted(annotationSource, annotationPayload, "widget_state", "type");
+
+    const authoritySource = "callable\n";
+    const authorityAnalysis = {
+        lex: {
+            tokens: [
+                token(authoritySource, "Ident", "callable", 0, "callable"),
+            ],
+            diagnostics: [],
+        },
+        resolve: {
+            definitions: [
+                {
+                    id: 1,
+                    name: "callable",
+                    kind: "fn",
+                    span: span(authoritySource, "callable", 0),
+                },
+            ],
+        },
+        semantics: {
+            token_resolution: [
+                {
+                    token_index: 0,
+                    resolved_def_id: 1,
+                },
+            ],
+            token_classifications: [
+                {
+                    token_index: 0,
+                    category: "constant",
+                    role: "classification_authority",
+                    span: span(authoritySource, "callable", 0),
+                    enclosing_span: span(authoritySource, "callable", 0),
+                },
+            ],
+        },
+    };
+    const authorityPayload = bridge.buildEditorUpdatePayloadFromAnalysis(authoritySource, authorityAnalysis);
+    assertHighlighted(authoritySource, authorityPayload, "callable", "constant");
 
     console.log("editor current syntax highlighting regression passed");
 }

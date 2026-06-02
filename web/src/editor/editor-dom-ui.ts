@@ -58,6 +58,9 @@ class EditorDOMUI {
             case 'snippet': return 'S';
             case 'function': return 'f';
             case 'class': return 'C';
+            case 'type': return 'T';
+            case 'constant': return 'c';
+            case 'namespace': return 'n';
             case 'variable': case 'const': case 'let': case 'var': return 'v';
             default: return '·';
         }

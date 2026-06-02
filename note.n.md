@@ -11,6 +11,21 @@
 - compiler 側の `push_loader_type_arity_hints` を BTreeMap index 化する試行は、RPN 実測で `imported_type_arity_hints` が改善せず、stage / no-stage も悪化したため採用せず戻した。今後は小さな局所 map 化ではなく、pre-typecheck interface artifact により依存 body merge と shallow type-boundary preparation 自体を減らす。
 - 0.5 秒未満目標にはまだ届かない。次の root task は `ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD` と、Resource initialized moves の function-level relevance / stable proof artifact 境界である。
 
+# 2026-06-02 Agent2 current grammar syntax highlight redesign checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事の静的検査活用、数値・文字列ではなく enum / struct 的な固定分類で扱う方針、Web 表層の推測に言語仕様を閉じ込めない方針を再確認した。
+- `doc/neplg2/zero_arg_void_marker_spec.md` と `doc/neplg2/neplg21_syntax_migration_plan.md` に従い、0 引数 marker は `void`、`unit` は型または値という区別を syntax highlight contract に反映する作業を開始した。
+- subagent review では、`fn void T` は type parser で空 parameter list へ正規化されるため type AST だけでは `void` marker span を復元できないこと、`\void` header 側も compiler API に流す必要があることが High として指摘された。
+- そのため `nepl-language` / `nepl-web` の `token_classifications` は、type AST range だけでなく lexer の `VoidMarker` / `UnitLiteral` と name-resolution trace を統合する方針へ変更した。
+- editor 側は `literal-string`、`literal-char`、`literal-number`、`literal-bool`、`literal-unit`、`literal-void`、`constant`、`namespace` を token type 固定集合に追加し、compiler-provided classification を lexical fallback より優先する。
+- `group1::group2::name` のような path では左側 group を `namespace` として薄く表示し、右端 member は `constant` または解決済みカテゴリで目立たせる方針にした。
+- `token_classifications` を editor color の権威とし、`token_resolution` は hover / definition jump / 互換 fallback 用として扱う。これにより、compiler が `namespace` と分類した group 側や `constant` と分類した path member が TypeScript 側の古い解決推測で上書きされない。
+- subagent 再レビュー前の指摘として、qualified function call の call 式全体へ typed callee classification を当てると `group1::name unit` の `group1` まで `function` になる問題が見つかった。これを callee head の terminal token のみに限定し、`::` 左側 group と引数範囲内 token へ typed callee を投影しないようにした。
+- `node nodesrc\test_analysis_api.js` に `analyze_semantics_with_vfs` を使う `semantics_vfs_qualified_function_call_keeps_namespace_dim` を追加し、`#import "./group1" as group1` からの `group1::name unit` で `group1` が `namespace`、`name` が `function` になることを固定した。
+- `cargo check -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`npm --prefix web run build:ts`、`node nodesrc\test_editor_current_syntax_highlighting.js`、`node nodesrc\test_analysis_api.js`、`trunk build --release`、`node nodesrc\test_neplg2_language_provider_vfs.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-current-syntax-highlight-redesign.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は通過した。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は editor / GUI / VFS 関連の回帰を通過し、今回触っていない doctest gap、static_check/typecheck facade、resource checker responsibility、codegen_wasm line limit、resource gate order、diagnostic registry、stdio print_i32 boundary の既存 warning 7 件だけを報告した。
+- subagent 再レビューでは Blocking / High なしで merge 可。残った Medium は `nepl-language` と `nepl-web` の分類ロジックを将来 shared enum / classifier に寄せる改善余地であり、今回の merge blocker ではない。
+
 # 2026-06-02 RPN direct import / root source single-read checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針と性能方針に従い、RPN cold base を `examples/rpn.nepl` に固定して測定を続けた。
