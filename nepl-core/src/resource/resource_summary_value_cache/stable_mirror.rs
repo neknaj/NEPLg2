@@ -65,14 +65,14 @@ use super::stable_type_key::ResourceSummaryStableTypeKey;
 /// parameter index と projection は関数 signature に対する相対表現として保持し、
 /// 型は `ResourceSummaryStableTypeKey` に変換する。これにより、cache hit 後に現在の
 /// compile の Resource IR parameter / TypeCtx へ再投影する余地を残す。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStablePlace {
     parameter_index: usize,
     suffix: Vec<ResourceSummaryStableProjection>,
     ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableProjection {
     Field { index: usize, offset_bytes: usize },
     TupleField { index: usize, offset_bytes: usize },
@@ -81,7 +81,7 @@ enum ResourceSummaryStableProjection {
     StorageOffset(ResourceSummaryStableOffset),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableOffset {
     Known(usize),
     Symbolic {
@@ -119,7 +119,7 @@ enum ResourceSummaryStableOffset {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableOffsetPlace {
     Parameter(Box<ResourceSummaryStablePlace>),
     Resource(Box<ResourceSummaryStableResourcePlace>),
@@ -131,7 +131,7 @@ enum ResourceSummaryStableOffsetPlace {
 /// まだ cache map に保存しないが、bypass 計測はこの value へ変換できる候補だけを
 /// 数える。変換できない場合は、`TypeId` など session-local な値が残っているため、
 /// 後続の store/hit 実装でも保存対象にしてはならない。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableDropTraversalForallValue {
     storage: ResourceSummaryStablePlace,
     initialized_count: ResourceSummaryStableI32Operand,
@@ -146,7 +146,7 @@ pub(super) struct ResourceSummaryStableDropTraversalForallValue {
 /// replay 時に元の summary op 列を復元できない。この entry は function summary の
 /// top-level op 列としての順序と重複をそのまま保存し、将来の fixed-point skip が
 ///「この関数 summary 全体を再現できる」ことを確認するための単位にする。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableDropTraversalForallLeafEntry {
     leaves: Vec<ResourceSummaryStableDropTraversalForallValue>,
 }
@@ -167,7 +167,7 @@ impl ResourceSummaryStableDropTraversalForallLeafEntry {
 /// 保存済み stable type key を proof boundary として使う。部分保存を許すと call 境界の
 /// scalar/condition propagation が欠けるため、aliases/offsets/relations/constants/conditions
 /// の全 surface を同じ entry に保持する。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableI32ScalarReturnFactsEntry {
     aliases: Vec<ResourceSummaryStableI32ScalarReturnAlias>,
     offsets: Vec<ResourceSummaryStableI32ScalarReturnOffset>,
@@ -195,7 +195,7 @@ impl ResourceSummaryStableI32ScalarReturnFactsEntry {
 /// session cache には parameter/return projection と stable type key だけを保存する。
 /// alias が空の関数も entry として保存し、微小変更時に no-alias 関数を再度 fixed-point
 /// worklist へ入れないようにする。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableRawAliasReturnEntry {
     aliases: Vec<ResourceSummaryStableRawAliasReturnAlias>,
 }
@@ -203,6 +203,13 @@ pub(super) struct ResourceSummaryStableRawAliasReturnEntry {
 impl ResourceSummaryStableRawAliasReturnEntry {
     pub(super) fn len(&self) -> usize {
         self.aliases.len()
+    }
+
+    #[cfg(test)]
+    pub(super) fn empty_for_test() -> Self {
+        Self {
+            aliases: Vec::new(),
+        }
     }
 }
 
@@ -212,7 +219,7 @@ impl ResourceSummaryStableRawAliasReturnEntry {
 /// source span を現在の source map へ戻す別設計が必要なため、該当関数は no-store に倒す。
 /// この entry は final cell / collection slot state と deferred counter だけを保存し、
 /// 現在 compile の `TypeCtx` へ `TypeId` を再投影できる場合だけ check 実行を skip する。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableInitializedFunctionCheckEntry {
     final_cells: Vec<ResourceSummaryStableCellStateEntry>,
     final_collection_slots: Vec<ResourceSummaryStableCollectionSlotStateEntry>,
@@ -226,19 +233,19 @@ pub(super) struct ResourceSummaryStableInitializedFunctionCheckEntry {
 /// session-local state であり、現在の後続 stage では消費されないため、cached pass では
 /// materialize しない。将来 `final_owners` を後続 stage が読む場合は、この entry とは別に
 /// stable owner state mirror を設計し、pass-only API から明示的に分離する。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableOwnerObligationCheckEntry {
     deferred: ResourceOwnerCheckDeferred,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryStableInitializedFunctionCheckEntryReject {
     AutoDropPoints,
     Place,
     Type,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryInitializedFunctionCheckEntryReprojectionReject {
     Place,
     PlaceType,
@@ -246,13 +253,13 @@ pub(in crate::resource) enum ResourceSummaryInitializedFunctionCheckEntryReproje
     CollectionSlotStateType,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableCellStateEntry {
     place: ResourceSummaryStableResourcePlace,
     state: ResourceSummaryStableCellState,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableCellState {
     Uninit,
     Initialized(ResourceSummaryStableTypeKey),
@@ -261,13 +268,13 @@ enum ResourceSummaryStableCellState {
     MaybeMoved,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableCollectionSlotStateEntry {
     slot: ResourceSummaryStableResourcePlace,
     state: ResourceSummaryStableCollectionSlotState,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableCollectionSlotState {
     Uninitialized,
     Initialized(ResourceSummaryStableTypeKey),
@@ -278,14 +285,14 @@ enum ResourceSummaryStableCollectionSlotState {
     MaybeReleased,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableResourcePlace {
     root: ResourceSummaryStableResourcePlaceRoot,
     projections: Vec<ResourceSummaryStablePlaceProjection>,
     ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableResourcePlaceRoot {
     Local(String),
     Temporary(usize),
@@ -666,7 +673,7 @@ impl ResourceFunctionPlaceOrdinalMap {
 /// summary は replay 後に raw initialization proof を欠落させるため、この entry は
 /// leaf summary surface 全体を再投影できる場合だけ cache value として採用する。
 /// `TypeId` は stable type key、projection は layout を検証できる形式へ落として保持する。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableRawInitCompleteLeafEntry {
     return_cells: Vec<ResourceSummaryStableRawInitReturnCell>,
     return_byte_ranges: Vec<ResourceSummaryStableRawInitReturnByteRange>,
@@ -693,14 +700,14 @@ impl ResourceSummaryStableRawInitCompleteLeafEntry {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryStableRawInitCompleteLeafEntryReject {
     ParamCellProjection,
     ParamCellType,
     ParamReleaseRequirementType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryStableRawAliasReturnEntryReject {
     ParameterIndex,
     ParameterProjection,
@@ -709,7 +716,7 @@ pub(in crate::resource) enum ResourceSummaryStableRawAliasReturnEntryReject {
     ReturnType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryRawAliasReturnEntryReprojectionReject {
     ParameterIndex,
     ParameterProjection,
@@ -718,7 +725,7 @@ pub(in crate::resource) enum ResourceSummaryRawAliasReturnEntryReprojectionRejec
     ReturnType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryRawInitCompleteLeafEntryReprojectionReject {
     ParamCellProjection,
     ParamCellStableType,
@@ -727,21 +734,21 @@ pub(in crate::resource) enum ResourceSummaryRawInitCompleteLeafEntryReprojection
     ParamReleaseRequirementType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryStableI32ScalarReturnFactsEntryReject {
     ReturnProjection,
     ParameterProjection,
     ScalarType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(in crate::resource) enum ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject {
     ReturnProjection,
     ParameterProjection,
     ScalarType,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableI32ScalarReturnAlias {
     return_projection: Vec<ResourceSummaryStablePlaceProjection>,
     parameter_index: usize,
@@ -749,7 +756,7 @@ struct ResourceSummaryStableI32ScalarReturnAlias {
     scalar_ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableI32ScalarReturnOffset {
     return_projection: Vec<ResourceSummaryStablePlaceProjection>,
     parameter_index: usize,
@@ -758,7 +765,7 @@ struct ResourceSummaryStableI32ScalarReturnOffset {
     offset: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableI32ScalarReturnRelation {
     left_return_projection: Vec<ResourceSummaryStablePlaceProjection>,
     op: ResourceI32RelationOp,
@@ -766,21 +773,21 @@ struct ResourceSummaryStableI32ScalarReturnRelation {
     scalar_ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableI32ScalarReturnConstant {
     return_projection: Vec<ResourceSummaryStablePlaceProjection>,
     scalar_ty: ResourceSummaryStableTypeKey,
     value: i32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableI32ScalarReturnCondition {
     return_projection: Vec<ResourceSummaryStablePlaceProjection>,
     scalar_ty: ResourceSummaryStableTypeKey,
     condition: I32ValueCondition,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableI32ScalarParameterCondition {
     parameter_index: usize,
     parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
@@ -794,7 +801,7 @@ struct ResourceSummaryReprojectedI32ScalarProjection {
     carries_raw_scalar_view: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawAliasReturnAlias {
     parameter_index: usize,
     parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
@@ -803,7 +810,7 @@ struct ResourceSummaryStableRawAliasReturnAlias {
     return_ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitParamCell {
     param_index: usize,
     suffix: Vec<ResourceSummaryStableProjection>,
@@ -811,14 +818,14 @@ struct ResourceSummaryStableRawInitParamCell {
     holds_raw_address: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitReturnCell {
     suffix: Vec<ResourceSummaryStablePlaceProjection>,
     ty: ResourceSummaryStableTypeKey,
     holds_raw_address: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitReturnByteRange {
     address_suffix: Vec<ResourceSummaryStablePlaceProjection>,
     address_ty: ResourceSummaryStableTypeKey,
@@ -827,7 +834,7 @@ struct ResourceSummaryStableRawInitReturnByteRange {
     ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableRawInitReturnCount {
     ReturnValueProjection {
         suffix: Vec<ResourceSummaryStablePlaceProjection>,
@@ -839,7 +846,7 @@ enum ResourceSummaryStableRawInitReturnCount {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitParamByteRange {
     address_param_index: usize,
     address_suffix: Vec<ResourceSummaryStableProjection>,
@@ -849,7 +856,7 @@ struct ResourceSummaryStableRawInitParamByteRange {
     ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableRawInitParamCount {
     ParamProjection {
         param_index: usize,
@@ -862,7 +869,7 @@ enum ResourceSummaryStableRawInitParamCount {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitVariantParamCell {
     variant: String,
     param_index: usize,
@@ -871,7 +878,7 @@ struct ResourceSummaryStableRawInitVariantParamCell {
     holds_raw_address: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitVariantParamByteRange {
     variant: String,
     address_param_index: usize,
@@ -882,7 +889,7 @@ struct ResourceSummaryStableRawInitVariantParamByteRange {
     ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitVariantParamRequirement {
     variant: String,
     param_index: usize,
@@ -890,7 +897,7 @@ struct ResourceSummaryStableRawInitVariantParamRequirement {
     ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitVariantCondition {
     variant: String,
     param_index: usize,
@@ -899,7 +906,7 @@ struct ResourceSummaryStableRawInitVariantCondition {
     condition: RawCellValueCondition,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawCellReleaseParamRequirement {
     param_index: usize,
     suffix: Vec<ResourceSummaryStablePlaceProjection>,
@@ -907,7 +914,7 @@ struct ResourceSummaryStableRawCellReleaseParamRequirement {
     kind: ResourceSummaryStableRawCellReleaseRequirementKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStablePlaceProjection {
     Field { index: usize, offset_bytes: usize },
     TupleField { index: usize, offset_bytes: usize },
@@ -916,7 +923,7 @@ enum ResourceSummaryStablePlaceProjection {
     StorageOffset(ResourceSummaryStableOffset),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableRawCellReleaseRequirementKind {
     Store,
     Dealloc,
@@ -926,7 +933,7 @@ enum ResourceSummaryStableRawCellReleaseRequirementKind {
     BulkSource,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableI32Operand {
     Place(ResourceSummaryStablePlace),
     KnownI32 {
@@ -935,19 +942,19 @@ enum ResourceSummaryStableI32Operand {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableDropTraversalProof {
     StateOnly,
     LoadedValueDrop(ResourceSummaryStableDropObligation),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableDropObligation {
     operation: ResourceSummaryStableLifecycleOp,
     value_ty: ResourceSummaryStableTypeKey,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableLifecycleOp {
     InitializeEmpty,
     BorrowRead,

@@ -14,7 +14,7 @@ use super::stable_hash::ResourceSummaryStableHasher;
 /// module-level namespace key だけでは、同じ compile namespace 内のどの関数・どの
 /// summary kind の証明かを区別できない。この key は store/hit 実装に進む前の
 /// safety boundary として、stale hit に関係する入力を field として分けて保持する。
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryValueCacheKey {
     namespace_hash: u64,
     function_identity: ResourceSummaryFunctionIdentity,
@@ -32,7 +32,7 @@ pub(super) struct ResourceSummaryValueCacheKey {
 /// `ResourceFunction.name` は monomorphize 後の symbol に近く、`origin_name` は元の
 /// callable 境界を表す。将来 stdlib artifact へ進む段階では、この identity に
 /// canonical module path / definition identity を含める。
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryFunctionIdentity {
     canonical_symbol: String,
     origin_name: String,
@@ -43,7 +43,9 @@ pub(super) struct ResourceSummaryFunctionIdentity {
 /// stable mirror の構造が変わる場合は、既存 key と衝突しないように kind tag を
 /// 増やす。summary kind は「どの解析 stage のどの完結 leaf entry か」まで含め、
 /// partial summary と complete summary が同じ key 空間で混ざらないようにする。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub(super) enum ResourceSummaryValueKind {
     CollectionSlotDropTraversalForallLeafEntryV1,
     I32ScalarReturnFactsEntryV1,
@@ -54,6 +56,10 @@ pub(super) enum ResourceSummaryValueKind {
 }
 
 impl ResourceSummaryValueCacheKey {
+    pub(super) fn namespace_hash(&self) -> u64 {
+        self.namespace_hash
+    }
+
     pub(super) fn new_drop_traversal_forall_leaf_entry(
         namespace_hash: u64,
         function_identity: ResourceSummaryFunctionIdentity,

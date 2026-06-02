@@ -244,7 +244,7 @@ impl RawCellValueFlowFacts {
         }
     }
 
-    pub(super) fn merge_paths(paths: &[CellTable]) -> Self {
+    pub(super) fn merge_path_refs(paths: &[&CellTable]) -> Self {
         let Some((first, rest)) = paths.split_first() else {
             return Self::default();
         };

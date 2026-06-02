@@ -54,6 +54,38 @@ fn raw_alias_return_summaries_do_not_seed_plain_scalar_parameters() {
 }
 
 #[test]
+fn raw_alias_return_summary_relevance_skips_scalar_only_functions() {
+    let mut types = TypeCtx::new();
+    let raw_ty = mem_ptr_type(&mut types);
+    let scalar_ty = types.i32();
+    let module = ResourceModule {
+        functions: vec![
+            wrapper_function("wrapper", "id", raw_ty),
+            identity_function("id", raw_ty),
+            identity_function("id_i32", scalar_ty),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let relevant = raw_alias_summary_relevant_functions(&module, &types);
+    let dependency_graph = ResourceSummaryDependencyGraph::build(&module);
+    let (summaries, recomputations) = compute_raw_cell_address_return_summaries_with_recomputations(
+        &module,
+        &types,
+        &dependency_graph,
+        None,
+        None,
+    );
+
+    assert_eq!(relevant, vec![true, true, false]);
+    assert_eq!(recomputations, 2);
+    assert!(summaries.iter().all(|summary| summary.function != "id_i32"));
+    assert_eq!(summary(&summaries, "wrapper").aliases.len(), 1);
+    assert_eq!(summary(&summaries, "id").aliases.len(), 1);
+}
+
+#[test]
 fn raw_alias_return_summary_value_cache_preseeds_non_empty_and_empty_functions() {
     let mut types = TypeCtx::new();
     let ty = mem_ptr_type(&mut types);
@@ -89,7 +121,7 @@ fn raw_alias_return_summary_value_cache_preseeds_non_empty_and_empty_functions()
             Some(&context),
         );
 
-    assert!(first_recomputations >= module.functions.len());
+    assert_eq!(first_recomputations, 2);
     assert_eq!(second_recomputations, 0);
     assert_eq!(
         summary(&first_summaries, "id"),

@@ -47,6 +47,12 @@ NEPL object artifact stack を `.nepl...` 形式の artifact として設計し�
 - `.neplobj`: wasm / LLVM の function fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。
 - `.nepllink`: fragment の symbol / relocation / table index / data offset を再接続し、final wasm / LLVM artifact を生成する。
 
+補助 artifact として、native CLI の `--check` には `.neplcheck` を使う。これは `.neplproof` や
+`.neplobj` と違い、部分的な証明や code fragment を保持しない。前回成功した完全一致入力に対して、
+読み込まれた source manifest を loader 前に照合し、同じ compiler binary / target / profile /
+stdlib root / source set の場合だけ成功結果を再利用する exact success cache である。source set が
+1 つでも違う場合は通常 compile へ fail-closed に戻る。
+
 cache key には compiler version、artifact schema version、target/profile、stdlib content hash、module public surface hash、dependency public surface hash、source capability policy hash、type/effect boundary hash、generic type arguments、backend feature set を含める。どれかが再投影できない場合は stale hit を避けるため fail-closed に再計算する。
 
 実装順序は `.neplmeta`、`.neplproof`、same-session `.neplhir` query cache、`.neplobj` /
@@ -788,3 +794,80 @@ native release RPN stage-only 5 run の median は `resource_static_check=2922ms
 の完了ではない。RPN cold base はまだ 0.5 秒未満ではなく、final initialized pass、owner obligation、
 raw-init / i32 scalar summary を cold start 前から使える `.neplproof` codec / bundled preseed が引き続き
 主経路である。
+
+2026-06-02 の `.neplproof` persistent codec checkpoint で、native CLI 向けの Resource proof artifact
+保存・読込を実装した。ファイル名の系統は `.neplproof` とし、`.class` / `.o` を単純に模倣するのではなく、
+Resource IR proof summary の再利用に特化する。
+
+実装済みの境界は次の通り。
+
+- fixed header を payload より先に decode し、互換性がない artifact では payload を読まない。
+- container schema `2` では fixed header に payload hash も持たせ、header は一致するが payload bytes が壊れている artifact も decode 前に拒否する。
+- payload は stable entry map だけで、`TypeId`、`Span`、`SourceMap`、diagnostic、compile-local replay plan を含めない。
+- `nepl-core` は no-std / alloc のまま、serde/postcard codec と preseed 判定だけを持つ。
+- disk path、temporary write、rename、環境変数、compiler executable identity は `nepl-cli/src/proof_cache.rs` に閉じる。
+- RPN 実測で raw-alias stable entry は再計算より高いため、native disk proof 経路では raw-alias kind を永続 proof から外す。
+- `.neplproof` は compiler が生成した local build cache を信頼する設計である。未信頼の CI cache / workspace artifact を扱う場合は `NEPL_DISABLE_PROOF_CACHE=1` で通常検査へ戻す。
+
+RPN proof-backed cold base は `resource_static_check=1417ms / 988ms / 911ms / 1304ms / 1017ms`、
+中央値 `1017ms` だった。proof bootstrap は `resource_static_check=2771ms` で、生成された `.neplproof`
+は約 `2.17MB` だった。これは `.neplproof` 境界の実装 checkpoint であり、issue は open のまま維持する。
+残件は bundled stdlib `.neplproof` preseed、owner obligation pass-level snapshot、`.neplobj` の
+generic / string-data / raw body / function value / memoized function value 対応である。
+
+2026-06-02 の `.neplproof` pass snapshot checkpoint では、関数単位 stable entry map に加えて、
+stable key / function fingerprint だけの replay snapshot と deferred counter だけの pass snapshot を
+payload に含めた。これは summary 本体や diagnostic を保存する `.neplhir` / `.neplobj` ではなく、
+現在の `TypeCtx` へ再投影できる stable proof entry を高速に見つけるための `.neplproof` 内部 index である。
+schema は `2` へ上げ、古い `.neplproof` は fail-closed に拒否する。
+
+この変更で RPN proof-backed `resource_static_check` median は約 `416ms` になった。ただし native CLI
+wall-clock はまだ約 `0.9-1.0s` であり、binary intermediate artifact issue は open のまま維持する。
+次の artifact 側作業は bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、
+bootstrap proof generation 短縮、`.neplobj` の generic / string-data / raw body / function value /
+memoized function value 対応である。
+
+2026-06-02 の `.neplproof` no-op rewrite skip checkpoint では、native CLI の disk proof cache が
+preseed artifact を完全に再利用した場合、同じ `.neplproof` bytes を再度 export/store しない policy を
+追加した。bootstrap と reject / conflict / recomputed stable work のある run は保存を維持するため、
+stale artifact を残す方向には働かない。
+
+RPN no-stage wall-clock 15 run の中央値は `1048.574ms` であり、stage timing 付きでは
+`resource_static_check` が主に `404-438ms`、`resource_typecheck` が主に `153-171ms` だった。したがって、
+store skip は同一 artifact への不要 I/O と競合窓を減らす正しい policy だが、binary intermediate
+artifact issue の本筋はまだ loader / typecheck / proof decode を含む base compile 前半である。次は
+bundled stdlib `.neplmeta` / `.neplproof` preseed と typecheck/interface artifact を優先する。
+
+2026-06-02 の RPN loader/process-directives checkpoint では、native CLI の cold base を
+`NEPL_CLI_STAGE_TIMING=1` で分解し、`.neplproof` read が RPN では約 `0.7-0.9ms` しかないことを確認した。
+同じ release CLI の proof-backed run では、stage timing 付き 5 run の wall-clock 中央値が `968.434ms`、
+no-stage 14 run の wall-clock 中央値が `965.283ms` だった。階層は `loader_load=421.186ms`、
+`check_pipeline=539.710ms`、`resource_typecheck=130ms`、`resource_static_check=379ms` であり、
+binary intermediate artifact の次の削減対象は proof cache I/O ではなく loader / dependency surface /
+typecheck 境界である。
+
+一時的な loader 詳細計測では、`loader_load` 約 `450ms` のほとんどが `load_file_tree` で、root
+`examples/rpn.nepl` の `process_directives` が約 `401ms` を占めた。`process_directives` と
+`process_directives_with` は所有済み `Module` の `directives` / `root.items` を clone せず move して
+再構築する形へ修正し、`examples/rpn.nepl` には明示 import と整合する `#no_prelude` を追加した。
+それでも wall-clock はまだ約 `0.96s` であり、この checkpoint は `.neplmeta` / typed interface artifact
+の必要性を強める結果である。
+
+したがって、この issue の次 checkpoint は、native CLI `--check` が bundled stdlib `.neplmeta` または
+materialized typed public surface から依存先 environment を構成し、stdlib body merge と依存先再
+typecheck を避ける設計・実装である。`.neplobj` や codegen fragment より前に、`import` / `prelude` を
+interface boundary として扱えるようにする。
+
+2026-06-02 の shallow arity path snapshot checkpoint では、per-load shallow type arity cache の key を
+canonical path にし、同じ compile 内で同じ file を再読込して source hash を再計算する固定費を削った。
+これは永続 artifact ではないが、`.neplmeta` へ進む前に loader query の純粋な snapshot 境界を整理する
+下準備である。RPN proof-backed no-stage median は `905.472ms`、stage median は `934.839ms`、
+`loader_load=370.406ms`、`check_pipeline=542.679ms`、`resource_typecheck=144ms`、
+`resource_static_check=369ms` だった。
+
+この結果でも 0.5 秒未満には届かない。既存 Web path の `.neplmeta` materializer は dependency body merge
+を skip できるが、native CLI `--check` はまだ public interface artifact 入力を渡していない。また、現行
+prepare path は selected materialized callable の body が無い場合に `MaterializedFunctionBodyMissing`
+で fail-closed するため、RPN のように stdlib callable を実際に呼ぶ program では `.neplmeta` だけでは
+source fallback に戻る。次は check 専用の public interface + Resource proof summary 境界、または
+`.neplobj` body fragment を併用する native CLI artifact path を設計・実装する。

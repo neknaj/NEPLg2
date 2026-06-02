@@ -3,17 +3,17 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::cell_state::CellTable;
-use super::cell_state_raw_range::{merge_initialized_raw_byte_ranges, InitializedRawByteRange};
+use super::cell_state_raw_range::{merge_initialized_raw_byte_range_refs, InitializedRawByteRange};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 
-pub(super) fn merge_initialized_raw_byte_ranges_with_raw_aliases(
-    paths: &[CellTable],
-    raw_alias_paths: &[RawCellAddressAliases],
+pub(super) fn merge_initialized_raw_byte_range_refs_with_raw_aliases(
+    paths: &[&CellTable],
+    raw_alias_paths: &[&RawCellAddressAliases],
     merged_raw_aliases: &RawCellAddressAliases,
 ) -> Vec<InitializedRawByteRange> {
     if paths.len() != raw_alias_paths.len() {
-        return merge_initialized_raw_byte_ranges(paths);
+        return merge_initialized_raw_byte_range_refs(paths);
     }
     let Some((first, rest_paths)) = paths.split_first() else {
         return Vec::new();

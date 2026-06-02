@@ -158,14 +158,19 @@ impl PendingRawReallocs {
     }
 
     pub(super) fn merge_paths(paths: &[PendingRawReallocs]) -> Self {
+        let path_refs = paths.iter().collect::<Vec<_>>();
+        Self::merge_path_refs(&path_refs)
+    }
+
+    pub(super) fn merge_path_refs(paths: &[&PendingRawReallocs]) -> Self {
         let mut out = PendingRawReallocs::default();
         for path in paths {
             for entry in &path.entries {
                 out.push_unique_entry(entry.clone());
             }
         }
-        out.certified_relocations = merge_certified_relocations(paths);
-        out.certified_releases = merge_certified_releases(paths);
+        out.certified_relocations = merge_certified_relocation_refs(paths);
+        out.certified_releases = merge_certified_release_refs(paths);
         out
     }
 
@@ -281,7 +286,9 @@ mod tests {
     }
 }
 
-fn merge_certified_relocations(paths: &[PendingRawReallocs]) -> Vec<CertifiedRawStorageRelocation> {
+fn merge_certified_relocation_refs(
+    paths: &[&PendingRawReallocs],
+) -> Vec<CertifiedRawStorageRelocation> {
     let Some((first, rest)) = paths.split_first() else {
         return Vec::new();
     };
@@ -296,7 +303,7 @@ fn merge_certified_relocations(paths: &[PendingRawReallocs]) -> Vec<CertifiedRaw
         .collect()
 }
 
-fn merge_certified_releases(paths: &[PendingRawReallocs]) -> Vec<Place> {
+fn merge_certified_release_refs(paths: &[&PendingRawReallocs]) -> Vec<Place> {
     let Some((first, rest)) = paths.split_first() else {
         return Vec::new();
     };

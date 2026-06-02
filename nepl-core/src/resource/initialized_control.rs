@@ -298,25 +298,15 @@ impl ResourceCheckEngine<'_> {
         ));
         loop_paths.extend(body_states);
 
-        let mut cell_paths = Vec::with_capacity(loop_paths.len());
-        let mut collection_slot_paths = Vec::with_capacity(loop_paths.len());
-        let mut alias_paths = Vec::with_capacity(loop_paths.len());
-        let mut function_alias_paths = Vec::with_capacity(loop_paths.len());
-        let mut pending_realloc_paths = Vec::with_capacity(loop_paths.len());
-        let mut variant_initialization_paths = Vec::with_capacity(loop_paths.len());
-        for state in &loop_paths {
-            cell_paths.push(state.cells.clone());
-            collection_slot_paths.push(state.collection_slots.clone());
-            alias_paths.push(state.raw_aliases.clone());
-            function_alias_paths.push(state.function_aliases.clone());
-            pending_realloc_paths.push(state.pending_reallocs.clone());
-            variant_initialization_paths.push(state.variant_initializations.clone());
-        }
-        let merged_raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
-        *cells =
-            CellTable::merge_paths_with_raw_aliases(&cell_paths, &alias_paths, &merged_raw_aliases);
-        *raw_aliases = merged_raw_aliases;
-        *collection_slots = CollectionSlotStateTable::merge_paths(&collection_slot_paths);
+        merge_path_alternatives_into(
+            &loop_paths,
+            cells,
+            collection_slots,
+            raw_aliases,
+            function_aliases,
+            pending_reallocs,
+            variant_initializations,
+        );
         for candidate in initialized_range_candidates {
             collection_slots.mark_initialized_range_with_aliases(
                 &candidate.storage,
@@ -326,10 +316,6 @@ impl ResourceCheckEngine<'_> {
                 raw_aliases,
             );
         }
-        *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-        *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
-        *variant_initializations =
-            PendingVariantRawCellInitializations::merge_paths(&variant_initialization_paths);
         if path_states_need_replay(&loop_paths) {
             log_path_state_replay_reason(self.function, "loop", &loop_paths);
             self.path_alternatives = ResourcePathAlternatives::from_states(loop_paths);

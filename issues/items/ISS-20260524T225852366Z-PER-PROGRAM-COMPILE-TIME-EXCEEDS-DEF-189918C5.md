@@ -538,6 +538,167 @@ RPN cold base static check after Stack pop2
 この checkpoint でも issue は解決しない。RPN cold base は大きく改善したが、0.5 秒未満にはまだ届かない。
 次の根本対応は actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
 
+2026-06-02 の native `.neplcheck` exact check cache checkpoint では、変更のない native `--check`
+再実行を loader 前で成功させる disk artifact を追加した。これは `.neplproof` ではなく、前回成功時に
+loader が読んだ全 source path / source length / source hash を manifest として保存する exact success
+cache である。target / profile / compiler executable identity / input path / stdlib root は cache path
+に含める。次回は loader を起動する前に manifest の全 source hash を照合し、1 つでも不一致なら通常
+compile へ fail-closed に戻る。
+
+RPN 実測は次の通り。
+
+```text
+RPN profiling cache-bypass stage timing
+  resource_static_check: 1430ms / 1422ms / 1441ms
+    median: 1430ms
+    resource_initialized_moves median: 971ms
+      resource_initialized_i32_scalar_summaries median: 182ms
+      resource_initialized_raw_init_summaries median: 340ms
+      resource_initialized_function_checks median: 418ms
+    resource_owner_obligations median: 361ms
+
+RPN cold/base wall time with check cache disabled
+  1959.896ms / 1993.700ms / 2679.619ms / 2140.969ms / 2064.638ms
+    median: 2064.638ms
+
+RPN .neplcheck exact cache wall time
+  first miss/store: 2196.043ms
+  second pre-load hit: 19.398ms
+```
+
+per-function timing の残支配点は、`i32_scalar_summary` では `apply_op` 31ms、`push` 28ms、
+`stdio_finish_read_buffer` 24ms、`raw_init_summary` では `apply_op` 24ms、`alloc_raw` 23ms、
+`vec_cleanup_copy_initialized_prefix` 23ms、final initialized check では
+`parse_u128_radix_digits_from` 79ms、`str_slice_result` 45ms、`eval_line` 35ms である。
+
+この checkpoint により、変更のない native cold process 再実行は 0.1 秒未満に入った。ただし初回
+RPN base compile の Resource static check はまだ 1 秒台であり、この issue は解決しない。
+初回 base 0.5 秒未満の主経路は引き続き actual `.neplproof` stable codec、stdlib proof template、
+owner return summary stable mirror、bundled `.neplmeta` / `.neplproof` preseed である。
+
+2026-06-02 の `.neplproof` persistent codec / native proof cache checkpoint では、native `--check`
+が disk-backed `.neplproof` を読み、header が一致した場合だけ Resource summary cache へ preseed する
+経路を追加した。`nepl-core` は header-first bytes codec と fail-closed preseed だけを持ち、disk I/O は
+`nepl-cli/src/proof_cache.rs` に閉じている。
+
+RPN cold base の比較では、proof なしの現行 stage-only は
+`resource_static_check=1601ms / 1880ms / 1737ms`、中央値 `1737ms` だった。`.neplproof` preseed では
+`resource_static_check=1417ms / 988ms / 911ms / 1304ms / 1017ms`、中央値 `1017ms` まで下がった。
+階層は `resource_initialized_raw_alias_summaries=28-42ms`、`resource_initialized_i32_scalar_summaries=347-393ms`、
+`resource_initialized_raw_init_summaries=113-131ms`、`resource_initialized_function_checks=242-288ms` である。
+`resource_owner_obligations` は `50-57ms` 台と `441-516ms` 台に揺れており、owner obligation proof replay が
+全関数の dependency closure hash を毎回構築する点が次の支配点である。
+
+raw-alias stable entry は RPN では再計算の方が安く、永続 proof に含めると
+`resource_initialized_raw_alias_summaries` が約 `590-640ms` へ悪化した。このため native disk-backed
+`.neplproof` 経路では `disable_raw_alias_return_entry_collection` で raw-alias stable entry replay /
+candidate collection / old artifact preseed を無効化し、raw-alias summary 本体は現在の Resource IR から
+再計算する。これは検査を skip する変更ではなく、再利用すべき proof kind を実測で選ぶための cache policy
+である。
+
+この checkpoint でも issue は解決しない。RPN proof-backed median はまだ 0.5 秒未満ではない。
+次の根本対応は、owner obligation の pass-level snapshot、bundled stdlib `.neplproof` preseed、
+stdlib proof template、bootstrap proof generation の短縮である。
+
+2026-06-02 の `.neplproof` pass snapshot checkpoint では、i32 scalar / raw-init / final initialized check
+の replay snapshot と owner obligation pass snapshot を disk-backed `.neplproof` payload へ含めた。
+snapshot は stable key / function fingerprint / deferred counter だけを保存し、summary 本体、
+final cell / owner state、diagnostic、`TypeId`、`Span`、`SourceMap` は保存しない。`.neplproof` schema は
+`2` へ上げ、古い artifact は header 互換性検査で fail-closed に拒否する。
+
+この変更後の RPN proof-backed cold base 7 run は次の通りである。
+
+```text
+RPN proof-backed cold base static check after pass snapshots
+  resource_static_check: 418ms / 420ms / 414ms / 416ms / 376ms
+    median: 416ms
+    resource_initialized_moves median-near: 236ms
+      resource_initialized_raw_alias_summaries: 29-33ms
+      resource_initialized_i32_scalar_summaries: 64-74ms
+      resource_initialized_raw_init_summaries: 63-70ms
+      resource_initialized_function_checks: 55-59ms
+    resource_borrow_lifetimes: 26-30ms
+    resource_effect_boundaries: 36-41ms
+    resource_owner_obligations: 52-60ms
+```
+
+Resource static check stage は 0.5 秒未満に入った。ただし proof bootstrap は
+`resource_static_check=3073ms` であり、`NEPL_DISABLE_CHECK_CACHE=1` かつ `.neplproof` preseed ありの
+native CLI wall-clock 10 run は `915.3-1040.5ms` に残る。したがって issue は open のまま維持する。
+残件は、bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof
+generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirror である。
+
+`trunk build` 修正後に専用 proof cache directory で再確認した追加 5 run は
+`resource_static_check=363ms / 366ms / 379ms / 360ms / 398ms`、中央値 `366ms` だった。階層中央値付近は
+`resource_initialized_moves=204ms`、`resource_initialized_i32_scalar_summaries=62ms`、
+`resource_initialized_raw_init_summaries=58ms`、`resource_initialized_function_checks=51ms`、
+`resource_owner_obligations=50ms` である。この再測定でも Resource static check stage は 0.5 秒未満だが、
+初回 proof generation と native CLI wall-clock は未達のため issue は open のまま維持する。
+
+`origin/main` merge と release CLI 再ビルド後は compiler identity が変わり、古い `.neplproof` は
+fail-closed に拒否された。新しい release binary 用に専用 proof cache を bootstrap し直した後の追加 5 run は
+`resource_static_check=408ms / 359ms / 362ms / 361ms / 412ms`、中央値 `362ms` である。
+
+2026-06-02 の `.neplproof` no-op rewrite skip checkpoint では、RPN proof-backed cold process が
+preseed artifact を完全に再利用できた場合に、同じ `.neplproof` payload を再書き込みしないようにした。
+bootstrap、preseed reject、codec error、compatibility reject、conflict、usable entry なし、new stable
+entry store、recomputed stable work がある場合は引き続き保存する。usable preseed があり、既存 proof を
+replay しただけの run では store を省く。
+
+verbose run では `.neplproof preseed accepted=869` の後に
+`DEBUG: .neplproof store skipped because preseed artifact remained current` が出た。RPN no-stage wall-clock
+15 run は `1067.531ms / 964.44ms / 1048.574ms / 1118.6ms / 1051.188ms / 1005.428ms / 1055.084ms /
+1047.505ms / 1036.807ms / 1052.546ms / 1087.151ms / 1057.379ms / 1015.738ms / 971.733ms / 964.974ms`、
+中央値 `1048.574ms` だった。stage timing 付きの追加 10 run は wall-clock 中央値約 `1155ms`、
+`resource_static_check` はおおむね `404-438ms`、`resource_typecheck` はおおむね `153-171ms` である。
+
+この checkpoint は不要な artifact I/O を減らすが、base compile 0.5 秒未満の達成ではない。RPN cold base
+全体の残件は process / loader / typecheck / proof decode / host overhead であり、次の主経路は bundled
+stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof generation 短縮である。
+
+2026-06-02 の RPN loader/process-directives checkpoint では、`.neplproof` preseed 後に残る native CLI
+wall-clock を CLI stage まで分解した。`NEPL_CLI_STAGE_TIMING=1` を追加し、`loader_load`、
+`proof_cache_read`、`check_pipeline` を既存の `NEPL_COMPILE_STAGE_TIMING=1` と同じ run で確認できるようにした。
+
+一時的な loader 詳細計測では、`loader_load` 約 `450ms` のほとんどが `load_file_tree` で、root
+`examples/rpn.nepl` の `process_directives` が約 `401ms` を占めた。詳細 loader hook は通常 run の
+固定費になるため残していないが、結果から import/prelude/include body merge が Resource static check 後の
+支配点であることを確認した。
+
+対応として `process_directives` / `process_directives_with` は、所有している `Module` を clone してから
+書き換えるのではなく、`directives` と `root.items` を move して再構築する形にした。file-scoped な
+`#entry` / `#target` / `#indent` を親へ伝播しない仕様は `append_loaded_module_contents` へ集約して維持している。
+また、RPN は必要 dependency を明示 import しているため `#no_prelude` を追加した。
+
+最終 release CLI で専用 `.neplproof` cache を bootstrap し直した RPN proof-backed stage 5 run は
+`968.434ms / 960.807ms / 1024.325ms / 1012.376ms / 900.397ms`、中央値 `968.434ms` だった。階層中央値付近は
+`loader_load=421.186ms`、`check_pipeline=539.710ms`、`resource_typecheck=130ms`、
+`resource_static_check=379ms`、`proof_cache_read=0.752-0.828ms` である。no-stage 14 run は
+`896.264ms / 999.762ms / 890.711ms / 971.797ms / 997.530ms / 992.493ms / 994.404ms / 888.448ms /
+945.789ms / 889.620ms / 992.704ms / 950.586ms / 996.466ms / 958.770ms`、中央値 `965.283ms` だった。
+
+この checkpoint でも issue は解決しない。Resource static check は約 `0.34-0.39s` まで下がったが、
+`loader_load` と typecheck が残るため、次の主経路は stdlib body merge と依存先再 typecheck を避ける
+bundled stdlib `.neplmeta` / typed interface artifact である。
+
+2026-06-02 の shallow arity path snapshot checkpoint では、loader の浅い type arity preload cache を
+単一 loader traversal 内の canonical path snapshot cache として扱うようにした。従来は path + source hash
+を key にしていたため、同じ compile 内の cache hit でも source hash 計算のために同じ file を再読込していた。
+長寿命 `LoaderSessionCache` の source hash 境界は維持し、per-load の浅い arity cache だけを path snapshot
+にした。
+
+最終 release CLI の RPN proof-backed stage 5 run は `861.388ms / 934.839ms / 939.280ms / 937.742ms /
+910.578ms`、中央値 `934.839ms` だった。階層中央値付近は `loader_load=370.406ms`、
+`check_pipeline=542.679ms`、`resource_typecheck=144ms`、`resource_static_check=369ms` である。
+no-stage 9 run は `918.851ms / 828.838ms / 908.978ms / 915.552ms / 918.349ms / 839.093ms /
+896.248ms / 825.581ms / 905.472ms`、中央値 `905.472ms` だった。
+
+merge 済み `Module` の per-load cache store clone を外す案は、loader test は通ったが RPN 実測で
+`loader_load` が約 `0.39-0.40s` へ悪化したため採用しない。次の主経路は変わらず、native CLI `--check`
+へ `.neplmeta` / typed public surface を接続することである。ただし現行 prepare path は selected
+materialized callable の body 欠落を拒否するため、check 専用の public interface + Resource proof summary
+境界、または `.neplobj` body fragment 併用の設計が必要である。
+
 ## 検証
 
 - `trunk build`

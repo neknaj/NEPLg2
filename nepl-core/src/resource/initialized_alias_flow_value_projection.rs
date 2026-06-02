@@ -67,7 +67,7 @@ fn function_allows_value_projection_summary(function: &ResourceFunction) -> bool
     function_has_simple_value_projection_body(function)
 }
 
-fn type_can_seed_value_projection_summary(types: &TypeCtx, ty: TypeId) -> bool {
+pub(super) fn type_can_seed_value_projection_summary(types: &TypeCtx, ty: TypeId) -> bool {
     match types.get_ref(types.resolve_id(ty)) {
         TypeKind::Struct { .. }
         | TypeKind::Enum { .. }

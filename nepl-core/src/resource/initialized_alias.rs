@@ -451,6 +451,11 @@ impl RawCellAddressAliases {
     }
 
     pub(super) fn merge_paths(paths: &[RawCellAddressAliases]) -> Self {
+        let path_refs = paths.iter().collect::<Vec<_>>();
+        Self::merge_path_refs(&path_refs)
+    }
+
+    pub(super) fn merge_path_refs(paths: &[&RawCellAddressAliases]) -> Self {
         let mut out = RawCellAddressAliases::default();
         for path in paths {
             for group in &path.groups {

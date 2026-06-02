@@ -94,10 +94,10 @@ fn owner_obligation_check_replays_without_rerunning_checker() {
     );
     assert_eq!(stats.resource_summary_value_owner_obligation_check_hits, 1);
     assert_eq!(
-        stats.resource_summary_value_owner_obligation_check_replay_hit_functions,
+        stats.resource_summary_value_owner_obligation_check_plan_skip_functions,
         1
     );
-    assert_eq!(stats.resource_owner_return_summary_recomputations, 1);
+    assert_eq!(stats.resource_owner_return_summary_recomputations, 0);
     assert_eq!(
         stats.resource_owner_return_summary_pass_cache_skip_functions,
         1
@@ -125,7 +125,7 @@ fn owner_obligation_check_misses_after_body_change() {
         2
     );
     assert_eq!(stats.resource_summary_value_owner_obligation_check_hits, 0);
-    assert_eq!(stats.resource_owner_return_summary_recomputations, 2);
+    assert_eq!(stats.resource_owner_return_summary_recomputations, 0);
     assert_eq!(
         stats.resource_owner_return_summary_pass_cache_skip_functions,
         0

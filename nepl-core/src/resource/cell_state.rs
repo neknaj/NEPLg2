@@ -4,9 +4,10 @@ use crate::layout::aggregate_fields_with_offsets;
 use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state_raw_range::{
-    merge_initialized_raw_byte_ranges, rekey_initialized_raw_byte_ranges, InitializedRawByteRange,
+    merge_initialized_raw_byte_range_refs, rekey_initialized_raw_byte_ranges,
+    InitializedRawByteRange,
 };
-use super::cell_state_raw_range_merge::merge_initialized_raw_byte_ranges_with_raw_aliases;
+use super::cell_state_raw_range_merge::merge_initialized_raw_byte_range_refs_with_raw_aliases;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{CellState, CellStateEntry, Place, PlaceProjection, ResourceOffset};
 use super::place_utils::{
@@ -290,6 +291,11 @@ impl CellTable {
     }
 
     pub(super) fn merge_paths(paths: &[CellTable]) -> Self {
+        let path_refs = paths.iter().collect::<Vec<_>>();
+        Self::merge_path_refs(&path_refs)
+    }
+
+    pub(super) fn merge_path_refs(paths: &[&CellTable]) -> Self {
         let mut out = CellTable::default();
         let mut places = Vec::new();
         for path in paths {
@@ -303,8 +309,8 @@ impl CellTable {
                 push_unique_place(&mut out.external_raw_storage_roots, root);
             }
         }
-        out.initialized_raw_byte_ranges = merge_initialized_raw_byte_ranges(paths);
-        out.raw_cell_value_flows = RawCellValueFlowFacts::merge_paths(paths);
+        out.initialized_raw_byte_ranges = merge_initialized_raw_byte_range_refs(paths);
+        out.raw_cell_value_flows = RawCellValueFlowFacts::merge_path_refs(paths);
         for place in places {
             let mut states = paths.iter().map(|path| path.availability_state(&place));
             if let Some(mut merged) = states.next() {
@@ -317,13 +323,13 @@ impl CellTable {
         out
     }
 
-    pub(super) fn merge_paths_with_raw_aliases(
-        paths: &[CellTable],
-        raw_alias_paths: &[RawCellAddressAliases],
+    pub(super) fn merge_path_refs_with_raw_aliases(
+        paths: &[&CellTable],
+        raw_alias_paths: &[&RawCellAddressAliases],
         merged_raw_aliases: &RawCellAddressAliases,
     ) -> Self {
-        let mut out = Self::merge_paths(paths);
-        out.initialized_raw_byte_ranges = merge_initialized_raw_byte_ranges_with_raw_aliases(
+        let mut out = Self::merge_path_refs(paths);
+        out.initialized_raw_byte_ranges = merge_initialized_raw_byte_range_refs_with_raw_aliases(
             paths,
             raw_alias_paths,
             merged_raw_aliases,

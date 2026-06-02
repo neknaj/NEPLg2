@@ -67,7 +67,7 @@ pub struct ResourceFunctionCheck {
     pub deferred: ResourceCheckDeferred,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ResourceCheckDeferred {
     pub branch_merges: usize,
     pub loop_merges: usize,
@@ -165,7 +165,7 @@ pub struct ResourceOwnerFunctionCheck {
     pub deferred: ResourceOwnerCheckDeferred,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ResourceOwnerCheckDeferred {
     pub branch_merges: usize,
     pub loop_merges: usize,

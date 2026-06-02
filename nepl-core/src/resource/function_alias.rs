@@ -84,6 +84,11 @@ impl FunctionAliasTable {
     }
 
     pub(super) fn merge_paths(paths: &[FunctionAliasTable]) -> Self {
+        let path_refs = paths.iter().collect::<Vec<_>>();
+        Self::merge_path_refs(&path_refs)
+    }
+
+    pub(super) fn merge_path_refs(paths: &[&FunctionAliasTable]) -> Self {
         let mut out = FunctionAliasTable::default();
         for path in paths {
             for entry in &path.entries {

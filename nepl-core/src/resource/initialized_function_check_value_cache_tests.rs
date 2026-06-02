@@ -108,7 +108,7 @@ fn final_initialized_function_check_replays_without_rerunning_checker() {
     );
     assert_eq!(
         stats.resource_summary_value_initialized_function_check_replay_probe_functions,
-        1
+        0
     );
 }
 

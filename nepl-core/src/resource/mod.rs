@@ -451,6 +451,7 @@ mod owner_summary_raw_use_return;
 mod owner_summary_raw_use_walk;
 mod owner_summary_raw_view_return;
 mod owner_summary_record;
+mod owner_summary_relevance;
 mod owner_summary_resolved_variant;
 mod owner_summary_seed_leaf;
 mod owner_summary_size_return;
@@ -598,6 +599,7 @@ pub use report::{
 };
 pub use resource_summary_value_cache::{
     resource_function_body_stable_hash, ResourceSummaryProofArtifact,
+    ResourceSummaryProofArtifactByteReject, ResourceSummaryProofArtifactCodecError,
     ResourceSummaryProofArtifactCompatibilityReject, ResourceSummaryProofArtifactHeader,
     ResourceSummaryProofSnapshot, ResourceSummaryProofSnapshotCounts,
     ResourceSummaryProofSnapshotMergeStats, ResourceSummaryProofSnapshotPreseedStats,

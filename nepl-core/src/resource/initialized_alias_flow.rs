@@ -12,10 +12,11 @@ use super::initialized_alias_flow_value_cache::{
     record_raw_alias_return_summary_value_cache_candidates,
 };
 use super::initialized_alias_flow_value_projection::function_value_projection_return_aliases;
+use super::initialized_alias_flow_value_projection::type_can_seed_value_projection_summary;
 use super::model::{
     Place, PlaceProjection, ResourceExprKind, ResourceFunction, ResourceModule, ResourceOffset,
 };
-use super::place_utils::type_preserves_raw_address_alias;
+use super::place_utils::{type_can_seed_raw_address_alias, type_preserves_raw_address_alias};
 use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
@@ -94,7 +95,7 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<RawCellAddressReturnSummary>, usize) {
-    let relevant_functions = vec![true; module.functions.len()];
+    let relevant_functions = raw_alias_summary_relevant_functions(module, types);
     let mut initially_skipped_functions = vec![false; module.functions.len()];
     let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
@@ -102,34 +103,42 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        (Some(cache), Some(context)) => Some(cache.begin_raw_alias_summary_replay_plan(
-            context,
-            types,
-            module,
-            dependency_graph,
-            &relevant_functions,
-        )),
+        (Some(cache), Some(context))
+            if cache.stable_entry_collection_enabled()
+                || cache.has_raw_alias_return_replay_entries(context) =>
+        {
+            Some(cache.begin_raw_alias_summary_replay_plan(
+                context,
+                types,
+                module,
+                dependency_graph,
+                &relevant_functions,
+            ))
+        }
         _ => None,
     };
     if let (Some(cache), Some(context)) = (
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        preseed_raw_alias_return_summaries_from_value_cache(
-            cache,
-            context,
-            types,
-            module,
-            dependency_graph.dependencies(),
-            &mut initially_skipped_functions,
-            &mut preseeded_functions,
-            &mut summaries,
-            replay_plan.as_mut(),
-        );
+        if cache.has_raw_alias_return_replay_entries(context) {
+            preseed_raw_alias_return_summaries_from_value_cache(
+                cache,
+                context,
+                types,
+                module,
+                &relevant_functions,
+                dependency_graph.dependencies(),
+                &mut initially_skipped_functions,
+                &mut preseeded_functions,
+                &mut summaries,
+                replay_plan.as_mut(),
+            );
+        }
     }
     let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph_and_initial_skips(
         module,
-        relevant_functions,
+        relevant_functions.clone(),
         initially_skipped_functions,
         dependency_graph,
     );
@@ -149,17 +158,23 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        let candidate_skipped_functions = worklist.unrecomputed_initial_skips(&preseeded_functions);
-        record_raw_alias_return_summary_value_cache_candidates(
-            cache,
-            context,
-            types,
-            module,
-            dependency_graph.dependencies(),
-            &candidate_skipped_functions,
-            &summaries,
-            replay_plan.as_mut(),
-        );
+        if cache.stable_entry_collection_enabled()
+            && cache.raw_alias_return_entry_collection_enabled()
+        {
+            let candidate_skipped_functions =
+                worklist.unrecomputed_initial_skips(&preseeded_functions);
+            record_raw_alias_return_summary_value_cache_candidates(
+                cache,
+                context,
+                types,
+                module,
+                dependency_graph.dependencies(),
+                &relevant_functions,
+                &candidate_skipped_functions,
+                &summaries,
+                replay_plan.as_mut(),
+            );
+        }
     }
     if let (Some(cache), Some(plan)) = (summary_value_cache.as_deref_mut(), replay_plan) {
         cache.finish_raw_alias_summary_replay_plan(plan);
@@ -171,9 +186,48 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
             worklist.recomputations(),
             summaries.len()
         );
+        std::eprintln!(
+            "[compile-stage] resource_raw_alias_summary_relevant_functions={}",
+            relevant_functions
+                .iter()
+                .filter(|is_relevant| **is_relevant)
+                .count()
+        );
     }
     let recomputations = worklist.recomputations();
     (summaries, recomputations)
+}
+
+fn raw_alias_summary_relevant_functions(module: &ResourceModule, types: &TypeCtx) -> Vec<bool> {
+    module
+        .functions
+        .iter()
+        .map(|function| function_signature_can_return_parameter_raw_alias(types, function))
+        .collect()
+}
+
+/// raw-address return summary の対象にする関数を signature だけで保守的に選ぶ。
+///
+/// この summary は「parameter 由来の raw-address alias が return に現れる」ことだけを
+/// 表す。scalar-only signature ではその関係を外へ返せないため、固定点 worklist に
+/// 入れても常に empty summary になる。一方で aggregate / reference / box は
+/// value-projection summary を通じて raw carrier を内包し得るため、raw pointer 専用の
+/// 型判定だけではなく既存の value-projection carrier 判定も含める。
+fn function_signature_can_return_parameter_raw_alias(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+) -> bool {
+    if !type_can_seed_raw_alias_summary_value(types, function.result) {
+        return false;
+    }
+    function
+        .params
+        .iter()
+        .any(|param| type_can_seed_raw_alias_summary_value(types, param.place.ty))
+}
+
+fn type_can_seed_raw_alias_summary_value(types: &TypeCtx, ty: TypeId) -> bool {
+    type_can_seed_raw_address_alias(types, ty) || type_can_seed_value_projection_summary(types, ty)
 }
 
 fn update_raw_cell_address_return_summary(

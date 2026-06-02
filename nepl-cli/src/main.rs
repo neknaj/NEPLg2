@@ -4,21 +4,30 @@ use std::io::{self, Read, Write};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
 use std::path::{Component, Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use check_cache::ExactCheckCacheProbe;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use nepl_core::{
-    check_module_with_source_map, compile_module_with_source_map_and_artifact_options,
+    check_module_with_source_map,
+    check_module_with_source_map_resource_summary_value_cache_and_neplproof,
+    compile_module_with_source_map_and_artifact_options,
     diagnostic::{Diagnostic, Severity},
     error::CoreError,
     loader::{Loader, SourceMap},
+    resource::ResourceSummaryValueCache,
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
+    ResourceSummaryProofArtifactCacheOptions,
 };
+use proof_cache::ResourceProofCacheProbe;
 use wasmi::{Caller, Engine, Linker, Module, Store};
 use wasmprinter::print_bytes;
 
+mod check_cache;
 mod codegen_llvm;
+mod proof_cache;
 
 macro_rules! cli_verbose {
     ($enabled:expr, $($arg:tt)*) => {
@@ -525,6 +534,7 @@ fn panic_payload_message(payload: &(dyn std::any::Any + Send + 'static)) -> Stri
 }
 
 fn execute_inner(cli: Cli) -> Result<()> {
+    let _execute_stage = CliStageGuard::new("execute_inner");
     nepl_core::log::set_verbose(cli.verbose);
     if let Some(Command::Test(args)) = cli.command {
         return run_tests(args, cli.verbose, cli.stdlib_root.as_deref());
@@ -539,9 +549,49 @@ fn execute_inner(cli: Cli) -> Result<()> {
             "Either --run, --check or --output is required"
         ));
     }
+    let stage = cli_stage_start();
     let std_root = stdlib_root(cli.stdlib_root.as_deref())?;
+    cli_stage_finish("stdlib_root", stage);
+    let target_override = cli.target.as_deref().map(|t| match t {
+        "wasm" | "core" => CompileTarget::Wasm,
+        "wasi" | "std" => CompileTarget::Wasi,
+        "wasix" => CompileTarget::Wasix,
+        "llvm" => CompileTarget::Llvm,
+        _ => unreachable!(),
+    });
+    let profile = cli.profile.map(|p| match p {
+        ProfileArg::Debug => BuildProfile::Debug,
+        ProfileArg::Release => BuildProfile::Release,
+    });
+    let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
     let program_name = cli.input.clone().unwrap_or_else(|| "<stdin>".to_string());
     let input_path = cli.input.clone();
+    let stage = cli_stage_start();
+    let pre_load_check_cache_path = if cli.check {
+        match (&input_path, target_override) {
+            (Some(path), Some(target)) => ExactCheckCacheProbe::path_for_input(
+                Path::new(path),
+                &std_root,
+                target,
+                active_profile,
+            ),
+            _ => None,
+        }
+    } else {
+        None
+    };
+    cli_stage_finish("exact_check_path_probe", stage);
+    if let Some(path) = pre_load_check_cache_path.as_ref() {
+        let stage = cli_stage_start();
+        if ExactCheckCacheProbe::hit_manifest_at(path) {
+            cli_stage_finish("exact_check_preload_hit_probe", stage);
+            cli_verbose!(cli.verbose, "DEBUG: pre-load exact --check cache hit");
+            println!("Check successful");
+            return Ok(());
+        }
+        cli_stage_finish("exact_check_preload_hit_probe", stage);
+    }
+    let stage = cli_stage_start();
     let (module, source_map) = match &cli.input {
         Some(path) => {
             cli_verbose!(cli.verbose, "DEBUG: Creating Loader for path: {}", path);
@@ -577,14 +627,7 @@ fn execute_inner(cli: Cli) -> Result<()> {
             }
         }
     };
-
-    let target_override = cli.target.as_deref().map(|t| match t {
-        "wasm" | "core" => CompileTarget::Wasm,
-        "wasi" | "std" => CompileTarget::Wasi,
-        "wasix" => CompileTarget::Wasix,
-        "llvm" => CompileTarget::Llvm,
-        _ => unreachable!(),
-    });
+    cli_stage_finish("loader_load", stage);
 
     let mut emits = expand_emits(&cli.emit);
 
@@ -602,20 +645,117 @@ fn execute_inner(cli: Cli) -> Result<()> {
         .unwrap_or(CompileTarget::Wasm);
 
     let is_check = cli.check;
-
-    let profile = cli.profile.map(|p| match p {
-        ProfileArg::Debug => BuildProfile::Debug,
-        ProfileArg::Release => BuildProfile::Release,
-    });
-    let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
     let options = CompileOptions {
         target: target_override,
         verbose: cli.verbose,
         profile,
     };
     if is_check {
-        match check_module_with_source_map(module, Some(&source_map), options) {
+        let stage = cli_stage_start();
+        let exact_check_cache = ExactCheckCacheProbe::new(
+            &source_map,
+            run_target,
+            active_profile,
+            pre_load_check_cache_path,
+        );
+        cli_stage_finish("exact_check_manifest_build", stage);
+        let stage = cli_stage_start();
+        let exact_check_manifest_hit = exact_check_cache
+            .as_ref()
+            .is_some_and(ExactCheckCacheProbe::hit);
+        cli_stage_finish("exact_check_manifest_hit_probe", stage);
+        if exact_check_manifest_hit {
+            cli_verbose!(cli.verbose, "DEBUG: exact --check cache hit");
+            println!("Check successful");
+            return Ok(());
+        }
+        let stage = cli_stage_start();
+        let proof_cache = input_path.as_ref().and_then(|path| {
+            ResourceProofCacheProbe::new(Path::new(path), &std_root, run_target, active_profile)
+        });
+        cli_stage_finish("proof_cache_probe", stage);
+        let use_proof_cache = proof_cache
+            .as_ref()
+            .is_some_and(|cache| cache.has_preseed_bytes() || cache.should_bootstrap_on_miss());
+        if use_proof_cache {
+            let mut resource_summary_value_cache = ResourceSummaryValueCache::new();
+            resource_summary_value_cache.disable_raw_alias_return_entry_collection();
+            let proof_options = match proof_cache
+                .as_ref()
+                .and_then(ResourceProofCacheProbe::preseed_bytes)
+            {
+                Some(bytes) => ResourceSummaryProofArtifactCacheOptions::preseed_bytes(bytes, None)
+                    .only_after_accepted_preseed(),
+                None => ResourceSummaryProofArtifactCacheOptions::none(),
+            };
+            let stage = cli_stage_start();
+            let check_result =
+                check_module_with_source_map_resource_summary_value_cache_and_neplproof(
+                    module,
+                    Some(&source_map),
+                    options,
+                    Some(&mut resource_summary_value_cache),
+                    proof_options,
+                );
+            cli_stage_finish("check_pipeline", stage);
+            match check_result {
+                Ok(result) => {
+                    if let Some(report) = result.resource_summary_proof_preseed_report {
+                        cli_verbose!(
+                            cli.verbose,
+                            "DEBUG: .neplproof preseed accepted={} existing={} conflicts={} compatibility_reject={:?} codec_error={:?}",
+                            report.accepted_entries,
+                            report.existing_matching_entries,
+                            report.rejected_conflict_entries,
+                            report.compatibility_reject,
+                            report.codec_error
+                        );
+                    }
+                    if let Some(cache) = proof_cache.as_ref() {
+                        let cache_stats = resource_summary_value_cache.stats();
+                        if cache.should_store_artifact_after_check(
+                            result.resource_summary_proof_preseed_report,
+                            cache_stats,
+                        ) {
+                            let stage = cli_stage_start();
+                            let artifact = resource_summary_value_cache
+                                .export_neplproof_artifact(result.resource_summary_proof_header);
+                            cache.store_artifact(&artifact)?;
+                            cli_stage_finish("proof_cache_export_store", stage);
+                        } else {
+                            cli_verbose!(
+                                cli.verbose,
+                                "DEBUG: .neplproof store skipped because preseed artifact remained current"
+                            );
+                        }
+                    }
+                    if let Some(cache) = exact_check_cache.as_ref() {
+                        let stage = cli_stage_start();
+                        cache.store_success()?;
+                        cli_stage_finish("exact_check_store", stage);
+                    }
+                    println!("Check successful");
+                    return Ok(());
+                }
+                Err(CoreError::Diagnostics(diags)) => {
+                    render_diagnostics(&diags, &source_map);
+                    return Err(anyhow::anyhow!("compilation failed"));
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!(e.to_string()));
+                }
+            }
+        }
+        let stage = cli_stage_start();
+        let check_result = check_module_with_source_map(module, Some(&source_map), options);
+        cli_stage_finish("check_pipeline", stage);
+        match check_result {
             Ok(()) => {
+                if let Some(cache) = exact_check_cache.as_ref() {
+                    let stage = cli_stage_start();
+                    cache.store_success()?;
+                    cli_stage_finish("exact_check_store", stage);
+                }
                 println!("Check successful");
                 return Ok(());
             }
@@ -726,6 +866,44 @@ fn execute_inner(cli: Cli) -> Result<()> {
         }
     }
     Ok(())
+}
+
+struct CliStageGuard {
+    stage: &'static str,
+    start: Option<Instant>,
+}
+
+impl CliStageGuard {
+    fn new(stage: &'static str) -> Self {
+        Self {
+            stage,
+            start: cli_stage_start(),
+        }
+    }
+}
+
+impl Drop for CliStageGuard {
+    fn drop(&mut self) {
+        cli_stage_finish(self.stage, self.start.take());
+    }
+}
+
+fn cli_stage_start() -> Option<Instant> {
+    cli_stage_timing_enabled().then(Instant::now)
+}
+
+fn cli_stage_finish(stage: &str, start: Option<Instant>) {
+    if let Some(start) = start {
+        eprintln!("[cli-stage] {}={}us", stage, start.elapsed().as_micros());
+    }
+}
+
+fn cli_stage_timing_enabled() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var_os("NEPL_CLI_STAGE_TIMING").is_some()
+            || std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some()
+    })
 }
 
 fn run_tests(args: TestArgs, verbose: bool, stdlib_root_override: Option<&Path>) -> Result<()> {

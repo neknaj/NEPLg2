@@ -393,7 +393,7 @@ pub enum ResourceConditionFact {
     All(Vec<ResourceConditionFact>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ResourceI32RelationOp {
     Eq,
     Ne,
@@ -403,7 +403,9 @@ pub enum ResourceI32RelationOp {
     Ge,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum I32ValueCondition {
     EqZero,
     NeZero,

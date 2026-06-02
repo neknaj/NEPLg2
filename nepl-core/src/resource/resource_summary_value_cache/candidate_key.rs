@@ -63,7 +63,7 @@ impl ResourceSummaryCacheNamespaceHash {
         Self(value)
     }
 
-    fn as_u64(self) -> u64 {
+    pub(super) fn as_u64(self) -> u64 {
         self.0
     }
 }

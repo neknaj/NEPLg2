@@ -53,6 +53,7 @@
 #entry main
 #indent 4
 #target std
+#no_prelude
 
 #import "core/math" as *
 #import "core/option" as *

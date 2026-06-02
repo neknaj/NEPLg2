@@ -185,14 +185,29 @@ fn check_resource_initialized_moves_inner(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        (Some(cache), Some(context)) => Some(cache.begin_initialized_function_check_pass_plan(
-            context,
-            types,
-            module,
-            &dependency_graph,
-        )),
+        (Some(cache), Some(context))
+            if cache.stable_entry_collection_enabled()
+                || cache.has_initialized_function_check_pass_snapshot() =>
+        {
+            Some(cache.begin_initialized_function_check_pass_plan(
+                context,
+                types,
+                module,
+                &dependency_graph,
+            ))
+        }
         _ => None,
     };
+    let can_replay_function_check_entries =
+        match (summary_value_cache.as_ref(), summary_value_cache_context) {
+            (Some(cache), Some(context)) => {
+                cache.has_initialized_function_check_replay_entries(context)
+            }
+            _ => false,
+        };
+    let can_record_function_check_entries = summary_value_cache
+        .as_ref()
+        .is_some_and(|cache| cache.stable_entry_collection_enabled());
     for (function_index, function) in module.functions.iter().enumerate() {
         let function_start = ResourceFunctionTimer::start();
         let function_op_count = resource_function_op_count(function);
@@ -212,37 +227,44 @@ fn check_resource_initialized_moves_inner(
                 continue;
             }
         }
-        let function_check_cache_input = initialized_function_check_cache_input(
-            summary_value_cache.as_deref_mut(),
-            summary_value_cache_context,
-            types,
-            module,
-            Some(dependency_graph.dependencies()),
-            function_index,
-            function,
-            function_op_count,
-        );
-        if let Some(cache) = summary_value_cache.as_deref_mut() {
-            cache.record_initialized_function_check_replay_probe_function();
-        }
-        if let Some(replayed_check) = replay_initialized_function_check_from_value_cache(
-            summary_value_cache.as_deref_mut(),
-            summary_value_cache_context,
-            types,
-            function,
-            function_check_cache_input.as_ref(),
-            function_op_count,
-        ) {
-            merge_deferred(&mut deferred, replayed_check.deferred);
-            if let Some(plan) = final_check_pass_plan.as_mut() {
-                plan.record_pass(function_index, replayed_check.deferred);
+        let function_check_cache_input =
+            if can_replay_function_check_entries || can_record_function_check_entries {
+                initialized_function_check_cache_input(
+                    summary_value_cache.as_deref_mut(),
+                    summary_value_cache_context,
+                    types,
+                    module,
+                    Some(dependency_graph.dependencies()),
+                    function_index,
+                    function,
+                    function_op_count,
+                )
+            } else {
+                None
+            };
+        if can_replay_function_check_entries {
+            if let Some(cache) = summary_value_cache.as_deref_mut() {
+                cache.record_initialized_function_check_replay_probe_function();
             }
-            functions.push(replayed_check);
-            function_start.log("resource_initialized_function_check", function);
-            continue;
-        }
-        if let Some(cache) = summary_value_cache.as_deref_mut() {
-            cache.record_initialized_function_check_replay_miss_function();
+            if let Some(replayed_check) = replay_initialized_function_check_from_value_cache(
+                summary_value_cache.as_deref_mut(),
+                summary_value_cache_context,
+                types,
+                function,
+                function_check_cache_input.as_ref(),
+                function_op_count,
+            ) {
+                merge_deferred(&mut deferred, replayed_check.deferred);
+                if let Some(plan) = final_check_pass_plan.as_mut() {
+                    plan.record_pass(function_index, replayed_check.deferred);
+                }
+                functions.push(replayed_check);
+                function_start.log("resource_initialized_function_check", function);
+                continue;
+            }
+            if let Some(cache) = summary_value_cache.as_deref_mut() {
+                cache.record_initialized_function_check_replay_miss_function();
+            }
         }
         if let Some(cache) = summary_value_cache.as_deref_mut() {
             cache.record_initialized_function_check(function_op_count);
