@@ -22,6 +22,9 @@ pub(super) struct ResourceSummaryDependencyGraph {
     dependencies: Vec<Vec<usize>>,
     dependents: Vec<Vec<usize>>,
     initial_order: Vec<usize>,
+    raw_init_dependencies: Vec<Vec<usize>>,
+    raw_init_dependents: Vec<Vec<usize>>,
+    raw_init_initial_order: Vec<usize>,
 }
 
 impl ResourceSummaryDependencyGraph {
@@ -35,10 +38,18 @@ impl ResourceSummaryDependencyGraph {
         let dependents =
             invert_function_summary_dependencies(module.functions.len(), &dependencies);
         let initial_order = summary_order_from_dependencies(module.functions.len(), &dependencies);
+        let raw_init_dependencies = build_raw_init_summary_dependencies(module);
+        let raw_init_dependents =
+            invert_function_summary_dependencies(module.functions.len(), &raw_init_dependencies);
+        let raw_init_initial_order =
+            summary_order_from_dependencies(module.functions.len(), &raw_init_dependencies);
         Self {
             dependencies,
             dependents,
             initial_order,
+            raw_init_dependencies,
+            raw_init_dependents,
+            raw_init_initial_order,
         }
     }
 
@@ -59,6 +70,26 @@ impl ResourceSummaryDependencyGraph {
     pub(super) fn initial_order(&self) -> &[usize] {
         &self.initial_order
     }
+
+    /// raw initialization summary が実際に読む callee summary 用の依存辺を返す。
+    ///
+    /// raw initialization summary は direct call と、同じ関数内で indirect call へ流れ得る
+    /// function value だけから callee summary を読む。単に関数値を作るだけの helper は
+    /// raw-init facts を消費しないため、shared graph から分離した view で固定点探索と
+    /// dependency closure hash の両方を小さく保つ。
+    pub(super) fn raw_init_dependencies(&self) -> &[Vec<usize>] {
+        &self.raw_init_dependencies
+    }
+
+    /// raw initialization summary 専用依存辺の逆辺を返す。
+    pub(super) fn raw_init_dependents(&self) -> &[Vec<usize>] {
+        &self.raw_init_dependents
+    }
+
+    /// raw initialization summary 専用依存辺から作った初期評価順序を返す。
+    pub(super) fn raw_init_initial_order(&self) -> &[usize] {
+        &self.raw_init_initial_order
+    }
 }
 
 pub(super) fn build_function_summary_dependents(module: &ResourceModule) -> Vec<Vec<usize>> {
@@ -76,6 +107,25 @@ pub(super) fn build_function_summary_dependencies(module: &ResourceModule) -> Ve
     for (caller_index, function) in module.functions.iter().enumerate() {
         let mut dependency_names = BTreeSet::new();
         collect_function_summary_dependencies(function, &mut dependency_names);
+        for dependency in dependency_names {
+            if let Some(dependency_index) = function_indices.get(dependency.as_str()) {
+                dependencies[caller_index].push(*dependency_index);
+            }
+        }
+    }
+    dependencies
+}
+
+fn build_raw_init_summary_dependencies(module: &ResourceModule) -> Vec<Vec<usize>> {
+    let mut function_indices = BTreeMap::new();
+    for (index, function) in module.functions.iter().enumerate() {
+        function_indices.insert(function.name.as_str(), index);
+    }
+
+    let mut dependencies = vec![Vec::new(); module.functions.len()];
+    for (caller_index, function) in module.functions.iter().enumerate() {
+        let mut dependency_names = BTreeSet::new();
+        collect_raw_init_summary_dependencies(function, &mut dependency_names);
         for dependency in dependency_names {
             if let Some(dependency_index) = function_indices.get(dependency.as_str()) {
                 dependencies[caller_index].push(*dependency_index);
@@ -106,9 +156,36 @@ fn collect_function_summary_dependencies(function: &ResourceFunction, out: &mut 
     }
 }
 
+fn collect_raw_init_summary_dependencies(function: &ResourceFunction, out: &mut BTreeSet<String>) {
+    let mut function_values = BTreeSet::new();
+    let mut has_indirect_call = false;
+    for block in &function.blocks {
+        collect_ops_raw_init_summary_dependencies(
+            &block.ops,
+            out,
+            &mut function_values,
+            &mut has_indirect_call,
+        );
+    }
+    if has_indirect_call {
+        out.extend(function_values);
+    }
+}
+
 fn collect_ops_summary_dependencies(ops: &[ResourceOp], out: &mut BTreeSet<String>) {
     for op in ops {
         collect_op_summary_dependencies(op, out);
+    }
+}
+
+fn collect_ops_raw_init_summary_dependencies(
+    ops: &[ResourceOp],
+    out: &mut BTreeSet<String>,
+    function_values: &mut BTreeSet<String>,
+    has_indirect_call: &mut bool,
+) {
+    for op in ops {
+        collect_op_raw_init_summary_dependencies(op, out, function_values, has_indirect_call);
     }
 }
 
@@ -144,6 +221,91 @@ fn collect_op_summary_dependencies(op: &ResourceOp, out: &mut BTreeSet<String>) 
         }
         ResourceOp::Call { .. }
         | ResourceOp::IndirectCall { .. }
+        | ResourceOp::Expr { .. }
+        | ResourceOp::DeclareLocal { .. }
+        | ResourceOp::Read { .. }
+        | ResourceOp::Assign { .. }
+        | ResourceOp::Borrow { .. }
+        | ResourceOp::Move { .. }
+        | ResourceOp::Drop { .. }
+        | ResourceOp::EndScope { .. }
+        | ResourceOp::CallEffect { .. }
+        | ResourceOp::RawMemory { .. }
+        | ResourceOp::RawAddressAlias { .. }
+        | ResourceOp::RawAddressView { .. }
+        | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
+        | ResourceOp::Construct { .. } => {}
+    }
+}
+
+fn collect_op_raw_init_summary_dependencies(
+    op: &ResourceOp,
+    out: &mut BTreeSet<String>,
+    function_values: &mut BTreeSet<String>,
+    has_indirect_call: &mut bool,
+) {
+    match op {
+        ResourceOp::Call {
+            target: ResourceCallTarget::User { name, .. },
+            ..
+        } => {
+            out.insert(name.clone());
+        }
+        ResourceOp::FunctionValue { identity, .. } => {
+            function_values.insert(identity.symbol().to_string());
+        }
+        ResourceOp::IndirectCall { .. } => {
+            *has_indirect_call = true;
+        }
+        ResourceOp::Branch {
+            then_ops, else_ops, ..
+        } => {
+            collect_ops_raw_init_summary_dependencies(
+                then_ops,
+                out,
+                function_values,
+                has_indirect_call,
+            );
+            collect_ops_raw_init_summary_dependencies(
+                else_ops,
+                out,
+                function_values,
+                has_indirect_call,
+            );
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            body_ops,
+            ..
+        } => {
+            collect_ops_raw_init_summary_dependencies(
+                condition_ops,
+                out,
+                function_values,
+                has_indirect_call,
+            );
+            collect_ops_raw_init_summary_dependencies(
+                body_ops,
+                out,
+                function_values,
+                has_indirect_call,
+            );
+        }
+        ResourceOp::Match { arms, .. } => {
+            for arm in arms {
+                collect_ops_raw_init_summary_dependencies(
+                    &arm.ops,
+                    out,
+                    function_values,
+                    has_indirect_call,
+                );
+            }
+        }
+        ResourceOp::Call { .. }
         | ResourceOp::Expr { .. }
         | ResourceOp::DeclareLocal { .. }
         | ResourceOp::Read { .. }
@@ -235,6 +397,75 @@ mod tests {
         assert_eq!(graph.initial_order(), &[2, 1, 0]);
     }
 
+    #[test]
+    fn raw_init_dependency_graph_keeps_direct_calls() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops("caller", vec![call("callee")]),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.raw_init_dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.raw_init_dependents(), &[vec![], vec![0]]);
+    }
+
+    #[test]
+    fn raw_init_dependency_graph_ignores_function_value_without_indirect_call() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops("factory", vec![function_value("callee")]),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.raw_init_dependencies(), &[vec![], vec![]]);
+    }
+
+    #[test]
+    fn raw_init_dependency_graph_keeps_function_value_candidates_when_indirect_call_exists() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops(
+                    "caller",
+                    vec![function_value("callee"), indirect_call("callback")],
+                ),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.raw_init_dependencies(), &[vec![1], vec![]]);
+    }
+
+    #[test]
+    fn raw_init_dependency_graph_does_not_turn_unknown_indirect_call_into_all_edges() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops("caller", vec![indirect_call("callback")]),
+                function_with_ops("unrelated", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.raw_init_dependencies(), &[vec![], vec![]]);
+    }
+
     fn function_with_ops(name: &str, ops: Vec<ResourceOp>) -> ResourceFunction {
         ResourceFunction {
             name: name.to_string(),
@@ -282,6 +513,18 @@ mod tests {
                 vec![],
             ),
             value_kind: super::super::model::ResourceFunctionValueKind::Plain,
+            effect: super::super::model::EffectOp::Pure,
+            span: Span::dummy(),
+        }
+    }
+
+    fn indirect_call(callee: &str) -> ResourceOp {
+        ResourceOp::IndirectCall {
+            output: place("indirect_out"),
+            callee: place(callee),
+            params: vec![],
+            result: TypeId(0),
+            args: vec![],
             effect: super::super::model::EffectOp::Pure,
             span: Span::dummy(),
         }

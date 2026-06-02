@@ -15,40 +15,40 @@ pub(super) fn merge_resource_check_states(
 ) -> ResourceCheckState {
     let cell_paths = alternatives
         .iter()
-        .map(|state| state.cells.clone())
+        .map(|state| &state.cells)
         .collect::<Vec<_>>();
     let collection_slot_paths = alternatives
         .iter()
-        .map(|state| state.collection_slots.clone())
+        .map(|state| &state.collection_slots)
         .collect::<Vec<_>>();
     let alias_paths = alternatives
         .iter()
-        .map(|state| state.raw_aliases.clone())
+        .map(|state| &state.raw_aliases)
         .collect::<Vec<_>>();
     let function_alias_paths = alternatives
         .iter()
-        .map(|state| state.function_aliases.clone())
+        .map(|state| &state.function_aliases)
         .collect::<Vec<_>>();
     let pending_realloc_paths = alternatives
         .iter()
-        .map(|state| state.pending_reallocs.clone())
+        .map(|state| &state.pending_reallocs)
         .collect::<Vec<_>>();
     let variant_initialization_paths = alternatives
         .iter()
-        .map(|state| state.variant_initializations.clone())
+        .map(|state| &state.variant_initializations)
         .collect::<Vec<_>>();
-    let merged_raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
+    let merged_raw_aliases = RawCellAddressAliases::merge_path_refs(&alias_paths);
     ResourceCheckState {
-        cells: CellTable::merge_paths_with_raw_aliases(
+        cells: CellTable::merge_path_refs_with_raw_aliases(
             &cell_paths,
             &alias_paths,
             &merged_raw_aliases,
         ),
-        collection_slots: CollectionSlotStateTable::merge_paths(&collection_slot_paths),
+        collection_slots: CollectionSlotStateTable::merge_path_refs(&collection_slot_paths),
         raw_aliases: merged_raw_aliases,
-        function_aliases: FunctionAliasTable::merge_paths(&function_alias_paths),
-        pending_reallocs: PendingRawReallocs::merge_paths(&pending_realloc_paths),
-        variant_initializations: PendingVariantRawCellInitializations::merge_paths(
+        function_aliases: FunctionAliasTable::merge_path_refs(&function_alias_paths),
+        pending_reallocs: PendingRawReallocs::merge_path_refs(&pending_realloc_paths),
+        variant_initializations: PendingVariantRawCellInitializations::merge_path_refs(
             &variant_initialization_paths,
         ),
     }

@@ -117,7 +117,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
                 types,
                 module,
                 &relevant,
-                dependency_graph.dependencies(),
+                dependency_graph.raw_init_dependencies(),
                 &mut worklist_relevant_functions,
                 &mut preseeded_functions,
                 &mut summaries,
@@ -125,10 +125,11 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
             );
         }
     }
-    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_edges(
         module,
         worklist_relevant_functions,
-        dependency_graph,
+        dependency_graph.raw_init_dependents(),
+        dependency_graph.raw_init_initial_order(),
     );
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     let empty_collection_slot_summaries = CollectionSlotLifecycleFunctionSummaryIndex::new(&[]);
@@ -165,7 +166,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
                 context,
                 types,
                 module,
-                dependency_graph.dependencies(),
+                dependency_graph.raw_init_dependencies(),
                 &relevant,
                 &candidate_skipped_functions,
                 &summaries,
@@ -182,6 +183,18 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
             "[compile-stage] resource_raw_init_summary_recomputations={} summaries={}",
             worklist.recomputations(),
             summaries.len()
+        );
+        std::eprintln!(
+            "[compile-stage] resource_raw_init_summary_relevant_functions={}",
+            relevant.iter().filter(|is_relevant| **is_relevant).count()
+        );
+        std::eprintln!(
+            "[compile-stage] resource_raw_init_summary_dependency_edges={}",
+            dependency_graph
+                .raw_init_dependencies()
+                .iter()
+                .map(Vec::len)
+                .sum::<usize>()
         );
     }
     let recomputations = worklist.recomputations();

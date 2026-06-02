@@ -56,7 +56,7 @@ impl ResourceSummaryValueCache {
             context,
             types,
             module,
-            dependency_graph,
+            dependency_graph.dependents(),
             relevant_functions,
         )
     }
@@ -81,7 +81,7 @@ impl ResourceSummaryValueCache {
             context,
             types,
             module,
-            dependency_graph,
+            dependency_graph.dependents(),
             relevant_functions,
         )
     }
@@ -106,7 +106,7 @@ impl ResourceSummaryValueCache {
             context,
             types,
             module,
-            dependency_graph,
+            dependency_graph.raw_init_dependents(),
             relevant_functions,
         )
     }
@@ -173,7 +173,7 @@ impl ResourceSummaryReplayPlan {
         context: &ResourceSummaryValueCacheContext,
         types: &TypeCtx,
         module: &ResourceModule,
-        dependency_graph: &ResourceSummaryDependencyGraph,
+        dependents: &[Vec<usize>],
         relevant_functions: &[bool],
     ) -> Self {
         let Some(current_snapshot) =
@@ -198,8 +198,7 @@ impl ResourceSummaryReplayPlan {
             .zip(current_snapshot.functions.iter())
             .map(|(previous, current)| previous.fingerprint != current.fingerprint)
             .collect::<Vec<_>>();
-        let affected_functions =
-            affected_closure_from_local_changes(&locally_changed, dependency_graph);
+        let affected_functions = affected_closure_from_local_changes(&locally_changed, dependents);
         let previous_keys = previous_snapshot
             .functions
             .iter()
@@ -303,7 +302,7 @@ fn snapshots_keep_function_order(
 
 fn affected_closure_from_local_changes(
     locally_changed: &[bool],
-    dependency_graph: &ResourceSummaryDependencyGraph,
+    dependents: &[Vec<usize>],
 ) -> Vec<bool> {
     let mut affected = locally_changed.to_vec();
     let mut pending = locally_changed
@@ -312,8 +311,7 @@ fn affected_closure_from_local_changes(
         .filter_map(|(index, changed)| changed.then_some(index))
         .collect::<VecDeque<_>>();
     while let Some(function_index) = pending.pop_front() {
-        for dependent in dependency_graph
-            .dependents()
+        for dependent in dependents
             .get(function_index)
             .map(Vec::as_slice)
             .unwrap_or(&[])
@@ -364,8 +362,14 @@ mod tests {
         let graph = ResourceSummaryDependencyGraph::build(&module);
         let context = test_context(11);
         let relevant = vec![true, true];
-        let mut first =
-            ResourceSummaryReplayPlan::new(None, &context, &types, &module, &graph, &relevant);
+        let mut first = ResourceSummaryReplayPlan::new(
+            None,
+            &context,
+            &types,
+            &module,
+            graph.dependents(),
+            &relevant,
+        );
         let caller_key = summary_key("caller");
         let callee_key = summary_key("callee");
         first.record_key(0, caller_key.clone());
@@ -377,7 +381,7 @@ mod tests {
             &context,
             &types,
             &module,
-            &graph,
+            graph.dependents(),
             &relevant,
         );
 
@@ -406,7 +410,7 @@ mod tests {
             &context,
             &types,
             &original,
-            &original_graph,
+            original_graph.dependents(),
             &relevant,
         );
         first.record_key(0, summary_key("caller"));
@@ -418,7 +422,7 @@ mod tests {
             &context,
             &types,
             &edited,
-            &edited_graph,
+            edited_graph.dependents(),
             &relevant,
         );
 
@@ -436,8 +440,14 @@ mod tests {
         ]);
         let graph = ResourceSummaryDependencyGraph::build(&module);
         let context = test_context(11);
-        let mut first =
-            ResourceSummaryReplayPlan::new(None, &context, &types, &module, &graph, &[true, true]);
+        let mut first = ResourceSummaryReplayPlan::new(
+            None,
+            &context,
+            &types,
+            &module,
+            graph.dependents(),
+            &[true, true],
+        );
         first.record_key(0, summary_key("used"));
         first.record_key(1, summary_key("unused"));
         let snapshot = first.into_snapshot();
@@ -447,7 +457,7 @@ mod tests {
             &context,
             &types,
             &module,
-            &graph,
+            graph.dependents(),
             &[true, false],
         );
 
@@ -471,7 +481,7 @@ mod tests {
             &first_context,
             &types,
             &module,
-            &graph,
+            graph.dependents(),
             &relevant,
         );
         first.record_key(0, summary_key("stable"));
@@ -482,7 +492,7 @@ mod tests {
             &second_context,
             &types,
             &module,
-            &graph,
+            graph.dependents(),
             &relevant,
         );
 
@@ -504,7 +514,7 @@ mod tests {
             &first_context,
             &types,
             &module,
-            &graph,
+            graph.dependents(),
             &relevant,
         );
         first.record_key(0, summary_key("stable"));
@@ -515,7 +525,7 @@ mod tests {
             &second_context,
             &types,
             &module,
-            &graph,
+            graph.dependents(),
             &relevant,
         );
 

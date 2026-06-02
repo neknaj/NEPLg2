@@ -96,8 +96,8 @@ pub(super) fn rekey_initialized_raw_byte_ranges(
     }
 }
 
-pub(super) fn merge_initialized_raw_byte_ranges(
-    paths: &[CellTable],
+pub(super) fn merge_initialized_raw_byte_range_refs(
+    paths: &[&CellTable],
 ) -> Vec<InitializedRawByteRange> {
     let Some((first, rest)) = paths.split_first() else {
         return Vec::new();

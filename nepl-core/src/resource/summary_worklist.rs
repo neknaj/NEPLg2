@@ -65,6 +65,21 @@ impl<'a> SummaryWorklist<'a> {
         )
     }
 
+    pub(super) fn new_filtered_with_dependency_edges(
+        module: &ResourceModule,
+        relevant: Vec<bool>,
+        dependents: &'a [Vec<usize>],
+        initial_order: &[usize],
+    ) -> Self {
+        Self::new_filtered_with_graph_and_initial_skips(
+            module,
+            relevant,
+            vec![false; module.functions.len()],
+            Cow::Borrowed(dependents),
+            initial_order,
+        )
+    }
+
     /// 共有済みの依存グラフと初期 skip 情報から worklist を作る。
     ///
     /// Resource summary cache から安全に replay できた関数は `initially_skipped` で

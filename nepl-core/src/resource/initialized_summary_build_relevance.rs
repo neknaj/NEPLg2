@@ -19,7 +19,7 @@ pub(super) fn raw_cell_initialization_summary_relevance_with_graph(
         module,
         types,
         raw_alias_summaries,
-        dependency_graph.dependencies(),
+        dependency_graph.raw_init_dependencies(),
     )
 }
 

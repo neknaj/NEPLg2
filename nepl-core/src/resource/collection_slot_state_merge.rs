@@ -9,6 +9,11 @@ use crate::types::TypeId;
 
 impl CollectionSlotStateTable {
     pub fn merge_paths(paths: &[CollectionSlotStateTable]) -> Self {
+        let path_refs = paths.iter().collect::<Vec<_>>();
+        Self::merge_path_refs(&path_refs)
+    }
+
+    pub(super) fn merge_path_refs(paths: &[&CollectionSlotStateTable]) -> Self {
         let mut out = Self::new();
         merge_released_storage(paths, &mut out);
         merge_initialized_ranges(paths, &mut out);
@@ -38,7 +43,7 @@ impl CollectionSlotStateTable {
 }
 
 fn merge_initialized_ranges(
-    paths: &[CollectionSlotStateTable],
+    paths: &[&CollectionSlotStateTable],
     out: &mut CollectionSlotStateTable,
 ) {
     let Some((first, rest)) = paths.split_first() else {
@@ -70,7 +75,7 @@ fn merge_initialized_ranges(
     );
 }
 
-fn merge_released_storage(paths: &[CollectionSlotStateTable], out: &mut CollectionSlotStateTable) {
+fn merge_released_storage(paths: &[&CollectionSlotStateTable], out: &mut CollectionSlotStateTable) {
     let mut storages = Vec::new();
     for path in paths {
         for storage in &path.released_storage {

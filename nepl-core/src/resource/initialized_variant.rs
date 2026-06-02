@@ -378,6 +378,11 @@ impl PendingVariantRawCellInitializations {
     }
 
     pub(super) fn merge_paths(paths: &[PendingVariantRawCellInitializations]) -> Self {
+        let path_refs = paths.iter().collect::<Vec<_>>();
+        Self::merge_path_refs(&path_refs)
+    }
+
+    pub(super) fn merge_path_refs(paths: &[&PendingVariantRawCellInitializations]) -> Self {
         let Some(first) = paths.first() else {
             return Self::default();
         };
