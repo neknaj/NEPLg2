@@ -158,14 +158,14 @@ class WorkerWASI extends WASI {
 
     nepl_gui_web_poll_action_id(): number {
         if (!this.guiEventBuffer) {
-            return 0;
+            return -1;
         }
         return takeGuiWebSharedActionId(this.guiEventBuffer);
     }
 
     nepl_gui_web_wait_action_id(timeoutMs: number): number {
         if (!this.guiEventBuffer) {
-            return 0;
+            return -1;
         }
         const normalizedTimeout = Number.isFinite(timeoutMs) && timeoutMs >= 0
             ? timeoutMs

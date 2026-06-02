@@ -1,16 +1,17 @@
 //: neplg2:test[gui_mandelbrot, normalize_newlines]
 //: [目的/もくてき]: GUI command stream で Mandelbrot preview を描画し、Web Playground host protocol へ frame を出力できることを確認する
+//: argv: ["--once"]
 //:
 //: gui_mandelbrot: Mandelbrot 集合を GUI render command として描画する例
 //:
 //: [目的/もくてき]:
 //: - 実 window backend に依存せず、`RenderCommand` と `MockRenderTarget` で描画 contract を確認します。
 //: - 同じ model から Web Playground stdout protocol frame を出力し、Run 時に floating GUI window へ渡します。
-//: - 8 x 8 の小さな固定小数点 Mandelbrot preview を `FillRect` command stream と Web frame へ変換します。
+//: - Web input bridge から渡された `ActionId` を NEPL 側の update loop で受け、sample resolution を変更して再描画します。
 //:
 //: [実装/じっそう]:
 //: - 座標を i32 の fixed point scale 100 で扱い、各 cell の escape iteration を求めます。
-//: - 各 cell を 2 x 2 の `GuiRect` として `render_one` へ streaming します。
+//: - 1 frame は model の resolution に応じた square grid と、resolution +/- button の action rect から成ります。
 //:
 //: [注意/ちゅうい]:
 //: - これは GUI substrate の例であり、Canvas、DOM、GPU、OS window は使いません。
@@ -20,42 +21,86 @@
 #indent 4
 #target std
 
+#import "alloc/gui/app" as *
+#import "alloc/string" as *
 #import "core/cast" as *
+#import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "platforms/gui/web" as *
+#import "std/env/cliarg" as *
 #import "std/stdio" as *
 
-fn mandelbrot_width %fn unit i32 \unit:
+struct MandelbrotModel:
+    resolution %i32
+
+impl Clone for MandelbrotModel:
+    fn clone %fn &MandelbrotModel MandelbrotModel \model:
+        *model
+
+impl Copy for MandelbrotModel:
+    fn copy_mark %fn MandelbrotModel MandelbrotModel \model:
+        model
+
+fn mandelbrot_model_new %fn i32 MandelbrotModel \resolution:
+    MandelbrotModel resolution
+
+fn mandelbrot_model_resolution %fn &MandelbrotModel i32 \model:
+    *field::get_ref model "resolution"
+
+fn mandelbrot_default_resolution %fn unit i32 \unit:
     8
 
-fn mandelbrot_height %fn unit i32 \unit:
-    8
+fn mandelbrot_min_resolution %fn unit i32 \unit:
+    6
+
+fn mandelbrot_max_resolution %fn unit i32 \unit:
+    16
 
 fn mandelbrot_limit %fn unit i32 \unit:
     24
 
-fn mandelbrot_cell_size %fn unit i32 \unit:
-    18
+fn mandelbrot_preview_pixels %fn unit i32 \unit:
+    192
+
+fn mandelbrot_control_height %fn unit i32 \unit:
+    50
+
+fn mandelbrot_cell_size %fn i32 i32 \resolution:
+    div_s mandelbrot_preview_pixels resolution
 
 fn mandelbrot_frame_width %fn unit i32 \unit:
-    mul mandelbrot_width mandelbrot_cell_size
+    mandelbrot_preview_pixels
 
 fn mandelbrot_frame_height %fn unit i32 \unit:
-    mul mandelbrot_height mandelbrot_cell_size
+    let grid_height %i32 mandelbrot_preview_pixels
+    add grid_height mandelbrot_control_height
 
-fn mandelbrot_cx %fn i32 i32 \x:
-    let step %i32 50
-    let origin %i32 -200
-    let scaled %i32 mul x step
-    add scaled origin
+fn mandelbrot_resolution_down_action %fn unit ActionId \unit:
+    action_id 1
 
-fn mandelbrot_cy %fn i32 i32 \y:
-    let step %i32 50
-    let origin %i32 -175
-    let scaled %i32 mul y step
-    add scaled origin
+fn mandelbrot_resolution_up_action %fn unit ActionId \unit:
+    action_id 2
+
+fn mandelbrot_action_matches %fn ActionId fn ActionId bool \actual\expected:
+    let actual_raw %i32 action_id_value actual
+    let expected_raw %i32 action_id_value expected
+    eq actual_raw expected_raw
+
+fn mandelbrot_cx %fn i32 fn i32 i32 \x\resolution:
+    let denom %i32 sub resolution 1
+    let numerator %i32 mul x 300
+    let scaled %i32 div_s numerator denom
+    add scaled -200
+
+fn mandelbrot_cy %fn i32 fn i32 i32 \y\resolution:
+    let denom %i32 sub resolution 1
+    let numerator %i32 mul y 300
+    let scaled %i32 div_s numerator denom
+    add scaled -150
 
 fn mandelbrot_escape_loop %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 i32 \zx\zy\cx\cy\limit\iter:
     let zx2 %i32 mul zx zx
@@ -77,9 +122,9 @@ fn mandelbrot_escape_loop %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 i32 \zx\zy\
             let next_iter %i32 add iter 1
             mandelbrot_escape_loop next_zx next_zy cx cy limit next_iter
 
-fn mandelbrot_cell_iter %fn i32 fn i32 i32 \x\y:
-    let cx %i32 mandelbrot_cx x
-    let cy %i32 mandelbrot_cy y
+fn mandelbrot_cell_iter %fn i32 fn i32 fn i32 i32 \x\y\resolution:
+    let cx %i32 mandelbrot_cx x resolution
+    let cy %i32 mandelbrot_cy y resolution
     mandelbrot_escape_loop 0 0 cx cy mandelbrot_limit 0
 
 fn mandelbrot_color %fn i32 Rgba8888 \iter:
@@ -94,94 +139,173 @@ fn mandelbrot_color %fn i32 Rgba8888 \iter:
         else:
             rgba8888_new shade shade full full
 
-fn mandelbrot_render_cell %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y:
-    let cell_size %i32 mandelbrot_cell_size
+fn mandelbrot_color_background %fn unit Rgba8888 \unit:
+    let r %u8 cast 10
+    let g %u8 cast 13
+    let b %u8 cast 18
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn mandelbrot_color_button %fn unit Rgba8888 \unit:
+    let r %u8 cast 58
+    let g %u8 cast 74
+    let b %u8 cast 112
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn mandelbrot_color_text %fn unit Rgba8888 \unit:
+    let r %u8 cast 232
+    let g %u8 cast 238
+    let b %u8 cast 248
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn mandelbrot_render_cell %fn MockRenderTarget fn i32 fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y\resolution:
+    let cell_size %i32 mandelbrot_cell_size resolution
     let px %i32 mul x cell_size
     let py %i32 mul y cell_size
     let rect %GuiRect gui_rect_new px py cell_size cell_size
-    let iter %i32 mandelbrot_cell_iter x y
+    let iter %i32 mandelbrot_cell_iter x y resolution
     let color %Rgba8888 mandelbrot_color iter
     let paint %GuiPaint gui_paint_solid color
     let command %RenderCommand render_command_fill_rect rect paint
     render_one target command
 
-fn mandelbrot_present_cell %impure fn i32 impure fn i32 Result unit GuiError \x\y:
-    let cell_size %i32 mandelbrot_cell_size
+fn mandelbrot_present_cell %impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \x\y\resolution:
+    let cell_size %i32 mandelbrot_cell_size resolution
     let px %i32 mul x cell_size
     let py %i32 mul y cell_size
     let rect %GuiRect gui_rect_new px py cell_size cell_size
-    let iter %i32 mandelbrot_cell_iter x y
+    let iter %i32 mandelbrot_cell_iter x y resolution
     let color %Rgba8888 mandelbrot_color iter
     gui_web_stdout_fill_rect rect color
 
-fn mandelbrot_present_row %impure fn i32 impure fn i32 Result unit GuiError \x\y:
+fn mandelbrot_present_row %impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \x\y\resolution:
     if:
-        ge x mandelbrot_width
+        ge x resolution
         then:
             Result::Ok unit
         else:
-            match mandelbrot_present_cell x y:
+            match mandelbrot_present_cell x y resolution:
                 Result::Ok _:
                     let next_x %i32 add x 1
-                    mandelbrot_present_row next_x y
+                    mandelbrot_present_row next_x y resolution
                 Result::Err err:
                     Result::Err err
 
-fn mandelbrot_present_rows %impure fn i32 Result unit GuiError \y:
+fn mandelbrot_present_rows %impure fn i32 impure fn i32 Result unit GuiError \y\resolution:
     if:
-        ge y mandelbrot_height
+        ge y resolution
         then:
             Result::Ok unit
         else:
-            match mandelbrot_present_row 0 y:
+            match mandelbrot_present_row 0 y resolution:
                 Result::Ok _:
                     let next_y %i32 add y 1
-                    mandelbrot_present_rows next_y
+                    mandelbrot_present_rows next_y resolution
                 Result::Err err:
                     Result::Err err
 
-fn mandelbrot_present_frame %impure fn unit Result unit GuiError \unit:
-    match gui_web_stdout_frame_begin 1 mandelbrot_frame_width mandelbrot_frame_height "NEPLg2 Mandelbrot":
+fn mandelbrot_minus_rect %fn i32 GuiRect \grid_height:
+    let y %i32 add grid_height 14
+    gui_rect_new 14 y 38 24
+
+fn mandelbrot_plus_rect %fn i32 GuiRect \grid_height:
+    let y %i32 add grid_height 14
+    gui_rect_new 140 y 38 24
+
+fn mandelbrot_present_text %impure fn GuiPoint impure fn str Result unit GuiError \origin\text:
+    gui_web_stdout_text_run origin 12 GuiWebTextAlign::Center mandelbrot_color_text text
+
+fn mandelbrot_present_button %impure fn GuiRect impure fn ActionId impure fn str Result unit GuiError \rect\action\label:
+    match gui_web_stdout_fill_rect rect mandelbrot_color_button:
         Result::Ok _:
-            match mandelbrot_present_rows 0:
+            let x %i32 gui_rect_x &rect
+            let y %i32 gui_rect_y &rect
+            let w %i32 gui_rect_width &rect
+            let half_w %i32 div_s w 2
+            let text_x %i32 add x half_w
+            let text_y %i32 add y 7
+            let origin %GuiPoint gui_point_new text_x text_y
+            match mandelbrot_present_text origin label:
                 Result::Ok _:
-                    gui_web_stdout_frame_end
+                    gui_web_stdout_action_rect rect action
                 Result::Err err:
                     Result::Err err
         Result::Err err:
             Result::Err err
 
-fn mandelbrot_render_row %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y:
+fn mandelbrot_present_controls %impure fn MandelbrotModel Result unit GuiError \model:
+    let resolution %i32 mandelbrot_model_resolution &model
+    let grid_height %i32 mandelbrot_preview_pixels
+    let minus_rect %GuiRect mandelbrot_minus_rect grid_height
+    let plus_rect %GuiRect mandelbrot_plus_rect grid_height
+    match mandelbrot_present_button minus_rect mandelbrot_resolution_down_action "-":
+        Result::Ok _:
+            match mandelbrot_present_button plus_rect mandelbrot_resolution_up_action "+":
+                Result::Ok _:
+                    let text_y %i32 add grid_height 19
+                    let origin %GuiPoint gui_point_new 96 text_y
+                    gui_web_stdout_text_i32 origin 14 GuiWebTextAlign::Center mandelbrot_color_text resolution
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
+
+fn mandelbrot_present_frame %impure fn MandelbrotModel Result unit GuiError \model:
+    let resolution %i32 mandelbrot_model_resolution &model
+    match gui_web_stdout_frame_begin 1 mandelbrot_frame_width mandelbrot_frame_height "NEPLg2 Mandelbrot":
+        Result::Ok _:
+            let width %i32 mandelbrot_frame_width
+            let height %i32 mandelbrot_frame_height
+            let background %GuiRect gui_rect_new 0 0 width height
+            match gui_web_stdout_fill_rect background mandelbrot_color_background:
+                Result::Ok _:
+                    match mandelbrot_present_rows 0 resolution:
+                        Result::Ok _:
+                            match mandelbrot_present_controls model:
+                                Result::Ok _:
+                                    gui_web_stdout_frame_end
+                                Result::Err err:
+                                    Result::Err err
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
+
+fn mandelbrot_render_row %fn MockRenderTarget fn i32 fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y\resolution:
     if:
-        ge x mandelbrot_width
+        ge x resolution
         then:
             Result::Ok target
         else:
-            match mandelbrot_render_cell target x y:
+            match mandelbrot_render_cell target x y resolution:
                 Result::Ok next:
                     let next_x %i32 add x 1
-                    mandelbrot_render_row next next_x y
+                    mandelbrot_render_row next next_x y resolution
                 Result::Err err:
                     Result::Err err
 
-fn mandelbrot_render_rows %fn MockRenderTarget fn i32 Result MockRenderTarget GuiError \target\y:
+fn mandelbrot_render_rows %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\y\resolution:
     if:
-        ge y mandelbrot_height
+        ge y resolution
         then:
             Result::Ok target
         else:
-            match mandelbrot_render_row target 0 y:
+            match mandelbrot_render_row target 0 y resolution:
                 Result::Ok next:
                     let next_y %i32 add y 1
-                    mandelbrot_render_rows next next_y
+                    mandelbrot_render_rows next next_y resolution
                 Result::Err err:
                     Result::Err err
 
-fn mandelbrot_render %fn unit Result MockRenderTarget GuiError \unit:
-    mandelbrot_render_rows mock_render_target_new 0
+fn mandelbrot_render %fn i32 Result MockRenderTarget GuiError \resolution:
+    mandelbrot_render_rows mock_render_target_new 0 resolution
 
-fn mandelbrot_inside_cell %fn i32 fn i32 i32 \x\y:
-    let iter %i32 mandelbrot_cell_iter x y
+fn mandelbrot_inside_cell %fn i32 fn i32 fn i32 i32 \x\y\resolution:
+    let iter %i32 mandelbrot_cell_iter x y resolution
     if:
         eq iter mandelbrot_limit
         then:
@@ -189,41 +313,138 @@ fn mandelbrot_inside_cell %fn i32 fn i32 i32 \x\y:
         else:
             0
 
-fn mandelbrot_inside_row %fn i32 fn i32 i32 \x\y:
+fn mandelbrot_inside_row %fn i32 fn i32 fn i32 i32 \x\y\resolution:
     if:
-        ge x mandelbrot_width
+        ge x resolution
         then:
             0
         else:
             let next_x %i32 add x 1
-            let rest %i32 mandelbrot_inside_row next_x y
-            add mandelbrot_inside_cell x y rest
+            let rest %i32 mandelbrot_inside_row next_x y resolution
+            add mandelbrot_inside_cell x y resolution rest
 
-fn mandelbrot_inside_rows %fn i32 i32 \y:
+fn mandelbrot_inside_rows %fn i32 fn i32 i32 \y\resolution:
     if:
-        ge y mandelbrot_height
+        ge y resolution
         then:
             0
         else:
             let next_y %i32 add y 1
-            let rest %i32 mandelbrot_inside_rows next_y
-            add mandelbrot_inside_row 0 y rest
+            let rest %i32 mandelbrot_inside_rows next_y resolution
+            add mandelbrot_inside_row 0 y resolution rest
 
-fn mandelbrot_inside_count %fn unit i32 \unit:
-    mandelbrot_inside_rows 0
+fn mandelbrot_inside_count %fn i32 i32 \resolution:
+    mandelbrot_inside_rows 0 resolution
 
-fn main %impure fn unit unit \unit:
-    match mandelbrot_render:
+fn mandelbrot_smaller_resolution %fn i32 i32 \resolution:
+    if:
+        le resolution mandelbrot_min_resolution
+        then:
+            resolution
+        else:
+            sub resolution 2
+
+fn mandelbrot_larger_resolution %fn i32 i32 \resolution:
+    if:
+        ge resolution mandelbrot_max_resolution
+        then:
+            resolution
+        else:
+            add resolution 2
+
+fn mandelbrot_update_action %fn MandelbrotModel fn ActionId MandelbrotModel \model\action:
+    let resolution %i32 mandelbrot_model_resolution &model
+    if:
+        mandelbrot_action_matches action mandelbrot_resolution_down_action
+        then:
+            let next_resolution %i32 mandelbrot_smaller_resolution resolution
+            mandelbrot_model_new next_resolution
+        else:
+            if:
+                mandelbrot_action_matches action mandelbrot_resolution_up_action
+                then:
+                    let next_resolution %i32 mandelbrot_larger_resolution resolution
+                    mandelbrot_model_new next_resolution
+                else:
+                    model
+
+fn mandelbrot_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--once"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            mandelbrot_has_once_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    mandelbrot_has_once_flag_loop next_idx count
+
+fn mandelbrot_has_once_flag %impure fn unit bool \unit:
+    let count %i32 cliarg_count
+    mandelbrot_has_once_flag_loop 1 count
+
+fn mandelbrot_print_status %impure fn MandelbrotModel impure fn MockRenderTarget unit \model\target:
+    let resolution %i32 mandelbrot_model_resolution &model
+    print "mandelbrot commands = "
+    let command_count %i32 mock_render_target_command_count &target
+    println_i32 command_count
+    print "mandelbrot inside = "
+    let inside_count %i32 mandelbrot_inside_count resolution
+    println_i32 inside_count
+    print "mandelbrot resolution = "
+    println_i32 resolution
+
+fn mandelbrot_run_once %impure fn MandelbrotModel unit \model:
+    let resolution %i32 mandelbrot_model_resolution &model
+    match mandelbrot_render resolution:
         Result::Ok target:
-            match mandelbrot_present_frame:
+            match mandelbrot_present_frame model:
                 Result::Ok _:
-                    print "mandelbrot commands = "
-                    let command_count %i32 mock_render_target_command_count &target
-                    println_i32 command_count
-                    print "mandelbrot inside = "
-                    let inside_count %i32 mandelbrot_inside_count
-                    println_i32 inside_count
+                    mandelbrot_print_status model target
                 Result::Err _:
                     println "mandelbrot gui protocol error"
         Result::Err _:
             println "mandelbrot render error"
+
+fn mandelbrot_event_loop %impure fn MandelbrotModel unit \initial_model:
+    let mut model %MandelbrotModel initial_model
+    let mut running %bool true
+    while running:
+        do:
+            match gui_web_wait_action_result 60000:
+                Result::Ok action_result:
+                    match action_result:
+                        Option::Some action:
+                            let next_model %MandelbrotModel mandelbrot_update_action model action
+                            match mandelbrot_present_frame next_model:
+                                Result::Ok _:
+                                    set model next_model
+                                Result::Err _:
+                                    println "mandelbrot gui protocol error";
+                                    set running false
+                        Option::None:
+                            unit
+                Result::Err _:
+                    println "mandelbrot gui input unsupported";
+                    set running false
+
+fn main %impure fn unit unit \unit:
+    let model0 %MandelbrotModel mandelbrot_model_new mandelbrot_default_resolution
+    if:
+        mandelbrot_has_once_flag
+        then:
+            mandelbrot_run_once model0
+        else:
+            match mandelbrot_present_frame model0:
+                Result::Ok _:
+                    mandelbrot_event_loop model0
+                Result::Err _:
+                    println "mandelbrot gui protocol error"

@@ -87,6 +87,7 @@ export class Shell {
     private stdinData: Uint8Array | null;
     private guiInputSab: SharedArrayBuffer | null;
     private guiRuntimeInputActive: boolean;
+    private guiRuntimeInputWindowIds: Set<number>;
     private guiInputUnavailableReported: boolean;
     private currentProcessReject: ((reason?: any) => void) | null;
     private guiStdoutProtocolParser: GuiWebStdoutProtocolParser;
@@ -110,6 +111,7 @@ export class Shell {
         this.stdinData = null;
         this.guiInputSab = null;
         this.guiRuntimeInputActive = false;
+        this.guiRuntimeInputWindowIds = new Set();
         this.guiInputUnavailableReported = false;
         this.currentProcessReject = null;
         this.guiStdoutProtocolParser = new GuiWebStdoutProtocolParser();
@@ -466,6 +468,9 @@ export class Shell {
         if (!this.guiRuntimeInputActive) {
             return;
         }
+        if (!this.guiRuntimeInputWindowIds.has(event.windowId)) {
+            return;
+        }
         const buffer = this.ensureGuiInputBuffer();
         if (!buffer) {
             if (!this.guiInputUnavailableReported) {
@@ -514,6 +519,7 @@ export class Shell {
         }
         if (request.type === 'run-wasm') {
             this.guiRuntimeInputActive = true;
+            this.guiRuntimeInputWindowIds = new Set();
             this.guiInputUnavailableReported = false;
             this.resetGuiInputBuffer();
         }
@@ -531,6 +537,7 @@ export class Shell {
                 this.handleGuiStdoutProtocolEvents(this.guiStdoutProtocolParser.flush());
                 if (request.type === 'run-wasm') {
                     this.guiRuntimeInputActive = false;
+                    this.guiRuntimeInputWindowIds = new Set();
                 }
                 this.activeWorker = null;
                 this.currentProcessReject = null;
@@ -596,6 +603,8 @@ export class Shell {
                 const presented = presentGuiWebRuntimeFrame(event.frame);
                 if (presented.kind === 'err') {
                     this.printGuiProtocolError(`GUI frame rejected: ${presented.error.kind} ${presented.error.path}`);
+                } else if (this.guiRuntimeInputActive) {
+                    this.guiRuntimeInputWindowIds.add(event.frame.windowId);
                 }
             } else if (event.kind === 'session-state') {
                 continue;

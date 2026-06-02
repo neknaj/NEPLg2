@@ -59,6 +59,8 @@ async function runWebGuiSharedEventQueueRegression() {
     const webInputSource = readRepoFile("stdlib", "platforms", "gui", "web", "input.nepl");
     const webFacadeSource = readRepoFile("stdlib", "platforms", "gui", "web.nepl");
     const counterSource = readRepoFile("examples", "gui_counter.nepl");
+    const lifeSource = readRepoFile("examples", "gui_life.nepl");
+    const mandelbrotSource = readRepoFile("examples", "gui_mandelbrot.nepl");
 
     assert.match(queueSource, /GUI_WEB_EVENT_QUEUE_CAPACITY/);
     assert.match(queueSource, /writeGuiWebSharedInputEvent/);
@@ -66,28 +68,47 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(workerSource, /nepl_gui_web/);
     assert.match(workerSource, /poll_action_id/);
     assert.match(workerSource, /wait_action_id/);
+    assert.match(workerSource, /return -1;/);
     assert.match(shellSource, /registerGuiWebInputEventListener/);
     assert.match(shellSource, /writeGuiWebSharedInputEvent/);
     assert.match(shellSource, /guiSab/);
+    assert.match(shellSource, /guiRuntimeInputWindowIds/);
+    assert.match(shellSource, /has\(event\.windowId\)/);
+    assert.match(shellSource, /add\(event\.frame\.windowId\)/);
     assert.match(webInputSource, /#extern "nepl_gui_web" "poll_action_id"/);
     assert.match(webInputSource, /#extern "nepl_gui_web" "wait_action_id"/);
     assert.match(webInputSource, /pub fn gui_web_wait_action %impure fn i32 Option ActionId/);
+    assert.match(webInputSource, /pub fn gui_web_wait_action_result %impure fn i32 Result Option ActionId GuiError/);
     assert.match(webFacadeSource, /#import "\.\/web\/input" as @merge/);
-    assert.match(counterSource, /gui_web_wait_action/);
+    assert.match(counterSource, /gui_web_wait_action_result/);
+    assert.match(lifeSource, /gui_web_wait_action_result/);
+    assert.match(lifeSource, /life_next_action/);
+    assert.match(lifeSource, /life_animate_action/);
+    assert.match(lifeSource, /life_resolution_down_action/);
+    assert.match(lifeSource, /life_resolution_up_action/);
+    assert.match(lifeSource, /gui_web_stdout_action_rect/);
+    assert.match(mandelbrotSource, /gui_web_wait_action_result/);
+    assert.match(mandelbrotSource, /mandelbrot_resolution_down_action/);
+    assert.match(mandelbrotSource, /mandelbrot_resolution_up_action/);
+    assert.match(mandelbrotSource, /gui_web_stdout_action_rect/);
     assert.doesNotMatch(queueSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(queueSource, /\|\s*null|\|\s*undefined/);
     assert.doesNotMatch(queueSource, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
     assert.doesNotMatch(workerSource, /createGuiPreviewScene/);
     assert.doesNotMatch(shellSource, /gui_counter|gui_life|gui_mandelbrot/);
     assert.doesNotMatch(counterSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
+    assert.doesNotMatch(lifeSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
+    assert.doesNotMatch(mandelbrotSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
 
     return {
         ok: true,
         checks: [
             "Web GUI shared event queue transfers typed action events through SharedArrayBuffer",
             "Web runtime worker exposes a dedicated nepl_gui_web host import module",
-            "NEPL web GUI input wrapper returns Option ActionId instead of public raw sentinels",
-            "Counter example drives update/render from NEPL-side gui_web_wait_action",
+            "NEPL web GUI input wrapper returns Result Option ActionId instead of public raw sentinels",
+            "Web shell filters GUI action input to windows presented by the active run",
+            "Counter example drives update/render from NEPL-side gui_web_wait_action_result",
+            "Life and Mandelbrot examples drive interactive redraws from NEPL-side actions",
         ],
     };
 }

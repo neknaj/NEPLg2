@@ -3,12 +3,13 @@
 //:
 //: ### [目的/もくてき]
 //: - Web Playground host が保持する GUI event queue から、NEPLg2 app が action event を[取/と]り[出/だ]します。
-//: - raw host import はこの module に閉じ、application code には `Option ActionId` として公開します。
+//: - raw host import はこの module に閉じ、application code には `Result Option ActionId GuiError` として公開します。
 //:
 //: ### [契約/けいやく]
-//: - event がある場合は `Option::Some action` を返します。
-//: - event がない場合、または host が GUI input queue を持たない場合は `Option::None` を返します。
-//: - raw host import の 0 以下 sentinel はこの module の境界内でだけ扱います。
+//: - event がある場合は `Result::Ok (Option::Some action)` を返します。
+//: - timeout または empty queue の場合は `Result::Ok Option::None` を返します。
+//: - host が GUI input queue を持たない場合は `Result::Err GuiError::Unsupported` を返します。
+//: - raw host import の 0 / 負 sentinel はこの module の境界内でだけ扱います。
 //:
 //: ### [現状/げんじょう]
 //: - Phase 1 では Web Playground の action event だけを扱います。
@@ -26,24 +27,45 @@
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 
 #extern "nepl_gui_web" "poll_action_id" fn gui_web_poll_action_id_raw %impure fn unit i32
 #extern "nepl_gui_web" "wait_action_id" fn gui_web_wait_action_id_raw %impure fn i32 i32
 
-//: gui_web_action_from_raw: host raw action id を `Option ActionId` へ[正規化/せいきか]する
+//: gui_web_action_result_from_raw: host raw action id を `Result Option ActionId GuiError` へ[正規化/せいきか]する
 //:
 //: [目的/もくてき]:
-//: - host import が返す 0 以下の sentinel を public API に漏らさず、型付きの `Option ActionId` に変換します。
+//: - host import が返す sentinel を public API に漏らさず、型付きの `Result` と `Option ActionId` に変換します。
 //:
 //: [契約/けいやく]:
 //: - raw が 1 以上なら `Option::Some` を返します。
-//: - raw が 0 以下なら `Option::None` を返します。
-fn gui_web_action_from_raw %fn i32 Option ActionId \raw:
+//: - raw が 0 なら timeout / empty queue として `Option::None` を返します。
+//: - raw が負なら host queue unsupported として `GuiError::Unsupported` を返します。
+fn gui_web_action_result_from_raw %fn i32 Result Option ActionId GuiError \raw:
     if:
         gt raw 0
         then:
-            Option::Some app::action_id raw
+            let action %ActionId app::action_id raw
+            let some %Option ActionId Option::Some action
+            Result::Ok some
         else:
+            if:
+                lt raw 0
+                then:
+                    Result::Err GuiError::Unsupported
+                else:
+                    let none %Option ActionId Option::None
+                    Result::Ok none
+
+//: gui_web_action_from_raw: host raw action id を legacy `Option ActionId` へ[正規化/せいきか]する
+//:
+//: [目的/もくてき]:
+//: - 既存 caller の互換 path です。新しい interactive app は unsupported を区別できる `gui_web_wait_action_result` を使います。
+fn gui_web_action_from_raw %fn i32 Option ActionId \raw:
+    match gui_web_action_result_from_raw raw:
+        Result::Ok action:
+            action
+        Result::Err _:
             Option::None
 
 //: gui_web_poll_action: GUI action event を非 blocking に[取/と]り[出/だ]す
@@ -58,6 +80,14 @@ pub fn gui_web_poll_action %impure fn unit Option ActionId \unit:
     let raw %i32 gui_web_poll_action_id_raw
     gui_web_action_from_raw raw
 
+//: gui_web_poll_action_result: GUI action event を非 blocking に[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - unsupported host と empty queue を `Result` / `Option` で[分/わ]けます。
+pub fn gui_web_poll_action_result %impure fn unit Result Option ActionId GuiError \unit:
+    let raw %i32 gui_web_poll_action_id_raw
+    gui_web_action_result_from_raw raw
+
 //: gui_web_wait_action: GUI action event を待って[取/と]り[出/だ]す
 //:
 //: [目的/もくてき]:
@@ -70,3 +100,16 @@ pub fn gui_web_poll_action %impure fn unit Option ActionId \unit:
 pub fn gui_web_wait_action %impure fn i32 Option ActionId \timeout_ms:
     let raw %i32 gui_web_wait_action_id_raw timeout_ms
     gui_web_action_from_raw raw
+
+//: gui_web_wait_action_result: GUI action event を待って[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - interactive app が busy loop を避けつつ、host input queue unsupported を明示的に終了処理へ分岐できるようにします。
+//:
+//: [契約/けいやく]:
+//: - event が来た場合は `Result::Ok (Option::Some action)` を返します。
+//: - timeout した場合は `Result::Ok Option::None` を返します。
+//: - host queue が存在しない場合は `Result::Err GuiError::Unsupported` を返します。
+pub fn gui_web_wait_action_result %impure fn i32 Result Option ActionId GuiError \timeout_ms:
+    let raw %i32 gui_web_wait_action_id_raw timeout_ms
+    gui_web_action_result_from_raw raw

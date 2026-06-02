@@ -1,3 +1,18 @@
+# 2026-06-02 Agent2 Web GUI interactive examples checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` を fetch / merge し、`note.n.md` の並行追記競合だけを両方残す形で解消した。
+- Zenn 記事の platform 依存隔離、`null` / `undefined` 禁止、enum / struct / Result / Option による静的検査、契約と現状実装の分離方針を再確認した。今回の実装も TS による `examples/*.nepl` simulation は追加せず、NEPL 側の model / action update / render loop だけを変更した。
+- `examples/gui_life.nepl` は `LifeModel` を追加し、`ActionId` 1 / 2 / 3 / 4 で next step、animate toggle、cell pixel size down / up を扱うようにした。通常実行では `gui_web_wait_action_result` による event loop を継続し、animate 中は timeout tick で NEPL 側 model を進めて再描画する。doctest は `--once` で有限実行する。
+- `examples/gui_mandelbrot.nepl` は `MandelbrotModel` を追加し、`ActionId` 1 / 2 で sample resolution down / up を扱うようにした。通常実行では Web action queue から `Result Option ActionId GuiError` を受け、NEPL 側で resolution を更新して stdout frame を再出力する。doctest は `--once` で有限実行する。
+- 実装後 subagent review で、stale window の action 混入と GUI queue unsupported 時の busy loop が blocker として指摘されたため、`web/src/terminal/shell.ts` は現在の run が present した window id だけを queue へ渡し、`web/src/runtime/worker.ts` と `stdlib/platforms/gui/web/input.nepl` は unsupported host を `GuiError::Unsupported` として返す `gui_web_wait_action_result` / `gui_web_poll_action_result` を追加した。既存 `gui_web_wait_action` は互換 wrapper として残した。
+- `nodesrc/test_web_gui_shared_event_queue.js` は Counter だけでなく Life / Mandelbrot も `gui_web_wait_action_result` と `NEPLG2_GUI_ACTION_RECT` 経由で interactive redraw を行うこと、Shell が active-run window id で input を filter すること、worker が queue 未接続を負 sentinel で内部表現して NEPL wrapper が `Result` へ変換することを source policy として固定した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、Counter / Life / Mandelbrot の ActionId MVP update loop は実装済み、残件は formal host import ABI、full `GuiEvent` poll、session / window id 正式化、Mandelbrot progressive rendering であることに更新した。
+- focused 検証: `node nodesrc/tests.js -i examples/gui_life.nepl -i examples/gui_mandelbrot.nepl -i examples/gui_counter.nepl --no-tree -o tmp/gui-examples-interactive.json -j 1 --dist web/dist` は 3/3 pass。最初の検証で `life_present_frame` の分岐所有権 leak を静的検査が検出したため、frame begin 成功後に background rect を作る形へ修正した。
+- blocker 対応後の再検証: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_shared_event_queue.js`、`node nodesrc/test_web_gui_input_bridge.js`、`node nodesrc/test_web_gui_stdout_protocol.js`、GUI examples 3/3、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-interactive-result-input.json` は pass。playground editor JSON は 13/13 pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI 関連の source policy は pass。既存 warning として stdlib doctest gap、static check boundary、resource checker responsibility、parser backend responsibility、resource gate order、diagnostic code registry の 6 件が残る。
+- `node nodesrc/issues.js check --dir issues` と `git diff --check` は pass。`git diff --check` は CRLF warning のみ。
+- subagent 再レビューは条件付き承認後、`input.nepl` module header の旧 `Option::None` contract 表記を `Result::Err GuiError::Unsupported` 仕様へ修正した。前回 blocker だった stale window action 混入と unsupported host busy loop は解消済みと判定された。
+
 # 2026-06-02 Agent2 Web GUI input event bridge checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`null` / `undefined` 禁止、enum / struct / Result による静的検査、契約と現状実装の分離方針を再確認してから作業した。

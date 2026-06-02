@@ -1,16 +1,18 @@
 //: neplg2:test[gui_life, normalize_newlines]
 //: [目的/もくてき]: GUI command stream で Life board を描画し、Web Playground host protocol へ frame を出力できることを確認する
+//: argv: ["--once"]
 //:
 //: gui_life: Conway の Life board を GUI render command として描画する例
 //:
 //: [目的/もくてき]:
 //: - game state と描画 command stream を分け、backend なしでも描画 contract を確認できるようにします。
 //: - 同じ game state から Web Playground stdout protocol frame を出力し、Run 時に floating GUI window へ渡します。
-//: - 5 x 5 の小さな board を 1 cell ずつ `FillRect` command に変換します。
+//: - Web input bridge から渡された `ActionId` を NEPL 側の update loop で受け、Next / Animate / cell pixel size を更新します。
 //:
 //: [実装/じっそう]:
-//: - 初期状態は glider pattern とし、step 3 の状態を純粋関数で計算します。
+//: - 初期状態は glider pattern とし、指定 step の状態を純粋関数で計算します。
 //: - `RenderTarget` には live cell と dead cell の両方を描画し、surface 全体の command 数を固定します。
+//: - doctest は `--once` で有限実行し、通常の Web Playground 実行では action event loop を継続します。
 //:
 //: [注意/ちゅうい]:
 //: - Life の更新は GUI backend から独立しています。
@@ -20,12 +22,43 @@
 #indent 4
 #target std
 
+#import "alloc/gui/app" as *
+#import "alloc/string" as *
 #import "core/cast" as *
+#import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "platforms/gui/web" as *
+#import "std/env/cliarg" as *
 #import "std/stdio" as *
+
+struct LifeModel:
+    step %i32
+    animate %bool
+    cell_size %i32
+
+impl Clone for LifeModel:
+    fn clone %fn &LifeModel LifeModel \model:
+        *model
+
+impl Copy for LifeModel:
+    fn copy_mark %fn LifeModel LifeModel \model:
+        model
+
+fn life_model_new %fn i32 fn bool fn i32 LifeModel \step\animate\cell_size:
+    LifeModel step animate cell_size
+
+fn life_model_step %fn &LifeModel i32 \model:
+    *field::get_ref model "step"
+
+fn life_model_animate %fn &LifeModel bool \model:
+    *field::get_ref model "animate"
+
+fn life_model_cell_size %fn &LifeModel i32 \model:
+    *field::get_ref model "cell_size"
 
 fn life_width %fn unit i32 \unit:
     5
@@ -36,19 +69,48 @@ fn life_height %fn unit i32 \unit:
 fn life_draw_step %fn unit i32 \unit:
     3
 
-fn life_cell_size %fn unit i32 \unit:
+fn life_default_cell_size %fn unit i32 \unit:
     28
 
-fn life_cell_draw_size %fn unit i32 \unit:
-    sub life_cell_size 2
+fn life_min_cell_size %fn unit i32 \unit:
+    14
 
-fn life_frame_width %fn unit i32 \unit:
-    let full_width %i32 mul life_width life_cell_size
+fn life_max_cell_size %fn unit i32 \unit:
+    42
+
+fn life_cell_draw_size %fn i32 i32 \cell_size:
+    sub cell_size 2
+
+fn life_grid_width %fn i32 i32 \cell_size:
+    let full_width %i32 mul life_width cell_size
     sub full_width 2
 
-fn life_frame_height %fn unit i32 \unit:
-    let full_height %i32 mul life_height life_cell_size
+fn life_grid_height %fn i32 i32 \cell_size:
+    let full_height %i32 mul life_height cell_size
     sub full_height 2
+
+fn life_frame_width %fn unit i32 \unit:
+    240
+
+fn life_frame_height %fn unit i32 \unit:
+    280
+
+fn life_next_action %fn unit ActionId \unit:
+    action_id 1
+
+fn life_animate_action %fn unit ActionId \unit:
+    action_id 2
+
+fn life_resolution_down_action %fn unit ActionId \unit:
+    action_id 3
+
+fn life_resolution_up_action %fn unit ActionId \unit:
+    action_id 4
+
+fn life_action_matches %fn ActionId fn ActionId bool \actual\expected:
+    let actual_raw %i32 action_id_value actual
+    let expected_raw %i32 action_id_value expected
+    eq actual_raw expected_raw
 
 fn life_initial_cell %fn i32 fn i32 bool \x\y:
     let a %bool and eq x 1 eq y 0
@@ -135,58 +197,172 @@ fn life_cell_color %fn bool Rgba8888 \alive:
         else:
             rgba8888_new dim dim dim full
 
+fn life_color_background %fn unit Rgba8888 \unit:
+    let r %u8 cast 12
+    let g %u8 cast 18
+    let b %u8 cast 24
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn life_color_button %fn unit Rgba8888 \unit:
+    let r %u8 cast 40
+    let g %u8 cast 96
+    let b %u8 cast 120
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn life_color_button_alt %fn unit Rgba8888 \unit:
+    let r %u8 cast 84
+    let g %u8 cast 112
+    let b %u8 cast 70
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn life_color_text %fn unit Rgba8888 \unit:
+    let r %u8 cast 235
+    let g %u8 cast 242
+    let b %u8 cast 238
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
 fn life_render_cell %fn MockRenderTarget fn i32 fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y\step:
-    let cell_size %i32 life_cell_size
+    let cell_size %i32 life_default_cell_size
     let px %i32 mul x cell_size
     let py %i32 mul y cell_size
-    let rect %GuiRect gui_rect_new px py life_cell_draw_size life_cell_draw_size
+    let rect %GuiRect gui_rect_new px py life_cell_draw_size cell_size life_cell_draw_size cell_size
     let alive %bool life_cell_at_step x y step
     let color %Rgba8888 life_cell_color alive
     let paint %GuiPaint gui_paint_solid color
     let command %RenderCommand render_command_fill_rect rect paint
     render_one target command
 
-fn life_present_cell %impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \x\y\step:
-    let cell_size %i32 life_cell_size
+fn life_present_cell %impure fn i32 impure fn i32 impure fn LifeModel Result unit GuiError \x\y\model:
+    let cell_size %i32 life_model_cell_size &model
     let px %i32 mul x cell_size
     let py %i32 mul y cell_size
-    let rect %GuiRect gui_rect_new px py life_cell_draw_size life_cell_draw_size
+    let draw_size %i32 life_cell_draw_size cell_size
+    let rect %GuiRect gui_rect_new px py draw_size draw_size
+    let step %i32 life_model_step &model
     let alive %bool life_cell_at_step x y step
     let color %Rgba8888 life_cell_color alive
     gui_web_stdout_fill_rect rect color
 
-fn life_present_row %impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \x\y\step:
+fn life_present_row %impure fn i32 impure fn i32 impure fn LifeModel Result unit GuiError \x\y\model:
     if:
         ge x life_width
         then:
             Result::Ok unit
         else:
-            match life_present_cell x y step:
+            match life_present_cell x y model:
                 Result::Ok _:
                     let next_x %i32 add x 1
-                    life_present_row next_x y step
+                    life_present_row next_x y model
                 Result::Err err:
                     Result::Err err
 
-fn life_present_rows %impure fn i32 impure fn i32 Result unit GuiError \y\step:
+fn life_present_rows %impure fn i32 impure fn LifeModel Result unit GuiError \y\model:
     if:
         ge y life_height
         then:
             Result::Ok unit
         else:
-            match life_present_row 0 y step:
+            match life_present_row 0 y model:
                 Result::Ok _:
                     let next_y %i32 add y 1
-                    life_present_rows next_y step
+                    life_present_rows next_y model
                 Result::Err err:
                     Result::Err err
 
-fn life_present_frame %impure fn i32 Result unit GuiError \step:
+fn life_button_next_rect %fn i32 GuiRect \grid_height:
+    let y %i32 add grid_height 14
+    gui_rect_new 10 y 60 24
+
+fn life_button_animate_rect %fn i32 GuiRect \grid_height:
+    let y %i32 add grid_height 14
+    gui_rect_new 78 y 70 24
+
+fn life_button_minus_rect %fn i32 GuiRect \grid_height:
+    let y %i32 add grid_height 44
+    gui_rect_new 10 y 32 20
+
+fn life_button_plus_rect %fn i32 GuiRect \grid_height:
+    let y %i32 add grid_height 44
+    gui_rect_new 48 y 32 20
+
+fn life_present_text %impure fn GuiPoint impure fn str Result unit GuiError \origin\text:
+    gui_web_stdout_text_run origin 12 GuiWebTextAlign::Center life_color_text text
+
+fn life_present_button %impure fn GuiRect impure fn ActionId impure fn str impure fn Rgba8888 Result unit GuiError \rect\action\label\color:
+    match gui_web_stdout_fill_rect rect color:
+        Result::Ok _:
+            let x %i32 gui_rect_x &rect
+            let y %i32 gui_rect_y &rect
+            let w %i32 gui_rect_width &rect
+            let half_w %i32 div_s w 2
+            let text_x %i32 add x half_w
+            let text_y %i32 add y 7
+            let origin %GuiPoint gui_point_new text_x text_y
+            match life_present_text origin label:
+                Result::Ok _:
+                    gui_web_stdout_action_rect rect action
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
+
+fn life_present_status_text %impure fn i32 impure fn LifeModel Result unit GuiError \grid_height\model:
+    let step_y %i32 add grid_height 17
+    let step_origin %GuiPoint gui_point_new 184 step_y
+    match gui_web_stdout_text_i32 step_origin 14 GuiWebTextAlign::Center life_color_text life_model_step &model:
+        Result::Ok _:
+            let size_y %i32 add grid_height 47
+            let size_origin %GuiPoint gui_point_new 118 size_y
+            gui_web_stdout_text_i32 size_origin 12 GuiWebTextAlign::Center life_color_text life_model_cell_size &model
+        Result::Err err:
+            Result::Err err
+
+fn life_present_controls %impure fn LifeModel Result unit GuiError \model:
+    let cell_size %i32 life_model_cell_size &model
+    let grid_height %i32 life_grid_height cell_size
+    let next_rect %GuiRect life_button_next_rect grid_height
+    let animate_rect %GuiRect life_button_animate_rect grid_height
+    let minus_rect %GuiRect life_button_minus_rect grid_height
+    let plus_rect %GuiRect life_button_plus_rect grid_height
+    match life_present_button next_rect life_next_action "Next" life_color_button:
+        Result::Ok _:
+            match life_present_button animate_rect life_animate_action "Animate" life_color_button_alt:
+                Result::Ok _:
+                    match life_present_button minus_rect life_resolution_down_action "-" life_color_button:
+                        Result::Ok _:
+                            match life_present_button plus_rect life_resolution_up_action "+" life_color_button:
+                                Result::Ok _:
+                                    life_present_status_text grid_height model
+                                Result::Err err:
+                                    Result::Err err
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
+
+fn life_present_frame %impure fn LifeModel Result unit GuiError \model:
     match gui_web_stdout_frame_begin 2 life_frame_width life_frame_height "NEPLg2 Life":
         Result::Ok _:
-            match life_present_rows 0 step:
+            let width %i32 life_frame_width
+            let height %i32 life_frame_height
+            let background %GuiRect gui_rect_new 0 0 width height
+            match gui_web_stdout_fill_rect background life_color_background:
                 Result::Ok _:
-                    gui_web_stdout_frame_end
+                    match life_present_rows 0 model:
+                        Result::Ok _:
+                            match life_present_controls model:
+                                Result::Ok _:
+                                    gui_web_stdout_frame_end
+                                Result::Err err:
+                                    Result::Err err
+                        Result::Err err:
+                            Result::Err err
                 Result::Err err:
                     Result::Err err
         Result::Err err:
@@ -273,21 +449,152 @@ fn life_state_hash_rows %fn i32 fn i32 i32 \y\step:
             let rest %i32 life_state_hash_rows next_y step
             add life_state_hash_row 0 y step rest
 
-fn main %impure fn unit unit \unit:
+fn life_next_step %fn i32 i32 \step:
+    add step 1
+
+fn life_smaller_cell_size %fn i32 i32 \cell_size:
+    if:
+        le cell_size life_min_cell_size
+        then:
+            cell_size
+        else:
+            sub cell_size 4
+
+fn life_larger_cell_size %fn i32 i32 \cell_size:
+    if:
+        ge cell_size life_max_cell_size
+        then:
+            cell_size
+        else:
+            add cell_size 4
+
+fn life_update_action %fn LifeModel fn ActionId LifeModel \model\action:
+    let step %i32 life_model_step &model
+    let animate %bool life_model_animate &model
+    let cell_size %i32 life_model_cell_size &model
+    if:
+        life_action_matches action life_next_action
+        then:
+            let next_step %i32 life_next_step step
+            life_model_new next_step animate cell_size
+        else:
+            if:
+                life_action_matches action life_animate_action
+                then:
+                    let next_animate %bool not animate
+                    life_model_new step next_animate cell_size
+                else:
+                    if:
+                        life_action_matches action life_resolution_down_action
+                        then:
+                            let next_size %i32 life_smaller_cell_size cell_size
+                            life_model_new step animate next_size
+                        else:
+                            if:
+                                life_action_matches action life_resolution_up_action
+                                then:
+                                    let next_size %i32 life_larger_cell_size cell_size
+                                    life_model_new step animate next_size
+                                else:
+                                    model
+
+fn life_animation_tick %fn LifeModel LifeModel \model:
+    let step %i32 life_model_step &model
+    let animate %bool life_model_animate &model
+    let cell_size %i32 life_model_cell_size &model
+    let next_step %i32 life_next_step step
+    life_model_new next_step animate cell_size
+
+fn life_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--once"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            life_has_once_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    life_has_once_flag_loop next_idx count
+
+fn life_has_once_flag %impure fn unit bool \unit:
+    let count %i32 cliarg_count
+    life_has_once_flag_loop 1 count
+
+fn life_print_status %impure fn LifeModel impure fn MockRenderTarget unit \model\target:
+    print "life commands = "
+    let command_count %i32 mock_render_target_command_count &target
+    println_i32 command_count
+    print "life live cells step = "
+    let step %i32 life_model_step &model
+    let live_cells %i32 life_live_count_rows 0 step
+    println_i32 live_cells
+    print "life checksum step = "
+    let checksum %i32 life_state_hash_rows 0 step
+    println_i32 checksum
+
+fn life_run_once %impure fn LifeModel unit \model:
     match life_render:
         Result::Ok target:
-            match life_present_frame life_draw_step:
+            match life_present_frame model:
                 Result::Ok _:
-                    print "life commands = "
-                    let command_count %i32 mock_render_target_command_count &target
-                    println_i32 command_count
-                    print "life live cells step 3 = "
-                    let live_cells %i32 life_live_count_rows 0 life_draw_step
-                    println_i32 live_cells
-                    print "life checksum step 3 = "
-                    let checksum %i32 life_state_hash_rows 0 life_draw_step
-                    println_i32 checksum
+                    life_print_status model target
                 Result::Err _:
                     println "life gui protocol error"
         Result::Err _:
             println "life render error"
+
+fn life_event_loop %impure fn LifeModel unit \initial_model:
+    let mut model %LifeModel initial_model
+    let mut running %bool true
+    while running:
+        do:
+            let animate %bool life_model_animate &model
+            let timeout_ms %i32 if animate 250 60000
+            match gui_web_wait_action_result timeout_ms:
+                Result::Ok action_result:
+                    match action_result:
+                        Option::Some action:
+                            let next_model %LifeModel life_update_action model action
+                            match life_present_frame next_model:
+                                Result::Ok _:
+                                    set model next_model
+                                Result::Err _:
+                                    println "life gui protocol error";
+                                    set running false
+                        Option::None:
+                            if:
+                                animate
+                                then:
+                                    let next_model %LifeModel life_animation_tick model
+                                    match life_present_frame next_model:
+                                        Result::Ok _:
+                                            set model next_model
+                                        Result::Err _:
+                                            println "life gui protocol error";
+                                            set running false
+                                else:
+                                    unit
+                Result::Err _:
+                    println "life gui input unsupported";
+                    set running false
+
+fn main %impure fn unit unit \unit:
+    let model0 %LifeModel life_model_new life_draw_step false life_default_cell_size
+    if:
+        life_has_once_flag
+        then:
+            life_run_once model0
+        else:
+            match life_present_frame model0:
+                Result::Ok _:
+                    life_event_loop model0
+                Result::Err _:
+                    println "life gui protocol error"

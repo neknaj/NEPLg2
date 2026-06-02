@@ -8,6 +8,7 @@
 //: ### [契約/けいやく]
 //: - frame は `gui_web_stdout_frame_begin` で開始し、`gui_web_stdout_frame_end` で完了します。
 //: - frame 内では `gui_web_stdout_fill_rect` と `gui_web_stdout_text_run` を使って command を streaming します。
+//: - button などの入力領域は `gui_web_stdout_action_rect` で drawing command とは別の hit target として出力します。
 //: - 色は `Rgba8888` の channel を 0..255 の整数として出力します。
 //:
 //: ### [現状/げんじょう]

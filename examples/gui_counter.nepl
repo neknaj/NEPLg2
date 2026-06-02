@@ -250,19 +250,24 @@ fn counter_event_loop %impure fn CounterModel unit \initial_model:
     let mut running %bool true
     while running:
         do:
-            match gui_web_wait_action 60000:
-                Option::Some action:
-                    let event %GuiEvent gui_event_action action
-                    let update %Update CounterModel counter_update model event
-                    let next_model %CounterModel *field::get_ref &update "model"
-                    match counter_present_frame next_model:
-                        Result::Ok _:
-                            set model next_model
-                        Result::Err _:
-                            println "counter gui protocol error";
-                            set running false
-                Option::None:
-                    unit
+            match gui_web_wait_action_result 60000:
+                Result::Ok action_result:
+                    match action_result:
+                        Option::Some action:
+                            let event %GuiEvent gui_event_action action
+                            let update %Update CounterModel counter_update model event
+                            let next_model %CounterModel *field::get_ref &update "model"
+                            match counter_present_frame next_model:
+                                Result::Ok _:
+                                    set model next_model
+                                Result::Err _:
+                                    println "counter gui protocol error";
+                                    set running false
+                        Option::None:
+                            unit
+                Result::Err _:
+                    println "counter gui input unsupported";
+                    set running false
 
 fn main %impure fn unit unit \unit:
     let model0 %CounterModel counter_model_new 0
