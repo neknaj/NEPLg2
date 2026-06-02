@@ -29,7 +29,7 @@ fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
         Option::None:
             -1
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut built_len %i32 -1;
     let mut byte0 %i32 -1;
     let mut byte1 %i32 -1;
@@ -142,7 +142,7 @@ fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
         Option::None:
             -1
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut built_len %i32 -1;
     let mut byte0 %i32 -1;
     let mut byte1 %i32 -1;
@@ -201,7 +201,7 @@ fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
         Option::None:
             -1
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut built_len %i32 -1;
     let mut byte0 %i32 -1;
     let mut byte4 %i32 -1;

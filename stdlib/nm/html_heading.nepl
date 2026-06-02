@@ -21,7 +21,7 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/html_heading" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let sb0 %StringBuilder string_builder_new
 //:     let sb1 %StringBuilder nm_append_heading_open sb0 2
 //:     let sb2 %StringBuilder sb_append sb1 "T"

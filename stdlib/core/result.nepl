@@ -22,7 +22,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let ok_value %Result i32 str ok 1;
 //:     let err_value %Result i32 str err "oops";
 //:     let fallback_err %Result i32 str err "x";
@@ -44,7 +44,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //: // 型が合わない Err を入れているのでコンパイルエラーを期待
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let r %i32 "text";
 //:     r
 //: ```
@@ -64,7 +64,7 @@
 //: fn strlen %fn str i32 \s:
 //:     4
 //:
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let r0 %Result i32 str ok 9;
 //:     let r1 %Result i32 str err "oops";
 //:     let a %Result i32 str map r0 inc;
@@ -91,7 +91,7 @@
 //:         then ok mul x 2
 //:         else err "non-positive"
 //:
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let r0 %Result i32 str ok 3;
 //:     let r1 %Result i32 str ok -1;
 //:     let a %Result i32 str and_then r0 positive_double;
@@ -169,7 +169,7 @@ pub enum Result<.T, .E>:
 //:| #entry main
 //:| #target core
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let r %Result unit str Result::Err "oops";
 //:     let a %Result unit str r;
 //:     let b %Result unit str r;
@@ -188,7 +188,7 @@ pub enum Result<.T, .E>:
 //: fn token_id %fn i32 i32 \x:
 //:     x
 //:
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let token %LocalToken LocalToken @token_id;
 //:     let r %Result LocalToken str Result::Ok token;
 //:     let a %Result LocalToken str r;
@@ -310,7 +310,7 @@ pub fn unwrap_ok <.T, .E> %fn Result .T .E .T \r:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//:| fn main %impure fn unit i32 \unit:
+//:| fn main %impure fn void i32 \void:
 //:     let r %Result i32 str ok 1;
 //:     let report:
 //:         test_report_new "core_result_uwok"

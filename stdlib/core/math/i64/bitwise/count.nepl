@@ -15,7 +15,7 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/bitwise/count" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let one %i64 cast 1;
 //:     let eight %i64 cast 8;
 //:     let fifteen %i64 cast 15;

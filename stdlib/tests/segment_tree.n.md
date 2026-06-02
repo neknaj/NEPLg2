@@ -16,7 +16,7 @@ stdout: "test_report name=\"segment_tree_set_add_and_sum\" count=3 failed=0\nass
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let st0 %SegmentTree unwrap_ok new 6;
     let st1 %SegmentTree unwrap_ok replace st0 2 5;
     let st2 %SegmentTree unwrap_ok add st1 4 3;
@@ -53,7 +53,7 @@ stdout: "test_report name=\"segment_tree_invalid_range\" count=2 failed=0\nasser
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let st0 %SegmentTree unwrap_ok new 4;
     match replace st0 9 1:
         Result::Ok st_bad:

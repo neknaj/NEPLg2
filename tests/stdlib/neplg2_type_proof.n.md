@@ -135,7 +135,7 @@ fn check_bool_i32_mismatch %fn Result SelfhostTypeKind SelfhostProofRefutation R
         Result::Ok _kind:
             Result::Err "bool kind was accepted as i32"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 0 0 3
     let i32_fact %SelfhostTypeKindFact selfhost_type_kind_fact_new SelfhostTypeKind::I32 span
     let bool_fact %SelfhostTypeKindFact selfhost_type_kind_fact_new SelfhostTypeKind::Bool span

@@ -34,14 +34,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dq %Deque i32 unwrap_ok new;
 //:     let observed_len %i32 len &dq
 //:     let ok %bool eq observed_len 0
 //:     free dq
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> %impure fn unit Result Deque .T Diag \unit:
+pub fn new <.T: Copy> %impure fn void Result Deque .T Diag \void:
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -55,7 +55,7 @@ pub fn new <.T: Copy> %impure fn unit Result Deque .T Diag \unit:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dq %Deque i32 unwrap_ok with_capacity 16;
 //:     let ok %bool eq cap &dq 16
 //:     free dq

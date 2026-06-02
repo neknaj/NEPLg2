@@ -32,7 +32,7 @@
 //:     value %i32
 //: fn borrow_keys %fn &BTreeSetStorage CleanupPayload &Vec Option CleanupPayload \storage:
 //:     btreeset_storage_keys<CleanupPayload> storage
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     0
 //: ```
 pub fn btreeset_storage_keys <.T: Copy> %fn &BTreeSetStorage .T &Vec Option .T \storage:

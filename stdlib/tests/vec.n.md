@@ -18,7 +18,7 @@ stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 stat
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let v0_empty %Vec i32 unwrap_ok new;
     let v0_is_empty %bool is_empty &v0_empty;
     let v0_cap %Vec i32 unwrap_ok with_capacity 2;
@@ -160,7 +160,7 @@ fn gt_two %fn i32 bool \x:
 fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mapped_src %Vec i32:
         unwrap_ok new
         |> push 1 |> uwok
@@ -286,7 +286,7 @@ stdout: "test_report name=\"vec_partition_helpers\" count=4 failed=0\nassertion 
 fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let partition_even_len_src %Vec i32:
         unwrap_ok new
         |> push 1 |> uwok
@@ -364,7 +364,7 @@ stdout: "test_report name=\"vec_prefix_helpers\" count=1 failed=0\nassertion ind
 fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let take_src %Vec i32:
         unwrap_ok new
         |> push 1 |> uwok
@@ -404,7 +404,7 @@ stdout: "test_report name=\"vec_drop_while_helper\" count=1 failed=0\nassertion 
 fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let drop_src %Vec i32:
         unwrap_ok new
         |> push 1 |> uwok
@@ -447,7 +447,7 @@ stdout: "test_report name=\"vec_count_helper\" count=1 failed=0\nassertion index
 fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let count_src %Vec i32:
         unwrap_ok new
         |> push 1 |> uwok

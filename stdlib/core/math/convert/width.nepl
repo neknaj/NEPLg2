@@ -12,7 +12,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/convert/width" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     wrap_i64_to_i32 extend_s_i32_to_i64 7
 //: ```
 
@@ -94,7 +94,7 @@ pub fn extend16_s_i32 %fn i32 i32 \a:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let v %i64 cast -1;
 //:     assert lt v %i64 cast 0;
 //:     let v %i64 cast 123;
@@ -134,7 +134,7 @@ pub fn extend_s_i32_to_i64 %fn i32 i64 \a:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let v %i64 cast -1;
 //:     assert gt_u v %i64 cast 0;
 //:     let v %i64 cast 1;

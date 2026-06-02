@@ -14,7 +14,7 @@ trait BadCap:
     fn f %fn Self Self \x:
         x
 
-fn main %fn unit unit \unit:
+fn main %fn void unit \void:
     unit
 ```
 
@@ -32,6 +32,6 @@ trait Boxy:
     fn get <.T> %fn Self .T \x:
         x
 
-fn main %fn unit unit \unit:
+fn main %fn void unit \void:
     unit
 ```

@@ -21,7 +21,7 @@
 //:| #import "alloc/gui/app" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let first_id %WidgetId widget_id 7
 //:     let second_id %WidgetId widget_id 9

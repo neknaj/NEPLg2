@@ -26,7 +26,7 @@ impl Drop for Guard:
     fn drop %impure fn &Guard unit \self:
         unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut g %Guard Guard 0;
     set g Guard 1;
     let report:

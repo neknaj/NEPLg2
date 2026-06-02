@@ -6,7 +6,7 @@
 #import "./arena" as *
 
 //: selfhost_ty_stage0: TypeArena の smoke API
-pub fn selfhost_ty_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_ty_stage0 %impure fn void i32 \void:
     match selfhost_type_arena_new:
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:

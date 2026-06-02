@@ -26,7 +26,7 @@
 //:| #import "std/test" as *
 //:| #import "core/traits/hash" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let h1 %i32 hash32_by_trait 123456
 //:     let h2 %i32 hash32_by_trait 123456
 //:     let h3 %i32 hash32_by_trait 123457

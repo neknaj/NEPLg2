@@ -1189,6 +1189,7 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::CharLiteral(_) => "CharLiteral",
         TokenKind::StringLiteral(_) => "StringLiteral",
         TokenKind::UnitLiteral => "UnitLiteral",
+        TokenKind::VoidMarker => "VoidMarker",
         TokenKind::KwFn => "KwFn",
         TokenKind::KwLet => "KwLet",
         TokenKind::KwMut => "KwMut",

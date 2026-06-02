@@ -12,7 +12,7 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq align8 9 16 1 0
 //: ```
 
@@ -38,7 +38,7 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if and eq align8 1 8 eq align8 16 16 1 0
 //: ```
 pub fn align8 %fn i32 i32 \n:
@@ -66,10 +66,10 @@ pub fn align8 %fn i32 i32 \n:
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq max_alloc_payload_bytes 2147483632 1 0
 //: ```
-pub fn max_alloc_payload_bytes %fn unit i32 \unit:
+pub fn max_alloc_payload_bytes %fn void i32 \void:
     2147483632
 
 //: alloc_payload_fits: allocator payload byte 数が整列計算可能か判定する
@@ -92,7 +92,7 @@ pub fn max_alloc_payload_bytes %fn unit i32 \unit:
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if and alloc_payload_fits 2147483632 not alloc_payload_fits 2147483633 1 0
 //: ```
 pub fn alloc_payload_fits %fn i32 bool \bytes:
@@ -119,10 +119,10 @@ pub fn alloc_payload_fits %fn i32 bool \bytes:
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq size_of %i32 4 1 0
 //: ```
-pub fn size_of <.T> %fn unit i32 \unit:
+pub fn size_of <.T> %fn void i32 \void:
     #intrinsic "size_of" <.T> ()
 
 //: align_of: 型のアラインメントを取得する
@@ -146,8 +146,8 @@ pub fn size_of <.T> %fn unit i32 \unit:
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if ge align_of %i32 1 1 0
 //: ```
-pub fn align_of <.T> %fn unit i32 \unit:
+pub fn align_of <.T> %fn void i32 \void:
     #intrinsic "align_of" <.T> ()

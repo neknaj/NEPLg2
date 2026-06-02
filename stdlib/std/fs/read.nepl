@@ -17,7 +17,7 @@
 //:| #import "std/fs/read" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_read_to_string "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok text:
 //:             if:

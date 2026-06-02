@@ -30,7 +30,7 @@ fn rgba_color %fn i32 fn i32 fn i32 GuiColor \r\g\b:
     let rgba %Rgba8888 rgba8888_new rr gg bb aa
     gui_color_rgba8888 rgba
 
-fn sample_palette %fn unit ThemePalette \unit:
+fn sample_palette %fn void ThemePalette \void:
     theme_palette:
         rgba_color 10 11 12
         rgba_color 20 21 22
@@ -41,7 +41,7 @@ fn sample_palette %fn unit ThemePalette \unit:
         rgba_color 70 71 72
         rgba_color 80 81 82
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let palette %ThemePalette sample_palette
     let accent_color %GuiColor theme_palette_color &palette ThemeColorRole::Accent
     let accent_check match theme_color_as_rgba8888 accent_color:
@@ -81,7 +81,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let invalid_metric %i32 sub 0 1
     let invalid_check match theme_metrics_checked 2 1 invalid_metric 1 1:
         Result::Ok _metrics:
@@ -138,7 +138,7 @@ fn rgba_color %fn i32 fn i32 fn i32 GuiColor \r\g\b:
     let rgba %Rgba8888 rgba8888_new rr gg bb aa
     gui_color_rgba8888 rgba
 
-fn sample_palette %fn unit ThemePalette \unit:
+fn sample_palette %fn void ThemePalette \void:
     theme_palette:
         rgba_color 10 11 12
         rgba_color 20 21 22
@@ -149,7 +149,7 @@ fn sample_palette %fn unit ThemePalette \unit:
         rgba_color 70 71 72
         rgba_color 80 81 82
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let palette %ThemePalette sample_palette
     let metrics %ThemeMetrics unwrap_ok theme_metrics_checked 4 2 1 1 3
     let font_id %FontId font_id_new 7

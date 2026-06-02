@@ -20,7 +20,7 @@
 //:| #import "core/result" as *
 //:| #import "std/iotarget" as *
 //:| #import "std/streamio/writer" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let w %StreamWriter unwrap_ok open WriteStream::Stdio;
 //:     close write w "x";
 //:     0

@@ -17,7 +17,7 @@
 //:| #import "core/char" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let a %char 'A'
 //:     let hira %char '\u{3042}'
 //:     let valid %Result char str char_from_i32_result 0x3042

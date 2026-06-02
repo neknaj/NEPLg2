@@ -12,7 +12,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/raw" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     mem_size
 //: ```
 
@@ -37,7 +37,7 @@
 //:
 //: 計算量:
 //: - O(1)
-pub fn mem_size %fn unit i32 \unit:
+pub fn mem_size %fn void i32 \void:
     #if[target=wasm]
     #wasm:
         memory.size
@@ -333,7 +333,7 @@ pub fn mem_move %fn i32 fn i32 fn i32 unit \dst\src\len:
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/raw" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     memset_u8 8 1 65
 //:     0
 //: ```
@@ -381,7 +381,7 @@ pub fn fill_u8 %fn i32 fn i32 fn i32 unit \ptr\len\value:
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/raw" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     fill_i32 8 1 42
 //:     0
 //: ```

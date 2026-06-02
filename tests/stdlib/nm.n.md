@@ -11,7 +11,7 @@ ret: 0
 #import "alloc/string" as *
 #import "nm/parser" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let doc %Document parse_markdown "a\tb\n";
     let j %str document_to_json doc;
     let mut sb %StringBuilder string_builder_new;
@@ -38,7 +38,7 @@ ret: 0
 #import "nm/parser" as *
 #import "nm/html_gen" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let doc %Document parse_markdown "# A\n\nhello\n";
     let h %str render_document doc;
     let expected %str "<section class=\"nm-sec level-1\"><h1>A</h1><p>hello</p></section>";
@@ -60,7 +60,7 @@ ret: 0
 #import "nm/parser" as *
 #import "nm/html_gen" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let doc %Document parse_markdown "[Word/ruby] {Term/gloss/extra}\n";
     let h %str render_document doc;
     let expected %str "<p><ruby class=\"nm-ruby\"><rb>Word</rb><rt>ruby</rt></ruby> <ruby class=\"nm-anno\"><rb>Term</rb><rt><span class=\"nm-anno-note\">gloss</span><span class=\"nm-anno-note\">extra</span></rt></ruby></p>";
@@ -83,7 +83,7 @@ ret: 0
 #import "nm/html_gen" as *
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let doc %Document parse_markdown "&<>'\"\n";
     let h %str render_document doc;
     let expected %str "<p>&amp;&lt;&gt;&#39;&quot;</p>";
@@ -105,7 +105,7 @@ ret: 0
 #import "nm/parser" as *
 #import "nm/html_gen" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let doc %Document parse_markdown "## B\n";
     let h %str render_document doc;
     let expected %str "<section class=\"nm-sec level-2\"><h2>B</h2></section>";

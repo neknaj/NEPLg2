@@ -311,7 +311,7 @@ fn sha256_push_digest_checks %impure fn TestReport impure fn str impure fn Resul
             free digest
             report2
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let h0 new_fnv1a32
     let h1 fnv1a32_update h0 97
     let result fnv1a32_finalize h1

@@ -41,7 +41,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
@@ -115,7 +115,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
@@ -203,7 +203,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:

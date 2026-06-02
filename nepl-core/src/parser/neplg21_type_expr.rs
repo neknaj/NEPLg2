@@ -158,13 +158,7 @@ impl Parser {
     }
 
     fn parse_neplg21_function_type(&mut self, effect: Effect) -> Option<TypeExpr> {
-        let params = if self.consume_if(&TokenKind::UnitLiteral) {
-            Vec::new()
-        } else if self.check(&TokenKind::LParen)
-            && matches!(self.peek_kind_at(1), Some(TokenKind::RParen))
-        {
-            self.next();
-            self.expect(&TokenKind::RParen)?;
+        let params = if self.consume_if(&TokenKind::VoidMarker) {
             Vec::new()
         } else {
             vec![self.parse_neplg21_type_expr()?]

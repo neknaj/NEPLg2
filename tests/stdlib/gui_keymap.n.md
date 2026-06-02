@@ -54,7 +54,7 @@ fn command_is_activate %fn Option FocusRouteCommand bool \command:
         Option::None:
             false
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let key_map %FocusKeyMap focus_key_map_default
     let tab %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 0
     let shift_tab %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
@@ -91,7 +91,7 @@ exit_code: 0
 #import "std/gui/keymap" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let key_map %FocusKeyMap focus_key_map_default
     let key_up %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyUp 9 1
     let unknown %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 65 0
@@ -144,7 +144,7 @@ fn command_is_activate %fn Option FocusRouteCommand bool \command:
         Option::None:
             false
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let key_map %FocusKeyMap focus_key_map 100 101 102 4
     let shift_tab %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 100 4
     let space %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 102 0
@@ -175,7 +175,7 @@ exit_code: 0
 #import "std/gui/keymap" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let modifier_bits %i32 or key_modifier_shift_bit key_modifier_control_bit
     let event %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown key_code_arrow_up modifier_bits
     let event_key_code %i32 keyboard_event_key_code &event

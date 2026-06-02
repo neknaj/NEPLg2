@@ -20,7 +20,7 @@ exit_code: 0
 #import "core/option" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let id %WidgetId widget_id 10
     let action %ActionId action_id 55
     let config %ButtonConfig button_config id "Run" action
@@ -64,7 +64,7 @@ exit_code: 0
 #import "alloc/gui" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let id %WidgetId widget_id 9
     let action %ActionId action_id 4
     let config %ButtonConfig button_config id "Save" action

@@ -27,7 +27,7 @@ impl Drop for Guard:
     fn drop %impure fn &Guard unit \self:
         unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let g %Guard Guard 0;
     let report:
         test_report_new "drop_simple_let"
@@ -65,7 +65,7 @@ impl Drop for InnerGuard:
     fn drop %impure fn &InnerGuard unit \self:
         unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let outer %OuterGuard OuterGuard 0;
     let branch %i32 if true:
         then:
@@ -111,7 +111,7 @@ impl Drop for FalseGuard:
     fn drop %impure fn &FalseGuard unit \self:
         unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let flag %bool true;
     let branch %i32 if flag:
         then:
@@ -158,7 +158,7 @@ impl Drop for GuardB:
     fn drop %impure fn &GuardB unit \self:
         unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %GuardA GuardA 0;
     let b %GuardB GuardB 0;
     let report:

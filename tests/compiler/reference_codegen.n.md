@@ -14,7 +14,7 @@ stdout: "test_report name=\"scalar_addr_of_then_deref_returns_the_scalar_value\"
 fn deref_i32 %fn &i32 i32 \x:
     *x
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %i32 6
     let actual %i32 deref_i32 &a
     let report:
@@ -39,7 +39,7 @@ stdout: "test_report name=\"stdlib_clone_of_i32_through_a_reference_returns_the_
 fn clone_i32 %fn i32 i32 \x:
     Clone::clone &x
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 clone_i32 6
     let report:
         test_report_new "stdlib_clone_of_i32_through_a_reference_returns_the_scalar_value"
@@ -66,7 +66,7 @@ fn clone_ptr_addr %fn MemPtr u8 i32 \p:
     let q %MemPtr u8 Clone::clone &p
     mem_ptr_addr q
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 clone_ptr_addr mem_ptr_wrap<u8> 32
     let report:
         test_report_new "stdlib_clone_of_generic_MemPtr_impl_resolves_before_backend"
@@ -98,7 +98,7 @@ fn read_box %fn &LocalBox i32 \box:
         Full value:
             *value
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let box %LocalBox LocalBox::Full 42
     let actual %i32 read_box &box
     let report:
@@ -131,7 +131,7 @@ fn read_ref_opt %fn RefOpt i32 \opt:
         RefOpt::Some r:
             *r
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let x %i32 57
     let opt %RefOpt RefOpt::Some &x
     let actual %i32 read_ref_opt opt
@@ -172,7 +172,7 @@ fn token_box_addr %fn &TokenBox i32 \box:
         Owned token:
             mem_ptr_addr region_ptr token
 
-fn run_case %fn unit i32 \unit:
+fn run_case %fn void i32 \void:
     match alloc_region<LocalToken> 1:
         Result::Err _:
             1
@@ -189,7 +189,7 @@ fn run_case %fn unit i32 \unit:
                         Result::Ok _:
                             if gt addr 0 0 1
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 run_case
     let report:
         test_report_new "borrowed_enum_match_does_not_move_owner_payload"

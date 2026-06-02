@@ -27,6 +27,6 @@
 //:
 //: [目的/もくてき]:
 //: - `println` の基本的な使い方を示します。
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     println "Hello World!";
     println "こんにちは世界!";

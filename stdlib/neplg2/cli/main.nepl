@@ -19,8 +19,8 @@
 //:| #entry main
 //:| #target core
 //:| #import "neplg2/cli/main" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     selfhost_cli_main_stage0
 //: ```
-pub fn selfhost_cli_main_stage0 %fn unit i32 \unit:
+pub fn selfhost_cli_main_stage0 %fn void i32 \void:
     0

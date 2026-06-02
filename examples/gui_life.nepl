@@ -59,31 +59,31 @@ fn life_model_animate %fn &LifeModel bool \model:
 fn life_model_cell_size %fn &LifeModel i32 \model:
     *field::get_ref model "cell_size"
 
-fn life_board_width_px %fn unit i32 \unit:
+fn life_board_width_px %fn void i32 \void:
     1280
 
-fn life_board_height_px %fn unit i32 \unit:
+fn life_board_height_px %fn void i32 \void:
     640
 
-fn life_control_height %fn unit i32 \unit:
+fn life_control_height %fn void i32 \void:
     88
 
-fn life_frame_width %fn unit i32 \unit:
+fn life_frame_width %fn void i32 \void:
     life_board_width_px
 
-fn life_frame_height %fn unit i32 \unit:
+fn life_frame_height %fn void i32 \void:
     add life_board_height_px life_control_height
 
-fn life_default_cell_size %fn unit i32 \unit:
+fn life_default_cell_size %fn void i32 \void:
     32
 
-fn life_hd_cell_size %fn unit i32 \unit:
+fn life_hd_cell_size %fn void i32 \void:
     8
 
-fn life_min_cell_size %fn unit i32 \unit:
+fn life_min_cell_size %fn void i32 \void:
     8
 
-fn life_max_cell_size %fn unit i32 \unit:
+fn life_max_cell_size %fn void i32 \void:
     48
 
 fn life_cell_draw_size %fn i32 i32 \cell_size:
@@ -100,19 +100,19 @@ fn life_board_width %fn i32 i32 \cell_size:
 fn life_board_height %fn i32 i32 \cell_size:
     div_s life_board_height_px cell_size
 
-fn life_next_action %fn unit ActionId \unit:
+fn life_next_action %fn void ActionId \void:
     action_id 1
 
-fn life_animate_action %fn unit ActionId \unit:
+fn life_animate_action %fn void ActionId \void:
     action_id 2
 
-fn life_resolution_down_action %fn unit ActionId \unit:
+fn life_resolution_down_action %fn void ActionId \void:
     action_id 3
 
-fn life_resolution_up_action %fn unit ActionId \unit:
+fn life_resolution_up_action %fn void ActionId \void:
     action_id 4
 
-fn life_hd_action %fn unit ActionId \unit:
+fn life_hd_action %fn void ActionId \void:
     action_id 5
 
 fn life_action_matches %fn ActionId fn ActionId bool \actual\expected:
@@ -140,49 +140,49 @@ fn life_phase %fn i32 i32 \step:
 fn life_shift %fn i32 i32 \step:
     div_s step 4
 
-fn life_live_color %fn unit Rgba8888 \unit:
+fn life_live_color %fn void Rgba8888 \void:
     let r %u8 cast 36
     let g %u8 cast 220
     let b %u8 cast 184
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn life_live_color_alt %fn unit Rgba8888 \unit:
+fn life_live_color_alt %fn void Rgba8888 \void:
     let r %u8 cast 146
     let g %u8 cast 222
     let b %u8 cast 92
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn life_color_background %fn unit Rgba8888 \unit:
+fn life_color_background %fn void Rgba8888 \void:
     let r %u8 cast 9
     let g %u8 cast 14
     let b %u8 cast 18
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn life_color_grid %fn unit Rgba8888 \unit:
+fn life_color_grid %fn void Rgba8888 \void:
     let r %u8 cast 18
     let g %u8 cast 28
     let b %u8 cast 34
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn life_color_button %fn unit Rgba8888 \unit:
+fn life_color_button %fn void Rgba8888 \void:
     let r %u8 cast 40
     let g %u8 cast 96
     let b %u8 cast 120
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn life_color_button_alt %fn unit Rgba8888 \unit:
+fn life_color_button_alt %fn void Rgba8888 \void:
     let r %u8 cast 76
     let g %u8 cast 104
     let b %u8 cast 70
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn life_color_text %fn unit Rgba8888 \unit:
+fn life_color_text %fn void Rgba8888 \void:
     let r %u8 cast 235
     let g %u8 cast 242
     let b %u8 cast 238
@@ -367,23 +367,23 @@ fn life_present_patterns %impure fn LifeModel Result unit GuiError \model:
         Result::Err err:
             Result::Err err
 
-fn life_button_next_rect %fn unit GuiRect \unit:
+fn life_button_next_rect %fn void GuiRect \void:
     let y %i32 add life_board_height_px 16
     gui_rect_new 18 y 84 34
 
-fn life_button_animate_rect %fn unit GuiRect \unit:
+fn life_button_animate_rect %fn void GuiRect \void:
     let y %i32 add life_board_height_px 16
     gui_rect_new 114 y 112 34
 
-fn life_button_minus_rect %fn unit GuiRect \unit:
+fn life_button_minus_rect %fn void GuiRect \void:
     let y %i32 add life_board_height_px 16
     gui_rect_new 238 y 56 34
 
-fn life_button_plus_rect %fn unit GuiRect \unit:
+fn life_button_plus_rect %fn void GuiRect \void:
     let y %i32 add life_board_height_px 16
     gui_rect_new 306 y 56 34
 
-fn life_button_hd_rect %fn unit GuiRect \unit:
+fn life_button_hd_rect %fn void GuiRect \void:
     let y %i32 add life_board_height_px 16
     gui_rect_new 374 y 72 34
 
@@ -558,11 +558,11 @@ fn life_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
                     let next_idx %i32 add idx 1
                     life_has_once_flag_loop next_idx count
 
-fn life_has_once_flag %impure fn unit bool \unit:
+fn life_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     life_has_once_flag_loop 1 count
 
-fn life_live_count %fn unit i32 \unit:
+fn life_live_count %fn void i32 \void:
     18
 
 fn life_print_status %impure fn LifeModel unit \model:
@@ -620,7 +620,7 @@ fn life_event_loop %impure fn LifeModel unit \initial_model:
                     println "life gui input unsupported";
                     set running false
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let model0 %LifeModel life_model_new 0 false life_default_cell_size
     if:
         life_has_once_flag

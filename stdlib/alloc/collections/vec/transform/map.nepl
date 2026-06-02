@@ -56,7 +56,7 @@
 //:| #import "core/field" as *
 //: fn inc %fn i32 i32 \x:
 //:     add x 1
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok

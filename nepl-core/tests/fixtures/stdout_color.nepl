@@ -4,7 +4,7 @@
 
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     print_color AnsiColor::Red "red";
     print " ";
     println_color AnsiColor::Green "green";

@@ -61,7 +61,7 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:         Result::Err e:
 //:             assert_eq_i32 label expected e
 //:
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let report:
 //:         test_report_new "string_integer_parse_doc"
 //:         |> test_report_push assert_i32_ok "parse hex i32" (to_i32_radix "2a" 16) 42
@@ -272,7 +272,7 @@ pub fn to_u128_radix %fn str fn i32 Result u128 i32 \s\radix:
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "i128 parse failed unexpectedly"
 //:
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let report:
 //:         test_report_new "string_integer_parse_digit_window_doc"
 //:         |> test_report_push assert_i128_ok_i32 "positive hex window" (to_i128_radix "ff" 16) 255

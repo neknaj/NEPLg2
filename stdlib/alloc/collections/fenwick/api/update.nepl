@@ -45,7 +45,7 @@ pub fn fenwick_add_err %fn Fenwick fn Diag Result Fenwick FenwickAddError \fw\d:
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let fw %Fenwick:
 //:         unwrap_ok new 4
 //:         |> add 0 2 |> uwok

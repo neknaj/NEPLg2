@@ -26,7 +26,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashset/types" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match HashSetBucketState::Full:
 //:         HashSetBucketState::Empty:
 //:             1
@@ -59,7 +59,7 @@ impl Copy for HashSetBucketState:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashset/types" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match HashSetInsertSlotState::TombstoneSlot:
 //:         HashSetInsertSlotState::EmptySlot:
 //:             1
@@ -91,7 +91,7 @@ impl Copy for HashSetInsertSlotState:
 //:| #import "alloc/collections/hashset/types" as *
 //:| #import "core/field" as field
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let slot %HashSetInsertSlot HashSetInsertSlot 5 HashSetInsertSlotState::TombstoneSlot;
 //:     if eq field::get slot "index" 5 0 1
 //: ```
@@ -142,7 +142,7 @@ pub struct HashSet<.T,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
@@ -167,7 +167,7 @@ pub struct HashSetUpdateError<.T,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
@@ -194,7 +194,7 @@ pub fn hashset_update_error_diag <.T,.H> %fn &HashSetUpdateError .T .H Diag \e:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;

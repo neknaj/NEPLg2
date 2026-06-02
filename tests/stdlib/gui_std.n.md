@@ -21,7 +21,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let host %GuiHost gui_host_new gui_capabilities_text_grid window_id 9
     let command_result %Result GuiRuntimeCommand GuiError gui_runtime_interpret_effect &host request_redraw 12
     let checks match command_result:
@@ -57,7 +57,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let win %WindowId window_id 4
     let timer %TimerRequest timer_request win timer_id 2 1000 true
     let measurer %HostTextMeasurer host_text_measurer_fixed gui_capabilities_text_grid 8 16 12
@@ -103,7 +103,7 @@ exit_code: 0
 #import "std/gui" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let host %GuiHost gui_host_new gui_capabilities_text_grid window_id 9
     let batch0 %GuiEffectBatch gui_effect_batch_empty
     let batch1 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch0 request_redraw 1
@@ -141,7 +141,7 @@ ret: 0
 #import "core/result" as *
 #import "std/gui" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let host %GuiHost gui_host_headless
     match gui_runtime_interpret_effect &host request_redraw 1:
         Result::Ok _command:
@@ -170,7 +170,7 @@ exit_code: 0
 #import "std/gui" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let check0 assert gui_error_is_unsupported GuiError::Unsupported
     let check1 assert_str_eq "unsupported" gui_error_label GuiError::Unsupported
     let checks0 checks_new

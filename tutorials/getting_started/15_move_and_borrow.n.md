@@ -15,7 +15,7 @@ struct Token:
 fn id %fn i32 i32 \x:
     x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let a %Token Token @id
     let b %Token a
     let c %Token a

@@ -15,7 +15,7 @@
 //:| #import "core/field" as *
 //:| #import "core/math/convert/width" as *
 //:| #import "core/math/int128/u128" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let a %u128 to_u128 extend_s_i32_to_i64 40;
 //:     let b %u128 to_u128 extend_s_i32_to_i64 2;
 //:     let c %u128 add a b;

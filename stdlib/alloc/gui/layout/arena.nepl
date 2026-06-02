@@ -18,7 +18,7 @@
 //:| #import "alloc/gui" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 8 1
 //:     let root %WidgetDescriptor widget_label root_id "root" root_hint

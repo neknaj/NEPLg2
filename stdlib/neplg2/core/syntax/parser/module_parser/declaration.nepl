@@ -82,6 +82,8 @@ fn selfhost_parser_declaration_visibility %fn &Vec SelfhostToken fn i32 Selfhost
                             SelfhostModuleDeclarationVisibility::Private
                         TokenKind::UnitLiteral:
                             SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::VoidMarker:
+                            SelfhostModuleDeclarationVisibility::Private
                         TokenKind::KwFn:
                             SelfhostModuleDeclarationVisibility::Private
                         TokenKind::KwLet:
@@ -239,6 +241,8 @@ fn selfhost_parser_declaration_head_kind %fn TokenKind Option SelfhostModuleDecl
         TokenKind::StringLiteral:
             none
         TokenKind::UnitLiteral:
+            none
+        TokenKind::VoidMarker:
             none
         TokenKind::KwFn:
             none

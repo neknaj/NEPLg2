@@ -16,7 +16,7 @@ stdout: "test_report name=\"fenwick_add_and_sum\" count=3 failed=0\nassertion in
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let fw %Fenwick:
         unwrap_ok fw::new 5
         |> fw::add 0 1 |> uwok
@@ -52,7 +52,7 @@ stdout: "test_report name=\"fenwick_bounds_error\" count=1 failed=0\nassertion i
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let fw %Fenwick unwrap_ok fw::new 3;
     match fw::add fw 5 1:
         Result::Ok next:

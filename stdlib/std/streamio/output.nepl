@@ -12,7 +12,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/streamio/output" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let r %Result StdoutStream StdErrorKind flush StdoutStream unit;
 //:     match r:
 //:         Result::Ok _s:

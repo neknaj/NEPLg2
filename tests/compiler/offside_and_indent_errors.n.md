@@ -17,7 +17,7 @@ diag_codes: parser.token.expected
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block:
     1
     0
@@ -35,7 +35,7 @@ diag_codes: lexer.indent.width_mismatch
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block:
       1
     0
@@ -54,7 +54,7 @@ diag_codes: parser.token.unexpected
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x add:
         1
             2
@@ -74,7 +74,7 @@ diag_codes: parser.token.expected
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block: add 1 2
 ```
 
@@ -91,7 +91,7 @@ diag_codes: type.stack.extra_values
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     %unit block:
         add 1 2 add 3 4
         unit
@@ -111,7 +111,7 @@ diag_codes: parser.token.unexpected
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let result:
         add 1 2
             |> add 3
@@ -131,7 +131,7 @@ diag_codes: parser.token.unexpected
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     // 単行 block の中で while の複行ブロックを始めるのは不可
     block while lt 0 1:
         0

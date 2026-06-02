@@ -34,7 +34,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let data %Vec i32:
 //:         unwrap_ok v::new
 //:         |> v::push 1 |> unwrap_ok
@@ -59,10 +59,10 @@
 pub struct PrefixI32:
     data %Vec i32
 
-fn prefix_diag_capacity %impure fn unit Diag \unit:
+fn prefix_diag_capacity %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "prefix length exceeds i32 capacity"
 
-fn prefix_diag_range %impure fn unit Diag \unit:
+fn prefix_diag_range %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "prefix range out of bounds"
 
 fn prefix_diag_std_error %impure fn StdErrorKind Diag \kind:

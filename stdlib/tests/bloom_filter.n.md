@@ -17,7 +17,7 @@ stdout: "test_report name=\"bloom_filter_insert_and_contains\" count=2 failed=0\
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bf %BloomFilter i32 DefaultHash32:
         unwrap_ok new DefaultHash32 64
         |> insert 4
@@ -51,7 +51,7 @@ stdout: "test_report name=\"bloom_filter_clear_and_invalid_len\" count=2 failed=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bf0 %BloomFilter i32 DefaultHash32:
         unwrap_ok new DefaultHash32 64
         |> insert 7

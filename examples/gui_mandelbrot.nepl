@@ -67,16 +67,16 @@ fn mandelbrot_model_iteration_limit %fn &MandelbrotModel i32 \model:
 fn mandelbrot_model_mode %fn &MandelbrotModel i32 \model:
     *field::get_ref model "mode"
 
-fn mandelbrot_model_preview %fn unit MandelbrotModel \unit:
+fn mandelbrot_model_preview %fn void MandelbrotModel \void:
     mandelbrot_model_new 48 27 8 24 1
 
-fn mandelbrot_model_hd %fn unit MandelbrotModel \unit:
+fn mandelbrot_model_hd %fn void MandelbrotModel \void:
     mandelbrot_model_new 160 90 8 32 2
 
-fn mandelbrot_model_detail %fn unit MandelbrotModel \unit:
+fn mandelbrot_model_detail %fn void MandelbrotModel \void:
     mandelbrot_model_new 192 108 6 40 3
 
-fn mandelbrot_control_height %fn unit i32 \unit:
+fn mandelbrot_control_height %fn void i32 \void:
     72
 
 fn mandelbrot_frame_width %fn &MandelbrotModel i32 \model:
@@ -93,13 +93,13 @@ fn mandelbrot_frame_height %fn &MandelbrotModel i32 \model:
     let grid_height %i32 mandelbrot_grid_height model
     add grid_height mandelbrot_control_height
 
-fn mandelbrot_preview_action %fn unit ActionId \unit:
+fn mandelbrot_preview_action %fn void ActionId \void:
     action_id 1
 
-fn mandelbrot_hd_action %fn unit ActionId \unit:
+fn mandelbrot_hd_action %fn void ActionId \void:
     action_id 2
 
-fn mandelbrot_detail_action %fn unit ActionId \unit:
+fn mandelbrot_detail_action %fn void ActionId \void:
     action_id 3
 
 fn mandelbrot_action_matches %fn ActionId fn ActionId bool \actual\expected:
@@ -168,28 +168,28 @@ fn mandelbrot_color %fn i32 fn i32 Rgba8888 \iter\limit:
             let blue %u8 cast blue_i32
             rgba8888_new red green blue full
 
-fn mandelbrot_color_background %fn unit Rgba8888 \unit:
+fn mandelbrot_color_background %fn void Rgba8888 \void:
     let r %u8 cast 9
     let g %u8 cast 13
     let b %u8 cast 18
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn mandelbrot_color_button %fn unit Rgba8888 \unit:
+fn mandelbrot_color_button %fn void Rgba8888 \void:
     let r %u8 cast 34
     let g %u8 cast 60
     let b %u8 cast 87
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn mandelbrot_color_button_alt %fn unit Rgba8888 \unit:
+fn mandelbrot_color_button_alt %fn void Rgba8888 \void:
     let r %u8 cast 72
     let g %u8 cast 103
     let b %u8 cast 129
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn mandelbrot_color_text %fn unit Rgba8888 \unit:
+fn mandelbrot_color_text %fn void Rgba8888 \void:
     let r %u8 cast 234
     let g %u8 cast 242
     let b %u8 cast 249
@@ -408,7 +408,7 @@ fn mandelbrot_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
                     let next_idx %i32 add idx 1
                     mandelbrot_has_once_flag_loop next_idx count
 
-fn mandelbrot_has_once_flag %impure fn unit bool \unit:
+fn mandelbrot_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     mandelbrot_has_once_flag_loop 1 count
 
@@ -455,7 +455,7 @@ fn mandelbrot_event_loop %impure fn MandelbrotModel unit \initial_model:
                     println "mandelbrot gui input unsupported";
                     set running false
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let model0 %MandelbrotModel mandelbrot_model_preview
     if:
         mandelbrot_has_once_flag

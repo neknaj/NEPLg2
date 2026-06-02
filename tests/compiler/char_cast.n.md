@@ -15,7 +15,7 @@ stdout: "test_report name=\"char_variable_casts_to_code_point\" count=1 failed=0
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let c %char 'A'
     let actual %i32 cast c
     let report:
@@ -38,7 +38,7 @@ stdout: "test_report name=\"checked_code_point_can_cast_to_char\" count=1 failed
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let c %char cast 65
     let actual %i32 match c:
         'A':

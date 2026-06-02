@@ -23,7 +23,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/cast" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     set checks checks_push checks check_str_eq "true" serialize true;
     set checks checks_push checks check_str_eq "42" serialize 42;
@@ -56,7 +56,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
 
     let parsed_i32 %Result i32 StdErrorKind deserialize "42"

@@ -33,13 +33,13 @@
 //:| #import "alloc/collections/ringbuffer" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let rb %RingBuffer i32 unwrap_ok new;
 //:     let ok %bool is_empty &rb;
 //:     free rb
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> %impure fn unit Result RingBuffer .T Diag \unit:
+pub fn new <.T: Copy> %impure fn void Result RingBuffer .T Diag \void:
     with_capacity<.T> 8
 
 //: ## with_capacity

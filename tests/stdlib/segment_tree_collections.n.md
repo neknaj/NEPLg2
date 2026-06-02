@@ -27,7 +27,7 @@ stdout: "test_report name=\"segment_tree_pipe_usage\" count=2 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let st %SegmentTree:
         unwrap_ok new 5
         |> replace 0 2 |> uwok
@@ -70,7 +70,7 @@ stdout: "test_report name=\"segment_tree_update_free_reallocates\" count=1 faile
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let st_free %SegmentTree:
         unwrap_ok new 5
         |> replace 0 2 |> uwok
@@ -118,7 +118,7 @@ stdout: "test_report name=\"segment_tree_update_error_returns_owner\" count=2 fa
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let st %SegmentTree unwrap_ok new 4;
     match replace st 8 1:
         Result::Ok next0:
@@ -167,7 +167,7 @@ stdout: "test_report name=\"segment_tree_negative_length_rejected\" count=1 fail
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let neg %i32 sub 0 1
     match new neg:
         Result::Ok st:

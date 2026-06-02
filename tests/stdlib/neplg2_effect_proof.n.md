@@ -134,7 +134,7 @@ fn check_escaping_alloc_rejected %fn Result SelfhostEffectContext SelfhostProofR
         Result::Ok _context:
             Result::Err "escaping allocation was accepted in pure context"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 0 0 4
     let pure_fact %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable span
     let no_escape_alloc %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven span

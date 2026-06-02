@@ -18,13 +18,13 @@ stdout: "test_report name=\"list_main\" count=15 failed=0\nassertion index=0 sta
 #import "std/test" as *
 #import "core/field" as *
 
-fn mk %impure fn unit List i32 \unit:
+fn mk %impure fn void List i32 \void:
     let l0 %List i32 unwrap_ok new;
     let l1 %List i32 uwok cons 10 l0;
     let l2 %List i32 uwok cons 20 l1;
     uwok cons 30 l2
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let l0 %List i32 unwrap_ok new;
     let l0_len %i32 len &l0;
     free l0;
@@ -168,7 +168,7 @@ stdout: "test_report name=\"list_functional_helpers\" count=10 failed=0\nasserti
 #import "std/test" as *
 #import "core/field" as *
 
-fn mk %impure fn unit List i32 \unit:
+fn mk %impure fn void List i32 \void:
     let xs %List i32:
         unwrap_ok new
         |> push 4 |> uwok
@@ -189,7 +189,7 @@ fn add_acc %fn i32 fn i32 i32 \acc\x:
 fn gt_two %fn i32 bool \x:
     gt x 2
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mapped_src0 %List i32 mk;
     let mapped0 %List i32 uwok map mapped_src0 inc;
     let mut mapped0_value %i32 -1;

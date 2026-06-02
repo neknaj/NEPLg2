@@ -25,14 +25,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hm %BTreeMap i32 i32 unwrap_ok new;
 //:     let observed_len %i32 len &hm
 //:     let ok %bool eq observed_len 0
 //:     free hm
 //:     if ok 1 0
 //: ```
-pub fn new <.K: Copy,.V: Copy> %impure fn unit Result BTreeMap .K .V Diag \unit:
+pub fn new <.K: Copy,.V: Copy> %impure fn void Result BTreeMap .K .V Diag \void:
     let cap %i32 8
     match btreemap_alloc_storage<.K,.V> cap:
         Result::Err d:

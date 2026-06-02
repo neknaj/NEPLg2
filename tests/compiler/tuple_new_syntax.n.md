@@ -12,7 +12,7 @@ ret: 10
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         10
         20
@@ -30,7 +30,7 @@ ret: 100
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         100
         true
@@ -48,7 +48,7 @@ ret: 3
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         1
         Tuple:
@@ -70,7 +70,7 @@ ret: 8
 #import "core/math" as *
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         add 1 2
         sub 10 5
@@ -88,7 +88,7 @@ ret: 20
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         block:
             let x 10
@@ -110,7 +110,7 @@ ret: 5
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x 5
     let y 6
     let t Tuple:
@@ -133,7 +133,7 @@ ret: 2
 fn take <.T> %fn .T i32 \t:
     2
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     take Tuple:
         1
         2
@@ -150,7 +150,7 @@ ret: 3
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         3
         4
@@ -169,7 +169,7 @@ ret: 6
 #import "core/math" as *
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         1
         2
@@ -190,7 +190,7 @@ ret: 10
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         unit
         10
@@ -210,7 +210,7 @@ ret: 5
 #import "alloc/string" as *
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         "hello"
         "world"
@@ -231,7 +231,7 @@ ret: 2
 struct S:
     val %i32
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         S 1
         S 2
@@ -253,7 +253,7 @@ ret: 20
 struct Wrapper:
     pair %.Pair
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let w Wrapper Tuple:
         10
         20
@@ -275,7 +275,7 @@ ret: 1
 fn id <.T> %fn .T .T \x:
     x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t id Tuple:
         1
         2
@@ -293,7 +293,7 @@ ret: 6
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         5
         6
@@ -311,7 +311,7 @@ ret: 1
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         if true:
             1
@@ -331,7 +331,7 @@ ret: 2
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         // first element
         1
@@ -351,7 +351,7 @@ ret: 1
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         1
         2
@@ -370,7 +370,7 @@ ret: 10
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         10
         20
@@ -389,7 +389,7 @@ ret: 0
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t unit
     0
 ```

@@ -40,7 +40,7 @@ pub struct BinaryHeap<.T>:
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hp0 %BinaryHeap i32 unwrap_ok new;
 //:     match push hp0 7:
 //:         Result::Ok hp1:
@@ -65,7 +65,7 @@ pub struct BinaryHeapPushError<.T>:
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hp0 %BinaryHeap i32 unwrap_ok new;
 //:     match push hp0 7:
 //:         Result::Ok hp1:
@@ -93,7 +93,7 @@ pub fn binary_heap_push_error_diag <.T> %fn &BinaryHeapPushError .T Diag \e:
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hp0 %BinaryHeap i32 unwrap_ok with_capacity 1;
 //:     match push hp0 7:
 //:         Result::Ok hp1:

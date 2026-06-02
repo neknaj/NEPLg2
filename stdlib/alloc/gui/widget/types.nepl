@@ -15,7 +15,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let id %WidgetId widget_id 9
 //:     let action %ActionId action_id 4
 //:     let config %ButtonConfig button_config id "Run" action

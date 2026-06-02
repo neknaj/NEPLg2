@@ -12,7 +12,7 @@
 //:| #target std
 //:| #import "alloc/gui/widget" as *
 //:| #import "core/gui" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let hint %LayoutHint layout_hint_fixed 4 2
 //:     let min_size %GuiSize layout_hint_min_size &hint
 //:     gui_size_width &min_size

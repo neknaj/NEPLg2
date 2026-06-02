@@ -37,7 +37,7 @@ stdout: "test_report name=\"std_error_kind_and_diag_value_model\" count=8 failed
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut report test_report_new "std_error_kind_and_diag_value_model";
     set report test_report_push report assert_str_eq "Failure kind string" "Failure" std_error_kind_str StdErrorKind::Failure;
     set report test_report_push report assert_str_eq "OutOfMemory kind string" "OutOfMemory" std_error_kind_str StdErrorKind::OutOfMemory;
@@ -167,7 +167,7 @@ fn assert_kind_parse_error %fn str fn Result i32 StdErrorKind TestAssertion \lab
                 StdErrorKind::Other:
                     test_assertion_failed AssertionKind::StrEq label "ParseError" "Other" "expected ParseError"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut report test_report_new "outcome_helpers_keep_result_and_diags_separate";
     let ok0 %Outcome i32 StdErrorKind outcome_ok 42;
     set report test_report_push report assert_result_ok_i32 "ok0 result" outcome_result &ok0 42;
@@ -231,7 +231,7 @@ stdout: "test_report name=\"result_and_outcome_common_helpers\" count=8 failed=0
 #import "std/test" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut report test_report_new "result_and_outcome_common_helpers";
     let r0 %Result i32 StdErrorKind Result::Ok 9;
     let o0 %Outcome i32 StdErrorKind into_outcome r0;

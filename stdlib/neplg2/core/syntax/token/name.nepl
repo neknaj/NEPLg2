@@ -62,6 +62,8 @@ pub fn token_kind_name %fn TokenKind str \kind:
             "StringLiteral"
         TokenKind::UnitLiteral:
             "UnitLiteral"
+        TokenKind::VoidMarker:
+            "VoidMarker"
         TokenKind::KwFn:
             "KwFn"
         TokenKind::KwLet:

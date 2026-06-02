@@ -84,7 +84,7 @@ fn check_function_declaration_header %fn SelfhostModuleItem Result unit str \ite
         Option::None:
             Result::Err "expected parser declaration header evidence"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let source %str "//: doc\nfn add <(i32,i32)->i32> (a,b):\n    #if[target=wasm]\n    #wasm:\n        local.get 0\n        local.get 1\n    #if[target=llvm]\n    #llvmir:\n        %0 = add i32 %a, %b\n        ret i32 %0\n"
     let checks0 checks_new
     match selfhost_parse_module_source source:

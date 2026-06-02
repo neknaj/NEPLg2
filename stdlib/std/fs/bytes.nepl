@@ -110,7 +110,7 @@ pub fn fs_bytes_to_string_result %impure fn ByteBuf Result str i32 \buf:
 //:| #import "std/fs/bytes" as *
 //:| #import "alloc/io" as *
 //:| #import "alloc/string" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let text %str fs_bytes_to_string io_bytebuf_from_str "A";
 //:     if str_eq text "A" 0 1
 //: ```

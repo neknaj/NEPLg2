@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/i64" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let a %i64 cast 40;
 //:     let b %i64 cast 2;
 //:     let c %i64 add a b;

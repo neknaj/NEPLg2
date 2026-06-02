@@ -44,7 +44,7 @@ fn sci_model_new %fn i32 ScientificCalculatorModel \value:
 fn sci_model_value %fn &ScientificCalculatorModel i32 \model:
     *field::get_ref model "value"
 
-fn sci_init %fn unit ScientificCalculatorModel \unit:
+fn sci_init %fn void ScientificCalculatorModel \void:
     sci_model_new 0
 
 fn sci_action_digit %fn i32 ActionId \digit:
@@ -55,22 +55,22 @@ fn sci_action_digit %fn i32 ActionId \digit:
         else:
             action_id digit
 
-fn sci_action_square %fn unit ActionId \unit:
+fn sci_action_square %fn void ActionId \void:
     action_id 20
 
-fn sci_action_sqrt %fn unit ActionId \unit:
+fn sci_action_sqrt %fn void ActionId \void:
     action_id 21
 
-fn sci_action_negate %fn unit ActionId \unit:
+fn sci_action_negate %fn void ActionId \void:
     action_id 22
 
-fn sci_action_clear %fn unit ActionId \unit:
+fn sci_action_clear %fn void ActionId \void:
     action_id 23
 
-fn sci_action_double %fn unit ActionId \unit:
+fn sci_action_double %fn void ActionId \void:
     action_id 24
 
-fn sci_action_half %fn unit ActionId \unit:
+fn sci_action_half %fn void ActionId \void:
     action_id 25
 
 fn sci_action_raw %fn ActionId i32 \action:
@@ -187,35 +187,35 @@ fn sci_update_event %fn ScientificCalculatorModel fn GuiWebEvent ScientificCalcu
         Option::None:
             model
 
-fn sci_color_background %fn unit Rgba8888 \unit:
+fn sci_color_background %fn void Rgba8888 \void:
     let r %u8 cast 13
     let g %u8 cast 17
     let b %u8 cast 25
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn sci_color_display %fn unit Rgba8888 \unit:
+fn sci_color_display %fn void Rgba8888 \void:
     let r %u8 cast 20
     let g %u8 cast 32
     let b %u8 cast 38
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn sci_color_button %fn unit Rgba8888 \unit:
+fn sci_color_button %fn void Rgba8888 \void:
     let r %u8 cast 38
     let g %u8 cast 62
     let b %u8 cast 90
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn sci_color_function %fn unit Rgba8888 \unit:
+fn sci_color_function %fn void Rgba8888 \void:
     let r %u8 cast 76
     let g %u8 cast 102
     let b %u8 cast 72
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn sci_color_text %fn unit Rgba8888 \unit:
+fn sci_color_text %fn void Rgba8888 \void:
     let r %u8 cast 238
     let g %u8 cast 244
     let b %u8 cast 241
@@ -479,7 +479,7 @@ fn sci_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
                     let next_idx %i32 add idx 1
                     sci_has_once_flag_loop next_idx count
 
-fn sci_has_once_flag %impure fn unit bool \unit:
+fn sci_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     sci_has_once_flag_loop 1 count
 
@@ -524,7 +524,7 @@ fn sci_event_loop %impure fn ScientificCalculatorModel unit \initial_model:
                     println "scientific gui input unsupported";
                     set running false
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let model0 %ScientificCalculatorModel sci_init
     if:
         sci_has_once_flag

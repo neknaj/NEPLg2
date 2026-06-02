@@ -25,7 +25,7 @@
 //: #import "core/option" as *
 //: #import "core/result" as *
 //:
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let regions0 %DirtyRegionSet dirty_regions_empty
 //:     let rect %GuiRect gui_rect_new 0 0 1 1
 //:     match dirty_regions_push_checked regions0 rect:
@@ -108,14 +108,14 @@ pub fn dirty_regions_second %fn &DirtyRegionSet GuiRect \regions:
     *field::get_ref regions "second"
 
 //: dirty_regions_empty: dirty なし set を[作/つく]る
-pub fn dirty_regions_empty %fn unit DirtyRegionSet \unit:
+pub fn dirty_regions_empty %fn void DirtyRegionSet \void:
     DirtyRegionSet:
         DirtyRegionSetState::Empty
         gui_rect_new 0 0 0 0
         gui_rect_new 0 0 0 0
 
 //: dirty_regions_full: surface [全体/ぜんたい] dirty set を[作/つく]る
-pub fn dirty_regions_full %fn unit DirtyRegionSet \unit:
+pub fn dirty_regions_full %fn void DirtyRegionSet \void:
     DirtyRegionSet:
         DirtyRegionSetState::Full
         gui_rect_new 0 0 0 0

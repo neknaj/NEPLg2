@@ -79,7 +79,7 @@ pub fn str_byte_len %fn str i32 \s:
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "core/option" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let ok0 %bool match byte_at "AZ" 0:
 //:         Option::Some b:
 //:             eq b 'A'

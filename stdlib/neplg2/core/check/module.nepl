@@ -26,7 +26,7 @@
 //:| #import "neplg2/core/check/module" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match selfhost_module_ast_new:
 //:         Result::Ok ast0:
 //:             let entry %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::EntryDirective source_span_new 0 0 11 "#entry main"

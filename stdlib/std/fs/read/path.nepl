@@ -50,7 +50,7 @@
 //:| #import "std/fs/bytes" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_read_to_bytes "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok bytes:
 //:             let text %str fs_bytes_to_string bytes;
@@ -107,7 +107,7 @@ pub fn fs_read_to_bytes %impure fn str Result ByteBuf i32 \path:
 //:| #import "std/fs/read" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_read_to_string "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok text:
 //:             if:

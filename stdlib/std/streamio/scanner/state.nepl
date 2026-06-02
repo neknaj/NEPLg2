@@ -142,7 +142,7 @@ pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i3
 //:
 //: ### [目的/もくてき]
 //: - input buffer owner とは別に、borrowed scanner API が更新する 1 element の typed cursor storage を確保します。
-pub fn stream_scanner_cursor_new %fn unit Result Vec i32 str \unit:
+pub fn stream_scanner_cursor_new %fn void Result Vec i32 str \void:
     match vec::filled 1 0:
         Result::Err _e:
             Result::Err "streamio.scanner cursor alloc failed"

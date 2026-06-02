@@ -51,7 +51,7 @@ fn float_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:         Result::Err _:
 //:             assert label true
 //:
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let expected %f64 %f64 cast 125
 //:     let report:
 //:         test_report_new "string_float_parse_doc"

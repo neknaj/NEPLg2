@@ -48,7 +48,7 @@ function sourceForValue(value) {
     return [
         '#entry main',
         '#import "core/char" as *',
-        'fn main %fn unit i32 \\unit:',
+        'fn main %fn void i32 \\void:',
         `    char_utf8_cont_byte ${Number(value) | 0}`,
         '',
     ].join('\n');

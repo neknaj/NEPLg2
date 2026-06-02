@@ -27,7 +27,7 @@ stdout: "test_report name=\"disjoint_set_pipe_usage\" count=3 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let dsu0 %DisjointSet:
         unwrap_ok new 5
         |> union 0 1 |> uwok
@@ -76,7 +76,7 @@ stdout: "test_report name=\"disjoint_set_union_free_reallocates\" count=1 failed
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let dsu_free %DisjointSet:
         unwrap_ok new 4
         |> union 0 1 |> uwok
@@ -121,7 +121,7 @@ stdout: "test_report name=\"disjoint_set_new_zero_is_empty\" count=4 failed=0\na
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let len_ok %bool match new 0:
         Result::Err _e:
             false
@@ -190,7 +190,7 @@ stdout: "test_report name=\"disjoint_set_union_error_returns_owner\" count=1 fai
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let dsu %DisjointSet unwrap_ok new 4;
     match union dsu 1 9:
         Result::Ok next:
@@ -231,7 +231,7 @@ stdout: "test_report name=\"disjoint_set_negative_length_rejected\" count=1 fail
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let neg %i32 sub 0 1
     match new neg:
         Result::Ok dsu:

@@ -25,7 +25,7 @@ fn classify %fn ItemKind i32 \kind:
         _:
             20
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 classify ItemKind::Struct
     let report:
         test_report_new "enum_wildcard_arm_selects_default_variant"
@@ -56,7 +56,7 @@ fn unwrap_or_default %fn LocalOutcome i32 \result:
         _:
             99
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 unwrap_or_default LocalOutcome::Missing
     let report:
         test_report_new "enum_wildcard_arm_allows_payload_default"
@@ -78,7 +78,7 @@ enum ItemKind:
     Import
     Function
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let kind %ItemKind ItemKind::Import
     match kind:
         _:
@@ -100,7 +100,7 @@ enum ItemKind:
     Import
     Function
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let kind %ItemKind ItemKind::Import
     match kind:
         _:

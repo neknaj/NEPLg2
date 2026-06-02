@@ -24,7 +24,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let first_id %WidgetId widget_id 7
     let second_id %WidgetId widget_id 9
@@ -86,7 +86,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let button_id %WidgetId widget_id 7
     let action %ActionId action_id 42
@@ -141,7 +141,7 @@ fn is_ignored %fn FocusRouteResult bool \result:
         _:
             false
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let button_id %WidgetId widget_id 7
     let stale_id %WidgetId widget_id 99

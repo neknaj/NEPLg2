@@ -22,7 +22,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let button_id %WidgetId widget_id 2
     let action %ActionId action_id 7
@@ -87,7 +87,7 @@ fn is_none_event %fn Option GuiEvent bool \value:
         Option::None:
             true
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let button_id %WidgetId widget_id 2
     let action %ActionId action_id 7
@@ -132,7 +132,7 @@ ret: 20
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let first_id %WidgetId widget_id 2
     let second_id %WidgetId widget_id 3
@@ -198,7 +198,7 @@ fn gui_event_action_value %fn Option GuiEvent i32 \event:
         Option::None:
             0
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let parent_id %WidgetId widget_id 2
     let nested_id %WidgetId widget_id 3
@@ -268,7 +268,7 @@ fn is_none_event %fn Option GuiEvent bool \value:
         Option::None:
             true
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let disabled_id %WidgetId widget_id 2
     let missing_id %WidgetId widget_id 3

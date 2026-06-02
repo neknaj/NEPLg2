@@ -39,13 +39,13 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bpub\s+fn\s+byte_builder_empty\s+%fn\s+\(\)\s+ByteBuilder/,
+        /\bpub\s+fn\s+byte_builder_empty\s+%fn\s+void\s+ByteBuilder/,
         'ByteBuilder typed empty constructor must remain public',
     );
 
     assert.match(
         code,
-        /\bpub\s+fn\s+byte_builder_empty\s+%fn\s+\(\)\s+ByteBuilder\s+\\\(\):\s+ByteBuilder\s+ByteBuilderStorage::Empty\s+0\s+0\b/,
+        /\bpub\s+fn\s+byte_builder_empty\s+%fn\s+void\s+ByteBuilder\s+\\void:\s+ByteBuilder\s+ByteBuilderStorage::Empty\s+0\s+0\b/,
         'ByteBuilder typed empty constructor must use the structural empty storage state',
     );
 
@@ -111,14 +111,26 @@ function assertByteBuilderOwnerBoundary(code) {
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_free\s+%fn\s+ByteBuilder\s+\(\)[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_dealloc_owned_region\s+region\b/,
+        /\bfn\s+byte_builder_free\s+%fn\s+ByteBuilder\s+unit[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_dealloc_owned_region\s+region\b/,
         'ByteBuilder free must match storage state and consume only the Owned RegionToken payload',
     );
 
     assert.match(
         code,
-        /\bfn\s+byte_builder_reserve\s+%fn\s+ByteBuilder\s+fn\s+i32\s+Result\s+ByteBuilder\s+ByteBuilderError[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\balloc_region_bytes<u8>\s+next_cap[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_realloc_region_or_keep\s+region\s+next_cap\b/,
-        'ByteBuilder reserve must allocate only from Empty and reallocate only from the Owned RegionToken payload',
+        /\bfn\s+byte_builder_reserve_empty_storage\s+%fn\s+i32\s+fn\s+i32\s+fn\s+i32\s+Result\s+ByteBuilder\s+ByteBuilderError[\s\S]*?\balloc_region_bytes<u8>\s+next_cap\b/,
+        'ByteBuilder empty-storage reserve helper must be the only branch that allocates fresh byte storage',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_reserve_owned_storage\s+%fn\s+RegionToken\s+u8\s+fn\s+i32\s+fn\s+i32\s+fn\s+i32\s+Result\s+ByteBuilder\s+ByteBuilderError[\s\S]*?\bbyte_builder_realloc_region_or_keep\s+region\s+next_cap\b/,
+        'ByteBuilder owned-storage reserve helper must grow only through the RegionToken realloc boundary',
+    );
+
+    assert.match(
+        code,
+        /\bfn\s+byte_builder_reserve\s+%fn\s+ByteBuilder\s+fn\s+i32\s+Result\s+ByteBuilder\s+ByteBuilderError[\s\S]*?\bmatch\s+get\s+builder\s+"storage":[\s\S]*?\bByteBuilderStorage::Empty:[\s\S]*?\bbyte_builder_reserve_empty_storage\s+len0\s+cap0\s+next_cap[\s\S]*?\bByteBuilderStorage::Owned\s+region:[\s\S]*?\bbyte_builder_reserve_owned_storage\s+region\s+len0\s+cap0\s+next_cap\b/,
+        'ByteBuilder reserve must dispatch Empty and Owned storage through the narrow owner-preserving helpers',
     );
 
     assert.match(
@@ -140,7 +152,7 @@ function assertByteBuilderOwnerBoundary(code) {
     );
 
     for (const [name, pattern] of [
-        ['byte_builder_free', /\bfn\s+byte_builder_free\s+%fn\s+ByteBuilder\s+\(\)/],
+        ['byte_builder_free', /\bfn\s+byte_builder_free\s+%fn\s+ByteBuilder\s+unit/],
         ['byte_builder_reserve', /\bfn\s+byte_builder_reserve\s+%fn\s+ByteBuilder\s+fn\s+i32\s+Result\s+ByteBuilder\s+ByteBuilderError/],
         ['byte_builder_push_u8', /\bfn\s+byte_builder_push_u8\s+%fn\s+ByteBuilder\s+fn\s+i32\s+Result\s+ByteBuilder\s+ByteBuilderError/],
         ['byte_builder_push_str', /\bfn\s+byte_builder_push_str\s+%fn\s+ByteBuilder\s+fn\s+str\s+Result\s+ByteBuilder\s+ByteBuilderError/],

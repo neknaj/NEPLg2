@@ -10,7 +10,7 @@
 #import "std/stdio" as *
 
 //: clear_screen: 画面全体をクリアしてカーソルを左上に移動する
-pub fn clear_screen %impure fn unit unit \unit:
+pub fn clear_screen %impure fn void unit \void:
     print "\x1b[2J\x1b[H";
     unit
 
@@ -24,22 +24,22 @@ pub fn move_cursor %impure fn i32 impure fn i32 unit \col\row:
     unit
 
 //: cursor_home: カーソルを左上 (1,1) に移動する
-pub fn cursor_home %impure fn unit unit \unit:
+pub fn cursor_home %impure fn void unit \void:
     print "\x1b[H";
     unit
 
 //: hide_cursor: カーソルを非表示にする
-pub fn hide_cursor %impure fn unit unit \unit:
+pub fn hide_cursor %impure fn void unit \void:
     print "\x1b[?25l";
     unit
 
 //: show_cursor: カーソルを再表示する
-pub fn show_cursor %impure fn unit unit \unit:
+pub fn show_cursor %impure fn void unit \void:
     print "\x1b[?25h";
     unit
 
 //: clear_line: カーソル行を消去する
-pub fn clear_line %impure fn unit unit \unit:
+pub fn clear_line %impure fn void unit \void:
     print "\x1b[2K\r";
     unit
 
@@ -60,6 +60,6 @@ pub fn set_fg_color %impure fn AnsiColor unit \color:
     unit
 
 //: reset_color: 前景色と背景色をリセットする
-pub fn reset_color %impure fn unit unit \unit:
+pub fn reset_color %impure fn void unit \void:
     print "\x1b[0m";
     unit

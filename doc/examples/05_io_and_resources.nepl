@@ -94,7 +94,7 @@ pub let prompt %impure fn str str \msg:
     read_line unit
 
 
-pub let main %impure fn unit i32 \unit:
+pub let main %impure fn void i32 \void:
     let name prompt "ファイル名: "
     analyze_file name
     0

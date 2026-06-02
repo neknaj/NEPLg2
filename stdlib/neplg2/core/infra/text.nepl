@@ -26,7 +26,7 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "neplg2/core/infra/text" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match source_text_new 0 "smoke.nepl" "a\nb":
 //:         Result::Ok text:
 //:             let count %i32 source_text_line_count &text
@@ -336,7 +336,7 @@ pub fn source_text_location_for_offset %fn &SelfhostSourceText fn i32 Option Sel
             none
 
 //: selfhost_text_stage0: source text [基盤/きばん]の smoke API
-pub fn selfhost_text_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_text_stage0 %impure fn void i32 \void:
     match source_text_new 0 "stage0.nepl" "a\nb":
         Result::Ok text:
             let count %i32 source_text_line_count &text

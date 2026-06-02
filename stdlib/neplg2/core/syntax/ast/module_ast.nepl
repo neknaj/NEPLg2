@@ -27,7 +27,7 @@
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match selfhost_module_ast_new:
 //:         Result::Ok ast0:
 //:             let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl source_span_new 0 0 2 "fn"
@@ -328,7 +328,7 @@ pub fn selfhost_module_item_kind_name %fn SelfhostModuleItemKind str \kind:
             "ImplDecl"
 
 //: selfhost_module_ast_new: [空/から]の module AST を[作/つく]る
-pub fn selfhost_module_ast_new %impure fn unit Result SelfhostModuleAst StdErrorKind \unit:
+pub fn selfhost_module_ast_new %impure fn void Result SelfhostModuleAst StdErrorKind \void:
     let items_result %Result Vec SelfhostModuleItem StdErrorKind v::new
     match items_result:
         Result::Ok items:
@@ -361,7 +361,7 @@ pub fn selfhost_module_ast_free %impure fn SelfhostModuleAst unit \ast:
     v::free field::get ast "items"
 
 //: selfhost_module_ast_stage0: AST root の smoke API
-pub fn selfhost_module_ast_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_module_ast_stage0 %impure fn void i32 \void:
     match selfhost_module_ast_new:
         Result::Ok ast:
             let n %i32 selfhost_module_ast_len &ast

@@ -92,7 +92,7 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
 //:| #import "core/mem/types" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match alloc_region<u8> 4:
 //:         Result::Ok region:
 //:             match stdio_discard_read_buffer region StdErrorKind::OutOfMemory:
@@ -202,7 +202,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match stdio_read_all_buffer_result:
 //:         Result::Ok bytes:
 //:             let n %i32 io_bytebuf_len_ref &bytes
@@ -211,7 +211,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
 //:         Result::Err _:
 //:             -1
 //: ```
-pub fn stdio_read_all_buffer_result %impure fn unit Result ByteBuf StdErrorKind \unit:
+pub fn stdio_read_all_buffer_result %impure fn void Result ByteBuf StdErrorKind \void:
     let mut cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _e:
@@ -347,7 +347,7 @@ pub fn stdio_read_all_buffer_result %impure fn unit Result ByteBuf StdErrorKind 
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match stdio_read_line_buffer_result:
 //:         Result::Ok bytes:
 //:             let n %i32 io_bytebuf_len_ref &bytes
@@ -356,7 +356,7 @@ pub fn stdio_read_all_buffer_result %impure fn unit Result ByteBuf StdErrorKind 
 //:         Result::Err _:
 //:             -1
 //: ```
-pub fn stdio_read_line_buffer_result %impure fn unit Result ByteBuf StdErrorKind \unit:
+pub fn stdio_read_line_buffer_result %impure fn void Result ByteBuf StdErrorKind \void:
     let cap %i32 1024;
     match alloc_region<u8> cap:
         Result::Err _e:

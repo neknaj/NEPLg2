@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let a %i64 cast 0;
 //:     let b %i64 cast -1;
 //:     if lt_u a b 0 1
@@ -43,7 +43,7 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let a %i64 cast -1;
 //:     let b %i64 cast 1;
 //:     let c %i64 cast -2;

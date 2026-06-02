@@ -23,7 +23,7 @@
 //:| #import "alloc/string" as *
 //:| #import "nm/parser/scanner" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let ok_heading %bool eq nm_heading_level "### title" 3
 //:     let ok_hr %bool is_hr "---"
 //:     let ok_math %bool eq nm_find_math_end "a $x$ z" 3 1 4

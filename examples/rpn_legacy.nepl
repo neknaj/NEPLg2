@@ -54,7 +54,7 @@ fn print_error %impure fn str unit \msg:
 //:
 //: [目的/もくてき]:
 //: - 各入力行の先頭に `> ` を表示します。
-fn print_prompt %impure fn unit unit \unit:
+fn print_prompt %impure fn void unit \void:
     let prompt_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     print_style prompt_style "> ";
 
@@ -240,7 +240,7 @@ fn eval_line %impure fn str unit \line:
 //:
 //: [目的/もくてき]:
 //: - 初期バナーを表示し、EOF 相当の空入力まで 1 行ずつ評価します。
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let title_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     println_style title_style "RPN REPL";
     println_color AnsiColor::Gray "enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.";

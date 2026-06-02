@@ -75,7 +75,7 @@ pub fn gui_capabilities_new %fn SurfaceKind fn ColorFormat fn bool fn bool fn bo
 //:
 //: [目的/もくてき]:
 //: - TUI を GUI と[別/べつ]の public API にせず、text-cell surface を[持/も]つ backend として[表/あらわ]します。
-pub fn gui_capabilities_text_grid %fn unit GuiCapabilities \unit:
+pub fn gui_capabilities_text_grid %fn void GuiCapabilities \void:
     gui_capabilities_new:
         SurfaceKind::TextGrid
         ColorFormat::FormatRgb888
@@ -93,7 +93,7 @@ pub fn gui_capabilities_text_grid %fn unit GuiCapabilities \unit:
         none
 
 //: gui_capabilities_headless: render surface を[持/も]たない test backend capability を[作/つく]る
-pub fn gui_capabilities_headless %fn unit GuiCapabilities \unit:
+pub fn gui_capabilities_headless %fn void GuiCapabilities \void:
     gui_capabilities_new:
         SurfaceKind::Headless
         ColorFormat::FormatRgba8888

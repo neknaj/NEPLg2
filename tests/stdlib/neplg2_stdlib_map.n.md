@@ -40,7 +40,7 @@ fn check_path_result %impure fn TestReport impure fn Result SelfhostResolvedModu
         Result::Err _diag:
             checks_push checks Result::Err "path resolution returned Err"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib"
     let span %SelfhostSourceSpan source_span_empty 0 0
     let checks0 checks_new
@@ -86,9 +86,9 @@ fn edge_at %fn &SelfhostModuleGraph fn i32 SelfhostModuleGraphEdge \graph\idx:
     let edge %Option SelfhostModuleGraphEdge selfhost_module_graph_edge_at graph idx
     unwrap edge
 
-fn main %impure fn unit i32 \unit:
-    let root %str "#import \"./util\" as util\n#import \"core/result\" as *\nfn main <()->i32> \\():\n    0\n"
-    let util %str "fn util <()->i32> ():\n    1\n"
+fn main %impure fn void i32 \void:
+    let root %str "#import \"./util\" as util\n#import \"core/result\" as *\nfn main %fn void i32 \\void:\n    0\n"
+    let util %str "fn util %fn void i32 \\void:\n    1\n"
     let result_mod %str "enum Result:\n    Ok\n    Err\n"
     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib"
     let checks0 checks_new
@@ -159,7 +159,7 @@ stdout: mlstr:
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib"
     let checks0 checks_new
     match selfhost_module_path_resolve_import &map "user/main.nepl" source_span_empty 0 0 "../escape":

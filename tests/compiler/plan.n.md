@@ -12,7 +12,7 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let y %i32 block:
         add 1 2;
         add 3 4
@@ -31,7 +31,7 @@ diag_code: type.return.mismatch
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add 1 2;
 ```
 
@@ -46,7 +46,7 @@ diag_code: type.stack.extra_values
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add 1 2 3;
     0
 ```
@@ -62,7 +62,7 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add 1 2;;
     add 3 4;;;
     add 5 6
@@ -79,7 +79,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add 1 block:
         add 2 3
 ```
@@ -94,7 +94,7 @@ ret: 10
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if true 10 20
 ```
 
@@ -108,7 +108,7 @@ ret: 10
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if true then 10 else 20
 ```
 
@@ -122,7 +122,7 @@ ret: 10
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if true:
         then 10
         else 20
@@ -139,7 +139,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if true:
         then:
             add 1 2
@@ -158,7 +158,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if:
         lt 1 2
         10
@@ -176,7 +176,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if:
         cond lt 1 2
         then 10
@@ -194,7 +194,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if:
         lt 1 2
         then 10
@@ -211,7 +211,7 @@ ret: 0
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if true 0 if true 1 2
 ```
 
@@ -225,7 +225,7 @@ ret: 1
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if false then 0 else if true then 1 else 2
 ```
 
@@ -240,7 +240,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut x %i32 0;
 
     while lt x 10:
@@ -260,7 +260,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut x %i32 0;
 
     while lt x 10:
@@ -284,7 +284,7 @@ ret: 101
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x %i32 7;
     add 100 if lt x 10 1 2
 ```
@@ -300,7 +300,7 @@ ret: 101
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x %i32 7;
     add 100:
         if:
@@ -320,7 +320,7 @@ ret: 5
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let a %i32 if true 1 2;
     let b %i32 if true then 1 else 2;
     let c %i32 if true:
@@ -351,7 +351,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v %i32 block: // trailing comment is allowed
         add 1 2
     v
@@ -368,7 +368,7 @@ diag_code: parser.token.expected
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block: add 1 2
 ```
 
@@ -383,7 +383,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add:
         add 1 2
         add 3 4
@@ -400,7 +400,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut i %i32 0;
     while cond lt i 3 do set i add i 1;
     i
@@ -417,7 +417,7 @@ ret: 4
 #target core
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut i %i32 0;
     while:
         cond:
@@ -438,7 +438,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn i32 i32 \x:
         add x 1
     f 5
@@ -461,7 +461,7 @@ fn inc %fn i32 i32 \x:
 fn apply %fn i32 fn fn i32 i32 i32 \x\f:
     f x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     apply 7 @inc
 ```
 
@@ -476,7 +476,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let result %i32:
         add 1 add 2 3
         |> add 4
@@ -493,7 +493,7 @@ ret: 99
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block block block 99
 ```
 
@@ -507,7 +507,7 @@ diag_code: parser.token.unexpected
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block block:
         1
 ```
@@ -522,7 +522,7 @@ diag_code: parser.token.expected
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if:
         true
         1
@@ -539,7 +539,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block let a 1; add a 2
 ```
 
@@ -553,7 +553,7 @@ diag_code: type.annotation.mismatch
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x %i32 block let a 1; a;
     x
 ```
@@ -569,7 +569,7 @@ diag_code: type.stack.extra_values
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let _u %unit block:
         add 1 2 add 3 4
     0
@@ -586,7 +586,7 @@ ret: 2
 #target core
 #import "core/field" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let t Tuple:
         1
         2
@@ -604,7 +604,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v %i32 %i32 add 1 2;
     v
 ```
@@ -620,8 +620,8 @@ ret: 9
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
-    let f %fn unit i32 \unit:
+fn main %fn void i32 \void:
+    let f %fn void i32 \void:
         add 4 5
     f
 ```

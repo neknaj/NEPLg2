@@ -42,10 +42,10 @@
 //:| #target std
 //:| #import "std/stdio" as *
 //: #if[profile=debug]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     0
 //: #if[profile=release]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     debug "sample";
 //:     0
 //: ```
@@ -85,10 +85,10 @@ pub fn debug %impure fn str unit \_s:
 //:| #target std
 //:| #import "std/stdio" as *
 //: #if[profile=debug]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     0
 //: #if[profile=release]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     debug_color AnsiColor::Red "sample";
 //:     0
 //: ```
@@ -129,10 +129,10 @@ pub fn debug_color %impure fn AnsiColor impure fn str unit \_color\_s:
 //:| #target std
 //:| #import "std/stdio" as *
 //: #if[profile=debug]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     0
 //: #if[profile=release]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     debugln "sample";
 //:     0
 //: ```
@@ -172,10 +172,10 @@ pub fn debugln %impure fn str unit \_s:
 //:| #target std
 //:| #import "std/stdio" as *
 //: #if[profile=debug]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     0
 //: #if[profile=release]
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     debugln_color AnsiColor::Red "sample";
 //:     0
 //: ```

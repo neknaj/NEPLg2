@@ -43,7 +43,7 @@
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok
@@ -108,7 +108,7 @@ pub fn count <.T: Copy> %fn &Vec .T fn fn .T bool i32 \v\p:
 //:         unit
 //: fn is_even_payload %fn &DropPayload bool \item:
 //:     eq rem_s *field::get_ref item "value" 2 0
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 2)
 //:     let v2 %Vec DropPayload unwrap_ok push v1 (DropPayload 3)
@@ -160,7 +160,7 @@ pub fn count_ref <.T> %fn &Vec .T fn fn &.T bool i32 \v\p:
 //:| #import "core/result" as *
 //: fn add_acc %fn i32 fn i32 i32 \acc\x:
 //:     add acc x
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok
@@ -216,7 +216,7 @@ pub fn fold <.T: Copy,.U> %fn &Vec .T fn .U fn fn .U fn .T .U .U \v\acc\f:
 //:| #import "core/result" as *
 //: fn add_acc %fn i32 fn i32 i32 \acc\x:
 //:     add acc x
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok

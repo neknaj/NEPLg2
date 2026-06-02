@@ -264,7 +264,7 @@ pub fn text_paint_solid %fn Rgba8888 TextPaint \color:
     TextPaint color
 
 //: transform2d_identity: identity transform を[返/かえ]す
-pub fn transform2d_identity %fn unit Transform2d \unit:
+pub fn transform2d_identity %fn void Transform2d \void:
     Transform2d 1 0 0 0 1 0
 
 //: text_grid_point_new: text grid point を[作/つく]る

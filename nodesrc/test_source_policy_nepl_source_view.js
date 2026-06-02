@@ -13,6 +13,12 @@ assert.match(
     "fnSignaturePattern must preserve impure function signatures",
 );
 
+assert.match(
+    "pub fn read_all %impure fn void Result ByteBuf StdErrorKind \\void:",
+    new RegExp(fnSignaturePattern("read_all", [], "Result ByteBuf StdErrorKind", { effect: "impure" })),
+    "fnSignaturePattern must use void for zero-argument functions",
+);
+
 const legacy = legacyTypeSyntaxView(`
 // comment must not be visible to source policy checks
 pub struct BloomFilter<.T,.H>:
@@ -36,6 +42,15 @@ pub fn vec_push_rejected_with <.T,.R> %impure fn VecPushRejected .T impure fn im
 
 pub fn read_byte %fn i32 i32 \\addr:
     load_u8 %i32 add addr 4
+
+pub fn read_all %impure fn void Result ByteBuf StdErrorKind \\void:
+    read_all_impl
+
+pub fn make_unit_id %fn void fn unit unit \\void:
+    id_unit
+
+pub fn wrap_unit %fn unit fn void unit \\value:
+    make_unit
 
 let invariant %VecStorageInvariant vec_buffer_current_storage_invariant<.T> v_buffer_ref
 let e %BitSetUpdateError BitSetUpdateError bs d
@@ -70,6 +85,21 @@ assert.match(
     legacy,
     /pub\s+fn\s+vec_push_rejected_with\s+<\.T,\.R>\s+<\(VecPushRejected<\.T>,\(Vec<\.T>,\.T\)\*>\.R\)\*>\.R>\s+\(rejected,callback\):/,
     "legacyTypeSyntaxView must render nested impure owner-recovery callback signatures",
+);
+assert.match(
+    legacy,
+    /pub\s+fn\s+read_all\s+<\(\)\*>Result<ByteBuf,StdErrorKind>>\s+\(\):/,
+    "legacyTypeSyntaxView must render void marker as a zero-argument legacy signature",
+);
+assert.match(
+    legacy,
+    /pub\s+fn\s+make_unit_id\s+<\(\)->\(unit\)->unit>\s+\(\):/,
+    "legacyTypeSyntaxView must keep a zero-argument outer function separate from its unary unit result function",
+);
+assert.match(
+    legacy,
+    /pub\s+fn\s+wrap_unit\s+<\(unit\)->\(\)->unit>\s+\(value\):/,
+    "legacyTypeSyntaxView must keep a unary unit argument separate from a zero-argument result function",
 );
 assert.match(
     legacy,

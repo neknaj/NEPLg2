@@ -20,7 +20,7 @@
 //:
 //: [実装/じっそう]:
 //: - 入力 byte buffer として empty `Vec i32` を[確保/かくほ]します。
-pub fn new_sha256 %impure fn unit Result Sha256 StdErrorKind \unit:
+pub fn new_sha256 %impure fn void Result Sha256 StdErrorKind \void:
     match new:
         Result::Err e:
             Result::Err e

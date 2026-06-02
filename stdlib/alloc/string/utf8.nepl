@@ -30,7 +30,7 @@
 //:| #target std
 //:| #import "alloc/string/utf8" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let is_ascii %bool match string_utf8_lead_kind 65:
 //:         StringUtf8LeadKind::Ascii:
 //:             true
@@ -205,7 +205,7 @@ fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit str 
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let s %str "nep"
 //:     let data %MemPtr u8 string_data_ptr s
 //:     let valid %bool match string_utf8_validate_mem data len s:

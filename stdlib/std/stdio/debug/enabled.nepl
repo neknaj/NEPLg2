@@ -45,7 +45,7 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     debug "sample";
 //: ```
 #if[profile=debug]
@@ -84,7 +84,7 @@ pub fn debug %impure fn str unit \s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     debug_color AnsiColor::Red "sample";
 //: ```
 #if[profile=debug]
@@ -123,7 +123,7 @@ pub fn debug_color %impure fn AnsiColor impure fn str unit \color\s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     debugln "sample";
 //: ```
 #if[profile=debug]
@@ -162,7 +162,7 @@ pub fn debugln %impure fn str unit \s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     debugln_color AnsiColor::Red "sample";
 //: ```
 #if[profile=debug]

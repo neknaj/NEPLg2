@@ -2022,7 +2022,7 @@ mod tests {
     /// ことを確認する。
     #[test]
     fn materialized_public_surface_typechecks_imported_callable_without_dependency_body() {
-        let dep_source = "pub fn dep_value %fn unit i32 \\unit:\n    7\n";
+        let dep_source = "pub fn dep_value %fn void i32 \\void:\n    7\n";
         let mut dep_source_map = SourceMap::new();
         let dep_file = dep_source_map.add("project/dep.nepl", String::from(dep_source));
         let dep_module = parse_source(dep_file, dep_source);
@@ -2039,7 +2039,7 @@ mod tests {
         );
 
         let root_source =
-            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    dep_value\n";
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn void i32 \\void:\n    dep_value\n";
         let mut root_source_map = SourceMap::new();
         let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
         let materialized_dep_file =
@@ -2107,7 +2107,7 @@ mod tests {
         );
 
         let root_source =
-            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    dep_first 1 2\n";
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn void i32 \\void:\n    dep_first 1 2\n";
         let mut root_source_map = SourceMap::new();
         let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
         let materialized_dep_file =
@@ -2159,7 +2159,7 @@ mod tests {
         );
 
         let root_source =
-            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit Pair \\unit:\n    Pair 1 2\n";
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn void Pair \\void:\n    Pair 1 2\n";
         let mut root_source_map = SourceMap::new();
         let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
         let materialized_dep_file =
@@ -2199,7 +2199,7 @@ mod tests {
     fn materialized_public_surface_skips_same_file_source_definitions_left_in_ast() {
         let dep_source = "pub struct Pair:\n    left %i32\n    right %i32\n";
         let root_source =
-            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit Pair \\unit:\n    Pair 1 2\n";
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn void Pair \\void:\n    Pair 1 2\n";
         let mut source_map = SourceMap::new();
         let dep_file = source_map.add("project/dep.nepl", String::from(dep_source));
         let root_file = source_map.add("project/root.nepl", String::from(root_source));
@@ -2253,7 +2253,7 @@ mod tests {
     fn materialized_public_surface_skips_source_definitions_from_entry_source_path() {
         let dep_source = "pub fn dep_value %fn i32 i32 \\x:\n    x\n";
         let root_source =
-            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit i32 \\unit:\n    dep_value 9\n";
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn void i32 \\void:\n    dep_value 9\n";
         let mut source_map = SourceMap::new();
         let dep_file = source_map.add("project/dep.nepl", String::from(dep_source));
         let facade_file = source_map.add("project/facade.nepl", String::new());
@@ -2320,7 +2320,7 @@ mod tests {
             "        *x\n",
         );
         let root_source =
-            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit Item \\unit:\n    Item 1\n";
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn void Item \\void:\n    Item 1\n";
         let mut source_map = SourceMap::new();
         let dep_file = source_map.add("project/dep.nepl", String::from(dep_source));
         let facade_file = source_map.add("project/facade.nepl", String::new());

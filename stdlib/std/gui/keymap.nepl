@@ -19,7 +19,7 @@
 //:| #import "std/gui/keymap" as *
 //:| #import "core/gui" as *
 //:| #import "core/option" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let event %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
 //:     match keyboard_event_to_focus_route_command &focus_key_map_default event:
 //:         Option::Some command:
@@ -80,7 +80,7 @@ pub fn focus_key_map %fn i32 fn i32 fn i32 fn i32 FocusKeyMap \tab_key_code\ente
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn focus_key_map_default %fn unit FocusKeyMap \unit:
+pub fn focus_key_map_default %fn void FocusKeyMap \void:
     focus_key_map 9 13 32 1
 
 //: key_code_arrow_up: std layer の ArrowUp key code を[返/かえ]す
@@ -90,31 +90,31 @@ pub fn focus_key_map_default %fn unit FocusKeyMap \unit:
 //:
 //: [注意/ちゅうい]:
 //: - この値は raw ANSI sequence ではありません。platform adapter が raw input を[解析/かいせき]した後に[使/つか]います。
-pub fn key_code_arrow_up %fn unit i32 \unit:
+pub fn key_code_arrow_up %fn void i32 \void:
     1001
 
 //: key_code_arrow_down: std layer の ArrowDown key code を[返/かえ]す
-pub fn key_code_arrow_down %fn unit i32 \unit:
+pub fn key_code_arrow_down %fn void i32 \void:
     1002
 
 //: key_code_arrow_right: std layer の ArrowRight key code を[返/かえ]す
-pub fn key_code_arrow_right %fn unit i32 \unit:
+pub fn key_code_arrow_right %fn void i32 \void:
     1003
 
 //: key_code_arrow_left: std layer の ArrowLeft key code を[返/かえ]す
-pub fn key_code_arrow_left %fn unit i32 \unit:
+pub fn key_code_arrow_left %fn void i32 \void:
     1004
 
 //: key_modifier_shift_bit: std layer の Shift modifier bit を[返/かえ]す
-pub fn key_modifier_shift_bit %fn unit i32 \unit:
+pub fn key_modifier_shift_bit %fn void i32 \void:
     1
 
 //: key_modifier_alt_bit: std layer の Alt modifier bit を[返/かえ]す
-pub fn key_modifier_alt_bit %fn unit i32 \unit:
+pub fn key_modifier_alt_bit %fn void i32 \void:
     2
 
 //: key_modifier_control_bit: std layer の Control modifier bit を[返/かえ]す
-pub fn key_modifier_control_bit %fn unit i32 \unit:
+pub fn key_modifier_control_bit %fn void i32 \void:
     4
 
 //: keyboard_event_from_key_code: std key code と modifier bit から `KeyboardEvent` を[作/つく]る

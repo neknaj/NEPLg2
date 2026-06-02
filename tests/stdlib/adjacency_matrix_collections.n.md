@@ -26,7 +26,7 @@ stdout: "test_report name=\"adjacency_matrix_pipe_usage\" count=4 failed=0\nasse
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let g0 %AdjacencyMatrix:
         unwrap_ok new 6
         |> insert 1 3 |> uwok
@@ -78,7 +78,7 @@ stdout: "test_report name=\"adjacency_matrix_free_releases_owned_storage\" count
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let g0 %AdjacencyMatrix:
         unwrap_ok new 6
         |> insert 1 3 |> uwok
@@ -119,7 +119,7 @@ stdout: "test_report name=\"adjacency_matrix_update_error_recovers_owner\" count
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let g0 %AdjacencyMatrix unwrap_ok new 6;
     let ok0 %bool:
         match insert g0 6 0:
@@ -173,7 +173,7 @@ stdout: "test_report name=\"adjacency_matrix_non_positive_length_rejected\" coun
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match new 0:
         Result::Ok g:
             free g

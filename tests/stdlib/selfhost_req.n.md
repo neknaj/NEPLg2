@@ -25,7 +25,7 @@ fn consume_str %fn str unit \s:
     len s
     unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     // 要件: ファイル I/O の失敗が Result で扱えること
     let path "__definitely_missing_selfhost_req_file__.txt";
     let res %Result str i32 fs_read_to_string path;
@@ -61,7 +61,7 @@ stdout: "test_report name=\"selfhost_req_byte_manipulation\" count=1 failed=0\na
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     // 要件: u8 型 (現状は i32/bool/f32/str のみで u8 がない)
     let b1 %u8 cast 0xDE;
     let b2 %u8 cast 0xAD;
@@ -107,7 +107,7 @@ fn consume_str %fn str unit \s:
     len s
     unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s "  fn main(a: i32)  ";
 
     // 要件: trim (前後の空白除去)
@@ -182,7 +182,7 @@ fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError s
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     // 要件: キーに str を指定できる HashMap
     let map0 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
     let map1 %HashMap str i32 DefaultHash32 must_hms insert map0 "foo" 10;
@@ -217,7 +217,7 @@ stdout: "test_report name=\"selfhost_req_string_builder\" count=1 failed=0\nasse
 #import "alloc/string" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     // 要件: StringBuilder のような可変文字列バッファ
     let mut sb %StringBuilder string_builder_new;
 
@@ -300,7 +300,7 @@ fn must_hmp %impure fn Result HashMap Point str DefaultHash32 HashMapUpdateError
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let map0 %HashMap Point str DefaultHash32 must_hmp new DefaultHash32;
     let map1 %HashMap Point str DefaultHash32 must_hmp insert map0 (Point 10 20) "Start";
     let got %i32 match get &map1 \Point 10 20:

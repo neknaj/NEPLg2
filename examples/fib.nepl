@@ -35,7 +35,7 @@
 //:
 //: [目的/もくてき]:
 //: - 状態を持つ逐次計算の基本形を示します。
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let mut a %i32 0;
     let mut b %i32 1;
     let mut i %i32 0;

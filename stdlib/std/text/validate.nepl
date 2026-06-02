@@ -23,7 +23,7 @@
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let valid %bool match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
 //:             false
@@ -63,7 +63,7 @@
 //:| #target std
 //:| #import "std/text/validate" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let is_ascii %bool match text_utf8_lead_kind 65:
 //:         TextUtf8LeadKind::Ascii:
 //:             true
@@ -136,7 +136,7 @@ pub fn text_utf8_lead_kind %fn i32 TextUtf8LeadKind \b:
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let matched %bool match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
 //:             false
@@ -282,7 +282,7 @@ fn text_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit StdErr
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let valid %bool match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
 //:             false

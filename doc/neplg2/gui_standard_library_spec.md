@@ -119,7 +119,7 @@ Application model は次である。
 
 ```text
 App Model:
-    init   %fn unit Model
+    init   %fn void Model
     update %fn Model GuiEvent (Update Model)
     view   %fn Model ViewTree
 

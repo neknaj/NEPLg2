@@ -32,7 +32,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/stdio/write" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     print_byte 'A'
 //: ```
 pub fn print_byte %impure fn i32 unit \b:

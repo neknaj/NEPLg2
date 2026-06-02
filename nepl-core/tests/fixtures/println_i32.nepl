@@ -3,7 +3,7 @@
 #target wasi
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     print_i32 1;
     println_i32 2;
     print_i32 3;

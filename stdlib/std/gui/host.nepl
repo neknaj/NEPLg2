@@ -38,7 +38,7 @@ pub fn gui_host_new %fn GuiCapabilities fn WindowId GuiHost \capabilities\defaul
     GuiHost capabilities default_window
 
 //: gui_host_headless: test/headless 用 host contract を[作/つく]る
-pub fn gui_host_headless %fn unit GuiHost \unit:
+pub fn gui_host_headless %fn void GuiHost \void:
     gui_host_new gui_capabilities_headless window_id 0
 
 //: gui_host_capabilities: host capability を[読/よ]む

@@ -26,7 +26,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/graph" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     selfhost_module_graph_stage0
 //: ```
 
@@ -107,7 +107,7 @@ pub fn selfhost_module_graph_edge_new %fn str fn str fn SelfhostSourceSpan Selfh
     SelfhostModuleGraphEdge from to span
 
 //: selfhost_module_graph_new: [空/から]の module graph を[作/つく]る
-pub fn selfhost_module_graph_new %impure fn unit Result SelfhostModuleGraph StdErrorKind \unit:
+pub fn selfhost_module_graph_new %impure fn void Result SelfhostModuleGraph StdErrorKind \void:
     let nodes_result %Result Vec SelfhostModuleGraphNode StdErrorKind v::new
     match nodes_result:
         Result::Ok nodes:
@@ -413,12 +413,12 @@ pub fn selfhost_build_module_graph_with_path_map %impure fn &SelfhostVirtualFile
             Result::Err selfhost_module_graph_oom_diag source_span_empty 0 0
 
 //: selfhost_module_graph_stage0: VFS から import graph を[作/つく]る smoke API
-pub fn selfhost_module_graph_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_module_graph_stage0 %impure fn void i32 \void:
     match selfhost_vfs_new:
         Result::Ok vfs0:
-            match selfhost_vfs_add vfs0 "main.nepl" "#import \"util.nepl\" as util\nfn main <()->i32> ():\n    0\n":
+            match selfhost_vfs_add vfs0 "main.nepl" "#import \"util.nepl\" as util\nfn main %fn void i32 \\void:\n    0\n":
                 Result::Ok vfs1:
-                    match selfhost_vfs_add vfs1 "util.nepl" "fn util <()->i32> ():\n    1\n":
+                    match selfhost_vfs_add vfs1 "util.nepl" "fn util %fn void i32 \\void:\n    1\n":
                         Result::Ok vfs2:
                             match selfhost_build_module_graph &vfs2 "main.nepl":
                                 Result::Ok graph:

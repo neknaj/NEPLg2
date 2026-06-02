@@ -44,7 +44,7 @@
 //:
 //: [目的/もくてき]:
 //: - CLI の引数一覧と基本用途をまとめて表示します。
-fn print_usage %impure fn unit unit \unit:
+fn print_usage %impure fn void unit \void:
     println "Neknaj Markdown (Neknaj Prefix Language) CLI";
     println "";
     println "Reads Markdown from stdin and writes AST or HTML to stdout.";
@@ -62,7 +62,7 @@ fn print_usage %impure fn unit unit \unit:
 //:
 //: [目的/もくてき]:
 //: - help 表示と通常変換の分岐を行います。
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let argc %i32 cliarg_count;
     let mut mode %str "--ast";
     let mut should_run %bool true;

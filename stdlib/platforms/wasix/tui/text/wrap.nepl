@@ -27,7 +27,7 @@ pub struct TuiStrPushRes:
 //:
 //: [目的/もくてき]:
 //: - `Vec` 初期確保に失敗した場合の空の折り返し結果を作ります。
-pub fn tui_empty_str_vec %fn unit Vec str \unit:
+pub fn tui_empty_str_vec %fn void Vec str \void:
     v::vec_empty
 
 //: tui_push_str: `Vec str` push を trap せず結果化する

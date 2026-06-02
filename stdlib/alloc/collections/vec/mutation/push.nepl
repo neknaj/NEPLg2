@@ -67,7 +67,7 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \s
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec i32 unwrap_ok new;
 //:     let v1 %Vec i32 unwrap_ok push v0 7;
 //:     let observed_len %i32 len &v1
@@ -89,7 +89,7 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \s
 //: impl Drop for DropPayload:
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 7)
 //:     let observed_len %i32 len &v1
@@ -107,7 +107,7 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \s
 //:| #import "core/result" as *
 //: struct PlainPayload:
 //:     value %i32
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec PlainPayload vec_empty<PlainPayload>
 //:     let _v1 %Vec PlainPayload unwrap_ok push v0 (PlainPayload 7)
 //:     0
@@ -159,7 +159,7 @@ pub fn vec_push_error_rejected <.T> %fn VecPushError .T VecPushRejected .T \e:
 //:         Result::Err e:
 //:             let rejected %VecPushRejected DropPayload vec_push_error_rejected e
 //:             vec_push_rejected_with rejected @recover_failed_push
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let items %Vec DropPayload unwrap_ok new
 //:     push_or_recover items (DropPayload 7)
 //: ```
@@ -209,7 +209,7 @@ fn vec_realloc_region_error_kind <.T> %fn &VecReallocRegionError .T StdErrorKind
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec i32 unwrap_ok with_capacity 1;
 //:     let v1 %Vec i32 unwrap_ok push v0 10;
 //:     let v2 %Vec i32 unwrap_ok push v1 20;

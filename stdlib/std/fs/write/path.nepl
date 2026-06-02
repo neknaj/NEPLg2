@@ -76,7 +76,7 @@ pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result unit i32 \path\
 //:| #import "std/fs/read" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_write_to_string "tmp/fs_write_to_string_doctest.txt" "fs write":
 //:         Result::Err _e:
 //:             1

@@ -35,7 +35,7 @@
 //:| #import "std/test" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/resolve/name_resolver" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:
@@ -94,7 +94,7 @@
 //:| #import "std/test" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/resolve/name_resolver" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:

@@ -40,7 +40,7 @@ fn expect_str_ok %impure fn str impure fn Result str str impure fn str Result un
         Result::Ok text:
             check_str_eq expected text
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %str "Aあ💯"
     let checks:
         checks_new
@@ -95,7 +95,7 @@ fn expect_next %impure fn str impure fn Result CharUtf8Step str impure fn i32 im
                 Result::Ok _:
                     check_eq_i32 expected_next next
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %str "Aあ"
     let checks:
         checks_new
@@ -128,7 +128,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn byte_builder_text %impure fn unit Result str str \unit:
+fn byte_builder_text %impure fn void Result str str \void:
     match byte_builder_new:
         Result::Err _e:
             Result::Err "byte builder alloc"
@@ -154,7 +154,7 @@ fn byte_builder_text %impure fn unit Result str str \unit:
                                         Result::Ok text:
                                             Result::Ok text
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let text %str:
         string_builder_new
         |> sb_append_char 'A'

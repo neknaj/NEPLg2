@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/compare" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert eq 7 7;
 //:     assert lt_u 0 -1;
 //: ```
@@ -42,7 +42,7 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert eq 7 7;
 //:     assert ne 7 8;
 //:     assert lt -1 0;

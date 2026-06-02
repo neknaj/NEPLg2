@@ -39,7 +39,7 @@ pub fn hashmap_storage_values <.K,.V: Copy> %fn &HashMapStorage .K .V &Vec Optio
 //:| #target std
 //:| #import "alloc/collections/hashmap/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq hashmap_normalize_capacity 2 4 0 1
 //: ```
 pub fn hashmap_normalize_capacity %fn i32 i32 \requested:
@@ -56,7 +56,7 @@ pub fn hashmap_normalize_capacity %fn i32 i32 \requested:
 //:| #target std
 //:| #import "alloc/collections/hashmap/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq hashmap_load_limit 8 6 0 1
 //: ```
 pub fn hashmap_load_limit %fn i32 i32 \cap:

@@ -208,7 +208,7 @@ pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 f
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let one %f64 %f64 cast 1
 //:     let quartered %f64 div %f64 cast 5 %f64 cast 4
 //:     let neg_half %f64 div %f64 cast -1 %f64 cast 2

@@ -15,7 +15,8 @@ NEPLg2.1 では、型注釈、型式、関数リテラルを NEPL の前置記�
 - 型注釈は `<T>` ではなく `%T` と書く。
 - 型適用は `Vec<i32>` ではなく `Vec i32` と書く。
 - 関数型は `fn A B` の前置形で書き、複数引数は `fn A fn B C` と表示する。
-- unit 型・unit 値・0 引数関数 marker は `()` ではなく `unit` と書く。
+- unit 型・unit 値は `()` ではなく `unit` と書く。
+- 0 引数関数 marker は `unit` ではなく `void` と書く。
 - 関数リテラルの引数は `(a,b):` ではなく `\a\b:` と書く。
 - 関数呼び出し側の明示 generic postfix `f<T>` は撤廃し、周辺の型注釈・引数・戻り値期待型から解決する。
 
@@ -45,7 +46,7 @@ Result i32 str
 &mut Vec i32
 fn i32 i32
 fn i32 fn i32 i32
-impure fn unit i32
+impure fn void i32
 ```
 
 `fn i32 fn i32 i32` は表記としてはカリー化されているが、NEPLg2.1 では部分適用を導入しない。frontend は既存の複数引数関数型へ正規化し、`add 1` のような unsaturated call を有効な関数値として扱わない。
@@ -70,7 +71,7 @@ frontend normalized:
 
 副作用を持つ関数型は NEPLg2.1 では `impure fn A B` を正とする。過去の draft や `doc/examples/` に残る `%fn*` は NEPLg2.1 の正規表記ではなく、移行対象である。
 
-`unit` は NEPLg2.1 の unit 型・unit 値・0 引数関数 marker を表す keyword である。`fn unit T` は「unit 型の引数を 1 個取る関数」ではなく「0 引数で `T` を返す関数」として正規化する。同様に、`\unit` は 0 引数の関数リテラルを表す。NEPLg2.1 では unit 値を通常引数として受け取る表層構文を追加せず、既存の `()` unit 記法を `unit` に置き換える。
+`unit` は NEPLg2.1 の unit 型・unit 値を表す keyword である。0 引数関数 marker は `void` を使う。`fn void T` は「0 引数で `T` を返す関数」として正規化し、`\void` は 0 引数の関数リテラルを表す。`fn unit T` は `unit` 型の引数を 1 個取る関数型である。この詳細は [zero_arg_void_marker_spec.md](./zero_arg_void_marker_spec.md) を正とする。
 
 ### 関数リテラル
 
@@ -78,7 +79,7 @@ frontend normalized:
 let add_2 %fn i32 fn i32 i32 \arg1\arg2:
     add arg1 arg2
 
-let now %impure fn unit i32 \unit:
+let now %impure fn void i32 \void:
     clock_now_i32
 ```
 
@@ -131,7 +132,7 @@ NEPLg2.1 移行で後続 phase を変えないため、frontend は次の境界�
 1. lexer/parser に `%` と `\` を追加する。
 2. `%T expr` と `\a\b:` を既存 AST/HIR へ正規化する。
 3. prefix 型式を実装し、関数型 chain を既存複数引数型へ flatten する。
-4. unit 型・unit 値・0 引数 marker の `()` 表記を `unit` へ変換する。
+4. unit 型・unit 値の `()` 表記を `unit` へ変換し、0 引数 marker は `void` へ分離する。
 5. 実行対象 corpus の `<T>` 型注釈と型式を変換する。
 6. generic postfix call を semantic rewrite で撤廃する。
 7. README、doc index、tutorial、stdlib doc comment を NEPLg2.1 と NEPLg3 参考扱いに同期する。

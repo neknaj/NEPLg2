@@ -1932,9 +1932,9 @@ mod tests {
     /// callable result type の変更では変わることを固定する。
     #[test]
     fn typed_public_surface_hash_tracks_structured_callable_boundary() {
-        let first = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    1\n");
-        let body_edit = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    2\n");
-        let type_edit = typecheck_source("pub fn answer %fn unit unit \\unit:\n    unit\n");
+        let first = typecheck_source("pub fn answer %fn void i32 \\void:\n    1\n");
+        let body_edit = typecheck_source("pub fn answer %fn void i32 \\void:\n    2\n");
+        let type_edit = typecheck_source("pub fn answer %fn void unit \\void:\n    unit\n");
 
         assert_eq!(
             first.public_surface.stable_hash,
@@ -1958,13 +1958,13 @@ mod tests {
         }));
     }
 
-    /// `\unit` は値引数ではなく 0 引数 lambda の表層記法であり、
-    /// `%fn unit i32` も 0 引数 function type として正規化される。
+    /// `\void` は値引数ではなく 0 引数 lambda の表層記法であり、
+    /// `%fn void i32` も 0 引数 function type として正規化される。
     /// `.neplmeta` はこの canonical surface を保存し、旧 `()` 表記から
     /// `unit` keyword へ移した後も callable arity と型 boundary を崩さない。
     #[test]
     fn typed_public_surface_keeps_nullary_unit_callable_arity_separate_from_type_shape() {
-        let checked = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    1\n");
+        let checked = typecheck_source("pub fn answer %fn void i32 \\void:\n    1\n");
         let callable = checked
             .public_surface
             .entries
@@ -2001,15 +2001,15 @@ mod tests {
     fn typed_public_surface_keeps_stable_callable_link_symbol() {
         let first = typecheck_source_with_path(
             "project/core/math.nepl",
-            "pub fn answer %fn unit i32 \\unit:\n    1\n",
+            "pub fn answer %fn void i32 \\void:\n    1\n",
         );
         let body_edit = typecheck_source_with_path(
             "project/core/math.nepl",
-            "pub fn answer %fn unit i32 \\unit:\n    2\n",
+            "pub fn answer %fn void i32 \\void:\n    2\n",
         );
         let signature_edit = typecheck_source_with_path(
             "project/core/math.nepl",
-            "pub fn answer %fn unit bool \\unit:\n    true\n",
+            "pub fn answer %fn void bool \\void:\n    true\n",
         );
 
         let first_symbol = first
@@ -2061,7 +2061,7 @@ mod tests {
     /// public ABI authority である。
     #[test]
     fn typed_public_surface_callable_link_symbol_distinguishes_source_paths() {
-        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let source = "pub fn answer %fn void i32 \\void:\n    1\n";
         let first = typecheck_source_with_path("project/a/math.nepl", source);
         let second = typecheck_source_with_path("project/b/math.nepl", source);
 

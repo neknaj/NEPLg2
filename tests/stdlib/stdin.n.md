@@ -13,7 +13,7 @@ stdout: "1 2 +\n"
 #import "std/stdio" as *
 #import "core/result" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let s %str read_all;
     print s;
     unit
@@ -30,7 +30,7 @@ stdout: "こんにちは\n"
 #target std
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let s %str read_all;
     print s;
     unit
@@ -47,7 +47,7 @@ stdout: "1 2 +"
 #target std
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let s %str read_line;
     print s;
     unit
@@ -64,7 +64,7 @@ stdout: "こんにちは"
 #target std
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let s %str read_line;
     print s;
     unit
@@ -85,7 +85,7 @@ stdout: "1\n3\n"
 #import "std/stdio" as *
 #import "core/result" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
     let a %i32 read &sc;
     let b %i32 read &sc;

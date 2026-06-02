@@ -27,8 +27,8 @@
 //:| #import "core/math" as *
 //:| #import "neplg2/core/syntax/parser/module_parser" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//: fn main %impure fn unit i32 \unit:
-//:     match selfhost_parse_module_source "fn main %fn unit i32 \\unit:\n    0\n":
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_parse_module_source "fn main %fn void i32 \\void:\n    0\n":
 //:         Result::Ok ast:
 //:             let n %i32 selfhost_module_ast_len &ast
 //:             selfhost_module_ast_free ast

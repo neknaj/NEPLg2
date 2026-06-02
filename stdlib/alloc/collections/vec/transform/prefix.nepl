@@ -90,7 +90,7 @@ fn vec_copy_range_to_raw <.T: Copy> %fn &Vec .T fn MemPtr .T fn i32 fn i32 unit 
 //:| #import "core/result" as *
 //: fn lt_three %fn i32 bool \x:
 //:     lt x 3
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok
@@ -166,7 +166,7 @@ pub fn take_while <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransform
 //:| #import "core/field" as *
 //: fn lt_three %fn i32 bool \x:
 //:     lt x 3
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok

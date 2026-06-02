@@ -27,7 +27,7 @@ pub fn terminal_text_grid_point %fn i32 fn i32 TextGridPoint \col\row:
     text_grid_point_new col row
 
 //: terminal_text_grid_origin: TextGrid の[左上/ひだりうえ] origin を[返/かえ]す
-pub fn terminal_text_grid_origin %fn unit TextGridPoint \unit:
+pub fn terminal_text_grid_origin %fn void TextGridPoint \void:
     text_grid_point_new 0 0
 
 //: terminal_text_grid_point_translate: core TextGridPoint を cell delta で[移動/いどう]する
@@ -44,7 +44,7 @@ pub fn terminal_text_cell_run %fn TextGridPoint fn TextRunId fn i32 fn TextCellS
 //:
 //: [注意/ちゅうい]:
 //: - white-on-black は terminal backend profile の default であり、core/gui の TextCellStyle contract には[含/ふく]めません。
-pub fn terminal_text_cell_style_default %fn unit TextCellStyle \unit:
+pub fn terminal_text_cell_style_default %fn void TextCellStyle \void:
     let zero %u8 cast 0
     let full %u8 cast 255
     text_cell_style_new:

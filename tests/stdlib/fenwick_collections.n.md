@@ -27,7 +27,7 @@ stdout: "test_report name=\"fenwick_pipe_usage\" count=3 failed=0\nassertion ind
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let fw %Fenwick:
         unwrap_ok fw::new 6
         |> fw::add 0 2 |> uwok
@@ -70,7 +70,7 @@ stdout: "test_report name=\"fenwick_free_releases_owned_storage\" count=1 failed
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let fw0 %Fenwick:
         unwrap_ok fw::new 6
         |> fw::add 1 3 |> uwok
@@ -110,7 +110,7 @@ stdout: "test_report name=\"fenwick_add_error_returns_owner\" count=1 failed=0\n
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let fw %Fenwick unwrap_ok fw::new 4;
     match fw::add fw 8 3:
         Result::Ok next:
@@ -151,7 +151,7 @@ stdout: "test_report name=\"fenwick_negative_length_rejected\" count=1 failed=0\
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let neg %i32 sub 0 1
     match fw::new neg:
         Result::Ok fw:

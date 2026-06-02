@@ -35,24 +35,24 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 
-#extern "nepl_gui_web" "poll_action_id" fn gui_web_poll_action_id_raw %impure fn unit i32
+#extern "nepl_gui_web" "poll_action_id" fn gui_web_poll_action_id_raw %impure fn void i32
 #extern "nepl_gui_web" "wait_action_id" fn gui_web_wait_action_id_raw %impure fn i32 i32
-#extern "nepl_gui_web" "poll_event_kind" fn gui_web_poll_event_kind_raw %impure fn unit i32
+#extern "nepl_gui_web" "poll_event_kind" fn gui_web_poll_event_kind_raw %impure fn void i32
 #extern "nepl_gui_web" "wait_event_kind" fn gui_web_wait_event_kind_raw %impure fn i32 i32
-#extern "nepl_gui_web" "last_event_window_id" fn gui_web_last_event_window_id_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_action_id" fn gui_web_last_event_action_id_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_point_x_milli" fn gui_web_last_event_point_x_milli_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_point_y_milli" fn gui_web_last_event_point_y_milli_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_pointer_kind" fn gui_web_last_event_pointer_kind_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_pointer_id" fn gui_web_last_event_pointer_id_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_pointer_button" fn gui_web_last_event_pointer_button_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_keyboard_kind" fn gui_web_last_event_keyboard_kind_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_key_code" fn gui_web_last_event_key_code_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_key_modifiers" fn gui_web_last_event_key_modifiers_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_text_scalar_value" fn gui_web_last_event_text_scalar_value_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_window_kind" fn gui_web_last_event_window_kind_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_window_width" fn gui_web_last_event_window_width_raw %impure fn unit i32
-#extern "nepl_gui_web" "last_event_window_height" fn gui_web_last_event_window_height_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_window_id" fn gui_web_last_event_window_id_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_action_id" fn gui_web_last_event_action_id_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_point_x_milli" fn gui_web_last_event_point_x_milli_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_point_y_milli" fn gui_web_last_event_point_y_milli_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_pointer_kind" fn gui_web_last_event_pointer_kind_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_pointer_id" fn gui_web_last_event_pointer_id_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_pointer_button" fn gui_web_last_event_pointer_button_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_keyboard_kind" fn gui_web_last_event_keyboard_kind_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_key_code" fn gui_web_last_event_key_code_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_key_modifiers" fn gui_web_last_event_key_modifiers_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_text_scalar_value" fn gui_web_last_event_text_scalar_value_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_window_kind" fn gui_web_last_event_window_kind_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_window_width" fn gui_web_last_event_window_width_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_window_height" fn gui_web_last_event_window_height_raw %impure fn void i32
 
 //: GuiWebEvent: Web backend が[取/と]り[出/だ]した typed GUI event record
 //:
@@ -245,7 +245,7 @@ fn gui_web_web_event_from_gui_event %impure fn GuiEvent Result Option GuiWebEven
     let some %Option GuiWebEvent Option::Some web_event
     Result::Ok some
 
-fn gui_web_action_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+fn gui_web_action_event_result_from_last %impure fn void Result Option GuiWebEvent GuiError \void:
     let action_raw %i32 gui_web_last_event_action_id_raw
     if:
         gt action_raw 0
@@ -323,7 +323,7 @@ fn gui_web_pointer_event_result_from_button %impure fn PointerEventKind impure f
         Result::Err error:
             Result::Err error
 
-fn gui_web_pointer_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+fn gui_web_pointer_event_result_from_last %impure fn void Result Option GuiWebEvent GuiError \void:
     let kind_raw %i32 gui_web_last_event_pointer_kind_raw
     match gui_web_pointer_kind_from_raw kind_raw:
         Result::Ok kind:
@@ -358,7 +358,7 @@ fn gui_web_keyboard_event_result_from_parts %impure fn KeyboardEventKind Result 
         else:
             Result::Err GuiError::InvalidCommand
 
-fn gui_web_keyboard_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+fn gui_web_keyboard_event_result_from_last %impure fn void Result Option GuiWebEvent GuiError \void:
     let kind_raw %i32 gui_web_last_event_keyboard_kind_raw
     match gui_web_keyboard_kind_from_raw kind_raw:
         Result::Ok kind:
@@ -366,7 +366,7 @@ fn gui_web_keyboard_event_result_from_last %impure fn unit Result Option GuiWebE
         Result::Err error:
             Result::Err error
 
-fn gui_web_text_input_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+fn gui_web_text_input_event_result_from_last %impure fn void Result Option GuiWebEvent GuiError \void:
     let scalar %i32 gui_web_last_event_text_scalar_value_raw
     match char_from_i32_result scalar:
         Result::Ok value:
@@ -412,7 +412,7 @@ fn gui_web_window_event_result_from_parts %impure fn WindowEventKind Result Opti
         else:
             Result::Err GuiError::InvalidCommand
 
-fn gui_web_window_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+fn gui_web_window_event_result_from_last %impure fn void Result Option GuiWebEvent GuiError \void:
     let kind_raw %i32 gui_web_last_event_window_kind_raw
     match gui_web_window_kind_from_raw kind_raw:
         Result::Ok kind:
@@ -439,7 +439,7 @@ fn gui_web_action_from_raw %fn i32 Option ActionId \raw:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn gui_web_poll_action %impure fn unit Option ActionId \unit:
+pub fn gui_web_poll_action %impure fn void Option ActionId \void:
     let raw %i32 gui_web_poll_action_id_raw
     gui_web_action_from_raw raw
 
@@ -447,7 +447,7 @@ pub fn gui_web_poll_action %impure fn unit Option ActionId \unit:
 //:
 //: [目的/もくてき]:
 //: - unsupported host と empty queue を `Result` / `Option` で[分/わ]けます。
-pub fn gui_web_poll_action_result %impure fn unit Result Option ActionId GuiError \unit:
+pub fn gui_web_poll_action_result %impure fn void Result Option ActionId GuiError \void:
     let raw %i32 gui_web_poll_action_id_raw
     gui_web_action_result_from_raw raw
 
@@ -459,7 +459,7 @@ pub fn gui_web_poll_action_result %impure fn unit Result Option ActionId GuiErro
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn gui_web_poll_event_result %impure fn unit Result Option GuiWebEvent GuiError \unit:
+pub fn gui_web_poll_event_result %impure fn void Result Option GuiWebEvent GuiError \void:
     let raw %i32 gui_web_poll_event_kind_raw
     gui_web_event_result_from_kind_raw raw
 

@@ -94,7 +94,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec i32 unwrap_ok new;
 //:     let v1 %Vec i32 unwrap_ok push v0 4;
 //:     let p pop v1;
@@ -127,7 +127,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:         Option::None:
 //:             free next
 //:             1
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 4)
 //:     let p %VecPop DropPayload pop v1
@@ -144,7 +144,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:     value %i32
 //: fn ignore_plain %impure fn Vec NonCopyPayload impure fn Option NonCopyPayload i32 \_next\_item:
 //:     0
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec NonCopyPayload vec_empty<NonCopyPayload>;
 //:     let p pop<NonCopyPayload> v0;
 //:     vec_pop_with<NonCopyPayload,i32> p @ignore_plain
@@ -211,7 +211,7 @@ fn vec_drop_last_drop_initialized_slot <.T: Drop> %impure fn &RegionToken .T imp
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v %Vec i32:
 //:         unwrap_ok new
 //:         |> push 10 |> uwok
@@ -246,7 +246,7 @@ pub fn drop_last <.T: Copy> %fn Vec .T Vec .T \v:
 //: impl Drop for DropPayload:
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 1)
 //:     let v2 %Vec DropPayload unwrap_ok push v1 (DropPayload 2)

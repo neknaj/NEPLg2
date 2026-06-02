@@ -19,7 +19,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 1 10 15
     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "token"
     let diag %SelfhostDiagnostic selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"
@@ -48,7 +48,7 @@ exit_code: 0
 #import "neplg2/core/infra/diag" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "bad input"
     match selfhost_cli_write_json_diagnostic_stdout diag:
         Result::Err _e:
@@ -80,7 +80,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 1 10 15
     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "token"
     let diag0 %SelfhostDiagnostic selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "first"

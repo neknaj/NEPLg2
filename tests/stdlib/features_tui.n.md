@@ -19,7 +19,7 @@ stdout: "ab  ::xxx\n"
 #import "features/tui" as tui
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let left %str tui::line_pad_to_cols "ab" 4;
     let right %str tui::repeat_text "x" 3;
     print left;
@@ -45,7 +45,7 @@ ret: 0
 #import "core/math" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let size tui::get_terminal_size;
     let cols %i32 get size "cols";
     let rows %i32 get size "rows";
@@ -72,7 +72,7 @@ ret: 0
 
 #import "features/tui" as tui
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let b %i32 tui::buffer_new 8 2;
     tui::buffer_set_line b 1 "ready";
     tui::buffer_free b;
@@ -113,7 +113,7 @@ exit_code: 0
 #import "std/stdio" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let box_style %AnsiTextStyle ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
     let checks:
         checks_new
@@ -152,7 +152,7 @@ stdout: "\u001b[31m\u001b[44mx\u001b[0m\n\u001b[32mfg\u001b[44mbg\u001b[0m\n"
 #import "features/tui" as tui
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let inline_style %AnsiTextStyle ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
     print tui::style_text inline_style "x";
     println "";

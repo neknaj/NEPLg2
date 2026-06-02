@@ -22,7 +22,7 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/json_escape" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let escaped %str json_escape "a\t\"b\\c"
 //:     if str_eq escaped "a\\t\\\"b\\\\c" 0 1
 //: ```

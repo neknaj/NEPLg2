@@ -32,7 +32,7 @@
 //:| #target std
 //:| #import "alloc/collections/btreeset/search" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let same %bool btreeset_key_eq 7 7
 //:     let diff %bool btreeset_key_eq 7 9
 //:     let report:

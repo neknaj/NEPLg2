@@ -20,7 +20,7 @@ ret: 0
 #import "core/math" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let rect %GuiRect gui_rect_new 4 5 6 7
     let region %DirtyRegion dirty_region_rect_unchecked rect
     let empty %DirtyRegion dirty_region_empty
@@ -57,7 +57,7 @@ ret: 0
 #import "core/math" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let a_rect %GuiRect gui_rect_new 10 20 5 8
     let negative_x %i32 sub 0 2
     let b_rect %GuiRect gui_rect_new negative_x 18 4 5
@@ -93,7 +93,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let negative_width %i32 sub 0 1
     let invalid_rect %GuiRect gui_rect_new 0 0 negative_width 4
     match dirty_region_rect_checked invalid_rect:

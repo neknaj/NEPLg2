@@ -12,7 +12,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/read" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match stdio_fd_read_into_result 0 0 0 0 1:
         Result::Ok _:
             0
@@ -32,7 +32,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/read/buffer" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match stdio_fd_read_into_result 0 0 0 0 1:
         Result::Ok _:
             0
@@ -53,7 +53,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/read/buffer" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<u8> 8:
         Result::Err _:
             1

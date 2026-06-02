@@ -19,7 +19,7 @@
 //:| #entry main
 //:| #target wasix
 //:| #import "features/tui" as tui
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     tui::cursor_home;
 //: ```
 

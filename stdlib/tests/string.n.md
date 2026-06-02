@@ -14,7 +14,7 @@ stdout: "test_report name=\"string_len_and_concat\" count=2 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s:
         "hello"
         |> concat "world"
@@ -41,7 +41,7 @@ stdout: "test_report name=\"string_trim_and_slice\" count=3 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let src "  fn main(a: i32)  ";
     let trimmed str_trim src;
     let part str_slice trimmed 3 7;
@@ -68,7 +68,7 @@ stdout: "test_report name=\"string_split_and_builder\" count=2 failed=0\nasserti
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let first %StrSplitStep str_split_next "a--b--c" "--" 0
     let second %StrSplitStep str_split_next "a--b--c" "--" get first "next"
     let msg %str:
@@ -106,7 +106,7 @@ stdout: "test_report name=\"string_byte_at\" count=3 failed=0\nassertion index=0
 #import "core/option" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let byte0 %Option i32 byte_at "AZ" 0
     let byte1 %Option i32 byte_at "AZ" 1
     let byte2 %Option i32 byte_at "AZ" 2
@@ -139,7 +139,7 @@ stdout: "test_report name=\"string_find_byte_index\" count=7 failed=0\nassertion
 #import "core/option" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let empty_result %Option i32 find "abc" ""
     let prefix_result %Option i32 find "abc" "ab"
     let middle_result %Option i32 find "abcabc" "ca"
@@ -201,7 +201,7 @@ fn split_middle_is_b %fn str fn StrSplitStep bool \source\step:
             let mid_end %i32 get step "end"
             str_range_eq source mid_start mid_end "b"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let builder_result %Result str str:
         match string_builder_new_result:
             Result::Err e:
@@ -249,7 +249,7 @@ stdout: "test_report name=\"string_utf8_mem_result\" count=3 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut report test_report_new "string_utf8_mem_result";
     let src %str "こんにちは";
     match string_from_utf8_mem_result string_data_ptr src len src:
@@ -313,7 +313,7 @@ fn assert_f64_err %fn str fn Result f64 i32 TestAssertion \label\got:
         Result::Err _e:
             assert label true
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let expected_integer %f64 %f64 cast 123;
     let expected_signed_fraction %f64 div %f64 cast -3 %f64 cast 2;
     let expected_leading_fraction %f64 div %f64 cast 1 %f64 cast 2;
@@ -367,7 +367,7 @@ fn assert_slice_err %fn str fn Result str str TestAssertion \label\got:
         Result::Err _e:
             assert label true
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let report:
         test_report_new "string_slice_utf8_boundary"
         |> test_report_push assert_slice_ok "full character" (str_slice_result "あ" 0 3) "あ"

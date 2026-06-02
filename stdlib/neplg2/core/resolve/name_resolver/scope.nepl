@@ -23,7 +23,7 @@ pub struct SelfhostNameScopeAddResult:
 
 
 //: selfhost_name_scope_new: [空/から]の scope を[作/つく]る
-pub fn selfhost_name_scope_new %impure fn unit Result SelfhostNameScope StdErrorKind \unit:
+pub fn selfhost_name_scope_new %impure fn void Result SelfhostNameScope StdErrorKind \void:
     let bindings_result %Result Vec SelfhostNameBinding StdErrorKind v::new
     match bindings_result:
         Result::Ok bindings:

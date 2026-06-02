@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/math/f64/unary" as *
 //:| #import "core/math/f64/compare" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     if eq abs -2.5 2.5 0 1
 //: ```
 

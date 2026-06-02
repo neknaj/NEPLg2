@@ -28,8 +28,8 @@ stdout: mlstr:
 #import "neplg2/core/syntax/parser/module_parser" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
-    let source %str "//: doc\n#entry main\n#target std\n#import \"core/result\" as *\nfn main <()->i32> ():\n    0\nstruct Pair:\nenum Maybe:\ntrait Show:\nimpl Show for Pair:\n#wasm:\n    i32.const 0\n"
+fn main %impure fn void i32 \void:
+    let source %str "//: doc\n#entry main\n#target std\n#import \"core/result\" as *\nfn main %fn void i32 \\void:\n    0\nstruct Pair:\nenum Maybe:\ntrait Show:\nimpl Show for Pair:\n#wasm:\n    i32.const 0\n"
     let mut checks checks_new
     match selfhost_parse_module_source source:
         Result::Ok ast:
@@ -106,7 +106,7 @@ fn check_duplicate_directive %impure fn SelfhostModuleItemKind Result unit str \
         Result::Err _e:
             Result::Err "module AST allocation failed"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     let checks1 checks_push checks0 check_duplicate_directive SelfhostModuleItemKind::EntryDirective
     let checks2 checks_push checks1 check_duplicate_directive SelfhostModuleItemKind::TargetDirective
@@ -133,7 +133,7 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
@@ -181,12 +181,12 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
             let span %SelfhostSourceSpan source_span_new 0 0 24
-            let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl span "fn main <()->i32> \\():"
+            let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl span "fn main %fn void i32 \\void:"
             match selfhost_module_ast_push ast0 item:
                 Result::Ok ast:
                     match selfhost_check_module_ast &ast:

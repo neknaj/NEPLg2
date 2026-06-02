@@ -22,7 +22,7 @@ ret: 0
 #import "core/result" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let regions0 %DirtyRegionSet dirty_regions_empty
     let first_x %i32 sub 0 3
     let second_y %i32 sub 0 8
@@ -75,7 +75,7 @@ ret: 0
 #import "core/result" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let regions0 %DirtyRegionSet dirty_regions_empty
     let rect0 %GuiRect gui_rect_new 0 0 1 1
     let rect1 %GuiRect gui_rect_new 1 1 2 2
@@ -119,7 +119,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let regions %DirtyRegionSet dirty_regions_empty
     let negative_width %i32 sub 0 1
     let negative_height %i32 sub 0 1

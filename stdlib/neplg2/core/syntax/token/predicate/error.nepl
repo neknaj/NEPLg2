@@ -64,6 +64,8 @@ pub fn selfhost_token_is_error %fn SelfhostToken bool \token:
             false
         TokenKind::UnitLiteral:
             false
+        TokenKind::VoidMarker:
+            false
         TokenKind::KwFn:
             false
         TokenKind::KwLet:

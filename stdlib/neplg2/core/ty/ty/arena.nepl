@@ -20,7 +20,7 @@ pub struct SelfhostTypeArenaAlloc:
 
 
 //: selfhost_type_arena_new: [空/から]の TypeArena を[作/つく]る
-pub fn selfhost_type_arena_new %impure fn unit Result SelfhostTypeArena StdErrorKind \unit:
+pub fn selfhost_type_arena_new %impure fn void Result SelfhostTypeArena StdErrorKind \void:
     let records_result %Result Vec SelfhostTypeRecord StdErrorKind v::new
     match records_result:
         Result::Ok records:

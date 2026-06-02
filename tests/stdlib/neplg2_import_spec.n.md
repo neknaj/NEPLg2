@@ -25,7 +25,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_import_spec_parse_lexeme source_span_new 0 0 26 "#import \"core/result\" as *":
         Result::Ok first:
@@ -77,7 +77,7 @@ stdout: mlstr:
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     let span %SelfhostSourceSpan source_span_new 3 0 7
     match selfhost_import_spec_parse_lexeme span "#import":
@@ -112,7 +112,7 @@ stdout: mlstr:
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     let span %SelfhostSourceSpan source_span_new 4 0 32
     match selfhost_import_spec_parse_lexeme span "#import \"core/result\" as * extra":

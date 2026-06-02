@@ -25,7 +25,7 @@
 
 //: ## new
 //: [空/から]の queue を[作/つく]る
-pub fn new <.T: Copy> %impure fn unit Result Queue .T Diag \unit:
+pub fn new <.T: Copy> %impure fn void Result Queue .T Diag \void:
     with_capacity<.T> 8
 
 //: ## with_capacity

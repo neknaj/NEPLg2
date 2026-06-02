@@ -16,7 +16,7 @@
 //:| #target std
 //:| #import "alloc/gui" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let constraints %LayoutConstraints layout_constraints 0 0 200 40
 //:     let scale %GuiScaleFactor gui_scale_factor_new 1 1
 //:     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12

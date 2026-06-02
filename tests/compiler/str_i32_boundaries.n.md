@@ -9,7 +9,7 @@ diag_codes: type.annotation.mismatch
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let s %str 0
     0
 ```
@@ -24,7 +24,7 @@ diag_codes: type.annotation.mismatch, type.return.mismatch
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let p %i32 "not a pointer"
     p
 ```
@@ -42,7 +42,7 @@ stdout: "test_report name=\"string_literal_remains_str\" count=1 failed=0\nasser
 #import "alloc/string" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 if str_eq "ok" "ok" 1 0
     let report:
         test_report_new "string_literal_remains_str"

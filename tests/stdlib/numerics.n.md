@@ -14,7 +14,7 @@ stdout: "test_report name=\"test_i32_literals_decimal\" count=1 failed=0\nassert
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a 123;
     let b -45;
     let actual %i32 add a b
@@ -38,7 +38,7 @@ stdout: "test_report name=\"test_i32_literals_hex\" count=1 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a 0x10;      // 16
     let b 0xFF;      // 255
     let c 0x0;       // 0
@@ -65,7 +65,7 @@ stdout: "test_report name=\"test_f32_literals\" count=1 failed=0\nassertion inde
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a 1.5;
     let b -0.5;
     let c 10.0;
@@ -93,7 +93,7 @@ stdout: "test_report name=\"test_u8_literals_and_wrapping_add\" count=1 failed=0
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %u8 cast 255;
     let b %u8 cast 1;
     let c %u8 add a b;
@@ -119,7 +119,7 @@ stdout: "test_report name=\"test_u8_wrapping_sub\" count=1 failed=0\nassertion i
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %u8 cast 0;
     let b %u8 cast 1;
     let c %u8 sub a b;
@@ -145,7 +145,7 @@ stdout: "test_report name=\"test_u8_wrapping_mul\" count=1 failed=0\nassertion i
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %u8 cast 16;
     let b %u8 cast 17;
     let c %u8 mul a b;
@@ -171,7 +171,7 @@ stdout: "test_report name=\"test_u8_division_and_remainder\" count=3 failed=0\na
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %u8 cast 200;
     let b %u8 cast 20;
     let div_res %u8 div_u a b; // 10
@@ -202,7 +202,7 @@ stdout: "test_report name=\"test_u8_comparisons\" count=6 failed=0\nassertion in
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %u8 cast 10;
     let b %u8 cast 20;
     let c %u8 cast 10;
@@ -237,7 +237,7 @@ stdout: "test_report name=\"test_bitwise_operations\" count=4 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a 0xC; // 12
     let b 0xA; // 10
     // and: 1000 (8)
@@ -272,7 +272,7 @@ stdout: "test_report name=\"test_shift_operations\" count=4 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a 8;
     let b -16;
     // shl 8 1 -> 16
@@ -307,7 +307,7 @@ stdout: "test_report name=\"test_f32_comparisons\" count=6 failed=0\nassertion i
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let ok_lt %bool lt 1.0 2.0
     let ok_le %bool le 2.0 2.0
     let ok_gt %bool gt 3.0 2.0

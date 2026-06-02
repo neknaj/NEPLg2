@@ -19,7 +19,7 @@ stdout: "test_report name=\"ringbuffer_push_pop\" count=5 failed=0\nassertion in
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let rb0 %RingBuffer i32:
         unwrap_ok new
         |> push 10
@@ -96,7 +96,7 @@ stdout: "test_report name=\"ringbuffer_pop_empty\" count=1 failed=0\nassertion i
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let rb %RingBuffer i32 unwrap_ok new;
     let ok %bool match pop rb:
         Option::Some _:

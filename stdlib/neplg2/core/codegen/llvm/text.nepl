@@ -19,8 +19,8 @@
 //:| #entry main
 //:| #target core
 //:| #import "neplg2/core/codegen/llvm/text" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     selfhost_llvm_text_stage0
 //: ```
-pub fn selfhost_llvm_text_stage0 %fn unit i32 \unit:
+pub fn selfhost_llvm_text_stage0 %fn void i32 \void:
     0

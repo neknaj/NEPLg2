@@ -23,7 +23,7 @@
 //:| #indent 4
 //:| #target core
 //:| #import "core/gui/text_measure" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
 //:     mock_text_measurer_line_height &measurer
 //: ```

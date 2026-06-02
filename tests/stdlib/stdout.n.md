@@ -11,7 +11,7 @@ stdout: "a:12:b"
 #target std
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     print "a:";
     print_i32 12;
     print ":b";
@@ -28,7 +28,7 @@ stdout: "ab\nc"
 #target std
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     print "a";
     println "b";
     print "c";
@@ -45,7 +45,7 @@ stdout: "12\n3"
 #target std
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     print_i32 1;
     println_i32 2;
     print_i32 3;
@@ -62,7 +62,7 @@ stdout: "A\nB"
 #target std
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     print_byte 65;
     print "\n";
     print_byte 66
@@ -79,7 +79,7 @@ stdout: "こんにちは世界!\n"
 
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     println "こんにちは世界!";
 ```
 
@@ -94,7 +94,7 @@ stdout: "\u001b[31mred\u001b[0m\n"
 
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     println "\x1b[31mred\x1b[0m";
 ```
 
@@ -109,7 +109,7 @@ stdout: "\u001b[31mred\u001b[0m \u001b[1m\u001b[32mgreen\u001b[0m\n"
 
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     print_color AnsiColor::Red "red";
     print " ";
     let style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;

@@ -39,7 +39,7 @@ pub #import "alloc/collections/fenwick/types" as @merge
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let f0 %Fenwick unwrap_ok fenwick_new 5;
 //:     let f1 %Fenwick unwrap_ok fenwick_add f0 0 1;
 //:     let f2 %Fenwick unwrap_ok fenwick_add f1 1 2;

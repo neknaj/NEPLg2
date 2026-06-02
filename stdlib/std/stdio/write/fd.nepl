@@ -170,7 +170,7 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match stdio_write_fd_str_result 1 "fd-str":
 //:         Result::Ok wrote:
 //:             0
@@ -198,7 +198,7 @@ pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result unit StdErr
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let bytes %ByteBuf io_bytebuf_from_str "bytebuf"
 //:     match stdio_write_fd_bytebuf_result 1 bytes:
 //:         Result::Ok wrote:
@@ -269,7 +269,7 @@ pub fn stdio_write_fd_bytebuilder_prefix_result %impure fn i32 impure fn &ByteBu
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match stdio_write_fd_byte_result 1 'Z':
 //:         Result::Ok wrote:
 //:             0

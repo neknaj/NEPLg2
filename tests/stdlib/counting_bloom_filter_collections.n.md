@@ -29,7 +29,7 @@ stdout: "test_report name=\"counting_bloom_filter_pipe_usage\" count=3 failed=0\
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok new DefaultHash32 128
         |> insert 3
@@ -81,7 +81,7 @@ stdout: "test_report name=\"counting_bloom_filter_free_releases_owned_storage\" 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok new DefaultHash32 128
         |> insert 8
@@ -122,7 +122,7 @@ stdout: "test_report name=\"counting_bloom_filter_rejects_non_positive_length\" 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let result %Result CountingBloomFilter i32 DefaultHash32 Diag new DefaultHash32 0
     let ok %bool match result:
         Result::Ok bf:

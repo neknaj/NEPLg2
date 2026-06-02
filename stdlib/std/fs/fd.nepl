@@ -95,7 +95,7 @@ pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 
 //:| #target std
 //:| #import "std/fs" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_open_read "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok _fd:
 //:             0
@@ -136,7 +136,7 @@ pub fn fs_open_read %impure fn str Result i32 i32 \path:
 //:| #target std
 //:| #import "std/fs" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_open_write "tmp/fs_open_write_doctest.txt":
 //:         Result::Ok fd:
 //:             match fs_close fd:

@@ -39,7 +39,7 @@ fn expect_err %fn Result i32 str fn str Result unit str \got\expected:
         Result::Err msg:
             check_str_eq expected msg
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks:
         checks_new
         |> checks_push expect_ok divide_10 2 5

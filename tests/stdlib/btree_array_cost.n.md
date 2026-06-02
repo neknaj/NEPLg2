@@ -34,7 +34,7 @@ fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
             set i sub i 1;
     m
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m %BTreeMap i32 i32 build_desc_map 32;
     let ok %bool eq sorted_array_map_len &m 32;
     sorted_array_map_free m;
@@ -72,7 +72,7 @@ fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
             set i sub i 1;
     m
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m %BTreeMap i32 i32 build_desc_map 128;
     let ok %bool eq sorted_array_map_len &m 128;
     sorted_array_map_free m;
@@ -111,7 +111,7 @@ fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
             set i sub i 1;
     m
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m %BTreeMap i32 i32 build_desc_map 128;
     let value %Option i32 sorted_array_map_get &m 64;
     sorted_array_map_free m;
@@ -153,7 +153,7 @@ fn build_desc_set %impure fn i32 BTreeSet i32 \n:
             set i sub i 1;
     s
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %BTreeSet i32 build_desc_set 32;
     let ok %bool eq sorted_array_set_len &s 32;
     sorted_array_set_free s;
@@ -191,7 +191,7 @@ fn build_desc_set %impure fn i32 BTreeSet i32 \n:
             set i sub i 1;
     s
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %BTreeSet i32 build_desc_set 128;
     let ok %bool eq sorted_array_set_len &s 128;
     sorted_array_set_free s;
@@ -229,7 +229,7 @@ fn build_desc_set %impure fn i32 BTreeSet i32 \n:
             set i sub i 1;
     s
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %BTreeSet i32 build_desc_set 128;
     let ok %bool sorted_array_set_contains &s 64;
     sorted_array_set_free s;

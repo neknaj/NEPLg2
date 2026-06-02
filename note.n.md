@@ -49992,3 +49992,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `trunk build` 後の Web RPN は 3/3 passed で、first compile は `compile_ms=2839ms`、`web_core_compile_attempt=2364.51ms`、`resource_static_check=2011.93ms`、`resource_static_initialized_moves=1321.07ms`、exact cache hit は `5ms / 3ms` だった。Web cold base は依然として 0.5 秒未満ではなく、stdlib static proof の事前化と control op入口clone削減が残る。
 - 関数別の残支配点は final initialized check の `parse_u128_radix_digits_from` 110ms、`str_slice_result` 57ms、`eval_line` 44ms、`apply_op` 31ms、i32 scalar summary の `apply_op` 39ms / `push` 36ms、raw-init summary の `apply_op` 29ms / `alloc_raw` 28ms / `vec_cleanup_copy_initialized_prefix` 28ms である。
 - `NEPL_RESOURCE_OP_TIMING_FUNCTION=parse_u128_radix_digits_from` では依然として branch 283ms、loop 141ms、match 131ms が支配している。今回の参照mergeは検査意味を変えずにclone量を減らすcheckpointであり、RPN cold base 0.5秒未満の達成には、control op入口のstate clone削減、stdlib proof template、persistent / bundled `.neplproof` preseed、typed HIR / object-like artifact の継続実装が必要である。
+
+## 2026-06-02 Agent NEPLg2.1 zero-argument void marker checkpoint
+
+- `syntax/zero-arg-void-marker-20260602` branch で、Zenn 記事の試作段階方針と `doc/neplg2/zero_arg_void_marker_spec.md` に従い、0 引数関数 marker を `unit` から `void` へ移した。`plan.md` は変更していない。
+- `unit` は unit 型・unit 値として残し、`fn unit T` は `unit` 型の引数を 1 個取る関数型として扱う。`fn void T` と `\void` だけを空 parameter list へ正規化し、`void` は型・値・返り値型・型引数としては受理しない。
+- `void` は frontend token / parser marker として扱い、`TypeExpr::Void`、HIR void、Resource IR void、runtime void value は追加していない。HIR 以降の意味論は既存の空 parameter list のままである。
+- 既存 corpus の旧 0 引数 marker は `nodesrc/neplg21_syntax_migrate.js` と一括置換で `fn void` / `\void` へ移行した。正当な `fn unit unit \a:` のような unit 引数関数は残すため、単純な全置換ではなく migrator regression と残存検索で境界を確認した。
+- selfhost 側は `TokenKind::VoidMarker`、keyword table、token name / predicate / parser action を追加し、Rust lexer との parity fixture も `void` marker token を期待するように更新した。
+- source policy は旧 `unit` -> `()` helper view を使わず、NEPLg2.1 の `void` / `unit` を直接検査する形へ戻した。`byte_builder` owner boundary では既存の helper 分割に合わせ、empty / owned reserve helper と dispatch boundary を個別に検査する。
+- focused verification は `cargo test -p nepl-core --test functions function_neplg21 -- --nocapture`、`cargo test -p nepl-core --test typeannot test_neplg21 -- --nocapture`、`node nodesrc/test_neplg21_syntax_migrate.js`、`node nodesrc/test_source_policy_nepl_source_view.js`、`node nodesrc/test_stdlib_builder_owner_boundary.js` を通した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は既存の global warning を 7 件出すが、今回触った syntax migration / source view / byte_builder owner boundary の regression は通過している。残 warning は stdlib documentation baseline、static/resource responsibility、parser/backend responsibility、resource gate order、diagnostic registry、stdio print_i32 boundary である。

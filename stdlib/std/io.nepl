@@ -22,7 +22,7 @@
 //:| #target std
 //:| #import "std/io" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match write WriteStream::Stdio "io facade\n":
 //:         Result::Ok out:
 //:             match flush out:

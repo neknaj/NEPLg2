@@ -40,7 +40,7 @@ pub fn len %fn &DisjointSet i32 \dsu:
 //:| #import "alloc/collections/disjoint_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dsu0 %DisjointSet unwrap_ok new 4;
 //:     let dsu1 %DisjointSet unwrap_ok union dsu0 0 1;
 //:     let root0 %i32 unwrap_ok find &dsu1 0;
@@ -79,7 +79,7 @@ pub fn find %impure fn &DisjointSet impure fn i32 Result i32 Diag \dsu\idx:
 //:| #import "alloc/collections/disjoint_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dsu0 %DisjointSet unwrap_ok new 4;
 //:     let dsu1 %DisjointSet unwrap_ok union dsu0 0 1;
 //:     let ok0 %bool unwrap_ok same &dsu1 0 1;
@@ -123,7 +123,7 @@ pub fn same %impure fn &DisjointSet impure fn i32 impure fn i32 Result bool Diag
 //:| #import "alloc/collections/disjoint_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dsu0 %DisjointSet unwrap_ok new 5;
 //:     let dsu1 %DisjointSet unwrap_ok union dsu0 0 1;
 //:     let dsu2 %DisjointSet unwrap_ok union dsu1 1 2;

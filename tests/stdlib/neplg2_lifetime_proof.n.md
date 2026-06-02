@@ -109,7 +109,7 @@ fn check_lifetime_error %fn Result SelfhostLifetimeRelation SelfhostProofRefutat
         Result::Ok _relation:
             Result::Err "invalid lifetime relation was accepted"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 0 0 4
     let root_id %SelfhostLifetimeId selfhost_lifetime_id_new 0
     let child_id %SelfhostLifetimeId selfhost_lifetime_id_new 1

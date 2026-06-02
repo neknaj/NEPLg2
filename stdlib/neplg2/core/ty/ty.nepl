@@ -30,7 +30,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/ty/ty" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     selfhost_ty_stage0
 //: ```
 

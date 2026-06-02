@@ -34,7 +34,7 @@ pub fn hashset_storage_keys <.T: Copy> %fn &HashSetStorage .T &Vec Option .T \st
 //:| #target std
 //:| #import "alloc/collections/hashset/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq hashset_normalize_capacity 2 4 0 1
 //: ```
 pub fn hashset_normalize_capacity %fn i32 i32 \requested:
@@ -51,7 +51,7 @@ pub fn hashset_normalize_capacity %fn i32 i32 \requested:
 //:| #target std
 //:| #import "alloc/collections/hashset/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq hashset_load_limit 8 6 0 1
 //: ```
 pub fn hashset_load_limit %fn i32 i32 \cap:

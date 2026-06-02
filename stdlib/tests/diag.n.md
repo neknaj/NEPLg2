@@ -27,7 +27,7 @@ stdout: "test_report name=\"diag_to_string_formats_structured_fields\" count=1 f
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let sp %Span Span 4 5 6;
     let d0 %Diag diag_error StdErrorKind::Failure "with source";
     let d1 %Diag diag_with_span d0 sp;
@@ -66,7 +66,7 @@ stdout: "test_report name=\"diags_to_string_keeps_order\" count=1 failed=0\nasse
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let ds0 %Diags diags_one diag_warn "careful";
     let ds1 %Diags diags_push ds0 diag_info "loaded";
     let s %str diags_to_string ds1;

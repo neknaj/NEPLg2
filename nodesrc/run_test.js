@@ -656,7 +656,7 @@ function warmCompiler(api, meta) {
         '#target wasm',
         '#indent 4',
         '',
-        'fn main %fn unit i32 \\unit:',
+        'fn main %fn void i32 \\void:',
         '    0',
         '',
     ].join('\n');

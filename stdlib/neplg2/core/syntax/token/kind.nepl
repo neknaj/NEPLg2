@@ -36,6 +36,7 @@ pub enum TokenKind:
     CharLiteral
     StringLiteral
     UnitLiteral
+    VoidMarker
     KwFn
     KwLet
     KwMut

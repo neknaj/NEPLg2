@@ -47,7 +47,7 @@
 //:| #import "core/result" as *
 //: fn gt_two %fn i32 bool \x:
 //:     gt x 2
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok
@@ -116,7 +116,7 @@ pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
 //:         unit
 //: fn is_value_9 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 9
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 7)
 //:     let v2 %Vec DropPayload unwrap_ok push v1 (DropPayload 9)
@@ -175,7 +175,7 @@ pub fn find_index_ref <.T> %fn &Vec .T fn fn &.T bool Option i32 \v\p:
 //:| #import "core/result" as *
 //: fn gt_two %fn i32 bool \x:
 //:     gt x 2
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 1 |> uwok
@@ -231,7 +231,7 @@ pub fn any <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //:         unit
 //: fn is_value_5 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 5
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 5)
 //:     let ok %bool any_ref &v1 @is_value_5
@@ -278,7 +278,7 @@ pub fn any_ref <.T> %fn &Vec .T fn fn &.T bool bool \v\p:
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let xs %Vec i32:
 //:         unwrap_ok new
 //:         |> push 2 |> uwok
@@ -335,7 +335,7 @@ pub fn all <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //:         unit
 //: fn is_positive %fn &DropPayload bool \item:
 //:     lt 0 *field::get_ref item "value"
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 1)
 //:     let v2 %Vec DropPayload unwrap_ok push v1 (DropPayload 2)

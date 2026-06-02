@@ -31,7 +31,7 @@ trait Debug:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/debug" as *
-//:| fn main %impure fn unit i32 \unit:
+//:| fn main %impure fn void i32 \void:
 //:     let text_str %str debug_string "hi"
 //:     let text_i32 %str debug_string 7
 //:     let report:

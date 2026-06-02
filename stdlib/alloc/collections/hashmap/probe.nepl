@@ -34,7 +34,7 @@ pub fn hashmap_bucket_index <.K: HashKey&Copy,.H: Hasher<.K>&Copy> %fn i32 fn .H
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/collections/hashmap/probe" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let report:
 //:         test_report_new "hashmap_next_slot_doc"
 //:         |> test_report_push assert_eq_i32 "next slot" 2 hashmap_next_slot 1 4

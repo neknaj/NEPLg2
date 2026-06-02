@@ -31,7 +31,7 @@
 //:| #import "neplg2/cli/args/emit" as *
 //:| #import "core/field" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let opts %SelfhostCliOptions selfhost_cli_default_options;
 //:     let emit_ok %bool selfhost_cli_emit_is_wasm get opts "emit"
 //:     let report %TestReport:
@@ -55,7 +55,7 @@ pub fn selfhost_cli_options_new %fn bool fn bool fn bool fn bool fn bool fn Self
 //:
 //: [目的/もくてき]:
 //: - 引数なしの状態を明示し、parser と doctest が同じ初期値を共有できるようにします。
-pub fn selfhost_cli_default_options %fn unit SelfhostCliOptions \unit:
+pub fn selfhost_cli_default_options %fn void SelfhostCliOptions \void:
     selfhost_cli_options_new false false false false false selfhost_cli_emit_set_default none none none none none none
 
 //: selfhost_cli_target_to_compile_target: CLI target を core compile target へ[変換/へんかん]する
@@ -100,7 +100,7 @@ pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuil
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let args %Vec str:
 //:         unwrap_ok v::new
 //:         |> v::push "--target" |> uwok

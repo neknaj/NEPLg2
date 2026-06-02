@@ -29,7 +29,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_null %fn unit JsonValue \unit:
+pub fn json_null %fn void JsonValue \void:
     JsonValue::Null
 
 //: json_bool: bool 値を JSON Bool に変換する
@@ -98,7 +98,7 @@ pub fn json_string %fn str JsonValue \s:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_array_new %fn unit Result JsonArray StdErrorKind \unit:
+pub fn json_array_new %fn void Result JsonArray StdErrorKind \void:
     Result::Ok JsonArray ""
 
 //: json_array_push: JSON array builder へ要素を追加する
@@ -166,7 +166,7 @@ pub fn json_member %fn str fn JsonValue JsonMember \key\value:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_object_new %fn unit Result JsonObject StdErrorKind \unit:
+pub fn json_object_new %fn void Result JsonObject StdErrorKind \void:
     Result::Ok JsonObject ""
 
 //: json_object_push: JSON object builder へ member を追加する
@@ -220,7 +220,7 @@ pub fn json_object %fn JsonObject JsonValue \obj:
 //:| #import "core/result" as *
 //:| #import "alloc/encoding/json/types" as *
 //:| #import "alloc/encoding/json/builders" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let a %JsonArray unwrap_ok json_array_new
 //:     let a2 %JsonArray unwrap_ok json_array_push a json_number 7
 //:     let _v %JsonValue json_array a2

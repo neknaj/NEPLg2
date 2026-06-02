@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T21:12:35.254Z",
+  "generated_at": "2026-06-02T12:43:18.019Z",
   "counts": {
-    "total": 1306,
+    "total": 1307,
     "open": 32,
-    "resolved": 1274,
+    "resolved": 1275,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -12,9 +12,9 @@
         "resolved": 326
       },
       "core": {
-        "total": 661,
+        "total": 662,
         "open": 25,
-        "resolved": 636
+        "resolved": 637
       },
       "neplg21": {
         "total": 2,
@@ -468,7 +468,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-06-01",
-      "updated": "2026-06-01",
+      "updated": "2026-06-02",
       "target": "nepl-core/src/resource/owner_summary.rs; nepl-core/src/resource/resource_summary_value_cache",
       "legacy_id": "",
       "source": "",
@@ -1208,6 +1208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260526T004744719Z-NEPLG2-1-UNIT-LITERAL-SHOULD-USE-UNI-ECE4D70B.md"
+    },
+    {
+      "id": "ISS-20260602T120007116Z-NEPLG2-1-ZERO-ARGUMENT-FUNCTIONS-SHO-DFF804DA",
+      "title": "NEPLg2.1 zero-argument functions should use void marker",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-06-02",
+      "updated": "2026-06-02",
+      "target": "nepl-core/src/lexer.rs; nepl-core/src/parser.rs; nepl-core/src/parser/neplg21_type_expr.rs; nodesrc/neplg21_syntax_migrate.js; stdlib/**; tests/**; tutorials/**; doc/**",
+      "legacy_id": "",
+      "source": "doc/neplg2/zero_arg_void_marker_spec.md",
+      "file": "items/ISS-20260602T120007116Z-NEPLG2-1-ZERO-ARGUMENT-FUNCTIONS-SHO-DFF804DA.md"
     },
     {
       "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",

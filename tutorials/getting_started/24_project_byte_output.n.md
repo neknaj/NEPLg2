@@ -16,7 +16,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn make_text_bytes %impure fn unit Result str str \unit:
+fn make_text_bytes %impure fn void Result str str \void:
     match byte_builder_new:
         Result::Err _e:
             Result::Err "builder allocation failed"
@@ -46,7 +46,7 @@ fn expect_text %fn Result str str fn str Result unit str \got\expected:
         Result::Err msg:
             Result::Err msg
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks:
         checks_new
         |> checks_push expect_text make_text_bytes "Aあ"

@@ -173,7 +173,7 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
 //:| #import "std/fs/bytes" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_read_fd_bytes 0:
 //:         Result::Ok bytes:
 //:             let text %str fs_bytes_to_string bytes;

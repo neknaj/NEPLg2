@@ -10,8 +10,8 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
-pub fn dsu_diag_len %impure fn unit Diag \unit:
+pub fn dsu_diag_len %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "invalid disjoint set length"
 
-pub fn dsu_diag_index %impure fn unit Diag \unit:
+pub fn dsu_diag_index %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "disjoint set index out of bounds"

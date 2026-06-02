@@ -52,10 +52,10 @@ fn counter_model_new %fn i32 CounterModel \value:
 fn counter_model_value %fn &CounterModel i32 \model:
     *field::get_ref model "value"
 
-fn counter_widget_id %fn unit WidgetId \unit:
+fn counter_widget_id %fn void WidgetId \void:
     widget_id 1
 
-fn counter_increment_action %fn unit ActionId \unit:
+fn counter_increment_action %fn void ActionId \void:
     action_id 1
 
 fn counter_view %fn CounterModel ViewNode \model:
@@ -123,39 +123,39 @@ fn counter_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
                     let next_idx %i32 add idx 1
                     counter_has_once_flag_loop next_idx count
 
-fn counter_has_once_flag %impure fn unit bool \unit:
+fn counter_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     counter_has_once_flag_loop 1 count
 
-fn counter_color_background %fn unit Rgba8888 \unit:
+fn counter_color_background %fn void Rgba8888 \void:
     let r %u8 cast 16
     let g %u8 cast 24
     let b %u8 cast 32
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn counter_color_panel %fn unit Rgba8888 \unit:
+fn counter_color_panel %fn void Rgba8888 \void:
     let r %u8 cast 29
     let g %u8 cast 43
     let b %u8 cast 53
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn counter_color_button %fn unit Rgba8888 \unit:
+fn counter_color_button %fn void Rgba8888 \void:
     let r %u8 cast 45
     let g %u8 cast 125
     let b %u8 cast 111
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn counter_color_text %fn unit Rgba8888 \unit:
+fn counter_color_text %fn void Rgba8888 \void:
     let r %u8 cast 242
     let g %u8 cast 247
     let b %u8 cast 245
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn counter_present_frame_end %impure fn unit Result unit GuiError \unit:
+fn counter_present_frame_end %impure fn void Result unit GuiError \void:
     gui_web_stdout_frame_end
 
 fn counter_present_action_rect %impure fn GuiRect Result unit GuiError \button_rect:
@@ -269,7 +269,7 @@ fn counter_event_loop %impure fn CounterModel unit \initial_model:
                     println "counter gui input unsupported";
                     set running false
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let model0 %CounterModel counter_model_new 0
     if:
         counter_has_once_flag

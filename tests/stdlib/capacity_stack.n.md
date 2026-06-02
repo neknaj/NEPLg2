@@ -20,7 +20,7 @@ fn depth %fn i32 fn i32 i32 \n\acc:
     else:
         depth sub n 1 add acc 1
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 depth 64 0
     let report:
         test_report_new "stage1_recursive_depth_64"
@@ -47,7 +47,7 @@ fn depth %fn i32 fn i32 i32 \n\acc:
     else:
         depth sub n 1 add acc 1
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 depth 512 0
     let report:
         test_report_new "stage2_recursive_depth_512"
@@ -71,7 +71,7 @@ stdout: "test_report name=\"stage3_vec_growth_4096\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut v %Vec i32 uwok new;
     let mut i %i32 0;
     while lt i 4096:
@@ -102,7 +102,7 @@ stdout: "test_report name=\"stage4_mem_block_store_load\" count=4 failed=0\nasse
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let n %i32 1024;
     let mut a %i32 -1;
     let mut b %i32 -1;
@@ -181,7 +181,7 @@ stdout: "test_report name=\"stage5_string_builder_len_3000\" count=1 failed=0\na
 #import "alloc/string" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut sb %StringBuilder string_builder_new;
     let mut i %i32 0;
     while lt i 1500:
@@ -231,7 +231,7 @@ fn depth %fn i32 i32 \n:
     else:
         add 1 depth sub n 1
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut v %Vec Kind uwok new;
     set v uwok push v Kind::A;
     set v uwok push v Kind::B;

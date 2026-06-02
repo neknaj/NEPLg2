@@ -26,7 +26,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/loader" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     selfhost_loader_stage0
 //: ```
 
@@ -81,10 +81,10 @@ pub fn selfhost_loaded_module_free %impure fn SelfhostLoadedModule unit \module:
     selfhost_module_ast_free field::get module "ast"
 
 //: selfhost_loader_stage0: VFS から parser までの smoke API
-pub fn selfhost_loader_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_loader_stage0 %impure fn void i32 \void:
     match selfhost_vfs_new:
         Result::Ok vfs0:
-            match selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> ():\n    0\n":
+            match selfhost_vfs_add vfs0 "main.nepl" "fn main %fn void i32 \\void:\n    0\n":
                 Result::Ok vfs1:
                     match selfhost_load_module &vfs1 "main.nepl":
                         Result::Ok loaded:

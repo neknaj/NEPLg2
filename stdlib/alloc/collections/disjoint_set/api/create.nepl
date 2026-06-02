@@ -29,7 +29,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dsu %DisjointSet unwrap_ok new 5;
 //:     let observed_len %i32 len &dsu;
 //:     let ok %bool eq observed_len 5;

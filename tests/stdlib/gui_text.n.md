@@ -20,7 +20,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let initial_id %TextBufferId text_buffer_id_new 42
     let initial %TextBuffer text_buffer_new initial_id "ac"
     let inserted %TextBuffer unwrap_ok text_buffer_insert initial 1 "b"
@@ -54,7 +54,7 @@ ret: 0
 #import "alloc/gui/text" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let buffer %TextBuffer text_buffer_new buffer_id "abc"
     match text_buffer_insert buffer 4 "z":
@@ -83,7 +83,7 @@ ret: 0
 #import "alloc/gui/text" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let buffer %TextBuffer text_buffer_new buffer_id "aあ"
     match text_buffer_delete buffer 2 3:
@@ -116,7 +116,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 7
     let run_id %TextRunId text_run_id_new 9
     let font_id %FontId font_id_new 3
@@ -183,7 +183,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let run_id %TextRunId text_run_id_new 1
     let font_id %FontId font_id_new 1
@@ -224,7 +224,7 @@ impl TextMeasurer for RejectingTextMeasurer:
     fn measure_text %fn &RejectingTextMeasurer fn TextMeasureRequest Result TextMeasureResult GuiError \measurer\request:
         Result::Err GuiError::Unsupported
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let run_id %TextRunId text_run_id_new 1
     let font_id %FontId font_id_new 1

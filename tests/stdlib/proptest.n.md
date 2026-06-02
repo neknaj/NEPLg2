@@ -15,7 +15,7 @@ ret: 0
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     // Rust の proptest は多数の入力を自動生成して「常に成り立つ性質」を検証するが、
     // ここでは .n.md の単体実行で扱える範囲として、代表的な入力を複数選んで可換性を確認する。
     let a1 add 0 0;
@@ -56,7 +56,7 @@ ret: 0
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     // (a - b) + b == a を、代表的な入力で確認する
     let a0 10;
     let b0 3;
@@ -91,7 +91,7 @@ diag_codes: resolve.identifier.undefined, type.return.mismatch
 ```neplg2
 #entry main
 #indent 4
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     // 故意に未定義シンボルを参照してコンパイルエラーになることを確認する
     unknown_symbol
 ```

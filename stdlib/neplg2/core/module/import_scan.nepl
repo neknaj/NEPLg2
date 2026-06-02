@@ -35,8 +35,8 @@
 //: fn record_at %fn &Vec SelfhostImportRecord fn i32 SelfhostImportRecord \records\idx:
 //:     unwrap v::get records idx
 //:
-//: fn main %impure fn unit i32 \unit:
-//:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main %fn unit i32 \\unit:\n    0\n" 0:
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main %fn void i32 \\void:\n    0\n" 0:
 //:         Result::Ok records:
 //:             let r0 %SelfhostImportRecord record_at &records 0
 //:             let r1 %SelfhostImportRecord record_at &records 1

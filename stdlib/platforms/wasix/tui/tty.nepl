@@ -100,7 +100,7 @@ fn tty_copy_state %impure fn &TtyState impure fn &TtyState unit \dst\src:
 //:
 //: [注意/ちゅうい]:
 //: - `Result::Ok state` の owner は呼び出し側が `restore_mode` または内部 cleanup で閉じます。
-fn get_tty_state_result %impure fn unit Result TtyState i32 \unit:
+fn get_tty_state_result %impure fn void Result TtyState i32 \void:
     match alloc_region_bytes<u8> 24:
         Result::Ok region:
             let state %TtyState TtyState region
@@ -143,7 +143,7 @@ fn set_line_buffered %impure fn &TtyState impure fn bool unit \state\enable:
 //:
 //: 注意(重要):
 //: - 返された `TtyState` は restore_mode に渡して解放する必要があります。
-pub fn enter_raw_mode %impure fn unit Result TtyState i32 \unit:
+pub fn enter_raw_mode %impure fn void Result TtyState i32 \void:
     match get_tty_state_result:
         Result::Ok state:
             match alloc_region_bytes<u8> 24:
@@ -203,7 +203,7 @@ pub fn restore_mode %impure fn TtyState i32 \old_state:
 //:
 //: [注意/ちゅうい]:
 //: - 取得に失敗した場合は `TerminalSize 0 0` を返します。
-pub fn get_terminal_size %impure fn unit TerminalSize \unit:
+pub fn get_terminal_size %impure fn void TerminalSize \void:
     match get_tty_state_result:
         Result::Ok state:
             let c %i32 get_cols &state;

@@ -10,8 +10,8 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
-pub fn bitset_invalid_len_diag %impure fn unit Diag \unit:
+pub fn bitset_invalid_len_diag %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "invalid bitset length"
 
-pub fn bitset_index_diag %impure fn unit Diag \unit:
+pub fn bitset_index_diag %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "bitset index out of bounds"

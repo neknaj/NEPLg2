@@ -30,7 +30,7 @@ fn expect_char %fn Result char str fn i32 Result unit str \got\expected_code:
         Result::Err msg:
             Result::Err msg
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %char 'A'
     let hira %char 'あ'
     let checks:

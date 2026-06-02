@@ -48,10 +48,6 @@ function implementationLineCount(src) {
         .length;
 }
 
-function builderOwnerHelperView(code) {
-    return code.replace(/\bunit\b/g, '()');
-}
-
 assert.match(ioRootCode, /pub\s+#import\s+"\.\/io\/bytebuilder"\s+as\s+\*/, 'alloc/io root must re-export ByteBuilder APIs');
 assert.doesNotMatch(ioRootCode, /struct\s+ByteBuilder:/, 'alloc/io root must not own ByteBuilder storage state');
 assert.doesNotMatch(ioRootCode, /fn\s+byte_builder_reserve\b/, 'alloc/io root must not own ByteBuilder grow logic');
@@ -61,7 +57,7 @@ assert.match(ioByteBuilderFacadeSrc, /pub\s+#import\s+"\.\/bytebuilder\/storage"
 assert.match(ioByteBuilderFacadeSrc, /pub\s+#import\s+"\.\/bytebuilder\/append"\s+as\s+@merge/, 'alloc/io/bytebuilder facade must merge append APIs');
 assert.match(ioByteBuilderFacadeSrc, /pub\s+#import\s+"\.\/bytebuilder\/build"\s+as\s+@merge/, 'alloc/io/bytebuilder facade must merge build APIs');
 assert.doesNotMatch(ioByteBuilderFacadeCode, /\b(?:fn|struct|enum)\s+/, 'alloc/io/bytebuilder facade must not own implementation bodies');
-assertByteBuilderOwnerBoundary(builderOwnerHelperView(ioByteBuilderCode));
+assertByteBuilderOwnerBoundary(ioByteBuilderCode);
 assert.ok(implementationLineCount(ioByteBuilderFacadeSrc) <= 35, 'alloc/io/bytebuilder facade should stay small');
 assert.ok(implementationLineCount(ioByteBuilderTypesSrc) <= 90, 'alloc/io/bytebuilder/types should stay narrowly scoped');
 assert.ok(implementationLineCount(ioByteBuilderStorageSrc) <= 210, 'alloc/io/bytebuilder/storage should stay narrowly scoped');
@@ -77,7 +73,7 @@ assert.match(stringBuilderSrc, /pub\s+#import\s+"\.\/builder\/reserve"\s+as\s+@m
 assert.match(stringBuilderSrc, /pub\s+#import\s+"\.\/builder\/append"\s+as\s+@merge/, 'alloc/string/builder facade must merge append APIs');
 assert.match(stringBuilderSrc, /pub\s+#import\s+"\.\/builder\/build"\s+as\s+@merge/, 'alloc/string/builder facade must merge build APIs');
 assert.doesNotMatch(stripNeplComments(stringBuilderSrc), /\b(?:fn|struct|enum)\s+/, 'alloc/string/builder facade must not own implementation bodies');
-assertStringBuilderOwnerBoundary(builderOwnerHelperView(stringBuilderCode));
+assertStringBuilderOwnerBoundary(stringBuilderCode);
 assert.ok(implementationLineCount(stringBuilderSrc) <= 35, 'alloc/string/builder facade should stay small');
 assert.ok(implementationLineCount(stringBuilderTypesSrc) <= 130, 'alloc/string/builder/types should stay narrowly scoped');
 assert.ok(implementationLineCount(stringBuilderReserveSrc) <= 210, 'alloc/string/builder/reserve should stay narrowly scoped');

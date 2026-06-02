@@ -19,7 +19,7 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let source %str "pub impl Show for i32:\n    fn show <(i32)->i32> (x):\n        x\n"
     let checks0 checks_new
     match selfhost_parse_module_source source:

@@ -2662,7 +2662,7 @@ mod tests {
                     TypedPublicSignatureEntry::new(
                         TypedPublicSignatureKind::Callable,
                         (*name).into(),
-                        "fn unit i32".into(),
+                        "fn void i32".into(),
                         false,
                     )
                 })
@@ -2894,7 +2894,7 @@ mod tests {
         if let Some(surface) = module_surface {
             source_map.add(
                 surface.canonical_module_path.as_str(),
-                "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+                "pub fn answer %fn void i32 \\void:\n    1\n".into(),
             );
         }
         nepl_meta_artifact_header_for_public_surface(
@@ -2945,7 +2945,7 @@ mod tests {
         module_surface: NeplMetaModuleSurface,
         public_surface: TypedPublicSurfaceTable,
     ) -> NeplMetaArtifact {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let export_surface =
             NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
         NeplMetaArtifact::new(
@@ -2989,7 +2989,7 @@ mod tests {
     /// stable value として運ぶ前提を固定する。
     #[test]
     fn neplmeta_header_accepts_matching_public_surface() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface("/stdlib/core/math.nepl");
         let export_surface =
@@ -3018,7 +3018,7 @@ mod tests {
     /// 同じでも式 token が変わる編集では compatibility check が fail-closed に拒否する。
     #[test]
     fn neplmeta_header_tracks_source_key_without_comment_noise() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
         let export_surface =
@@ -3026,17 +3026,17 @@ mod tests {
         let mut base_map = SourceMap::new();
         base_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    1\n".into(),
         );
         let mut comment_map = SourceMap::new();
         comment_map.add(
             "/stdlib/core/math.nepl",
-            "// ordinary comment\npub fn answer %fn unit i32 \\:\n    1 // trailing\n".into(),
+            "// ordinary comment\npub fn answer %fn void i32 \\void:\n    1 // trailing\n".into(),
         );
         let mut edited_map = SourceMap::new();
         edited_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    2\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    2\n".into(),
         );
 
         let base = nepl_meta_artifact_header_for_public_surface(
@@ -3092,7 +3092,7 @@ mod tests {
     /// を拒否できることを固定する。
     #[test]
     fn neplmeta_pre_typecheck_envelope_rejects_body_token_edit() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
         let export_surface =
@@ -3100,12 +3100,12 @@ mod tests {
         let mut stored_map = SourceMap::new();
         stored_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    1\n".into(),
         );
         let mut current_map = SourceMap::new();
         current_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    2\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    2\n".into(),
         );
         let stored_header = nepl_meta_artifact_header_for_public_surface(
             CompileTarget::Wasm,
@@ -3143,7 +3143,7 @@ mod tests {
         let mut wrong_map = SourceMap::new();
         wrong_map.add(
             "/stdlib/core/other.nepl",
-            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    1\n".into(),
         );
 
         assert_eq!(
@@ -3521,7 +3521,7 @@ mod tests {
         let mut source_map = SourceMap::new();
         source_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    1\n".into(),
         );
         let envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
             CompileTarget::Wasm,
@@ -3574,7 +3574,7 @@ mod tests {
         let mut edited_source_map = SourceMap::new();
         edited_source_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    2\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    2\n".into(),
         );
         let edited_envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
             CompileTarget::Wasm,
@@ -3625,7 +3625,7 @@ mod tests {
         let mut source_map = SourceMap::new();
         source_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    1\n".into(),
         );
         let dependency_mismatch = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
             CompileTarget::Wasm,
@@ -3687,7 +3687,7 @@ mod tests {
         let mut source_map = SourceMap::new();
         source_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    1\n".into(),
         );
         let envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
             CompileTarget::Wasm,
@@ -3732,7 +3732,7 @@ mod tests {
         let mut source_map = SourceMap::new();
         source_map.add(
             "/stdlib/core/math.nepl",
-            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            "pub fn answer %fn void i32 \\void:\n    1\n".into(),
         );
         let envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
             CompileTarget::Wasm,
@@ -3810,7 +3810,7 @@ mod tests {
     /// typed public surface が整っていても materializer/store へ流さない。
     #[test]
     fn neplmeta_materializer_and_store_reject_missing_source_key() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = materializable_surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
         let export_surface =
@@ -3852,7 +3852,7 @@ mod tests {
 
     #[test]
     fn neplmeta_store_rejects_payload_and_projection_without_mutating_surface() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = materializable_surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
         let export_surface =
@@ -3907,7 +3907,7 @@ mod tests {
     /// 変わると依存側の call resolution が変わり得るためである。
     #[test]
     fn neplmeta_header_rejects_dependency_surface_mismatch() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface("/stdlib/core/math.nepl");
         let export_surface =
@@ -3941,8 +3941,8 @@ mod tests {
     /// stale header だけを信頼して、異なる public signature table を環境へ注入しないためである。
     #[test]
     fn neplmeta_payload_consistency_rejects_mismatched_signature_hash() {
-        let header_signatures = signature_table("answer", "fn unit i32");
-        let payload_signatures = signature_table("answer", "fn unit unit");
+        let header_signatures = signature_table("answer", "fn void i32");
+        let payload_signatures = signature_table("answer", "fn void unit");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let artifact = NeplMetaArtifact::new(
             test_header(&header_signatures, None, &public_surface, None),
@@ -3960,7 +3960,7 @@ mod tests {
 
     #[test]
     fn neplmeta_payload_consistency_rejects_mismatched_structured_surface() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let header_surface = surface_table("answer", PublicTypeTerm::I32);
         let payload_surface = surface_table("answer", PublicTypeTerm::Unit);
         let artifact = NeplMetaArtifact::new(
@@ -3979,7 +3979,7 @@ mod tests {
 
     #[test]
     fn neplmeta_payload_consistency_rejects_mismatched_module_surface() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let header_surface = module_surface("/stdlib/core/math.nepl");
         let payload_surface = module_surface("/stdlib/core/other.nepl");
@@ -4011,7 +4011,7 @@ mod tests {
     /// 存在しない名前を注入し得るため、hash mismatch は専用理由で fail-closed にする。
     #[test]
     fn neplmeta_payload_consistency_rejects_mismatched_export_surface() {
-        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_signatures = signature_table("answer", "fn void i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface("/stdlib/core/math.nepl");
         let payload_export_surface = NeplMetaExportSurface::from_module_and_public_surface(

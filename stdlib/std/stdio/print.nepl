@@ -45,7 +45,7 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     print "sample";
 //: ```
 pub fn noshadow print %impure fn str unit \s:
@@ -85,7 +85,7 @@ pub fn noshadow print %impure fn str unit \s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     println "sample";
 //: ```
 pub fn noshadow println %impure fn str unit \s:
@@ -166,7 +166,7 @@ fn print_i32_negative_digits %impure fn i32 unit \n0:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     print_i32 42;
 //: ```
 //:
@@ -178,7 +178,7 @@ fn print_i32_negative_digits %impure fn i32 unit \n0:
 //:| #target std
 //:| #import "core/math" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     print_i32 0;
 //:     print " ";
 //:     print_i32 -42;
@@ -232,7 +232,7 @@ pub fn noshadow print_i32 %impure fn i32 unit \v:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     println_i32 42;
 //: ```
 pub fn noshadow println_i32 %impure fn i32 unit \v:

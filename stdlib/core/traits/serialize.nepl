@@ -45,7 +45,7 @@ trait Serialize:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/serialize" as *
-//:| fn main %impure fn unit i32 \unit:
+//:| fn main %impure fn void i32 \void:
 //:     let text_i32 %str serialize 42
 //:     let text_bool %str serialize false
 //:     let report:

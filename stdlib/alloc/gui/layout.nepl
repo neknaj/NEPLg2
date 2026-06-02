@@ -14,7 +14,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui/layout" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let constraints %LayoutConstraints layout_constraints 0 0 10 20
 //:     layout_constraints_max_width &constraints
 //: ```

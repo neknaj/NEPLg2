@@ -27,7 +27,7 @@ stdout: mlstr:
 #import "core/field" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match source_text_new 7 "sample.nepl" "alpha\nbeta\n":
         Result::Ok text:
@@ -91,7 +91,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match source_text_new 3 "crlf.nepl" "a\r\nbc\r\nd":
         Result::Ok text:
@@ -145,7 +145,7 @@ stdout: mlstr:
 #import "neplg2/core/infra/text" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match source_text_new 2 "range.nepl" "abc":
         Result::Ok text:
@@ -192,7 +192,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut sb %StringBuilder unwrap_ok string_builder_new_result
     let mut i %i32 0
     while lt i 4096:

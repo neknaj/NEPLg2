@@ -16,7 +16,7 @@ trait Marker:
 enum Box<.T: Marker>:
     Item %.T
 
-fn main %fn unit unit \unit:
+fn main %fn void unit \void:
     unit
 ```
 
@@ -36,7 +36,7 @@ trait Marker:
 struct Box<.T: Marker>:
     value %.T
 
-fn main %fn unit unit \unit:
+fn main %fn void unit \void:
     unit
 ```
 
@@ -55,7 +55,7 @@ enum Foo:
 enum Foo:
     B
 
-fn main %fn unit unit \unit:
+fn main %fn void unit \void:
     unit
 ```
 
@@ -74,6 +74,6 @@ struct Foo:
 struct Foo:
     other %i32
 
-fn main %fn unit unit \unit:
+fn main %fn void unit \void:
     unit
 ```

@@ -11,7 +11,7 @@
 //:
 //: [目的/もくてき]:
 //: - 既存の Stage 0 doctest import 経路を[保/たも]ちながら、scope table の最小実装も[確認/かくにん]します。
-pub fn selfhost_name_resolver_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_name_resolver_stage0 %impure fn void i32 \void:
     match selfhost_name_scope_new:
         Result::Ok scope0:
             let binding %SelfhostNameBinding selfhost_name_binding_pending "main" SelfhostDefKind::Function source_span_empty 0 0

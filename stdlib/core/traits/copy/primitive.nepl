@@ -20,7 +20,7 @@
 //:| #target wasm
 //:| #no_prelude
 //:| #import "core/traits/copy/primitive" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let x %i32 1
 //:     let y %i32 Clone::clone &x
 //:     y
@@ -142,5 +142,5 @@ impl Clone for unit:
         *x
 
 impl Copy for unit:
-    fn copy_mark %fn (unit) unit \x:
+    fn copy_mark %fn unit unit \x:
         x

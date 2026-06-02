@@ -21,7 +21,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "title" root_hint
@@ -59,7 +59,7 @@ ret: 0
 #import "alloc/gui" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -107,7 +107,7 @@ ret: 1
 #import "alloc/gui" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 2
     let root %LayoutNode layout_node root_id root_bounds
@@ -139,7 +139,7 @@ ret: 2
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -197,7 +197,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -246,7 +246,7 @@ ret: 3
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 4
     let root %LayoutNode layout_node root_id root_bounds
@@ -291,7 +291,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 4
     let root %LayoutNode layout_node root_id root_bounds

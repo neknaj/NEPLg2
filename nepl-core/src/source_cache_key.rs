@@ -121,6 +121,7 @@ fn write_token_kind_cache_repr(out: &mut String, kind: &TokenKind) {
             push_source_key_part(out, value);
         }
         TokenKind::UnitLiteral => out.push_str("UnitLiteral"),
+        TokenKind::VoidMarker => out.push_str("VoidMarker"),
         TokenKind::KwFn => out.push_str("KwFn"),
         TokenKind::KwLet => out.push_str("KwLet"),
         TokenKind::KwMut => out.push_str("KwMut"),

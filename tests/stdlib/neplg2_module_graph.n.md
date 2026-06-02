@@ -33,10 +33,10 @@ fn edge_at %fn &SelfhostModuleGraph fn i32 SelfhostModuleGraphEdge \graph\idx:
     let edge %Option SelfhostModuleGraphEdge selfhost_module_graph_edge_at graph idx
     unwrap edge
 
-fn main %impure fn unit i32 \unit:
-    let root %str "#import \"util.nepl\" as util\n#import \"leaf.nepl\" as *\nfn main <()->i32> \\():\n    0\n"
-    let util %str "#import \"leaf.nepl\" as leaf\nfn util <()->i32> \\():\n    1\n"
-    let leaf %str "fn leaf <()->i32> ():\n    2\n"
+fn main %impure fn void i32 \void:
+    let root %str "#import \"util.nepl\" as util\n#import \"leaf.nepl\" as *\nfn main %fn void i32 \\void:\n    0\n"
+    let util %str "#import \"leaf.nepl\" as leaf\nfn util %fn void i32 \\void:\n    1\n"
+    let leaf %str "fn leaf %fn void i32 \\void:\n    2\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
@@ -115,8 +115,8 @@ fn check_note %impure fn TestReport impure fn Option str TestReport \checks\note
         Option::None:
             checks_push checks Result::Err "missing module diagnostic note was absent"
 
-fn main %impure fn unit i32 \unit:
-    let root %str "#import \"missing.nepl\" as *\nfn main <()->i32> \\():\n    0\n"
+fn main %impure fn void i32 \void:
+    let root %str "#import \"missing.nepl\" as *\nfn main %fn void i32 \\void:\n    0\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
@@ -174,9 +174,9 @@ fn check_note %impure fn TestReport impure fn Option str TestReport \checks\note
         Option::None:
             checks_push checks Result::Err "cycle diagnostic note was absent"
 
-fn main %impure fn unit i32 \unit:
-    let source_a %str "#import \"b.nepl\" as b\nfn a <()->i32> \\():\n    1\n"
-    let source_b %str "#import \"a.nepl\" as a\nfn b <()->i32> \\():\n    2\n"
+fn main %impure fn void i32 \void:
+    let source_a %str "#import \"b.nepl\" as b\nfn a %fn void i32 \\void:\n    1\n"
+    let source_b %str "#import \"a.nepl\" as a\nfn b %fn void i32 \\void:\n    2\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:

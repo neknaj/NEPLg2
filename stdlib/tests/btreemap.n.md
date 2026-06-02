@@ -23,7 +23,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m0 %BTreeMap i32 i32:
         unwrap_ok new
         |> insert 5 50
@@ -67,7 +67,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m0 %BTreeMap i32 i32:
         unwrap_ok new
         |> insert 0 0
@@ -129,7 +129,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m0 %BTreeMap i32 i32:
         unwrap_ok new
         |> insert 3 30
@@ -188,7 +188,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m0 %BTreeMap i32 i32:
         unwrap_ok new
         |> insert 7 70
@@ -235,7 +235,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let m %BTreeMap i32 i32:
         unwrap_ok new
         |> insert 2 20

@@ -15,7 +15,7 @@ ret: 1734
 #import "core/result" as *
 #import "core/field" as *
 
-fn make_vec4 %fn unit Vec i32 \unit:
+fn make_vec4 %fn void Vec i32 \void:
     let mut v %Vec i32 unwrap_ok new;
     set v unwrap_ok push v 4;
     set v unwrap_ok push v 1;
@@ -37,7 +37,7 @@ fn check_sorted4 %fn &Vec i32 bool \v:
     let b3 %bool check_at v 3 4;
     and b0 and b1 and b2 b3
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let v0 %Vec i32 make_vec4;
     sort_insertion &v0;
     let ok0 %bool check_sorted4 &v0;

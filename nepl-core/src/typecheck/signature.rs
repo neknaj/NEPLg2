@@ -17,7 +17,7 @@ fn append_function_signature_suffix(s: &mut String, func_ty: TypeId, ctx: &TypeC
     {
         s.push_str("__");
         if params.is_empty() {
-            s.push_str("unit");
+            s.push_str("void");
         } else {
             for (i, p) in params.iter().enumerate() {
                 if i > 0 {
@@ -99,7 +99,7 @@ pub(super) fn function_signature_string(ctx: &TypeCtx, ty: TypeId) -> String {
             }
             s.push_str("__");
             if params.is_empty() {
-                s.push_str("unit");
+                s.push_str("void");
             } else {
                 for (i, p) in params.iter().enumerate() {
                     if i > 0 {
@@ -392,11 +392,15 @@ pub(super) fn signature_type_string(
             ..
         } => {
             let mut s = String::from("fn__");
-            for (i, p) in params.iter().enumerate() {
-                if i > 0 {
-                    s.push('_');
+            if params.is_empty() {
+                s.push_str("void");
+            } else {
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        s.push('_');
+                    }
+                    s.push_str(&signature_type_string(ctx, *p, generics));
                 }
-                s.push_str(&signature_type_string(ctx, *p, generics));
             }
             s.push_str("__");
             s.push_str(&signature_type_string(ctx, result, generics));

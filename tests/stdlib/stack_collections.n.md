@@ -16,7 +16,7 @@ stdout: "test_report name=\"stack_new_and_len\" count=1 failed=0\nassertion inde
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut s %Stack i32 unwrap_ok new;
     set s unwrap_ok push s 10;
     set s unwrap_ok push s 20;
@@ -47,7 +47,7 @@ stdout: "test_report name=\"stack_peek_and_pop\" count=2 failed=0\nassertion ind
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s0 %Stack i32:
         unwrap_ok new
         |> push 10
@@ -98,7 +98,7 @@ stdout: "test_report name=\"stack_pop_empty\" count=1 failed=0\nassertion index=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %Stack i32 unwrap_ok new;
     let p pop s;
     let is_empty_pop %bool match p:
@@ -130,7 +130,7 @@ stdout: "test_report name=\"stack_pop_top2_success_and_underflow\" count=4 faile
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s0 %Stack i32:
         unwrap_ok new
         |> push 10
@@ -187,7 +187,7 @@ stdout: "test_report name=\"stack_new_and_len_pipe\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %Stack i32:
         unwrap_ok new
         |> push 10
@@ -221,7 +221,7 @@ stdout: "test_report name=\"stack_peek_and_pop_pipe\" count=2 failed=0\nassertio
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s0 %Stack i32:
         unwrap_ok new
         |> push 10
@@ -272,7 +272,7 @@ stdout: "test_report name=\"stack_pop_empty_pipe\" count=1 failed=0\nassertion i
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s %Stack i32 unwrap_ok new;
     let p %Option i32 pop s;
     let is_empty_pop %bool match p:
@@ -305,7 +305,7 @@ stdout: "test_report name=\"stack_get_keeps_stack\" count=3 failed=0\nassertion 
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut s %Stack i32 unwrap_ok new;
     set s unwrap_ok push s 10;
     set s unwrap_ok push s 20;
@@ -346,7 +346,7 @@ stdout: "test_report name=\"stack_pop_top_keeps_stack\" count=4 failed=0\nassert
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut s %Stack i32 unwrap_ok new;
     set s unwrap_ok push s 10;
     set s unwrap_ok push s 20;
@@ -407,7 +407,7 @@ stdout: "test_report name=\"stack_grow_clear_free_reallocates\" count=3 failed=0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut s %Stack i32 unwrap_ok new;
     set s unwrap_ok push s 0;
     set s unwrap_ok push s 1;

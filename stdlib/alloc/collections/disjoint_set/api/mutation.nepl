@@ -35,7 +35,7 @@
 //:| #import "alloc/collections/disjoint_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dsu0 %DisjointSet unwrap_ok new 5;
 //:     let dsu1 %DisjointSet unwrap_ok union dsu0 0 1;
 //:     let dsu2 %DisjointSet unwrap_ok union dsu1 1 2;

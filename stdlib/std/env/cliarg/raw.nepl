@@ -113,7 +113,7 @@ fn cli_load_u8_result %fn MemPtr u8 fn i32 Result i32 i32 \base\off:
 //:
 //: 計算量:
 //: - O(1)
-pub fn cliarg_count_result %impure fn unit Result i32 i32 \unit:
+pub fn cliarg_count_result %impure fn void Result i32 i32 \void:
     match alloc_region<u8> 8:
         Result::Err _:
             Result::Err 1
@@ -267,7 +267,7 @@ fn __cli_copy_to_cstr %impure fn str Result RegionToken u8 i32 \s:
             Result::Ok dst_region
 
 #if[target=llvm]
-fn __cli_open_cmdline %impure fn unit i32 \unit:
+fn __cli_open_cmdline %impure fn void i32 \void:
     let path %str "/proc/self/cmdline";
     match __cli_copy_to_cstr path:
         Result::Err _:

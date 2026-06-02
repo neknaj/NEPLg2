@@ -998,12 +998,7 @@ impl Parser {
 
     fn parse_lambda_param_list(&mut self) -> Option<(Vec<Ident>, Span)> {
         let start = self.expect_with_span(&TokenKind::Backslash)?;
-        if self.consume_if(&TokenKind::UnitLiteral) {
-            let end = self.previous_span().unwrap_or(start);
-            return Some((Vec::new(), start.join(end).unwrap_or(start)));
-        }
-        if self.consume_if(&TokenKind::LParen) {
-            self.expect(&TokenKind::RParen)?;
+        if self.consume_if(&TokenKind::VoidMarker) {
             let end = self.previous_span().unwrap_or(start);
             return Some((Vec::new(), start.join(end).unwrap_or(start)));
         }
@@ -4133,6 +4128,7 @@ impl Parser {
             TokenKind::KwTuple => Some("Tuple"),
             TokenKind::KwMlstr => Some("mlstr"),
             TokenKind::UnitLiteral => Some("unit"),
+            TokenKind::VoidMarker => Some("void"),
             _ => None,
         }
     }

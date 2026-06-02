@@ -109,7 +109,7 @@ pub fn str_is_space %fn i32 bool \b:
 //:| #import "std/test" as *
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let s " \t\n\rx";
 //:     let report:
 //:         test_report_new "str_byte_is_ascii_space_at_doc"
@@ -197,7 +197,7 @@ pub fn str_eq_at %fn str fn str fn i32 fn i32 fn i32 bool \s\pat\start\n\i:
 //:| #import "std/test" as *
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let report:
 //:         test_report_new "str_starts_with_at_doc"
 //:         |> test_report_push assert "prefix at 0" str_starts_with_at "abc" 0 "ab"

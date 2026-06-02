@@ -12,7 +12,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/fs/path" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     match fs_string_from_bytes 0 0:
         Result::Ok _name:
             1

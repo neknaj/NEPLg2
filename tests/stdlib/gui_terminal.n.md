@@ -22,7 +22,7 @@ stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let cap %TextGridCapability unwrap_ok text_grid_capability 80 24
     let kind %SurfaceKind text_grid_capability_kind &cap
     let cols %i32 text_grid_capability_cols &cap
@@ -81,7 +81,7 @@ stdout: "Checked [ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let profile %TerminalProfile unwrap_ok terminal_profile 40 10
     let base %TextGridPoint terminal_text_grid_point 2 3
     let point %TextGridPoint terminal_text_grid_point_translate base 5 7

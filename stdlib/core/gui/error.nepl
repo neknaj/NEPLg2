@@ -51,7 +51,7 @@ pub fn gui_error_is_unsupported %fn GuiError bool \e:
 //:
 //: [目的/もくてき]:
 //: - panic や no-op にせず、caller が `match` できる[失敗/しっぱい] value を[作/つく]ります。
-pub fn gui_unsupported <.T> %fn unit Result .T GuiError \unit:
+pub fn gui_unsupported <.T> %fn void Result .T GuiError \void:
     Result::Err GuiError::Unsupported
 
 //: gui_ok: GUI result の[成功/せいこう] value を[作/つく]る

@@ -1,5 +1,5 @@
 #indent 4
 
 //: selfhost_default_prelude_path: Rust loader と同じ default prelude path を[返/かえ]す
-pub fn selfhost_default_prelude_path %fn unit str \unit:
+pub fn selfhost_default_prelude_path %fn void str \void:
     "std/prelude_base"

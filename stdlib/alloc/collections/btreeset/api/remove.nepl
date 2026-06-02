@@ -28,7 +28,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let s %BTreeSet i32:
 //:         unwrap_ok new
 //:         |> insert 7 |> uwok
@@ -62,7 +62,7 @@ pub fn remove <.T: Ord&Copy> %impure fn BTreeSet .T impure fn .T BTreeSet .T \se
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let s %BTreeSet i32:
 //:         unwrap_ok new
 //:         |> insert 7 |> uwok

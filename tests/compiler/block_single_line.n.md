@@ -13,7 +13,7 @@ stdout: "test_report name=\"block_sl_basic_literal\" count=1 failed=0\nassertion
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block 10
     let report:
         test_report_new "block_sl_basic_literal"
@@ -35,7 +35,7 @@ stdout: "test_report name=\"block_sl_basic_arithmetic\" count=1 failed=0\nassert
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block add 1 2
     let report:
         test_report_new "block_sl_basic_arithmetic"
@@ -56,7 +56,7 @@ stdout: "test_report name=\"block_sl_with_let\" count=1 failed=0\nassertion inde
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block let x 10; x
     let report:
         test_report_new "block_sl_with_let"
@@ -78,7 +78,7 @@ stdout: "test_report name=\"block_sl_multiple_stmts\" count=1 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block let x 1; let y 2; add x y
     let report:
         test_report_new "block_sl_multiple_stmts"
@@ -99,7 +99,7 @@ stdout: "test_report name=\"block_sl_nested\" count=1 failed=0\nassertion index=
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block block 5
     let report:
         test_report_new "block_sl_nested"
@@ -120,7 +120,7 @@ stdout: "test_report name=\"block_sl_nested_in_multiline\" count=1 failed=0\nass
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block:
         block 10
     let report:
@@ -143,7 +143,7 @@ stdout: "test_report name=\"block_sl_arg_position\" count=1 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 add 1 block 2
     let report:
         test_report_new "block_sl_arg_position"
@@ -165,7 +165,7 @@ stdout: "test_report name=\"block_sl_arg_position_complex\" count=1 failed=0\nas
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     // add (block 1 (block 2)) と正しく解釈される
     let actual %i32 add block 1 block 2
     let report:
@@ -188,7 +188,7 @@ stdout: "test_report name=\"block_sl_if_branch\" count=1 failed=0\nassertion ind
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     // blockのルールによると if true (block 1 else (block 2)) と解釈されるため誤り
     let actual %i32 if true block 1 else block 2
     let report:
@@ -211,7 +211,7 @@ stdout: "test_report name=\"block_sl_while_body\" count=1 failed=0\nassertion in
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut i 0
     // while lt i 5 (block set i add i 1) と解釈され、正しい
     while lt i 5 block set i add i 1
@@ -234,7 +234,7 @@ stdout: "test_report name=\"block_sl_semicolon_unit\" count=1 failed=0\nassertio
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     // block returns unit, so we return 0 explicitly
     block 1;
     let actual %i32 0
@@ -258,7 +258,7 @@ stdout: "test_report name=\"block_sl_shadowing\" count=1 failed=0\nassertion ind
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let x 1
     let y block let x 2; x
     // y should be 2, outer x is 1
@@ -282,7 +282,7 @@ stdout: "test_report name=\"block_sl_mutation\" count=1 failed=0\nassertion inde
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut x 1
     block set x 2
     let report:
@@ -304,7 +304,7 @@ stdout: "test_report name=\"block_sl_type_annotated\" count=1 failed=0\nassertio
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 %i32 block 10
     let report:
         test_report_new "block_sl_type_annotated"
@@ -332,7 +332,7 @@ stdout: "test_report name=\"block_sl_tuple_element\" count=1 failed=0\nassertion
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let t Tuple:
         block 1
         block 2
@@ -357,7 +357,7 @@ stdout: "test_report name=\"block_sl_pipe_source\" count=1 failed=0\nassertion i
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block 1 |> add 2
     let report:
         test_report_new "block_sl_pipe_source"
@@ -381,7 +381,7 @@ stdout: "test_report name=\"block_sl_match_arm\" count=1 failed=0\nassertion ind
 
 enum E: A
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 match E::A:
         A: block 10
     let report:
@@ -403,7 +403,7 @@ stdout: "test_report name=\"block_sl_trailing_comment\" count=1 failed=0\nassert
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block 1 // comment
     let report:
         test_report_new "block_sl_trailing_comment"
@@ -424,7 +424,7 @@ stdout: "test_report name=\"block_sl_empty_ish\" count=1 failed=0\nassertion ind
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     block unit
     let actual %i32 0
     let report:
@@ -446,7 +446,7 @@ stdout: "test_report name=\"block_sl_deeply_nested\" count=1 failed=0\nassertion
 #target std
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 block block block 99
     let report:
         test_report_new "block_sl_deeply_nested"
@@ -465,7 +465,7 @@ diag_code: parser.token.unexpected
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block if:
         true
         1

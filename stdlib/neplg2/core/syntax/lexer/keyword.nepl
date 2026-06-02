@@ -78,7 +78,7 @@ pub fn lex_keyword_kind_len3 %fn str Option TokenKind \lexeme:
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 4 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - `else` と `enum`、`then` と `true` のような同じ長さの prefix 近接候補も、実文字列検証で最終判定します。
-//: - `unit` は NEPLg2.1 の unit 型・unit 値・0 引数関数 marker を表す keyword であり、通常 identifier としては扱いません。
+//: - `unit` は NEPLg2.1 の unit 型・unit 値、`void` は 0 引数関数 marker を表す keyword であり、どちらも通常 identifier としては扱いません。
 pub fn lex_keyword_kind_len4 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         25455:
@@ -95,6 +95,8 @@ pub fn lex_keyword_kind_len4 %fn str Option TokenKind \lexeme:
             lex_keyword_kind_if_eq lexeme "true" TokenKind::BoolLiteral
         30062:
             lex_keyword_kind_if_eq lexeme "unit" TokenKind::UnitLiteral
+        30319:
+            lex_keyword_kind_if_eq lexeme "void" TokenKind::VoidMarker
         _:
             Option::None
 

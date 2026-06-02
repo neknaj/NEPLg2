@@ -23,7 +23,7 @@ stdout: mlstr:
 fn identity <.T: Copy> %fn .T .T \x:
     x
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let maybe %Option i32 identity some 7
     let answer %Result i32 str identity ok 1
     let checks:

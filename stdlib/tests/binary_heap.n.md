@@ -17,7 +17,7 @@ stdout: "test_report name=\"binary_heap_push_peek_pop\" count=3 failed=0\nassert
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hp0 %BinaryHeap i32:
         unwrap_ok new
         |> push 4 |> uwok
@@ -74,7 +74,7 @@ stdout: "test_report name=\"binary_heap_empty_and_capacity\" count=2 failed=0\na
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hp0 %BinaryHeap i32 unwrap_ok with_capacity 8;
     let ok0 %bool is_empty &hp0;
     free hp0;
@@ -109,7 +109,7 @@ stdout: "test_report name=\"binary_heap_borrowed_reads_preserve_owner\" count=2 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hp %BinaryHeap i32:
         unwrap_ok new
         |> push 4 |> uwok
@@ -147,7 +147,7 @@ stdout: "test_report name=\"binary_heap_pop_max_returns_owner\" count=3 failed=0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hp0 %BinaryHeap i32:
         unwrap_ok new
         |> push 4 |> uwok
@@ -194,7 +194,7 @@ stdout: "test_report name=\"binary_heap_grow_preserves_order\" count=2 failed=0\
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hp0 %BinaryHeap i32:
         unwrap_ok with_capacity 1
         |> push 4 |> uwok

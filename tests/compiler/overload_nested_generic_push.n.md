@@ -21,7 +21,7 @@ stdout: "test_report name=\"nested_generic_push_direct\" count=1 failed=0\nasser
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let v0 %Vec Result unit str unwrap_ok new;
     let r %Result unit str Result::Ok unit;
     let v1 %Vec Result unit str uwok push v0 r;
@@ -53,7 +53,7 @@ stdout: "test_report name=\"nested_generic_push_pipe\" count=1 failed=0\nasserti
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let v %Vec Result unit str:
         unwrap_ok new
         |> push (Result::Ok unit) |> uwok

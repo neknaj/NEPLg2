@@ -26,7 +26,7 @@ fn expect_str_ok %fn Result str str fn str Result unit str \got\expected:
         Result::Err msg:
             Result::Err msg
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let text %str "Aあ"
     let checks:
         checks_new

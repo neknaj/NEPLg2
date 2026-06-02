@@ -12,7 +12,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/allocator" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     alloc_raw 4
 //: ```
 
@@ -134,7 +134,7 @@ fn free_list_coalesce_prev %fn i32 fn i32 unit \prev\blk:
 //:| #target std
 //:| #import "core/mem/allocator" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match alloc 2147483633:
 //:         Result::Err _:
 //:             1

@@ -19,7 +19,7 @@ stdout: "test_report name=\"queue_push_pop\" count=5 failed=0\nassertion index=0
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let q0 %Queue i32:
         unwrap_ok new
         |> push 1
@@ -96,7 +96,7 @@ stdout: "test_report name=\"queue_pop_empty\" count=1 failed=0\nassertion index=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let q %Queue i32 unwrap_ok new;
     let ok %bool match pop q:
         Option::Some _:

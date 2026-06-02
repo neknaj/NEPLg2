@@ -12,7 +12,7 @@
 //:| #target std
 //:| #import "alloc/gui/text" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let buffer_id %TextBufferId text_buffer_id_new 1
 //:     let buffer %TextBuffer text_buffer_new buffer_id "ac"
 //:     match text_buffer_insert buffer 1 "b":

@@ -47,7 +47,7 @@
 //:| #target std
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let ok0 %bool str_eq from_i32 42 "42";
 //:     let ok1 %bool str_eq from_i32 -42 "-42";
 //:     let ok %bool and ok0 ok1;

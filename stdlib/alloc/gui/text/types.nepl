@@ -18,7 +18,7 @@
 //:| #target std
 //:| #import "alloc/gui/text/types" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let buffer_id %TextBufferId text_buffer_id_new 1
 //:     let buffer %TextBuffer text_buffer_new buffer_id "abc"
 //:     match text_buffer_replace buffer 1 2 "XYZ":

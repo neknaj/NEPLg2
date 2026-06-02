@@ -50,7 +50,7 @@ fn expect_invalid %fn ServerConfig fn str Result unit str \config\expected:
         Result::Err msg:
             check_str_eq expected msg
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks:
         checks_new
         |> checks_push expect_valid ServerConfig 8080 4

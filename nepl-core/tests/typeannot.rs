@@ -17,7 +17,7 @@ fn test_neplg21_percent_type_annot_basic() {
 #target wasm
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let a %i32 add %i32 10 %i32 20
     a
 "#;
@@ -32,12 +32,57 @@ fn test_neplg21_unit_keyword_type_annotation_and_value() {
 #indent 4
 #target wasm
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let marker %unit unit
     42
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 42);
+}
+
+#[test]
+fn test_neplg21_void_marker_is_not_a_type_annotation() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main %fn void i32 \void:
+    let marker %void unit
+    42
+"#;
+    let result = nepl_core::compile_wasm(
+        nepl_core::span::FileId(0),
+        src,
+        nepl_core::CompileOptions {
+            target: None,
+            verbose: false,
+            profile: None,
+        },
+    );
+    assert!(result.is_err(), "expected void type annotation to fail");
+}
+
+#[test]
+fn test_neplg21_void_marker_is_not_a_value_expression() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main %fn void i32 \void:
+    void
+"#;
+    let result = nepl_core::compile_wasm(
+        nepl_core::span::FileId(0),
+        src,
+        nepl_core::CompileOptions {
+            target: None,
+            verbose: false,
+            profile: None,
+        },
+    );
+    assert!(result.is_err(), "expected void value expression to fail");
 }
 
 #[test]
@@ -51,7 +96,7 @@ fn test_neplg21_percent_after_normal_callee_remains_value_annotation() {
 fn bump %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     bump %i32 41
 "#;
     let v = run_main_i32(src);
@@ -66,7 +111,7 @@ fn test_neplg21_prefix_generic_type_annot() {
 #target wasm
 #import "core/option" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let opt %Option i32 some<i32> 42
     match opt:
         Option::Some v:
@@ -86,13 +131,13 @@ fn test_neplg21_prefix_generic_type_annot_forward_declared_user_type() {
 #target wasm
 #no_prelude
 
-fn make_later %fn unit Later i32 \unit:
+fn make_later %fn void Later i32 \void:
     Later 42
 
 struct Later<.T>:
     value %.T
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let later %Later i32 make_later
     42
 "#;
@@ -126,7 +171,7 @@ pub struct ImportedBox<.T>:
 #no_prelude
 #import "./generic_box" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let boxed %ImportedBox i32 ImportedBox 77
     77
 "#,
@@ -159,7 +204,7 @@ fn test_neplg21_expected_result_flows_through_generic_consumer_argument() {
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v %Vec i32 unwrap_ok new
     free v;
     0
@@ -180,7 +225,7 @@ fn test_neplg21_block_result_flows_through_generic_consumer_argument() {
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v %Vec i32:
         unwrap_ok new
         |> push 1
@@ -205,7 +250,7 @@ fn test_neplg21_expected_result_flows_through_outer_consumer_after_inner_args() 
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v %Vec i32 unwrap_ok with_capacity 2
     free v;
     0
@@ -226,7 +271,7 @@ fn test_neplg21_block_pipe_result_flows_into_pending_segment_constructor() {
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v %Vec i32:
         unwrap_ok with_capacity 2
         |> push 1
@@ -288,7 +333,7 @@ pub struct Diag:
 #no_prelude
 #import "./facade" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 "#,
     )

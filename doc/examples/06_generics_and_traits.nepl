@@ -38,18 +38,18 @@ pub let Ord trait:
 //: - `i32` (加算)・`str` (連結)・`List` (連結) で異なる動作を同じ関数で[統一/とういつ]できる。
 
 pub let Monoid trait:
-    let empty %fn unit Self \unit:
+    let empty %fn void Self \void:
         ...
     let combine %fn Self fn Self Self \a \b:
         ...
 
 
 pub let i32 impl for Monoid:
-    let empty %fn unit i32 \unit 0
+    let empty %fn void i32 \void 0
     let combine %fn i32 fn i32 i32 \a \b add a b
 
 pub let str impl for Monoid:
-    let empty %fn unit str \unit ""
+    let empty %fn void str \void ""
     let combine %fn str fn str str \a \b concat a b
 
 

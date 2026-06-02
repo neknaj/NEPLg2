@@ -24,7 +24,7 @@ impl<.T> Mapper<.T> for i32:
     fn map %fn i32 fn .T i32 \_self\_value:
         7
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 Mapper::map 0 123
     let report:
         test_report_new "concrete_target_may_quantify_trait_arguments"
@@ -57,6 +57,6 @@ impl<.T> Marker for Box<.T>:
     fn mark %fn Box .T i32 \_self:
         1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```

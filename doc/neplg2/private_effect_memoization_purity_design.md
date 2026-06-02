@@ -357,7 +357,7 @@ Phase 2 では、`PrivateState rho` と `mask_private` を一般化し、local m
 
 同 checkpoint では、Phase 1 の key predicate と value predicate を分離した。`f32` は value としては `Copy` して返せるが、NaN、符号付き zero、正規化、hash consistency の仕様が固定されるまでは key として拒否する。user code が `impl MemoKey for f32` を追加した場合や、`f32` field を持つ nominal aggregate に `MemoKey` を実装した場合も、compiler-known primitive gate は key として受け入れない。
 
-同 checkpoint では、`unit` keyword が trait impl method signature の一部経路で fresh type variable として lower される不整合も修正した。`unit` は zero-argument function type の marker としても使われるため、unit 値そのものを引数型にする標準 impl では `%fn (unit) ...` のように group して書く。これにより `MemoKey for unit` / `MemoValue for unit` は通常の trait impl と同じ経路で検査される。
+同 checkpoint では、`unit` keyword が trait impl method signature の一部経路で fresh type variable として lower される不整合も修正した。現在は 0 引数 function type の marker が `void` へ分離されたため、unit 値そのものを引数型にする標準 impl は `%fn unit ...` と書く。これにより `MemoKey for unit` / `MemoValue for unit` は通常の trait impl と同じ経路で検査される。
 
 現 checkpoint の compiler-known primitive 検出は、解決済み `DefId` と source map 上の `stdlib/core/memo.nepl` path を確認する。これは単なる名前 allowlist より強いが、最終的な proof boundary ではない。SourceCapability exact use-site と stdlib source hash / policy hash が入るまでは、path suffix だけを private cache authority の根拠にしない。
 

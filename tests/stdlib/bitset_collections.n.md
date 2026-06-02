@@ -28,7 +28,7 @@ stdout: "test_report name=\"bitset_pipe_usage\" count=4 failed=0\nassertion inde
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bs0 %BitSet:
         unwrap_ok new 24
         |> insert 3 |> uwok
@@ -75,7 +75,7 @@ stdout: "test_report name=\"bitset_free_releases_owned_storage\" count=1 failed=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bs0 %BitSet:
         unwrap_ok new 24
         |> insert 5 |> uwok
@@ -116,7 +116,7 @@ stdout: "test_report name=\"bitset_update_error_recovers_owner\" count=2 failed=
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bs0 %BitSet unwrap_ok new 20;
     let ok0 %bool:
         match insert bs0 20:

@@ -20,7 +20,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn build_numbers %impure fn unit Result Vec i32 str \unit:
+fn build_numbers %impure fn void Result Vec i32 str \void:
     let created %Result Vec i32 StdErrorKind new
     match created:
         Result::Err _e:
@@ -45,7 +45,7 @@ fn expect_item %fn &Vec i32 fn i32 fn i32 Result unit str \v\idx\expected:
         Option::None:
             Result::Err "missing vec item"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match build_numbers:
         Result::Err msg:
             let checks checks_push checks_new Result::Err msg

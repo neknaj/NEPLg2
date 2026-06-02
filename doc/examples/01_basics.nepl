@@ -104,9 +104,9 @@ let grade %fn i32 str \score:
 //: ### [注意/ちゅうい]
 //: - Pure な[計算/けいさん]関数を Impure な `println` から[切/き]り[離/はな]している。
 //: - [計算/けいさん]ロジック側のテストは `println` を含まずに書ける。
-//: - `main` に `%impure fn unit i32` を付けているのは、`println` の呼び出しを含む Impure 関数だから。
+//: - `main` に `%impure fn void i32` を付けているのは、`println` の呼び出しを含む Impure 関数だから。
 
-pub let main %impure fn unit i32 \unit:
+pub let main %impure fn void i32 \void:
     println concat "10! = "        to_str factorial 10
     println concat "sum(1..10) = " to_str sum_to 10
     println concat "grade(85) = "  grade 85

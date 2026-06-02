@@ -23,7 +23,7 @@
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hp %BinaryHeap i32 unwrap_ok new;
 //:     free hp;
 //:     0

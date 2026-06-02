@@ -33,7 +33,7 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     let checks match io_bytebuf_from_str_result "AB":
 //:         Result::Ok bytes:
@@ -79,7 +79,7 @@ pub struct ByteBuf:
     storage %ByteBufStorage
     len %i32
 
-pub fn io_bytebuf_empty %fn unit ByteBuf \unit:
+pub fn io_bytebuf_empty %fn void ByteBuf \void:
     ByteBuf ByteBufStorage::Empty 0
 
 pub fn io_bytebuf_len %fn &ByteBuf i32 \buf:

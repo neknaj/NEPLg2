@@ -10,7 +10,7 @@ const {
 } = require('./bench_materialized_compile_fallbacks');
 
 assert.equal(SCHEMA, 'neplg2-materialized-compile-fallback-benchmark/v1');
-assert.match(sourceForValue(7), /fn main %fn unit i32 \\unit:/);
+assert.match(sourceForValue(7), /fn main %fn void i32 \\void:/);
 assert.match(sourceForValue(7), /\n#import "core\/char" as \*\n/);
 assert.match(sourceForValue(7), /\n    char_utf8_cont_byte 7\n/);
 

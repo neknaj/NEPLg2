@@ -167,9 +167,9 @@ function findTopLevelArrow(src) {
 
 function convertFunctionTypeParams(paramsText, effect) {
   const trimmed = paramsText.trim();
-  if (trimmed === "" || trimmed === "()" || trimmed === "(())") return `${effect} unit`;
+  if (trimmed === "" || trimmed === "()" || trimmed === "(())") return `${effect} void`;
   const parts = splitTopLevel(trimmed, ",");
-  if (parts.length === 0) return `${effect} unit`;
+  if (parts.length === 0) return `${effect} void`;
   return parts.map((part) => `${effect} ${convertTypeExpr(part)}`).join(" ");
 }
 
@@ -192,7 +192,7 @@ function convertTypeExpr(src) {
   if (arrow) {
     let left = text.slice(0, arrow.index).trim();
     const right = text.slice(arrow.index + arrow.length).trim();
-    left = stripSingleOuterParens(left);
+    left = left === "()" || left === "(())" ? left : stripSingleOuterParens(left);
     const resultIsFunction = findTopLevelArrow(stripSingleOuterParens(right)) !== null;
     const result = convertTypeExpr(right);
     return `${convertFunctionTypeParams(left, arrow.effect)} ${resultIsFunction ? `(${result})` : result}`;
@@ -332,7 +332,7 @@ function convertFunctionParamLists(src) {
   return mapOutsideStrings(src, (segment) =>
     segment.replace(/(^[ \t]*(?:(?:\/\/:\|?[ \t]*)?)(?:(?:pub[ \t]+)?fn|let)[^\r\n]*?%[^\r\n]*?)[ \t]*\(([^()\r\n]*)\)([ \t]*:)/gm, (_m, head, params, tail) => {
       const converted = params.trim() === ""
-        ? "\\unit"
+        ? "\\void"
         : splitTopLevel(params, ",").map((param) => `\\${param.trim()}`).join("");
       return `${head} ${converted}${tail}`;
     })
@@ -342,14 +342,26 @@ function convertFunctionParamLists(src) {
 function convertLegacyPercentEffectSignatures(src) {
   return mapOutsideStrings(src, (segment) =>
     segment.replace(/%unit\*((?:[A-Za-z_][A-Za-z0-9_:]*(?:<[^>\r\n]+>)?)|unit|i32|u8|f32|bool|char|never|str)>/g, (_m, result) =>
-      `%impure fn unit ${convertTypeExpr(result)}`
+      `%impure fn void ${convertTypeExpr(result)}`
     )
   );
 }
 
 function convertMissingZeroArgLambdaMarker(src) {
   return mapOutsideStrings(src, (segment) =>
-    segment.replace(/(^[ \t]*(?:(?:\/\/:\|?[ \t]*)?)(?:(?:pub[ \t]+)?fn|let)[^\r\n]*?%(?:impure[ \t]+)?fn[^\r\n\\:]*?)unit([ \t]*:)/gm, "$1\\unit$2")
+    segment.replace(
+      /(^[ \t]*(?:(?:\/\/:\|?[ \t]*)?)(?:(?:pub[ \t]+)?fn|let)[^\r\n\\:]*?%(?:impure[ \t]+)?fn\s+void\s+(?!void\b)[^\r\n\\:]*?)([ \t]*:)/gm,
+      "$1 \\void$2",
+    )
+  );
+}
+
+function convertLegacyUnitZeroArgMarkers(src) {
+  return mapOutsideStrings(src, (segment) =>
+    segment.replace(
+      /(^[ \t]*(?:(?:\/\/:\|?[ \t]*)?)(?:(?:pub[ \t]+)?fn|let)[^\r\n]*?%)([^\r\n\\:]*?)\\unit([ \t]*:)/gm,
+      (_m, head, typePart, tail) => `${head}${typePart.replace(/\b((?:impure\s+)?fn)\s+unit\b/g, "$1 void")}\\void${tail}`,
+    )
   );
 }
 
@@ -377,10 +389,12 @@ function restoreIntrinsicArgDelimiters(src) {
 }
 
 function migrateText(src) {
-  return convertMissingZeroArgLambdaMarker(
-    convertLegacyPercentEffectSignatures(
-      restoreIntrinsicArgDelimiters(
-        convertUnitSyntax(convertFunctionParamLists(convertAngleAnnotations(src)))
+  return convertLegacyUnitZeroArgMarkers(
+    convertMissingZeroArgLambdaMarker(
+      convertLegacyPercentEffectSignatures(
+        restoreIntrinsicArgDelimiters(
+          convertUnitSyntax(convertFunctionParamLists(convertAngleAnnotations(src)))
+        )
       )
     )
   );
@@ -415,3 +429,7 @@ function main() {
 if (require.main === module) {
   main();
 }
+
+module.exports = {
+  migrateText,
+};

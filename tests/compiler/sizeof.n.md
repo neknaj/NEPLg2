@@ -15,7 +15,7 @@ stdout: "test_report name=\"sizeof_primitives\" count=1 failed=0\nassertion inde
 #import "core/mem" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 if:
         eq size_of %i32 4
         then:
@@ -57,10 +57,10 @@ stdout: "test_report name=\"sizeof_generic_function\" count=1 failed=0\nassertio
 #import "core/mem" as *
 #import "std/test" as *
 
-fn size_of_t <.T> %fn unit i32 \unit:
+fn size_of_t <.T> %fn void i32 \void:
     size_of %.T
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 if:
         eq size_of %i32 size_of_t<i32>
         then:
@@ -95,7 +95,7 @@ stdout: "test_report name=\"sizeof_generic_struct_wrapper\" count=1 failed=0\nas
 struct Wrap<.T>:
     value %.T
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 if:
         eq size_of %i32 size_of %Wrap i32
         then:
@@ -130,7 +130,7 @@ struct WidePair:
     a %i64
     b %i32
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 if:
         eq size_of %Pair 8
         then:
@@ -159,7 +159,7 @@ stdout: "test_report name=\"sizeof_algebraic_types\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s_i32 %i32 size_of %i32;
     let s_str %i32 size_of %str;
     let s_opt_i32 %i32 size_of %Option i32;
@@ -210,7 +210,7 @@ struct Node<.T>:
     head %.T
     tail %Option .T
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s_cell_i64 %i32 size_of %Cell i64;
     let s_i64 %i32 size_of %i64;
     let s_node_i32 %i32 size_of %Node i32;
@@ -257,7 +257,7 @@ stdout: "test_report name=\"sizeof_collection_structs\" count=1 failed=0\nassert
 #import "alloc/collections/hashset" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let vec_expected %i32 size_of %OwnedBuffer i32;
     let stack_expected %i32 add (add 4 4) size_of %Vec Option i32;
     let actual %i32 if:
@@ -304,7 +304,7 @@ stdout: "test_report name=\"sizeof_diag_structs\" count=1 failed=0\nassertion in
 #import "alloc/diag/error" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 if:
         eq size_of %Span 12
         then:
@@ -343,6 +343,6 @@ diag_codes: type.generic_call.unresolved_type_args
 #indent 4
 #import "core/mem" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let _size %i32 size_of %T;
 ```

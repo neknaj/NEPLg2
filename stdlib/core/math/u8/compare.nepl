@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/u8/compare" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let a %u8 cast 1;
 //:     let b %u8 cast 2;
 //:     if:

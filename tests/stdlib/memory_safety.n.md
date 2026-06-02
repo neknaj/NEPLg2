@@ -12,7 +12,7 @@ ret: 123
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -49,7 +49,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     alloc_ptr<i32> 4
     0
 ```
@@ -65,7 +65,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem/pointer" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     alloc_ptr<i32> 4
     0
 ```
@@ -85,7 +85,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/option" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let p %MemPtr i32 mem_ptr_wrap 0
     match load_i32 p:
         Option::None:
@@ -109,7 +109,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let p %MemPtr i32 mem_ptr_wrap 0
     match store_i32 p 42:
         Result::Err _e:
@@ -134,7 +134,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/result" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc 8:
         Result::Err _e:
             0
@@ -163,7 +163,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match dealloc 0 4:
         Result::Err _e:
             1
@@ -184,7 +184,7 @@ ret: 321
 #import "core/result" as *
 #import "core/option" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -232,7 +232,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -262,7 +262,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -294,7 +294,7 @@ diag_code: resource.owner.unavailable
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<u8> 1:
         Result::Err _e:
             0
@@ -324,7 +324,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<u8> 8:
         Result::Err _e:
             0
@@ -354,7 +354,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<i32> 536870909:
         Result::Err _e:
             1
@@ -378,7 +378,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region_bytes<u8> 2147483633:
         Result::Err _e:
             1
@@ -400,12 +400,12 @@ ret: 1
 #import "core/option" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let ok_u8 %i32 check_fill_u8
     let ok_i32 %i32 check_fill_i32
     if and (eq ok_u8 1) (eq ok_i32 1) 1 0
 
-fn check_fill_u8 %impure fn unit i32 \unit:
+fn check_fill_u8 %impure fn void i32 \void:
     match alloc_region<u8> 16:
         Result::Err _e:
             0
@@ -430,7 +430,7 @@ fn check_fill_u8 %impure fn unit i32 \unit:
                         Result::Ok _:
                             ok
 
-fn check_fill_i32 %impure fn unit i32 \unit:
+fn check_fill_i32 %impure fn void i32 \void:
     match alloc_region<i32> 4:
         Result::Err _e:
             0
@@ -469,7 +469,7 @@ ret: 1
 #import "core/result" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let ok_u8 %i32 check_invalid_fill_u8
     let ok_i32 %i32 check_invalid_fill_i32
     if:
@@ -479,7 +479,7 @@ fn main %impure fn unit i32 \unit:
         else:
             0
 
-fn check_invalid_fill_u8 %impure fn unit i32 \unit:
+fn check_invalid_fill_u8 %impure fn void i32 \void:
     match alloc_region<u8> 4:
         Result::Err _e:
             0
@@ -497,7 +497,7 @@ fn check_invalid_fill_u8 %impure fn unit i32 \unit:
                 Result::Ok _:
                     if ok 1 0
 
-fn check_invalid_fill_i32 %impure fn unit i32 \unit:
+fn check_invalid_fill_i32 %impure fn void i32 \void:
     match alloc_region<i32> 2:
         Result::Err _e:
             0
@@ -532,7 +532,7 @@ diag_code: effect.pure.calls_impure
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let p %MemPtr i32 mem_ptr_wrap 0
     let v %i32 match load_i32 p:
         Option::None:
@@ -561,7 +561,7 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let p %MemPtr u8 mem_ptr_wrap 0
     match fill_u8 p 4 1:
         Result::Err _e:
@@ -581,7 +581,7 @@ diag_code: resource.raw.memory_outside_boundary
 
 #import "core/mem/raw" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     store_i32 16 7
     load_i32 16
 ```
@@ -599,7 +599,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/internal" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let p %MemPtr i32 mem_ptr_wrap<i32> 16
     match store_i32 p 7:
         Result::Ok _:
@@ -622,7 +622,7 @@ diag_code: type.overload.no_match
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let p %MemPtr u8 mem_ptr_wrap 0
     let _v load_i32 p;
     0
@@ -642,10 +642,10 @@ diag_code: type.raw_pointer.constructor_restricted
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn make %fn unit MemPtr u8 \unit:
+fn make %fn void MemPtr u8 \void:
     MemPtr 0
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -662,11 +662,11 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/mem/internal" as *
 #import "core/field" as *
 
-fn reveal_raw %fn unit i32 \unit:
+fn reveal_raw %fn void i32 \void:
     let p %MemPtr u8 mem_ptr_wrap 16
     get p "raw"
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -684,7 +684,7 @@ diag_code: type.overload.no_match
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let p %MemPtr i32 mem_ptr_wrap 0
     store_u8 p 1;
     0
@@ -704,7 +704,7 @@ diag_code: type.overload.no_match
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let p %MemPtr u8 mem_ptr_wrap 0
     dealloc_region p;
     0
@@ -733,7 +733,7 @@ fn forge_region_from_str %impure fn str Result unit str \s:
     let token %RegionToken u8 region_new<u8> raw 1
     dealloc_region token
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     match forge_region_from_str "abc":
         Result::Ok _:
             unit
@@ -756,11 +756,11 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn forge_fixed_region %impure fn unit Result unit str \unit:
+fn forge_fixed_region %impure fn void Result unit str \void:
     let token %RegionToken u8 region_new<u8> 16 1
     dealloc_region token
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     match forge_fixed_region:
         Result::Ok _:
             unit
@@ -783,10 +783,10 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn forge_fixed_region %impure fn unit RegionToken u8 \unit:
+fn forge_fixed_region %impure fn void RegionToken u8 \void:
     region_new<u8> 16 1
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let token %RegionToken u8 forge_fixed_region
     match dealloc_region token:
         Result::Ok _:
@@ -818,7 +818,7 @@ fn forge_region_from_str %impure fn str Result unit str \s:
     let token %RegionToken u8 RegionToken raw 1
     dealloc_region token
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     match forge_region_from_str "abc":
         Result::Ok _:
             unit
@@ -841,7 +841,7 @@ diag_code: type.owner_token.field_access_restricted
 fn reveal_region_raw %fn RegionToken u8 i32 \token:
     get token "raw"
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -859,7 +859,7 @@ diag_code: resolve.identifier.undefined
 fn reveal_region_raw_ref %fn &RegionToken u8 i32 \token:
     *region_token_raw_ref token
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -887,7 +887,7 @@ fn forge_region_from_region_ptr %impure fn RegionToken u8 Result unit str \token
     let forged %RegionToken u8 region_new<u8> raw 1
     dealloc_region forged
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     match alloc_region<u8> 1:
         Result::Err _e:
             unit
@@ -930,7 +930,7 @@ fn forge_region_from_callback_ptr %impure fn RegionToken u8 Result unit str \tok
     let forged %RegionToken u8 region_new<u8> raw 1
     dealloc_region forged
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     match alloc_region<u8> 1:
         Result::Err _e:
             unit
@@ -966,7 +966,7 @@ fn borrowed_region_ptr_via_callback_param %fn &RegionToken u8 fn fn MemPtr u8 Me
     let p %MemPtr u8 region_ptr token
     apply_ptr p f
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     match alloc_region<u8> 1:
         Result::Err _e:
             unit
@@ -1003,7 +1003,7 @@ fn forge_region_from_region_ptr_at %impure fn RegionToken u8 Result unit str \to
             let forged %RegionToken u8 region_new<u8> raw 1
             dealloc_region forged
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     match alloc_region<u8> 1:
         Result::Err _e:
             unit
@@ -1028,7 +1028,7 @@ diag_code: type.owner_aggregate.constructor_restricted
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -1050,7 +1050,7 @@ diag_code: type.owner_aggregate.field_access_restricted
 #import "core/field" as field
 #import "core/mem" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v %Vec i32 vec_empty<i32>
     let _buffer %&OwnedBuffer i32 field::get_ref &v "buffer"
     0
@@ -1069,7 +1069,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let v %Vec i32 unwrap_ok new<i32>
     match data_mem_view<i32> &v:
         VecDataView::Empty:
@@ -1094,7 +1094,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     alloc_raw 4
 ```
 
@@ -1109,7 +1109,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem" as *
 
-fn main %fn unit MemPtr i32 \unit:
+fn main %fn void MemPtr i32 \void:
     mem_ptr_wrap<i32> 16
 ```
 
@@ -1124,7 +1124,7 @@ diag_code: type.overload.no_match
 
 #import "core/mem" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     load_i32 0
 ```
 
@@ -1140,7 +1140,7 @@ diag_code: resolve.identifier.undefined
 #import "alloc/io/bytebuilder" as *
 #import "core/mem" as *
 
-fn main %fn unit RegionToken u8 \unit:
+fn main %fn void RegionToken u8 \void:
     byte_builder_empty_region
 ```
 
@@ -1156,7 +1156,7 @@ diag_code: resolve.identifier.undefined
 #import "alloc/io/bytebuf" as *
 #import "core/mem" as *
 
-fn main %fn unit RegionToken u8 \unit:
+fn main %fn void RegionToken u8 \void:
     io_bytebuf_empty_region
 ```
 
@@ -1171,7 +1171,7 @@ diag_code: type.owner_aggregate.constructor_restricted
 
 #import "alloc/io/bytebuf" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let _buf %ByteBuf ByteBuf ByteBufStorage::Empty 0
     0
 ```
@@ -1188,7 +1188,7 @@ diag_code: type.owner_aggregate.field_access_restricted
 #import "alloc/io/bytebuf" as *
 #import "core/field" as field
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let buf %ByteBuf io_bytebuf_empty
     let _storage %&ByteBufStorage field::get_ref &buf "storage"
     0
@@ -1205,7 +1205,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/storage" as *
 
-fn main %impure fn unit str \unit:
+fn main %impure fn void str \void:
     string_finish_base string_data_ptr "abc" 3
 ```
 
@@ -1220,7 +1220,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/storage" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     string_addr "abc"
 ```
 
@@ -1235,7 +1235,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/storage" as *
 
-fn main %impure fn unit str \unit:
+fn main %impure fn void str \void:
     string_from_addr_unchecked 0
 ```
 
@@ -1252,7 +1252,7 @@ diag_code: resource.owner.unavailable
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<u8> 1:
         Result::Err _e:
             0
@@ -1283,7 +1283,7 @@ diag_code: resource.owner.unavailable
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match alloc_region<u8> 1:
         Result::Err _e:
             0
@@ -1312,7 +1312,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/scanner" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     scanner_string_addr "abc"
 ```
 
@@ -1327,7 +1327,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/scanner" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     scanner_string_byte_at_unchecked "abc" 99
 ```
 
@@ -1342,7 +1342,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/scanner" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     scanner_string_byte_at_checked_raw "abc" 99
 ```
 
@@ -1357,7 +1357,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     string_byte_at_unchecked "abc" 99
 ```
 
@@ -1372,7 +1372,7 @@ diag_code: type.overload.no_match
 
 #import "alloc/string/byte_index" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     string_byte_at_checked "abc" 99
 ```
 
@@ -1387,7 +1387,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/byte_index" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let idx StringByteIndex 0
     string_byte_at_checked "abc" idx
 ```
@@ -1403,7 +1403,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/access" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     string_byte_at_unchecked "abc" 99
 ```
 
@@ -1418,7 +1418,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/utf8" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     string_utf8_byte_at "abc" 0
 ```
 
@@ -1433,7 +1433,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/utf8" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     string_utf8_validate_two "abc" 0 3
     0
 ```
@@ -1449,7 +1449,7 @@ diag_code: resolve.identifier.undefined
 
 #import "std/text/validate" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     text_utf8_byte_at "abc" 0
 ```
 
@@ -1465,7 +1465,7 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let p %MemPtr u8 string_data_ptr "nep\0";
     cstr_len p
 ```
@@ -1482,7 +1482,7 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let p %MemPtr u8 string_data_ptr "nep\0";
     cstr_to_str p
 ```
@@ -1500,7 +1500,7 @@ diag_code: resolve.identifier.undefined
 #import "alloc/string/storage" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match byte_builder_new:
         Result::Ok b:
             let p %MemPtr u8 string_data_ptr "abc";

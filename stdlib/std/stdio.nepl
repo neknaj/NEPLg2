@@ -31,6 +31,6 @@ pub #import "./stdio/debug" as *
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     print "ok";
 //: ```

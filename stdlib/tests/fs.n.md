@@ -17,7 +17,7 @@ stdout: "test_report name=\"fs_main\" count=1 failed=0\nassertion index=0 status
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let report:
         match fs_read_to_string "__definitely_missing_file__.txt":
             Result::Ok s:

@@ -3442,16 +3442,16 @@ mod tests {
         let b_path = canonicalize_path(&stdlib_path(&stdlib_root, &["b.nepl"]));
         let c_path = canonicalize_path(&stdlib_path(&stdlib_root, &["c.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"a\" as *\n#import \"b\" as *\nfn main %fn unit i32 \\unit:\n    0\n",
+            "#no_prelude\n#import \"a\" as *\n#import \"b\" as *\nfn main %fn void i32 \\void:\n    0\n",
         );
         let mut sources = BTreeMap::new();
         sources.insert(
             a_path,
-            String::from("#import \"c\" as *\npub fn a_value %fn unit i32 \\unit:\n    1\n"),
+            String::from("#import \"c\" as *\npub fn a_value %fn void i32 \\void:\n    1\n"),
         );
         sources.insert(
             b_path,
-            String::from("#import \"c\" as *\npub fn b_value %fn unit i32 \\unit:\n    2\n"),
+            String::from("#import \"c\" as *\npub fn b_value %fn void i32 \\void:\n    2\n"),
         );
         sources.insert(
             c_path,
@@ -3488,9 +3488,9 @@ mod tests {
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    foo unit\n",
         );
-        let foo_source = String::from("pub fn foo %fn unit i32 \\unit:\n    1\n");
+        let foo_source = String::from("pub fn foo %fn void i32 \\void:\n    1\n");
         let mut sources = BTreeMap::new();
         sources.insert(foo_path, foo_source);
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
@@ -3553,9 +3553,9 @@ mod tests {
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    foo unit\n",
         );
-        let foo_source = String::from("pub fn foo %fn unit i32 \\unit:\n    1\n");
+        let foo_source = String::from("pub fn foo %fn void i32 \\void:\n    1\n");
         let mut sources = BTreeMap::new();
         sources.insert(foo_path.clone(), foo_source.clone());
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
@@ -3623,9 +3623,9 @@ mod tests {
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    1\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    1\n",
         );
-        let foo_source = String::from("pub fn foo %fn unit i32 \\unit:\n    1\n");
+        let foo_source = String::from("pub fn foo %fn void i32 \\void:\n    1\n");
         let mut sources = BTreeMap::new();
         sources.insert(foo_path.clone(), foo_source);
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
@@ -3690,16 +3690,16 @@ mod tests {
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let bar_path = canonicalize_path(&stdlib_path(&stdlib_root, &["bar.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    1\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    1\n",
         );
         let mut sources = BTreeMap::new();
         sources.insert(
             foo_path.clone(),
-            String::from("#import \"bar\" as *\npub fn foo %fn unit i32 \\unit:\n    bar unit\n"),
+            String::from("#import \"bar\" as *\npub fn foo %fn void i32 \\void:\n    bar unit\n"),
         );
         sources.insert(
             bar_path.clone(),
-            String::from("pub fn bar %fn unit i32 \\unit:\n    1\n"),
+            String::from("pub fn bar %fn void i32 \\void:\n    1\n"),
         );
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
         let mut loader = Loader::new(stdlib_root);
@@ -3769,16 +3769,16 @@ mod tests {
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let bar_path = canonicalize_path(&stdlib_path(&stdlib_root, &["bar.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    foo unit\n",
         );
         let mut sources = BTreeMap::new();
         sources.insert(
             foo_path.clone(),
-            String::from("#import \"bar\" as *\npub fn foo %fn unit i32 \\unit:\n    bar unit\n"),
+            String::from("#import \"bar\" as *\npub fn foo %fn void i32 \\void:\n    bar unit\n"),
         );
         sources.insert(
             bar_path.clone(),
-            String::from("pub fn bar %fn unit i32 \\unit:\n    1\n"),
+            String::from("pub fn bar %fn void i32 \\void:\n    1\n"),
         );
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
         let mut loader = Loader::new(stdlib_root);
@@ -3844,19 +3844,19 @@ mod tests {
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    foo unit\n",
         );
         let mut sources = BTreeMap::new();
         sources.insert(
             foo_path.clone(),
-            String::from("pub fn foo %fn unit i32 \\unit:\n    1\n"),
+            String::from("pub fn foo %fn void i32 \\void:\n    1\n"),
         );
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
 
         for body_value in ["1", "2"] {
             sources.insert(
                 foo_path.clone(),
-                format!("pub fn foo %fn unit i32 \\unit:\n    {body_value}\n"),
+                format!("pub fn foo %fn void i32 \\void:\n    {body_value}\n"),
             );
             let mut loader = Loader::new(stdlib_root.clone());
             let mut provider = |path: &PathBuf| {
@@ -3897,10 +3897,10 @@ mod tests {
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let defs_path = canonicalize_path(&stdlib_path(&stdlib_root, &["defs.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    foo unit\n",
         );
         let foo_source =
-            String::from("#import \"defs\" as *\npub fn foo %fn unit i32 \\unit:\n    1\n");
+            String::from("#import \"defs\" as *\npub fn foo %fn void i32 \\void:\n    1\n");
         let mut sources = BTreeMap::new();
         sources.insert(foo_path.clone(), foo_source);
         sources.insert(defs_path.clone(), String::new());
@@ -4094,7 +4094,7 @@ mod tests {
         let first = loader
             .parse_module_with_type_arity_hints(
                 FileId(0),
-                "fn helper %fn unit i32 \\unit:\n    1\npub fn api %fn unit i32 \\unit:\n    helper unit\n"
+                "fn helper %fn void i32 \\void:\n    1\npub fn api %fn void i32 \\void:\n    helper unit\n"
                     .to_string(),
                 Vec::new(),
             )
@@ -4102,7 +4102,7 @@ mod tests {
         let body_edit = loader
             .parse_module_with_type_arity_hints(
                 FileId(0),
-                "fn helper %fn unit u8 \\unit:\n    2\npub fn api %fn unit i32 \\unit:\n    3\n"
+                "fn helper %fn void u8 \\void:\n    2\npub fn api %fn void i32 \\void:\n    3\n"
                     .to_string(),
                 Vec::new(),
             )
@@ -4121,7 +4121,7 @@ mod tests {
         let first = loader
             .parse_module_with_type_arity_hints(
                 FileId(0),
-                "#import pub \"types\" as { Box as PublicBox }\npub fn api %fn unit i32 \\unit:\n    1\n"
+                "#import pub \"types\" as { Box as PublicBox }\npub fn api %fn void i32 \\void:\n    1\n"
                     .to_string(),
                 Vec::new(),
             )
@@ -4129,7 +4129,7 @@ mod tests {
         let signature_edit = loader
             .parse_module_with_type_arity_hints(
                 FileId(0),
-                "#import pub \"types\" as { Box as PublicBox }\npub fn api %fn unit u8 \\unit:\n    1\n"
+                "#import pub \"types\" as { Box as PublicBox }\npub fn api %fn void u8 \\void:\n    1\n"
                     .to_string(),
                 Vec::new(),
             )
@@ -4137,7 +4137,7 @@ mod tests {
         let reexport_edit = loader
             .parse_module_with_type_arity_hints(
                 FileId(0),
-                "#import pub \"types\" as { Box as RenamedBox }\npub fn api %fn unit i32 \\unit:\n    1\n"
+                "#import pub \"types\" as { Box as RenamedBox }\npub fn api %fn void i32 \\void:\n    1\n"
                     .to_string(),
                 Vec::new(),
             )
@@ -4161,13 +4161,13 @@ mod tests {
         let loader = Loader::new(PathBuf::from("C:/nepl-test/stdlib"));
         let base = PathBuf::from("C:/nepl-test/stdlib/pkg/main.nepl");
         let first_src =
-            "#import \"a\" as *\nfn helper %fn unit i32 \\unit:\n    1\npub fn api helper;\n";
+            "#import \"a\" as *\nfn helper %fn void i32 \\void:\n    1\npub fn api helper;\n";
         let body_edit_src =
-            "#import \"a\" as *\nfn helper %fn unit i32 \\unit:\n    2\npub fn api helper;\n";
+            "#import \"a\" as *\nfn helper %fn void i32 \\void:\n    2\npub fn api helper;\n";
         let target_signature_edit_src =
-            "#import \"a\" as *\nfn helper %fn unit u8 \\unit:\n    1\npub fn api helper;\n";
+            "#import \"a\" as *\nfn helper %fn void u8 \\void:\n    1\npub fn api helper;\n";
         let private_import_edit_src =
-            "#import \"b\" as *\nfn helper %fn unit i32 \\unit:\n    1\npub fn api helper;\n";
+            "#import \"b\" as *\nfn helper %fn void i32 \\void:\n    1\npub fn api helper;\n";
 
         let first = loader
             .parse_module_with_type_arity_hints(FileId(0), first_src.to_string(), Vec::new())
@@ -4225,14 +4225,14 @@ mod tests {
         let ordinary = loader
             .parse_module_with_type_arity_hints(
                 FileId(0),
-                "pub fn api %fn unit i32 \\unit:\n    1\n".to_string(),
+                "pub fn api %fn void i32 \\void:\n    1\n".to_string(),
                 Vec::new(),
             )
             .expect("ordinary module should parse");
         let no_shadow = loader
             .parse_module_with_type_arity_hints(
                 FileId(0),
-                "pub fn noshadow api %fn unit i32 \\unit:\n    1\n".to_string(),
+                "pub fn noshadow api %fn void i32 \\void:\n    1\n".to_string(),
                 Vec::new(),
             )
             .expect("noshadow module should parse");
@@ -4252,7 +4252,7 @@ mod tests {
         let facade_path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
         let types_path = canonicalize_path(&stdlib_path(&stdlib_root, &["types.nepl"]));
         let root_source =
-            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit i32 \\unit:\n    exported unit\n";
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn void i32 \\void:\n    exported unit\n";
         let facade_source = "#import pub \"types\" as *\n";
 
         let mut cache = LoaderSessionCache::new("dependency-public-surface-test");
@@ -4260,7 +4260,7 @@ mod tests {
         sources.insert(facade_path.clone(), facade_source.to_string());
         sources.insert(
             types_path.clone(),
-            "pub fn exported %fn unit i32 \\unit:\n    1\n".to_string(),
+            "pub fn exported %fn void i32 \\void:\n    1\n".to_string(),
         );
         let mut provider = |path: &PathBuf| {
             sources
@@ -4284,7 +4284,7 @@ mod tests {
 
         sources.insert(
             types_path.clone(),
-            "pub fn exported %fn unit i32 \\unit:\n    2\n".to_string(),
+            "pub fn exported %fn void i32 \\void:\n    2\n".to_string(),
         );
         let mut provider = |path: &PathBuf| {
             sources
@@ -4338,7 +4338,7 @@ mod tests {
 
         sources.insert(
             types_path,
-            "pub fn exported %fn unit u8 \\unit:\n    1\n".to_string(),
+            "pub fn exported %fn void u8 \\void:\n    1\n".to_string(),
         );
         let mut provider = |path: &PathBuf| {
             sources
@@ -4368,7 +4368,7 @@ mod tests {
         let facade_path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
         let types_path = canonicalize_path(&stdlib_path(&stdlib_root, &["types.nepl"]));
         let root_source =
-            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit i32 \\unit:\n    exported unit\n";
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn void i32 \\void:\n    exported unit\n";
         let facade_source = "#import pub \"types\" as *\n";
 
         let mut cache_a = LoaderSessionCache::new_content_addressed_stdlib("stdlib-content-a");
@@ -4376,7 +4376,7 @@ mod tests {
         sources.insert(facade_path.clone(), facade_source.to_string());
         sources.insert(
             types_path.clone(),
-            "pub fn exported %fn unit i32 \\unit:\n    1\n".to_string(),
+            "pub fn exported %fn void i32 \\void:\n    1\n".to_string(),
         );
         let mut reads = BTreeMap::<PathBuf, usize>::new();
         let first_hash = {
@@ -4435,7 +4435,7 @@ mod tests {
 
         sources.insert(
             types_path,
-            "pub fn exported %fn unit u8 \\unit:\n    1\n".to_string(),
+            "pub fn exported %fn void u8 \\void:\n    1\n".to_string(),
         );
         let mut cache_b = LoaderSessionCache::new_content_addressed_stdlib("stdlib-content-b");
         let mut provider = |path: &PathBuf| {
@@ -4466,7 +4466,7 @@ mod tests {
         let loader = Loader::new(stdlib_root);
         let entry_path = PathBuf::from("C:/nepl-test/user/main.nepl");
         let root_source =
-            "#no_prelude\n#import \"./helper\" as *\nfn main %fn unit i32 \\unit:\n    1\n";
+            "#no_prelude\n#import \"./helper\" as *\nfn main %fn void i32 \\void:\n    1\n";
         let mut cache = LoaderSessionCache::new("dependency-public-surface-test");
         let mut provider = |_path: &PathBuf| {
             Err(LoaderError::Io(
@@ -4497,13 +4497,13 @@ mod tests {
         let loader = Loader::new(stdlib_root.clone());
         let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
         let first_source =
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    1\n";
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    1\n";
         let body_edit_source =
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    2\n";
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    2\n";
         let import_edit_source =
-            "#no_prelude\n#import \"bar\" as *\nfn main %fn unit i32 \\unit:\n    2\n";
+            "#no_prelude\n#import \"bar\" as *\nfn main %fn void i32 \\void:\n    2\n";
         let clause_edit_source =
-            "#no_prelude\n#import \"foo\" as { value as renamed }\nfn main %fn unit i32 \\unit:\n    2\n";
+            "#no_prelude\n#import \"foo\" as { value as renamed }\nfn main %fn void i32 \\void:\n    2\n";
 
         let (first_hash, first_roots) =
             loader.root_prewarm_surface_for_source(entry_path.clone(), first_source);
@@ -4547,7 +4547,7 @@ mod tests {
         let left_entry = canonicalize_path(&PathBuf::from("C:/nepl-test/user/left/main.nepl"));
         let right_entry = canonicalize_path(&PathBuf::from("C:/nepl-test/user/right/main.nepl"));
         let relative_source = "#no_prelude\n#import \"./shared\" as *\n";
-        let invalid_source = "fn main %fn unit i32 \\unit:\n    \"unterminated\n";
+        let invalid_source = "fn main %fn void i32 \\void:\n    \"unterminated\n";
         let valid_no_prelude_source = "#no_prelude\n";
 
         let (left_hash, left_roots) =
@@ -4667,12 +4667,12 @@ mod tests {
         let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
         let defs_path = canonicalize_path(&stdlib_path(&stdlib_root, &["defs.nepl"]));
         let entry_source = String::from(
-            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn void i32 \\void:\n    foo unit\n",
         );
         let mut sources = BTreeMap::new();
         sources.insert(
             foo_path.clone(),
-            String::from("#import \"defs\" as *\npub fn foo %fn unit Box i32 \\unit:\n    Box 1\n"),
+            String::from("#import \"defs\" as *\npub fn foo %fn void Box i32 \\void:\n    Box 1\n"),
         );
         sources.insert(
             defs_path,

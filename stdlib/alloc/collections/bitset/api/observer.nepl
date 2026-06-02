@@ -38,7 +38,7 @@ pub fn len %fn &BitSet i32 \bs:
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let bs %BitSet:
 //:         unwrap_ok new 32
 //:         |> insert 5 |> uwok

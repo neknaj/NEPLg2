@@ -45,7 +45,7 @@ fn expect_port_error %fn i32 fn str Result unit str \input\expected:
         Result::Err msg:
             check_str_eq expected msg
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks:
         checks_new
         |> checks_push expect_port 8080 8080

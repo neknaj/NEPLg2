@@ -16,7 +16,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/ty/trait_ref" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let trait_id %SelfhostTraitId selfhost_trait_id_new 0
 //:     if selfhost_trait_id_is_valid trait_id 0 1
 //: ```

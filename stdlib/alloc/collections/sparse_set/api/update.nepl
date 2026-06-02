@@ -44,7 +44,7 @@ pub fn sparse_set_update_err %fn SparseSet fn Diag Result SparseSet SparseSetUpd
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let s %SparseSet:
 //:         unwrap_ok new 8
 //:         |> insert 3 |> uwok
@@ -88,7 +88,7 @@ pub fn insert %impure fn SparseSet impure fn i32 Result SparseSet SparseSetUpdat
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let s %SparseSet:
 //:         unwrap_ok new 8
 //:         |> insert 3 |> uwok

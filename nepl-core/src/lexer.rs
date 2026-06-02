@@ -56,6 +56,7 @@ pub enum TokenKind {
     CharLiteral(u32),
     StringLiteral(String),
     UnitLiteral,
+    VoidMarker,
 
     // keywords
     KwFn,
@@ -1277,6 +1278,7 @@ fn keyword_token(lexeme: &str) -> Option<TokenKind> {
         "Tuple" => Some(TokenKind::KwTuple),
         "mlstr" => Some(TokenKind::KwMlstr),
         "unit" => Some(TokenKind::UnitLiteral),
+        "void" => Some(TokenKind::VoidMarker),
         "true" => Some(TokenKind::BoolLiteral(true)),
         "false" => Some(TokenKind::BoolLiteral(false)),
         _ => None,

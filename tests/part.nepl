@@ -1,2 +1,2 @@
-fn helper %fn unit i32 \unit:
+fn helper %fn void i32 \void:
     1

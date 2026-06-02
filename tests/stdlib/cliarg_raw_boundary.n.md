@@ -13,7 +13,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/env/cliarg/raw" as cli_raw
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let p %MemPtr u8 string_data_ptr "argv";
     match cli_raw::cli_args_sizes_result p:
         Result::Ok _:
@@ -35,7 +35,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/env/cliarg/raw" as cli_raw
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let p %MemPtr u8 string_data_ptr "argv";
     match cli_raw::cli_load_u8_result p 0:
         Result::Ok b:

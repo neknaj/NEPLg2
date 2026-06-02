@@ -22,7 +22,7 @@
 //:| #indent 4
 //:| #target core
 //:| #import "core/gui/render_target" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let target %MockRenderTarget mock_render_target_new
 //:     mock_render_target_command_count &target
 //: ```
@@ -64,7 +64,7 @@ impl RenderTarget for MockRenderTarget:
                     else mock_render_target_text_cell_count &target
 
 //: mock_render_target_new: mock render target を[作/つく]る
-pub fn mock_render_target_new %fn unit MockRenderTarget \unit:
+pub fn mock_render_target_new %fn void MockRenderTarget \void:
     MockRenderTarget 0 0
 
 //: mock_render_target_command_count: accepted command count を[読/よ]む

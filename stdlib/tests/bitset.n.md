@@ -16,7 +16,7 @@ stdout: "test_report name=\"bitset_insert_remove_and_len\" count=3 failed=0\nass
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bs %BitSet:
         unwrap_ok new 32
         |> insert 1 |> uwok
@@ -52,7 +52,7 @@ stdout: "test_report name=\"bitset_clear_and_fill\" count=2 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bs0 %BitSet:
         unwrap_ok new 10
         |> insert 2 |> uwok
@@ -86,7 +86,7 @@ stdout: "test_report name=\"bitset_update_error_returns_owner\" count=2 failed=0
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bs0 %BitSet unwrap_ok new 12;
     let ok0 %bool:
         match insert bs0 99:

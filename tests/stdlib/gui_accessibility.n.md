@@ -21,7 +21,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %SemanticNodeId semantic_node_id 1
     let run_id %SemanticNodeId semantic_node_id 2
     let title_id %SemanticNodeId semantic_node_id 3
@@ -75,7 +75,7 @@ fn small_node %fn i32 SemanticNode \id:
     let node_id %SemanticNodeId semantic_node_id id
     semantic_node node_id SemanticRole::Label "node" semantic_state_default SemanticAction::None
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let tree0 %AccessibilityTree accessibility_tree_single small_node 1
     let tree1 %AccessibilityTree unwrap_ok accessibility_tree_add_child tree0 small_node 2
     let tree2 %AccessibilityTree unwrap_ok accessibility_tree_add_child tree1 small_node 3

@@ -12,7 +12,7 @@ pub struct SelfhostDiagnostics:
     items %Vec SelfhostDiagnostic
 
 //: selfhost_diagnostics_new: [空/から]の diagnostic collection を[作/つく]る
-pub fn selfhost_diagnostics_new %fn unit Result SelfhostDiagnostics StdErrorKind \unit:
+pub fn selfhost_diagnostics_new %fn void Result SelfhostDiagnostics StdErrorKind \void:
     let items_result %Result Vec SelfhostDiagnostic StdErrorKind v::new
     match items_result:
         Result::Ok items:

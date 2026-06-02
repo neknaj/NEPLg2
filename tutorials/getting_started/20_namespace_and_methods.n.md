@@ -34,7 +34,7 @@ fn option_code %fn Option i32 i32 \value:
         Option::None:
             0
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let small %Option i32 Option::Some 3
     let large %Option i32 Option::Some 30
     let empty %Option i32 Option::None

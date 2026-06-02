@@ -35,7 +35,7 @@ fn check_kind %impure fn TestReport impure fn Option SelfhostTypeKind impure fn 
         Option::None:
             checks_push checks Result::Err "type kind was absent"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -132,7 +132,7 @@ fn check_i32_option %impure fn TestReport impure fn Option i32 impure fn i32 Tes
         Option::None:
             checks_push checks Result::Err "i32 option was absent"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -220,7 +220,7 @@ stdout: mlstr:
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -282,7 +282,7 @@ fn add_one_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId im
             selfhost_type_arena_free arena
             Result::Err e
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -373,7 +373,7 @@ fn add_zero_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId R
             selfhost_type_arena_free arena
             Result::Err e
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:

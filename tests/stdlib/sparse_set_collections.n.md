@@ -29,7 +29,7 @@ stdout: "test_report name=\"sparse_set_pipe_usage\" count=5 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s0 %SparseSet:
         unwrap_ok new 12
         |> insert 1 |> uwok
@@ -79,7 +79,7 @@ stdout: "test_report name=\"sparse_set_clear_free_reallocates\" count=1 failed=0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let s_free %SparseSet:
         unwrap_ok new 12
         |> insert 1 |> uwok
@@ -126,7 +126,7 @@ stdout: "test_report name=\"sparse_set_new_zero_is_empty\" count=4 failed=0\nass
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let len_ok %bool match new 0:
         Result::Err _e:
             false

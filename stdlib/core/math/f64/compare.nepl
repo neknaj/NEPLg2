@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/f64/compare" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     if lt 1.0 2.0 0 1
 //: ```
 

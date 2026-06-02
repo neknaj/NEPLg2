@@ -13,7 +13,7 @@
 //:| #import "core/mem" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let allocated %Result RegionToken i32 str alloc_region 1
 //:     match allocated:
 //:         Result::Ok region:

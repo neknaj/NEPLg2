@@ -45,7 +45,7 @@ pub struct RingBuffer<.T>:
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let rb %RingBuffer i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
@@ -69,7 +69,7 @@ pub struct RingBufferPushError<.T>:
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let rb %RingBuffer i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
@@ -95,7 +95,7 @@ pub fn ringbuffer_push_error_diag <.T> %fn &RingBufferPushError .T Diag \e:
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let rb %RingBuffer i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
@@ -127,7 +127,7 @@ pub struct RingBufferPop<.T>:
 //: #import "core/math" as *
 //: #import "core/option" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let rb0 %RingBuffer i32 unwrap_ok new;
 //:     let rb1 %RingBuffer i32 unwrap_ok push rb0 7;
 //:     let p %RingBufferPop i32 pop_front rb1;
@@ -155,7 +155,7 @@ pub fn ringbuffer_pop_item <.T: Copy> %fn &RingBufferPop .T Option .T \p:
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let rb0 %RingBuffer i32 unwrap_ok new;
 //:     let rb1 %RingBuffer i32 unwrap_ok push rb0 7;
 //:     let p %RingBufferPop i32 pop_front rb1;

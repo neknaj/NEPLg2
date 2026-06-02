@@ -28,9 +28,9 @@ fn item_at %fn &SelfhostModuleAst fn i32 SelfhostModuleItem \ast\idx:
     let item_opt %Option SelfhostModuleItem selfhost_module_ast_get ast idx
     unwrap item_opt
 
-fn main %impure fn unit i32 \unit:
-    let source_main %str "fn main <()->i32> ():\n    0\n"
-    let source_helper %str "//: helper\nfn helper <()->i32> ():\n    1\n"
+fn main %impure fn void i32 \void:
+    let source_main %str "fn main %fn void i32 \\void:\n    0\n"
+    let source_helper %str "//: helper\nfn helper %fn void i32 \\void:\n    1\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
@@ -101,7 +101,7 @@ fn check_missing_note %impure fn TestReport impure fn Option str TestReport \che
         Option::None:
             checks_push checks Result::Err "missing file diagnostic note was absent"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs:

@@ -38,7 +38,7 @@ function typeAnnotationPattern(typeExpr) {
 function fnTypePattern(params, result, options = {}) {
     const effect = options.effect === "impure" ? "impure\\s+fn" : "fn";
     const pieces = [`%${effect}`];
-    const normalizedParams = params.length === 0 ? ["unit"] : params;
+    const normalizedParams = params.length === 0 ? ["void"] : params;
     for (const param of normalizedParams) {
         pieces.push(typeExprPattern(param));
         pieces.push(effect);
@@ -176,7 +176,7 @@ function convertLegacyTypeLine(line, options = {}) {
 
 function legacyLambdaParams(text) {
     const trimmed = text.trim();
-    if (trimmed === "\\():" || trimmed === "\\unit:") {
+    if (trimmed === "\\void:") {
         return "()";
     }
     const params = [...trimmed.matchAll(/\\([A-Za-z_][A-Za-z0-9_]*)/g)].map((match) => match[1]);
@@ -230,27 +230,44 @@ function parseLegacyTypeTokens(tokens, index) {
 
 function parseLegacyFnType(tokens, index, effect) {
     const marker = effect === "impure" ? "*>" : "->";
-    const params = [];
-    let next = index;
-    while (next < tokens.length) {
-        const param = parseLegacyTypeTokens(tokens, next);
-        if (!param) {
-            return null;
-        }
-        next = param.next;
-        if ((effect === "impure" && tokens[next] === "impure" && tokens[next + 1] === "fn") || (effect === "pure" && tokens[next] === "fn")) {
-            params.push(param.text);
-            next += effect === "impure" ? 2 : 1;
-            continue;
-        }
-        const result = parseLegacyTypeTokens(tokens, next);
+
+    if (tokens[index] === "void") {
+        const result = parseLegacyTypeTokens(tokens, index + 1);
         if (!result) {
             return null;
         }
-        const oldParams = (param.text === "()" || param.text === "unit") && params.length === 0 ? "" : [...params, param.text].join(",");
-        return { text: `(${oldParams})${marker}${result.text}`, next: result.next };
+        return {
+            text: `()${marker}${result.text}`,
+            next: result.next,
+            fnEffect: effect,
+            fnParams: [],
+            fnResult: result.text,
+        };
     }
-    return null;
+
+    const firstParam = parseLegacyTypeTokens(tokens, index);
+    if (!firstParam) {
+        return null;
+    }
+    const result = parseLegacyTypeTokens(tokens, firstParam.next);
+    if (!result) {
+        return null;
+    }
+
+    const params = [firstParam.text];
+    let resultText = result.text;
+    if (result.fnEffect === effect && result.fnParams.length > 0) {
+        params.push(...result.fnParams);
+        resultText = result.fnResult;
+    }
+
+    return {
+        text: `(${params.join(",")})${marker}${resultText}`,
+        next: result.next,
+        fnEffect: effect,
+        fnParams: params,
+        fnResult: resultText,
+    };
 }
 
 module.exports = {

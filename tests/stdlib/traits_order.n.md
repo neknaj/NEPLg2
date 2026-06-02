@@ -25,7 +25,7 @@ ret: 1
 #import "core/traits/eq" as *
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if and eq_by_trait 42 42 ne_by_trait 42 7 then 1 else 0
 ```
 
@@ -40,7 +40,7 @@ ret: 1
 #import "core/traits/ord" as *
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if and ord_lt 2 3 ord_ge 3 3 then 1 else 0
 ```
 
@@ -66,7 +66,7 @@ stdout: mlstr:
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 4;
     let v2 %Vec i32 unwrap_ok push v1 1;

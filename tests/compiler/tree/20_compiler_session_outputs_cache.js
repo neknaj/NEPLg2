@@ -420,22 +420,22 @@ fn main <()->i32> ():
         const stdlibDependencyArtifactSession = newSession(api);
         const stdlibDependencySourceOne = `#entry main
 #import "std/prelude_base" as *
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     1
 `;
         const stdlibDependencySourceTwo = `#entry main
 #import "std/prelude_base" as *
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     2
 `;
         const stdlibDependencySourceThree = `#entry main
 #import "std/prelude_base" as *
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     3
 `;
         const stdlibDependencySourceFour = `#entry main
 #import "std/prelude_base" as *
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     4
 `;
         stdlibDependencyArtifactSession.compile_outputs_with_vfs(
@@ -640,7 +640,7 @@ fn main %fn unit i32 \\unit:
         function charDependencyBodySource(value) {
             return `#entry main
 #import "core/char" as *
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     char_utf8_cont_byte ${Number(value) | 0}
 `;
         }
@@ -802,7 +802,7 @@ fn main %fn unit i32 \\unit:
         proofPreseedSession.compile_source_with_vfs_stdlib_and_profile(
             '/virtual/neplproof_overlay_reset.nepl',
             `#entry main
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     0
 `,
             {},
@@ -868,7 +868,7 @@ fn main %fn unit i32 \\unit:
         const stdlibOverlaySession = newSession(api);
         const stdlibOverlaySource = `#entry main
 #import "std/prelude_base" as *
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     0
 `;
         stdlibOverlaySession.compile_outputs_with_vfs(
@@ -936,10 +936,10 @@ fn main <()->i32> ():
         const includeSource = `#entry main
 #no_prelude
 #include "./included"
-fn main %fn unit i32 \\unit:
+fn main %fn void i32 \\void:
     1
 `;
-        const includedSource = `fn included_value %fn unit i32 \\unit:
+        const includedSource = `fn included_value %fn void i32 \\void:
     1
 `;
         includeSession.compile_outputs_with_vfs(

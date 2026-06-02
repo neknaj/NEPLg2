@@ -41,10 +41,10 @@ struct Pair:
     left %i32
     right %i32
 
-fn pair_size %fn unit i32 \unit:
+fn pair_size %fn void i32 \void:
     size_of %Pair
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let s_i32 %i32 size_of %i32
     let a_pair %i32 align_of %Pair
     let pair_size0 %i32 pair_size

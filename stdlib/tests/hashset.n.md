@@ -30,7 +30,7 @@ fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 De
             free hs;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hs0 %HashSet i32 DefaultHash32 must_hs new DefaultHash32;
     let hs0_len %i32 len &hs0;
     free hs0;
@@ -130,7 +130,7 @@ fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 De
             free hs;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hsf %HashSet i32 DefaultHash32 must_hs new DefaultHash32;
     let hsf %HashSet i32 DefaultHash32 must_hs insert hsf 5;
     free hsf;

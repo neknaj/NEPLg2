@@ -19,7 +19,7 @@
 //:| #import "alloc/gui/accessibility" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let root_id %SemanticNodeId semantic_node_id 1
 //:     let child_id %SemanticNodeId semantic_node_id 2
 //:     let child_state %SemanticState semantic_state true false false
@@ -183,7 +183,7 @@ pub fn semantic_state %fn bool fn bool fn bool SemanticState \focused\disabled\h
     SemanticState focused disabled hidden
 
 //: semantic_state_default: default semantic state を[返/かえ]す
-pub fn semantic_state_default %fn unit SemanticState \unit:
+pub fn semantic_state_default %fn void SemanticState \void:
     SemanticState false false false
 
 //: semantic_state_is_focused: focused flag を[読/よ]む

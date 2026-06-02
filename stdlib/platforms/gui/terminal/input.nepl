@@ -24,7 +24,7 @@
 //:| #target std
 //:| #import "platforms/gui/terminal/input" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let events %TerminalInputEvents unwrap_ok terminal_input_events_from_byte 32
 //:     if terminal_input_events_has_text_input &events:
 //:         then 1
@@ -72,7 +72,7 @@ pub fn terminal_input_events %fn Option KeyboardEvent fn Option TextInputEvent T
 //:
 //: [目的/もくてき]:
 //: - 範囲内の未対応 control byte を error ではなく「event なし」として[表/あらわ]します。
-pub fn terminal_input_events_empty %fn unit TerminalInputEvents \unit:
+pub fn terminal_input_events_empty %fn void TerminalInputEvents \void:
     terminal_input_events none none
 
 //: terminal_input_events_keyboard: keyboard event を[読/よ]む
@@ -102,15 +102,15 @@ pub fn terminal_text_input_event_value %fn &TextInputEvent char \event:
 //:
 //: [目的/もくてき]:
 //: - `ESC [ H` と `ESC [ 1 ~` を、raw CSI ではなく同じ typed key code として[扱/あつか]います。
-pub fn terminal_key_code_home %fn unit i32 \unit:
+pub fn terminal_key_code_home %fn void i32 \void:
     1005
 
 //: terminal_key_code_end: terminal input が返す End key code
-pub fn terminal_key_code_end %fn unit i32 \unit:
+pub fn terminal_key_code_end %fn void i32 \void:
     1006
 
 //: terminal_key_code_delete: terminal input が返す Delete key code
-pub fn terminal_key_code_delete %fn unit i32 \unit:
+pub fn terminal_key_code_delete %fn void i32 \void:
     1007
 
 fn terminal_keyboard_key_down %fn i32 KeyboardEvent \key_code:

@@ -11,7 +11,7 @@
 #import "./module" as *
 
 //: selfhost_hir_module_new: [空/から]の HIR module を[作/つく]る
-pub fn selfhost_hir_module_new %impure fn unit Result SelfhostHirModule StdErrorKind \unit:
+pub fn selfhost_hir_module_new %impure fn void Result SelfhostHirModule StdErrorKind \void:
     let functions_result %Result Vec SelfhostHirFunction StdErrorKind v::new
     match functions_result:
         Result::Ok functions:

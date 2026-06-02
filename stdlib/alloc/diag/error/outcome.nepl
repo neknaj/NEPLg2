@@ -16,7 +16,7 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error/outcome" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let o %Outcome i32 StdErrorKind outcome_ok 7
 //:     let checks checks_push checks_new assert outcome_is_ok o
 //:     let shown checks_print_report checks
@@ -86,7 +86,7 @@ pub fn result_to_outcome <.T, .E> %fn Result .T .E Outcome .T .E \r:
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//:| fn main %impure fn unit i32 \unit:
+//:| fn main %impure fn void i32 \void:
 //:     let r %Result i32 StdErrorKind ok 7;
 //:     let o %Outcome i32 StdErrorKind into_outcome r
 //:     let checks checks_push checks_new assert outcome_is_ok o
@@ -194,7 +194,7 @@ pub fn result_like_is_err <.T: Copy, .E: Copy> %fn &Outcome .T .E bool \o:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/diag/error" as *
-//:| fn main %impure fn unit i32 \unit:
+//:| fn main %impure fn void i32 \void:
 //:     let o %Outcome i32 StdErrorKind outcome_ok 42;
 //:     let checks match outcome_result o:
 //:         Result::Ok v:

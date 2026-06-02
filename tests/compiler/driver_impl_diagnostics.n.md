@@ -13,7 +13,7 @@ impl i32:
     fn id %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -36,7 +36,7 @@ impl Show for i32:
     fn show %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -57,7 +57,7 @@ impl Show for i32:
     fn show <.T> %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -80,7 +80,7 @@ impl Show for i32:
     fn extra %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -101,7 +101,7 @@ impl Show for i32:
     fn show %fn i32 i64 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -124,7 +124,7 @@ impl Pair for i32:
     fn a %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -141,7 +141,7 @@ impl Missing for i32:
     fn f %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -163,7 +163,7 @@ impl Boxy<i32, i32> for i32:
     fn get %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -188,6 +188,6 @@ impl Show for i32:
     fn show %fn i32 i32 \x:
         x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```

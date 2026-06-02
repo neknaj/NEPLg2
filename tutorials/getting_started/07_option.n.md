@@ -26,7 +26,7 @@ fn point_or_zero %fn Option i32 i32 \value:
         Option::None:
             0
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %Option i32 some 42
     let b %Option i32 none
     let one %Option i32 some 1

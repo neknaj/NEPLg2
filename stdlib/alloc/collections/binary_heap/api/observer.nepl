@@ -43,7 +43,7 @@ pub fn is_empty <.T> %fn &BinaryHeap .T bool \hp:
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "core/option" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let hp0 %BinaryHeap i32 unwrap_ok new;
 //:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 4;
 //:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 9;

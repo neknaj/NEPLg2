@@ -9,7 +9,7 @@ diag_code: type.nested_function.generic_unsupported
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     fn id <.T> %fn .T .T \x:
         x
     id<i32> 1
@@ -24,7 +24,7 @@ diag_code: type.raw_block.invalid_placement
 #indent 4
 #target wasm
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     block:
         #wasm:
             i32.const 1

@@ -32,7 +32,7 @@ pub #import "./float/parse" as *
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::Bool label "true" "false" "float parse failed unexpectedly"
 //:
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let expected %f64 div %f64 cast 5 %f64 cast 4
 //:     let report:
 //:         test_report_new "string_float_facade_doc"

@@ -48,7 +48,7 @@ trait Deserialize:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/deserialize" as *
-//:| fn main %impure fn unit i32 \unit:
+//:| fn main %impure fn void i32 \void:
 //:     let parsed %Result i32 StdErrorKind deserialize "42";
 //:     let assertion %TestAssertion:
 //:         match parsed:

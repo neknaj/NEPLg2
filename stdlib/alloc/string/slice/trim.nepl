@@ -32,7 +32,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/string/slice/trim" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let report:
 //:         test_report_new "string_trim_doc"
 //:         |> test_report_push assert_str_eq "suffix cr removed" "abc" str_trim_suffix_cr "abc\r"

@@ -22,7 +22,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `Vec.new` で backing storage を[作/つく]り、`List` owner として[包/つつ]みます。
-pub fn new <.T: Copy> %impure fn unit Result List .T Diag \unit:
+pub fn new <.T: Copy> %impure fn void Result List .T Diag \void:
     let items_result %Result Vec .T StdErrorKind vec::new
     match items_result:
         Result::Ok items:

@@ -1316,17 +1316,17 @@ mod tests {
         let mut source_map = SourceMap::new();
         let first = source_map.add_with_capabilities(
             "examples/rpn.nepl",
-            String::from("fn main %impure fn unit unit \\unit: 1"),
+            String::from("fn main %impure fn void unit \\void: 1"),
             SourceCapabilities::none(),
         );
         let same_path_different_source = source_map.add_with_capabilities(
             "examples/rpn.nepl",
-            String::from("fn main %impure fn unit unit \\unit: 2"),
+            String::from("fn main %impure fn void unit \\void: 2"),
             SourceCapabilities::none(),
         );
         let different_path_same_source = source_map.add_with_capabilities(
             "examples/other.nepl",
-            String::from("fn main %impure fn unit unit \\unit: 1"),
+            String::from("fn main %impure fn void unit \\void: 1"),
             SourceCapabilities::none(),
         );
 

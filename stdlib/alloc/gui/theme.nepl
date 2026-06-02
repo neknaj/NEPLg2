@@ -25,7 +25,7 @@
 //:     let rgba %Rgba8888 rgba8888_new rr gg bb aa
 //:     gui_color_rgba8888 rgba
 //:
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let palette %ThemePalette theme_palette:
 //:         rgba_color 10 20 30
 //:         rgba_color 20 30 40

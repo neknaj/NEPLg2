@@ -33,7 +33,7 @@ pub #import "alloc/collections/disjoint_set/types" as @merge
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let d0 %DisjointSet unwrap_ok dsu_new 5;
 //:     let d1 %DisjointSet unwrap_ok dsu_unite d0 0 1;
 //:     let d2 %DisjointSet unwrap_ok dsu_unite d1 1 2;

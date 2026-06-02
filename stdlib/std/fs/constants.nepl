@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/fs/constants" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     if eq fs_errno_notcapable 76 then 0 else 1
 //: ```
 
@@ -23,49 +23,49 @@
 #import "core/math" as *
 
 //: fs_right_fd_read: WASI rights_base の fd_read bit を返す
-pub fn fs_right_fd_read %fn unit i64 \unit:
+pub fn fs_right_fd_read %fn void i64 \void:
     %i64 cast 2
 
 //: fs_right_fd_write: WASI rights_base の fd_write bit を返す
-pub fn fs_right_fd_write %fn unit i64 \unit:
+pub fn fs_right_fd_write %fn void i64 \void:
     %i64 cast 64
 
 //: fs_right_fd_readdir: WASI rights_base の fd_readdir bit を返す
-pub fn fs_right_fd_readdir %fn unit i64 \unit:
+pub fn fs_right_fd_readdir %fn void i64 \void:
     %i64 cast 16384
 
 //: fs_oflags_create_truncate: WASI oflags の create + truncate bit を返す
-pub fn fs_oflags_create_truncate %fn unit i32 \unit:
+pub fn fs_oflags_create_truncate %fn void i32 \void:
     9
 
 //: fs_oflags_directory: WASI oflags の directory bit を返す
-pub fn fs_oflags_directory %fn unit i32 \unit:
+pub fn fs_oflags_directory %fn void i32 \void:
     2
 
 //: fs_errno_inval: WASI EINVAL 相当の errno を返す
-pub fn fs_errno_inval %fn unit i32 \unit:
+pub fn fs_errno_inval %fn void i32 \void:
     28
 
 //: fs_errno_notcapable: WASI ENOTCAPABLE 相当の errno を返す
-pub fn fs_errno_notcapable %fn unit i32 \unit:
+pub fn fs_errno_notcapable %fn void i32 \void:
     76
 
 //: fs_errno_ilseq: WASI EILSEQ 相当の errno を返す
-pub fn fs_errno_ilseq %fn unit i32 \unit:
+pub fn fs_errno_ilseq %fn void i32 \void:
     84
 
 //: fs_filetype_directory: WASI directory filetype を返す
-pub fn fs_filetype_directory %fn unit i32 \unit:
+pub fn fs_filetype_directory %fn void i32 \void:
     3
 
 //: fs_filetype_regular_file: WASI regular file filetype を返す
-pub fn fs_filetype_regular_file %fn unit i32 \unit:
+pub fn fs_filetype_regular_file %fn void i32 \void:
     4
 
 //: fs_dirent_header_size: WASI dirent header size を返す
-pub fn fs_dirent_header_size %fn unit i32 \unit:
+pub fn fs_dirent_header_size %fn void i32 \void:
     24
 
 //: fs_readdir_buf_size: fd_readdir の作業 buffer size を返す
-pub fn fs_readdir_buf_size %fn unit i32 \unit:
+pub fn fs_readdir_buf_size %fn void i32 \void:
     65536

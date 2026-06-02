@@ -16,7 +16,7 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error/diag" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let d %Diag diag_error StdErrorKind::OutOfMemory "allocation failed"
 //:     let checks checks_push checks_new assert_str_eq "OutOfMemory" diag_std_error_kind_str d
 //:     let shown checks_print_report checks
@@ -127,17 +127,17 @@ pub fn diag_err <.T> %fn Diag Result .T Diag \d:
     err d
 
 //: diag_out_of_memory: [確保/かくほ][失敗/しっぱい]を[表/あらわ]す error [診断/しんだん]を[作/つく]る
-pub fn diag_out_of_memory %impure fn unit Diag \unit:
+pub fn diag_out_of_memory %impure fn void Diag \void:
     diag_error StdErrorKind::OutOfMemory "allocation failed"
 
 //: diag_empty_collection: [空/から]コレクション[操作/そうさ]の error [診断/しんだん]を[作/つく]る
-pub fn diag_empty_collection %impure fn unit Diag \unit:
+pub fn diag_empty_collection %impure fn void Diag \void:
     diag_error StdErrorKind::EmptyCollection "collection is empty"
 
 //: diag_capacity_exceeded: [容量/ようりょう][超過/ちょうか]の error [診断/しんだん]を[作/つく]る
-pub fn diag_capacity_exceeded %impure fn unit Diag \unit:
+pub fn diag_capacity_exceeded %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "capacity exceeded"
 
 //: diag_key_not_found: [欠落/けつらく] key の error [診断/しんだん]を[作/つく]る
-pub fn diag_key_not_found %impure fn unit Diag \unit:
+pub fn diag_key_not_found %impure fn void Diag \void:
     diag_error StdErrorKind::KeyNotFound "key not found"

@@ -43,7 +43,7 @@ struct StringByteIndex:
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let ok0 %bool match checked_string_byte_index "AZ" 0:
 //:         Option::Some proof:
 //:             eq string_byte_at_checked "AZ" proof 'A'
@@ -116,7 +116,7 @@ pub fn string_byte_at_checked %fn str fn StringByteIndex i32 \s\idx:
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match checked_string_byte_at "AZ" 1:
 //:         Option::Some b:
 //:             if eq b 'Z' 0 1
@@ -149,7 +149,7 @@ pub fn checked_string_byte_at %fn str fn i32 Option i32 \s\idx:
 //:| #target std
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let in_range %bool string_byte_eq "AZ" 1 'Z'
 //:     let out_of_range %bool not string_byte_eq "AZ" 2 'Z'
 //:     if and in_range out_of_range 0 1
@@ -176,7 +176,7 @@ fn string_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:| #target std
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if and string_byte_eq "AZ" 0 'A' not string_byte_eq "AZ" 2 'Z' 0 1
 //: ```
 pub fn string_byte_eq %fn str fn i32 fn i32 bool \s\idx\expected:
@@ -205,7 +205,7 @@ pub fn string_byte_eq %fn str fn i32 fn i32 bool \s\idx\expected:
 //:| #target std
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let space %bool string_byte_is_ascii_space " A" 0
 //:     let tab %bool string_byte_is_ascii_space "\tA" 0
 //:     let normal %bool not string_byte_is_ascii_space " A" 1
@@ -241,7 +241,7 @@ pub fn string_byte_is_ascii_space %fn str fn i32 bool \s\idx:
 //:| #target std
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if and string_bytes_eq "AZ" 0 "A" 0 not string_bytes_eq "AZ" 1 "A" 0 0 1
 //: ```
 pub fn string_bytes_eq %fn str fn i32 fn str fn i32 bool \a\a_idx\b\b_idx:
@@ -271,7 +271,7 @@ pub fn string_bytes_eq %fn str fn i32 fn str fn i32 bool \a\a_idx\b\b_idx:
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match string_bytes_cmp "A" 0 "Z" 0:
 //:         Option::Some ord:
 //:             if lt ord 0 0 1

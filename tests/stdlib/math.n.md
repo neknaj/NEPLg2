@@ -12,7 +12,7 @@ stdout: "test_report name=\"math_i32_overload_add_sub_mul\" count=1 failed=0\nas
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %i32 add 40 2;
     let b %i32 sub a 5;
     let c %i32 mul b 2;
@@ -37,7 +37,7 @@ stdout: "test_report name=\"math_facade_qualified_alias_reexports_i32_arith\" co
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let actual %i32 math::add math::add 3 4 math::mul 3 4
     let report:
         test_report_new "math_facade_qualified_alias_reexports_i32_arith"
@@ -59,7 +59,7 @@ stdout: "test_report name=\"math_i64_overload_add_sub_mul\" count=1 failed=0\nas
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %i64 cast 40;
     let b %i64 cast 2;
     let five %i64 cast 5;
@@ -88,7 +88,7 @@ stdout: "test_report name=\"math_i128_overload_add_sub_mul\" count=1 failed=0\na
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a64 %i64 cast 40;
     let b64 %i64 cast 2;
     let a %i128 cast a64;
@@ -120,7 +120,7 @@ stdout: "test_report name=\"cast_overload_numeric_roundtrip\" count=1 failed=0\n
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a32 %i32 123;
     let a64 %i64 cast a32;
     let a128 %i128 cast a64;
@@ -145,7 +145,7 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/cast" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let v cast 1
     0
 ```

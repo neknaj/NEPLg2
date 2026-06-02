@@ -6,7 +6,7 @@
 #import "./collection" as *
 
 //: selfhost_diag_stage0: diagnostic [基盤/きばん]の smoke API
-pub fn selfhost_diag_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_diag_stage0 %impure fn void i32 \void:
     let diag %SelfhostDiagnostic selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "warning"
     match selfhost_diagnostics_one diag:
         Result::Ok ds:

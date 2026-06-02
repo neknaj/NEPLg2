@@ -23,7 +23,7 @@
 //:| #indent 4
 //:| #target core
 //:| #import "core/gui/draw_target" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let target %MockDrawTarget mock_draw_target_new 1 1
 //:     mock_draw_target_width &target
 //: ```

@@ -25,14 +25,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let s %BTreeSet i32 unwrap_ok new;
 //:     let observed_len %i32 len &s
 //:     let ok %bool eq observed_len 0
 //:     free s
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> %impure fn unit Result BTreeSet .T Diag \unit:
+pub fn new <.T: Copy> %impure fn void Result BTreeSet .T Diag \void:
     let cap %i32 8
     match btreeset_alloc_storage<.T> cap:
         Result::Err d:

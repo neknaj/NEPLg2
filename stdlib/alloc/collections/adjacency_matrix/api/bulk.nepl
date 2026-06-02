@@ -32,7 +32,7 @@ pub fn adjacency_matrix_fill_value %impure fn AdjacencyMatrix impure fn i32 Adja
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let g %AdjacencyMatrix:
 //:         unwrap_ok new 4
 //:         |> insert 0 1 |> uwok

@@ -21,7 +21,7 @@
 pub fn test_report_new %fn str TestReport \name:
     TestReport name 0 0 "" "[" ""
 
-pub fn test_report_default %fn unit TestReport \unit:
+pub fn test_report_default %fn void TestReport \void:
     test_report_new "checks"
 
 pub fn test_assertion_from_result %fn str fn Result unit str TestAssertion \label\r:
@@ -132,10 +132,10 @@ pub fn test_report_legacy_summary_text %fn &TestReport str \report:
     concat *get_ref report "legacy_summary" "]"
 
 //: checks_new: `TestReport` の[短/みじか]い[作成/さくせい]入口
-pub fn checks_new %impure fn unit TestReport \unit:
+pub fn checks_new %impure fn void TestReport \void:
     test_report_default
 
-pub fn checks_empty %fn unit TestReport \unit:
+pub fn checks_empty %fn void TestReport \void:
     test_report_default
 
 pub fn checks_single_error %impure fn str TestReport \msg:

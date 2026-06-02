@@ -37,7 +37,7 @@ fn fizzbuzz_word %fn i32 str \n:
                         else:
                             "Number"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks:
         checks_new
         |> checks_push assert_str_eq "Number" fizzbuzz_word 1

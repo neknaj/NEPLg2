@@ -17,7 +17,7 @@
 //:| #import "std/fs/dir" as *
 //:| #import "std/fs/fd" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match fs_open_dir "__definitely_missing_dir_case__":
 //:         Result::Err _e:
 //:             0

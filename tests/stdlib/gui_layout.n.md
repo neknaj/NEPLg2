@@ -19,7 +19,7 @@ ret: 24
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let constraints %LayoutConstraints layout_constraints 0 0 24 10
     let scale %GuiScaleFactor gui_scale_factor_new 1 1
     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
@@ -48,7 +48,7 @@ ret: 10
 #import "alloc/gui" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let constraints %LayoutConstraints layout_constraints 0 0 24 10
     let scale %GuiScaleFactor gui_scale_factor_new 1 1
     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
@@ -78,7 +78,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let negative_max_width %i32 sub 0 1
     let constraints %LayoutConstraints layout_constraints 0 0 negative_max_width 10
     let scale %GuiScaleFactor gui_scale_factor_new 1 1
@@ -115,7 +115,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -179,7 +179,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -223,7 +223,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -283,7 +283,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -346,7 +346,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -389,7 +389,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -442,7 +442,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -496,7 +496,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -549,7 +549,7 @@ ret: 0
 #import "core/math" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 3
     let root %WidgetDescriptor widget_label root_id "root" root_hint

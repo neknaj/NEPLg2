@@ -103,7 +103,7 @@ impl Copy for ViewNode:
         node
 
 //: empty_view: 空 view node を返す
-pub fn empty_view %fn unit ViewNode \unit:
+pub fn empty_view %fn void ViewNode \void:
     ViewNode::Empty
 
 //: label: text label view node を返す
@@ -178,7 +178,7 @@ impl Copy for GuiEffectBatch:
         batch
 
 //: gui_effect_none: effect なしを返す
-pub fn gui_effect_none %fn unit GuiEffect \unit:
+pub fn gui_effect_none %fn void GuiEffect \void:
     GuiEffect::None
 
 //: request_redraw: redraw request effect を作る
@@ -190,7 +190,7 @@ pub fn set_title %fn i32 fn str GuiEffect \target\title:
     GuiEffect::SetTitle SetTitleEffect target title
 
 //: gui_effect_batch_empty: 空 effect batch を[作/つく]る
-pub fn gui_effect_batch_empty %fn unit GuiEffectBatch \unit:
+pub fn gui_effect_batch_empty %fn void GuiEffectBatch \void:
     GuiEffectBatch GuiEffect::None GuiEffect::None 0
 
 //: gui_effect_batch_one: effect 1 個の batch を[作/つく]る

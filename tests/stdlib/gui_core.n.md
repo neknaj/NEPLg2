@@ -14,7 +14,7 @@ ret: 0
 #import "core/gui" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let p %GuiPoint gui_point_new 2 3
     let delta %GuiPoint gui_point_new 5 -1
     let moved %GuiPoint gui_point_add p delta
@@ -45,7 +45,7 @@ ret: 0
 #import "core/gui" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let r %u8 cast 12
     let g %u8 cast 34
     let b %u8 cast 56
@@ -82,7 +82,7 @@ fn lifecycle_code %fn GuiEvent i32 \event:
         _:
             2
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let caps %GuiCapabilities gui_capabilities_text_grid
     assert surface_kind_is_text_grid gui_capabilities_surface_kind &caps
     assert gui_capabilities_requires_flush &caps
@@ -114,7 +114,7 @@ fn pointer_code %fn GuiEvent i32 \event:
         _:
             2
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let point %GuiPoint gui_point_new 1200 3400
     let pointer %PointerEvent pointer_event_new PointerEventKind::Down 7 point PointerButton::Primary
     let position %GuiPoint pointer_event_position &pointer
@@ -142,7 +142,7 @@ ret: 0
 #import "core/result" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
     let request %TextMeasureRequest text_measure_request_new text_run_id_new 4 font_id_new 1 200 5
     match measure_text &measurer request:
@@ -179,7 +179,7 @@ fn keyboard_kind_code %fn GuiEvent i32 \event:
         _:
             12
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let modifiers %KeyModifiers key_modifiers_new 5
     let keyboard %KeyboardEvent keyboard_event_new KeyboardEventKind::KeyDown 1001 modifiers
     assert_eq_i32 5 key_modifiers_bits &modifiers
@@ -203,7 +203,7 @@ ret: 0
 #import "core/result" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let r %u8 cast 1
     let g %u8 cast 2
     let b %u8 cast 3
@@ -255,7 +255,7 @@ ret: 0
 #import "core/result" as *
 #import "core/test" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let zero %u8 cast 0
     let full %u8 cast 255
     let fg %Rgba8888 rgba8888_new full full full full

@@ -17,7 +17,7 @@
 //:| #target std
 //:| #import "alloc/gui/theme/types" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     match theme_metrics_checked 6 2 1 1 2:
 //:         Result::Ok metrics:
 //:             theme_metric_value &metrics ThemeMetricRole::PaddingInline

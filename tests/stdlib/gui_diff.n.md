@@ -20,7 +20,7 @@ exit_code: 0
 #import "core/option" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let hint %LayoutHint layout_hint_fixed 4 1
     let old_root %WidgetDescriptor widget_label root_id "old" hint
@@ -56,7 +56,7 @@ ret: 2
 #import "alloc/gui" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let child_id %WidgetId widget_id 2
     let child_action %ActionId action_id 3
@@ -89,7 +89,7 @@ ret: 2
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let child_id %WidgetId widget_id 2
     let old_action %ActionId action_id 3
@@ -130,7 +130,7 @@ ret: 3
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let parent_id %WidgetId widget_id 2
     let nested_id %WidgetId widget_id 3
@@ -206,7 +206,7 @@ fn invalidation_is_tree %fn GuiInvalidation bool \value:
         _:
             false
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let child_id %WidgetId widget_id 2
     let nested_id %WidgetId widget_id 3

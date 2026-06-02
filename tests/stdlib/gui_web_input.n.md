@@ -16,7 +16,7 @@ ret: 0
 #import "core/test" as *
 #import "platforms/gui/web" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match gui_web_poll_event_result:
         Result::Ok event:
             assert is_none event
@@ -41,7 +41,7 @@ ret: 0
 #import "platforms/gui/web" as *
 #import "std/gui/keymap" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let point %GuiPoint gui_point_new 0 0
     let pointer %PointerEvent pointer_event_new PointerEventKind::Move 9 point PointerButton::None
     let pointer_web %GuiWebEvent GuiWebEvent 3 point gui_event_pointer pointer

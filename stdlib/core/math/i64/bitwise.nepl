@@ -16,7 +16,7 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/bitwise" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let a %i64 cast 6;
 //:     let b %i64 cast 3;
 //:     assert eq or a b %i64 cast 7;

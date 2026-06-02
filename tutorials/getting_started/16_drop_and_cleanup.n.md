@@ -16,7 +16,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let created %Result Vec i32 StdErrorKind new
     match created:
         Result::Err _e:

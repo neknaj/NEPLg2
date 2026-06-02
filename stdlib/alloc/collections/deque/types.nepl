@@ -41,7 +41,7 @@ pub struct Deque<.T>:
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dq0 %Deque i32 unwrap_ok new;
 //:     match push_back dq0 7:
 //:         Result::Ok dq1:
@@ -66,7 +66,7 @@ pub struct DequePushError<.T>:
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dq0 %Deque i32 unwrap_ok new;
 //:     match push_front dq0 7:
 //:         Result::Ok dq1:
@@ -94,7 +94,7 @@ pub fn deque_push_error_diag <.T> %fn &DequePushError .T Diag \e:
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let dq0 %Deque i32 unwrap_ok with_capacity 1;
 //:     match push_back dq0 7:
 //:         Result::Ok dq1:

@@ -17,7 +17,7 @@
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error/diag" as *
 //:| #import "alloc/diag/error/diags" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let d %Diag diag_error StdErrorKind::EmptyCollection "empty"
 //:     let ds %Diags diags_one d
 //:     let checks checks_push checks_new assert diags_has_errors ds
@@ -45,11 +45,11 @@
 //:
 //: [目的/もくてき]:
 //: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
-pub fn diag_empty_diag_vec %fn unit Vec Diag \unit:
+pub fn diag_empty_diag_vec %fn void Vec Diag \void:
     vec_view::vec_empty
 
 //: diags_new: [空/から]の `Diags` を[作/つく]る
-pub fn diags_new %impure fn unit Diags \unit:
+pub fn diags_new %impure fn void Diags \void:
     let mut items %Vec Diag diag_empty_diag_vec;
     let created %Result Vec Diag StdErrorKind vec_alloc::new;
     match created:

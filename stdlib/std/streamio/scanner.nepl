@@ -16,7 +16,7 @@
 //:| #import "core/math" as *
 //:| #import "std/iotarget" as *
 //:| #import "std/streamio/scanner" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let sc %StreamScanner unwrap_ok open ReadStream::Text "4 5";
 //:     let a %i32 read &sc;
 //:     let b %i32 read &sc;

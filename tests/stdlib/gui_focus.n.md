@@ -24,7 +24,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let first_id %WidgetId widget_id 7
     let second_id %WidgetId widget_id 9
@@ -95,7 +95,7 @@ fn is_none_widget_id %fn Option WidgetId bool \value:
         Option::None:
             true
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 5
     let disabled_id %WidgetId widget_id 6
     let child_id %WidgetId widget_id 8
@@ -165,7 +165,7 @@ fn is_none_widget_id %fn Option WidgetId bool \value:
         Option::None:
             true
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint

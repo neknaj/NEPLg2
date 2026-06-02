@@ -27,7 +27,7 @@ stdout: "test_report name=\"queue_pipe_usage\" count=2 failed=0\nassertion index
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let q %Queue i32:
         unwrap_ok new
         |> push 7
@@ -69,7 +69,7 @@ stdout: "test_report name=\"queue_grow_clear_and_free\" count=3 failed=0\nassert
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let q0 %Queue i32 unwrap_ok with_capacity 1;
     let q1 %Queue i32 unwrap_ok push q0 10;
     let q2 %Queue i32 unwrap_ok push q1 20;

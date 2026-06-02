@@ -50,23 +50,24 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn unit i32 \unit:
-    let source %str "#entry main\nfn main <()*>i32> ():\n    42\n"
+fn main %impure fn void i32 \void:
+    let source %str "#entry main\nfn main %impure fn void i32 \\void:\n    42\n"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
             let token_len %i32 len &tokens
-            let checks1 checks_push checks0 check_eq_i32 19 token_len
+            let checks1 checks_push checks0 check_eq_i32 18 token_len
             let checks2 check_token checks1 source &tokens 0 "DirEntry" "main"
             let checks3 check_token checks2 source &tokens 2 "KwFn" "fn"
             let checks4 check_token checks3 source &tokens 3 "Ident" "main"
-            let checks5 check_token checks4 source &tokens 7 "Arrow" "*>"
-            let checks6 check_token checks5 source &tokens 14 "Indent" ""
-            let checks7 check_token checks6 source &tokens 15 "IntLiteral" "42"
-            let checks8 check_token checks7 source &tokens 17 "Dedent" ""
-            let checks9 check_token checks8 source &tokens 18 "Eof" ""
+            let checks5 check_token checks4 source &tokens 7 "VoidMarker" "void"
+            let checks6 check_token checks5 source &tokens 10 "VoidMarker" "void"
+            let checks7 check_token checks6 source &tokens 13 "Indent" ""
+            let checks8 check_token checks7 source &tokens 14 "IntLiteral" "42"
+            let checks9 check_token checks8 source &tokens 16 "Dedent" ""
+            let checks10 check_token checks9 source &tokens 17 "Eof" ""
             free tokens
-            let shown checks_print_report checks9
+            let shown checks_print_report checks10
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
@@ -125,7 +126,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let source %str "a:\n    b:\n        c\n    d\nz"
     let checks0 checks_new
     match lex_all source:
@@ -178,7 +179,7 @@ fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     let found %Option SelfhostToken get tokens idx
     unwrap found
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match lex_all_with_file_id "#entry main\n" 7:
         Result::Ok tokens:
@@ -247,7 +248,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let source %str "#indent 2\nfn:\n  1\n"
     let checks0 checks_new
     match lex_all source:
@@ -293,7 +294,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match lex_all "a:\n    b\n  c\n":
         Result::Ok tokens:
@@ -337,7 +338,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match lex_all "a:\n   b\n":
         Result::Ok tokens:
@@ -381,7 +382,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match lex_all "name // skip this\n$":
         Result::Ok tokens:
@@ -425,7 +426,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match lex_all "\"abc":
         Result::Ok tokens:
@@ -474,7 +475,7 @@ fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     let found %Option SelfhostToken get tokens idx
     unwrap found
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     let source %str "'\\n' 'a'"
     match lex_all source:
@@ -520,7 +521,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks0 checks_new
     match lex_all "'abc":
         Result::Ok tokens:
@@ -613,13 +614,13 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn unit i32 \unit:
-    let source %str "#target core\n#import \"std/test\" as *\n#use \"std/prelude\"\n#if[target=core]\n#if[profile=debug]\n#capability io\n#prelude \"std/prelude\"\n#no_prelude\n#intrinsic \"unreachable\" <> ()\nfn main <()->i32> ():\n    let mut x 0x2a;\n    set x 1.5;\n    if cond true then 'a' else \"s\"\n    Result::Ok x\n"
+fn main %impure fn void i32 \void:
+    let source %str "#target core\n#import \"std/test\" as *\n#use \"std/prelude\"\n#if[target=core]\n#if[profile=debug]\n#capability io\n#prelude \"std/prelude\"\n#no_prelude\n#intrinsic \"unreachable\" <> ()\nfn main %fn void i32 \\void:\n    let mut x 0x2a;\n    set x 1.5;\n    if cond true then 'a' else \"s\"\n    Result::Ok x\n"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
             let token_len %i32 len &tokens
-            let checks1 checks_push checks0 check_eq_i32 62 token_len
+            let checks1 checks_push checks0 check_eq_i32 60 token_len
             let checks2 check_token checks1 source &tokens 0 "DirTarget" "#target core"
             let checks3 check_token checks2 source &tokens 2 "DirImport" "#import \"std/test\" as *"
             let checks4 check_token checks3 source &tokens 4 "DirUse" "#use \"std/prelude\""
@@ -631,17 +632,18 @@ fn main %impure fn unit i32 \unit:
             let checks10 check_token checks9 source &tokens 16 "DirIntrinsic" "#intrinsic"
             let checks11 check_token checks10 source &tokens 17 "StringLiteral" "\"unreachable\""
             let checks12 check_token checks11 source &tokens 23 "KwFn" "fn"
-            let checks13 check_token checks12 source &tokens 28 "Arrow" "->"
-            let checks14 check_token checks13 source &tokens 36 "KwLet" "let"
-            let checks15 check_token checks14 source &tokens 37 "KwMut" "mut"
-            let checks16 check_token checks15 source &tokens 44 "FloatLiteral" "1.5"
-            let checks17 check_token checks16 source &tokens 47 "KwIf" "if"
-            let checks18 check_token checks17 source &tokens 49 "BoolLiteral" "true"
-            let checks19 check_token checks18 source &tokens 56 "PathSep" "::"
-            let checks20 check_token checks19 source &tokens 60 "Dedent" ""
-            let checks21 check_token checks20 source &tokens 61 "Eof" ""
+            let checks13 check_token checks12 source &tokens 27 "VoidMarker" "void"
+            let checks14 check_token checks13 source &tokens 30 "VoidMarker" "void"
+            let checks15 check_token checks14 source &tokens 34 "KwLet" "let"
+            let checks16 check_token checks15 source &tokens 35 "KwMut" "mut"
+            let checks17 check_token checks16 source &tokens 42 "FloatLiteral" "1.5"
+            let checks18 check_token checks17 source &tokens 45 "KwIf" "if"
+            let checks19 check_token checks18 source &tokens 47 "BoolLiteral" "true"
+            let checks20 check_token checks19 source &tokens 54 "PathSep" "::"
+            let checks21 check_token checks20 source &tokens 58 "Dedent" ""
+            let checks22 check_token checks21 source &tokens 59 "Eof" ""
             free tokens
-            let shown checks_print_report checks21
+            let shown checks_print_report checks22
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
@@ -691,7 +693,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let source %str "//: module doc\n/// item doc\n##: text\n"
     let checks0 checks_new
     match lex_all source:
@@ -763,7 +765,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let source %str "//: doc\n##: text\n#wasm:\n    local.get 0\n#llvmir:\n    ret i32 0\n"
     let checks0 checks_new
     match lex_all source:

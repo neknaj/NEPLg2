@@ -57,10 +57,10 @@
 //:| #target std
 //:| #import "std/env/cliarg" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if eq cliarg_count unit 3 0 1
 //: ```
-pub fn cliarg_count %impure fn unit i32 \unit:
+pub fn cliarg_count %impure fn void i32 \void:
     match cli_raw::cliarg_count_result unit:
         Result::Ok argc:
             argc
@@ -102,7 +102,7 @@ pub fn cliarg_count %impure fn unit i32 \unit:
 //:| #import "std/env/cliarg" as *
 //:| #import "alloc/string" as *
 //:| #import "core/option" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match cliarg_get 1:
 //:         Option::Some arg:
 //:             if str_eq arg "alpha" 0 1
@@ -152,12 +152,12 @@ pub fn cliarg_get %impure fn i32 Option str \idx:
 //:| #import "alloc/string" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match cliarg_program unit:
 //:         Option::Some arg:
 //:             if gt len arg 0 0 1
 //:         Option::None:
 //:             1
 //: ```
-pub fn cliarg_program %impure fn unit Option str \unit:
+pub fn cliarg_program %impure fn void Option str \void:
     cliarg_get 0

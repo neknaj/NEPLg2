@@ -59,7 +59,7 @@ fn print_error %impure fn str unit \msg:
 //:
 //: [目的/もくてき]:
 //: - 各入力行の先頭を視認しやすくします。
-fn print_prompt %impure fn unit unit \unit:
+fn print_prompt %impure fn void unit \void:
     let prompt_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     print_style prompt_style "> "
 
@@ -310,7 +310,7 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
 //:
 //: [目的/もくてき]:
 //: - バナーを表示し、1 行ごとに Brainfuck プログラムを受け付けます。
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let title_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     println_style title_style "Brainfuck Runner";
     println_color AnsiColor::Gray "enter BF program. Ctrl+Z to exit.";

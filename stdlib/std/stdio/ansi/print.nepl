@@ -32,7 +32,7 @@ pub fn print_style_start %impure fn AnsiTextStyle unit \style:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn print_style_reset %impure fn unit unit \unit:
+pub fn print_style_reset %impure fn void unit \void:
     print ansi_reset_code;
     unit
 
@@ -51,7 +51,7 @@ pub fn print_style_reset %impure fn unit unit \unit:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     print_style ansi_bold_color_style AnsiColor::Red "sample";
 //: ```
 pub fn print_style %impure fn AnsiTextStyle impure fn str unit \style\s:

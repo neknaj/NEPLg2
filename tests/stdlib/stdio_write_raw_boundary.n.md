@@ -12,7 +12,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/write" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match stdio_write_fd_mem_result 1 0 0:
         Result::Ok _:
             0
@@ -32,7 +32,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/write/fd" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match stdio_write_mem_result 0 0:
         Result::Ok _:
             0

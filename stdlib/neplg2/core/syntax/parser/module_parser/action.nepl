@@ -63,6 +63,8 @@ pub fn selfhost_parser_token_action %fn TokenKind SelfhostParserTokenAction \kin
             SelfhostParserTokenAction::Regular
         TokenKind::UnitLiteral:
             SelfhostParserTokenAction::Regular
+        TokenKind::VoidMarker:
+            SelfhostParserTokenAction::Regular
         TokenKind::KwFn:
             SelfhostParserTokenAction::Regular
         TokenKind::KwLet:

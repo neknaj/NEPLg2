@@ -28,7 +28,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new
     let span %SelfhostSourceSpan source_span_new 4 10 14
     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "identifier"
@@ -98,7 +98,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new
 
     let ok_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_ok 42
@@ -160,7 +160,7 @@ stdout: "okerr"
 fn print_payload %impure fn str unit \value:
     print value
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let ok_result %Result SelfhostOutcome str i32 StdErrorKind selfhost_outcome_ok "ok"
     match ok_result:
         Result::Ok ok_outcome:

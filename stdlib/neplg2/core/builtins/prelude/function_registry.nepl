@@ -10,19 +10,19 @@ pub fn selfhost_builtin_function_new %fn str fn SelfhostBuiltinKind fn SelfhostB
     SelfhostBuiltinFunction name kind signature pure
 
 //: selfhost_builtin_function_alloc: `alloc(size: i32) -> i32` の metadata を[返/かえ]す
-pub fn selfhost_builtin_function_alloc %fn unit SelfhostBuiltinFunction \unit:
+pub fn selfhost_builtin_function_alloc %fn void SelfhostBuiltinFunction \void:
     selfhost_builtin_function_new "alloc" SelfhostBuiltinKind::MemAlloc selfhost_builtin_signature_unary SelfhostTypeKind::I32 SelfhostTypeKind::I32 true
 
 //: selfhost_builtin_function_dealloc: `dealloc(ptr: i32, size: i32) -> unit` の metadata を[返/かえ]す
-pub fn selfhost_builtin_function_dealloc %fn unit SelfhostBuiltinFunction \unit:
+pub fn selfhost_builtin_function_dealloc %fn void SelfhostBuiltinFunction \void:
     selfhost_builtin_function_new "dealloc" SelfhostBuiltinKind::MemDealloc selfhost_builtin_signature_binary SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::Unit true
 
 //: selfhost_builtin_function_realloc: `realloc(ptr: i32, old: i32, new: i32) -> i32` の metadata を[返/かえ]す
-pub fn selfhost_builtin_function_realloc %fn unit SelfhostBuiltinFunction \unit:
+pub fn selfhost_builtin_function_realloc %fn void SelfhostBuiltinFunction \void:
     selfhost_builtin_function_new "realloc" SelfhostBuiltinKind::MemRealloc selfhost_builtin_signature_ternary SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 true
 
 //: selfhost_builtin_function_count: registry に登録された builtin function 数を[返/かえ]す
-pub fn selfhost_builtin_function_count %fn unit i32 \unit:
+pub fn selfhost_builtin_function_count %fn void i32 \void:
     3
 
 //: selfhost_builtin_function_at: registry index から builtin function を[返/かえ]す

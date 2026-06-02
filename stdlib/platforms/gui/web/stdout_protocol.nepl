@@ -100,7 +100,7 @@ pub fn gui_web_stdout_frame_begin %impure fn i32 impure fn i32 impure fn i32 imp
             Result::Ok unit
 
 //: gui_web_stdout_frame_end: GUI frame protocol の完了行を出力する
-pub fn gui_web_stdout_frame_end %impure fn unit Result unit GuiError \unit:
+pub fn gui_web_stdout_frame_end %impure fn void Result unit GuiError \void:
     println "NEPLG2_GUI_FRAME_END";
     Result::Ok unit
 

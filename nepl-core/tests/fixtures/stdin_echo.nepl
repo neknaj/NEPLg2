@@ -3,7 +3,7 @@
 #target wasi
 #import "std/stdio" as *
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let s %str read_all;
     print s;
     unit

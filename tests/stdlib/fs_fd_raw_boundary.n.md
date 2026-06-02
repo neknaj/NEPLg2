@@ -12,7 +12,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/fs/raw" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match fs_fd_read_into_result 0 0 0 0 1:
         Result::Ok _:
             0
@@ -32,7 +32,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/fs/read/fd" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match fs_fd_read_into_result 0 0 0 0 1:
         Result::Ok _:
             0
@@ -52,7 +52,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/fs/raw" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match fs_fd_write_from_result 1 0 0 0 1:
         Result::Ok _:
             0
@@ -72,7 +72,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/fs/write/fd" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match fs_fd_write_from_result 1 0 0 0 1:
         Result::Ok _:
             0

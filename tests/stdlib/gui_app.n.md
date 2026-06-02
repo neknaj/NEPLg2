@@ -22,7 +22,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let id %WidgetId widget_id 7
     let action %ActionId action_id 42
     let config %ButtonConfig button_config id "Save" action
@@ -62,7 +62,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let batch0 %GuiEffectBatch gui_effect_batch_empty
     let batch1 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch0 request_redraw 1
     let batch2 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch1 set_title 1 "Main"
@@ -120,7 +120,7 @@ exit_code: 0
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let upd %Update i32 update_result 11 request_redraw 3
     let effect %GuiEffect update_effect upd
     let checks match effect:

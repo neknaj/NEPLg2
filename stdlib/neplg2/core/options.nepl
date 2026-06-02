@@ -22,7 +22,7 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "neplg2/core/options" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let opts0 %SelfhostCompileOptions selfhost_compile_options_default
 //:     let opts1 %SelfhostCompileOptions selfhost_compile_options_with_target opts0 SelfhostCompileTarget::Wasm
 //:     let opts2 %SelfhostCompileOptions selfhost_compile_options_with_profile opts1 SelfhostBuildProfile::Release
@@ -99,7 +99,7 @@ pub fn selfhost_compile_options_new %fn Option SelfhostCompileTarget fn bool fn 
     SelfhostCompileOptions target verbose profile
 
 //: selfhost_compile_options_default: 既定の compile option を[返/かえ]す
-pub fn selfhost_compile_options_default %fn unit SelfhostCompileOptions \unit:
+pub fn selfhost_compile_options_default %fn void SelfhostCompileOptions \void:
     selfhost_compile_options_new none false none
 
 //: selfhost_compile_options_with_target: 明示 target override を[設定/せってい]する
@@ -190,7 +190,7 @@ pub fn selfhost_build_profile_is_release %fn SelfhostBuildProfile bool \profile:
         _:
             false
 
-pub fn selfhost_options_stage0 %fn unit i32 \unit:
+pub fn selfhost_options_stage0 %fn void i32 \void:
     let options %SelfhostCompileOptions selfhost_compile_options_default
     let target %SelfhostCompileTarget selfhost_compile_resolve_target options none
     if selfhost_compile_target_is_wasm target 0 1

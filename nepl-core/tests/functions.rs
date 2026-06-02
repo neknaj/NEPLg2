@@ -113,7 +113,7 @@ fn function_neplg21_lambda_param_syntax() {
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     inc 41
 "#;
     let v = run_main_i32(src);
@@ -121,22 +121,66 @@ fn main %fn unit i32 \unit:
 }
 
 #[test]
-fn function_neplg21_unit_keyword_marks_zero_arg_signature_and_lambda() {
+fn function_neplg21_void_keyword_marks_zero_arg_signature_and_lambda() {
     let src = r#"
 #entry main
 #indent 4
 #target wasm
 #import "core/math" as *
 
-fn answer %fn unit i32 \unit:
+fn answer %fn void i32 \void:
     41
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let value %i32 answer
     add value 1
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 42);
+}
+
+#[test]
+fn function_neplg21_unit_keyword_is_ordinary_unary_argument_type() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn unit_to_i32 %fn unit i32 \x:
+    41
+
+fn main %fn void i32 \void:
+    add unit_to_i32 unit 1
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
+}
+
+#[test]
+fn function_neplg21_void_marker_is_not_a_unit_argument_lambda() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main %fn unit i32 \void:
+    42
+"#;
+    compile_err(src);
+}
+
+#[test]
+fn function_neplg21_unit_keyword_no_longer_marks_zero_arg_lambda() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main %fn void i32 \unit:
+    42
+"#;
+    compile_err(src);
 }
 
 #[test]
@@ -150,7 +194,7 @@ fn function_neplg21_curried_type_notation_flattens_params() {
 fn add_nums %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add_nums 10 20
 "#;
     let v = run_main_i32(src);
@@ -180,7 +224,7 @@ fn get_op %fn bool (fn i32 fn i32 i32) \cnd:
             sub_op
             @sub_op
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f get_op true
     f 10 5
 "#;
@@ -200,7 +244,7 @@ fn function_memo_call_accepts_explicit_pure_named_function_value() {
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn i32 i32 memo_call @inc
     f 41
 "#;
@@ -220,7 +264,7 @@ fn function_memo_call_lowers_to_dedicated_hir_boundary() {
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn i32 i32 memo_call @inc
     f 41
 "#;
@@ -292,7 +336,7 @@ fn function_memo_call_rejects_implicit_function_argument() {
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn i32 i32 memo_call inc
     f 41
 "#;
@@ -317,7 +361,7 @@ fn function_memo_call_rejects_function_value_alias() {
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let aliased %fn i32 i32 @inc
     let f %fn i32 i32 memo_call aliased
     f 41
@@ -346,7 +390,7 @@ fn inc %fn i32 i32 \x:
 fn id_func %fn (fn i32 i32) (fn i32 i32) \func:
     func
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let selected %fn i32 i32 id_func @inc
     let f %fn i32 i32 memo_call selected
     f 41
@@ -382,7 +426,7 @@ fn choose %fn bool fn i32 i32 \flag:
         else:
             @dec
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let selected %fn i32 i32 choose true
     let f %fn i32 i32 memo_call selected
     f 41
@@ -405,7 +449,7 @@ fn function_memo_call_rejects_function_literal_value() {
 #import "core/math" as *
 #import "core/memo" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let local %fn i32 i32 \x:
         add x 1
     let f %fn i32 i32 memo_call local
@@ -425,7 +469,7 @@ fn function_memo_call_rejects_impure_function_value() {
 fn touch %impure fn i32 i32 \x:
     x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn i32 i32 memo_call @touch
     f 41
 "#;
@@ -443,7 +487,7 @@ fn function_memo_call_rejects_phase1_str_key_value() {
 fn same_text %fn str str \s:
     s
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn str str memo_call @same_text
     0
 "#;
@@ -472,7 +516,7 @@ impl MemoKey for f32:
 fn same_float %fn f32 f32 \x:
     x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn f32 f32 memo_call @same_float
     0
 "#;
@@ -518,17 +562,17 @@ impl Copy for FloatKey:
 fn same_float_key %fn FloatKey FloatKey \x:
     x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn FloatKey FloatKey memo_call @same_float_key
     0
 "#;
     compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
 }
 
-/// unit is both a valid key and a valid value when it is written as a grouped
-/// argument type.  This regression protects the distinction between `%fn unit`
-/// as the zero-argument function marker and `%fn (unit)` as a unary function
-/// whose argument value is the unit singleton.
+/// unit is both a valid key and a valid value when it is written as an argument
+/// type. This regression protects the distinction between `%fn void` as the
+/// zero-argument function marker and `%fn unit` as a unary function whose
+/// argument value is the unit singleton.
 #[test]
 fn function_memo_call_accepts_phase1_unit_key_value() {
     let src = r#"
@@ -537,11 +581,11 @@ fn function_memo_call_accepts_phase1_unit_key_value() {
 #target wasm
 #import "core/memo" as *
 
-fn unit_to_i32 %fn (unit) i32 \x:
+fn unit_to_i32 %fn unit i32 \x:
     41
 
-fn main %fn unit i32 \unit:
-    let f %fn (unit) i32 memo_call @unit_to_i32
+fn main %fn void i32 \void:
+    let f %fn unit i32 memo_call @unit_to_i32
     f unit
 "#;
     compile_with_loader(src).expect("unit key/value should be accepted");
@@ -588,7 +632,7 @@ impl Copy for Pair:
 fn same_pair %fn Pair Pair \p:
     p
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn Pair Pair memo_call @same_pair
     let p %Pair Pair 41
     let _q %Pair f p
@@ -623,7 +667,7 @@ impl Copy for Pair:
 fn same_pair %fn Pair Pair \p:
     p
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn Pair Pair memo_call @same_pair
     0
 "#;
@@ -666,7 +710,7 @@ impl Copy for Pair:
 fn same_pair %fn Pair Pair \p:
     p
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn Pair Pair memo_call @same_pair
     0
 "#;
@@ -687,7 +731,7 @@ struct Pair:
 fn same_pair %fn Pair Pair \p:
     p
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn Pair Pair memo_call @same_pair
     0
 "#;
@@ -709,7 +753,7 @@ fn function_memo_call_rejects_phase1_region_token_key_value() {
 fn same_region %fn RegionToken i32 RegionToken i32 \region:
     region
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn RegionToken i32 RegionToken i32 memo_call @same_region
     0
 "#;
@@ -730,7 +774,7 @@ fn function_memo_call_rejects_phase1_function_value_key_value() {
 fn same_function %fn (fn i32 i32) (fn i32 i32) \func:
     func
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn (fn i32 i32) (fn i32 i32) memo_call @same_function
     0
 "#;
@@ -751,7 +795,7 @@ fn function_memo_call_rejects_phase1_reference_key() {
 fn read_ref %fn &i32 i32 \x:
     *x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn &i32 i32 memo_call @read_ref
     0
 "#;
@@ -773,7 +817,7 @@ fn function_memo_call_rejects_phase1_mem_ptr_key_value() {
 fn same_ptr %fn MemPtr i32 MemPtr i32 \ptr:
     ptr
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn MemPtr i32 MemPtr i32 memo_call @same_ptr
     0
 "#;
@@ -791,7 +835,7 @@ fn function_memo_call_rejects_phase1_generic_function_value() {
 fn identity <.T: Copy> %fn .T .T \x:
     x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn i32 i32 memo_call @identity
     0
 "#;
@@ -813,7 +857,7 @@ fn function_memo_call_rejects_immediate_application_until_private_cache_backend_
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     memo_call @inc 41
 "#;
     compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallBoundaryRestricted);
@@ -833,7 +877,7 @@ fn inc %fn i32 i32 \x:
 fn memo_call %fn (fn i32 i32) (fn i32 i32) \func:
     func
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let f %fn i32 i32 memo_call @inc
     f 41
 "#;
@@ -859,7 +903,7 @@ fn choose <.U: Drop> %impure fn .U i32 \x:
 fn wrap <.T: Copy> %fn Option .T i32 \opt:
     choose opt
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let opt %Option i32 some 41
     wrap opt
 "#;
@@ -885,7 +929,7 @@ fn positive_double %fn i32 Result i32 str \x:
         then ok mul x 2
         else err "non-positive"
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let opt %Option i32 some 10
     let mapped %Option i32 map opt inc
     let res0 %Result i32 str ok 3
@@ -935,7 +979,7 @@ fn must_hs %fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 DefaultHa
             let hs %HashSet i32 DefaultHash32 field::get e "owner"
             hs
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let hs %HashSet i32 DefaultHash32 must_hs new DefaultHash32
     let marker %i32 field::get hs "marker"
     marker
@@ -952,7 +996,7 @@ fn function_neplg21_unconstrained_generic_call_type_args_are_type_error() {
 #target wasm
 #import "core/option" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if is_none none:
         then 1
         else 0
@@ -968,7 +1012,7 @@ fn main %fn unit i32 \unit:
 #target wasm
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if is_err ok 5:
         then 1
         else 0
@@ -984,7 +1028,7 @@ fn main %fn unit i32 \unit:
 #target wasm
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if is_ok err 7:
         then 1
         else 0
@@ -1004,7 +1048,7 @@ fn function_neplg21_generic_call_type_args_resolve_from_explicit_consumer() {
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if is_none<i32> none:
         then:
             if is_err<i32,i32> ok 5:
@@ -1030,7 +1074,7 @@ fn function_neplg21_generic_body_type_params_remain_allowed() {
 fn absent <.T> %fn Option .T bool \opt:
     is_none opt
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     if absent<i32> none:
         then 11
         else 0

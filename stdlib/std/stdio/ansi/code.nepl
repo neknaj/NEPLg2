@@ -102,7 +102,7 @@ pub fn ansi_text_decoration_code %fn AnsiTextDecoration str \decoration:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ansi_reset_code %fn unit str \unit:
+pub fn ansi_reset_code %fn void str \void:
     "\x1b[0m"
 
 //: ansi_text_style_code: style enum/struct を escape code 文字列へ変換する

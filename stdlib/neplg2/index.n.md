@@ -10,6 +10,6 @@ neplg2:test
 
 #import "neplg2/core/pipeline" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     selfhost_pipeline_stage0
 ```

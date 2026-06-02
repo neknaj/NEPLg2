@@ -71,7 +71,7 @@ fn vec_replace_drop_old_initialized_slot <.T: Drop> %impure fn &RegionToken .T i
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec i32 unwrap_ok new;
 //:     let v1 %Vec i32 unwrap_ok push v0 1;
 //:     replace &v1 0 5;
@@ -124,7 +124,7 @@ pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T unit \v\
 //: impl Drop for DropPayload:
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec DropPayload unwrap_ok new
 //:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 1)
 //:     let v2 %Vec DropPayload unwrap_ok replace_drop_old v1 0 (DropPayload 2)

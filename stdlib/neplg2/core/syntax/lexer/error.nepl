@@ -71,6 +71,8 @@ pub fn lex_error_for_token %fn SelfhostToken LexDiagnostic \token:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::UnitLiteral:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::VoidMarker:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwFn:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwLet:

@@ -14,7 +14,7 @@
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match byte_builder_new:
 //:         Result::Ok b:
 //:             byte_builder_free b
@@ -65,7 +65,7 @@ pub fn byte_builder_with_capacity %fn i32 Result ByteBuilder StdErrorKind \capac
 //:
 //: [目的/もくてき]:
 //: - 小さな byte列構築で最初の append ごとの確保を避けます。
-pub fn byte_builder_new %fn unit Result ByteBuilder StdErrorKind \unit:
+pub fn byte_builder_new %fn void Result ByteBuilder StdErrorKind \void:
     byte_builder_with_capacity 64
 
 //: byte_builder_dealloc_owned_region: builder が所有する byte 領域 token を解放する
@@ -85,7 +85,7 @@ pub fn byte_builder_new %fn unit Result ByteBuilder StdErrorKind \unit:
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     let checks match alloc_region_bytes<u8> 4:
 //:         Result::Ok region:
@@ -137,7 +137,7 @@ pub fn byte_builder_free %fn ByteBuilder unit \builder:
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
@@ -164,7 +164,7 @@ pub fn byte_builder_error_free %fn ByteBuilderError unit \e:
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let invalid %StdErrorKind StdErrorKind::InvalidOperation
 //:     let e %ByteBuilderByteBufError ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
 //:     byte_builder_bytebuf_error_free e

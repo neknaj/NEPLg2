@@ -9,7 +9,7 @@ diag_code: effect.raw_body.target_mismatch
 #entry main
 #indent 4
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     #llvmir:
         define i32 @mainunit {
         entry:
@@ -26,7 +26,7 @@ diag_code: effect.raw_body.target_mismatch
 #entry main
 #indent 4
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     #wasm:
         i32.const 1
 ```
@@ -40,7 +40,7 @@ diag_code: effect.raw_body.multiple_active
 #entry main
 #indent 4
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     #if[target=core]
     #wasm:
         i32.const 1
@@ -61,7 +61,7 @@ diag_code: backend.wasm.raw_line_parse_error
 #entry main
 #indent 4
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     #wasm:
         i32.unknown
 ```
@@ -82,7 +82,7 @@ fn raw_store %fn i32 fn i32 unit \p\v:
         local.get v
         i32.store
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     raw_store 0 1
     0
 ```
@@ -105,7 +105,7 @@ fn raw_store_helper %fn i32 fn i32 unit \p\v:
         local.get v
         call $store_i32
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     raw_store_helper 0 1
     0
 ```
@@ -128,7 +128,7 @@ fn raw_store %fn i32 unit \v:
             ret void
         }
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     raw_store 1
     0
 ```
@@ -152,7 +152,7 @@ fn raw_grow_helper %fn i32 i32 \pages:
             ret i32 %x
         }
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     raw_grow_helper 1
 ```
 
@@ -166,9 +166,9 @@ diag_code: backend.wasm.extern_signature_unsupported
 #indent 4
 #no_prelude
 
-#extern "env" "f" fn f %fn unit never
+#extern "env" "f" fn f %fn void never
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     1
 ```
 
@@ -181,6 +181,6 @@ diag_code: backend.wasm.function_signature_unsupported
 #entry main
 #indent 4
 
-fn main %fn unit never \unit:
+fn main %fn void never \void:
     #intrinsic "unreachable" <> ()
 ```

@@ -48,7 +48,7 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "core/field" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let filled_result %Result Vec i32 StdErrorKind filled 3 7
 //:     match filled_result:
 //:         Result::Ok v:

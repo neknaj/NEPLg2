@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/fs/stat" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     if fs_exists "__definitely_missing_fs_stat_case__.txt" then 1 else 0
 //: ```
 

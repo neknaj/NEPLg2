@@ -28,7 +28,7 @@ stdout: "test_report name=\"bloom_filter_pipe_usage\" count=3 failed=0\nassertio
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bf0 %BloomFilter i32 DefaultHash32:
         unwrap_ok new DefaultHash32 128
         |> insert 3
@@ -78,7 +78,7 @@ stdout: "test_report name=\"bloom_filter_free_releases_owned_storage\" count=1 f
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bf0 %BloomFilter i32 DefaultHash32:
         unwrap_ok new DefaultHash32 128
         |> insert 8

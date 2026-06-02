@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/convert/float" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     trunc_s_f64_to_i32 convert_s_i32_to_f64 7
 //: ```
 

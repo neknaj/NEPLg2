@@ -101,14 +101,14 @@ pub fn string_builder_reserve_result %fn StringBuilder fn i32 Result StringBuild
 //:
 //: [注意/ちゅうい]:
 //: - `string_builder_new` は失敗時に空 builder fallback を返します。
-pub fn string_builder_new_result %fn unit Result StringBuilder str \unit:
+pub fn string_builder_new_result %fn void Result StringBuilder str \void:
     match byte_builder_new:
         Result::Ok bytes:
             Result::Ok string_builder_from_byte_builder bytes
         Result::Err e:
             Result::Err string_builder_error e
 
-pub fn string_builder_new %fn unit StringBuilder \unit:
+pub fn string_builder_new %fn void StringBuilder \void:
     match string_builder_new_result:
         Result::Ok sb:
             sb

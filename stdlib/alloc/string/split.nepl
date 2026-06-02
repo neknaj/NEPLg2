@@ -88,7 +88,7 @@ pub struct StrSplitStep:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn str_split_done_step %fn unit StrSplitStep \unit:
+pub fn str_split_done_step %fn void StrSplitStep \void:
     StrSplitStep StrSplitStepKind::Done 0 0 0
 
 //: str_split_next: allocation なしで次の split range を返す

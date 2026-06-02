@@ -62,7 +62,7 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let g %AdjacencyMatrix unwrap_ok new 4;
 //:     let g1 %AdjacencyMatrix unwrap_ok insert g 2 0;
 //:     let ok %bool unwrap_ok contains &g1 2 0;
@@ -82,7 +82,7 @@ pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result Adja
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let g %AdjacencyMatrix:
 //:         unwrap_ok new 4
 //:         |> insert 2 0 |> uwok

@@ -2406,11 +2406,15 @@ impl TypeCtx {
                     s.push_str(&type_params.len().to_string());
                 }
                 s.push_str("__");
-                for (i, p) in params.iter().enumerate() {
-                    if i > 0 {
-                        s.push('_');
+                if params.is_empty() {
+                    s.push_str("void");
+                } else {
+                    for (i, p) in params.iter().enumerate() {
+                        if i > 0 {
+                            s.push('_');
+                        }
+                        s.push_str(&self.type_to_string_inner(*p, seen));
                     }
-                    s.push_str(&self.type_to_string_inner(*p, seen));
                 }
                 s.push_str("__");
                 s.push_str(&self.type_to_string_inner(result, seen));

@@ -36,7 +36,7 @@ fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 HashMapUpdateError i3
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let hm0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
     let hm0_len %i32 len &hm0;
     free hm0;

@@ -56,7 +56,7 @@ fn breakout_model_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn bool Breakou
     let encoded %i32 add a b
     BreakoutModel encoded
 
-fn breakout_init %fn unit BreakoutModel \unit:
+fn breakout_init %fn void BreakoutModel \void:
     breakout_model_new 42 48 42 1 0 0 false
 
 fn breakout_encoded %fn &BreakoutModel i32 \model:
@@ -98,19 +98,19 @@ fn breakout_animate %fn &BreakoutModel bool \model:
     let flags %i32 breakout_flags model
     ge flags 64
 
-fn breakout_action_left %fn unit ActionId \unit:
+fn breakout_action_left %fn void ActionId \void:
     action_id 1
 
-fn breakout_action_right %fn unit ActionId \unit:
+fn breakout_action_right %fn void ActionId \void:
     action_id 2
 
-fn breakout_action_step %fn unit ActionId \unit:
+fn breakout_action_step %fn void ActionId \void:
     action_id 3
 
-fn breakout_action_animate %fn unit ActionId \unit:
+fn breakout_action_animate %fn void ActionId \void:
     action_id 4
 
-fn breakout_action_reset %fn unit ActionId \unit:
+fn breakout_action_reset %fn void ActionId \void:
     action_id 5
 
 fn breakout_action_raw %fn ActionId i32 \action:
@@ -257,28 +257,28 @@ fn breakout_update_event %fn BreakoutModel fn GuiWebEvent BreakoutModel \model\w
         Option::None:
             model
 
-fn breakout_color_background %fn unit Rgba8888 \unit:
+fn breakout_color_background %fn void Rgba8888 \void:
     let r %u8 cast 8
     let g %u8 cast 12
     let b %u8 cast 18
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn breakout_color_playfield %fn unit Rgba8888 \unit:
+fn breakout_color_playfield %fn void Rgba8888 \void:
     let r %u8 cast 13
     let g %u8 cast 20
     let b %u8 cast 28
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn breakout_color_paddle %fn unit Rgba8888 \unit:
+fn breakout_color_paddle %fn void Rgba8888 \void:
     let r %u8 cast 66
     let g %u8 cast 190
     let b %u8 cast 170
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn breakout_color_ball %fn unit Rgba8888 \unit:
+fn breakout_color_ball %fn void Rgba8888 \void:
     let r %u8 cast 245
     let g %u8 cast 230
     let b %u8 cast 96
@@ -295,14 +295,14 @@ fn breakout_color_brick %fn i32 Rgba8888 \index:
     let b %u8 cast b_i32
     rgba8888_new r g b a
 
-fn breakout_color_button %fn unit Rgba8888 \unit:
+fn breakout_color_button %fn void Rgba8888 \void:
     let r %u8 cast 35
     let g %u8 cast 61
     let b %u8 cast 86
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn breakout_color_text %fn unit Rgba8888 \unit:
+fn breakout_color_text %fn void Rgba8888 \void:
     let r %u8 cast 238
     let g %u8 cast 244
     let b %u8 cast 241
@@ -492,7 +492,7 @@ fn breakout_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
                     let next_idx %i32 add idx 1
                     breakout_has_once_flag_loop next_idx count
 
-fn breakout_has_once_flag %impure fn unit bool \unit:
+fn breakout_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     breakout_has_once_flag_loop 1 count
 
@@ -547,7 +547,7 @@ fn breakout_event_loop %impure fn BreakoutModel unit \initial_model:
                     println "breakout gui input unsupported";
                     set running false
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let model0 %BreakoutModel breakout_init
     if:
         breakout_has_once_flag

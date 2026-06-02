@@ -43,7 +43,7 @@ pub struct StringBuilder:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_builder_empty %fn unit StringBuilder \unit:
+pub fn string_builder_empty %fn void StringBuilder \void:
     StringBuilder byte_builder_empty
 
 //: string_builder_from_byte_builder: ByteBuilder owner を text builder 境界へ包む
@@ -96,7 +96,7 @@ pub fn string_builder_data_ptr_ref %fn &StringBuilder MemPtr u8 \sb:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match string_builder_new_result unit:
 //:         Result::Err _e:
 //:             1

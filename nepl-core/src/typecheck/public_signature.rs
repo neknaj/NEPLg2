@@ -437,8 +437,8 @@ mod tests {
     /// semantic cache が無関係な本文差分で過剰 invalidation しない根拠にする。
     #[test]
     fn typed_public_signature_hash_ignores_function_body_only_edits() {
-        let first = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    1\n");
-        let second = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    2\n");
+        let first = typecheck_source("pub fn answer %fn void i32 \\void:\n    1\n");
+        let second = typecheck_source("pub fn answer %fn void i32 \\void:\n    2\n");
 
         assert_eq!(
             first.public_signatures.stable_hash,
@@ -454,8 +454,8 @@ mod tests {
     /// 観測できることを確認する。
     #[test]
     fn typed_public_signature_hash_tracks_public_callable_type_edits() {
-        let returns_i32 = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    1\n");
-        let returns_unit = typecheck_source("pub fn answer %fn unit unit \\unit:\n    unit\n");
+        let returns_i32 = typecheck_source("pub fn answer %fn void i32 \\void:\n    1\n");
+        let returns_unit = typecheck_source("pub fn answer %fn void unit \\void:\n    unit\n");
 
         assert_ne!(
             returns_i32.public_signatures.stable_hash,

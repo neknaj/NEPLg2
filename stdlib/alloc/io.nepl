@@ -24,7 +24,7 @@
 //:         io_bytebuf_free bytes;
 //:         Result::Ok CountSink add get sink "total" n
 //:
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let bytes0 %ByteBuf io_bytebuf_from_str "AB";
 //:     match io_write_bytes (CountSink 3) bytes0:
 //:         Result::Ok sink1:

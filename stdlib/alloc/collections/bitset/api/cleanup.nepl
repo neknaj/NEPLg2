@@ -27,7 +27,7 @@
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let bs %BitSet unwrap_ok new 16;
 //:     free bs
 //:     0

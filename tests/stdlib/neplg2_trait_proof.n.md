@@ -166,7 +166,7 @@ fn run_with_types %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure f
     selfhost_type_arena_free arena
     code
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match selfhost_type_arena_new:
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:

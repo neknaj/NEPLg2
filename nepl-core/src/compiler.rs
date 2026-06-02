@@ -2202,10 +2202,10 @@ mod tests {
     #[test]
     fn resource_summary_cache_namespace_key_ignores_function_body_only_edits() {
         let first = prepared_resource_summary_cache_namespace_key(
-            "pub fn answer %fn unit i32 \\unit:\n    1\n",
+            "pub fn answer %fn void i32 \\void:\n    1\n",
         );
         let second = prepared_resource_summary_cache_namespace_key(
-            "pub fn answer %fn unit i32 \\unit:\n    2\n",
+            "pub fn answer %fn void i32 \\void:\n    2\n",
         );
 
         assert_eq!(first, second);
@@ -2218,10 +2218,10 @@ mod tests {
     #[test]
     fn resource_summary_cache_namespace_key_tracks_public_signature_edits() {
         let returns_i32 = prepared_resource_summary_cache_namespace_key(
-            "pub fn answer %fn unit i32 \\unit:\n    1\n",
+            "pub fn answer %fn void i32 \\void:\n    1\n",
         );
         let returns_unit = prepared_resource_summary_cache_namespace_key(
-            "pub fn answer %fn unit unit \\unit:\n    unit\n",
+            "pub fn answer %fn void unit \\void:\n    unit\n",
         );
 
         assert_ne!(returns_i32, returns_unit);
@@ -2260,7 +2260,7 @@ mod tests {
     /// semantic invalidation input であり、prewarm 専用 artifact ではない。
     #[test]
     fn resource_summary_cache_namespace_key_uses_prepare_dependency_surface_hash() {
-        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let source = "pub fn answer %fn void i32 \\void:\n    1\n";
         let without_dependency = prepared_resource_summary_cache_namespace_key(source);
         let with_dependency =
             prepared_resource_summary_cache_namespace_key_with_dependency_hash(source, 123);
@@ -2351,7 +2351,7 @@ mod tests {
 
     #[test]
     fn prepare_exposes_resource_summary_proof_header() {
-        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let source = "pub fn answer %fn void i32 \\void:\n    1\n";
         let module = parse_test_module(source);
         let mut source_map = SourceMap::new();
         source_map.add("/virtual/entry.nepl", String::from(source));
@@ -2388,7 +2388,7 @@ mod tests {
 
     #[test]
     fn check_resource_summary_cache_default_activation_keeps_session_cache_path() {
-        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let source = "pub fn answer %fn void i32 \\void:\n    1\n";
         let mut cache = crate::resource::ResourceSummaryValueCache::new();
 
         let result = check_test_module_with_resource_summary_cache_options(
@@ -2406,7 +2406,7 @@ mod tests {
 
     #[test]
     fn check_resource_summary_cache_preseed_only_disables_missing_artifact() {
-        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let source = "pub fn answer %fn void i32 \\void:\n    1\n";
         let mut cache = crate::resource::ResourceSummaryValueCache::new();
 
         let result = check_test_module_with_resource_summary_cache_options(
@@ -2425,7 +2425,7 @@ mod tests {
 
     #[test]
     fn check_resource_summary_cache_preseed_only_disables_empty_artifact() {
-        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let source = "pub fn answer %fn void i32 \\void:\n    1\n";
         let mut header_cache = crate::resource::ResourceSummaryValueCache::new();
         let header_result = check_test_module_with_resource_summary_cache_options(
             source,
@@ -2469,8 +2469,8 @@ mod tests {
     /// 作らず、materializer / body skip 側で fail-closed に扱う。
     #[test]
     fn prepare_exposes_neplmeta_artifact_for_public_interface() {
-        let first_source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
-        let second_source = "pub fn answer %fn unit i32 \\unit:\n    2\n";
+        let first_source = "pub fn answer %fn void i32 \\void:\n    1\n";
+        let second_source = "pub fn answer %fn void i32 \\void:\n    2\n";
         let first_module = parse_test_module(first_source);
         let second_module = parse_test_module(second_source);
         let mut first_source_map = SourceMap::new();
@@ -2552,10 +2552,10 @@ mod tests {
     /// 生成は root body だけで閉じる。
     #[test]
     fn prepare_accepts_unused_materialized_callable_without_dependency_body() {
-        let dep_source = "pub fn dep_value %fn unit i32 \\unit:\n    7\n";
+        let dep_source = "pub fn dep_value %fn void i32 \\void:\n    7\n";
         let dep_surface = materialized_dependency_surface("project/dep.nepl", dep_source);
         let root_source =
-            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    1\n";
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn void i32 \\void:\n    1\n";
         let mut root_source_map = SourceMap::new();
         let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
         let dep_file = root_source_map.add("project/dep.nepl", String::from(dep_source));
@@ -2596,10 +2596,10 @@ mod tests {
     /// backend 診断で停止する。
     #[test]
     fn prepare_rejects_selected_materialized_callable_without_code_artifact() {
-        let dep_source = "pub fn dep_value %fn unit i32 \\unit:\n    7\n";
+        let dep_source = "pub fn dep_value %fn void i32 \\void:\n    7\n";
         let dep_surface = materialized_dependency_surface("project/dep.nepl", dep_source);
         let root_source =
-            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    dep_value\n";
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn void i32 \\void:\n    dep_value\n";
         let mut root_source_map = SourceMap::new();
         let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
         let dep_file = root_source_map.add("project/dep.nepl", String::from(dep_source));

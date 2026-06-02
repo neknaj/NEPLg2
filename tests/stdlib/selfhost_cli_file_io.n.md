@@ -19,9 +19,9 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let path %str "tmp/selfhost_file_io_read_root.nepl"
-    match fs_write_to_string path "fn main <()->i32> ():\n    0\n":
+    match fs_write_to_string path "fn main %fn void i32 \\void:\n    0\n":
         Result::Err _e:
             1
         Result::Ok _:
@@ -59,7 +59,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match selfhost_cli_file_io_read_root_vfs "__selfhost_file_io_missing_source__.nepl":
         Result::Ok vfs:
             selfhost_vfs_free vfs
@@ -90,7 +90,7 @@ stdout: mlstr:
 #import "std/fs" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let path %str "tmp/selfhost_file_io_text_artifact.txt"
     match selfhost_cli_file_io_write_text_artifact path "artifact text\n":
         Result::Err _diag:
@@ -125,7 +125,7 @@ stdout: mlstr:
 #import "std/fs" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let path %str "tmp/selfhost_file_io_binary_artifact.bin"
     match io_bytebuf_from_str_result "A\x00B":
         Result::Err _e:

@@ -62,7 +62,7 @@ fn check_span_invalid %fn Result unit SelfhostProofRefutation Result unit str \r
         Result::Ok _:
             Result::Err "invalid span was accepted"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let valid %SelfhostSourceSpan source_span_new 0 0 4
     let invalid %SelfhostSourceSpan source_span_new 0 5 2
     let checks0 checks_new
@@ -154,7 +154,7 @@ fn check_domain_mismatch %fn SelfhostProofRefutation Result unit str \refutation
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result::Err "expected fact/obligation mismatch"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 0 0 5
     let raw_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
     let fact %SelfhostProofFact SelfhostProofFact::RawBackendItemObserved raw_item
@@ -262,7 +262,7 @@ fn check_drop_after_move %fn SelfhostProofRefutation Result unit str \refutation
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result::Err "expected resource transition refutation"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 0 0 4
     let init_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Initialize span
     let move_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::MoveOut span
@@ -385,7 +385,7 @@ fn check_duplicate_target %fn SelfhostProofRefutation Result unit str \refutatio
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result::Err "expected duplicate target"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span1 %SelfhostSourceSpan source_span_new 0 0 7
     let span2 %SelfhostSourceSpan source_span_new 0 8 15
     let checks0 checks_new
@@ -512,7 +512,7 @@ fn check_raw_text_refutation %fn SelfhostProofRefutation Result unit str \refuta
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result::Err "expected text-without-block refutation"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let span %SelfhostSourceSpan source_span_new 0 0 5
     let checks0 checks_new
     let block_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
@@ -663,7 +663,7 @@ fn check_header_invalid %fn Result SelfhostModuleDeclarationHeader SelfhostProof
         Result::Ok _header:
             Result::Err "invalid declaration header was accepted"
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let header_span %SelfhostSourceSpan source_span_new 0 0 24
     let keyword_span %SelfhostSourceSpan source_span_new 0 0 2
     let head_span %SelfhostSourceSpan source_span_new 0 3 7

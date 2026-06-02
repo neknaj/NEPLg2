@@ -40,13 +40,13 @@ impl Copy for CalculatorModel:
     fn copy_mark %fn CalculatorModel CalculatorModel \model:
         model
 
-fn calculator_state_base %fn unit i32 \unit:
+fn calculator_state_base %fn void i32 \void:
     4096
 
-fn calculator_state_offset %fn unit i32 \unit:
+fn calculator_state_offset %fn void i32 \void:
     2048
 
-fn calculator_state_base_square %fn unit i32 \unit:
+fn calculator_state_base_square %fn void i32 \void:
     mul calculator_state_base calculator_state_base
 
 fn calculator_clamp_component %fn i32 i32 \value:
@@ -108,7 +108,7 @@ fn calculator_model_is_entering %fn &CalculatorModel bool \model:
     let code %i32 calculator_model_entering_code model
     ne code 0
 
-fn calculator_init %fn unit CalculatorModel \unit:
+fn calculator_init %fn void CalculatorModel \void:
     calculator_model_new 0 0 0 0
 
 fn calculator_action_digit %fn i32 ActionId \digit:
@@ -119,22 +119,22 @@ fn calculator_action_digit %fn i32 ActionId \digit:
         else:
             action_id digit
 
-fn calculator_action_add %fn unit ActionId \unit:
+fn calculator_action_add %fn void ActionId \void:
     action_id 20
 
-fn calculator_action_sub %fn unit ActionId \unit:
+fn calculator_action_sub %fn void ActionId \void:
     action_id 21
 
-fn calculator_action_mul %fn unit ActionId \unit:
+fn calculator_action_mul %fn void ActionId \void:
     action_id 22
 
-fn calculator_action_div %fn unit ActionId \unit:
+fn calculator_action_div %fn void ActionId \void:
     action_id 23
 
-fn calculator_action_eq %fn unit ActionId \unit:
+fn calculator_action_eq %fn void ActionId \void:
     action_id 24
 
-fn calculator_action_clear %fn unit ActionId \unit:
+fn calculator_action_clear %fn void ActionId \void:
     action_id 25
 
 fn calculator_action_raw %fn ActionId i32 \action:
@@ -276,35 +276,35 @@ fn calculator_update_event %fn CalculatorModel fn GuiWebEvent CalculatorModel \m
         Option::None:
             model
 
-fn calculator_color_background %fn unit Rgba8888 \unit:
+fn calculator_color_background %fn void Rgba8888 \void:
     let r %u8 cast 10
     let g %u8 cast 16
     let b %u8 cast 22
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn calculator_color_display %fn unit Rgba8888 \unit:
+fn calculator_color_display %fn void Rgba8888 \void:
     let r %u8 cast 18
     let g %u8 cast 30
     let b %u8 cast 34
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn calculator_color_button %fn unit Rgba8888 \unit:
+fn calculator_color_button %fn void Rgba8888 \void:
     let r %u8 cast 35
     let g %u8 cast 61
     let b %u8 cast 86
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn calculator_color_button_op %fn unit Rgba8888 \unit:
+fn calculator_color_button_op %fn void Rgba8888 \void:
     let r %u8 cast 86
     let g %u8 cast 90
     let b %u8 cast 48
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn calculator_color_text %fn unit Rgba8888 \unit:
+fn calculator_color_text %fn void Rgba8888 \void:
     let r %u8 cast 236
     let g %u8 cast 244
     let b %u8 cast 244
@@ -570,7 +570,7 @@ fn calculator_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
                     let next_idx %i32 add idx 1
                     calculator_has_once_flag_loop next_idx count
 
-fn calculator_has_once_flag %impure fn unit bool \unit:
+fn calculator_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     calculator_has_once_flag_loop 1 count
 
@@ -620,7 +620,7 @@ fn calculator_event_loop %impure fn CalculatorModel unit \initial_model:
                     println "calculator gui input unsupported";
                     set running false
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let model0 %CalculatorModel calculator_init
     if:
         calculator_has_once_flag

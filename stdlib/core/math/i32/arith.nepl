@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/arith" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 42 add 40 2;
 //:     assert_eq_i32 5 rem_s 17 6;
 //: ```
@@ -43,7 +43,7 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 42 add 40 2;
 //:     assert_eq_i32 0 add -1 1;
 //: ```
@@ -82,7 +82,7 @@ pub fn add %fn i32 fn i32 i32 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 5 sub 9 4;
 //:     assert_eq_i32 -5 sub 4 9;
 //: ```
@@ -121,7 +121,7 @@ pub fn sub %fn i32 fn i32 i32 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 42 mul 6 7;
 //:     assert_eq_i32 0 mul 0 12345;
 //: ```
@@ -160,7 +160,7 @@ pub fn mul %fn i32 fn i32 i32 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 -3 div_s -9 3;
 //:     assert_eq_i32 -3 div_s 10 -3;
 //: ```
@@ -199,7 +199,7 @@ pub fn div_s %fn i32 fn i32 i32 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 3 div_u 11 3;
 //:     assert_eq_i32 2147483647 div_u -1 2;
 //: ```
@@ -238,7 +238,7 @@ pub fn div_u %fn i32 fn i32 i32 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 1 rem_s 10 3;
 //:     assert_eq_i32 -1 rem_s -10 3;
 //: ```
@@ -281,7 +281,7 @@ pub fn mod_s %fn i32 fn i32 i32 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 2 rem_u 11 3;
 //:     assert_eq_i32 5 rem_u -1 10;
 //: ```

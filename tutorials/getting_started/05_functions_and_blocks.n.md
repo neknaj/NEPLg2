@@ -35,7 +35,7 @@ fn score %fn i32 i32 \raw:
     let adjusted %i32 add raw 3
     clamp_0_10 adjusted
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let checks:
         checks_new
         |> checks_push assert_eq_i32 0 score -10

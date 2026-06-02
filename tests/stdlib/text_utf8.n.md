@@ -20,7 +20,7 @@ stdout: mlstr:
 #import "alloc/io" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     match text_bytebuf_to_utf8_str_result io_bytebuf_from_str "こんにちは":
         Result::Ok text:
@@ -69,7 +69,7 @@ fn expect_decoded %impure fn str impure fn Result CharUtf8Step StdErrorKind impu
                 Result::Ok _:
                     check_eq_i32 expected_next next
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let bytes %ByteBuf io_bytebuf_from_str "Aあ"
     let checks:
         match io_bytebuf_ptr_ref &bytes:
@@ -106,7 +106,7 @@ stdout: mlstr:
 #import "alloc/io" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new
     match text_utf8_encode_char 'あ':
         Result::Err _e:
@@ -142,7 +142,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
@@ -187,7 +187,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
@@ -233,7 +233,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 3:
         Result::Err _e:
@@ -301,7 +301,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     let path %str "tmp/fs_invalid_utf8_checked_case.bin"
     match io_bytebuf_alloc_region 1:
@@ -352,7 +352,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     let path %str "tmp/fs_invalid_utf8_default_case.bin"
     match io_bytebuf_alloc_region 1:
@@ -404,7 +404,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:

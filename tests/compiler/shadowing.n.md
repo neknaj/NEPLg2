@@ -14,7 +14,7 @@ ret: 8
 #import "core/math" as *
 #import "alloc/string" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let len %i32 7;
     add len 1
 ```
@@ -29,7 +29,7 @@ ret: 14
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x %i32 10;
     let y %i32 block let x %i32 3; add x 1
     add x y
@@ -48,7 +48,7 @@ ret: 7
 fn add %fn i32 fn i32 i32 \a\b:
     sub a b
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add 10 3
 ```
 
@@ -65,7 +65,7 @@ ret: 14
 fn f %fn i32 i32 \x:
     add x 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     fn f %fn i32 i32 \x:
         mul x 2
     add f 3 f 4
@@ -87,7 +87,7 @@ fn calc %fn i32 i32 \x:
     let x %i32 add x 10;
     sub x 3
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     calc 5
 ```
 
@@ -101,7 +101,7 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x %i32 10;
     let y %i32 if:
         true
@@ -124,7 +124,7 @@ ret: 8
 #import "core/result" as result
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let result %i32 3;
     add result 5
 ```
@@ -142,7 +142,7 @@ ret: 10
 fn plus %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let plus %i32 9;
     plus plus 1
 ```
@@ -157,7 +157,7 @@ ret: 123
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x %i32 1;
     let y %i32 block:
         let x 2;
@@ -178,7 +178,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let mut i %i32 0;
     let x %i32 10;
     while lt i 1:
@@ -201,7 +201,7 @@ ret: 11
 #import "core/math" as *
 #import "core/option" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let x %i32 10;
     let y %i32 match Option::Some 1:
         Option::Some x:
@@ -226,7 +226,7 @@ ret: 8
 fn plus_one_from %fn i32 i32 \add:
     add add 1
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     plus_one_from 7
 ```
 
@@ -242,7 +242,7 @@ ret: 9
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let y %i32 add x 4
     let x %i32 5
     y
@@ -258,7 +258,7 @@ diag_codes: resolve.identifier.undefined, type.stack.extra_values, type.return.m
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add x 4
     let mut x %i32 5
 ```
@@ -273,7 +273,7 @@ ret: 7
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     call_before 6
     fn call_before %fn i32 i32 \x:
         add x 1
@@ -297,7 +297,7 @@ fn g %fn i32 i32 \x:
         mul y 10
     f x
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     add g 3 f 0
 ```
 
@@ -312,7 +312,7 @@ ret: 15
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let len %i32 5;
     let sum %i32 add len 10;
     sum
@@ -328,7 +328,7 @@ diag_code: resolve.shadow.no_shadow_violation
 #target core
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let noshadow x %i32 1;
     let x %i32 2;
     add x 1
@@ -350,7 +350,7 @@ fn f %fn i32 i32 \x:
 fn f %fn i32 i32 \x:
     add x 2
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     f 0
 ```
 
@@ -370,7 +370,7 @@ fn noshadow f %fn i32 i32 \x:
 fn f %fn i32 i32 \x:
     add x 2
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     f 0
 ```
 
@@ -390,7 +390,7 @@ fn noshadow f %fn i32 i32 \x:
 fn f %fn f32 i32 \_x:
     100
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     f 2
 ```
 
@@ -407,7 +407,7 @@ diag_code: resolve.shadow.no_shadow_violation
 fn assert_eq_i32 %fn i32 fn i32 TestAssertion \_a\_b:
     test_assertion_ok "override"
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     unit
 ```
 
@@ -425,7 +425,7 @@ stdout: "test_report name=\"std_test_noshadow_allows_overload_with_different_sig
 fn assert_eq_i32 %impure fn str impure fn str unit \_a\_b:
     unit
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let report:
         test_report_new "std_test_noshadow_allows_overload_with_different_signature"
         |> test_report_push assert_eq_i32 "std overload remains available" 0 0
@@ -446,7 +446,7 @@ diag_code: resolve.shadow.no_shadow_violation
 fn print %impure fn str unit \_s:
     unit
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     unit
 ```
 
@@ -463,7 +463,7 @@ ret: 0
 fn read_line %fn i32 str \_v:
     "ok"
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     0
 ```
 
@@ -476,7 +476,7 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let mut noshadow x %i32 1;
     x
 ```
@@ -493,7 +493,7 @@ ret: 6
 #import "core/result" as result
 #import "core/math" as *
 
-fn main %fn unit i32 \unit:
+fn main %fn void i32 \void:
     let base %i32 1;
     let v %i32 block:
         let result %i32 5;

@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     assert_eq_i32 42 add 40 2;
 //:     assert_eq_i32 5 and 7 13;
 //:     assert lt -1 0;

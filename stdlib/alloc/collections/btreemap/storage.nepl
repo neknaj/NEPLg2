@@ -32,7 +32,7 @@
 //:     value %i32
 //: fn borrow_keys %fn &BTreeMapStorage CleanupPayload i32 &Vec Option CleanupPayload \storage:
 //:     btreemap_storage_keys<CleanupPayload, i32> storage
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     0
 //: ```
 pub fn btreemap_storage_keys <.K: Copy,.V> %fn &BTreeMapStorage .K .V &Vec Option .K \storage:
@@ -53,7 +53,7 @@ pub fn btreemap_storage_keys <.K: Copy,.V> %fn &BTreeMapStorage .K .V &Vec Optio
 //:     value %i32
 //: fn borrow_values %fn &BTreeMapStorage i32 CleanupPayload &Vec Option CleanupPayload \storage:
 //:     btreemap_storage_values<i32, CleanupPayload> storage
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     0
 //: ```
 pub fn btreemap_storage_values <.K,.V: Copy> %fn &BTreeMapStorage .K .V &Vec Option .V \storage:

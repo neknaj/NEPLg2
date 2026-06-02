@@ -104,7 +104,7 @@ fn result_error_is_invalid_command %fn Result TerminalInputEvents GuiError bool 
         Result::Ok _events:
             false
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let key_map %FocusKeyMap focus_key_map_default
     let tab %TerminalInputEvents unwrap_ok terminal_input_events_from_byte 9
     let lf %TerminalInputEvents unwrap_ok terminal_input_events_from_byte 10
@@ -247,7 +247,7 @@ fn no_events %fn TerminalInputEvents bool \events:
     let no_text %bool not has_text
     and no_keyboard no_text
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let home_h %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 72
     let end_f %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 70
     let home_tilde %TerminalInputEvents unwrap_ok terminal_input_events_from_csi4 27 91 49 126

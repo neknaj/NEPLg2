@@ -30,7 +30,7 @@
 //:
 //: [目的/もくてき]:
 //: - while ループの基本形を示します。
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let mut x %i32 0;
     while lt x 5:
         do:

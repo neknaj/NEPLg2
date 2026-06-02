@@ -29,7 +29,7 @@ fn has_at %fn &Vec i32 fn i32 fn i32 bool \v\idx\expected:
         Option::None:
             false
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     match filled 3 7:
         Result::Err _e:
             let checks checks_push checks_new Result::Err "vec.filled failed"

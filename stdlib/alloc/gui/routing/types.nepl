@@ -24,7 +24,7 @@
 //:| #import "core/gui" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let child_id %WidgetId widget_id 2
 //:     let root_rect %GuiRect gui_rect_new 0 0 10 10

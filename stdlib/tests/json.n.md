@@ -31,7 +31,7 @@ stdout: mlstr:
 #import "alloc/string" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let mut checks checks_new;
 
     let jn1 %JsonValue json_null

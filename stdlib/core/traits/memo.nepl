@@ -73,16 +73,16 @@ pub fn memo_key_hash32_value <.T: MemoKey> %fn .T i32 \key:
 
 impl MemoKey for unit:
     // memo_key_eq(unit): `unit` key は常に同じ値として比較する
-    fn memo_key_eq %fn (unit) fn (unit) bool \a\b:
+    fn memo_key_eq %fn unit fn unit bool \a\b:
         true
 
     // memo_key_hash32(unit): singleton key の hash を固定値にする
-    fn memo_key_hash32 %fn (unit) i32 \self:
+    fn memo_key_hash32 %fn unit i32 \self:
         0
 
 impl MemoValue for unit:
     // memo_value_mark(unit): `unit` は内部 identity を持たない値としてそのまま返せる
-    fn memo_value_mark %fn (unit) unit \value:
+    fn memo_value_mark %fn unit unit \value:
         value
 
 impl MemoKey for bool:

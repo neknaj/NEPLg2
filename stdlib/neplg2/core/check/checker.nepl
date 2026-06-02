@@ -19,7 +19,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/check/checker" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     selfhost_checker_stage0
 //: ```
 
@@ -32,7 +32,7 @@ pub #import "./module" as @merge
 #import "neplg2/core/syntax/ast/module_ast" as *
 
 //: selfhost_checker_stage0: checker orchestration の smoke API
-pub fn selfhost_checker_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_checker_stage0 %impure fn void i32 \void:
     match selfhost_module_ast_new:
         Result::Ok ast0:
             let entry %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::EntryDirective source_span_new 0 0 11 "#entry main"

@@ -29,7 +29,7 @@ fs.writeFileSync(fixturePath, [
     "```neplg2",
     "#entry main",
     "#indent 4",
-    "fn main %fn unit i32 \\unit:",
+    "fn main %fn void i32 \\void:",
     "    0",
     "```",
     "",

@@ -33,7 +33,7 @@ fn clone_add <.T: Clone> %fn .T fn .T fn fn .T fn .T i32 i32 \x\y\f:
 fn add_i32 %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let a %i32 6
     let b %i32 8
     let actual %i32 clone_add a b @add_i32
@@ -57,7 +57,7 @@ stdout: "test_report name=\"traits_stringify_basic_values\" count=3 failed=0\nas
 #import "core/traits/stringify" as *
 #import "core/cast" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let n %u8 cast 9;
     let report:
         test_report_new "traits_stringify_basic_values"
@@ -81,7 +81,7 @@ stdout: "test_report name=\"traits_debug_basic_values\" count=3 failed=0\nassert
 #import "core/traits/debug" as *
 #import "core/cast" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let n %u8 cast 9;
     let report:
         test_report_new "traits_debug_basic_values"

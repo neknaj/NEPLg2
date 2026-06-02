@@ -24,7 +24,7 @@
 //: #import "core/gui/geometry" as *
 //: #import "core/result" as *
 //:
-//: fn main %fn unit i32 \unit:
+//: fn main %fn void i32 \void:
 //:     let rect %GuiRect gui_rect_new 0 0 1 1
 //:     match dirty_region_rect_checked rect:
 //:         Result::Ok region:
@@ -67,11 +67,11 @@ impl Copy for DirtyRegion:
         region
 
 //: dirty_region_empty: dirty なし region を[作/つく]る
-pub fn dirty_region_empty %fn unit DirtyRegion \unit:
+pub fn dirty_region_empty %fn void DirtyRegion \void:
     DirtyRegion::Empty
 
 //: dirty_region_full: surface [全体/ぜんたい] dirty region を[作/つく]る
-pub fn dirty_region_full %fn unit DirtyRegion \unit:
+pub fn dirty_region_full %fn void DirtyRegion \void:
     DirtyRegion::Full
 
 //: dirty_region_rect_unchecked: 検査済み rect から dirty region を[作/つく]る

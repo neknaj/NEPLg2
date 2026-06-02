@@ -25,7 +25,7 @@
 
 //: ## new
 //: [既定/きてい][容量/ようりょう]の[空/から] stack を[作/つく]る
-pub fn new <.T: Copy> %impure fn unit Result Stack .T Diag \unit:
+pub fn new <.T: Copy> %impure fn void Result Stack .T Diag \void:
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -97,7 +97,7 @@ pub fn pop_top <.T: Copy> %impure fn Stack .T StackPop .T \stk:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let st0 %Stack i32 unwrap_ok new;
 //:     let st1 %Stack i32 unwrap_ok push st0 3;
 //:     let st2 %Stack i32 unwrap_ok push st1 7;
@@ -156,7 +156,7 @@ pub fn pop_top2 <.T: Copy> %impure fn Stack .T StackPop2 .T \stk:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let st0 %Stack i32 unwrap_ok new;
 //:     let st1 %Stack i32 unwrap_ok push st0 3;
 //:     let p %StackPop i32 pop_top st1;
@@ -190,7 +190,7 @@ pub fn stack_pop_item <.T: Copy> %fn &StackPop .T Option .T \p:
 //:| #import "alloc/collections/stack" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let st0 %Stack i32 unwrap_ok new;
 //:     let st1 %Stack i32 unwrap_ok push st0 5;
 //:     let p %StackPop i32 pop_top st1;

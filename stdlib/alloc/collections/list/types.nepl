@@ -42,7 +42,7 @@ pub struct List<.T>:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let lst %List i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %ListPushError i32 ListPushError<i32> lst d0;
@@ -73,7 +73,7 @@ pub struct ListPushError<.T>:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let lst %List i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %ListTransformError i32 ListTransformError<i32> lst d0;
@@ -97,7 +97,7 @@ pub struct ListTransformError<.T>:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let lst %List i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %ListPushError i32 ListPushError<i32> lst d0;
@@ -123,7 +123,7 @@ pub fn list_push_error_diag <.T> %fn &ListPushError .T Diag \e:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let lst %List i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %ListPushError i32 ListPushError<i32> lst d0;
@@ -150,7 +150,7 @@ pub fn list_push_error_list <.T: Copy> %fn ListPushError .T List .T \e:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let lst %List i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %ListTransformError i32 ListTransformError<i32> lst d0;
@@ -177,7 +177,7 @@ pub fn list_transform_error_diag <.T> %fn &ListTransformError .T Diag \e:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let lst %List i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %ListTransformError i32 ListTransformError<i32> lst d0;

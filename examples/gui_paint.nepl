@@ -50,7 +50,7 @@ fn paint_model_new %fn i32 fn i32 fn i32 fn i32 fn i32 PaintModel \slot0\slot1\s
     let encoded %i32 or c next_part
     PaintModel encoded
 
-fn paint_model_empty %fn unit PaintModel \unit:
+fn paint_model_empty %fn void PaintModel \void:
     paint_model_new 255 255 255 0 0
 
 fn paint_model_encoded %fn &PaintModel i32 \model:
@@ -80,37 +80,37 @@ fn paint_next_slot %fn &PaintModel i32 \model:
     let shifted %i32 shr_u encoded 26
     and shifted 3
 
-fn paint_canvas_x %fn unit i32 \unit:
+fn paint_canvas_x %fn void i32 \void:
     20
 
-fn paint_canvas_y %fn unit i32 \unit:
+fn paint_canvas_y %fn void i32 \void:
     20
 
-fn paint_cell_size %fn unit i32 \unit:
+fn paint_cell_size %fn void i32 \void:
     32
 
-fn paint_grid_width %fn unit i32 \unit:
+fn paint_grid_width %fn void i32 \void:
     16
 
-fn paint_grid_height %fn unit i32 \unit:
+fn paint_grid_height %fn void i32 \void:
     12
 
-fn paint_canvas_width %fn unit i32 \unit:
+fn paint_canvas_width %fn void i32 \void:
     mul paint_grid_width paint_cell_size
 
-fn paint_canvas_height %fn unit i32 \unit:
+fn paint_canvas_height %fn void i32 \void:
     mul paint_grid_height paint_cell_size
 
-fn paint_action_color_a %fn unit ActionId \unit:
+fn paint_action_color_a %fn void ActionId \void:
     action_id 1
 
-fn paint_action_color_b %fn unit ActionId \unit:
+fn paint_action_color_b %fn void ActionId \void:
     action_id 2
 
-fn paint_action_color_c %fn unit ActionId \unit:
+fn paint_action_color_c %fn void ActionId \void:
     action_id 3
 
-fn paint_action_clear %fn unit ActionId \unit:
+fn paint_action_clear %fn void ActionId \void:
     action_id 4
 
 fn paint_action_raw %fn ActionId i32 \action:
@@ -256,28 +256,28 @@ fn paint_update_event %fn PaintModel fn GuiWebEvent PaintModel \model\web_event:
                 Option::None:
                     model
 
-fn paint_color_background %fn unit Rgba8888 \unit:
+fn paint_color_background %fn void Rgba8888 \void:
     let r %u8 cast 11
     let g %u8 cast 15
     let b %u8 cast 20
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn paint_color_canvas %fn unit Rgba8888 \unit:
+fn paint_color_canvas %fn void Rgba8888 \void:
     let r %u8 cast 235
     let g %u8 cast 239
     let b %u8 cast 232
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn paint_color_panel %fn unit Rgba8888 \unit:
+fn paint_color_panel %fn void Rgba8888 \void:
     let r %u8 cast 22
     let g %u8 cast 31
     let b %u8 cast 39
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn paint_color_text %fn unit Rgba8888 \unit:
+fn paint_color_text %fn void Rgba8888 \void:
     let r %u8 cast 238
     let g %u8 cast 244
     let b %u8 cast 241
@@ -341,7 +341,7 @@ fn paint_palette_rect %fn i32 GuiRect \index:
     let x %i32 add 558 x_offset
     gui_rect_new x 58 44 36
 
-fn paint_button_clear_rect %fn unit GuiRect \unit:
+fn paint_button_clear_rect %fn void GuiRect \void:
     gui_rect_new 558 120 160 36
 
 fn paint_present_palette_button %impure fn i32 impure fn ActionId Result unit GuiError \color_code\action:
@@ -427,7 +427,7 @@ fn paint_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
                     let next_idx %i32 add idx 1
                     paint_has_once_flag_loop next_idx count
 
-fn paint_has_once_flag %impure fn unit bool \unit:
+fn paint_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     paint_has_once_flag_loop 1 count
 
@@ -469,7 +469,7 @@ fn paint_event_loop %impure fn PaintModel unit \initial_model:
                     println "paint gui input unsupported";
                     set running false
 
-fn main %impure fn unit unit \unit:
+fn main %impure fn void unit \void:
     let model0 %PaintModel paint_model_empty
     if:
         paint_has_once_flag

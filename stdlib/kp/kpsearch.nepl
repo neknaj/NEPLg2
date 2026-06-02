@@ -31,7 +31,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let data %Vec i32:
 //:         unwrap_ok with_capacity 5
 //:         |> push 1 |> unwrap_ok
@@ -126,7 +126,7 @@ pub fn contains_vec_i32 %fn &Vec i32 fn i32 bool \items\x:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let values %Vec i32:
 //:         unwrap_ok with_capacity 6
 //:         |> push 1 |> unwrap_ok
@@ -171,7 +171,7 @@ pub struct UniqueSortedVecI32:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn unit unit \unit:
+//: fn main %impure fn void unit \void:
 //:     let values %Vec i32:
 //:         unwrap_ok with_capacity 6
 //:         |> push 1 |> unwrap_ok

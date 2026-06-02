@@ -20,7 +20,7 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let unsorted %Vec i32:
 //:         unwrap_ok new
 //:         |> push 3 |> uwok
@@ -42,7 +42,7 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let unsorted %Vec i32:
 //:         unwrap_ok new
 //:         |> push 4 |> uwok
@@ -70,7 +70,7 @@
 //: impl Ord for NonCopyOrd:
 //:     fn lt %fn NonCopyOrd fn NonCopyOrd bool \a\b:
 //:         lt get a "value" get b "value"
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let v0 %Vec NonCopyOrd unwrap_ok new<NonCopyOrd>;
 //:     sort<NonCopyOrd> &v0;
 //:     0

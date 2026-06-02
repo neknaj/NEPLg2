@@ -29,7 +29,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/outcome" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     let ok_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_ok 7
 //:     match ok_result:
 //:         Result::Ok outcome:
@@ -147,7 +147,7 @@ pub fn selfhost_outcome_free <.T, .E> %impure fn SelfhostOutcome .T .E impure fn
     selfhost_outcome_drop_result_payload result drop_ok drop_err
 
 //: selfhost_outcome_stage0: outcome [基盤/きばん]の smoke API
-pub fn selfhost_outcome_stage0 %impure fn unit i32 \unit:
+pub fn selfhost_outcome_stage0 %impure fn void i32 \void:
     let ok_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_ok 1
     match ok_result:
         Result::Ok outcome:

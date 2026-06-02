@@ -28,7 +28,7 @@ stdout: "test_report name=\"ringbuffer_pipe_usage\" count=2 failed=0\nassertion 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let rb %RingBuffer i32:
         unwrap_ok new
         |> push 4
@@ -81,7 +81,7 @@ stdout: "test_report name=\"ringbuffer_grow_clear_free\" count=1 failed=0\nasser
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn unit i32 \unit:
+fn main %impure fn void i32 \void:
     let rb_clear %RingBuffer i32:
         unwrap_ok with_capacity 1
         |> push 4 |> uwok

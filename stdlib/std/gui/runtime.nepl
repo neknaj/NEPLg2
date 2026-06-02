@@ -82,7 +82,7 @@ pub fn window_title_update_title %fn &WindowTitleUpdate str \update:
     *field::get_ref update "title"
 
 //: gui_runtime_command_batch_empty: 空 command batch を[作/つく]る
-pub fn gui_runtime_command_batch_empty %fn unit GuiRuntimeCommandBatch \unit:
+pub fn gui_runtime_command_batch_empty %fn void GuiRuntimeCommandBatch \void:
     GuiRuntimeCommandBatch GuiRuntimeCommand::Noop GuiRuntimeCommand::Noop 0
 
 //: gui_runtime_command_batch_count: command count を[読/よ]む

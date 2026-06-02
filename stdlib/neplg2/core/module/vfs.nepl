@@ -30,10 +30,10 @@
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/vfs" as *
 //:| #import "std/test" as *
-//: fn main %impure fn unit i32 \unit:
+//: fn main %impure fn void i32 \void:
 //:     match selfhost_vfs_new:
 //:         Result::Ok vfs0:
-//:             match selfhost_vfs_add vfs0 "main.nepl" "fn main %fn unit i32 \\unit:\n    0\n":
+//:             match selfhost_vfs_add vfs0 "main.nepl" "fn main %fn void i32 \\void:\n    0\n":
 //:                 Result::Ok vfs1:
 //:                     let report0 %TestReport test_report_new "selfhost_vfs_basic"
 //:                     let report1 %TestReport test_report_push report0 assert_eq_i32 "len" 1 selfhost_vfs_len &vfs1
@@ -90,7 +90,7 @@ pub fn selfhost_vfs_file_new %fn i32 fn str fn str SelfhostVirtualFile \file_id\
     SelfhostVirtualFile file_id path source
 
 //: selfhost_vfs_new: [空/から]の VFS を[作/つく]る
-pub fn selfhost_vfs_new %impure fn unit Result SelfhostVirtualFileSystem StdErrorKind \unit:
+pub fn selfhost_vfs_new %impure fn void Result SelfhostVirtualFileSystem StdErrorKind \void:
     let files_result %Result Vec SelfhostVirtualFile StdErrorKind v::new
     match files_result:
         Result::Ok files:

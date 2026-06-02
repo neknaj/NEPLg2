@@ -78,6 +78,8 @@ pub fn selfhost_parser_item_kind_from_token %fn TokenKind fn i32 Option Selfhost
             none
         TokenKind::UnitLiteral:
             none
+        TokenKind::VoidMarker:
+            none
         TokenKind::KwFn:
             selfhost_parser_decl_item_kind SelfhostModuleItemKind::FunctionDecl depth
         TokenKind::KwLet:
