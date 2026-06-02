@@ -291,6 +291,35 @@ stdlib-heavy Resource proof の初回構築であるため、この issue は op
 0.5 秒未満には、引き続き actual `.neplproof` artifact の bundled / persistent preseed と stdlib
 proof template が必要である。
 
+2026-06-02 の RPN summary fixed-point index checkpoint では、前 checkpoint 後も残っていた
+Resource summary 固定点中の `function -> summary position` 索引再構築を削った。`SummaryNameIndex`
+を追加し、raw alias / i32 scalar / raw-init / collection-slot / raw pointer / raw identity / owner
+summary の反復中に索引を保持する。summary の追加・削除時だけ索引を更新し、各 summary kind の
+`SummaryIndex` はこの索引を借用 view として使う。あわせて raw memory release requirement の対象
+引数表を毎回 `Vec` にせず、静的 slice として返すようにした。
+
+release CLI 再ビルド後の native stage-only run は `resource_static_check=6314ms / 5972ms / 5899ms`、
+`resource_initialized_moves=5169ms / 4914ms / 4776ms`、
+`resource_initialized_raw_init_summaries=2866ms / 2592ms / 2572ms`、
+`resource_initialized_i32_scalar_summaries=1198ms / 1227ms / 1121ms`、
+`resource_initialized_function_checks=1028ms / 1010ms / 996ms`、
+`resource_owner_obligations=986ms / 903ms / 968ms` だった。
+
+同じ release rebuild 前の clean baseline は `resource_static_check=6622ms / 6689ms`、
+`resource_initialized_moves=5416ms / 5455ms`、`resource_initialized_raw_init_summaries=2814ms`、
+`resource_initialized_i32_scalar_summaries=1406ms / 1428ms`、
+`resource_owner_obligations=1032ms / 1061ms` だった。このため、今回の索引化は検査規則を変えずに
+RPN cold static-check cost を約 5-12% 削ったが、0.5 秒未満目標にはまだ大きく届かない。
+
+関数別 profiling run はログ出力 overhead を含むため総量比較には使わないが、残る hot spot は
+`dealloc_raw` raw-init summary、`apply_op` raw-init summary、`byte_builder_push_bytes_ref` /
+`byte_builder_reserve` / `byte_builder_push_u8` raw-init summary、`sb_append_non_empty_result`
+i32 scalar summary だった。filtered sequential timing では `dealloc_raw` raw-init summary の
+`release_requirements` が `570ms` を占め、filtered run の `apply_op` は `release_requirements=380ms`、
+`variant_param_cells=117ms` だった。RPN cold base をさらに大きく下げるには、関数名索引のような
+局所構造改善だけではなく、raw-init release requirement の control-flow replay と stdlib-heavy
+Resource proof を `.neplproof` persistent / bundled preseed へ移す必要がある。
+
 ## 検証
 
 - `trunk build`

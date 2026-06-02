@@ -41,7 +41,7 @@ use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 use super::summary_dependency::ResourceSummaryDependencyGraph;
-use super::summary_index::{FunctionSummary, SummaryIndex};
+use super::summary_index::{FunctionSummary, SummaryIndex, SummaryNameIndex};
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -138,19 +138,22 @@ pub(super) fn compute_i32_scalar_return_summaries(
         worklist_relevant_functions,
         dependency_graph,
     );
+    let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let function_start = ResourceFunctionTimer::start();
-        let scalar_summary_index = I32ScalarReturnSummaryIndex::new(&summaries);
-        let summary = function_i32_scalar_return_summary(
-            function,
-            &scalar_summary_index,
-            raw_alias_summaries,
-            types,
-        );
+        let summary = {
+            let scalar_summary_index = summary_name_index.as_summary_index(&summaries);
+            function_i32_scalar_return_summary(
+                function,
+                &scalar_summary_index,
+                raw_alias_summaries,
+                types,
+            )
+        };
         log_i32_scalar_summary_fact_counts(function, &summary);
         function_start.log("i32_scalar_summary", function);
-        if update_i32_scalar_return_summary(&mut summaries, summary) {
+        if update_i32_scalar_return_summary(&mut summaries, &mut summary_name_index, summary) {
             worklist.notify_changed(function_index);
         }
     }
@@ -256,12 +259,12 @@ pub(super) fn apply_direct_call_i32_scalar_summary(
 
 fn update_i32_scalar_return_summary(
     summaries: &mut Vec<I32ScalarReturnSummary>,
+    summary_name_index: &mut SummaryNameIndex,
     summary: I32ScalarReturnSummary,
 ) -> bool {
     let has_facts = !summary.facts.is_empty();
-    let position = summaries
-        .iter()
-        .position(|existing| existing.function == summary.function);
+    let function = summary.function.clone();
+    let position = summary_name_index.position(&function);
     match (has_facts, position) {
         (true, Some(index)) if summaries[index] == summary => false,
         (true, Some(index)) => {
@@ -269,11 +272,13 @@ fn update_i32_scalar_return_summary(
             true
         }
         (true, None) => {
+            summary_name_index.insert_at_end(&function, summaries.len());
             summaries.push(summary);
             true
         }
         (false, Some(index)) => {
             summaries.remove(index);
+            summary_name_index.remove_and_shift(&function, index);
             true
         }
         (false, None) => false,

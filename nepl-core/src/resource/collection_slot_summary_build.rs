@@ -31,6 +31,7 @@ use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 use super::summary_dependency::ResourceSummaryDependencyGraph;
+use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -96,20 +97,27 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries_with_recomput
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(raw_init_summaries);
+    let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
-        let collection_summary_index = CollectionSlotLifecycleFunctionSummaryIndex::new(&summaries);
         let function = &module.functions[function_index];
         let function_start = ResourceFunctionTimer::start();
-        let summary = function_collection_slot_lifecycle_summary(
-            function,
-            types,
-            &raw_alias_summary_index,
-            &i32_scalar_summary_index,
-            &raw_init_summary_index,
-            &collection_summary_index,
-        );
+        let summary = {
+            let collection_summary_index = summary_name_index.as_summary_index(&summaries);
+            function_collection_slot_lifecycle_summary(
+                function,
+                types,
+                &raw_alias_summary_index,
+                &i32_scalar_summary_index,
+                &raw_init_summary_index,
+                &collection_summary_index,
+            )
+        };
         function_start.log("collection_slot_summary", function);
-        if update_collection_slot_lifecycle_summary(&mut summaries, summary) {
+        if update_collection_slot_lifecycle_summary(
+            &mut summaries,
+            &mut summary_name_index,
+            summary,
+        ) {
             worklist.notify_changed(function_index);
         }
     }
@@ -134,6 +142,7 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries_with_recomput
 
 fn update_collection_slot_lifecycle_summary(
     summaries: &mut Vec<CollectionSlotLifecycleFunctionSummary>,
+    summary_name_index: &mut SummaryNameIndex,
     summary: CollectionSlotLifecycleFunctionSummary,
 ) -> bool {
     let has_facts = !summary.ops.is_empty()
@@ -141,9 +150,8 @@ fn update_collection_slot_lifecycle_summary(
         || !summary.return_slots.is_empty()
         || !summary.return_ranges.is_empty()
         || !summary.return_paths.is_empty();
-    let position = summaries
-        .iter()
-        .position(|existing| existing.function == summary.function);
+    let function = summary.function.clone();
+    let position = summary_name_index.position(&function);
     match (has_facts, position) {
         (true, Some(index)) if summaries[index] == summary => false,
         (true, Some(index)) => {
@@ -151,11 +159,13 @@ fn update_collection_slot_lifecycle_summary(
             true
         }
         (true, None) => {
+            summary_name_index.insert_at_end(&function, summaries.len());
             summaries.push(summary);
             true
         }
         (false, Some(index)) => {
             summaries.remove(index);
+            summary_name_index.remove_and_shift(&function, index);
             true
         }
         (false, None) => false,

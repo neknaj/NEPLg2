@@ -26,7 +26,7 @@ use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_f
 use super::owner_summary_size_return::record_size_returns;
 use super::owner_summary_storage_origin::record_storage_origin_marker;
 use super::owner_summary_type_params::owner_summary_type_params;
-use super::owner_summary_update::update_owner_return_summary;
+use super::owner_summary_update::update_owner_return_summary_with_index;
 use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
 use super::owner_summary_variant_projection::finalize_variant_projection_returns;
 use super::owner_variant::PendingVariantOwnerEffects;
@@ -35,6 +35,7 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{OwnerExtentSummary, OwnerReturnSummary, OwnerReturnSummaryIndex};
+use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_owner_return_summaries_with_recomputations(
@@ -43,11 +44,14 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
 ) -> (Vec<OwnerReturnSummary>, usize) {
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
+    let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
-        let summary_index = OwnerReturnSummaryIndex::new(&summaries);
-        let summary =
-            function_owner_return_summary(&module.functions[function_index], types, &summary_index);
-        if update_owner_return_summary(&mut summaries, summary) {
+        let summary = {
+            let summary_index = summary_name_index.as_summary_index(&summaries);
+            function_owner_return_summary(&module.functions[function_index], types, &summary_index)
+        };
+        if update_owner_return_summary_with_index(&mut summaries, &mut summary_name_index, summary)
+        {
             worklist.notify_changed(function_index);
         }
     }
