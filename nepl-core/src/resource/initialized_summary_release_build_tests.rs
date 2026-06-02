@@ -6,8 +6,10 @@ use crate::source_map::CompilerMemoryType;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellReleaseRequirementKind;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
+use super::initialized_summary_release_build::collect_address_release_requirements;
 use super::model::{
     Place, PlaceProjection, RawAddressViewKind, ResourceBlock, ResourceBlockId, ResourceExprKind,
     ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
@@ -356,6 +358,55 @@ fn match_release_summary_uses_merged_match_output_alias() {
                     }]
                 )
         }));
+}
+
+#[test]
+fn release_requirement_param_alias_index_deduplicates_equivalent_alias_pairs() {
+    let mut types = TypeCtx::new();
+    let mem_ptr = memory_struct(&mut types, CompilerMemoryType::RawPointer);
+    let param_place = Place::local("source".to_string(), mem_ptr);
+    let alias_place = Place::local("source_alias".to_string(), mem_ptr);
+    let raw_address = param_place.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        types.i32(),
+    );
+    let params = vec![ResourceLocal {
+        name: "source".to_string(),
+        ty: mem_ptr,
+        mutable: false,
+        place: param_place.clone(),
+    }];
+    let mut raw_aliases = RawCellAddressAliases::default();
+    let mut requirements = Vec::new();
+
+    raw_aliases.copy_explicit_raw_address_alias(&param_place, &alias_place);
+    collect_address_release_requirements(
+        &mut requirements,
+        &types,
+        &raw_address,
+        RawCellReleaseRequirementKind::Dealloc,
+        &raw_aliases,
+        &params,
+    );
+
+    assert_eq!(
+        requirements.len(),
+        1,
+        "param alias index は同じ param / suffix / kind に畳める alias pair を重複保存しない"
+    );
+    let requirement = &requirements[0];
+    assert_eq!(requirement.param_index, 0);
+    assert_eq!(requirement.kind, RawCellReleaseRequirementKind::Dealloc);
+    assert!(matches!(
+        requirement.suffix.as_slice(),
+        [PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0
+        }]
+    ));
 }
 
 fn raw_copy_from_view_function(

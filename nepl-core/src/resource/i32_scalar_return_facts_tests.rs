@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeKind};
 
 use super::super::initialized_alias::RawCellAddressAliases;
+use super::super::initialized_alias_i32_condition_context::I32ConditionQueryContext;
 use super::super::model::{I32ValueCondition, Place, ResourceI32RelationOp, ResourceLocal};
 use super::super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::*;
@@ -179,6 +180,72 @@ fn i32_return_facts_preserve_offset_constant_parameter_conditions() {
                 && condition.condition == I32ValueCondition::Positive
         }),
         "literal 起点の offset から導ける引数 condition は summary に保存される必要がある"
+    );
+}
+
+/// condition 探索の事前判定は、raw alias graph 全体ではなく対象 value に届く
+/// scalar fact だけを見て true にする。
+///
+/// RPN の StringBuilder / ByteBuilder 系では、同じ関数内に無関係な i32 fact が
+/// 多数存在する。ここを global な「何か証明できる」判定に戻すと、cold leaf ごとに
+/// 全 condition を照会し直し、静的検査の固定費が増える。
+#[test]
+fn i32_condition_gate_ignores_unrelated_scalar_facts() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let cold = Place::local(String::from("cold"), i32_ty);
+    let direct = Place::local(String::from("direct"), i32_ty);
+    let offset = Place::local(String::from("offset"), i32_ty);
+    let relation_left = Place::local(String::from("relation_left"), i32_ty);
+    let relation_right = Place::local(String::from("relation_right"), i32_ty);
+    let scale_source = Place::local(String::from("scale_source"), i32_ty);
+    let scale_target = Place::local(String::from("scale_target"), i32_ty);
+    let unrelated = Place::local(String::from("unrelated"), i32_ty);
+    let mut aliases = RawCellAddressAliases::default();
+
+    aliases.add_i32_condition(&unrelated, I32ValueCondition::NonNegative);
+    assert!(
+        !aliases.can_prove_i32_value_condition_for_value_with_context(
+            &cold,
+            &mut I32ConditionQueryContext::default()
+        ),
+        "無関係な i32 condition だけでは cold leaf の探索を開始しない"
+    );
+
+    aliases.add_i32_condition(&direct, I32ValueCondition::NonNegative);
+    assert!(
+        aliases.can_prove_i32_value_condition_for_value_with_context(
+            &direct,
+            &mut I32ConditionQueryContext::default()
+        ),
+        "対象 value 自身の direct condition は探索対象として扱う"
+    );
+
+    aliases.add_i32_offset(&Place::i32_constant(0, i32_ty), &offset, 1);
+    assert!(
+        aliases.can_prove_i32_value_condition_for_value_with_context(
+            &offset,
+            &mut I32ConditionQueryContext::default()
+        ),
+        "対象 value に届く offset fact は探索対象として扱う"
+    );
+
+    aliases.add_i32_relation(&relation_left, ResourceI32RelationOp::Eq, &relation_right);
+    assert!(
+        aliases.can_prove_i32_value_condition_for_value_with_context(
+            &relation_left,
+            &mut I32ConditionQueryContext::default()
+        ),
+        "対象 value に届く relation fact は探索対象として扱う"
+    );
+
+    aliases.add_i32_scale(&scale_source, &scale_target, 4);
+    assert!(
+        aliases.can_prove_i32_value_condition_for_value_with_context(
+            &scale_target,
+            &mut I32ConditionQueryContext::default()
+        ),
+        "対象 value に届く scale fact は探索対象として扱う"
     );
 }
 

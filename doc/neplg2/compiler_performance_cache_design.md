@@ -3280,6 +3280,81 @@ native `--check` cold path に actual `.neplproof` preseed を接続し、stdlib
 artifact から読むことである。あわせて、`dealloc_raw` / `apply_op` / Stack owner flow の proof template と、
 source 単位の i32 condition query memo を検討する。
 
+## RPN source-specific proof gate checkpoint
+
+2026-06-02 の follow-up では、native `--check` cold path と Web `CompilerSession` の `.neplproof`
+利用境界を切り分けた。native `nepl-cli --check` は `check_module_with_source_map` を直接呼んでおり、
+`ResourceSummaryValueCache` や in-memory `.neplproof` preseed を使っていない。一方、Web
+`CompilerSession` は same-session の `ResourceSummaryProofArtifact` preseed / export slot を持つ。
+
+空の `ResourceSummaryValueCache` を native CLI の check path に接続する試行は採用しない。RPN cold base
+では preseed hit が無いまま stable key / replay probe の固定費だけが増え、`resource_static_check` は
+`6761ms / 6849ms / 6816ms`、`resource_initialized_moves` は `4751ms / 4847ms / 4796ms`、
+`resource_owner_obligations` は `1873ms / 1862ms / 1875ms` へ悪化した。native cold base で cache を
+有効にするには、header-first / fail-closed な bundled または persistent `.neplproof` artifact が先に必要である。
+
+採用した変更は、既存の proof を弱めない探索空間削減に限定した。
+
+- raw-init release requirement では、summary application ごとに parameter alias list を一度だけ作る。
+  `raw_address_suffix_after_address`、`ty: address_alias.ty`、`kind`、重複除去は従来通り維持する。
+- i32 scalar return fact 収集では、対象 value の scalar alias に届く direct condition / value、relation、
+  scale、offset が無い場合だけ condition 探索を省く。無関係な i32 fact が同じ graph にあるだけでは、
+  cold leaf の全 condition を照会しない。
+- relation / condition / parameter condition 収集で同じ `I32ConditionQueryContext` を共有し、同じ
+  raw alias graph への alias / offset 到達性照会を繰り返さない。
+
+formatter 後の native release RPN stage-only 3 run は次の通りである。
+
+| stage | run1 | run2 | run3 | median |
+| --- | ---: | ---: | ---: | ---: |
+| `resource_typecheck` | 176ms | 146ms | 147ms | 147ms |
+| `resource_initialized_i32_scalar_summaries` | 1035ms | 891ms | 860ms | 891ms |
+| `resource_initialized_raw_init_summaries` | 976ms | 831ms | 896ms | 896ms |
+| `resource_initialized_function_checks` | 883ms | 770ms | 757ms | 770ms |
+| `resource_initialized_moves` | 2973ms | 2559ms | 2578ms | 2578ms |
+| `resource_owner_obligations` | 865ms | 754ms | 839ms | 839ms |
+| `resource_static_check` | 3979ms | 3433ms | 3538ms | 3538ms |
+
+`origin/main` `9812d619` を取り込んで main へ merge した後の再測定では、
+`resource_static_check=4083ms / 4177ms / 4082ms`、`resource_initialized_moves=3039ms / 3138ms / 3095ms`、
+`resource_initialized_i32_scalar_summaries=1065ms / 1087ms / 1034ms`、
+`resource_initialized_raw_init_summaries=998ms / 1030ms / 1037ms`、
+`resource_initialized_function_checks=896ms / 934ms / 942ms`、
+`resource_owner_obligations=894ms / 896ms / 848ms` だった。post-merge median は
+`resource_static_check=4083ms` であり、RPN の基準値としてはこの値も併記する。
+
+per-function timing は次の階層を示している。ログ overhead を含むため総量比較ではなく、残る支配点の順位として扱う。
+
+```text
+RPN cold base static check
+  resource_static_check=3723ms
+    resource_initialized_moves=2705ms
+      resource_initialized_i32_scalar_summaries=929ms
+        sb_append_non_empty_result: 268ms
+        byte_builder_reserve: 173ms
+        apply_op: 97ms
+        byte_builder_push_bytes_ref: 72ms
+        byte_builder_push_u8: 71ms
+      resource_initialized_raw_init_summaries=890ms
+        apply_op: 185ms
+        dealloc_raw: 148ms
+        byte_builder_push_bytes_ref: 59ms
+        byte_builder_reserve: 46ms
+        byte_builder_push_u8: 28ms
+      resource_initialized_function_checks=811ms
+        dealloc_raw: 151ms
+        parse_u128_radix_digits_from: 91ms
+        apply_op: 80ms
+        str_slice_result: 53ms
+        eval_line: 38ms
+    resource_owner_obligations=881ms
+```
+
+この checkpoint でも RPN cold base は 0.5 秒未満に届いていない。次の根本対応は、actual
+`.neplproof` artifact を native `--check` cold path に接続し、stdlib-heavy proof を初回 compile 前から
+preseed することである。owner return summary はまだ `.neplproof` payload に入っていないため、owner
+return summary stable mirror も同じ優先度で進める。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

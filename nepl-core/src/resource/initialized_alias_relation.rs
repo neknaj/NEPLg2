@@ -22,6 +22,14 @@ impl I32RelationFacts {
         !self.relations.is_empty()
     }
 
+    pub(super) fn has_relation_touching_aliases(&self, aliases: &[Place]) -> bool {
+        self.relations.iter().any(|fact| {
+            aliases
+                .iter()
+                .any(|alias| alias == &fact.left || alias == &fact.right)
+        })
+    }
+
     pub(super) fn add_relation(&mut self, left: &Place, op: ResourceI32RelationOp, right: &Place) {
         self.push_relation_fact(I32RelationFact {
             left: left.clone(),
