@@ -79,11 +79,7 @@ impl ResourceCheckEngine<'_> {
         paths: &[CollectionSlotLifecycleReturnPath],
         span: crate::span::Span,
     ) -> Vec<CollectionSlotReturnPathState> {
-        let mut path_slots = Vec::new();
-        let mut path_cells = Vec::new();
-        let mut path_aliases = Vec::new();
-        let mut path_variants = Vec::new();
-        let mut path_states = Vec::new();
+        let mut path_states = Vec::with_capacity(paths.len());
         for path in paths {
             if !return_path_matches_callsite_variants(
                 self,
@@ -139,10 +135,6 @@ impl ResourceCheckEngine<'_> {
                 // scalar / slot 事実が Err path と合流して消えてしまう。
                 variants.record_concrete_variant(output, variant);
             }
-            path_cells.push(cells.clone());
-            path_slots.push(slots.clone());
-            path_aliases.push(aliases.clone());
-            path_variants.push(variants.clone());
             path_states.push(CollectionSlotReturnPathState {
                 cells,
                 collection_slots: slots,
@@ -156,21 +148,38 @@ impl ResourceCheckEngine<'_> {
         if path_states.is_empty() {
             return path_states;
         }
-        *cells = CellTable::merge_paths(&path_cells);
-        *collection_slots = merge_collection_slot_return_path_tables(output, paths, &path_slots);
-        *raw_aliases = RawCellAddressAliases::merge_paths(&path_aliases);
+        let path_cells = path_states
+            .iter()
+            .map(|state| &state.cells)
+            .collect::<Vec<_>>();
+        let path_slots = path_states
+            .iter()
+            .map(|state| &state.collection_slots)
+            .collect::<Vec<_>>();
+        let path_aliases = path_states
+            .iter()
+            .map(|state| &state.raw_aliases)
+            .collect::<Vec<_>>();
+        let path_variants = path_states
+            .iter()
+            .map(|state| &state.variant_initializations)
+            .collect::<Vec<_>>();
+        *cells = CellTable::merge_path_refs(&path_cells);
+        *collection_slots =
+            merge_collection_slot_return_path_table_refs(output, paths, &path_slots);
+        *raw_aliases = RawCellAddressAliases::merge_path_refs(&path_aliases);
         *variant_initializations =
-            PendingVariantRawCellInitializations::merge_paths(&path_variants);
+            PendingVariantRawCellInitializations::merge_path_refs(&path_variants);
         path_states
     }
 }
 
-fn merge_collection_slot_return_path_tables(
+fn merge_collection_slot_return_path_table_refs(
     output: &Place,
     paths: &[CollectionSlotLifecycleReturnPath],
-    path_tables: &[CollectionSlotStateTable],
+    path_tables: &[&CollectionSlotStateTable],
 ) -> CollectionSlotStateTable {
-    let mut merged = CollectionSlotStateTable::merge_paths(path_tables);
+    let mut merged = CollectionSlotStateTable::merge_path_refs(path_tables);
     let mut slots = Vec::new();
     for table in path_tables {
         for entry in table.entries() {

@@ -59,6 +59,31 @@ NEPLg2.1 の static-check 強化後、monomorphize が runtime helper や stdlib
 
 release WASM では、最小 program の warm compile が 10ms 未満になった。一方で aggregate/generic/stdlib-heavy case の微小変更を常に 10ms 未満にするには、source-level warmup だけでは不足する。次段階では CompilerSession と stdlib prechecked artifact が必要である。
 
+### 2026-06-03 RPN cold base profiling checkpoint
+
+`examples/rpn.nepl` を cache-independent な cold base 指標として使う。native release CLI では
+`NEPL_DISABLE_CHECK_CACHE=1` と `NEPL_DISABLE_PROOF_CACHE=1` を付け、exact check cache と
+proof cache による短絡を除外して測定する。
+
+同時刻の 7 run 中央値では、`origin/main` が `execute_inner=2080.852ms`、
+`loader_load=387.149ms`、`check_pipeline=1695.589ms`、`resource_static_check=1555ms`、
+`resource_initialized_moves=1041ms`、`resource_initialized_function_checks=452ms`、
+`resource_owner_obligations=404ms` だった。return path merge clone pruning 後の branch は
+`execute_inner=2052.613ms`、`loader_load=386.607ms`、`check_pipeline=1663.418ms`、
+`resource_static_check=1520ms`、`resource_initialized_moves=1025ms`、
+`resource_initialized_function_checks=433ms`、`resource_owner_obligations=389ms` だった。
+
+この差分は `CollectionSlotReturnPathState` を作る際に、merge 用の `CellTable` /
+`CollectionSlotStateTable` / `RawCellAddressAliases` / `PendingVariantRawCellInitializations`
+を別 vector へ clone していた重複保持をやめ、既存の `merge_path_refs` API で同じ path
+state から merged state を作るものである。静的検査の証明内容は変えず、return path
+summary 適用中の allocation と clone だけを減らす。
+
+まだ 0.5 秒未満目標には届かない。次の根本改善は、`i32 scalar summary` の
+signature-only relevance を fact-producing seed と dependency closure へ縮小すること、
+raw-init summary の cell collection を return / param alias から到達可能な cell へ限定すること、
+owner / effect summary の kind-specific dependency view を安全条件付きで導入することである。
+
 ## 実装済みの境界
 
 - Resource IR 前の entry reachability pruning。

@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-24
-updated: 2026-06-02
+updated: 2026-06-03
 target: "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio"
 ---
 
@@ -768,6 +768,35 @@ final no-stage 10 run は `832.779ms / 889.649ms / 886.363ms / 788.952ms / 856.7
 `imported_type_arity_hints` と全体 stage が改善せず悪化したため採用しなかった。残る root path は、
 小さな局所 map 化ではなく、native CLI `--check` が pre-typecheck interface artifact を用いて
 dependency body merge と shallow type-boundary preparation 自体を避けることである。
+
+2026-06-03 の RPN cold base / return path merge clone pruning checkpoint では、cache を無効にした
+native release CLI で `examples/rpn.nepl` を測定し、キャッシュ設計とは独立した Resource IR 内部の
+探索範囲と clone 固定費を確認した。測定条件は `NEPL_DISABLE_CHECK_CACHE=1` と
+`NEPL_DISABLE_PROOF_CACHE=1` を付けた proof-disabled run である。
+
+同時刻の `origin/main` 7 run 中央値は `execute_inner=2080.852ms`、`loader_load=387.149ms`、
+`check_pipeline=1695.589ms`、`resource_static_check=1555ms`、`resource_initialized_moves=1041ms`、
+`resource_initialized_i32_scalar_summaries=204ms`、`resource_initialized_raw_init_summaries=364ms`、
+`resource_initialized_function_checks=452ms`、`resource_owner_obligations=404ms`、
+`resource_owner_summaries=333ms` だった。current branch の 7 run 中央値は
+`execute_inner=2052.613ms`、`loader_load=386.607ms`、`check_pipeline=1663.418ms`、
+`resource_static_check=1520ms`、`resource_initialized_moves=1025ms`、
+`resource_initialized_i32_scalar_summaries=193ms`、`resource_initialized_raw_init_summaries=360ms`、
+`resource_initialized_function_checks=433ms`、`resource_owner_obligations=389ms`、
+`resource_owner_summaries=323ms` だった。
+
+採用した変更は、collection slot return path summary 適用で `CollectionSlotReturnPathState` を作る前に
+`CellTable` / `CollectionSlotStateTable` / `RawCellAddressAliases` /
+`PendingVariantRawCellInitializations` を merge 用 vector へ clone していた二重保持をやめ、
+`path_states` を唯一の owner にして `merge_path_refs` へ参照 view を渡す整理である。これは
+Resource proof の意味や cache key を弱めず、同じ path-sensitive state を replay 用と merge 用に
+二重複製していた固定費を削る。
+
+この checkpoint でも issue は解決しない。改善は小幅であり、RPN cold base はまだ 0.5 秒未満目標から遠い。
+次の cache-independent な根本課題は、`i32 scalar summary` の signature-only relevance を
+fact-producing seed と dependency closure に分けること、raw-init summary の cell collection を
+return / param alias から到達可能な cell に限定すること、owner / effect summary の dependency view を
+summary kind ごとに分けて不要な function-value edge を減らすことである。
 
 ## 検証
 

@@ -1,3 +1,15 @@
+# 2026-06-03 RPN return-path merge clone pruning checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、cache hit 前提の改善ではなく、RPN cold base で同じ状態表を余分に clone / merge している箇所を測定した。
+- `origin/main` と同期後、`perf/rpn-control-complexity-20260603` branch で作業した。`NEPL_DISABLE_CHECK_CACHE=1` と `NEPL_DISABLE_PROOF_CACHE=1` を付け、exact check cache / proof cache による短絡を除外して `examples/rpn.nepl` を release CLI で測定した。
+- subagent 調査では、`initialized_moves` 側は `i32 scalar summary` が signature だけで `196` 関数を再計算し、そのうち `125` が空 summary になること、`raw-init summary` の cell collection が全 cell 走査寄りであること、direct call return path replay が branch / loop / match より広く残ることが候補として挙がった。
+- owner summary の依存グラフ共有、`CellTable` の suffix allocation 削減、`i32 scalar` control-flow merge の clone 削減、direct call return path replay 抑制は、それぞれ RPN 実測で改善が安定しなかったため採用せず戻した。
+- 採用した変更は `apply_collection_slot_return_paths` の return path merge である。従来は `CollectionSlotReturnPathState` を作る直前に `cells`、`slots`、`aliases`、`variants` を別 vector へ clone し、merge 用と path-sensitive replay 用で同じ state を二重保持していた。
+- 新しい実装では `path_states` を唯一の owner とし、`CellTable::merge_path_refs`、`CollectionSlotStateTable::merge_path_refs`、`RawCellAddressAliases::merge_path_refs`、`PendingVariantRawCellInitializations::merge_path_refs` へ参照 view を渡す。callee summary の適用結果と caller へ戻す merged state は変えず、merge 入力を clone しない形へ整理した。
+- `PendingVariantRawCellInitializations::merge_paths` は clone 前提の wrapper として未使用になったため削除した。`merge_path_refs` は branch / match / return path merge の基本 API として残している。
+- 同時刻の RPN proof-disabled release 7 run 比較では、`origin/main` 中央値が `execute_inner=2080.852ms`、`loader_load=387.149ms`、`check_pipeline=1695.589ms`、`resource_static_check=1555ms`、`resource_initialized_moves=1041ms`、`resource_initialized_function_checks=452ms`、`resource_owner_obligations=404ms`。current branch 中央値は `execute_inner=2052.613ms`、`loader_load=386.607ms`、`check_pipeline=1663.418ms`、`resource_static_check=1520ms`、`resource_initialized_moves=1025ms`、`resource_initialized_function_checks=433ms`、`resource_owner_obligations=389ms` だった。
+- これは小幅な改善であり、0.5 秒未満目標にはまだ届かない。次の大きな root task は、`i32 scalar summary` の relevance を signature-only から fact-producing seed + dependency closure へ変えること、raw-init cell collection を return / param alias から到達可能な cell に限定すること、owner/effect summary の kind-specific dependency view を設計して測定することである。
+
 # 2026-06-02 RPN Resource op inventory / algorithmic pruning checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、cache 設計だけでなく、Resource IR の同じ op tree を複数回走査している箇所と制御構造内の探索範囲を確認した。
