@@ -289,6 +289,10 @@ pub fn pointer_event_button %fn &PointerEvent PointerButton \event:
 pub fn keyboard_event_new %fn KeyboardEventKind fn i32 fn KeyModifiers KeyboardEvent \kind\key_code\modifiers:
     KeyboardEvent kind key_code modifiers
 
+//: keyboard_event_kind: keyboard event kind を[読/よ]む
+pub fn keyboard_event_kind %fn &KeyboardEvent KeyboardEventKind \event:
+    *field::get_ref event "kind"
+
 //: text_input_event_new: text input event を[作/つく]る
 pub fn text_input_event_new %fn char TextInputEvent \value:
     TextInputEvent value

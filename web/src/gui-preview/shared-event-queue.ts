@@ -1,4 +1,5 @@
 import type { GuiWebInputEvent } from './input-bridge.js';
+import type { GuiWebKeyboardEventKind } from './input-bridge.js';
 import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
 
 export const GUI_WEB_EVENT_QUEUE_CAPACITY = 64;
@@ -7,6 +8,8 @@ export const GUI_WEB_EVENT_QUEUE_HEADER_LENGTH = 4;
 export const GUI_WEB_EVENT_QUEUE_SLOT_LENGTH = 8;
 export const GUI_WEB_EVENT_KIND_ACTION = 1;
 export const GUI_WEB_EVENT_KIND_POINTER = 2;
+export const GUI_WEB_EVENT_KIND_KEYBOARD = 3;
+export const GUI_WEB_EVENT_KIND_TEXT_INPUT = 4;
 export const GUI_WEB_EVENT_POLL_UNSUPPORTED = -1;
 export const GUI_WEB_EVENT_POLL_INVALID = -2;
 export const GUI_WEB_EVENT_QUEUE_READ_INDEX = 0;
@@ -21,15 +24,17 @@ export const GUI_WEB_POINTER_BUTTON_NONE = 0;
 export const GUI_WEB_POINTER_BUTTON_PRIMARY = 1;
 export const GUI_WEB_POINTER_BUTTON_SECONDARY = 2;
 export const GUI_WEB_POINTER_BUTTON_MIDDLE = 3;
+export const GUI_WEB_KEYBOARD_KIND_DOWN = 1;
+export const GUI_WEB_KEYBOARD_KIND_UP = 2;
 
 const GUI_WEB_EVENT_SLOT_KIND = 0;
 const GUI_WEB_EVENT_SLOT_WINDOW_ID = 1;
-const GUI_WEB_EVENT_SLOT_ACTION_ID = 2;
+const GUI_WEB_EVENT_SLOT_VALUE0 = 2;
 const GUI_WEB_EVENT_SLOT_POINT_X_MILLI = 3;
 const GUI_WEB_EVENT_SLOT_POINT_Y_MILLI = 4;
-const GUI_WEB_EVENT_SLOT_POINTER_KIND = 5;
-const GUI_WEB_EVENT_SLOT_POINTER_ID = 6;
-const GUI_WEB_EVENT_SLOT_POINTER_BUTTON = 7;
+const GUI_WEB_EVENT_SLOT_VALUE1 = 5;
+const GUI_WEB_EVENT_SLOT_VALUE2 = 6;
+const GUI_WEB_EVENT_SLOT_VALUE3 = 7;
 
 export type GuiWebSharedEventQueueErrorKind =
     | 'shared-event-buffer-unavailable'
@@ -64,6 +69,18 @@ export type GuiWebSharedInputEventRecord =
         button: GuiWebPointerButton;
         pointXMilli: number;
         pointYMilli: number;
+    }
+    | {
+        kind: 'keyboard';
+        windowId: number;
+        keyboardKind: GuiWebKeyboardEventKind;
+        keyCode: number;
+        modifierBits: number;
+    }
+    | {
+        kind: 'text-input';
+        windowId: number;
+        scalarValue: number;
     };
 
 export type GuiWebSharedInputEventTakeResult =
@@ -100,7 +117,13 @@ export function writeGuiWebSharedInputEvent(
     if (event.kind === 'pointer') {
         return writeGuiWebSharedPointerEvent(buffer, event);
     }
-    return err('unsupported-event-kind', '$.kind', 'action or pointer', String(event));
+    if (event.kind === 'keyboard') {
+        return writeGuiWebSharedKeyboardEvent(buffer, event);
+    }
+    if (event.kind === 'text-input') {
+        return writeGuiWebSharedTextInputEvent(buffer, event);
+    }
+    return err('unsupported-event-kind', '$.kind', 'action, pointer, keyboard, or text-input', String(event));
 }
 
 export function takeGuiWebSharedActionId(buffer: SharedArrayBuffer): number {
@@ -129,16 +152,16 @@ export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSha
     const base = guiWebSharedEventSlotBase(readIndex);
     const kind = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_KIND);
     const windowId = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID);
-    const actionId = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID);
+    const value0 = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE0);
     const pointXMilli = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI);
     const pointYMilli = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI);
-    const pointerKindRaw = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINTER_KIND);
-    const pointerId = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINTER_ID);
-    const buttonRaw = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINTER_BUTTON);
+    const value1 = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE1);
+    const value2 = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE2);
+    const value3 = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE3);
     const nextReadIndex = guiWebSharedEventNextIndex(readIndex);
     Atomics.store(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX, nextReadIndex);
     if (kind === GUI_WEB_EVENT_KIND_ACTION) {
-        if (actionId <= 0) {
+        if (value0 <= 0) {
             return { kind: 'invalid', rawKind: kind };
         }
         return {
@@ -146,22 +169,22 @@ export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSha
             event: {
                 kind: 'action',
                 windowId,
-                actionId,
+                actionId: value0,
                 pointXMilli,
                 pointYMilli,
             },
         };
     }
     if (kind === GUI_WEB_EVENT_KIND_POINTER) {
-        const pointerKind = guiWebSharedPointerKindFromRaw(pointerKindRaw);
+        const pointerKind = guiWebSharedPointerKindFromRaw(value1);
         if (pointerKind.kind === 'err') {
             return { kind: 'invalid', rawKind: kind };
         }
-        const button = guiWebSharedPointerButtonFromRaw(buttonRaw);
+        const button = guiWebSharedPointerButtonFromRaw(value3);
         if (button.kind === 'err') {
             return { kind: 'invalid', rawKind: kind };
         }
-        if (pointerId <= 0) {
+        if (value2 <= 0) {
             return { kind: 'invalid', rawKind: kind };
         }
         return {
@@ -170,10 +193,42 @@ export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSha
                 kind: 'pointer',
                 windowId,
                 pointerKind: pointerKind.value,
-                pointerId,
+                pointerId: value2,
                 button: button.value,
                 pointXMilli,
                 pointYMilli,
+            },
+        };
+    }
+    if (kind === GUI_WEB_EVENT_KIND_KEYBOARD) {
+        const keyboardKind = guiWebSharedKeyboardKindFromRaw(value1);
+        if (keyboardKind.kind === 'err') {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        if (value0 <= 0 || value2 < 0) {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        return {
+            kind: 'event',
+            event: {
+                kind: 'keyboard',
+                windowId,
+                keyboardKind: keyboardKind.value,
+                keyCode: value0,
+                modifierBits: value2,
+            },
+        };
+    }
+    if (kind === GUI_WEB_EVENT_KIND_TEXT_INPUT) {
+        if (!guiWebSharedIsUnicodeScalarValue(value0)) {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        return {
+            kind: 'event',
+            event: {
+                kind: 'text-input',
+                windowId,
+                scalarValue: value0,
             },
         };
     }
@@ -243,34 +298,44 @@ export function guiWebSharedPointerButtonToRaw(button: GuiWebPointerButton): num
     }
 }
 
+export function guiWebSharedKeyboardKindToRaw(kind: GuiWebKeyboardEventKind): number {
+    switch (kind) {
+        case 'down':
+            return GUI_WEB_KEYBOARD_KIND_DOWN;
+        case 'up':
+            return GUI_WEB_KEYBOARD_KIND_UP;
+    }
+}
+
 function writeGuiWebSharedActionEvent(
     buffer: SharedArrayBuffer,
     event: Extract<GuiWebInputEvent, { kind: 'action' }>,
 ): GuiWebSharedEventQueueResult<'queued'> {
     const queue = new Int32Array(buffer);
     const eventWrite = guiWebSharedEventWritePlan(queue);
-    if (eventWrite.kind === 'err') {
+    const actionWrite = guiWebSharedActionWritePlan(queue);
+    if (eventWrite.kind === 'err' && actionWrite.kind === 'err') {
         return eventWrite;
     }
-    const actionWrite = guiWebSharedActionWritePlan(queue);
-    if (actionWrite.kind === 'err') {
-        return actionWrite;
-    }
 
-    const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_ACTION);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID, event.actionId);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, Math.round(event.point.x * 1000));
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, Math.round(event.point.y * 1000));
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_KIND, 0);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_ID, 0);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_BUTTON, 0);
-    Atomics.store(queue, guiWebSharedActionSlotBase(actionWrite.value.writeIndex), event.actionId);
-    Atomics.store(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, actionWrite.value.nextWriteIndex);
-    Atomics.notify(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, 1);
-    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
-    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    if (eventWrite.kind === 'ok') {
+        const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_ACTION);
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE0, event.actionId);
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, Math.round(event.point.x * 1000));
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, Math.round(event.point.y * 1000));
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, 0);
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, 0);
+        Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, 0);
+        Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+        Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    }
+    if (actionWrite.kind === 'ok') {
+        Atomics.store(queue, guiWebSharedActionSlotBase(actionWrite.value.writeIndex), event.actionId);
+        Atomics.store(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, actionWrite.value.nextWriteIndex);
+        Atomics.notify(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, 1);
+    }
     return { kind: 'ok', value: 'queued' };
 }
 
@@ -287,12 +352,60 @@ function writeGuiWebSharedPointerEvent(
     const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_POINTER);
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE0, 0);
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, Math.round(event.point.x * 1000));
     Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, Math.round(event.point.y * 1000));
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_KIND, guiWebSharedPointerKindToRaw(event.pointerKind));
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_ID, event.pointerId);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_BUTTON, guiWebSharedPointerButtonToRaw(event.button));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, guiWebSharedPointerKindToRaw(event.pointerKind));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, event.pointerId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, guiWebSharedPointerButtonToRaw(event.button));
+    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    return { kind: 'ok', value: 'queued' };
+}
+
+function writeGuiWebSharedKeyboardEvent(
+    buffer: SharedArrayBuffer,
+    event: Extract<GuiWebInputEvent, { kind: 'keyboard' }>,
+): GuiWebSharedEventQueueResult<'queued'> {
+    const queue = new Int32Array(buffer);
+    const eventWrite = guiWebSharedEventWritePlan(queue);
+    if (eventWrite.kind === 'err') {
+        return eventWrite;
+    }
+
+    const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_KEYBOARD);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE0, event.keyCode);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, guiWebSharedKeyboardKindToRaw(event.keyboardKind));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, event.modifierBits);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, 0);
+    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    return { kind: 'ok', value: 'queued' };
+}
+
+function writeGuiWebSharedTextInputEvent(
+    buffer: SharedArrayBuffer,
+    event: Extract<GuiWebInputEvent, { kind: 'text-input' }>,
+): GuiWebSharedEventQueueResult<'queued'> {
+    const queue = new Int32Array(buffer);
+    const eventWrite = guiWebSharedEventWritePlan(queue);
+    if (eventWrite.kind === 'err') {
+        return eventWrite;
+    }
+
+    const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_TEXT_INPUT);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE0, event.scalarValue);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, 0);
     Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
     Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
     return { kind: 'ok', value: 'queued' };
@@ -362,6 +475,23 @@ function guiWebSharedPointerButtonFromRaw(raw: number): GuiWebSharedEventQueueRe
         default:
             return err('unsupported-event-kind', '$.button', 'known pointer button', String(raw));
     }
+}
+
+function guiWebSharedKeyboardKindFromRaw(raw: number): GuiWebSharedEventQueueResult<GuiWebKeyboardEventKind> {
+    switch (raw) {
+        case GUI_WEB_KEYBOARD_KIND_DOWN:
+            return { kind: 'ok', value: 'down' };
+        case GUI_WEB_KEYBOARD_KIND_UP:
+            return { kind: 'ok', value: 'up' };
+        default:
+            return err('unsupported-event-kind', '$.keyboardKind', 'known keyboard kind', String(raw));
+    }
+}
+
+function guiWebSharedIsUnicodeScalarValue(value: number): boolean {
+    return value >= 0
+        && value <= 0x10FFFF
+        && !(value >= 0xD800 && value <= 0xDFFF);
 }
 
 function err(

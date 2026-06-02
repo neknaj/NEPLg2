@@ -412,6 +412,7 @@ export class GuiFloatingWindowManager {
             other.frameEl.classList.toggle('is-active', other.id === id);
         }
         windowState.frameEl.focus({ preventScroll: true });
+        windowState.preview.focusInputSurface();
     }
 
     private minimizeWindow(id: string) {

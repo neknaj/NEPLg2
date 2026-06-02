@@ -15,6 +15,10 @@ export type GuiWebPointerButton =
     | 'secondary'
     | 'middle';
 
+export type GuiWebKeyboardEventKind =
+    | 'down'
+    | 'up';
+
 export type GuiWebInputEvent =
     | {
         kind: 'action';
@@ -29,12 +33,26 @@ export type GuiWebInputEvent =
         pointerId: number;
         button: GuiWebPointerButton;
         point: GuiWebInputPoint;
+    }
+    | {
+        kind: 'keyboard';
+        windowId: number;
+        keyboardKind: GuiWebKeyboardEventKind;
+        keyCode: number;
+        modifierBits: number;
+    }
+    | {
+        kind: 'text-input';
+        windowId: number;
+        scalarValue: number;
     };
 
 export type GuiWebInputErrorKind =
     | 'invalid-input-event'
     | 'invalid-action-event'
-    | 'invalid-pointer-event';
+    | 'invalid-pointer-event'
+    | 'invalid-keyboard-event'
+    | 'invalid-text-input-event';
 
 export type GuiWebInputError = {
     kind: GuiWebInputErrorKind;
@@ -123,7 +141,13 @@ export function decodeGuiWebInputEvent(input: unknown): GuiWebInputResult<GuiWeb
     if (kind.value === 'pointer') {
         return decodeGuiWebPointerInputEvent(event.value);
     }
-    return err('invalid-input-event', '$.kind', 'action or pointer', kind.value);
+    if (kind.value === 'keyboard') {
+        return decodeGuiWebKeyboardInputEvent(event.value);
+    }
+    if (kind.value === 'text-input') {
+        return decodeGuiWebTextInputEvent(event.value);
+    }
+    return err('invalid-input-event', '$.kind', 'action, pointer, keyboard, or text-input', kind.value);
 }
 
 function decodeGuiWebActionInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
@@ -180,6 +204,54 @@ function decodeGuiWebPointerInputEvent(event: UnknownRecord): GuiWebInputResult<
             pointerId: pointerId.value,
             button: button.value,
             point: point.value,
+        },
+    };
+}
+
+function decodeGuiWebKeyboardInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
+    const windowId = readPositiveInteger(event, 'windowId', '$.windowId', 'invalid-keyboard-event');
+    if (windowId.kind === 'err') {
+        return windowId;
+    }
+    const keyboardKind = readKeyboardKind(event, 'keyboardKind', '$.keyboardKind');
+    if (keyboardKind.kind === 'err') {
+        return keyboardKind;
+    }
+    const keyCode = readPositiveInteger(event, 'keyCode', '$.keyCode', 'invalid-keyboard-event');
+    if (keyCode.kind === 'err') {
+        return keyCode;
+    }
+    const modifierBits = readNonNegativeInteger(event, 'modifierBits', '$.modifierBits', 'invalid-keyboard-event');
+    if (modifierBits.kind === 'err') {
+        return modifierBits;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'keyboard',
+            windowId: windowId.value,
+            keyboardKind: keyboardKind.value,
+            keyCode: keyCode.value,
+            modifierBits: modifierBits.value,
+        },
+    };
+}
+
+function decodeGuiWebTextInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
+    const windowId = readPositiveInteger(event, 'windowId', '$.windowId', 'invalid-text-input-event');
+    if (windowId.kind === 'err') {
+        return windowId;
+    }
+    const scalarValue = readUnicodeScalarValue(event, 'scalarValue', '$.scalarValue');
+    if (scalarValue.kind === 'err') {
+        return scalarValue;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'text-input',
+            windowId: windowId.value,
+            scalarValue: scalarValue.value,
         },
     };
 }
@@ -244,6 +316,20 @@ function readPointerButton(record: UnknownRecord, name: string, path: string): G
     }
 }
 
+function readKeyboardKind(record: UnknownRecord, name: string, path: string): GuiWebInputResult<GuiWebKeyboardEventKind> {
+    const value = readString(record, name, path, 'invalid-keyboard-event');
+    if (value.kind === 'err') {
+        return value;
+    }
+    switch (value.value) {
+        case 'down':
+        case 'up':
+            return { kind: 'ok', value: value.value };
+        default:
+            return err('invalid-keyboard-event', path, 'down or up', value.value);
+    }
+}
+
 function readRecord(record: UnknownRecord, name: string, path: string, kind: GuiWebInputErrorKind): GuiWebInputResult<UnknownRecord> {
     return asRecord(record[name], path, kind, 'object');
 }
@@ -273,6 +359,34 @@ function readPositiveInteger(record: UnknownRecord, name: string, path: string, 
         return value;
     }
     return err(kind, path, 'positive integer', String(value.value));
+}
+
+function readNonNegativeInteger(record: UnknownRecord, name: string, path: string, kind: GuiWebInputErrorKind): GuiWebInputResult<number> {
+    const value = readFiniteNumber(record, name, path, kind);
+    if (value.kind === 'err') {
+        return value;
+    }
+    if (Number.isInteger(value.value) && value.value >= 0) {
+        return value;
+    }
+    return err(kind, path, 'non-negative integer', String(value.value));
+}
+
+function readUnicodeScalarValue(record: UnknownRecord, name: string, path: string): GuiWebInputResult<number> {
+    const value = readNonNegativeInteger(record, name, path, 'invalid-text-input-event');
+    if (value.kind === 'err') {
+        return value;
+    }
+    if (isUnicodeScalarValue(value.value)) {
+        return value;
+    }
+    return err('invalid-text-input-event', path, 'Unicode scalar value', String(value.value));
+}
+
+function isUnicodeScalarValue(value: number): boolean {
+    return value >= 0
+        && value <= 0x10FFFF
+        && !(value >= 0xD800 && value <= 0xDFFF);
 }
 
 function asRecord(input: unknown, path: string, kind: GuiWebInputErrorKind, expected: string): GuiWebInputResult<UnknownRecord> {

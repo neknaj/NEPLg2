@@ -14,8 +14,8 @@
 //: - raw host import の 0 / 負 sentinel はこの module の境界内でだけ扱います。
 //:
 //: ### [現状/げんじょう]
-//: - Phase 2 では Web Playground の action event と pointer event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
-//: - keyboard / text input / lifecycle などの full event union は後続 phase で追加します。
+//: - Phase 3 では Web Playground の action、pointer、keyboard、text input event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
+//: - pointer move coalescing、window / timer / lifecycle などの full event union は後続 phase で追加します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -26,6 +26,7 @@
 #indent 4
 
 #import "alloc/gui/app" as app
+#import "core/char" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
@@ -44,6 +45,10 @@
 #extern "nepl_gui_web" "last_event_pointer_kind" fn gui_web_last_event_pointer_kind_raw %impure fn unit i32
 #extern "nepl_gui_web" "last_event_pointer_id" fn gui_web_last_event_pointer_id_raw %impure fn unit i32
 #extern "nepl_gui_web" "last_event_pointer_button" fn gui_web_last_event_pointer_button_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_keyboard_kind" fn gui_web_last_event_keyboard_kind_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_key_code" fn gui_web_last_event_key_code_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_key_modifiers" fn gui_web_last_event_key_modifiers_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_text_scalar_value" fn gui_web_last_event_text_scalar_value_raw %impure fn unit i32
 
 //: GuiWebEvent: Web backend が[取/と]り[出/だ]した typed GUI event record
 //:
@@ -102,6 +107,30 @@ pub fn gui_web_event_pointer %fn &GuiWebEvent Option PointerEvent \event:
         _:
             Option::None
 
+//: gui_web_event_keyboard: keyboard event なら `KeyboardEvent` を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - event が `GuiEvent::Keyboard` の場合は `Option::Some` を返します。
+//: - それ以外の event variant は `Option::None` を返します。
+pub fn gui_web_event_keyboard %fn &GuiWebEvent Option KeyboardEvent \event:
+    match gui_web_event_gui_event event:
+        GuiEvent::Keyboard keyboard:
+            Option::Some keyboard
+        _:
+            Option::None
+
+//: gui_web_event_text_input: text input event なら `TextInputEvent` を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - event が `GuiEvent::TextInput` の場合は `Option::Some` を返します。
+//: - それ以外の event variant は `Option::None` を返します。
+pub fn gui_web_event_text_input %fn &GuiWebEvent Option TextInputEvent \event:
+    match gui_web_event_gui_event event:
+        GuiEvent::TextInput text_input:
+            Option::Some text_input
+        _:
+            Option::None
+
 //: gui_web_action_result_from_raw: host raw action id を `Result Option ActionId GuiError` へ[正規化/せいきか]する
 //:
 //: [目的/もくてき]:
@@ -141,6 +170,8 @@ fn gui_web_action_result_from_raw %fn i32 Result Option ActionId GuiError \raw:
 //: [契約/けいやく]:
 //: - raw kind 1 は action event です。
 //: - raw kind 2 は pointer event です。
+//: - raw kind 3 は keyboard event です。
+//: - raw kind 4 は text input event です。
 //: - raw kind 0 は timeout / empty queue です。
 //: - raw kind -1 は unsupported host queue です。
 //: - raw kind -2 または未知の kind は invalid command です。
@@ -158,7 +189,17 @@ fn gui_web_event_result_from_kind_raw %impure fn i32 Result Option GuiWebEvent G
                         then:
                             gui_web_pointer_event_result_from_last
                         else:
-                            Result::Err GuiError::InvalidCommand
+                            if:
+                                eq raw 3
+                                then:
+                                    gui_web_keyboard_event_result_from_last
+                                else:
+                                    if:
+                                        eq raw 4
+                                        then:
+                                            gui_web_text_input_event_result_from_last
+                                        else:
+                                            Result::Err GuiError::InvalidCommand
         else:
             if:
                 eq raw 0
@@ -268,6 +309,50 @@ fn gui_web_pointer_event_result_from_last %impure fn unit Result Option GuiWebEv
             gui_web_pointer_event_result_from_button kind button_raw
         Result::Err error:
             Result::Err error
+
+fn gui_web_keyboard_kind_from_raw %fn i32 Result KeyboardEventKind GuiError \raw:
+    if:
+        eq raw 1
+        then:
+            Result::Ok KeyboardEventKind::KeyDown
+        else:
+            if:
+                eq raw 2
+                then:
+                    Result::Ok KeyboardEventKind::KeyUp
+                else:
+                    Result::Err GuiError::InvalidCommand
+
+fn gui_web_keyboard_event_result_from_parts %impure fn KeyboardEventKind Result Option GuiWebEvent GuiError \kind:
+    let key_code %i32 gui_web_last_event_key_code_raw
+    let modifier_bits %i32 gui_web_last_event_key_modifiers_raw
+    if:
+        and gt key_code 0 ge modifier_bits 0
+        then:
+            let modifiers %KeyModifiers key_modifiers_new modifier_bits
+            let keyboard_event %KeyboardEvent keyboard_event_new kind key_code modifiers
+            let gui_event %GuiEvent gui_event_keyboard keyboard_event
+            gui_web_web_event_from_gui_event gui_event
+        else:
+            Result::Err GuiError::InvalidCommand
+
+fn gui_web_keyboard_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+    let kind_raw %i32 gui_web_last_event_keyboard_kind_raw
+    match gui_web_keyboard_kind_from_raw kind_raw:
+        Result::Ok kind:
+            gui_web_keyboard_event_result_from_parts kind
+        Result::Err error:
+            Result::Err error
+
+fn gui_web_text_input_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+    let scalar %i32 gui_web_last_event_text_scalar_value_raw
+    match char_from_i32_result scalar:
+        Result::Ok value:
+            let text_event %TextInputEvent text_input_event_new value
+            let gui_event %GuiEvent gui_event_text_input text_event
+            gui_web_web_event_from_gui_event gui_event
+        Result::Err _message:
+            Result::Err GuiError::InvalidCommand
 
 //: gui_web_action_from_raw: host raw action id を legacy `Option ActionId` へ[正規化/せいきか]する
 //:

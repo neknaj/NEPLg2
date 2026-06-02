@@ -155,6 +155,40 @@ fn main %fn unit i32 \unit:
             1
 ```
 
+## keyboard and text input constructors keep input typed
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target core
+#indent 4
+
+#import "core/char" as *
+#import "core/gui" as *
+#import "core/test" as *
+
+fn keyboard_kind_code %fn GuiEvent i32 \event:
+    match event:
+        GuiEvent::Keyboard keyboard:
+            match keyboard_event_kind &keyboard:
+                KeyboardEventKind::KeyDown:
+                    10
+                KeyboardEventKind::KeyUp:
+                    11
+        _:
+            12
+
+fn main %fn unit i32 \unit:
+    let modifiers %KeyModifiers key_modifiers_new 5
+    let keyboard %KeyboardEvent keyboard_event_new KeyboardEventKind::KeyDown 1001 modifiers
+    assert_eq_i32 5 key_modifiers_bits &modifiers
+    assert_eq_i32 10 keyboard_kind_code gui_event_keyboard keyboard
+    let text %TextInputEvent text_input_event_new '\u{3042}'
+    assert_eq_i32 0x3042 char_to_i32 text_input_event_value &text
+    0
+```
+
 ## draw target mock and flush separation
 
 neplg2:test

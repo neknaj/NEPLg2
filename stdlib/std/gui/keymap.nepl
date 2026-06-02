@@ -130,10 +130,6 @@ pub fn key_modifier_control_bit %fn unit i32 \unit:
 pub fn keyboard_event_from_key_code %fn KeyboardEventKind fn i32 fn i32 KeyboardEvent \kind\key_code\modifier_bits:
     KeyboardEvent kind key_code key_modifiers_new modifier_bits
 
-//: keyboard_event_kind: keyboard event kind を[読/よ]む
-fn keyboard_event_kind %fn &KeyboardEvent KeyboardEventKind \event:
-    *field::get_ref event "kind"
-
 //: keyboard_event_key_code: keyboard event の key code を[読/よ]む
 //:
 //: [目的/もくてき]:

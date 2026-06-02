@@ -79,6 +79,53 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(takenPointer.value[0].pointerId, 5);
     assert.equal(takenPointer.value[0].button, "primary");
 
+    const queuedKeyboard = inputBridge.queueGuiWebInputEvent({
+        kind: "keyboard",
+        windowId: 3,
+        keyboardKind: "down",
+        keyCode: 9,
+        modifierBits: 1,
+    });
+    assert.equal(queuedKeyboard.kind, "ok");
+    assert.equal(observed.length, 3);
+    assert.equal(observed[2].kind, "keyboard");
+    assert.equal(observed[2].keyboardKind, "down");
+    const takenKeyboard = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenKeyboard.kind, "ok");
+    assert.equal(takenKeyboard.value.length, 1);
+    assert.equal(takenKeyboard.value[0].kind, "keyboard");
+    assert.equal(takenKeyboard.value[0].windowId, 3);
+    assert.equal(takenKeyboard.value[0].keyCode, 9);
+    assert.equal(takenKeyboard.value[0].modifierBits, 1);
+
+    const queuedTextInput = inputBridge.queueGuiWebInputEvent({
+        kind: "text-input",
+        windowId: 3,
+        scalarValue: 0x3042,
+    });
+    assert.equal(queuedTextInput.kind, "ok");
+    assert.equal(observed.length, 4);
+    assert.equal(observed[3].kind, "text-input");
+    const takenTextInput = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenTextInput.kind, "ok");
+    assert.equal(takenTextInput.value.length, 1);
+    assert.equal(takenTextInput.value[0].kind, "text-input");
+    assert.equal(takenTextInput.value[0].windowId, 3);
+    assert.equal(takenTextInput.value[0].scalarValue, 0x3042);
+
+    const queuedNulTextInput = inputBridge.queueGuiWebInputEvent({
+        kind: "text-input",
+        windowId: 3,
+        scalarValue: 0,
+    });
+    assert.equal(queuedNulTextInput.kind, "ok");
+    assert.equal(observed.length, 5);
+    const takenNulTextInput = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenNulTextInput.kind, "ok");
+    assert.equal(takenNulTextInput.value.length, 1);
+    assert.equal(takenNulTextInput.value[0].kind, "text-input");
+    assert.equal(takenNulTextInput.value[0].scalarValue, 0);
+
     const invalidAction = inputBridge.queueGuiWebInputEvent({
         kind: "action",
         windowId: 3,
@@ -101,14 +148,43 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(invalidPointer.error.kind, "invalid-pointer-event");
     assert.equal(invalidPointer.error.path, "$.pointerKind");
 
+    const invalidKeyboard = inputBridge.queueGuiWebInputEvent({
+        kind: "keyboard",
+        windowId: 3,
+        keyboardKind: "press",
+        keyCode: 9,
+        modifierBits: 0,
+    });
+    assert.equal(invalidKeyboard.kind, "err");
+    assert.equal(invalidKeyboard.error.kind, "invalid-keyboard-event");
+    assert.equal(invalidKeyboard.error.path, "$.keyboardKind");
+
+    const invalidTextScalar = inputBridge.queueGuiWebInputEvent({
+        kind: "text-input",
+        windowId: 3,
+        scalarValue: 0xD800,
+    });
+    assert.equal(invalidTextScalar.kind, "err");
+    assert.equal(invalidTextScalar.error.kind, "invalid-text-input-event");
+    assert.equal(invalidTextScalar.error.path, "$.scalarValue");
+
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'action'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'pointer'/);
+    assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'keyboard'/);
+    assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'text-input'/);
     assert.match(inputBridgeSource, /GuiWebInputResult<Value> =[\s\S]*kind: 'ok'[\s\S]*kind: 'err'/);
     assert.match(inputBridgeSource, /decodeGuiWebInputEvent/);
+    assert.match(inputBridgeSource, /isUnicodeScalarValue/);
     assert.match(inputBridgeSource, /registerGuiWebInputEventListener/);
     assert.match(panelSource, /queueGuiWebInputEvent/);
     assert.match(panelSource, /handleCanvasPointerDown/);
     assert.match(panelSource, /guiWebPointerButtonFromDomButton/);
+    assert.match(panelSource, /handleCanvasKeyDown/);
+    assert.match(panelSource, /handleCanvasKeyUp/);
+    assert.match(panelSource, /guiWebSingleScalarFromDomKey/);
+    assert.match(panelSource, /event\.isComposing/);
+    assert.match(panelSource, /event\.metaKey/);
+    assert.match(panelSource, /queueHostKeyboardEvent[\s\S]*event\.metaKey/);
     assert.match(commandsSource, /GuiPreviewInputTarget/);
     assert.doesNotMatch(inputBridgeSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(inputBridgeSource, /\|\s*null|\|\s*undefined/);
@@ -120,6 +196,8 @@ async function runWebGuiInputBridgeRegression() {
         checks: [
             "Web GUI input bridge queues action events as typed values",
             "Web GUI input bridge queues pointer events as typed values",
+            "Web GUI input bridge queues keyboard events as typed values",
+            "Web GUI input bridge queues Unicode scalar text input events as typed values",
             "Web GUI input bridge notifies typed listeners without app-state simulation",
             "Web GUI input bridge exposes take/reset event boundaries",
             "Web GUI input bridge keeps DOM and Canvas types out of the input queue",

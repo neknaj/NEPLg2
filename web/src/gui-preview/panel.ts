@@ -11,6 +11,7 @@ import {
 } from './canvas-renderer.js';
 import type { GuiPreviewCommandFrame } from './commands.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
+import type { GuiWebKeyboardEventKind } from './input-bridge.js';
 import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
 
 export type GuiPreviewSource =
@@ -20,6 +21,14 @@ export type GuiPreviewSource =
 type GuiHostFrameState =
     | { kind: 'none' }
     | { kind: 'presented'; frame: GuiPreviewCommandFrame; windowId: number };
+
+type GuiWebKeyCodeLookup =
+    | { kind: 'mapped'; keyCode: number }
+    | { kind: 'unmapped' };
+
+type GuiWebScalarLookup =
+    | { kind: 'scalar'; value: number }
+    | { kind: 'none' };
 
 const ignoreKindChange = (_kind: GuiPreviewKind) => {};
 
@@ -57,6 +66,7 @@ export class GuiPreviewPanel {
         this.metricsEl.className = 'gui-preview-metrics';
         this.canvas = document.createElement('canvas');
         this.canvas.className = 'gui-preview-canvas';
+        this.canvas.tabIndex = 0;
         const ctx = this.canvas.getContext('2d');
         if (!ctx) {
             throw new Error('Could not get GUI preview 2D context');
@@ -83,6 +93,8 @@ export class GuiPreviewPanel {
         this.canvas.addEventListener('pointerup', (event) => this.handleCanvasPointerUp(event));
         this.canvas.addEventListener('pointercancel', (event) => this.handleCanvasPointerCancel(event));
         this.canvas.addEventListener('mousemove', (event) => this.handleCanvasPointer(event));
+        this.canvas.addEventListener('keydown', (event) => this.handleCanvasKeyDown(event));
+        this.canvas.addEventListener('keyup', (event) => this.handleCanvasKeyUp(event));
         this.syncSelect();
         this.resizeEditor();
     }
@@ -132,6 +144,13 @@ export class GuiPreviewPanel {
         this.hostFrame = { kind: 'presented', frame, windowId };
         this.selectEl.disabled = true;
         this.render();
+        this.focusInputSurface();
+    }
+
+    focusInputSurface() {
+        if (this.hostFrame.kind === 'presented') {
+            this.canvas.focus({ preventScroll: true });
+        }
     }
 
     setFontSize(size: number) {
@@ -242,6 +261,7 @@ export class GuiPreviewPanel {
         if (this.hostFrame.kind !== 'presented') {
             return;
         }
+        this.focusInputSurface();
         const point = this.toScenePoint(event);
         const queued = queueGuiWebInputEvent({
             kind: 'pointer',
@@ -254,6 +274,71 @@ export class GuiPreviewPanel {
         if (queued.kind === 'err') {
             this.metricsEl.textContent = `host input error ${queued.error.kind}`;
         }
+    }
+
+    handleCanvasKeyDown(event: KeyboardEvent) {
+        if (this.hostFrame.kind !== 'presented') {
+            return;
+        }
+        const queuedKeyboard = this.queueHostKeyboardEvent(event, 'down');
+        const queuedText = this.queueHostTextInputEvent(event);
+        if (queuedKeyboard || queuedText) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+
+    handleCanvasKeyUp(event: KeyboardEvent) {
+        if (this.hostFrame.kind !== 'presented') {
+            return;
+        }
+        const queuedKeyboard = this.queueHostKeyboardEvent(event, 'up');
+        if (queuedKeyboard) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+
+    queueHostKeyboardEvent(event: KeyboardEvent, keyboardKind: GuiWebKeyboardEventKind): boolean {
+        if (this.hostFrame.kind !== 'presented' || event.metaKey) {
+            return false;
+        }
+        const keyCode = guiWebKeyCodeFromDomKey(event.key);
+        if (keyCode.kind === 'unmapped') {
+            return false;
+        }
+        const queued = queueGuiWebInputEvent({
+            kind: 'keyboard',
+            windowId: this.hostFrame.windowId,
+            keyboardKind,
+            keyCode: keyCode.keyCode,
+            modifierBits: guiWebModifierBitsFromDomEvent(event),
+        });
+        if (queued.kind === 'err') {
+            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+            return false;
+        }
+        return true;
+    }
+
+    queueHostTextInputEvent(event: KeyboardEvent): boolean {
+        if (this.hostFrame.kind !== 'presented' || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) {
+            return false;
+        }
+        const scalar = guiWebSingleScalarFromDomKey(event.key);
+        if (scalar.kind === 'none') {
+            return false;
+        }
+        const queued = queueGuiWebInputEvent({
+            kind: 'text-input',
+            windowId: this.hostFrame.windowId,
+            scalarValue: scalar.value,
+        });
+        if (queued.kind === 'err') {
+            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+            return false;
+        }
+        return true;
     }
 
     toScenePoint(event: MouseEvent): { x: number; y: number } {
@@ -293,4 +378,65 @@ function guiWebPointerButtonFromDomButton(button: number): GuiWebPointerButton {
         default:
             return 'none';
     }
+}
+
+function guiWebKeyCodeFromDomKey(key: string): GuiWebKeyCodeLookup {
+    switch (key) {
+        case 'Tab':
+            return { kind: 'mapped', keyCode: 9 };
+        case 'Enter':
+            return { kind: 'mapped', keyCode: 13 };
+        case ' ':
+        case 'Spacebar':
+            return { kind: 'mapped', keyCode: 32 };
+        case 'ArrowUp':
+            return { kind: 'mapped', keyCode: 1001 };
+        case 'ArrowDown':
+            return { kind: 'mapped', keyCode: 1002 };
+        case 'ArrowRight':
+            return { kind: 'mapped', keyCode: 1003 };
+        case 'ArrowLeft':
+            return { kind: 'mapped', keyCode: 1004 };
+        default:
+            return { kind: 'unmapped' };
+    }
+}
+
+function guiWebModifierBitsFromDomEvent(event: KeyboardEvent): number {
+    let bits = 0;
+    if (event.shiftKey) {
+        bits |= 1;
+    }
+    if (event.altKey) {
+        bits |= 2;
+    }
+    if (event.ctrlKey) {
+        bits |= 4;
+    }
+    return bits;
+}
+
+function guiWebSingleScalarFromDomKey(key: string): GuiWebScalarLookup {
+    let count = 0;
+    let scalar = 0;
+    for (const part of key) {
+        count += 1;
+        if (count === 1) {
+            const code = part.codePointAt(0);
+            if (typeof code !== 'number') {
+                return { kind: 'none' };
+            }
+            scalar = code;
+        }
+    }
+    if (count === 1 && guiWebIsUnicodeScalarValue(scalar)) {
+        return { kind: 'scalar', value: scalar };
+    }
+    return { kind: 'none' };
+}
+
+function guiWebIsUnicodeScalarValue(value: number): boolean {
+    return value >= 0
+        && value <= 0x10FFFF
+        && !(value >= 0xD800 && value <= 0xDFFF);
 }

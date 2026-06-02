@@ -3,9 +3,12 @@ import { VFS } from './vfs.js';
 import type { CompilerAssetUrls } from './compiler-assets.js';
 import {
     GUI_WEB_EVENT_KIND_ACTION,
+    GUI_WEB_EVENT_KIND_KEYBOARD,
     GUI_WEB_EVENT_KIND_POINTER,
+    GUI_WEB_EVENT_KIND_TEXT_INPUT,
     GUI_WEB_EVENT_POLL_INVALID,
     GUI_WEB_EVENT_POLL_UNSUPPORTED,
+    guiWebSharedKeyboardKindToRaw,
     guiWebSharedPointerButtonToRaw,
     guiWebSharedPointerKindToRaw,
     takeGuiWebSharedActionId,
@@ -108,6 +111,10 @@ class WorkerWASI extends WASI {
             last_event_pointer_kind: this.nepl_gui_web_last_event_pointer_kind.bind(this),
             last_event_pointer_id: this.nepl_gui_web_last_event_pointer_id.bind(this),
             last_event_pointer_button: this.nepl_gui_web_last_event_pointer_button.bind(this),
+            last_event_keyboard_kind: this.nepl_gui_web_last_event_keyboard_kind.bind(this),
+            last_event_key_code: this.nepl_gui_web_last_event_key_code.bind(this),
+            last_event_key_modifiers: this.nepl_gui_web_last_event_key_modifiers.bind(this),
+            last_event_text_scalar_value: this.nepl_gui_web_last_event_text_scalar_value.bind(this),
         };
     }
 
@@ -240,11 +247,17 @@ class WorkerWASI extends WASI {
         if (this.lastGuiWebInputEvent.kind !== 'event') {
             return 0;
         }
+        if (this.lastGuiWebInputEvent.event.kind !== 'action' && this.lastGuiWebInputEvent.event.kind !== 'pointer') {
+            return 0;
+        }
         return this.lastGuiWebInputEvent.event.pointXMilli;
     }
 
     nepl_gui_web_last_event_point_y_milli(): number {
         if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'action' && this.lastGuiWebInputEvent.event.kind !== 'pointer') {
             return 0;
         }
         return this.lastGuiWebInputEvent.event.pointYMilli;
@@ -280,6 +293,46 @@ class WorkerWASI extends WASI {
         return guiWebSharedPointerButtonToRaw(this.lastGuiWebInputEvent.event.button);
     }
 
+    nepl_gui_web_last_event_keyboard_kind(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'keyboard') {
+            return 0;
+        }
+        return guiWebSharedKeyboardKindToRaw(this.lastGuiWebInputEvent.event.keyboardKind);
+    }
+
+    nepl_gui_web_last_event_key_code(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'keyboard') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.keyCode;
+    }
+
+    nepl_gui_web_last_event_key_modifiers(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'keyboard') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.modifierBits;
+    }
+
+    nepl_gui_web_last_event_text_scalar_value(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'text-input') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.scalarValue;
+    }
+
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
         if (result.kind === 'empty') {
             this.lastGuiWebInputEvent = { kind: 'empty' };
@@ -298,6 +351,12 @@ class WorkerWASI extends WASI {
         }
         if (result.event.kind === 'pointer') {
             return GUI_WEB_EVENT_KIND_POINTER;
+        }
+        if (result.event.kind === 'keyboard') {
+            return GUI_WEB_EVENT_KIND_KEYBOARD;
+        }
+        if (result.event.kind === 'text-input') {
+            return GUI_WEB_EVENT_KIND_TEXT_INPUT;
         }
         this.lastGuiWebInputEvent = { kind: 'empty' };
         return GUI_WEB_EVENT_POLL_INVALID;

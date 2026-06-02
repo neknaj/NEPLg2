@@ -24,3 +24,40 @@ fn main %impure fn unit i32 \unit:
         Result::Err _:
             1
 ```
+
+## web event wrapper exposes keyboard and text input variants
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/char" as *
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/test" as *
+#import "platforms/gui/web" as *
+#import "std/gui/keymap" as *
+
+fn main %impure fn unit i32 \unit:
+    let point %GuiPoint gui_point_new 0 0
+    let keyboard %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
+    let keyboard_web %GuiWebEvent GuiWebEvent 3 point gui_event_keyboard keyboard
+    match gui_web_event_keyboard &keyboard_web:
+        Option::Some event:
+            let key_map %FocusKeyMap focus_key_map_default
+            let command %Option FocusRouteCommand keyboard_event_to_focus_route_command &key_map event
+            assert is_some command
+        Option::None:
+            test_fail "keyboard event missing"
+    let text %TextInputEvent text_input_event_new '\u{3042}'
+    let text_web %GuiWebEvent GuiWebEvent 3 point gui_event_text_input text
+    match gui_web_event_text_input &text_web:
+        Option::Some event:
+            assert_eq_i32 0x3042 char_to_i32 text_input_event_value &event
+        Option::None:
+            test_fail "text input event missing"
+    0
+```
