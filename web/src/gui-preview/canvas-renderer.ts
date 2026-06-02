@@ -44,11 +44,6 @@ export function renderGuiPreviewFrameToCanvas(
         renderGuiPreviewCommand(ctx, command, viewport);
     }
 
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#9fb1c1';
-    ctx.font = `${Math.max(11, options.fontSize - 1)}px "HackGenConsoleNF", "JetBrains Mono", Consolas, monospace`;
-    ctx.fillText(frame.title, 12, 10);
-
     return { viewport };
 }
 
