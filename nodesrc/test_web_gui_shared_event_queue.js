@@ -395,6 +395,10 @@ async function runWebGuiSharedEventQueueRegression() {
     const counterSource = readRepoFile("examples", "gui_counter.nepl");
     const lifeSource = readRepoFile("examples", "gui_life.nepl");
     const mandelbrotSource = readRepoFile("examples", "gui_mandelbrot.nepl");
+    const calculatorSource = readRepoFile("examples", "gui_calculator.nepl");
+    const scientificCalculatorSource = readRepoFile("examples", "gui_scientific_calculator.nepl");
+    const paintSource = readRepoFile("examples", "gui_paint.nepl");
+    const breakoutSource = readRepoFile("examples", "gui_breakout.nepl");
 
     assert.match(queueSource, /GUI_WEB_EVENT_QUEUE_CAPACITY/);
     assert.match(queueSource, /writeGuiWebSharedInputEvent/);
@@ -474,24 +478,43 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(webInputSource, /pub fn gui_web_wait_action_result %impure fn i32 Result Option ActionId GuiError/);
     assert.match(webFacadeSource, /#import "\.\/web\/input" as @merge/);
     assert.match(counterSource, /gui_web_wait_action_result/);
-    assert.match(lifeSource, /gui_web_wait_action_result/);
+    assert.match(lifeSource, /gui_web_wait_event_result/);
     assert.match(lifeSource, /life_next_action/);
     assert.match(lifeSource, /life_animate_action/);
     assert.match(lifeSource, /life_resolution_down_action/);
     assert.match(lifeSource, /life_resolution_up_action/);
     assert.match(lifeSource, /gui_web_stdout_action_rect/);
-    assert.match(mandelbrotSource, /gui_web_wait_action_result/);
-    assert.match(mandelbrotSource, /mandelbrot_resolution_down_action/);
-    assert.match(mandelbrotSource, /mandelbrot_resolution_up_action/);
+    assert.match(mandelbrotSource, /gui_web_wait_event_result/);
+    assert.match(mandelbrotSource, /mandelbrot_preview_action/);
+    assert.match(mandelbrotSource, /mandelbrot_hd_action/);
+    assert.match(mandelbrotSource, /mandelbrot_detail_action/);
     assert.match(mandelbrotSource, /gui_web_stdout_action_rect/);
+    assert.match(calculatorSource, /gui_web_wait_event_result/);
+    assert.match(calculatorSource, /calculator_update_action/);
+    assert.match(calculatorSource, /calculator_action_eq/);
+    assert.match(scientificCalculatorSource, /gui_web_wait_event_result/);
+    assert.match(scientificCalculatorSource, /sci_action_square/);
+    assert.match(scientificCalculatorSource, /sci_integer_sqrt/);
+    assert.match(paintSource, /gui_web_wait_event_result/);
+    assert.match(paintSource, /gui_web_event_pointer/);
+    assert.match(paintSource, /pointer_event_kind/);
+    assert.match(paintSource, /pointer_event_button/);
+    assert.match(paintSource, /PointerButton::Primary/);
+    assert.match(breakoutSource, /gui_web_wait_event_result/);
+    assert.match(breakoutSource, /breakout_tick/);
+    assert.match(breakoutSource, /timeout_ms %i32 if animate 33 60000/);
     assert.doesNotMatch(queueSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(queueSource, /\|\s*null|\|\s*undefined/);
     assert.doesNotMatch(queueSource, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
     assert.doesNotMatch(workerSource, /createGuiPreviewScene/);
-    assert.doesNotMatch(shellSource, /gui_counter|gui_life|gui_mandelbrot/);
+    assert.doesNotMatch(shellSource, /gui_counter|gui_life|gui_mandelbrot|gui_calculator|gui_scientific_calculator|gui_paint|gui_breakout/);
     assert.doesNotMatch(counterSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
     assert.doesNotMatch(lifeSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
     assert.doesNotMatch(mandelbrotSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
+    assert.doesNotMatch(calculatorSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
+    assert.doesNotMatch(scientificCalculatorSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
+    assert.doesNotMatch(paintSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
+    assert.doesNotMatch(breakoutSource, /\bor [A-Za-z_][A-Za-z0-9_]* or|\band [A-Za-z_][A-Za-z0-9_]* and/);
 
     return {
         ok: true,
@@ -511,7 +534,8 @@ async function runWebGuiSharedEventQueueRegression() {
             "NEPL web GUI input wrapper exposes Result Option GuiWebEvent for full event polling",
             "Web shell filters GUI action input to windows presented by the active run",
             "Counter example drives update/render from NEPL-side gui_web_wait_action_result",
-            "Life and Mandelbrot examples drive interactive redraws from NEPL-side actions",
+            "Life and Mandelbrot examples drive interactive redraws from full NEPL-side GuiWebEvent polling",
+            "Calculator, scientific calculator, paint, and breakout examples run as NEPL GUI apps without TS simulation",
         ],
     };
 }

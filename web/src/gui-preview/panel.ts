@@ -225,7 +225,7 @@ export class GuiPreviewPanel {
                 windowId: this.hostFrame.windowId,
                 pointerKind: 'move',
                 pointerId: event.pointerId,
-                button: guiWebPointerButtonFromDomButton(event.button),
+                button: guiWebPointerButtonFromDomButtons(event.buttons),
                 point: this.toScenePoint(event),
             },
         };
@@ -368,6 +368,19 @@ function guiWebPointerButtonFromDomButton(button: number): GuiWebPointerButton {
         default:
             return 'none';
     }
+}
+
+function guiWebPointerButtonFromDomButtons(buttons: number): GuiWebPointerButton {
+    if ((buttons & 1) !== 0) {
+        return 'primary';
+    }
+    if ((buttons & 4) !== 0) {
+        return 'middle';
+    }
+    if ((buttons & 2) !== 0) {
+        return 'secondary';
+    }
+    return 'none';
 }
 
 function guiWebKeyCodeFromDomKey(key: string): GuiWebKeyCodeLookup {

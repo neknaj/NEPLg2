@@ -355,6 +355,8 @@ async function runWebGuiInputBridgeRegression() {
     assert.match(panelSource, /queueHostPointerEvent[\s\S]*this\.flushHostPointerMoveEvent\(\);[\s\S]*queueGuiWebInputEvent/);
     assert.match(panelSource, /dispose\(\)[\s\S]*this\.hostPointerMove = \{ kind: 'idle' \};/);
     assert.match(panelSource, /guiWebPointerButtonFromDomButton/);
+    assert.match(panelSource, /guiWebPointerButtonFromDomButtons/);
+    assert.match(panelSource, /button: guiWebPointerButtonFromDomButtons\(event\.buttons\)/);
     assert.match(panelSource, /handleCanvasKeyDown/);
     assert.match(panelSource, /handleCanvasKeyUp/);
     assert.match(panelSource, /guiWebSingleScalarFromDomKey/);
@@ -381,6 +383,7 @@ async function runWebGuiInputBridgeRegression() {
             "Web GUI input bridge stores only the latest consecutive pointer move",
             "Web GUI input bridge preserves pointer move ordering barriers and identity boundaries",
             "Web GUI panel flushes pending pointer move before immediate barrier events",
+            "Web GUI panel maps pointermove button state from the DOM buttons bitmask",
             "Web GUI input bridge queues keyboard events as typed values",
             "Web GUI input bridge queues Unicode scalar text input events as typed values",
             "Web GUI input bridge queues window events as typed values",

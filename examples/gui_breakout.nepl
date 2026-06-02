@@ -1,0 +1,561 @@
+//: neplg2:test[gui_breakout, normalize_newlines]
+//: [目的/もくてき]: ブロック崩し GUI app が ActionId と timeout tick で interactive game loop を構成できることを確認する
+//: argv: ["--once"]
+//:
+//: gui_breakout: The Elm Architecture 風の小さな game example
+//:
+//: [目的/もくてき]:
+//: - game model、update、view を分け、host event loop から受けた action と tick で model を進めます。
+//: - stdout fallback では timer event の代わりに `gui_web_wait_event_result` の timeout を animation tick として扱います。
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui/app" as *
+#import "alloc/string" as *
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/web" as *
+#import "std/env/cliarg" as *
+#import "std/stdio" as *
+
+struct BreakoutModel:
+    encoded %i32
+
+impl Clone for BreakoutModel:
+    fn clone %fn &BreakoutModel BreakoutModel \model:
+        *model
+
+impl Copy for BreakoutModel:
+    fn copy_mark %fn BreakoutModel BreakoutModel \model:
+        model
+
+fn breakout_model_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn bool BreakoutModel \paddle\ball_x\ball_y\vx_code\vy_code\destroyed\animate:
+    let ball_x_part %i32 mul ball_x 100
+    let ball_y_part %i32 mul ball_y 10000
+    let destroyed_part %i32 mul destroyed 4
+    let vy_part %i32 mul vy_code 2
+    let flag_a %i32 add vx_code vy_part
+    let flag_b %i32 add flag_a destroyed_part
+    let animate_part %i32:
+        if:
+            animate
+            then:
+                64
+            else:
+                0
+    let flags %i32 add flag_b animate_part
+    let flag_part %i32 mul flags 1000000
+    let a %i32 add paddle ball_x_part
+    let b %i32 add ball_y_part flag_part
+    let encoded %i32 add a b
+    BreakoutModel encoded
+
+fn breakout_init %fn unit BreakoutModel \unit:
+    breakout_model_new 42 48 42 1 0 0 false
+
+fn breakout_encoded %fn &BreakoutModel i32 \model:
+    *field::get_ref model "encoded"
+
+fn breakout_paddle %fn &BreakoutModel i32 \model:
+    let encoded %i32 breakout_encoded model
+    rem_s encoded 100
+
+fn breakout_ball_x %fn &BreakoutModel i32 \model:
+    let encoded %i32 breakout_encoded model
+    let scaled %i32 div_s encoded 100
+    rem_s scaled 100
+
+fn breakout_ball_y %fn &BreakoutModel i32 \model:
+    let encoded %i32 breakout_encoded model
+    let scaled %i32 div_s encoded 10000
+    rem_s scaled 100
+
+fn breakout_flags %fn &BreakoutModel i32 \model:
+    let encoded %i32 breakout_encoded model
+    div_s encoded 1000000
+
+fn breakout_vx_code %fn &BreakoutModel i32 \model:
+    let flags %i32 breakout_flags model
+    rem_s flags 2
+
+fn breakout_vy_code %fn &BreakoutModel i32 \model:
+    let flags %i32 breakout_flags model
+    let shifted %i32 div_s flags 2
+    rem_s shifted 2
+
+fn breakout_destroyed %fn &BreakoutModel i32 \model:
+    let flags %i32 breakout_flags model
+    let shifted %i32 div_s flags 4
+    rem_s shifted 16
+
+fn breakout_animate %fn &BreakoutModel bool \model:
+    let flags %i32 breakout_flags model
+    ge flags 64
+
+fn breakout_action_left %fn unit ActionId \unit:
+    action_id 1
+
+fn breakout_action_right %fn unit ActionId \unit:
+    action_id 2
+
+fn breakout_action_step %fn unit ActionId \unit:
+    action_id 3
+
+fn breakout_action_animate %fn unit ActionId \unit:
+    action_id 4
+
+fn breakout_action_reset %fn unit ActionId \unit:
+    action_id 5
+
+fn breakout_action_raw %fn ActionId i32 \action:
+    action_id_value action
+
+fn breakout_clamp_paddle %fn i32 i32 \paddle:
+    if:
+        lt paddle 0
+        then:
+            0
+        else:
+            if:
+                gt paddle 80
+                then:
+                    80
+                else:
+                    paddle
+
+fn breakout_delta_from_code %fn i32 i32 \code:
+    if:
+        eq code 0
+        then:
+            -2
+        else:
+            2
+
+fn breakout_next_vx_code %fn i32 fn i32 i32 \ball_x\vx_code:
+    if:
+        le ball_x 2
+        then:
+            1
+        else:
+            if:
+                ge ball_x 94
+                then:
+                    0
+                else:
+                    vx_code
+
+fn breakout_next_vy_code %fn i32 fn i32 fn i32 fn i32 i32 \ball_y\ball_x\paddle\vy_code:
+    if:
+        le ball_y 8
+        then:
+            1
+        else:
+            if:
+                ge ball_y 58
+                then:
+                    let paddle_right %i32 add paddle 16
+                    let inside_left %bool ge ball_x paddle
+                    let inside_right %bool le ball_x paddle_right
+                    let hits_paddle %bool and inside_left inside_right
+                    if:
+                        hits_paddle
+                        then:
+                            0
+                        else:
+                            0
+                else:
+                    vy_code
+
+fn breakout_next_destroyed %fn i32 fn i32 i32 \ball_y\destroyed:
+    if:
+        le ball_y 8
+        then:
+            if:
+                ge destroyed 8
+                then:
+                    destroyed
+                else:
+                    add destroyed 1
+        else:
+            destroyed
+
+fn breakout_tick %fn BreakoutModel BreakoutModel \model:
+    let paddle %i32 breakout_paddle &model
+    let ball_x %i32 breakout_ball_x &model
+    let ball_y %i32 breakout_ball_y &model
+    let vx_code %i32 breakout_vx_code &model
+    let vy_code %i32 breakout_vy_code &model
+    let destroyed %i32 breakout_destroyed &model
+    let animate %bool breakout_animate &model
+    let dx %i32 breakout_delta_from_code vx_code
+    let dy %i32 breakout_delta_from_code vy_code
+    let moved_x %i32 add ball_x dx
+    let moved_y %i32 add ball_y dy
+    let next_vx %i32 breakout_next_vx_code moved_x vx_code
+    let next_vy %i32 breakout_next_vy_code moved_y moved_x paddle vy_code
+    let next_destroyed %i32 breakout_next_destroyed moved_y destroyed
+    let final_dx %i32 breakout_delta_from_code next_vx
+    let final_dy %i32 breakout_delta_from_code next_vy
+    let final_x %i32 add ball_x final_dx
+    let final_y %i32 add ball_y final_dy
+    breakout_model_new paddle final_x final_y next_vx next_vy next_destroyed animate
+
+fn breakout_move_left %fn BreakoutModel BreakoutModel \model:
+    let paddle %i32 breakout_paddle &model
+    let next_paddle %i32 breakout_clamp_paddle sub paddle 4
+    breakout_model_new next_paddle breakout_ball_x &model breakout_ball_y &model breakout_vx_code &model breakout_vy_code &model breakout_destroyed &model breakout_animate &model
+
+fn breakout_move_right %fn BreakoutModel BreakoutModel \model:
+    let paddle %i32 breakout_paddle &model
+    let next_raw %i32 add paddle 4
+    let next_paddle %i32 breakout_clamp_paddle next_raw
+    breakout_model_new next_paddle breakout_ball_x &model breakout_ball_y &model breakout_vx_code &model breakout_vy_code &model breakout_destroyed &model breakout_animate &model
+
+fn breakout_toggle_animate %fn BreakoutModel BreakoutModel \model:
+    let next_animate %bool not breakout_animate &model
+    breakout_model_new breakout_paddle &model breakout_ball_x &model breakout_ball_y &model breakout_vx_code &model breakout_vy_code &model breakout_destroyed &model next_animate
+
+fn breakout_update_action %fn BreakoutModel fn ActionId BreakoutModel \model\action:
+    let raw %i32 breakout_action_raw action
+    if:
+        eq raw 1
+        then:
+            breakout_move_left model
+        else:
+            if:
+                eq raw 2
+                then:
+                    breakout_move_right model
+                else:
+                    if:
+                        eq raw 3
+                        then:
+                            breakout_tick model
+                        else:
+                            if:
+                                eq raw 4
+                                then:
+                                    breakout_toggle_animate model
+                                else:
+                                    if:
+                                        eq raw 5
+                                        then:
+                                            breakout_init
+                                        else:
+                                            model
+
+fn breakout_update_event %fn BreakoutModel fn GuiWebEvent BreakoutModel \model\web_event:
+    match gui_web_event_action &web_event:
+        Option::Some action:
+            breakout_update_action model action
+        Option::None:
+            model
+
+fn breakout_color_background %fn unit Rgba8888 \unit:
+    let r %u8 cast 8
+    let g %u8 cast 12
+    let b %u8 cast 18
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn breakout_color_playfield %fn unit Rgba8888 \unit:
+    let r %u8 cast 13
+    let g %u8 cast 20
+    let b %u8 cast 28
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn breakout_color_paddle %fn unit Rgba8888 \unit:
+    let r %u8 cast 66
+    let g %u8 cast 190
+    let b %u8 cast 170
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn breakout_color_ball %fn unit Rgba8888 \unit:
+    let r %u8 cast 245
+    let g %u8 cast 230
+    let b %u8 cast 96
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn breakout_color_brick %fn i32 Rgba8888 \index:
+    let a %u8 cast 255
+    let r_i32 %i32 add 90 mul index 16
+    let g_i32 %i32 add 70 mul index 9
+    let b_i32 %i32 sub 210 mul index 10
+    let r %u8 cast r_i32
+    let g %u8 cast g_i32
+    let b %u8 cast b_i32
+    rgba8888_new r g b a
+
+fn breakout_color_button %fn unit Rgba8888 \unit:
+    let r %u8 cast 35
+    let g %u8 cast 61
+    let b %u8 cast 86
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn breakout_color_text %fn unit Rgba8888 \unit:
+    let r %u8 cast 238
+    let g %u8 cast 244
+    let b %u8 cast 241
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn breakout_present_brick %impure fn BreakoutModel impure fn i32 Result unit GuiError \model\index:
+    let destroyed %i32 breakout_destroyed &model
+    if:
+        lt index destroyed
+        then:
+            Result::Ok unit
+        else:
+            let x_offset %i32 mul index 58
+            let x %i32 add 22 x_offset
+            let rect %GuiRect gui_rect_new x 24 48 20
+            let color %Rgba8888 breakout_color_brick index
+            gui_web_stdout_fill_rect rect color
+
+fn breakout_present_bricks %impure fn BreakoutModel impure fn i32 Result unit GuiError \model\index:
+    if:
+        ge index 8
+        then:
+            Result::Ok unit
+        else:
+            match breakout_present_brick model index:
+                Result::Ok _:
+                    let next %i32 add index 1
+                    breakout_present_bricks model next
+                Result::Err error:
+                    Result::Err error
+
+fn breakout_present_paddle %impure fn BreakoutModel Result unit GuiError \model:
+    let paddle %i32 breakout_paddle &model
+    let x %i32 mul paddle 5
+    let rect %GuiRect gui_rect_new x 290 80 14
+    gui_web_stdout_fill_rect rect breakout_color_paddle
+
+fn breakout_present_ball %impure fn BreakoutModel Result unit GuiError \model:
+    let ball_x %i32 breakout_ball_x &model
+    let ball_y %i32 breakout_ball_y &model
+    let x %i32 mul ball_x 5
+    let y %i32 mul ball_y 5
+    let rect %GuiRect gui_rect_new x y 12 12
+    gui_web_stdout_fill_rect rect breakout_color_ball
+
+fn breakout_control_rect %fn i32 GuiRect \index:
+    let x_offset %i32 mul index 92
+    let x %i32 add 16 x_offset
+    gui_rect_new x 340 82 34
+
+fn breakout_control_label %fn i32 str \index:
+    if:
+        eq index 0
+        then:
+            "Left"
+        else:
+            if:
+                eq index 1
+                then:
+                    "Right"
+                else:
+                    if:
+                        eq index 2
+                        then:
+                            "Step"
+                        else:
+                            if:
+                                eq index 3
+                                then:
+                                    "Animate"
+                                else:
+                                    "Reset"
+
+fn breakout_control_action %fn i32 ActionId \index:
+    if:
+        eq index 0
+        then:
+            breakout_action_left
+        else:
+            if:
+                eq index 1
+                then:
+                    breakout_action_right
+                else:
+                    if:
+                        eq index 2
+                        then:
+                            breakout_action_step
+                        else:
+                            if:
+                                eq index 3
+                                then:
+                                    breakout_action_animate
+                                else:
+                                    breakout_action_reset
+
+fn breakout_present_control %impure fn i32 Result unit GuiError \index:
+    let rect %GuiRect breakout_control_rect index
+    let label %str breakout_control_label index
+    let action %ActionId breakout_control_action index
+    match gui_web_stdout_fill_rect rect breakout_color_button:
+        Result::Ok _:
+            let x %i32 gui_rect_x &rect
+            let y %i32 gui_rect_y &rect
+            let origin_x %i32 add x 41
+            let origin_y %i32 add y 10
+            let origin %GuiPoint gui_point_new origin_x origin_y
+            match gui_web_stdout_text_run origin 12 GuiWebTextAlign::Center breakout_color_text label:
+                Result::Ok _:
+                    gui_web_stdout_action_rect rect action
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
+
+fn breakout_present_controls %impure fn i32 Result unit GuiError \index:
+    if:
+        ge index 5
+        then:
+            Result::Ok unit
+        else:
+            match breakout_present_control index:
+                Result::Ok _:
+                    let next %i32 add index 1
+                    breakout_present_controls next
+                Result::Err error:
+                    Result::Err error
+
+fn breakout_present_status %impure fn BreakoutModel Result unit GuiError \model:
+    let origin %GuiPoint gui_point_new 462 392
+    gui_web_stdout_text_i32 origin 13 GuiWebTextAlign::Center breakout_color_text breakout_destroyed &model
+
+fn breakout_present_frame %impure fn BreakoutModel Result unit GuiError \model:
+    match gui_web_stdout_frame_begin 13 494 420 "NEPLg2 Breakout":
+        Result::Ok _:
+            let background %GuiRect gui_rect_new 0 0 494 420
+            match gui_web_stdout_fill_rect background breakout_color_background:
+                Result::Ok _:
+                    let playfield %GuiRect gui_rect_new 0 0 494 320
+                    match gui_web_stdout_fill_rect playfield breakout_color_playfield:
+                        Result::Ok _:
+                            match breakout_present_bricks model 0:
+                                Result::Ok _:
+                                    match breakout_present_paddle model:
+                                        Result::Ok _:
+                                            match breakout_present_ball model:
+                                                Result::Ok _:
+                                                    match breakout_present_controls 0:
+                                                        Result::Ok _:
+                                                            match breakout_present_status model:
+                                                                Result::Ok _:
+                                                                    gui_web_stdout_frame_end
+                                                                Result::Err error:
+                                                                    Result::Err error
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                Result::Err error:
+                                                    Result::Err error
+                                        Result::Err error:
+                                            Result::Err error
+                                Result::Err error:
+                                    Result::Err error
+                        Result::Err error:
+                            Result::Err error
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
+
+fn breakout_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--once"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            breakout_has_once_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    breakout_has_once_flag_loop next_idx count
+
+fn breakout_has_once_flag %impure fn unit bool \unit:
+    let count %i32 cliarg_count
+    breakout_has_once_flag_loop 1 count
+
+fn breakout_print_status %impure fn BreakoutModel unit \model:
+    print "breakout ball x = "
+    let ball_x %i32 breakout_ball_x &model
+    println_i32 ball_x
+    print "breakout destroyed = "
+    let destroyed %i32 breakout_destroyed &model
+    println_i32 destroyed
+
+fn breakout_run_once %impure fn BreakoutModel unit \model:
+    let stepped %BreakoutModel breakout_tick model
+    match breakout_present_frame stepped:
+        Result::Ok _:
+            breakout_print_status stepped
+        Result::Err _:
+            println "breakout gui protocol error"
+
+fn breakout_event_loop %impure fn BreakoutModel unit \initial_model:
+    let mut model %BreakoutModel initial_model
+    let mut running %bool true
+    while running:
+        do:
+            let animate %bool breakout_animate &model
+            let timeout_ms %i32 if animate 33 60000
+            match gui_web_wait_event_result timeout_ms:
+                Result::Ok event_result:
+                    match event_result:
+                        Option::Some web_event:
+                            set model breakout_update_event model web_event
+                            match breakout_present_frame model:
+                                Result::Ok _:
+                                    unit
+                                Result::Err _:
+                                    println "breakout gui protocol error";
+                                    set running false
+                        Option::None:
+                            if:
+                                animate
+                                then:
+                                    set model breakout_tick model
+                                    match breakout_present_frame model:
+                                        Result::Ok _:
+                                            unit
+                                        Result::Err _:
+                                            println "breakout gui protocol error";
+                                            set running false
+                                else:
+                                    unit
+                Result::Err _:
+                    println "breakout gui input unsupported";
+                    set running false
+
+fn main %impure fn unit unit \unit:
+    let model0 %BreakoutModel breakout_init
+    if:
+        breakout_has_once_flag
+        then:
+            breakout_run_once model0
+        else:
+            match breakout_present_frame model0:
+                Result::Ok _:
+                    breakout_event_loop model0
+                Result::Err _:
+                    println "breakout gui protocol error"
