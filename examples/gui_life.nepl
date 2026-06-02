@@ -1,14 +1,11 @@
 //: neplg2:test[gui_life, normalize_newlines]
-//: [目的/もくてき]: GUI command stream で Life board を描画する例が固定個数の command を生成することを確認する
-//: stdout: mlstr:
-//:     ##: life commands = 25
-//:     ##: life live cells step 3 = 5
-//:     ##: life checksum step 3 = 45
+//: [目的/もくてき]: GUI command stream で Life board を描画し、Web Playground host protocol へ frame を出力できることを確認する
 //:
 //: gui_life: Conway の Life board を GUI render command として描画する例
 //:
 //: [目的/もくてき]:
 //: - game state と描画 command stream を分け、backend なしでも描画 contract を確認できるようにします。
+//: - 同じ game state から Web Playground stdout protocol frame を出力し、Run 時に floating GUI window へ渡します。
 //: - 5 x 5 の小さな board を 1 cell ずつ `FillRect` command に変換します。
 //:
 //: [実装/じっそう]:
@@ -17,6 +14,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - Life の更新は GUI backend から独立しています。
+//: - Web stdout protocol は `platforms/gui/web` の一時 transport であり、正式 host import ABI へ置き換える予定です。
 //: - timer や real surface は後続の `std/gui/runtime` と backend が接続します。
 #entry main
 #indent 4
@@ -26,6 +24,7 @@
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "platforms/gui/web" as *
 #import "std/stdio" as *
 
 fn life_width %fn unit i32 \unit:
@@ -36,6 +35,20 @@ fn life_height %fn unit i32 \unit:
 
 fn life_draw_step %fn unit i32 \unit:
     3
+
+fn life_cell_size %fn unit i32 \unit:
+    28
+
+fn life_cell_draw_size %fn unit i32 \unit:
+    sub life_cell_size 2
+
+fn life_frame_width %fn unit i32 \unit:
+    let full_width %i32 mul life_width life_cell_size
+    sub full_width 2
+
+fn life_frame_height %fn unit i32 \unit:
+    let full_height %i32 mul life_height life_cell_size
+    sub full_height 2
 
 fn life_initial_cell %fn i32 fn i32 bool \x\y:
     let a %bool and eq x 1 eq y 0
@@ -48,9 +61,18 @@ fn life_initial_cell %fn i32 fn i32 bool \x\y:
     let abcd %bool or ab cd
     or abcd e
 
+fn life_cell_position_is_outside %fn i32 fn i32 bool \x\y:
+    let left_of_grid %bool lt x 0
+    let right_of_grid %bool ge x life_width
+    let above_grid %bool lt y 0
+    let below_grid %bool ge y life_height
+    let outside_x %bool or left_of_grid right_of_grid
+    let outside_y %bool or above_grid below_grid
+    or outside_x outside_y
+
 fn life_cell_at_step_bounded %fn i32 fn i32 fn i32 bool \x\y\step:
     if:
-        or lt x 0 or ge x life_width or lt y 0 ge y life_height
+        life_cell_position_is_outside x y
         then:
             false
         else:
@@ -114,15 +136,61 @@ fn life_cell_color %fn bool Rgba8888 \alive:
             rgba8888_new dim dim dim full
 
 fn life_render_cell %fn MockRenderTarget fn i32 fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y\step:
-    let cell_size %i32 3
+    let cell_size %i32 life_cell_size
     let px %i32 mul x cell_size
     let py %i32 mul y cell_size
-    let rect %GuiRect gui_rect_new px py cell_size cell_size
+    let rect %GuiRect gui_rect_new px py life_cell_draw_size life_cell_draw_size
     let alive %bool life_cell_at_step x y step
     let color %Rgba8888 life_cell_color alive
     let paint %GuiPaint gui_paint_solid color
     let command %RenderCommand render_command_fill_rect rect paint
     render_one target command
+
+fn life_present_cell %impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \x\y\step:
+    let cell_size %i32 life_cell_size
+    let px %i32 mul x cell_size
+    let py %i32 mul y cell_size
+    let rect %GuiRect gui_rect_new px py life_cell_draw_size life_cell_draw_size
+    let alive %bool life_cell_at_step x y step
+    let color %Rgba8888 life_cell_color alive
+    gui_web_stdout_fill_rect rect color
+
+fn life_present_row %impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \x\y\step:
+    if:
+        ge x life_width
+        then:
+            Result::Ok unit
+        else:
+            match life_present_cell x y step:
+                Result::Ok _:
+                    let next_x %i32 add x 1
+                    life_present_row next_x y step
+                Result::Err err:
+                    Result::Err err
+
+fn life_present_rows %impure fn i32 impure fn i32 Result unit GuiError \y\step:
+    if:
+        ge y life_height
+        then:
+            Result::Ok unit
+        else:
+            match life_present_row 0 y step:
+                Result::Ok _:
+                    let next_y %i32 add y 1
+                    life_present_rows next_y step
+                Result::Err err:
+                    Result::Err err
+
+fn life_present_frame %impure fn i32 Result unit GuiError \step:
+    match gui_web_stdout_frame_begin 2 life_frame_width life_frame_height "NEPLg2 Life":
+        Result::Ok _:
+            match life_present_rows 0 step:
+                Result::Ok _:
+                    gui_web_stdout_frame_end
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
 
 fn life_render_row %fn MockRenderTarget fn i32 fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y\step:
     if:
@@ -208,11 +276,18 @@ fn life_state_hash_rows %fn i32 fn i32 i32 \y\step:
 fn main %impure fn unit unit \unit:
     match life_render:
         Result::Ok target:
-            print "life commands = "
-            println_i32 mock_render_target_command_count &target
-            print "life live cells step 3 = "
-            println_i32 life_live_count_rows 0 life_draw_step
-            print "life checksum step 3 = "
-            println_i32 life_state_hash_rows 0 life_draw_step
+            match life_present_frame life_draw_step:
+                Result::Ok _:
+                    print "life commands = "
+                    let command_count %i32 mock_render_target_command_count &target
+                    println_i32 command_count
+                    print "life live cells step 3 = "
+                    let live_cells %i32 life_live_count_rows 0 life_draw_step
+                    println_i32 live_cells
+                    print "life checksum step 3 = "
+                    let checksum %i32 life_state_hash_rows 0 life_draw_step
+                    println_i32 checksum
+                Result::Err _:
+                    println "life gui protocol error"
         Result::Err _:
             println "life render error"

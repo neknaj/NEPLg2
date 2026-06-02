@@ -150,7 +150,6 @@ export class GuiPreviewPanel {
     }
 
     render() {
-        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const width = this.canvas.clientWidth || Math.max(1, this.canvas.width);
         const height = this.canvas.clientHeight || Math.max(1, this.canvas.height);
         this.ctx.clearRect(0, 0, width, height);
@@ -162,6 +161,7 @@ export class GuiPreviewPanel {
             this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length}`;
             return;
         }
+        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const rendered = renderGuiPreviewSceneToCanvas(this.ctx, scene, width, height, { fontSize: this.fontSize });
         this.viewport = rendered.viewport;
         this.metricsEl.textContent = summarizeGuiPreviewScene(scene);

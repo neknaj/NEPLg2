@@ -1,5 +1,7 @@
 import { resolveCompilerAssets, type CompilerAssetUrls } from '../runtime/compiler-assets.js';
 import { VFS } from '../runtime/vfs.js';
+import { GuiWebStdoutProtocolParser, type GuiWebStdoutProtocolEvent } from '../gui-preview/stdout-protocol.js';
+import { presentGuiWebRuntimeFrame } from '../gui-preview/runtime-bridge.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -77,6 +79,7 @@ export class Shell {
     private stdinBuffer: Int32Array | null;
     private stdinData: Uint8Array | null;
     private currentProcessReject: ((reason?: any) => void) | null;
+    private guiStdoutProtocolParser: GuiWebStdoutProtocolParser;
 
     constructor(terminal: any, vfs: VFS) {
         this.terminal = terminal;
@@ -96,6 +99,7 @@ export class Shell {
         this.stdinBuffer = null;
         this.stdinData = null;
         this.currentProcessReject = null;
+        this.guiStdoutProtocolParser = new GuiWebStdoutProtocolParser();
     }
 
     async executeLine(line: string) {
@@ -450,6 +454,7 @@ export class Shell {
         if (this.stdinBuffer) {
             Atomics.store(this.stdinBuffer, 0, 0);
         }
+        this.guiStdoutProtocolParser.reset();
 
         return new Promise((resolve, reject) => {
             const worker = request.type === 'execute-neplg2' && options.keepWorkerAlive
@@ -460,6 +465,7 @@ export class Shell {
 
             const shouldKeepWorker = options.keepWorkerAlive && worker === this.compilerWorker;
             const finish = (forceTerminate: boolean = false) => {
+                this.handleGuiStdoutProtocolEvents(this.guiStdoutProtocolParser.flush());
                 this.activeWorker = null;
                 this.currentProcessReject = null;
                 worker.onmessage = null;
@@ -474,7 +480,11 @@ export class Shell {
                 switch (message.type) {
                     case 'stdout': {
                         const text = new TextDecoder().decode(new Uint8Array(message.data));
-                        this.terminal.write(text);
+                        if (message.fd === 1) {
+                            this.handleGuiStdoutProtocolEvents(this.guiStdoutProtocolParser.pushText(text));
+                        } else {
+                            this.terminal.write(text);
+                        }
                         break;
                     }
                     case 'compile_result':
@@ -510,6 +520,29 @@ export class Shell {
 
             worker.postMessage(request);
         });
+    }
+
+    private handleGuiStdoutProtocolEvents(events: GuiWebStdoutProtocolEvent[]) {
+        for (const event of events) {
+            if (event.kind === 'text') {
+                this.terminal.write(event.text);
+            } else if (event.kind === 'frame') {
+                const presented = presentGuiWebRuntimeFrame(event.frame);
+                if (presented.kind === 'err') {
+                    this.printGuiProtocolError(`GUI frame rejected: ${presented.error.kind} ${presented.error.path}`);
+                }
+            } else {
+                this.printGuiProtocolError(`GUI stdout protocol error: ${event.error.kind} ${event.error.path}`);
+            }
+        }
+    }
+
+    private printGuiProtocolError(message: string) {
+        if (typeof this.terminal.printError === 'function') {
+            this.terminal.printError(message);
+        } else {
+            this.terminal.write(`${message}\n`);
+        }
     }
 
     private persistCompileOutputs(outBase: string, outputs: Record<string, string | Uint8Array>) {

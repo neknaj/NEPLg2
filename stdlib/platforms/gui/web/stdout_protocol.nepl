@@ -1,0 +1,219 @@
+//: # platforms/gui/web/stdout_protocol
+//: Web Playground GUI stdout frame protocol
+//:
+//: ### [目的/もくてき]
+//: - NEPLg2 app が生成した GUI frame を Web Playground host へ渡すため、行指向の protocol を stdout に出力します。
+//: - TypeScript 側はこの protocol を decode して `DrawCommand` frame に変換し、floating GUI window に表示します。
+//:
+//: ### [契約/けいやく]
+//: - frame は `gui_web_stdout_frame_begin` で開始し、`gui_web_stdout_frame_end` で完了します。
+//: - frame 内では `gui_web_stdout_fill_rect` と `gui_web_stdout_text_run` を使って command を streaming します。
+//: - 色は `Rgba8888` の channel を 0..255 の整数として出力します。
+//:
+//: ### [現状/げんじょう]
+//: - この module は正式な Wasm import ABI ではなく、Web Playground の runtime bridge が読む stdout transport です。
+//: - host import ABI が実装された後も、debug や text-only host 用の fallback として残せます。
+
+#indent 4
+
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/stdio" as *
+
+//: GuiWebTextAlign: stdout protocol の text alignment を[表/あらわ]す enum
+//:
+//: [目的/もくてき]:
+//: - text alignment を raw string ではなく enum として[受/う]け、`left` / `center` / `right` 以外を API 境界で[作/つく]れないようにします。
+pub enum GuiWebTextAlign:
+    Left
+    Center
+    Right
+
+impl Clone for GuiWebTextAlign:
+    fn clone %fn &GuiWebTextAlign GuiWebTextAlign \align:
+        *align
+
+impl Copy for GuiWebTextAlign:
+    fn copy_mark %fn GuiWebTextAlign GuiWebTextAlign \align:
+        align
+
+//: gui_web_text_align_label: alignment enum を protocol field に[変換/へんかん]する
+pub fn gui_web_text_align_label %fn GuiWebTextAlign str \align:
+    match align:
+        GuiWebTextAlign::Left:
+            "left"
+        GuiWebTextAlign::Center:
+            "center"
+        GuiWebTextAlign::Right:
+            "right"
+
+//: gui_web_stdout_print_u8: u8 channel を 10 進整数として stdout に出力する
+//:
+//: [目的/もくてき]:
+//: - GUI color channel は `u8` だが、line protocol は ASCII integer field を使うため、境界で明示的に変換します。
+fn gui_web_stdout_print_u8 %impure fn u8 unit \value:
+    let shown %i32 cast value
+    print_i32 shown
+
+fn gui_web_stdout_frame_begin_is_invalid %fn i32 fn i32 fn i32 bool \window_id\width\height:
+    let invalid_window %bool lt window_id 0
+    let invalid_width %bool le width 0
+    let invalid_height %bool le height 0
+    let invalid_size %bool or invalid_width invalid_height
+    or invalid_window invalid_size
+
+fn gui_web_stdout_rect_is_invalid %fn &GuiRect bool \rect:
+    let width %i32 gui_rect_width rect
+    let height %i32 gui_rect_height rect
+    let invalid_width %bool lt width 0
+    let invalid_height %bool lt height 0
+    or invalid_width invalid_height
+
+//: gui_web_stdout_frame_begin: GUI frame protocol の開始行を出力する
+//:
+//: [契約/けいやく]:
+//: - width と height は 1 以上です。
+//: - window_id が負、または width/height が 0 以下なら `GuiError::InvalidGeometry` を返します。
+//: - title に改行を含めると line protocol として壊れるため、正式 ABI へ移るまで caller 側で改行を避けます。
+pub fn gui_web_stdout_frame_begin %impure fn i32 impure fn i32 impure fn i32 impure fn str Result unit GuiError \window_id\width\height\title:
+    if:
+        gui_web_stdout_frame_begin_is_invalid window_id width height
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            print "NEPLG2_GUI_FRAME_BEGIN ";
+            print_i32 window_id;
+            print " ";
+            print_i32 width;
+            print " ";
+            print_i32 height;
+            print " ";
+            println title;
+            Result::Ok unit
+
+//: gui_web_stdout_frame_end: GUI frame protocol の完了行を出力する
+pub fn gui_web_stdout_frame_end %impure fn unit Result unit GuiError \unit:
+    println "NEPLG2_GUI_FRAME_END";
+    Result::Ok unit
+
+//: gui_web_stdout_fill_rect: fill-rect command を 1 行で出力する
+//:
+//: [契約/けいやく]:
+//: - rect の width と height は 0 以上です。
+//: - 負の width/height は `GuiError::InvalidGeometry` として返します。
+//: - Web host はこの行を `DrawCommand::FillRect` 相当へ decode します。
+pub fn gui_web_stdout_fill_rect %impure fn GuiRect impure fn Rgba8888 Result unit GuiError \rect\color:
+    if:
+        gui_web_stdout_rect_is_invalid &rect
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            let rect_x %i32 gui_rect_x &rect
+            let rect_y %i32 gui_rect_y &rect
+            let rect_width %i32 gui_rect_width &rect
+            let rect_height %i32 gui_rect_height &rect
+            let red %u8 rgba8888_r &color
+            let green %u8 rgba8888_g &color
+            let blue %u8 rgba8888_b &color
+            let alpha %u8 rgba8888_a &color
+            print "NEPLG2_GUI_FILL_RECT ";
+            print_i32 rect_x;
+            print " ";
+            print_i32 rect_y;
+            print " ";
+            print_i32 rect_width;
+            print " ";
+            print_i32 rect_height;
+            print " ";
+            gui_web_stdout_print_u8 red;
+            print " ";
+            gui_web_stdout_print_u8 green;
+            print " ";
+            gui_web_stdout_print_u8 blue;
+            print " ";
+            gui_web_stdout_print_u8 alpha;
+            print "\n";
+            Result::Ok unit
+
+//: gui_web_stdout_text_run: text-run command を 1 行で出力する
+//:
+//: [契約/けいやく]:
+//: - align は `GuiWebTextAlign` enum で指定します。
+//: - size が 0 以下なら `GuiError::InvalidGeometry` を返します。
+//: - text に改行を含めると line protocol として壊れるため、正式 ABI へ移るまで caller 側で改行を避けます。
+pub fn gui_web_stdout_text_run %impure fn GuiPoint impure fn i32 impure fn GuiWebTextAlign impure fn Rgba8888 impure fn str Result unit GuiError \origin\size\align\color\text:
+    if:
+        le size 0
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            let origin_x %i32 gui_point_x &origin
+            let origin_y %i32 gui_point_y &origin
+            let align_label %str gui_web_text_align_label align
+            let red %u8 rgba8888_r &color
+            let green %u8 rgba8888_g &color
+            let blue %u8 rgba8888_b &color
+            let alpha %u8 rgba8888_a &color
+            print "NEPLG2_GUI_TEXT_RUN ";
+            print_i32 origin_x;
+            print " ";
+            print_i32 origin_y;
+            print " ";
+            print_i32 size;
+            print " ";
+            print align_label;
+            print " ";
+            gui_web_stdout_print_u8 red;
+            print " ";
+            gui_web_stdout_print_u8 green;
+            print " ";
+            gui_web_stdout_print_u8 blue;
+            print " ";
+            gui_web_stdout_print_u8 alpha;
+            print " ";
+            println text;
+            Result::Ok unit
+
+//: gui_web_stdout_text_i32: i32 value を text-run command の text として出力する
+//:
+//: [目的/もくてき]:
+//: - Counter example のように数値 model を描画する時、文字列 allocation helper に寄せず stdout streaming だけで text field を作ります。
+//:
+//: [契約/けいやく]:
+//: - align は `GuiWebTextAlign` enum で指定します。
+//: - size が 0 以下なら `GuiError::InvalidGeometry` を返します。
+pub fn gui_web_stdout_text_i32 %impure fn GuiPoint impure fn i32 impure fn GuiWebTextAlign impure fn Rgba8888 impure fn i32 Result unit GuiError \origin\size\align\color\value:
+    if:
+        le size 0
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            let origin_x %i32 gui_point_x &origin
+            let origin_y %i32 gui_point_y &origin
+            let align_label %str gui_web_text_align_label align
+            let red %u8 rgba8888_r &color
+            let green %u8 rgba8888_g &color
+            let blue %u8 rgba8888_b &color
+            let alpha %u8 rgba8888_a &color
+            print "NEPLG2_GUI_TEXT_RUN ";
+            print_i32 origin_x;
+            print " ";
+            print_i32 origin_y;
+            print " ";
+            print_i32 size;
+            print " ";
+            print align_label;
+            print " ";
+            gui_web_stdout_print_u8 red;
+            print " ";
+            gui_web_stdout_print_u8 green;
+            print " ";
+            gui_web_stdout_print_u8 blue;
+            print " ";
+            gui_web_stdout_print_u8 alpha;
+            print " ";
+            println_i32 value;
+            Result::Ok unit

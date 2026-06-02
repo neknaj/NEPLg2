@@ -645,7 +645,6 @@ export class PlaygroundPanelManager {
             },
         });
 
-        shell.actions.appendChild(this.createPanelButton('G', 'Open GUI preview', () => this.showGuiPreviewForActiveFile()));
         shell.actions.appendChild(this.createPanelButton('R', 'Split right', () => this.splitPanel(leaf.id, 'h')));
         shell.actions.appendChild(this.createPanelButton('D', 'Split down', () => this.splitPanel(leaf.id, 'v')));
         shell.actions.appendChild(this.createPanelButton('x', 'Close panel', () => this.closePanel(leaf.id)));

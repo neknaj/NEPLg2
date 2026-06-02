@@ -21,7 +21,7 @@ function runWebGuiFloatingWindowSourceRegression() {
     ];
 
     assert.match(indexHtml, /id="gui-window-layer"/);
-    assert.match(indexHtml, /id="gui-button"/);
+    assert.doesNotMatch(indexHtml, /id="gui-button"/);
     assert.match(managerSource, /class GuiFloatingWindowManager/);
     assert.match(managerSource, /WindowMoveState =[\s\S]*kind: 'idle'/);
     assert.match(managerSource, /WindowMode =[\s\S]*kind: 'normal'[\s\S]*kind: 'minimized'; previousMode: RestorableWindowMode[\s\S]*kind: 'maximized'/);
@@ -50,6 +50,8 @@ function runWebGuiFloatingWindowSourceRegression() {
     assert.match(panelManagerSource, /new GuiFloatingWindowManager/);
     assert.match(panelManagerSource, /floatingGui\.openWindowForSourcePath/);
     assert.match(panelManagerSource, /floatingGui\.openWindowForKind/);
+    assert.doesNotMatch(panelManagerSource, /Open GUI preview/);
+    assert.doesNotMatch(panelManagerSource, /createPanelButton\('G'/);
     assert.doesNotMatch(panelManagerSource, /showGuiPreviewForActiveFile\(\) \{\s*const previewLeafId = this\.ensureGuiPreviewLeaf/s);
     assert.match(css, /\.gui-window-layer/);
     assert.match(css, /\.gui-floating-window/);
@@ -60,7 +62,7 @@ function runWebGuiFloatingWindowSourceRegression() {
         checks: [
             "Web Playground exposes a GUI window layer above the workspace",
             "GUI floating windows support minimize, maximize, drag, and resize handlers",
-            "editor GUI action opens a floating window instead of requiring a layout pane",
+            "manual GUI preview buttons are not exposed; NEPL execution opens windows through the host bridge",
         ],
     };
 }

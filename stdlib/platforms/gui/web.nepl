@@ -1,0 +1,14 @@
+//: # platforms/gui/web
+//: Web Playground GUI backend facade
+//:
+//: ### [目的/もくてき]
+//: - NEPLg2 program が Web Playground の GUI host へ frame command を[渡/わた]すための platform [境界/きょうかい]を公開します。
+//: - `core/gui` と `alloc/gui` は DOM、Canvas、stdout protocol を知らず、この module だけが Web host [連携/れんけい]を[扱/あつか]います。
+//:
+//: ### [注意/ちゅうい]
+//: - 現在の Web Playground backend は stdout line protocol を使います。
+//: - これは Web platform backend の transport であり、GUI 標準 API の中核 contract ではありません。
+
+#indent 4
+
+pub #import "./web/stdout_protocol" as @merge
