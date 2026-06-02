@@ -50,6 +50,7 @@ function createMockEditor(initialText = '') {
         path: null,
         editable: false,
         focusCallCount: 0,
+        calls: [],
         setTextCalls: [],
         setEditableCalls: [],
         setPathCalls: [],
@@ -58,10 +59,12 @@ function createMockEditor(initialText = '') {
         },
         setText(text) {
             this.text = text;
+            this.calls.push({ kind: 'setText', value: text });
             this.setTextCalls.push(text);
         },
         setEditable(editable) {
             this.editable = editable;
+            this.calls.push({ kind: 'setEditable', value: Boolean(editable) });
             this.setEditableCalls.push(editable);
         },
         getEditable() {
@@ -72,9 +75,18 @@ function createMockEditor(initialText = '') {
         },
         setPath(pathValue) {
             this.path = pathValue;
+            this.calls.push({ kind: 'setPath', value: pathValue });
             this.setPathCalls.push(pathValue);
         },
     };
+}
+
+function assertPathBeforeText(editor, pathValue, textValue) {
+    const pathIndex = editor.calls.findIndex((call) => call.kind === 'setPath' && call.value === pathValue);
+    const textIndex = editor.calls.findIndex((call) => call.kind === 'setText' && call.value === textValue);
+    assert.notEqual(pathIndex, -1, `setPath not called for ${pathValue}`);
+    assert.notEqual(textIndex, -1, `setText not called for ${pathValue}`);
+    assert.ok(pathIndex < textIndex, `setPath must run before setText for ${pathValue}`);
 }
 
 async function runEditabilityRegression() {
@@ -106,6 +118,7 @@ async function runEditabilityRegression() {
         tabs.openFile('/README');
         assert.equal(editor.editable, false);
         assert.equal(tabs.activeTab.isEditable, false);
+        assertPathBeforeText(editor, '/README', 'help text');
 
         editor.text = 'mutated readme text';
         tabs.saveCurrentTab();
@@ -114,6 +127,7 @@ async function runEditabilityRegression() {
         tabs.openFile('/examples/demo.nepl');
         assert.equal(editor.editable, true);
         assert.equal(tabs.activeTab.isEditable, true);
+        assertPathBeforeText(editor, '/examples/demo.nepl', '#entry main\nprint "ok"\n');
 
         editor.text = '#entry main\nprint "edited"\n';
         tabs.saveCurrentTab();
@@ -124,6 +138,7 @@ async function runEditabilityRegression() {
         assert.equal(editor.path, '/examples/second.nepl');
         assert.equal(editor.editable, true);
         assert.equal(tabs.activeTab.isEditable, true);
+        assertPathBeforeText(editor, '/examples/second.nepl', '#entry main\nprint "second"\n');
         tabs.setActiveZoom(1.5);
         assert.equal(tabs.getActiveZoom(), 1.5);
         editor.text = '#entry main\nprint "second edited"\n';
@@ -146,6 +161,7 @@ async function runEditabilityRegression() {
                 'readonly tabs disable editor mutation and skip save',
                 'editable example files remain writable',
                 'tab switching propagates editable state to the editor surface',
+                'tab activation sets the provider path before replacing document text',
                 'switching between editable tabs preserves editability and saves the previous tab',
                 'editable tabs preserve their own zoom state across tab switches',
             ],

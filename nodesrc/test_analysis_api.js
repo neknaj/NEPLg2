@@ -27,6 +27,42 @@ function getStmtExpr(stmt) {
     return stmt.expr && typeof stmt.expr === 'object' ? stmt.expr : null;
 }
 
+function sourceRange(source, needle, occurrence = 0) {
+    let index = -1;
+    let cursor = 0;
+    for (let count = 0; count <= occurrence; count += 1) {
+        index = source.indexOf(needle, cursor);
+        if (index === -1) {
+            fail(`missing source text: ${needle}`);
+        }
+        cursor = index + needle.length;
+    }
+    return { start: index, end: index + needle.length };
+}
+
+function tokenIndexForText(result, source, needle, occurrence = 0) {
+    const expected = sourceRange(source, needle, occurrence);
+    const tokens = Array.isArray(result?.tokens) ? result.tokens : [];
+    const index = tokens.findIndex((token) =>
+        Number(token?.span?.start) === expected.start &&
+        Number(token?.span?.end) === expected.end
+    );
+    if (index < 0) {
+        fail(`missing token for ${needle} at [${expected.start}, ${expected.end})`);
+    }
+    return index;
+}
+
+function tokenSemanticForIndex(result, tokenIndex) {
+    const semantics = Array.isArray(result?.token_semantics) ? result.token_semantics : [];
+    return semantics.find((item) => Number(item?.token_index) === tokenIndex) || null;
+}
+
+function tokenClassificationForIndex(result, tokenIndex) {
+    const classifications = Array.isArray(result?.token_classifications) ? result.token_classifications : [];
+    return classifications.find((item) => Number(item?.token_index) === tokenIndex) || null;
+}
+
 function firstSymbolDebug(expr) {
     if (!expr || !Array.isArray(expr.items) || expr.items.length === 0) return '';
     const first = expr.items[0];
@@ -76,6 +112,68 @@ fn main <()->i32> ():
                 if (tokenSem.length === 0) fail('semantics_token_type_and_ranges: token_semantics missing');
                 const hasTypedToken = tokenSem.some(t => t && typeof t.inferred_type === 'string' && t.inferred_type.length > 0);
                 if (!hasTypedToken) fail('semantics_token_type_and_ranges: inferred_type not found on any token');
+            },
+        },
+        {
+            id: 'semantics_prefix_argument_range_aliases',
+            source: `#no_prelude
+fn id %fn i32 i32 \\x:
+    x
+
+fn main %fn unit i32 \\u:
+    id 41
+`,
+            checkSemantics(semResult, source) {
+                const literalIndex = tokenIndexForText(semResult, source, '41');
+                const literalSem = tokenSemanticForIndex(semResult, literalIndex);
+                if (!literalSem) fail('semantics_prefix_argument_range_aliases: token semantics missing for 41');
+                if (Number(literalSem.arg_index) !== 0) {
+                    fail(`semantics_prefix_argument_range_aliases: expected arg_index 0, got ${literalSem.arg_index}`);
+                }
+                const exprSpan = literalSem.expr_span || literalSem.expression_range;
+                const argSpan = literalSem.arg_span || literalSem.arg_range;
+                if (!exprSpan || !argSpan) {
+                    fail('semantics_prefix_argument_range_aliases: expr_span/arg_span aliases missing');
+                }
+                const expected = sourceRange(source, '41');
+                if (Number(exprSpan.start) !== expected.start || Number(exprSpan.end) !== expected.end) {
+                    fail('semantics_prefix_argument_range_aliases: expr_span should cover only the literal');
+                }
+                if (Number(argSpan.start) !== expected.start || Number(argSpan.end) !== expected.end) {
+                    fail('semantics_prefix_argument_range_aliases: arg_span should cover only the first prefix argument');
+                }
+            },
+        },
+        {
+            id: 'semantics_type_annotation_token_classifications',
+            source: `#no_prelude
+struct widget_state:
+    value %i32
+
+fn id %fn widget_state widget_state \\x:
+    x
+
+fn main %fn unit widget_state \\u:
+    %widget_state id
+`,
+            checkSemantics(semResult, source) {
+                const ranges = Array.isArray(semResult?.syntax_ranges) ? semResult.syntax_ranges : [];
+                if (!ranges.some((item) => item?.role === 'prefix_type_annotation')) {
+                    fail('semantics_type_annotation_token_classifications: prefix_type_annotation range missing');
+                }
+                const percentIndex = tokenIndexForText(semResult, source, '%', 3);
+                const typeIndex = tokenIndexForText(semResult, source, 'widget_state', 4);
+                const percentClass = tokenClassificationForIndex(semResult, percentIndex);
+                const typeClass = tokenClassificationForIndex(semResult, typeIndex);
+                if (!percentClass || percentClass.category !== 'operator') {
+                    fail('semantics_type_annotation_token_classifications: % should be classified as operator by syntax range');
+                }
+                if (!typeClass || typeClass.category !== 'type') {
+                    fail('semantics_type_annotation_token_classifications: lower-case type after % should be classified as type');
+                }
+                if (typeClass.role !== 'prefix_type_annotation_inner') {
+                    fail(`semantics_type_annotation_token_classifications: expected inner role, got ${typeClass.role}`);
+                }
             },
         },
         {
@@ -228,7 +326,7 @@ fn main <()->i32> ():
         if (!Array.isArray(semantics?.diagnostics)) fail(`${c.id}: semantics diagnostics missing`);
         if (typeof c.checkParse === 'function') c.checkParse(parse);
         if (typeof c.check === 'function') c.check(resolve);
-        if (typeof c.checkSemantics === 'function') c.checkSemantics(semantics);
+        if (typeof c.checkSemantics === 'function') c.checkSemantics(semantics, c.source);
         results.push({ id: c.id, ok: true });
     }
 

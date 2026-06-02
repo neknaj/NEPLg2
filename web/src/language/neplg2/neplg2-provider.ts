@@ -1,7 +1,10 @@
 // @ts-nocheck
 
 class NEPLg2LanguageProvider {
-    constructor() {
+    constructor(options = {}) {
+        this.options = options || {};
+        this.vfs = this.options.vfs || null;
+        this.path = null;
         this.updateCallback = () => {};
         this.text = '';
         this.lex = null;
@@ -30,6 +33,15 @@ class NEPLg2LanguageProvider {
         this.updateCallback = callback || (() => {});
     }
 
+    setPath(path) {
+        const nextPath = typeof path === 'string' && path.length > 0 ? path : null;
+        if (nextPath === this.path) {
+            return;
+        }
+        this.path = nextPath;
+        this._scheduleAnalysis();
+    }
+
     _cancelPendingAnalysis() {
         if (this.pendingTimer != null) {
             clearTimeout(this.pendingTimer);
@@ -39,6 +51,27 @@ class NEPLg2LanguageProvider {
             window.cancelIdleCallback(this.pendingIdleCallback);
             this.pendingIdleCallback = null;
         }
+    }
+
+    _scheduleAnalysis(immediate = false) {
+        this.analysisVersion += 1;
+        this._cancelPendingAnalysis();
+        const version = this.analysisVersion;
+        if (immediate) {
+            this._analyzeAndPublish(version);
+            return;
+        }
+        this.pendingTimer = setTimeout(() => {
+            this.pendingTimer = null;
+            if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+                this.pendingIdleCallback = window.requestIdleCallback(() => {
+                    this.pendingIdleCallback = null;
+                    this._analyzeAndPublish(version);
+                }, { timeout: 300 });
+            } else {
+                this._analyzeAndPublish(version);
+            }
+        }, this.analyzeDelayMs);
     }
 
     updateText(text) {
@@ -56,20 +89,7 @@ class NEPLg2LanguageProvider {
                 this.updateCallback(provisionalPayload);
             }
         }
-        this.analysisVersion += 1;
-        this._cancelPendingAnalysis();
-        const version = this.analysisVersion;
-        this.pendingTimer = setTimeout(() => {
-            this.pendingTimer = null;
-            if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
-                this.pendingIdleCallback = window.requestIdleCallback(() => {
-                    this.pendingIdleCallback = null;
-                    this._analyzeAndPublish(version);
-                }, { timeout: 300 });
-            } else {
-                this._analyzeAndPublish(version);
-            }
-        }, this.analyzeDelayMs);
+        this._scheduleAnalysis();
     }
 
     replaceDocumentText(text) {
@@ -80,8 +100,7 @@ class NEPLg2LanguageProvider {
         this._cancelPendingAnalysis();
         this.text = nextText;
         this._rebuildOffsetMaps();
-        this.analysisVersion += 1;
-        this._analyzeAndPublish(this.analysisVersion);
+        this._scheduleAnalysis(true);
     }
 
     _buildIncrementalPayload(previousText, nextText, previousPayload) {
@@ -104,6 +123,31 @@ class NEPLg2LanguageProvider {
             throw new Error('NEPLPlaygroundLanguageAnalysis is required');
         }
         return window.NEPLPlaygroundLanguageAnalysis;
+    }
+
+    _vfsSnapshotForAnalysis() {
+        if (!this.path || !String(this.path).endsWith('.nepl')) {
+            return null;
+        }
+        if (!this.vfs || typeof this.vfs.serializeForCompile !== 'function') {
+            return null;
+        }
+        try {
+            const snapshot = { ...this.vfs.serializeForCompile() };
+            snapshot[this.path] = this.text;
+            return snapshot;
+        } catch (error) {
+            console.warn('[NEPLg2LanguageProvider] VFS snapshot failed, falling back to inline semantics:', error);
+            return null;
+        }
+    }
+
+    _analyzeSemantics(wasm) {
+        const vfsSnapshot = this._vfsSnapshotForAnalysis();
+        if (vfsSnapshot && typeof wasm.analyze_semantics_with_vfs === 'function') {
+            return wasm.analyze_semantics_with_vfs(this.path, this.text, vfsSnapshot);
+        }
+        return wasm.analyze_semantics(this.text);
     }
 
     _rebuildOffsetMaps() {
@@ -199,7 +243,7 @@ class NEPLg2LanguageProvider {
 
         if (typeof wasm.analyze_semantics === 'function') {
             try {
-                this.semantics = wasm.analyze_semantics(this.text);
+                this.semantics = this._analyzeSemantics(wasm);
                 // analyze_semantics now includes tokens and name_resolution payloads
                 this.lex = {
                     tokens: this.semantics.tokens || [],

@@ -49,8 +49,18 @@ export type AnalysisTokenSemantic = {
     token_index?: number;
     inferred_type?: string | null;
     expr_span?: { start?: number; end?: number } | null;
+    expression_range?: { start?: number; end?: number } | null;
     arg_index?: number | null;
     arg_span?: { start?: number; end?: number } | null;
+    arg_range?: { start?: number; end?: number } | null;
+};
+
+export type AnalysisTokenClassification = {
+    token_index?: number;
+    category?: EditorTokenType | string | null;
+    role?: string | null;
+    span?: AnalysisSpan | null;
+    enclosing_span?: AnalysisSpan | null;
 };
 
 export type AnalysisTreeNode = {
@@ -79,6 +89,13 @@ export type LanguageAnalysisSnapshot = {
         diagnostics?: AnalysisDiagnostic[];
         token_resolution?: AnalysisTokenResolution[];
         token_semantics?: AnalysisTokenSemantic[];
+        token_classifications?: AnalysisTokenClassification[];
+        syntax_ranges?: Array<{
+            kind?: string;
+            role?: string;
+            span?: AnalysisSpan | null;
+            inner_span?: AnalysisSpan | null;
+        }>;
     } | null;
 };
 
@@ -214,6 +231,7 @@ type PreparedLanguageAnalysis = {
     snapshot: LanguageAnalysisSnapshot;
     offsets: OffsetMaps;
     definitionById: Map<number, AnalysisDefinition>;
+    tokenClassificationByIndex: Map<number, AnalysisTokenClassification>;
 };
 
 function analysisArray<T>(value: T[] | null | undefined): T[] {
@@ -608,11 +626,18 @@ function prepareAnalysis(text: string, snapshot?: LanguageAnalysisSnapshot | nul
             definitionById.set(Number(definition?.id), definition as AnalysisDefinition);
         }
     }
+    const tokenClassificationByIndex = new Map<number, AnalysisTokenClassification>();
+    for (const classification of analysisArray(safeSnapshot.semantics?.token_classifications)) {
+        if (Number.isFinite(classification?.token_index)) {
+            tokenClassificationByIndex.set(Number(classification?.token_index), classification);
+        }
+    }
     return {
         text,
         snapshot: safeSnapshot,
         offsets: buildOffsetMaps(text),
         definitionById,
+        tokenClassificationByIndex,
     };
 }
 
@@ -624,6 +649,39 @@ function tokenResolutionAt(prepared: PreparedLanguageAnalysis, tokenIndex: numbe
 function tokenSemanticAt(prepared: PreparedLanguageAnalysis, tokenIndex: number): AnalysisTokenSemantic | null {
     const semantics = analysisArray(prepared.snapshot.semantics?.token_semantics);
     return semantics.find((item) => Number(item?.token_index) === tokenIndex) ?? null;
+}
+
+const EDITOR_TOKEN_TYPE_VALUES = new Set<EditorTokenType>([
+    'keyword',
+    'string',
+    'comment',
+    'function',
+    'number',
+    'boolean',
+    'operator',
+    'regex',
+    'property',
+    'punctuation',
+    'variable',
+    'type',
+    'heading',
+    'bold',
+    'italic',
+    'list',
+    'link',
+    'inline-code',
+    'code-block',
+    'default',
+]);
+
+function normalizeEditorTokenType(value: unknown): EditorTokenType | null {
+    return typeof value === 'string' && EDITOR_TOKEN_TYPE_VALUES.has(value as EditorTokenType)
+        ? value as EditorTokenType
+        : null;
+}
+
+function tokenClassificationAt(prepared: PreparedLanguageAnalysis, tokenIndex: number): AnalysisTokenClassification | null {
+    return prepared.tokenClassificationByIndex.get(tokenIndex) ?? null;
 }
 
 function tokenAt(prepared: PreparedLanguageAnalysis, index: number): { token: AnalysisToken; tokenIndex: number; span: NonNullable<ReturnType<typeof spanFromPrepared>> } | null {
@@ -775,6 +833,8 @@ function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
         }
 
         let type = normalizeTokenType(kind, token?.debug, typeof token?.value === 'string' ? token.value : undefined);
+        const classification = tokenClassificationAt(prepared, tokenIndex);
+        type = normalizeEditorTokenType(classification?.category) ?? type;
         const resolution = tokenResolutionAt(prepared, tokenIndex);
         if (resolution?.resolved_def_id != null) {
             const definition = prepared.definitionById.get(Number(resolution.resolved_def_id));
@@ -798,21 +858,23 @@ function buildSemanticTokens(prepared: PreparedLanguageAnalysis): EditorSemantic
     const semantics = analysisArray(prepared.snapshot.semantics?.token_semantics);
     const output: EditorSemanticToken[] = [];
     for (const item of semantics) {
-        if (!item?.expr_span) {
+        const exprSpan = item?.expr_span ?? item?.expression_range ?? null;
+        const argSpan = item?.arg_span ?? item?.arg_range ?? null;
+        if (!exprSpan) {
             continue;
         }
         output.push({
             tokenIndex: Number(item.token_index ?? -1),
             inferredType: item.inferred_type ?? null,
             exprSpan: {
-                start: Number(item.expr_span.start ?? 0),
-                end: Number(item.expr_span.end ?? 0),
+                start: Number(exprSpan.start ?? 0),
+                end: Number(exprSpan.end ?? 0),
             },
             argIndex: Number.isInteger(item.arg_index) ? Number(item.arg_index) : null,
-            argSpan: item.arg_span
+            argSpan: argSpan
                 ? {
-                    start: Number(item.arg_span.start ?? 0),
-                    end: Number(item.arg_span.end ?? 0),
+                    start: Number(argSpan.start ?? 0),
+                    end: Number(argSpan.end ?? 0),
                 }
                 : null,
         });
@@ -824,10 +886,11 @@ function buildInlayHints(prepared: PreparedLanguageAnalysis): EditorInlayHint[] 
     const semantics = analysisArray(prepared.snapshot.semantics?.token_semantics);
     const output: EditorInlayHint[] = [];
     for (const item of semantics) {
-        if (!item?.expr_span || !item?.inferred_type) {
+        const exprSpan = item?.expr_span ?? item?.expression_range ?? null;
+        if (!exprSpan || !item?.inferred_type) {
             continue;
         }
-        const start = Number(item.expr_span.start ?? -1);
+        const start = Number(exprSpan.start ?? -1);
         if (start < 0) {
             continue;
         }
@@ -836,8 +899,8 @@ function buildInlayHints(prepared: PreparedLanguageAnalysis): EditorInlayHint[] 
             position: start,
             label: `<${item.inferred_type}>`,
             exprSpan: {
-                start: Number(item.expr_span.start ?? 0),
-                end: Number(item.expr_span.end ?? 0),
+                start: Number(exprSpan.start ?? 0),
+                end: Number(exprSpan.end ?? 0),
             },
         });
     }
@@ -1003,15 +1066,17 @@ export function getTokenInsightFromAnalysis(text: string, snapshot: LanguageAnal
     const resolution = tokenResolutionAt(prepared, hit.tokenIndex);
     const definition = resolution?.resolved_def_id != null ? prepared.definitionById.get(Number(resolution.resolved_def_id)) : null;
     const candidates = definitionCandidates(prepared, resolution);
+    const exprSpan = semantic?.expr_span ?? semantic?.expression_range ?? null;
+    const argSpan = semantic?.arg_span ?? semantic?.arg_range ?? null;
 
     return {
         tokenIndex: hit.tokenIndex,
         tokenKind: String(hit.token?.kind ?? ''),
         tokenSpan: hit.span,
         inferredType: semantic?.inferred_type ?? null,
-        exprSpan: semantic?.expr_span ?? null,
+        exprSpan,
         argIndex: Number.isInteger(semantic?.arg_index) ? Number(semantic?.arg_index) : null,
-        argSpan: semantic?.arg_span ?? null,
+        argSpan,
         resolvedDefId: resolution?.resolved_def_id != null ? Number(resolution.resolved_def_id) : null,
         candidateDefIds: analysisArray(resolution?.candidate_def_ids).map((value) => Number(value)),
         definitionCandidates: candidates,

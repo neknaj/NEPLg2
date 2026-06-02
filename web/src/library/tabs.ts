@@ -86,13 +86,13 @@ export class TabManager {
             });
         }
         if (this.tabs.length === 0) {
-            this.editor.setText('');
             if (typeof this.editor.setEditable === 'function') {
                 this.editor.setEditable(false);
             }
             if (typeof this.editor.setPath === 'function') {
                 this.editor.setPath(null);
             }
+            this.editor.setText('');
             this.render();
             this.notifyStateChange();
             if (this.onActiveTabChange) {
@@ -155,13 +155,13 @@ export class TabManager {
     }
 
     createDetachedPlaceholder() {
-        this.editor.setText('');
         if (typeof this.editor.setEditable === 'function') {
             this.editor.setEditable(false);
         }
         if (typeof this.editor.setPath === 'function') {
             this.editor.setPath(null);
         }
+        this.editor.setText('');
         if (this.onActiveTabChange) {
             this.onActiveTabChange(null);
         }
@@ -177,7 +177,6 @@ export class TabManager {
         }
         this.activeTabIndex = index;
         const tab = this.tabs[index];
-        this.editor.setText(tab.content);
         if (typeof this.editor.setEditable === 'function') {
             this.editor.setEditable(tab.isEditable);
         }
@@ -186,6 +185,7 @@ export class TabManager {
         } else {
             this.editor.path = tab.path;
         }
+        this.editor.setText(tab.content);
         this.render();
         this.notifyStateChange();
         if (this.onActiveTabChange) {
@@ -209,13 +209,13 @@ export class TabManager {
             if (this.activeTabIndex >= 0) {
                 this.setActiveTab(this.activeTabIndex, { focusEditor: false, persistCurrent: false });
             } else {
-                this.editor.setText('');
                 if (typeof this.editor.setEditable === 'function') {
                     this.editor.setEditable(false);
                 }
                 if (typeof this.editor.setPath === 'function') {
                     this.editor.setPath(null);
                 }
+                this.editor.setText('');
                 if (this.onActiveTabChange) {
                     this.onActiveTabChange(null);
                 }

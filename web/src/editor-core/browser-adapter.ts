@@ -58,6 +58,9 @@ export class PlaygroundEditor {
         }
         this.currentLanguage = languageId;
         this.inner.registerLanguageProvider(languageId, provider);
+        if (typeof provider.setPath === 'function') {
+            provider.setPath(this.path);
+        }
     }
 
     registerLanguage(languageId: string, provider: any): void {
@@ -79,6 +82,10 @@ export class PlaygroundEditor {
 
     setPath(path: string | null): void {
         this.path = path;
+        const provider = this.getLanguageProvider();
+        if (provider && typeof provider.setPath === 'function') {
+            provider.setPath(path);
+        }
     }
 
     setEditable(editable: boolean): void {
