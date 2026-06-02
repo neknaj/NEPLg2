@@ -3223,6 +3223,63 @@ RPN final hot spots
 `dealloc_raw` / `apply_op` / Stack owner flow の Resource proof template 化、bundled / persistent
 `.neplproof` preseed である。
 
+## RPN i32 scalar variant projection filter checkpoint
+
+2026-06-02 の follow-up では、RPN cold base の i32 scalar return fact 収集を再測定した。
+baseline follow-up の native release stage-only 3 run は `resource_static_check=4056ms / 4247ms / 4008ms`、
+`resource_initialized_i32_scalar_summaries=1127ms / 1129ms / 1027ms` だった。per-function では
+`sb_append_non_empty_result=297ms`、`byte_builder_reserve=229ms`、`byte_builder_push_u8=131ms`、
+`byte_builder_push_bytes_ref=125ms`、`apply_op=107ms` が i32 scalar summary の上位だった。
+
+この支配点に対して、direct parameter condition の path 間 intersection を試したが採用しなかった。
+1 path 目で候補を収集し、後続 path で候補だけを再検査する形にしたところ、
+`resource_initialized_i32_scalar_summaries=1314ms / 1270ms / 1062ms`、
+`resource_static_check=4411ms / 4318ms / 3725ms` へ悪化した。`sb_append_non_empty_result` の詳細では
+1 本目の候補収集が `400ms` になっており、探索空間削減より別 context での再照会 cost が大きかった。
+
+採用した変更は、return leaf 収集前に concrete variant から不可能な projection を除外する filter である。
+`collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter` は、caller から受け取った
+`projection_is_possible` を leaf enumeration に適用する。`function_i32_scalar_return_summary` では
+後続の projection merge と同じ `state.concrete_variants.projection_is_possible` を渡すため、
+`Result::Ok` が確定している path で `Err` payload の i32 fact 収集を始めない。不明な variant では
+caller が true を返すため、従来通り fail-open の全探索になる。
+
+変更後の native release stage-only 3 run は次の通りである。
+
+| stage | previous checkpoint median | run1 | run2 | run3 | new median |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `resource_initialized_i32_scalar_summaries` | 1076ms | 1107ms | 1040ms | 993ms | 1040ms |
+| `resource_initialized_raw_init_summaries` | 918ms | 894ms | 901ms | 893ms | 894ms |
+| `resource_initialized_function_checks` | 833ms | 817ms | 839ms | 804ms | 817ms |
+| `resource_initialized_moves` | 2917ms | 2897ms | 2850ms | 2763ms | 2850ms |
+| `resource_owner_obligations` | 831ms | 804ms | 805ms | 792ms | 804ms |
+| `resource_static_check` | 3878ms | 3834ms | 3793ms | 3684ms | 3793ms |
+
+per-function timing はログ overhead と実行ぶれを含むため総量比較には使わず、残る支配点の順位として扱う。
+
+```text
+RPN variant-filter hot spots
+  resource_initialized_i32_scalar_summaries=1133ms
+    sb_append_non_empty_result: 317ms
+    byte_builder_reserve: 189ms
+    byte_builder_push_bytes_ref: 118ms
+    apply_op: 112ms
+    byte_builder_push_u8: 100ms
+  resource_initialized_raw_init_summaries=1000ms
+    apply_op: 195ms
+    dealloc_raw: 164ms
+  resource_initialized_function_checks=928ms
+    dealloc_raw: 175ms
+    parse_u128_radix_digits_from: 106ms
+    apply_op: 100ms
+```
+
+この checkpoint は、静的検査規則を弱めずに不可能な sibling variant payload の探索開始を避ける小幅改善である。
+RPN cold base median は `resource_static_check=3793ms` であり、0.5 秒未満にはまだ遠い。次の根本対応は、
+native `--check` cold path に actual `.neplproof` preseed を接続し、stdlib-heavy proof を事前検査済み
+artifact から読むことである。あわせて、`dealloc_raw` / `apply_op` / Stack owner flow の proof template と、
+source 単位の i32 condition query memo を検討する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

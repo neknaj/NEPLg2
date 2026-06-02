@@ -188,9 +188,37 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached(
     target_suffix: &[PlaceProjection],
     leaf_cache: &mut I32LeafProjectionCache,
 ) -> I32ScalarReturnFacts {
+    collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+        params,
+        types,
+        raw_aliases,
+        value,
+        target_suffix,
+        leaf_cache,
+        |_| true,
+    )
+}
+
+pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+    params: &[ResourceLocal],
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    value: &Place,
+    target_suffix: &[PlaceProjection],
+    leaf_cache: &mut I32LeafProjectionCache,
+    projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
+) -> I32ScalarReturnFacts {
     let mut facts = I32ScalarReturnFacts::default();
     let mut condition_context = I32ConditionQueryContext::default();
-    let leaves = leaf_cache.leaf_places_for_conditions(types, value);
+    let leaves = leaf_cache
+        .leaf_places_for_conditions(types, value)
+        .into_iter()
+        .filter(|leaf| {
+            let mut return_projection = target_suffix.to_vec();
+            return_projection.extend_from_slice(&leaf.suffix);
+            projection_is_possible(&return_projection)
+        })
+        .collect::<Vec<_>>();
     for leaf in &leaves {
         let mut return_projection = target_suffix.to_vec();
         return_projection.extend_from_slice(&leaf.suffix);
