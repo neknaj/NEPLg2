@@ -431,10 +431,12 @@ web/src/gui-preview
     Web Playground の floating GUI window layer、typed command DTO、runtime bridge、host frame decoder、NEPL stdout protocol parser、Canvas2D adapter
 
 nepl-gui-native
-    minifb feature 付き native framebuffer renderer
+    pure framebuffer renderer と resizable minifb window smoke backend
 ```
 
 `examples/gui_mandelbrot.nepl`、`examples/gui_life.nepl`、`examples/gui_counter.nepl` は、NEPL 側で application / render command stream を作り、`platforms/gui/web/stdout_protocol.nepl` を通して Web Playground host へ frame stream を出す。stdout helper は platform backend detail として `GuiWebTextAlign` enum と `Result unit GuiError` を返す checked API を持ち、invalid geometry を panic や silent no-op にしない。Mandelbrot は `ActionId` 1 / 2 で sample resolution を上下し、Life は `ActionId` 1 / 2 / 3 / 4 で next step、animate toggle、cell pixel size down / up を扱う。Counter は `ActionId` 1 と redraw target 0 を維持する。各 button 領域は `NEPLG2_GUI_ACTION_RECT` で `ActionId` hit target として出力される。Web Playground の Run 経路では、この NEPL stdout frame stream が floating GUI window を開く。
+
+Native smoke backend は macOS AppKit、Windows Win32、Linux Wayland / X11 の window lifecycle 調査を踏まえ、OS window manager が与える resize / close / event pump を受ける形へ寄せている。`WindowOptions.resize = true`、`ScaleMode::AspectRatioStretch`、`set_target_fps 60`、current window size 監視、letterbox-aware hit test、`NativeSurfaceState::Unavailable` を使い、固定 size framebuffer 前提の click mapping を避ける。調査内容と native backend contract は `doc/neplg2/gui_native_platform_behavior.md` に分けて記録する。これはまだ正式な `std/gui::GuiHost.present` 実装ではなく、minifb と native handle は標準 API の public type へ出さない。
 
 Web Playground の表示 smoke は editor の panel layout の上に独立した DOM layer を置き、`GuiFloatingWindowManager` が minimize、maximize / restore、drag move、edge / corner resize、dock restore を扱う。これは native window と同等の基本操作を browser 上で検査するための backend UI であり、標準 API の window model ではない。`GuiFloatingWindowManager` の move state、source、window mode、dock state は discriminated union で表す。`minimized` mode は previous mode を保持するため、maximized window を minimize / restore しても original restore rect は失われない。top bar の `GUI` button と editor header の `G` button は user-facing 導線から外し、NEPL execution が stdout protocol を出した時だけ window を開く。`window-manager.ts` と `panel.ts` が `null` / `undefined` / non-null assertion に頼らないことを source policy regression で固定する。
 

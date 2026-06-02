@@ -1,6 +1,8 @@
 use std::env;
 use std::process::ExitCode;
 
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+use nepl_gui_native::map_native_window_point_to_image;
 use nepl_gui_native::{checksum_pixels, rasterize_frame, render_demo_frame, GuiDemo};
 
 fn main() -> ExitCode {
@@ -115,7 +117,7 @@ fn print_usage() {
 
 #[cfg(all(feature = "window", not(target_arch = "wasm32")))]
 fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
-    use minifb::{Key, MouseButton, MouseMode, Window, WindowOptions};
+    use minifb::{Key, MouseButton, MouseMode, ScaleMode, Window, WindowOptions};
 
     let mut frame = render_demo_frame(options.demo, options.counter_value);
     let mut image = rasterize_frame(&frame, options.scale);
@@ -123,22 +125,46 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
         "NEPLg2 GUI native preview",
         image.width,
         image.height,
-        WindowOptions::default(),
+        WindowOptions {
+            resize: true,
+            scale_mode: ScaleMode::AspectRatioStretch,
+            ..WindowOptions::default()
+        },
     )
     .map_err(|error| error.to_string())?;
+    window.set_target_fps(60);
+    window.set_background_color(9, 13, 18);
+    let mut previous_size = window.get_size();
+    update_window_title(&mut window, options.demo, previous_size);
     let mut previous_mouse_down = false;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        let current_size = window.get_size();
+        if current_size != previous_size {
+            previous_size = current_size;
+            update_window_title(&mut window, options.demo, current_size);
+        }
+
         if options.demo == GuiDemo::Counter {
             let mouse_down = window.get_mouse_down(MouseButton::Left);
             if mouse_down && !previous_mouse_down {
-                if let Some((mouse_x, mouse_y)) = window.get_mouse_pos(MouseMode::Clamp) {
-                    let scene_x = (mouse_x.max(0.0) as usize) / options.scale.max(1);
-                    let scene_y = (mouse_y.max(0.0) as usize) / options.scale.max(1);
-                    if nepl_gui_native::counter_hit(&frame, scene_x, scene_y) {
-                        options.counter_value += 1;
-                        frame = render_demo_frame(options.demo, options.counter_value);
-                        image = rasterize_frame(&frame, options.scale);
+                if let Some((mouse_x, mouse_y)) = window.get_unscaled_mouse_pos(MouseMode::Discard)
+                {
+                    if let Some((image_x, image_y)) = map_native_window_point_to_image(
+                        current_size.0,
+                        current_size.1,
+                        image.width,
+                        image.height,
+                        mouse_x,
+                        mouse_y,
+                    ) {
+                        let scene_x = image_x / options.scale.max(1);
+                        let scene_y = image_y / options.scale.max(1);
+                        if nepl_gui_native::counter_hit(&frame, scene_x, scene_y) {
+                            options.counter_value += 1;
+                            frame = render_demo_frame(options.demo, options.counter_value);
+                            image = rasterize_frame(&frame, options.scale);
+                        }
                     }
                 }
             }
@@ -150,6 +176,22 @@ fn run_window(mut options: NativeGuiOptions) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(all(feature = "window", not(target_arch = "wasm32")))]
+fn update_window_title(window: &mut minifb::Window, demo: GuiDemo, size: (usize, usize)) {
+    let title = if size.0 == 0 || size.1 == 0 {
+        format!(
+            "NEPLg2 GUI native preview - {:?} - surface unavailable",
+            demo
+        )
+    } else {
+        format!(
+            "NEPLg2 GUI native preview - {:?} - {}x{}",
+            demo, size.0, size.1
+        )
+    };
+    window.set_title(&title);
 }
 
 #[cfg(any(not(feature = "window"), target_arch = "wasm32"))]

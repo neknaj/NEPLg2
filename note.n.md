@@ -1,3 +1,15 @@
+# 2026-06-02 Agent2 native GUI platform behavior checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / enum / struct による明示状態、契約と現状実装の分離、環境差が出る内容へのテスト整備方針を再確認した。
+- macOS AppKit、Windows Win32、Linux Wayland / X11 の window lifecycle、close request、resize、event pump を調べ、`doc/neplg2/gui_native_platform_behavior.md` に native backend contract と参考 URL を分けて記録した。
+- `nepl-gui-native` の minifb smoke runner は固定 size 前提をやめ、`WindowOptions.resize = true`、`ScaleMode::AspectRatioStretch`、`set_target_fps 60`、window size 監視、dark letterbox background、close button / Escape 正常終了へ寄せた。
+- counter hit test は `get_mouse_pos MouseMode::Clamp` と raw scale 除算をやめ、`get_unscaled_mouse_pos MouseMode::Discard`、`NativeSurfaceState`、`NativeSurfacePlacement`、`map_native_window_point_to_image` で current window size と letterbox を考慮して scene coordinate へ変換する。
+- `nodesrc/test_native_gui_platform_behavior.js` を追加し、native smoke backend が resize / close / event pump 契約、letterbox-aware hit test、OS 別 doc 参照を維持することを source policy regression に固定した。
+- focused 検証: `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-native-platform-behavior.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。playground editor JSON は 13/13 pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は GUI / native 関連 regression を含めて通過したが、origin/main 側の resource/parser/diagnostic/builder/print_i32 系の非 GUI warning が 8 件残る。
+- 実装後の subagent review は `MERGE_APPROVED`。blocking finding は無く、Zenn 記事と GUI/TUI substrate 方針に反していないと判定された。非 blocking 推奨に合わせて、top / bottom letterbox、unavailable surface、negative / non-finite pointer の mapping regression を追加した。
+- 追加後の focused 検証: `cargo test -p nepl-gui-native --lib` は 10/10 pass。`cargo test -p nepl-gui-native --features window --no-run` と `node nodesrc/test_native_gui_platform_behavior.js` も pass。
+
 # 2026-06-02 RPN print_i32 allocation-free cold base checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱めずに、RPN cold base が不要な stdlib formatting proof graph を引き込む根本経路を削った。
