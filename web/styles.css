@@ -417,8 +417,6 @@ body.is-resizing-panels * {
 }
 
 .gui-preview-panel {
-    display: flex;
-    flex-direction: column;
     width: 100%;
     height: 100%;
     min-width: 0;
@@ -426,21 +424,9 @@ body.is-resizing-panels * {
     overflow: hidden;
 }
 
-.gui-preview-metrics {
-    height: 24px;
-    flex-shrink: 0;
-    padding: 5px 10px 0;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-    font-size: 11px;
-}
-
 .gui-preview-canvas {
-    flex: 1;
+    width: 100%;
+    height: 100%;
     min-width: 0;
     min-height: 0;
     cursor: default;
@@ -657,6 +643,79 @@ body.is-resizing-panels * {
 .gui-window-dock-item:hover {
     border-color: rgba(111, 186, 245, 0.92);
     background: linear-gradient(to bottom, #2d4860, #1a3045 50%, #102236);
+}
+
+.gui-debug-panel {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    z-index: 70;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    max-width: min(420px, 52vw);
+    border: 1px solid rgba(93, 162, 223, 0.48);
+    border-radius: 5px;
+    background: rgba(9, 13, 18, 0.92);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
+    color: #dbeafe;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.gui-debug-toggle {
+    min-width: 58px;
+    height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-right: 1px solid rgba(93, 162, 223, 0.34);
+    border-radius: 4px 0 0 4px;
+    background: linear-gradient(to bottom, #1b2a3a, #0f1822 50%, #0a1017);
+    color: #eaf4ff;
+    font: inherit;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.gui-debug-toggle:hover {
+    background: linear-gradient(to bottom, #253b50, #17283a 50%, #0f1b28);
+}
+
+.gui-debug-summary {
+    min-width: 0;
+    height: 28px;
+    padding: 7px 10px 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #b8cbe0;
+}
+
+.gui-debug-detail {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 2px;
+    max-height: 150px;
+    overflow: auto;
+    padding: 8px 10px 10px;
+    border-top: 1px solid rgba(93, 162, 223, 0.24);
+    pointer-events: auto;
+}
+
+.gui-debug-panel.is-collapsed {
+    max-width: 86px;
+}
+
+.gui-debug-panel.is-collapsed .gui-debug-summary,
+.gui-debug-panel.is-collapsed .gui-debug-detail {
+    display: none;
+}
+
+.gui-debug-row {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #9fb4c9;
 }
 
 body.is-moving-gui-window *,
