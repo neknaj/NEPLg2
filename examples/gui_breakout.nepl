@@ -7,6 +7,10 @@
 //: [目的/もくてき]:
 //: - game model、update、view を分け、host event loop から受けた action と tick で model を進めます。
 //: - stdout fallback では timer event の代わりに `gui_web_wait_event_result` の timeout を animation tick として扱います。
+//:
+//: [実装/じっそう]:
+//: - `BreakoutModel` は packed i32 ではなく field と enum で状態を保持します。
+//: - `ActionId` は `BreakoutAction` へ decode し、update は raw number ではなく `match` で遷移を選びます。
 #entry main
 #indent 4
 #target std
@@ -24,8 +28,52 @@
 #import "std/env/cliarg" as *
 #import "std/stdio" as *
 
+//: BreakoutDirection: ball velocity の 1 軸方向
+//:
+//: [目的/もくてき]:
+//: - `0` / `1` の flag ではなく、進行方向を enum として保持します。
+//: - 壁や paddle collision 後の反転を `match` で明示します。
+enum BreakoutDirection:
+    Negative
+    Positive
+
+impl Clone for BreakoutDirection:
+    fn clone %fn &BreakoutDirection BreakoutDirection \direction:
+        *direction
+
+impl Copy for BreakoutDirection:
+    fn copy_mark %fn BreakoutDirection BreakoutDirection \direction:
+        direction
+
+//: BreakoutAction: control button から game update へ渡す action
+//:
+//: [目的/もくてき]:
+//: - view layout の button index と game の意味を分離します。
+//: - host 境界の raw `ActionId` は decode 関数に閉じ、update は enum だけを扱います。
+enum BreakoutAction:
+    Left
+    Right
+    Step
+    Animate
+    Reset
+    Unknown
+
+impl Clone for BreakoutAction:
+    fn clone %fn &BreakoutAction BreakoutAction \action:
+        *action
+
+impl Copy for BreakoutAction:
+    fn copy_mark %fn BreakoutAction BreakoutAction \action:
+        action
+
 struct BreakoutModel:
-    encoded %i32
+    paddle %i32
+    ball_x %i32
+    ball_y %i32
+    vx %BreakoutDirection
+    vy %BreakoutDirection
+    destroyed %i32
+    animate %bool
 
 impl Clone for BreakoutModel:
     fn clone %fn &BreakoutModel BreakoutModel \model:
@@ -35,68 +83,32 @@ impl Copy for BreakoutModel:
     fn copy_mark %fn BreakoutModel BreakoutModel \model:
         model
 
-fn breakout_model_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn bool BreakoutModel \paddle\ball_x\ball_y\vx_code\vy_code\destroyed\animate:
-    let ball_x_part %i32 mul ball_x 100
-    let ball_y_part %i32 mul ball_y 10000
-    let destroyed_part %i32 mul destroyed 4
-    let vy_part %i32 mul vy_code 2
-    let flag_a %i32 add vx_code vy_part
-    let flag_b %i32 add flag_a destroyed_part
-    let animate_part %i32:
-        if:
-            animate
-            then:
-                64
-            else:
-                0
-    let flags %i32 add flag_b animate_part
-    let flag_part %i32 mul flags 1000000
-    let a %i32 add paddle ball_x_part
-    let b %i32 add ball_y_part flag_part
-    let encoded %i32 add a b
-    BreakoutModel encoded
+fn breakout_model_new %fn i32 fn i32 fn i32 fn BreakoutDirection fn BreakoutDirection fn i32 fn bool BreakoutModel \paddle\ball_x\ball_y\vx\vy\destroyed\animate:
+    BreakoutModel paddle ball_x ball_y vx vy destroyed animate
 
 fn breakout_init %fn void BreakoutModel \void:
-    breakout_model_new 42 48 42 1 0 0 false
-
-fn breakout_encoded %fn &BreakoutModel i32 \model:
-    *field::get_ref model "encoded"
+    breakout_model_new 42 48 42 BreakoutDirection::Positive BreakoutDirection::Negative 0 false
 
 fn breakout_paddle %fn &BreakoutModel i32 \model:
-    let encoded %i32 breakout_encoded model
-    rem_s encoded 100
+    *field::get_ref model "paddle"
 
 fn breakout_ball_x %fn &BreakoutModel i32 \model:
-    let encoded %i32 breakout_encoded model
-    let scaled %i32 div_s encoded 100
-    rem_s scaled 100
+    *field::get_ref model "ball_x"
 
 fn breakout_ball_y %fn &BreakoutModel i32 \model:
-    let encoded %i32 breakout_encoded model
-    let scaled %i32 div_s encoded 10000
-    rem_s scaled 100
+    *field::get_ref model "ball_y"
 
-fn breakout_flags %fn &BreakoutModel i32 \model:
-    let encoded %i32 breakout_encoded model
-    div_s encoded 1000000
+fn breakout_vx %fn &BreakoutModel BreakoutDirection \model:
+    *field::get_ref model "vx"
 
-fn breakout_vx_code %fn &BreakoutModel i32 \model:
-    let flags %i32 breakout_flags model
-    rem_s flags 2
-
-fn breakout_vy_code %fn &BreakoutModel i32 \model:
-    let flags %i32 breakout_flags model
-    let shifted %i32 div_s flags 2
-    rem_s shifted 2
+fn breakout_vy %fn &BreakoutModel BreakoutDirection \model:
+    *field::get_ref model "vy"
 
 fn breakout_destroyed %fn &BreakoutModel i32 \model:
-    let flags %i32 breakout_flags model
-    let shifted %i32 div_s flags 4
-    rem_s shifted 16
+    *field::get_ref model "destroyed"
 
 fn breakout_animate %fn &BreakoutModel bool \model:
-    let flags %i32 breakout_flags model
-    ge flags 64
+    *field::get_ref model "animate"
 
 fn breakout_action_left %fn void ActionId \void:
     action_id 1
@@ -116,6 +128,37 @@ fn breakout_action_reset %fn void ActionId \void:
 fn breakout_action_raw %fn ActionId i32 \action:
     action_id_value action
 
+fn breakout_decode_action %fn ActionId BreakoutAction \action:
+    let raw %i32 breakout_action_raw action
+    match raw:
+        1:
+            BreakoutAction::Left
+        2:
+            BreakoutAction::Right
+        3:
+            BreakoutAction::Step
+        4:
+            BreakoutAction::Animate
+        5:
+            BreakoutAction::Reset
+        _:
+            BreakoutAction::Unknown
+
+fn breakout_encode_action %fn BreakoutAction ActionId \action:
+    match action:
+        BreakoutAction::Left:
+            breakout_action_left
+        BreakoutAction::Right:
+            breakout_action_right
+        BreakoutAction::Step:
+            breakout_action_step
+        BreakoutAction::Animate:
+            breakout_action_animate
+        BreakoutAction::Reset:
+            breakout_action_reset
+        BreakoutAction::Unknown:
+            action_id 0
+
 fn breakout_clamp_paddle %fn i32 i32 \paddle:
     if:
         lt paddle 0
@@ -129,32 +172,31 @@ fn breakout_clamp_paddle %fn i32 i32 \paddle:
                 else:
                     paddle
 
-fn breakout_delta_from_code %fn i32 i32 \code:
-    if:
-        eq code 0
-        then:
+fn breakout_delta_from_direction %fn BreakoutDirection i32 \direction:
+    match direction:
+        BreakoutDirection::Negative:
             -2
-        else:
+        BreakoutDirection::Positive:
             2
 
-fn breakout_next_vx_code %fn i32 fn i32 i32 \ball_x\vx_code:
+fn breakout_next_vx %fn i32 fn BreakoutDirection BreakoutDirection \ball_x\vx:
     if:
         le ball_x 2
         then:
-            1
+            BreakoutDirection::Positive
         else:
             if:
                 ge ball_x 94
                 then:
-                    0
+                    BreakoutDirection::Negative
                 else:
-                    vx_code
+                    vx
 
-fn breakout_next_vy_code %fn i32 fn i32 fn i32 fn i32 i32 \ball_y\ball_x\paddle\vy_code:
+fn breakout_next_vy %fn i32 fn i32 fn i32 fn BreakoutDirection BreakoutDirection \ball_y\ball_x\paddle\vy:
     if:
         le ball_y 8
         then:
-            1
+            BreakoutDirection::Positive
         else:
             if:
                 ge ball_y 58
@@ -166,11 +208,11 @@ fn breakout_next_vy_code %fn i32 fn i32 fn i32 fn i32 i32 \ball_y\ball_x\paddle\
                     if:
                         hits_paddle
                         then:
-                            0
+                            BreakoutDirection::Negative
                         else:
-                            0
+                            BreakoutDirection::Negative
                 else:
-                    vy_code
+                    vy
 
 fn breakout_next_destroyed %fn i32 fn i32 i32 \ball_y\destroyed:
     if:
@@ -189,19 +231,19 @@ fn breakout_tick %fn BreakoutModel BreakoutModel \model:
     let paddle %i32 breakout_paddle &model
     let ball_x %i32 breakout_ball_x &model
     let ball_y %i32 breakout_ball_y &model
-    let vx_code %i32 breakout_vx_code &model
-    let vy_code %i32 breakout_vy_code &model
+    let vx %BreakoutDirection breakout_vx &model
+    let vy %BreakoutDirection breakout_vy &model
     let destroyed %i32 breakout_destroyed &model
     let animate %bool breakout_animate &model
-    let dx %i32 breakout_delta_from_code vx_code
-    let dy %i32 breakout_delta_from_code vy_code
+    let dx %i32 breakout_delta_from_direction vx
+    let dy %i32 breakout_delta_from_direction vy
     let moved_x %i32 add ball_x dx
     let moved_y %i32 add ball_y dy
-    let next_vx %i32 breakout_next_vx_code moved_x vx_code
-    let next_vy %i32 breakout_next_vy_code moved_y moved_x paddle vy_code
+    let next_vx %BreakoutDirection breakout_next_vx moved_x vx
+    let next_vy %BreakoutDirection breakout_next_vy moved_y moved_x paddle vy
     let next_destroyed %i32 breakout_next_destroyed moved_y destroyed
-    let final_dx %i32 breakout_delta_from_code next_vx
-    let final_dy %i32 breakout_delta_from_code next_vy
+    let final_dx %i32 breakout_delta_from_direction next_vx
+    let final_dy %i32 breakout_delta_from_direction next_vy
     let final_x %i32 add ball_x final_dx
     let final_y %i32 add ball_y final_dy
     breakout_model_new paddle final_x final_y next_vx next_vy next_destroyed animate
@@ -209,46 +251,33 @@ fn breakout_tick %fn BreakoutModel BreakoutModel \model:
 fn breakout_move_left %fn BreakoutModel BreakoutModel \model:
     let paddle %i32 breakout_paddle &model
     let next_paddle %i32 breakout_clamp_paddle sub paddle 4
-    breakout_model_new next_paddle breakout_ball_x &model breakout_ball_y &model breakout_vx_code &model breakout_vy_code &model breakout_destroyed &model breakout_animate &model
+    breakout_model_new next_paddle breakout_ball_x &model breakout_ball_y &model breakout_vx &model breakout_vy &model breakout_destroyed &model breakout_animate &model
 
 fn breakout_move_right %fn BreakoutModel BreakoutModel \model:
     let paddle %i32 breakout_paddle &model
     let next_raw %i32 add paddle 4
     let next_paddle %i32 breakout_clamp_paddle next_raw
-    breakout_model_new next_paddle breakout_ball_x &model breakout_ball_y &model breakout_vx_code &model breakout_vy_code &model breakout_destroyed &model breakout_animate &model
+    breakout_model_new next_paddle breakout_ball_x &model breakout_ball_y &model breakout_vx &model breakout_vy &model breakout_destroyed &model breakout_animate &model
 
 fn breakout_toggle_animate %fn BreakoutModel BreakoutModel \model:
     let next_animate %bool not breakout_animate &model
-    breakout_model_new breakout_paddle &model breakout_ball_x &model breakout_ball_y &model breakout_vx_code &model breakout_vy_code &model breakout_destroyed &model next_animate
+    breakout_model_new breakout_paddle &model breakout_ball_x &model breakout_ball_y &model breakout_vx &model breakout_vy &model breakout_destroyed &model next_animate
 
 fn breakout_update_action %fn BreakoutModel fn ActionId BreakoutModel \model\action:
-    let raw %i32 breakout_action_raw action
-    if:
-        eq raw 1
-        then:
+    let typed %BreakoutAction breakout_decode_action action
+    match typed:
+        BreakoutAction::Left:
             breakout_move_left model
-        else:
-            if:
-                eq raw 2
-                then:
-                    breakout_move_right model
-                else:
-                    if:
-                        eq raw 3
-                        then:
-                            breakout_tick model
-                        else:
-                            if:
-                                eq raw 4
-                                then:
-                                    breakout_toggle_animate model
-                                else:
-                                    if:
-                                        eq raw 5
-                                        then:
-                                            breakout_init
-                                        else:
-                                            model
+        BreakoutAction::Right:
+            breakout_move_right model
+        BreakoutAction::Step:
+            breakout_tick model
+        BreakoutAction::Animate:
+            breakout_toggle_animate model
+        BreakoutAction::Reset:
+            breakout_init
+        BreakoutAction::Unknown:
+            model
 
 fn breakout_update_event %fn BreakoutModel fn GuiWebEvent BreakoutModel \model\web_event:
     match gui_web_event_action &web_event:
@@ -354,51 +383,40 @@ fn breakout_control_rect %fn i32 GuiRect \index:
     let x %i32 add 16 x_offset
     gui_rect_new x 340 82 34
 
-fn breakout_control_label %fn i32 str \index:
-    if:
-        eq index 0
-        then:
-            "Left"
-        else:
-            if:
-                eq index 1
-                then:
-                    "Right"
-                else:
-                    if:
-                        eq index 2
-                        then:
-                            "Step"
-                        else:
-                            if:
-                                eq index 3
-                                then:
-                                    "Animate"
-                                else:
-                                    "Reset"
+fn breakout_control_action_model %fn i32 BreakoutAction \index:
+    match index:
+        0:
+            BreakoutAction::Left
+        1:
+            BreakoutAction::Right
+        2:
+            BreakoutAction::Step
+        3:
+            BreakoutAction::Animate
+        4:
+            BreakoutAction::Reset
+        _:
+            BreakoutAction::Unknown
 
 fn breakout_control_action %fn i32 ActionId \index:
-    if:
-        eq index 0
-        then:
-            breakout_action_left
-        else:
-            if:
-                eq index 1
-                then:
-                    breakout_action_right
-                else:
-                    if:
-                        eq index 2
-                        then:
-                            breakout_action_step
-                        else:
-                            if:
-                                eq index 3
-                                then:
-                                    breakout_action_animate
-                                else:
-                                    breakout_action_reset
+    let action %BreakoutAction breakout_control_action_model index
+    breakout_encode_action action
+
+fn breakout_control_label %fn i32 str \index:
+    let action %BreakoutAction breakout_control_action_model index
+    match action:
+        BreakoutAction::Left:
+            "Left"
+        BreakoutAction::Right:
+            "Right"
+        BreakoutAction::Step:
+            "Step"
+        BreakoutAction::Animate:
+            "Animate"
+        BreakoutAction::Reset:
+            "Reset"
+        BreakoutAction::Unknown:
+            "?"
 
 fn breakout_present_control %impure fn i32 Result unit GuiError \index:
     let rect %GuiRect breakout_control_rect index

@@ -9,7 +9,8 @@
 //: - Web backend の action / pointer host detail は `platforms/gui/web` に閉じ、example は typed event だけを読みます。
 //:
 //: [実装/じっそう]:
-//: - `CalculatorModel` は表示値、保留値、演算子、入力中フラグを持ちます。
+//: - `CalculatorModel` は表示値、保留値、演算子、入力中フラグを型付き field として持ちます。
+//: - `ActionId` の raw 数値は `CalculatorAction` へ decode し、以降の update は enum と `match` で扱います。
 //: - `calculator_update_action` は数字、四則演算、等号、clear を純粋に model 変換します。
 //: - `calculator_present_frame` は display と 4x4 button grid を stdout protocol へ出力します。
 #entry main
@@ -29,8 +30,54 @@
 #import "std/env/cliarg" as *
 #import "std/stdio" as *
 
+//: CalculatorOp: 電卓が保留できる二項演算
+//:
+//: [目的/もくてき]:
+//: - `1` / `2` のような raw code を model 内部へ持ち込まず、演算の意味を enum として表します。
+//: - `match` の網羅性により、演算追加時に update と表示側の修正漏れを見つけやすくします。
+enum CalculatorOp:
+    None
+    Add
+    Sub
+    Mul
+    Div
+
+impl Clone for CalculatorOp:
+    fn clone %fn &CalculatorOp CalculatorOp \op:
+        *op
+
+impl Copy for CalculatorOp:
+    fn copy_mark %fn CalculatorOp CalculatorOp \op:
+        op
+
+//: CalculatorAction: GUI button から update へ渡す typed action
+//:
+//: [目的/もくてき]:
+//: - Web host 境界の `ActionId` と application logic を分離します。
+//: - 数字 button は payload として digit を持ち、演算 button は variant で意味を持ちます。
+enum CalculatorAction:
+    Digit %i32
+    Add
+    Sub
+    Mul
+    Div
+    Equals
+    Clear
+    Unknown
+
+impl Clone for CalculatorAction:
+    fn clone %fn &CalculatorAction CalculatorAction \action:
+        *action
+
+impl Copy for CalculatorAction:
+    fn copy_mark %fn CalculatorAction CalculatorAction \action:
+        action
+
 struct CalculatorModel:
-    encoded %i32
+    value %i32
+    pending %i32
+    op %CalculatorOp
+    entering %bool
 
 impl Clone for CalculatorModel:
     fn clone %fn &CalculatorModel CalculatorModel \model:
@@ -40,76 +87,31 @@ impl Copy for CalculatorModel:
     fn copy_mark %fn CalculatorModel CalculatorModel \model:
         model
 
-fn calculator_state_base %fn void i32 \void:
-    4096
-
-fn calculator_state_offset %fn void i32 \void:
-    2048
-
-fn calculator_state_base_square %fn void i32 \void:
-    mul calculator_state_base calculator_state_base
-
-fn calculator_clamp_component %fn i32 i32 \value:
-    if:
-        lt value -2048
-        then:
-            -2048
-        else:
-            if:
-                gt value 2047
-                then:
-                    2047
-                else:
-                    value
-
-fn calculator_encode_component %fn i32 i32 \value:
-    let clamped %i32 calculator_clamp_component value
-    add clamped calculator_state_offset
-
-fn calculator_decode_component %fn i32 i32 \encoded:
-    sub encoded calculator_state_offset
-
-fn calculator_model_new %fn i32 fn i32 fn i32 fn i32 CalculatorModel \value\pending\op\entering:
-    let value_part %i32 calculator_encode_component value
-    let pending_encoded %i32 calculator_encode_component pending
-    let pending_part %i32 mul pending_encoded calculator_state_base
-    let op_part %i32 mul op 10
-    let mode_code %i32 add op_part entering
-    let mode_part %i32 mul mode_code calculator_state_base_square
-    let value_pending %i32 add value_part pending_part
-    let encoded %i32 add value_pending mode_part
-    CalculatorModel encoded
-
-fn calculator_model_encoded %fn &CalculatorModel i32 \model:
-    *field::get_ref model "encoded"
+//: calculator_model_new: typed model を構築する
+//:
+//: [目的/もくてき]:
+//: - packed i32 ではなく、各 field の意味を型で保持します。
+//: - 表示上の制限は入力 update 側の clamp で扱い、model accessor は単純な読取に保ちます。
+fn calculator_model_new %fn i32 fn i32 fn CalculatorOp fn bool CalculatorModel \value\pending\op\entering:
+    CalculatorModel value pending op entering
 
 fn calculator_model_value %fn &CalculatorModel i32 \model:
-    let encoded %i32 calculator_model_encoded model
-    let value_part %i32 rem_s encoded calculator_state_base
-    calculator_decode_component value_part
+    *field::get_ref model "value"
 
 fn calculator_model_pending %fn &CalculatorModel i32 \model:
-    let encoded %i32 calculator_model_encoded model
-    let pending_scaled %i32 div_s encoded calculator_state_base
-    let pending_part %i32 rem_s pending_scaled calculator_state_base
-    calculator_decode_component pending_part
+    *field::get_ref model "pending"
 
-fn calculator_model_op %fn &CalculatorModel i32 \model:
-    let encoded %i32 calculator_model_encoded model
-    let mode_code %i32 div_s encoded calculator_state_base_square
-    div_s mode_code 10
+fn calculator_model_op %fn &CalculatorModel CalculatorOp \model:
+    *field::get_ref model "op"
 
-fn calculator_model_entering_code %fn &CalculatorModel i32 \model:
-    let encoded %i32 calculator_model_encoded model
-    let mode_code %i32 div_s encoded calculator_state_base_square
-    rem_s mode_code 10
+fn calculator_model_entering %fn &CalculatorModel bool \model:
+    *field::get_ref model "entering"
 
 fn calculator_model_is_entering %fn &CalculatorModel bool \model:
-    let code %i32 calculator_model_entering_code model
-    ne code 0
+    calculator_model_entering model
 
 fn calculator_init %fn void CalculatorModel \void:
-    calculator_model_new 0 0 0 0
+    calculator_model_new 0 0 CalculatorOp::None false
 
 fn calculator_action_digit %fn i32 ActionId \digit:
     if:
@@ -140,20 +142,67 @@ fn calculator_action_clear %fn void ActionId \void:
 fn calculator_action_raw %fn ActionId i32 \action:
     action_id_value action
 
-fn calculator_action_is_digit %fn ActionId bool \action:
+//: calculator_decode_action: host 境界の ActionId を typed action へ変換する
+//:
+//: [目的/もくてき]:
+//: - raw action number の比較を update 本体から隔離します。
+//: - 未知の id は `Unknown` として扱い、silent no-op の理由を enum variant として残します。
+fn calculator_decode_action %fn ActionId CalculatorAction \action:
     let raw %i32 calculator_action_raw action
-    let is_zero %bool eq raw 10
-    let is_positive_digit %bool and ge raw 1 le raw 9
-    or is_zero is_positive_digit
+    match raw:
+        1:
+            CalculatorAction::Digit 1
+        2:
+            CalculatorAction::Digit 2
+        3:
+            CalculatorAction::Digit 3
+        4:
+            CalculatorAction::Digit 4
+        5:
+            CalculatorAction::Digit 5
+        6:
+            CalculatorAction::Digit 6
+        7:
+            CalculatorAction::Digit 7
+        8:
+            CalculatorAction::Digit 8
+        9:
+            CalculatorAction::Digit 9
+        10:
+            CalculatorAction::Digit 0
+        20:
+            CalculatorAction::Add
+        21:
+            CalculatorAction::Sub
+        22:
+            CalculatorAction::Mul
+        23:
+            CalculatorAction::Div
+        24:
+            CalculatorAction::Equals
+        25:
+            CalculatorAction::Clear
+        _:
+            CalculatorAction::Unknown
 
-fn calculator_action_digit_value %fn ActionId i32 \action:
-    let raw %i32 calculator_action_raw action
-    if:
-        eq raw 10
-        then:
-            0
-        else:
-            raw
+fn calculator_encode_action %fn CalculatorAction ActionId \action:
+    match action:
+        CalculatorAction::Digit digit:
+            calculator_action_digit digit
+        CalculatorAction::Add:
+            calculator_action_add
+        CalculatorAction::Sub:
+            calculator_action_sub
+        CalculatorAction::Mul:
+            calculator_action_mul
+        CalculatorAction::Div:
+            calculator_action_div
+        CalculatorAction::Equals:
+            calculator_action_eq
+        CalculatorAction::Clear:
+            calculator_action_clear
+        CalculatorAction::Unknown:
+            action_id 0
 
 fn calculator_safe_div %fn i32 fn i32 i32 \left\right:
     if:
@@ -163,28 +212,31 @@ fn calculator_safe_div %fn i32 fn i32 i32 \left\right:
         else:
             div_s left right
 
-fn calculator_apply_op %fn i32 fn i32 fn i32 i32 \op\left\right:
-    if:
-        eq op 1
-        then:
+fn calculator_apply_op %fn CalculatorOp fn i32 fn i32 i32 \op\left\right:
+    match op:
+        CalculatorOp::Add:
             add left right
-        else:
-            if:
-                eq op 2
-                then:
-                    sub left right
-                else:
-                    if:
-                        eq op 3
-                        then:
-                            mul left right
-                        else:
-                            if:
-                                eq op 4
-                                then:
-                                    calculator_safe_div left right
-                                else:
-                                    right
+        CalculatorOp::Sub:
+            sub left right
+        CalculatorOp::Mul:
+            mul left right
+        CalculatorOp::Div:
+            calculator_safe_div left right
+        CalculatorOp::None:
+            right
+
+fn calculator_op_debug_code %fn CalculatorOp i32 \op:
+    match op:
+        CalculatorOp::None:
+            0
+        CalculatorOp::Add:
+            1
+        CalculatorOp::Sub:
+            2
+        CalculatorOp::Mul:
+            3
+        CalculatorOp::Div:
+            4
 
 fn calculator_next_digit_value %fn CalculatorModel fn i32 i32 \model\digit:
     let entering %bool calculator_model_is_entering &model
@@ -200,74 +252,81 @@ fn calculator_next_digit_value %fn CalculatorModel fn i32 i32 \model\digit:
 fn calculator_update_digit %fn CalculatorModel fn i32 CalculatorModel \model\digit:
     let next_value %i32 calculator_next_digit_value model digit
     let pending %i32 calculator_model_pending &model
-    let op %i32 calculator_model_op &model
-    calculator_model_new next_value pending op 1
+    let op %CalculatorOp calculator_model_op &model
+    calculator_model_new next_value pending op true
 
-fn calculator_start_op %fn CalculatorModel fn i32 CalculatorModel \model\next_op:
+fn calculator_start_op %fn CalculatorModel fn CalculatorOp CalculatorModel \model\next_op:
     let value %i32 calculator_model_value &model
     let pending %i32 calculator_model_pending &model
-    let op %i32 calculator_model_op &model
+    let op %CalculatorOp calculator_model_op &model
     let entering %bool calculator_model_is_entering &model
-    let base %i32:
-        if:
-            eq op 0
-            then:
-                value
-            else:
-                if:
-                    entering
-                    then:
-                        calculator_apply_op op pending value
-                    else:
-                        pending
-    calculator_model_new base base next_op 0
+    match op:
+        CalculatorOp::None:
+            calculator_model_new value value next_op false
+        CalculatorOp::Add:
+            if:
+                entering
+                then:
+                    calculator_model_new add pending value add pending value next_op false
+                else:
+                    calculator_model_new pending pending next_op false
+        CalculatorOp::Sub:
+            if:
+                entering
+                then:
+                    calculator_model_new sub pending value sub pending value next_op false
+                else:
+                    calculator_model_new pending pending next_op false
+        CalculatorOp::Mul:
+            if:
+                entering
+                then:
+                    calculator_model_new mul pending value mul pending value next_op false
+                else:
+                    calculator_model_new pending pending next_op false
+        CalculatorOp::Div:
+            if:
+                entering
+                then:
+                    calculator_model_new calculator_safe_div pending value calculator_safe_div pending value next_op false
+                else:
+                    calculator_model_new pending pending next_op false
 
 fn calculator_equal %fn CalculatorModel CalculatorModel \model:
     let value %i32 calculator_model_value &model
     let pending %i32 calculator_model_pending &model
-    let op %i32 calculator_model_op &model
-    let result %i32 calculator_apply_op op pending value
-    calculator_model_new result 0 0 0
+    let op %CalculatorOp calculator_model_op &model
+    match op:
+        CalculatorOp::None:
+            calculator_model_new value 0 CalculatorOp::None false
+        CalculatorOp::Add:
+            calculator_model_new add pending value 0 CalculatorOp::None false
+        CalculatorOp::Sub:
+            calculator_model_new sub pending value 0 CalculatorOp::None false
+        CalculatorOp::Mul:
+            calculator_model_new mul pending value 0 CalculatorOp::None false
+        CalculatorOp::Div:
+            calculator_model_new calculator_safe_div pending value 0 CalculatorOp::None false
 
 fn calculator_update_action %fn CalculatorModel fn ActionId CalculatorModel \model\action:
-    if:
-        calculator_action_is_digit action
-        then:
-            let digit %i32 calculator_action_digit_value action
+    let typed %CalculatorAction calculator_decode_action action
+    match typed:
+        CalculatorAction::Digit digit:
             calculator_update_digit model digit
-        else:
-            let raw %i32 calculator_action_raw action
-            if:
-                eq raw 20
-                then:
-                    calculator_start_op model 1
-                else:
-                    if:
-                        eq raw 21
-                        then:
-                            calculator_start_op model 2
-                        else:
-                            if:
-                                eq raw 22
-                                then:
-                                    calculator_start_op model 3
-                                else:
-                                    if:
-                                        eq raw 23
-                                        then:
-                                            calculator_start_op model 4
-                                        else:
-                                            if:
-                                                eq raw 24
-                                                then:
-                                                    calculator_equal model
-                                                else:
-                                                    if:
-                                                        eq raw 25
-                                                        then:
-                                                            calculator_init
-                                                        else:
-                                                            model
+        CalculatorAction::Add:
+            calculator_start_op model CalculatorOp::Add
+        CalculatorAction::Sub:
+            calculator_start_op model CalculatorOp::Sub
+        CalculatorAction::Mul:
+            calculator_start_op model CalculatorOp::Mul
+        CalculatorAction::Div:
+            calculator_start_op model CalculatorOp::Div
+        CalculatorAction::Equals:
+            calculator_equal model
+        CalculatorAction::Clear:
+            calculator_init
+        CalculatorAction::Unknown:
+            model
 
 fn calculator_update_event %fn CalculatorModel fn GuiWebEvent CalculatorModel \model\web_event:
     match gui_web_event_action &web_event:
@@ -311,168 +370,106 @@ fn calculator_color_text %fn void Rgba8888 \void:
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn calculator_button_label %fn i32 str \index:
-    if:
-        eq index 0
-        then:
+fn calculator_digit_label %fn i32 str \digit:
+    match digit:
+        0:
+            "0"
+        1:
+            "1"
+        2:
+            "2"
+        3:
+            "3"
+        4:
+            "4"
+        5:
+            "5"
+        6:
+            "6"
+        7:
             "7"
-        else:
-            if:
-                eq index 1
-                then:
-                    "8"
-                else:
-                    if:
-                        eq index 2
-                        then:
-                            "9"
-                        else:
-                            if:
-                                eq index 3
-                                then:
-                                    "/"
-                                else:
-                                    if:
-                                        eq index 4
-                                        then:
-                                            "4"
-                                        else:
-                                            if:
-                                                eq index 5
-                                                then:
-                                                    "5"
-                                                else:
-                                                    if:
-                                                        eq index 6
-                                                        then:
-                                                            "6"
-                                                        else:
-                                                            if:
-                                                                eq index 7
-                                                                then:
-                                                                    "*"
-                                                                else:
-                                                                    if:
-                                                                        eq index 8
-                                                                        then:
-                                                                            "1"
-                                                                        else:
-                                                                            if:
-                                                                                eq index 9
-                                                                                then:
-                                                                                    "2"
-                                                                                else:
-                                                                                    if:
-                                                                                        eq index 10
-                                                                                        then:
-                                                                                            "3"
-                                                                                        else:
-                                                                                            if:
-                                                                                                eq index 11
-                                                                                                then:
-                                                                                                    "-"
-                                                                                                else:
-                                                                                                    if:
-                                                                                                        eq index 12
-                                                                                                        then:
-                                                                                                            "0"
-                                                                                                        else:
-                                                                                                            if:
-                                                                                                                eq index 13
-                                                                                                                then:
-                                                                                                                    "C"
-                                                                                                                else:
-                                                                                                                    if:
-                                                                                                                        eq index 14
-                                                                                                                        then:
-                                                                                                                            "="
-                                                                                                                        else:
-                                                                                                                            "+"
+        8:
+            "8"
+        9:
+            "9"
+        _:
+            "?"
+
+//: calculator_button_action_model: button grid index を typed action へ写像する
+//:
+//: [目的/もくてき]:
+//: - 画面上の index は view layout の都合であり、update へは `CalculatorAction` として渡します。
+//: - raw `ActionId` 生成、label、色分けはこの typed action から派生させます。
+fn calculator_button_action_model %fn i32 CalculatorAction \index:
+    match index:
+        0:
+            CalculatorAction::Digit 7
+        1:
+            CalculatorAction::Digit 8
+        2:
+            CalculatorAction::Digit 9
+        3:
+            CalculatorAction::Div
+        4:
+            CalculatorAction::Digit 4
+        5:
+            CalculatorAction::Digit 5
+        6:
+            CalculatorAction::Digit 6
+        7:
+            CalculatorAction::Mul
+        8:
+            CalculatorAction::Digit 1
+        9:
+            CalculatorAction::Digit 2
+        10:
+            CalculatorAction::Digit 3
+        11:
+            CalculatorAction::Sub
+        12:
+            CalculatorAction::Digit 0
+        13:
+            CalculatorAction::Clear
+        14:
+            CalculatorAction::Equals
+        15:
+            CalculatorAction::Add
+        _:
+            CalculatorAction::Unknown
 
 fn calculator_button_action %fn i32 ActionId \index:
-    if:
-        eq index 0
-        then:
-            calculator_action_digit 7
-        else:
-            if:
-                eq index 1
-                then:
-                    calculator_action_digit 8
-                else:
-                    if:
-                        eq index 2
-                        then:
-                            calculator_action_digit 9
-                        else:
-                            if:
-                                eq index 3
-                                then:
-                                    calculator_action_div
-                                else:
-                                    if:
-                                        eq index 4
-                                        then:
-                                            calculator_action_digit 4
-                                        else:
-                                            if:
-                                                eq index 5
-                                                then:
-                                                    calculator_action_digit 5
-                                                else:
-                                                    if:
-                                                        eq index 6
-                                                        then:
-                                                            calculator_action_digit 6
-                                                        else:
-                                                            if:
-                                                                eq index 7
-                                                                then:
-                                                                    calculator_action_mul
-                                                                else:
-                                                                    if:
-                                                                        eq index 8
-                                                                        then:
-                                                                            calculator_action_digit 1
-                                                                        else:
-                                                                            if:
-                                                                                eq index 9
-                                                                                then:
-                                                                                    calculator_action_digit 2
-                                                                                else:
-                                                                                    if:
-                                                                                        eq index 10
-                                                                                        then:
-                                                                                            calculator_action_digit 3
-                                                                                        else:
-                                                                                            if:
-                                                                                                eq index 11
-                                                                                                then:
-                                                                                                    calculator_action_sub
-                                                                                                else:
-                                                                                                    if:
-                                                                                                        eq index 12
-                                                                                                        then:
-                                                                                                            calculator_action_digit 0
-                                                                                                        else:
-                                                                                                            if:
-                                                                                                                eq index 13
-                                                                                                                then:
-                                                                                                                    calculator_action_clear
-                                                                                                                else:
-                                                                                                                    if:
-                                                                                                                        eq index 14
-                                                                                                                        then:
-                                                                                                                            calculator_action_eq
-                                                                                                                        else:
-                                                                                                                            calculator_action_add
+    let action %CalculatorAction calculator_button_action_model index
+    calculator_encode_action action
+
+fn calculator_button_label %fn i32 str \index:
+    let action %CalculatorAction calculator_button_action_model index
+    match action:
+        CalculatorAction::Digit digit:
+            calculator_digit_label digit
+        CalculatorAction::Add:
+            "+"
+        CalculatorAction::Sub:
+            "-"
+        CalculatorAction::Mul:
+            "*"
+        CalculatorAction::Div:
+            "/"
+        CalculatorAction::Equals:
+            "="
+        CalculatorAction::Clear:
+            "C"
+        CalculatorAction::Unknown:
+            "?"
 
 fn calculator_button_is_op %fn i32 bool \index:
-    let is_col_op %bool eq rem_s index 4 3
-    let is_equals %bool eq index 14
-    let is_clear %bool eq index 13
-    let eq_or_clear %bool or is_equals is_clear
-    or is_col_op eq_or_clear
+    let action %CalculatorAction calculator_button_action_model index
+    match action:
+        CalculatorAction::Digit _:
+            false
+        CalculatorAction::Unknown:
+            false
+        _:
+            true
 
 fn calculator_button_rect %fn i32 GuiRect \index:
     let col %i32 rem_s index 4
@@ -579,8 +576,9 @@ fn calculator_print_status %impure fn CalculatorModel unit \model:
     let value %i32 calculator_model_value &model
     println_i32 value
     print "calculator op = "
-    let op %i32 calculator_model_op &model
-    println_i32 op
+    let op %CalculatorOp calculator_model_op &model
+    let op_code %i32 calculator_op_debug_code op
+    println_i32 op_code
 
 fn calculator_run_once %impure fn CalculatorModel unit \model:
     let mut current %CalculatorModel model

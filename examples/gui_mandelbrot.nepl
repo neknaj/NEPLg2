@@ -13,6 +13,7 @@
 //: - fixed point scale 100 の i32 計算で escape iteration を求めます。
 //: - frame の論理 surface size と sample count を分け、HD でも 1 pixel ごとの command stream にはしません。
 //: - 通常実行は Web input bridge の action event を待ち、action ごとに再描画します。
+//: - 表示解像度と ActionId は enum へ decode し、model/update は raw number を直接分岐しません。
 //:
 //: [注意/ちゅうい]:
 //: - `--once` は CI 向けに軽量 preview mode で有限実行します。
@@ -34,12 +35,49 @@
 #import "std/env/cliarg" as *
 #import "std/stdio" as *
 
+//: MandelbrotMode: 表示解像度 preset
+//:
+//: [目的/もくてき]:
+//: - model の mode を raw i32 ではなく意味のある variant として保持します。
+//: - status 表示用の数値は `mandelbrot_mode_debug_code` で明示的に変換します。
+enum MandelbrotMode:
+    Preview
+    HD
+    Detail
+
+impl Clone for MandelbrotMode:
+    fn clone %fn &MandelbrotMode MandelbrotMode \mode:
+        *mode
+
+impl Copy for MandelbrotMode:
+    fn copy_mark %fn MandelbrotMode MandelbrotMode \mode:
+        mode
+
+//: MandelbrotAction: preset button から update へ渡す action
+//:
+//: [目的/もくてき]:
+//: - host の `ActionId` と application model の preset 選択を分離します。
+//: - 未知の action は `Unknown` として扱い、update 側では no-op にします。
+enum MandelbrotAction:
+    Preview
+    HD
+    Detail
+    Unknown
+
+impl Clone for MandelbrotAction:
+    fn clone %fn &MandelbrotAction MandelbrotAction \action:
+        *action
+
+impl Copy for MandelbrotAction:
+    fn copy_mark %fn MandelbrotAction MandelbrotAction \action:
+        action
+
 struct MandelbrotModel:
     sample_width %i32
     sample_height %i32
     cell_size %i32
     iteration_limit %i32
-    mode %i32
+    mode %MandelbrotMode
 
 impl Clone for MandelbrotModel:
     fn clone %fn &MandelbrotModel MandelbrotModel \model:
@@ -49,7 +87,7 @@ impl Copy for MandelbrotModel:
     fn copy_mark %fn MandelbrotModel MandelbrotModel \model:
         model
 
-fn mandelbrot_model_new %fn i32 fn i32 fn i32 fn i32 fn i32 MandelbrotModel \sample_width\sample_height\cell_size\iteration_limit\mode:
+fn mandelbrot_model_new %fn i32 fn i32 fn i32 fn i32 fn MandelbrotMode MandelbrotModel \sample_width\sample_height\cell_size\iteration_limit\mode:
     MandelbrotModel sample_width sample_height cell_size iteration_limit mode
 
 fn mandelbrot_model_sample_width %fn &MandelbrotModel i32 \model:
@@ -64,17 +102,26 @@ fn mandelbrot_model_cell_size %fn &MandelbrotModel i32 \model:
 fn mandelbrot_model_iteration_limit %fn &MandelbrotModel i32 \model:
     *field::get_ref model "iteration_limit"
 
-fn mandelbrot_model_mode %fn &MandelbrotModel i32 \model:
+fn mandelbrot_model_mode %fn &MandelbrotModel MandelbrotMode \model:
     *field::get_ref model "mode"
 
+fn mandelbrot_mode_debug_code %fn MandelbrotMode i32 \mode:
+    match mode:
+        MandelbrotMode::Preview:
+            1
+        MandelbrotMode::HD:
+            2
+        MandelbrotMode::Detail:
+            3
+
 fn mandelbrot_model_preview %fn void MandelbrotModel \void:
-    mandelbrot_model_new 48 27 8 24 1
+    mandelbrot_model_new 48 27 8 24 MandelbrotMode::Preview
 
 fn mandelbrot_model_hd %fn void MandelbrotModel \void:
-    mandelbrot_model_new 160 90 8 32 2
+    mandelbrot_model_new 160 90 8 32 MandelbrotMode::HD
 
 fn mandelbrot_model_detail %fn void MandelbrotModel \void:
-    mandelbrot_model_new 192 108 6 40 3
+    mandelbrot_model_new 192 108 6 40 MandelbrotMode::Detail
 
 fn mandelbrot_control_height %fn void i32 \void:
     72
@@ -102,10 +149,17 @@ fn mandelbrot_hd_action %fn void ActionId \void:
 fn mandelbrot_detail_action %fn void ActionId \void:
     action_id 3
 
-fn mandelbrot_action_matches %fn ActionId fn ActionId bool \actual\expected:
-    let actual_raw %i32 action_id_value actual
-    let expected_raw %i32 action_id_value expected
-    eq actual_raw expected_raw
+fn mandelbrot_decode_action %fn ActionId MandelbrotAction \action:
+    let raw %i32 action_id_value action
+    match raw:
+        1:
+            MandelbrotAction::Preview
+        2:
+            MandelbrotAction::HD
+        3:
+            MandelbrotAction::Detail
+        _:
+            MandelbrotAction::Unknown
 
 fn mandelbrot_cx %fn i32 fn i32 i32 \x\sample_width:
     let denom %i32 sub sample_width 1
@@ -271,7 +325,9 @@ fn mandelbrot_present_status %impure fn MandelbrotModel Result unit GuiError \mo
     let grid_height %i32 mandelbrot_grid_height &model
     let y %i32 add grid_height 54
     let origin_mode %GuiPoint gui_point_new 68 y
-    match gui_web_stdout_text_i32 origin_mode 12 GuiWebTextAlign::Center mandelbrot_color_text mandelbrot_model_mode &model:
+    let mode %MandelbrotMode mandelbrot_model_mode &model
+    let mode_code %i32 mandelbrot_mode_debug_code mode
+    match gui_web_stdout_text_i32 origin_mode 12 GuiWebTextAlign::Center mandelbrot_color_text mode_code:
         Result::Ok _:
             let origin_width %GuiPoint gui_point_new 156 y
             match gui_web_stdout_text_i32 origin_width 12 GuiWebTextAlign::Center mandelbrot_color_text mandelbrot_model_sample_width &model:
@@ -365,22 +421,16 @@ fn mandelbrot_command_count %fn &MandelbrotModel i32 \model:
     add cells 4
 
 fn mandelbrot_update_action %fn MandelbrotModel fn ActionId MandelbrotModel \model\action:
-    if:
-        mandelbrot_action_matches action mandelbrot_preview_action
-        then:
+    let typed %MandelbrotAction mandelbrot_decode_action action
+    match typed:
+        MandelbrotAction::Preview:
             mandelbrot_model_preview
-        else:
-            if:
-                mandelbrot_action_matches action mandelbrot_hd_action
-                then:
-                    mandelbrot_model_hd
-                else:
-                    if:
-                        mandelbrot_action_matches action mandelbrot_detail_action
-                        then:
-                            mandelbrot_model_detail
-                        else:
-                            model
+        MandelbrotAction::HD:
+            mandelbrot_model_hd
+        MandelbrotAction::Detail:
+            mandelbrot_model_detail
+        MandelbrotAction::Unknown:
+            model
 
 fn mandelbrot_update_event %fn MandelbrotModel fn GuiWebEvent MandelbrotModel \model\web_event:
     match gui_web_event_action &web_event:
