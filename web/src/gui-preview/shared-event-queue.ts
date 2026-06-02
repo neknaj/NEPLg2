@@ -1,6 +1,7 @@
 import type { GuiWebInputEvent } from './input-bridge.js';
 import type { GuiWebKeyboardEventKind } from './input-bridge.js';
 import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
+import type { GuiWebWindowEventKind } from './input-bridge.js';
 
 export const GUI_WEB_EVENT_QUEUE_CAPACITY = 64;
 export const GUI_WEB_ACTION_QUEUE_CAPACITY = 64;
@@ -10,6 +11,7 @@ export const GUI_WEB_EVENT_KIND_ACTION = 1;
 export const GUI_WEB_EVENT_KIND_POINTER = 2;
 export const GUI_WEB_EVENT_KIND_KEYBOARD = 3;
 export const GUI_WEB_EVENT_KIND_TEXT_INPUT = 4;
+export const GUI_WEB_EVENT_KIND_WINDOW = 5;
 export const GUI_WEB_EVENT_POLL_UNSUPPORTED = -1;
 export const GUI_WEB_EVENT_POLL_INVALID = -2;
 export const GUI_WEB_EVENT_QUEUE_READ_INDEX = 0;
@@ -26,6 +28,10 @@ export const GUI_WEB_POINTER_BUTTON_SECONDARY = 2;
 export const GUI_WEB_POINTER_BUTTON_MIDDLE = 3;
 export const GUI_WEB_KEYBOARD_KIND_DOWN = 1;
 export const GUI_WEB_KEYBOARD_KIND_UP = 2;
+export const GUI_WEB_WINDOW_KIND_RESIZED = 1;
+export const GUI_WEB_WINDOW_KIND_FOCUSED = 2;
+export const GUI_WEB_WINDOW_KIND_UNFOCUSED = 3;
+export const GUI_WEB_WINDOW_KIND_CLOSE_REQUESTED = 4;
 
 const GUI_WEB_EVENT_SLOT_KIND = 0;
 const GUI_WEB_EVENT_SLOT_WINDOW_ID = 1;
@@ -81,6 +87,13 @@ export type GuiWebSharedInputEventRecord =
         kind: 'text-input';
         windowId: number;
         scalarValue: number;
+    }
+    | {
+        kind: 'window';
+        windowId: number;
+        windowKind: GuiWebWindowEventKind;
+        width: number;
+        height: number;
     };
 
 export type GuiWebSharedInputEventTakeResult =
@@ -123,7 +136,10 @@ export function writeGuiWebSharedInputEvent(
     if (event.kind === 'text-input') {
         return writeGuiWebSharedTextInputEvent(buffer, event);
     }
-    return err('unsupported-event-kind', '$.kind', 'action, pointer, keyboard, or text-input', String(event));
+    if (event.kind === 'window') {
+        return writeGuiWebSharedWindowEvent(buffer, event);
+    }
+    return err('unsupported-event-kind', '$.kind', 'action, pointer, keyboard, text-input, or window', String(event));
 }
 
 export function takeGuiWebSharedActionId(buffer: SharedArrayBuffer): number {
@@ -232,6 +248,22 @@ export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSha
             },
         };
     }
+    if (kind === GUI_WEB_EVENT_KIND_WINDOW) {
+        const windowKind = guiWebSharedWindowKindFromRaw(value0);
+        if (windowKind.kind === 'err' || value1 <= 0 || value2 <= 0) {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        return {
+            kind: 'event',
+            event: {
+                kind: 'window',
+                windowId,
+                windowKind: windowKind.value,
+                width: value1,
+                height: value2,
+            },
+        };
+    }
     return { kind: 'invalid', rawKind: kind };
 }
 
@@ -304,6 +336,19 @@ export function guiWebSharedKeyboardKindToRaw(kind: GuiWebKeyboardEventKind): nu
             return GUI_WEB_KEYBOARD_KIND_DOWN;
         case 'up':
             return GUI_WEB_KEYBOARD_KIND_UP;
+    }
+}
+
+export function guiWebSharedWindowKindToRaw(kind: GuiWebWindowEventKind): number {
+    switch (kind) {
+        case 'resized':
+            return GUI_WEB_WINDOW_KIND_RESIZED;
+        case 'focused':
+            return GUI_WEB_WINDOW_KIND_FOCUSED;
+        case 'unfocused':
+            return GUI_WEB_WINDOW_KIND_UNFOCUSED;
+        case 'close-requested':
+            return GUI_WEB_WINDOW_KIND_CLOSE_REQUESTED;
     }
 }
 
@@ -411,6 +456,30 @@ function writeGuiWebSharedTextInputEvent(
     return { kind: 'ok', value: 'queued' };
 }
 
+function writeGuiWebSharedWindowEvent(
+    buffer: SharedArrayBuffer,
+    event: Extract<GuiWebInputEvent, { kind: 'window' }>,
+): GuiWebSharedEventQueueResult<'queued'> {
+    const queue = new Int32Array(buffer);
+    const eventWrite = guiWebSharedEventWritePlan(queue);
+    if (eventWrite.kind === 'err') {
+        return eventWrite;
+    }
+
+    const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_WINDOW);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE0, guiWebSharedWindowKindToRaw(event.windowKind));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, event.size.width);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, event.size.height);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, 0);
+    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    return { kind: 'ok', value: 'queued' };
+}
+
 function guiWebSharedEventWritePlan(queue: Int32Array): GuiWebSharedEventQueueResult<{ writeIndex: number; nextWriteIndex: number }> {
     const readIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX);
     const writeIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX);
@@ -485,6 +554,21 @@ function guiWebSharedKeyboardKindFromRaw(raw: number): GuiWebSharedEventQueueRes
             return { kind: 'ok', value: 'up' };
         default:
             return err('unsupported-event-kind', '$.keyboardKind', 'known keyboard kind', String(raw));
+    }
+}
+
+function guiWebSharedWindowKindFromRaw(raw: number): GuiWebSharedEventQueueResult<GuiWebWindowEventKind> {
+    switch (raw) {
+        case GUI_WEB_WINDOW_KIND_RESIZED:
+            return { kind: 'ok', value: 'resized' };
+        case GUI_WEB_WINDOW_KIND_FOCUSED:
+            return { kind: 'ok', value: 'focused' };
+        case GUI_WEB_WINDOW_KIND_UNFOCUSED:
+            return { kind: 'ok', value: 'unfocused' };
+        case GUI_WEB_WINDOW_KIND_CLOSE_REQUESTED:
+            return { kind: 'ok', value: 'close-requested' };
+        default:
+            return err('unsupported-event-kind', '$.windowKind', 'known window kind', String(raw));
     }
 }
 

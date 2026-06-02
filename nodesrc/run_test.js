@@ -156,6 +156,9 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
                 last_event_key_code: () => 0,
                 last_event_key_modifiers: () => 0,
                 last_event_text_scalar_value: () => 0,
+                last_event_window_kind: () => 0,
+                last_event_window_width: () => 0,
+                last_event_window_height: () => 0,
             },
             ...extraImports,
         });

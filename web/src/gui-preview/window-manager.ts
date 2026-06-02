@@ -2,6 +2,8 @@ import { GuiPreviewPanel } from './panel.js';
 import { GuiPreviewKind, guiPreviewKindFromPath } from './renderer.js';
 import { decodeGuiWebHostPresentedFrame } from './host-bridge.js';
 import type { GuiWebHostResult } from './host-bridge.js';
+import { queueGuiWebInputEvent } from './input-bridge.js';
+import type { GuiWebWindowEventKind } from './input-bridge.js';
 
 type GuiWindowRect = {
     left: number;
@@ -481,6 +483,7 @@ export class GuiFloatingWindowManager {
             return;
         }
         const windowState = lookup.windowState;
+        this.queueHostWindowEvent(windowState, 'close-requested');
         windowState.preview.dispose();
         if (windowState.dockButton.kind === 'mounted') {
             windowState.dockButton.button.remove();
@@ -538,13 +541,36 @@ export class GuiFloatingWindowManager {
     }
 
     private applyRect(windowState: FloatingGuiWindow, rect: GuiWindowRect) {
+        const previousWidth = windowState.rect.width;
+        const previousHeight = windowState.rect.height;
         const next = this.clampRect(rect);
         windowState.rect = next;
         windowState.frameEl.style.left = `${next.left}px`;
         windowState.frameEl.style.top = `${next.top}px`;
         windowState.frameEl.style.width = `${next.width}px`;
         windowState.frameEl.style.height = `${next.height}px`;
+        if (previousWidth !== next.width || previousHeight !== next.height) {
+            this.queueHostWindowEvent(windowState, 'resized');
+        }
         window.requestAnimationFrame(() => windowState.preview.resizeEditor());
+    }
+
+    private queueHostWindowEvent(windowState: FloatingGuiWindow, windowKind: GuiWebWindowEventKind) {
+        if (windowState.source.kind !== 'host-frame') {
+            return;
+        }
+        const result = queueGuiWebInputEvent({
+            kind: 'window',
+            windowId: windowState.source.windowId,
+            windowKind,
+            size: {
+                width: Math.max(1, Math.floor(windowState.rect.width)),
+                height: Math.max(1, Math.floor(windowState.rect.height)),
+            },
+        });
+        if (result.kind === 'err') {
+            windowState.frameEl.dataset.guiInputError = result.error.kind;
+        }
     }
 
     private defaultRect(): GuiWindowRect {

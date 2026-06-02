@@ -25,7 +25,7 @@ fn main %impure fn unit i32 \unit:
             1
 ```
 
-## web event wrapper exposes keyboard and text input variants
+## web event wrapper exposes pointer keyboard text input and window variants
 
 neplg2:test
 ret: 0
@@ -70,5 +70,21 @@ fn main %impure fn unit i32 \unit:
             assert_eq_i32 0x3042 char_to_i32 text_input_event_value &event
         Option::None:
             test_fail "text input event missing"
+    let size %GuiSize gui_size_new 640 480
+    let window %WindowEvent window_event_new WindowEventKind::Resized size
+    let window_web %GuiWebEvent GuiWebEvent 3 point gui_event_window window
+    match gui_web_event_window &window_web:
+        Option::Some event:
+            match window_event_kind &event:
+                WindowEventKind::Resized:
+                    let got_size %GuiSize window_event_size &event
+                    assert_eq_i32 640 gui_size_width &got_size
+                    assert_eq_i32 480 gui_size_height &got_size
+                _:
+                    test_fail "window kind mismatch"
+        Option::None:
+            test_fail "window event missing"
+    let no_window %Option WindowEvent gui_web_event_window &keyboard_web
+    assert is_none no_window
     0
 ```

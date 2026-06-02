@@ -7,15 +7,16 @@
 //: - action-only caller のため、互換 wrapper として `Result Option ActionId GuiError` も維持します。
 //:
 //: ### [契約/けいやく]
-//: - event がある場合は `Result::Ok (Option::Some action)` を返します。
+//: - typed event がある場合は `Result::Ok (Option::Some event)` を返します。
+//: - action-only wrapper は互換 API として `Result::Ok (Option::Some action)` を返します。
 //: - timeout または empty queue の場合は `Result::Ok Option::None` を返します。
 //: - host が GUI input queue を持たない場合は `Result::Err GuiError::Unsupported` を返します。
 //: - invalid queue record は `Result::Err GuiError::InvalidCommand` を返します。
 //: - raw host import の 0 / 負 sentinel はこの module の境界内でだけ扱います。
 //:
 //: ### [現状/げんじょう]
-//: - Phase 3 では Web Playground の action、pointer、keyboard、text input event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
-//: - Web backend は pointer move を SharedArrayBuffer publish 前の backend 境界で順序保存 coalescing できます。window / timer / lifecycle などの full event union は後続 phase で追加します。
+//: - Phase 3 では Web Playground の action、pointer、keyboard、text input、window event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
+//: - Web backend は pointer move を SharedArrayBuffer publish 前の backend 境界で順序保存 coalescing できます。IME composition、timer、lifecycle などの full event union は後続 phase で追加します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -49,6 +50,9 @@
 #extern "nepl_gui_web" "last_event_key_code" fn gui_web_last_event_key_code_raw %impure fn unit i32
 #extern "nepl_gui_web" "last_event_key_modifiers" fn gui_web_last_event_key_modifiers_raw %impure fn unit i32
 #extern "nepl_gui_web" "last_event_text_scalar_value" fn gui_web_last_event_text_scalar_value_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_window_kind" fn gui_web_last_event_window_kind_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_window_width" fn gui_web_last_event_window_width_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_window_height" fn gui_web_last_event_window_height_raw %impure fn unit i32
 
 //: GuiWebEvent: Web backend が[取/と]り[出/だ]した typed GUI event record
 //:
@@ -131,6 +135,18 @@ pub fn gui_web_event_text_input %fn &GuiWebEvent Option TextInputEvent \event:
         _:
             Option::None
 
+//: gui_web_event_window: window event なら `WindowEvent` を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - event が `GuiEvent::Window` の場合は `Option::Some` を返します。
+//: - それ以外の event variant は `Option::None` を返します。
+pub fn gui_web_event_window %fn &GuiWebEvent Option WindowEvent \event:
+    match gui_web_event_gui_event event:
+        GuiEvent::Window window:
+            Option::Some window
+        _:
+            Option::None
+
 //: gui_web_action_result_from_raw: host raw action id を `Result Option ActionId GuiError` へ[正規化/せいきか]する
 //:
 //: [目的/もくてき]:
@@ -172,6 +188,7 @@ fn gui_web_action_result_from_raw %fn i32 Result Option ActionId GuiError \raw:
 //: - raw kind 2 は pointer event です。
 //: - raw kind 3 は keyboard event です。
 //: - raw kind 4 は text input event です。
+//: - raw kind 5 は window event です。
 //: - raw kind 0 は timeout / empty queue です。
 //: - raw kind -1 は unsupported host queue です。
 //: - raw kind -2 または未知の kind は invalid command です。
@@ -199,7 +216,12 @@ fn gui_web_event_result_from_kind_raw %impure fn i32 Result Option GuiWebEvent G
                                         then:
                                             gui_web_text_input_event_result_from_last
                                         else:
-                                            Result::Err GuiError::InvalidCommand
+                                            if:
+                                                eq raw 5
+                                                then:
+                                                    gui_web_window_event_result_from_last
+                                                else:
+                                                    Result::Err GuiError::InvalidCommand
         else:
             if:
                 eq raw 0
@@ -353,6 +375,50 @@ fn gui_web_text_input_event_result_from_last %impure fn unit Result Option GuiWe
             gui_web_web_event_from_gui_event gui_event
         Result::Err _message:
             Result::Err GuiError::InvalidCommand
+
+fn gui_web_window_kind_from_raw %fn i32 Result WindowEventKind GuiError \raw:
+    if:
+        eq raw 1
+        then:
+            Result::Ok WindowEventKind::Resized
+        else:
+            if:
+                eq raw 2
+                then:
+                    Result::Ok WindowEventKind::Focused
+                else:
+                    if:
+                        eq raw 3
+                        then:
+                            Result::Ok WindowEventKind::Unfocused
+                        else:
+                            if:
+                                eq raw 4
+                                then:
+                                    Result::Ok WindowEventKind::CloseRequested
+                                else:
+                                    Result::Err GuiError::InvalidCommand
+
+fn gui_web_window_event_result_from_parts %impure fn WindowEventKind Result Option GuiWebEvent GuiError \kind:
+    let width %i32 gui_web_last_event_window_width_raw
+    let height %i32 gui_web_last_event_window_height_raw
+    if:
+        and gt width 0 gt height 0
+        then:
+            let size %GuiSize gui_size_new width height
+            let window_event %WindowEvent window_event_new kind size
+            let gui_event %GuiEvent gui_event_window window_event
+            gui_web_web_event_from_gui_event gui_event
+        else:
+            Result::Err GuiError::InvalidCommand
+
+fn gui_web_window_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+    let kind_raw %i32 gui_web_last_event_window_kind_raw
+    match gui_web_window_kind_from_raw kind_raw:
+        Result::Ok kind:
+            gui_web_window_event_result_from_parts kind
+        Result::Err error:
+            Result::Err error
 
 //: gui_web_action_from_raw: host raw action id を legacy `Option ActionId` へ[正規化/せいきか]する
 //:
