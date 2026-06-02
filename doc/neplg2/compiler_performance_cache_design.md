@@ -3466,6 +3466,48 @@ Resource IR の固定点探索が実測で下がることを示す。
 i32 scalar と raw-init、`apply_op` / parse 系 function check、owner obligation である。次の主経路は
 actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
 
+2026-06-02 の RPN Stack pop2 owner-flow checkpoint では、Stack owner flow の局所支配をさらに測った。
+作業開始時点の native release stage-only 3 run は次の通りである。
+
+```text
+RPN cold base static check before Stack pop2
+  resource_static_check: 2995ms / 2939ms / 2813ms
+    median: 2939ms
+    resource_initialized_moves: 2271ms / 2173ms / 2116ms
+      resource_initialized_i32_scalar_summaries: 836ms / 744ms / 737ms
+      resource_initialized_raw_init_summaries: 734ms / 700ms / 680ms
+      resource_initialized_function_checks: 636ms / 666ms / 637ms
+    resource_owner_obligations: 602ms / 640ms / 581ms
+```
+
+RPN の `apply_op` は従来、2 回の `pop_top` で Stack owner を移動し、途中の underflow path でも
+owner recovery を個別に持っていた。`StackPop2` / `pop_top2` はこの 2 要素 pop を 1 つの owner
+boundary にまとめる。公開 contract は、要素が 2 個以上なら lower / top と短くなった stack を返し、
+2 個未満なら元の stack owner と `None` を返す、という形である。
+
+変更後の native release stage-only 5 run は次の通りである。
+
+```text
+RPN cold base static check after Stack pop2
+  resource_static_check: 3223ms / 2877ms / 2882ms / 2611ms / 2833ms
+    median: 2877ms
+    resource_initialized_moves median-near: about 2092ms
+      resource_initialized_i32_scalar_summaries median-near: about 783ms
+      resource_initialized_raw_init_summaries median-near: about 611ms
+      resource_initialized_function_checks median-near: about 631ms
+    resource_owner_obligations median-near: about 650ms
+```
+
+ByteBuilder の reserved write helper 分割も同時に検討したが、helper 境界で owner recovery が
+`resource.owner.use_after_move` になるため採用しなかった。これは静的検査を弱めて通す対象ではなく、
+actual `.neplproof` と owner return summary stable mirror で関数境界を越えた証明再利用を入れるべき
+箇所である。
+
+この checkpoint は局所的な owner-flow API 改良であり、0.5 秒未満の cold base 目標を達成するものでは
+ない。RPN の支配階層はまだ Resource IR initialized-state と owner obligation に残っているため、
+persistent / bundled `.neplproof` preseed、stdlib proof template、owner return summary stable mirror を
+主経路として継続する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

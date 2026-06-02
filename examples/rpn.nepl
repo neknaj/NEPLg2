@@ -215,34 +215,26 @@ fn print_step_after %impure fn &Stack i32 impure fn i32 unit \stack\res:
 //:
 //: [目的/もくてき]:
 //: - `+` `-` `*` のいずれかの演算を適用し、結果をスタックに積みます。
-//: - `pop_top` で更新後 owner と取り出した値を同時に受け取り、owner flow を途切れさせません。
+//: - `pop_top2` で更新後 owner と 2 つの値を同時に受け取り、二項演算の owner flow を 1 つの境界にまとめます。
 //: - token 文字列の分類は `operator_from_token` に閉じ、ここでは分類済み `RpnOp` だけを扱います。
 fn apply_op %impure fn Stack i32 impure fn RpnOp Result Stack i32 str \stack\op:
-    if:
-        lt stk::len &stack 2
-        then:
-            print_error "stack underflow";
-            ok stack
-        else:
-            let popped_b %StackPop i32 stk::pop_top stack
-            let b_opt %Option i32 stk::stack_pop_item &popped_b
-            let stack_b %Stack i32 stk::stack_pop_stack popped_b
+    let popped %StackPop2 i32 stk::pop_top2 stack
+    let a_opt %Option i32 stk::stack_pop2_lower &popped
+    let b_opt %Option i32 stk::stack_pop2_top &popped
+    let stack_after_pop %Stack i32 stk::stack_pop2_stack popped
+    match a_opt:
+        Option::Some a:
             match b_opt:
                 Option::Some b:
-                    let popped_a %StackPop i32 stk::pop_top stack_b
-                    let a_opt %Option i32 stk::stack_pop_item &popped_a
-                    let stack_a %Stack i32 stk::stack_pop_stack popped_a
-                    match a_opt:
-                        Option::Some a:
-                            let res %i32 apply_op_values op a b
-                            print_step_after &stack_a res;
-                            push_or_report stack_a res
-                        Option::None:
-                            print_error "stack underflow";
-                            ok stack_a
+                    let res %i32 apply_op_values op a b
+                    print_step_after &stack_after_pop res;
+                    push_or_report stack_after_pop res
                 Option::None:
                     print_error "stack underflow";
-                    ok stack_b
+                    ok stack_after_pop
+        Option::None:
+            print_error "stack underflow";
+            ok stack_after_pop
 
 //: process_token: 1 つのトークンを分類して処理する
 //:

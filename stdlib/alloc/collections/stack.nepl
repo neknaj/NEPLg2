@@ -2,13 +2,13 @@
 //: `Vec Option .T` backed LIFO stack の public facade
 //:
 //: ### [目的/もくてき]
-//: - `push` / `pop_top` / `stack_pop_item` / `stack_pop_stack` / `peek` / `get` / `len` など、stack 操作の既存 import path を[保/たも]ちます。
+//: - `push` / `pop_top` / `pop_top2` / `stack_pop_item` / `stack_pop_stack` / `peek` / `get` / `len` など、stack 操作の既存 import path を[保/たも]ちます。
 //: - 型定義、slot storage 操作、public API を submodule に[分/わ]けます。
 //:
 //: ### [注意/ちゅうい]
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には stack payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
 //: - `len` / `is_empty` / `peek` / `get` は `&Stack` を[受/う]け[取/と]る[観測/かんそく] API です。
-//: - `pop_top` は[更新後/こうしんご]の owner と[値/あたい]を[同時/どうじ]に[返/かえ]します。結果の[分解/ぶんかい]には `stack_pop_item` / `stack_pop_stack` を[使/つか]います。
+//: - `pop_top` / `pop_top2` は[更新後/こうしんご]の owner と[値/あたい]を[同時/どうじ]に[返/かえ]します。結果の[分解/ぶんかい]には `stack_pop_item` / `stack_pop_stack` または `stack_pop2_lower` / `stack_pop2_top` / `stack_pop2_stack` を[使/つか]います。
 
 #indent 4
 #import "core/field" as *

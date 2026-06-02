@@ -113,6 +113,64 @@ fn main %impure fn unit i32 \unit:
     test_report_exit_code shown
 ```
 
+## stack_pop_top2_success_and_underflow
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"stack_pop_top2_success_and_underflow\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"lower value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"top value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"len after pop2\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"underflow keeps len\" expected=\"1\" actual=\"1\" message=\"\"\n"
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/stack" as *
+#import "alloc/diag/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn main %impure fn unit i32 \unit:
+    let s0 %Stack i32:
+        unwrap_ok new
+        |> push 10
+        |> unwrap_ok
+        |> push 20
+        |> unwrap_ok
+    let popped %StackPop2 i32 pop_top2 s0
+    let lower_ok %bool match stack_pop2_lower &popped:
+        Option::Some v:
+            eq v 10
+        Option::None:
+            false
+    let top_ok %bool match stack_pop2_top &popped:
+        Option::Some v:
+            eq v 20
+        Option::None:
+            false
+    let s1 %Stack i32 stack_pop2_stack popped
+    let len_after %i32 len &s1
+    free s1;
+
+    let s2 %Stack i32:
+        unwrap_ok new
+        |> push 99
+        |> unwrap_ok
+    let under %StackPop2 i32 pop_top2 s2
+    let s3 %Stack i32 stack_pop2_stack under
+    let under_len %i32 len &s3
+    free s3;
+
+    let report:
+        test_report_new "stack_pop_top2_success_and_underflow"
+        |> test_report_push assert "lower value" lower_ok
+        |> test_report_push assert "top value" top_ok
+        |> test_report_push assert_eq_i32 "len after pop2" 0 len_after
+        |> test_report_push assert_eq_i32 "underflow keeps len" 1 under_len
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
+```
+
 ## stack_new_and_len_pipe
 
 neplg2:test[stdio, normalize_newlines]

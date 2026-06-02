@@ -2,11 +2,11 @@
 //: LIFO stack の public 操作
 //:
 //: ### [目的/もくてき]
-//: - `new` / `with_capacity` / `push` / `pop_top` / `stack_pop_item` / `stack_pop_stack` / `pop` / `peek` / `get` / `len` / `is_empty` / `clear` / `free` を[提供/ていきょう]します。
+//: - `new` / `with_capacity` / `push` / `pop_top` / `pop_top2` / `stack_pop_item` / `stack_pop_stack` / `pop` / `peek` / `get` / `len` / `is_empty` / `clear` / `free` を[提供/ていきょう]します。
 //: - owner を[更新/こうしん]する API と、owner を[借用/しゃくよう]して[観測/かんそく]する API を[分/わ]けます。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len` / `is_empty` / `peek` / `get` / `pop_top` は O(1) です。
+//: - `len` / `is_empty` / `peek` / `get` / `pop_top` / `pop_top2` は O(1) です。
 //: - `push` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
 
 #indent 4
@@ -78,6 +78,65 @@ pub fn pop_top <.T: Copy> %impure fn Stack .T StackPop .T \stk:
             let next_st %Stack .T Stack<.T> next_len cap0 items
             StackPop<.T> next_st item
 
+//: ## pop_top2
+//: [末尾/まつび]から 2 要素をまとめて[取/と]り[出/だ]し、[更新後/こうしんご]の stack と[値/あたい]を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - 2 引数演算や pair consume のように、stack から連続して 2 要素を取り出す処理の owner flow を 1 つの API 境界へまとめます。
+//: - 要素数が 2 未満の場合は stack を変更せず、`lower` / `top` をどちらも `None` にします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/stack" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let st0 %Stack i32 unwrap_ok new;
+//:     let st1 %Stack i32 unwrap_ok push st0 3;
+//:     let st2 %Stack i32 unwrap_ok push st1 7;
+//:     let p %StackPop2 i32 pop_top2 st2;
+//:     let lower %Option i32 stack_pop2_lower &p;
+//:     let top %Option i32 stack_pop2_top &p;
+//:     let st3 %Stack i32 stack_pop2_stack p;
+//:     let ok_len %bool eq len &st3 0;
+//:     free st3;
+//:     match lower:
+//:         Option::Some a:
+//:             match top:
+//:                 Option::Some b:
+//:                     let ok_values %bool and eq a 3 eq b 7;
+//:                     if and ok_len ok_values 0 1
+//:                 Option::None:
+//:                     1
+//:         Option::None:
+//:             1
+//: ```
+pub fn pop_top2 <.T: Copy> %impure fn Stack .T StackPop2 .T \stk:
+    let len0 %i32 *field::get_ref &stk "len"
+    let cap0 %i32 *field::get_ref &stk "cap"
+    let items %Vec Option .T field::get stk "items"
+    if:
+        lt len0 2
+        then:
+            let next_st %Stack .T Stack<.T> len0 cap0 items
+            StackPop2<.T> next_st none none
+        else:
+            let top_index %i32 sub len0 1
+            let lower_index %i32 sub len0 2
+            let top_item %Option .T stack_item_at<.T> &items top_index
+            let lower_item %Option .T stack_item_at<.T> &items lower_index
+            stack_store_slot<.T> &items top_index none
+            stack_store_slot<.T> &items lower_index none
+            let next_st %Stack .T Stack<.T> lower_index cap0 items
+            StackPop2<.T> next_st lower_item top_item
+
 //: ## stack_pop_item
 //: `StackPop` を[借用/しゃくよう]し、[取/と]り[出/だ]した[値/あたい]を[読/よ]む
 //:
@@ -142,6 +201,42 @@ pub fn stack_pop_item <.T: Copy> %fn &StackPop .T Option .T \p:
 //:     if ok 0 1
 //: ```
 pub fn stack_pop_stack <.T: Copy> %fn StackPop .T Stack .T \p:
+    field::get p "stack"
+
+//: ## stack_pop2_lower
+//: `StackPop2` を[借用/しゃくよう]し、上から 2 番目に[取/と]り[出/だ]した[値/あたい]を[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - 二項演算で左辺として使う値を取得します。
+//: - `StackPop2` は[更新後/こうしんご]の stack owner を[含/ふく]むため、値だけを読む accessor と owner を取り出す accessor を分けます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+pub fn stack_pop2_lower <.T: Copy> %fn &StackPop2 .T Option .T \p:
+    *field::get_ref p "lower"
+
+//: ## stack_pop2_top
+//: `StackPop2` を[借用/しゃくよう]し、最上位から[取/と]り[出/だ]した[値/あたい]を[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - 二項演算で右辺として使う値を取得します。
+//: - 要素数が 2 未満だった場合は `stack_pop2_lower` と同じく `None` を返します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+pub fn stack_pop2_top <.T: Copy> %fn &StackPop2 .T Option .T \p:
+    *field::get_ref p "top"
+
+//: ## stack_pop2_stack
+//: `StackPop2` を[消費/しょうひ]し、[更新後/こうしんご]の stack owner を[取/と]り[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - `pop_top2` の[結果/けっか]から、次に使う `Stack` owner を移動します。
+//: - 要素数不足の場合も、変更されていない元の stack owner を返します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+pub fn stack_pop2_stack <.T: Copy> %fn StackPop2 .T Stack .T \p:
     field::get p "stack"
 
 //: ## pop

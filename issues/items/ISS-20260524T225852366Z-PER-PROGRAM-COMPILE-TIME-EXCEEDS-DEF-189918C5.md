@@ -474,6 +474,44 @@ per-function timing では `byte_builder_reserve` i32 scalar summary が約 `166
 この checkpoint でも issue は解決しない。RPN cold base は秒単位であり、0.5 秒未満へ進める主経路は
 actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror のままである。
 
+2026-06-02 の RPN Stack pop2 owner-flow checkpoint では、proof-backed check gate と allocator /
+ByteBuilder reserve helper split 後の RPN cold base を再測定した。作業開始時点の native release
+stage-only 3 run は `resource_static_check=2995ms / 2939ms / 2813ms`、中央値 `2939ms` である。
+支配階層は次の通り。
+
+```text
+RPN cold base static check before Stack pop2
+  resource_static_check: median 2939ms
+    resource_initialized_moves: 2271ms / 2173ms / 2116ms
+      resource_initialized_i32_scalar_summaries: 836ms / 744ms / 737ms
+      resource_initialized_raw_init_summaries: 734ms / 700ms / 680ms
+      resource_initialized_function_checks: 636ms / 666ms / 637ms
+    resource_owner_obligations: 602ms / 640ms / 581ms
+```
+
+対応として、`StackPop2` と `pop_top2` を `stdlib/alloc/collections/stack` に追加し、RPN の
+`apply_op` が 2 回の `pop_top` で Stack owner を順に移動する形を 1 つの owner boundary へ集約した。
+2 要素未満では stack owner を変更せず `None` を返すため、underflow path でも呼び出し側の owner
+recovery が明示的である。
+
+変更後の native release stage-only 5 run は次の通り。
+
+```text
+RPN cold base static check after Stack pop2
+  resource_static_check: 3223ms / 2877ms / 2882ms / 2611ms / 2833ms
+    median: 2877ms
+    resource_initialized_moves median-near: about 2092ms
+      resource_initialized_i32_scalar_summaries median-near: about 783ms
+      resource_initialized_raw_init_summaries median-near: about 611ms
+      resource_initialized_function_checks median-near: about 631ms
+    resource_owner_obligations median-near: about 650ms
+```
+
+同時に試した ByteBuilder reserved write helper は、`byte_builder_push_bytes_ref` /
+`byte_builder_push_u8` の owner recovery が helper boundary をまたいで
+`resource.owner.use_after_move` になるため採用しなかった。検査を弱めて通すのではなく、ByteBuilder の
+残支配点は actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror で扱う。
+
 ## 検証
 
 - `trunk build`
