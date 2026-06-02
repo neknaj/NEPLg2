@@ -20,6 +20,17 @@
 //:     ##: ok: result = -5
 //:     ##: > bye
 
+//: neplg2:test[rpn_repl_stack_count_error, normalize_newlines, strip_ansi]
+//: [目的/もくてき]: 値が複数残ったときの error path が stack 要素数を直接表示することを確認する
+//: stdin: "1 2\n"
+//: stdout: mlstr:
+//:     ##: RPN REPL
+//:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
+//:     ##:
+//:     ##: > 1 2
+//:     ##: error: stack has 2 values
+//:     ##: > bye
+
 //: rpn: 逆ポーランド記法（RPN）電卓 TUI/REPL
 //:
 //: [目的/もくてき]:
@@ -54,8 +65,6 @@
 #import "alloc/string/search" as string_search
 #import "alloc/string/slice" as string_slice
 #import "alloc/string/integer/parse" as string_parse
-#import "alloc/string/integer/format" as string_format
-#import "alloc/string/concat" as string_concat
 #import "alloc/collections/stack" as stk
 #import "alloc/diag/error/types" as *
 
@@ -68,6 +77,24 @@ fn print_error %impure fn str unit \msg:
     print_style label_style "error:";
     print " ";
     println_color AnsiColor::Red msg;
+
+//: print_stack_count_error: 残った stack 要素数を allocation なしでエラー表示する
+//:
+//: [目的/もくてき]:
+//: - `stack has <n> values` を、整数文字列の確保や文字列連結なしで表示します。
+//: - 正常な RPN 入力では通らない error path でも、formatting stdlib の大きい proof graph を
+//:   この example へ引き込まないようにします。
+fn print_stack_count_error %impure fn i32 unit \count:
+    let label_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Red;
+    let msg_style %AnsiTextStyle ansi_color_style AnsiColor::Red;
+    print_style label_style "error:";
+    print " ";
+    print_style_start msg_style;
+    print "stack has ";
+    print_i32 count;
+    print " values";
+    print_style_reset;
+    print "\n";
 
 //: print_prompt: REPL のプロンプトを表示する
 //:
@@ -339,7 +366,7 @@ fn eval_line %impure fn str unit \line:
                                     stk::free stack
                                 else:
                                     print_stack_line &stack;
-                                    print_error string_concat::concat3 "stack has " string_format::from_i32 sp " values";
+                                    print_stack_count_error sp;
                                     stk::free stack
                 Result::Err msg:
                     string_access::len msg;

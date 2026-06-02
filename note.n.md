@@ -1,3 +1,14 @@
+# 2026-06-02 RPN print_i32 allocation-free cold base checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱めずに、RPN cold base が不要な stdlib formatting proof graph を引き込む根本経路を削った。
+- 作業開始時点の native release RPN stage-only 5 run は `resource_static_check=3395ms / 2922ms / 2730ms / 2816ms / 2985ms`、中央値 `2922ms` だった。支配階層は `resource_initialized_moves` 中央付近 `2098ms`、`resource_initialized_i32_scalar_summaries` 中央付近 `731ms`、`resource_initialized_raw_init_summaries` 中央付近 `640ms`、`resource_initialized_function_checks` 中央付近 `650ms`、`resource_owner_obligations` 中央付近 `703ms` である。到達関数は `307 kept=304` だった。
+- per-function timing では `sb_append_non_empty_result`、`byte_builder_push_bytes_ref`、`byte_builder_push_u8` が i32 scalar summary 上位に残っていた。原因は RPN の stack count error path と `print_i32` が `alloc/string/integer/format` / `StringBuilder` / `ByteBuilder` を引き込み、正常 RPN 実行の整数表示まで文字列確保経由にしていたことである。
+- `stdlib/std/stdio/print.nepl` の `print_i32` を allocation-free にし、負数のまま固定 divisor で digit byte を出力する実装へ変えた。これにより `i32` 最小値の符号反転 overflow に依存せず、整数表示だけでは `alloc/string/integer/format` を import しない。
+- `examples/rpn.nepl` は stack count error を文字列連結ではなく `print_i32` と固定文字列の直接出力へ変えた。正常 path の出力互換は維持し、error path のためだけに formatting stdlib の大きい proof graph を引き込まないようにした。
+- 変更後の native release RPN stage-only 5 run は `resource_static_check=1584ms / 1427ms / 1545ms / 1539ms / 1435ms`、中央値 `1539ms` だった。階層中央値は `resource_initialized_moves=1041ms`、`resource_initialized_i32_scalar_summaries=199ms`、`resource_initialized_raw_init_summaries=365ms`、`resource_initialized_function_checks=445ms`、`resource_owner_obligations=394ms` である。到達関数は `271 kept=268` まで減った。
+- この checkpoint は同一 branch 内基準で RPN cold base static check median を `2922ms -> 1539ms` へ下げた。ただし 0.5 秒未満目標にはまだ届かないため、次は actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror を継続する。
+- focused 検証: `node nodesrc\tests.js -i stdlib\std\stdio\print.nepl -i stdlib\std\stdio\write\byte.nepl -i examples\rpn.nepl --no-tree -o tmp\rpn-print-i32-direct-tests-final-20260602.json -j 2 --assert-io` は 9/9 pass。edge doctest で `0`、負数、`-2147483648`、`2147483647` の出力を固定し、RPN の stack count error path も `stdin: "1 2\n"` で固定した。RPN native release stage-only 5 run は pass。
+
 # 2026-06-02 RPN cold base proof-backed check gate checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱めずに RPN cold base の根本経路である `.neplproof` preseed 入口を整理した。

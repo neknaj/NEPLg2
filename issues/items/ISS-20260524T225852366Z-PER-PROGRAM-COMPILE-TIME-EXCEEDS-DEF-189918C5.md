@@ -512,6 +512,26 @@ RPN cold base static check after Stack pop2
 `resource.owner.use_after_move` になるため採用しなかった。検査を弱めて通すのではなく、ByteBuilder の
 残支配点は actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror で扱う。
 
+2026-06-02 の RPN `print_i32` allocation-free checkpoint では、RPN が error path と整数表示のために
+`alloc/string/integer/format`、`StringBuilder`、`ByteBuilder` を reachable proof graph へ引き込んでいる
+ことを確認した。変更前の native release stage-only 5 run は
+`resource_static_check=3395ms / 2922ms / 2730ms / 2816ms / 2985ms`、中央値 `2922ms` である。
+到達関数は `307 kept=304` だった。
+
+対応として、`stdlib/std/stdio/print.nepl` の `print_i32` は `str` を確保せず digit byte を直接出す実装へ
+変えた。`i32` 最小値は正数へ反転せず、負数のまま固定 divisor で上位桁から出力する。
+`examples/rpn.nepl` の stack count error も、文字列連結ではなく固定文字列と `print_i32` の直接出力に
+変えた。
+
+変更後の native release stage-only 5 run は
+`resource_static_check=1584ms / 1427ms / 1545ms / 1539ms / 1435ms`、中央値 `1539ms` である。
+階層中央値は `resource_initialized_moves=1041ms`、`resource_initialized_i32_scalar_summaries=199ms`、
+`resource_initialized_raw_init_summaries=365ms`、`resource_initialized_function_checks=445ms`、
+`resource_owner_obligations=394ms` だった。到達関数は `271 kept=268` まで減った。
+
+この checkpoint でも issue は解決しない。RPN cold base は大きく改善したが、0.5 秒未満にはまだ届かない。
+次の根本対応は actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
+
 ## 検証
 
 - `trunk build`

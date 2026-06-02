@@ -776,3 +776,14 @@ native check 用の core wrapper と cache activation gate を追加した。
 を指定した場合は、matching header でも empty snapshot なら cache を起動しない。これにより、
 disk / bundled artifact loader を追加する次 checkpoint で、empty cache を渡しただけの RPN cold base
 regression を起こさず、accepted usable entry を持つ artifact だけを cold path へ接続できる。
+
+2026-06-02 の RPN `print_i32` allocation-free checkpoint では、RPN が `alloc/string/integer/format`
+由来の StringBuilder / ByteBuilder proof graph を error path と整数表示のために引き込んでいたため、
+`print_i32` を digit byte 直接出力に変え、RPN の stack count error も文字列連結から直接出力へ変えた。
+native release RPN stage-only 5 run の median は `resource_static_check=2922ms -> 1539ms`、到達関数は
+`307 kept=304 -> 271 kept=268` へ下がった。
+
+ただし、この改善は reachable stdlib graph を小さくする局所構造改善であり、binary intermediate artifact
+の完了ではない。RPN cold base はまだ 0.5 秒未満ではなく、final initialized pass、owner obligation、
+raw-init / i32 scalar summary を cold start 前から使える `.neplproof` codec / bundled preseed が引き続き
+主経路である。

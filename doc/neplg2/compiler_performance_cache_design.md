@@ -3508,6 +3508,45 @@ actual `.neplproof` と owner return summary stable mirror で関数境界を越
 persistent / bundled `.neplproof` preseed、stdlib proof template、owner return summary stable mirror を
 主経路として継続する。
 
+2026-06-02 の RPN `print_i32` allocation-free checkpoint では、RPN が error path と整数表示のために
+`alloc/string/integer/format`、`StringBuilder`、`ByteBuilder` の proof graph を引き込んでいることを
+再測定した。変更前の native release stage-only 5 run は次の通りである。
+
+```text
+RPN cold base static check before allocation-free print_i32
+  resource_static_check: 3395ms / 2922ms / 2730ms / 2816ms / 2985ms
+    median: 2922ms
+    resource_initialized_moves median-near: 2098ms
+      resource_initialized_i32_scalar_summaries median-near: 731ms
+      resource_initialized_raw_init_summaries median-near: 640ms
+      resource_initialized_function_checks median-near: 650ms
+    resource_owner_obligations median-near: 703ms
+  reachable functions: 307 kept=304
+```
+
+`stdlib/std/stdio/print.nepl` の `print_i32` は、`str` を確保せず digit byte を直接 stdout へ出す実装へ
+変えた。`i32` 最小値の符号反転 overflow を避けるため、負数は負数のまま
+`-1000000000` から `-1` までの divisor で上位桁から出力する。`examples/rpn.nepl` の stack count
+error も、文字列連結ではなく固定文字列と `print_i32` の直接出力に変えた。
+
+変更後の native release stage-only 5 run は次の通りである。
+
+```text
+RPN cold base static check after allocation-free print_i32
+  resource_static_check: 1584ms / 1427ms / 1545ms / 1539ms / 1435ms
+    median: 1539ms
+    resource_initialized_moves median: 1041ms
+      resource_initialized_i32_scalar_summaries median: 199ms
+      resource_initialized_raw_init_summaries median: 365ms
+      resource_initialized_function_checks median: 445ms
+    resource_owner_obligations median: 394ms
+  reachable functions: 271 kept=268
+```
+
+これは compile check を skip する最適化ではなく、RPN が不要な stdlib formatting 実装を reachable
+closure に含めないようにする構造改善である。0.5 秒未満目標にはまだ届いていないため、次の根本対応は
+actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

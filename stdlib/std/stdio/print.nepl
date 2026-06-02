@@ -11,7 +11,7 @@
 
 #indent 4
 
-#import "alloc/string/integer/format" as string_integer
+#import "core/math" as *
 #import "core/result" as *
 #import "std/stdio/write" as *
 
@@ -93,19 +93,62 @@ pub fn noshadow println %impure fn str unit \s:
     print "\n";
     unit
 
-//: print_i32: i32 を文字列にして出力
+//: print_i32_negative_digits: 負数 magnitude を確保なしで 10 進出力する内部 helper
+//:
+//: [目的/もくてき]:
+//: - `print_i32` が `str` を組み立てず、stdout へ digit byte を直接書けるようにします。
+//:
+//: [実装/じっそう]:
+//: - `n` は 0 以下の値として扱います。`i32` 最小値は正数へ反転できないため、負数のまま
+//:   `-1000000000` から `-1` までの divisor で上位桁から取り出します。
+//: - digit を 1 つでも出力した後は、0 digit も含めて残りの桁を出力します。
+//:
+//: [注意/ちゅうい]:
+//: - `n` が正の場合の結果はこの helper の契約外です。
+//: - write error は `print_byte` と同じく互換 API として無視します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。i32 は最大 10 桁なので、loop 回数は固定です。
+fn print_i32_negative_digits %impure fn i32 unit \n0:
+    let mut n %i32 n0;
+    let mut divisor %i32 -1000000000;
+    let mut started %bool false;
+    while ne divisor 0:
+        do:
+            let digit %i32 div_s n divisor;
+            if:
+                or started ne digit 0
+                then:
+                    print_byte add 48 digit;
+                    set started true;
+                    set n rem_s n divisor
+                else:
+                    unit;
+            set divisor div_s divisor 10;
+    if:
+        started
+        then:
+            unit
+        else:
+            print_byte 48;
+
+//: print_i32: i32 を確保せず 10 進表記で出力
 //:
 //: 目的:
-//: - v を 10 進文字列にして出力します。
+//: - v を 10 進表記で stdout へ出力します。
 //:
 //: 実装(アルゴリズム):
-//: - 整数の文字列化は `alloc/string/integer/format::from_i32` に委譲し、stdio は出力だけを担当します。
+//: - `str` を確保せず、digit byte を `print_byte` で上位桁から直接出力します。
+//: - 負数は先に `-` を出力し、値は負数のまま helper へ渡します。これにより `i32` 最小値の
+//:   符号反転 overflow に依存しません。
 //:
 //: 注意(重要):
-//: - 文字列化に必要な allocation に失敗した場合は `from_i32` の fallback に従います。
+//: - write error は互換性のため無視します。
+//: - allocation を行わないため、整数表示だけで `alloc/string/integer/format` と
+//:   `StringBuilder` / `ByteBuilder` を引き込まない境界になります。
 //:
 //: 計算量:
-//: - O(d)
+//: - O(1)。i32 の桁数上限は固定です。
 //: print_i32: 使い方の最小例
 //:
 //: [目的/もくてき]:
@@ -126,9 +169,38 @@ pub fn noshadow println %impure fn str unit \s:
 //: fn main %impure fn unit unit \unit:
 //:     print_i32 42;
 //: ```
+//:
+//: neplg2:test[print_i32_edges]
+//: stdout: "0 -42 -2147483648 2147483647"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "std/stdio" as *
+//: fn main %impure fn unit unit \unit:
+//:     print_i32 0;
+//:     print " ";
+//:     print_i32 -42;
+//:     print " ";
+//:     let min_i32 %i32 sub -2147483647 1;
+//:     print_i32 min_i32;
+//:     print " ";
+//:     print_i32 2147483647;
+//: ```
 pub fn noshadow print_i32 %impure fn i32 unit \v:
-    print string_integer::from_i32 v;
-    unit
+    if:
+        eq v 0
+        then:
+            print_byte 48
+        else:
+            if:
+                lt v 0
+                then:
+                    print_byte 45;
+                    print_i32_negative_digits v
+                else:
+                    print_i32_negative_digits sub 0 v
 
 //: println_i32: i32 を改行付きで出力
 //:
@@ -142,7 +214,7 @@ pub fn noshadow print_i32 %impure fn i32 unit \v:
 //: - 改行は常に追加されます。
 //:
 //: 計算量:
-//: - O(d)
+//: - O(1)。`print_i32` と改行 1 byte の出力だけを行います。
 //: println_i32: 使い方の最小例
 //:
 //: [目的/もくてき]:
