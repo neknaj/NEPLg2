@@ -14,8 +14,8 @@
 //: - raw host import の 0 / 負 sentinel はこの module の境界内でだけ扱います。
 //:
 //: ### [現状/げんじょう]
-//: - Phase 2 では Web Playground の action event を `GuiEvent::Action` として扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
-//: - pointer move / keyboard / text input / lifecycle などの full event union は後続 phase で追加します。
+//: - Phase 2 では Web Playground の action event と pointer event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
+//: - keyboard / text input / lifecycle などの full event union は後続 phase で追加します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -41,6 +41,9 @@
 #extern "nepl_gui_web" "last_event_action_id" fn gui_web_last_event_action_id_raw %impure fn unit i32
 #extern "nepl_gui_web" "last_event_point_x_milli" fn gui_web_last_event_point_x_milli_raw %impure fn unit i32
 #extern "nepl_gui_web" "last_event_point_y_milli" fn gui_web_last_event_point_y_milli_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_pointer_kind" fn gui_web_last_event_pointer_kind_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_pointer_id" fn gui_web_last_event_pointer_id_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_pointer_button" fn gui_web_last_event_pointer_button_raw %impure fn unit i32
 
 //: GuiWebEvent: Web backend が[取/と]り[出/だ]した typed GUI event record
 //:
@@ -87,6 +90,18 @@ pub fn gui_web_event_action %fn &GuiWebEvent Option ActionId \event:
         _:
             Option::None
 
+//: gui_web_event_pointer: pointer event なら `PointerEvent` を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - event が `GuiEvent::Pointer` の場合は `Option::Some` を返します。
+//: - それ以外の event variant は `Option::None` を返します。
+pub fn gui_web_event_pointer %fn &GuiWebEvent Option PointerEvent \event:
+    match gui_web_event_gui_event event:
+        GuiEvent::Pointer pointer:
+            Option::Some pointer
+        _:
+            Option::None
+
 //: gui_web_action_result_from_raw: host raw action id を `Result Option ActionId GuiError` へ[正規化/せいきか]する
 //:
 //: [目的/もくてき]:
@@ -125,6 +140,7 @@ fn gui_web_action_result_from_raw %fn i32 Result Option ActionId GuiError \raw:
 //:
 //: [契約/けいやく]:
 //: - raw kind 1 は action event です。
+//: - raw kind 2 は pointer event です。
 //: - raw kind 0 は timeout / empty queue です。
 //: - raw kind -1 は unsupported host queue です。
 //: - raw kind -2 または未知の kind は invalid command です。
@@ -135,23 +151,14 @@ fn gui_web_event_result_from_kind_raw %impure fn i32 Result Option GuiWebEvent G
             if:
                 eq raw 1
                 then:
-                    let action_raw %i32 gui_web_last_event_action_id_raw
+                    gui_web_action_event_result_from_last
+                else:
                     if:
-                        gt action_raw 0
+                        eq raw 2
                         then:
-                            let action %ActionId app::action_id action_raw
-                            let x_milli %i32 gui_web_last_event_point_x_milli_raw
-                            let y_milli %i32 gui_web_last_event_point_y_milli_raw
-                            let point %GuiPoint gui_point_new x_milli y_milli
-                            let gui_event %GuiEvent gui_event_action action
-                            let window_id %i32 gui_web_last_event_window_id_raw
-                            let web_event %GuiWebEvent GuiWebEvent window_id point gui_event
-                            let some %Option GuiWebEvent Option::Some web_event
-                            Result::Ok some
+                            gui_web_pointer_event_result_from_last
                         else:
                             Result::Err GuiError::InvalidCommand
-                else:
-                    Result::Err GuiError::InvalidCommand
         else:
             if:
                 eq raw 0
@@ -165,6 +172,102 @@ fn gui_web_event_result_from_kind_raw %impure fn i32 Result Option GuiWebEvent G
                             Result::Err GuiError::Unsupported
                         else:
                             Result::Err GuiError::InvalidCommand
+
+fn gui_web_web_event_from_gui_event %impure fn GuiEvent Result Option GuiWebEvent GuiError \gui_event:
+    let x_milli %i32 gui_web_last_event_point_x_milli_raw
+    let y_milli %i32 gui_web_last_event_point_y_milli_raw
+    let point %GuiPoint gui_point_new x_milli y_milli
+    let window_id %i32 gui_web_last_event_window_id_raw
+    let web_event %GuiWebEvent GuiWebEvent window_id point gui_event
+    let some %Option GuiWebEvent Option::Some web_event
+    Result::Ok some
+
+fn gui_web_action_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+    let action_raw %i32 gui_web_last_event_action_id_raw
+    if:
+        gt action_raw 0
+        then:
+            let action %ActionId app::action_id action_raw
+            let gui_event %GuiEvent gui_event_action action
+            gui_web_web_event_from_gui_event gui_event
+        else:
+            Result::Err GuiError::InvalidCommand
+
+fn gui_web_pointer_kind_from_raw %fn i32 Result PointerEventKind GuiError \raw:
+    if:
+        eq raw 1
+        then:
+            Result::Ok PointerEventKind::Move
+        else:
+            if:
+                eq raw 2
+                then:
+                    Result::Ok PointerEventKind::Down
+                else:
+                    if:
+                        eq raw 3
+                        then:
+                            Result::Ok PointerEventKind::Up
+                        else:
+                            if:
+                                eq raw 4
+                                then:
+                                    Result::Ok PointerEventKind::Cancel
+                                else:
+                                    Result::Err GuiError::InvalidCommand
+
+fn gui_web_pointer_button_from_raw %fn i32 Result PointerButton GuiError \raw:
+    if:
+        eq raw 0
+        then:
+            Result::Ok PointerButton::None
+        else:
+            if:
+                eq raw 1
+                then:
+                    Result::Ok PointerButton::Primary
+                else:
+                    if:
+                        eq raw 2
+                        then:
+                            Result::Ok PointerButton::Secondary
+                        else:
+                            if:
+                                eq raw 3
+                                then:
+                                    Result::Ok PointerButton::Middle
+                                else:
+                                    Result::Err GuiError::InvalidCommand
+
+fn gui_web_pointer_event_result_from_parts %impure fn PointerEventKind impure fn PointerButton Result Option GuiWebEvent GuiError \kind\button:
+    let pointer_id %i32 gui_web_last_event_pointer_id_raw
+    if:
+        gt pointer_id 0
+        then:
+            let x_milli %i32 gui_web_last_event_point_x_milli_raw
+            let y_milli %i32 gui_web_last_event_point_y_milli_raw
+            let point %GuiPoint gui_point_new x_milli y_milli
+            let pointer_event %PointerEvent pointer_event_new kind pointer_id point button
+            let gui_event %GuiEvent gui_event_pointer pointer_event
+            gui_web_web_event_from_gui_event gui_event
+        else:
+            Result::Err GuiError::InvalidCommand
+
+fn gui_web_pointer_event_result_from_button %impure fn PointerEventKind impure fn i32 Result Option GuiWebEvent GuiError \kind\button_raw:
+    match gui_web_pointer_button_from_raw button_raw:
+        Result::Ok button:
+            gui_web_pointer_event_result_from_parts kind button
+        Result::Err error:
+            Result::Err error
+
+fn gui_web_pointer_event_result_from_last %impure fn unit Result Option GuiWebEvent GuiError \unit:
+    let kind_raw %i32 gui_web_last_event_pointer_kind_raw
+    match gui_web_pointer_kind_from_raw kind_raw:
+        Result::Ok kind:
+            let button_raw %i32 gui_web_last_event_pointer_button_raw
+            gui_web_pointer_event_result_from_button kind button_raw
+        Result::Err error:
+            Result::Err error
 
 //: gui_web_action_from_raw: host raw action id を legacy `Option ActionId` へ[正規化/せいきか]する
 //:

@@ -1,24 +1,41 @@
 import type { GuiWebInputEvent } from './input-bridge.js';
+import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
 
 export const GUI_WEB_EVENT_QUEUE_CAPACITY = 64;
-export const GUI_WEB_EVENT_QUEUE_HEADER_LENGTH = 2;
-export const GUI_WEB_EVENT_QUEUE_SLOT_LENGTH = 5;
+export const GUI_WEB_ACTION_QUEUE_CAPACITY = 64;
+export const GUI_WEB_EVENT_QUEUE_HEADER_LENGTH = 4;
+export const GUI_WEB_EVENT_QUEUE_SLOT_LENGTH = 8;
 export const GUI_WEB_EVENT_KIND_ACTION = 1;
+export const GUI_WEB_EVENT_KIND_POINTER = 2;
 export const GUI_WEB_EVENT_POLL_UNSUPPORTED = -1;
 export const GUI_WEB_EVENT_POLL_INVALID = -2;
 export const GUI_WEB_EVENT_QUEUE_READ_INDEX = 0;
 export const GUI_WEB_EVENT_QUEUE_WRITE_INDEX = 1;
+export const GUI_WEB_ACTION_QUEUE_READ_INDEX = 2;
+export const GUI_WEB_ACTION_QUEUE_WRITE_INDEX = 3;
+export const GUI_WEB_POINTER_KIND_MOVE = 1;
+export const GUI_WEB_POINTER_KIND_DOWN = 2;
+export const GUI_WEB_POINTER_KIND_UP = 3;
+export const GUI_WEB_POINTER_KIND_CANCEL = 4;
+export const GUI_WEB_POINTER_BUTTON_NONE = 0;
+export const GUI_WEB_POINTER_BUTTON_PRIMARY = 1;
+export const GUI_WEB_POINTER_BUTTON_SECONDARY = 2;
+export const GUI_WEB_POINTER_BUTTON_MIDDLE = 3;
 
 const GUI_WEB_EVENT_SLOT_KIND = 0;
 const GUI_WEB_EVENT_SLOT_WINDOW_ID = 1;
 const GUI_WEB_EVENT_SLOT_ACTION_ID = 2;
 const GUI_WEB_EVENT_SLOT_POINT_X_MILLI = 3;
 const GUI_WEB_EVENT_SLOT_POINT_Y_MILLI = 4;
+const GUI_WEB_EVENT_SLOT_POINTER_KIND = 5;
+const GUI_WEB_EVENT_SLOT_POINTER_ID = 6;
+const GUI_WEB_EVENT_SLOT_POINTER_BUTTON = 7;
 
 export type GuiWebSharedEventQueueErrorKind =
     | 'shared-event-buffer-unavailable'
     | 'unsupported-event-kind'
-    | 'event-queue-full';
+    | 'event-queue-full'
+    | 'action-queue-full';
 
 export type GuiWebSharedEventQueueError = {
     kind: GuiWebSharedEventQueueErrorKind;
@@ -36,6 +53,15 @@ export type GuiWebSharedInputEventRecord =
         kind: 'action';
         windowId: number;
         actionId: number;
+        pointXMilli: number;
+        pointYMilli: number;
+    }
+    | {
+        kind: 'pointer';
+        windowId: number;
+        pointerKind: GuiWebPointerEventKind;
+        pointerId: number;
+        button: GuiWebPointerButton;
         pointXMilli: number;
         pointYMilli: number;
     };
@@ -59,6 +85,8 @@ export function resetGuiWebSharedEventBuffer(buffer: SharedArrayBuffer): GuiWebS
     const queue = new Int32Array(buffer);
     Atomics.store(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX, 0);
     Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 0);
+    Atomics.store(queue, GUI_WEB_ACTION_QUEUE_READ_INDEX, 0);
+    Atomics.store(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, 0);
     return { kind: 'ok', value: 'reset' };
 }
 
@@ -69,11 +97,25 @@ export function writeGuiWebSharedInputEvent(
     if (event.kind === 'action') {
         return writeGuiWebSharedActionEvent(buffer, event);
     }
-    return err('unsupported-event-kind', '$.kind', 'action', event.kind);
+    if (event.kind === 'pointer') {
+        return writeGuiWebSharedPointerEvent(buffer, event);
+    }
+    return err('unsupported-event-kind', '$.kind', 'action or pointer', String(event));
 }
 
 export function takeGuiWebSharedActionId(buffer: SharedArrayBuffer): number {
-    return guiWebSharedActionIdFromTakeResult(takeGuiWebSharedInputEvent(buffer));
+    const queue = new Int32Array(buffer);
+    const readIndex = Atomics.load(queue, GUI_WEB_ACTION_QUEUE_READ_INDEX);
+    const writeIndex = Atomics.load(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX);
+    if (readIndex === writeIndex) {
+        return 0;
+    }
+    const actionId = Atomics.load(queue, guiWebSharedActionSlotBase(readIndex));
+    Atomics.store(queue, GUI_WEB_ACTION_QUEUE_READ_INDEX, guiWebSharedActionNextIndex(readIndex));
+    if (actionId <= 0) {
+        return GUI_WEB_EVENT_POLL_INVALID;
+    }
+    return actionId;
 }
 
 export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSharedInputEventTakeResult {
@@ -90,21 +132,52 @@ export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSha
     const actionId = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID);
     const pointXMilli = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI);
     const pointYMilli = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI);
+    const pointerKindRaw = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINTER_KIND);
+    const pointerId = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINTER_ID);
+    const buttonRaw = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINTER_BUTTON);
     const nextReadIndex = guiWebSharedEventNextIndex(readIndex);
     Atomics.store(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX, nextReadIndex);
-    if (kind !== GUI_WEB_EVENT_KIND_ACTION || actionId <= 0) {
-        return { kind: 'invalid', rawKind: kind };
+    if (kind === GUI_WEB_EVENT_KIND_ACTION) {
+        if (actionId <= 0) {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        return {
+            kind: 'event',
+            event: {
+                kind: 'action',
+                windowId,
+                actionId,
+                pointXMilli,
+                pointYMilli,
+            },
+        };
     }
-    return {
-        kind: 'event',
-        event: {
-            kind: 'action',
-            windowId,
-            actionId,
-            pointXMilli,
-            pointYMilli,
-        },
-    };
+    if (kind === GUI_WEB_EVENT_KIND_POINTER) {
+        const pointerKind = guiWebSharedPointerKindFromRaw(pointerKindRaw);
+        if (pointerKind.kind === 'err') {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        const button = guiWebSharedPointerButtonFromRaw(buttonRaw);
+        if (button.kind === 'err') {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        if (pointerId <= 0) {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        return {
+            kind: 'event',
+            event: {
+                kind: 'pointer',
+                windowId,
+                pointerKind: pointerKind.value,
+                pointerId,
+                button: button.value,
+                pointXMilli,
+                pointYMilli,
+            },
+        };
+    }
+    return { kind: 'invalid', rawKind: kind };
 }
 
 export function waitGuiWebSharedInputEvent(buffer: SharedArrayBuffer, timeoutMs: number): GuiWebSharedInputEventTakeResult {
@@ -124,11 +197,50 @@ export function waitGuiWebSharedInputEvent(buffer: SharedArrayBuffer, timeoutMs:
 }
 
 export function waitGuiWebSharedActionId(buffer: SharedArrayBuffer, timeoutMs: number): number {
-    return guiWebSharedActionIdFromTakeResult(waitGuiWebSharedInputEvent(buffer, timeoutMs));
+    const first = takeGuiWebSharedActionId(buffer);
+    if (first !== 0) {
+        return first;
+    }
+    const queue = new Int32Array(buffer);
+    const writeIndex = Atomics.load(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX);
+    try {
+        Atomics.wait(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, writeIndex, timeoutMs);
+    } catch {
+        return 0;
+    }
+    return takeGuiWebSharedActionId(buffer);
 }
 
 export function guiWebSharedEventQueueInt32Length(): number {
-    return GUI_WEB_EVENT_QUEUE_HEADER_LENGTH + GUI_WEB_EVENT_QUEUE_CAPACITY * GUI_WEB_EVENT_QUEUE_SLOT_LENGTH;
+    return GUI_WEB_EVENT_QUEUE_HEADER_LENGTH
+        + GUI_WEB_EVENT_QUEUE_CAPACITY * GUI_WEB_EVENT_QUEUE_SLOT_LENGTH
+        + GUI_WEB_ACTION_QUEUE_CAPACITY;
+}
+
+export function guiWebSharedPointerKindToRaw(kind: GuiWebPointerEventKind): number {
+    switch (kind) {
+        case 'move':
+            return GUI_WEB_POINTER_KIND_MOVE;
+        case 'down':
+            return GUI_WEB_POINTER_KIND_DOWN;
+        case 'up':
+            return GUI_WEB_POINTER_KIND_UP;
+        case 'cancel':
+            return GUI_WEB_POINTER_KIND_CANCEL;
+    }
+}
+
+export function guiWebSharedPointerButtonToRaw(button: GuiWebPointerButton): number {
+    switch (button) {
+        case 'none':
+            return GUI_WEB_POINTER_BUTTON_NONE;
+        case 'primary':
+            return GUI_WEB_POINTER_BUTTON_PRIMARY;
+        case 'secondary':
+            return GUI_WEB_POINTER_BUTTON_SECONDARY;
+        case 'middle':
+            return GUI_WEB_POINTER_BUTTON_MIDDLE;
+    }
 }
 
 function writeGuiWebSharedActionEvent(
@@ -136,43 +248,120 @@ function writeGuiWebSharedActionEvent(
     event: Extract<GuiWebInputEvent, { kind: 'action' }>,
 ): GuiWebSharedEventQueueResult<'queued'> {
     const queue = new Int32Array(buffer);
+    const eventWrite = guiWebSharedEventWritePlan(queue);
+    if (eventWrite.kind === 'err') {
+        return eventWrite;
+    }
+    const actionWrite = guiWebSharedActionWritePlan(queue);
+    if (actionWrite.kind === 'err') {
+        return actionWrite;
+    }
+
+    const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_ACTION);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID, event.actionId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, Math.round(event.point.x * 1000));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, Math.round(event.point.y * 1000));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_KIND, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_ID, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_BUTTON, 0);
+    Atomics.store(queue, guiWebSharedActionSlotBase(actionWrite.value.writeIndex), event.actionId);
+    Atomics.store(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, actionWrite.value.nextWriteIndex);
+    Atomics.notify(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX, 1);
+    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    return { kind: 'ok', value: 'queued' };
+}
+
+function writeGuiWebSharedPointerEvent(
+    buffer: SharedArrayBuffer,
+    event: Extract<GuiWebInputEvent, { kind: 'pointer' }>,
+): GuiWebSharedEventQueueResult<'queued'> {
+    const queue = new Int32Array(buffer);
+    const eventWrite = guiWebSharedEventWritePlan(queue);
+    if (eventWrite.kind === 'err') {
+        return eventWrite;
+    }
+
+    const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_POINTER);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, Math.round(event.point.x * 1000));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, Math.round(event.point.y * 1000));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_KIND, guiWebSharedPointerKindToRaw(event.pointerKind));
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_ID, event.pointerId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINTER_BUTTON, guiWebSharedPointerButtonToRaw(event.button));
+    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    return { kind: 'ok', value: 'queued' };
+}
+
+function guiWebSharedEventWritePlan(queue: Int32Array): GuiWebSharedEventQueueResult<{ writeIndex: number; nextWriteIndex: number }> {
     const readIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX);
     const writeIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX);
     const nextWriteIndex = guiWebSharedEventNextIndex(writeIndex);
     if (nextWriteIndex === readIndex) {
         return err('event-queue-full', '$', 'available event queue slot', 'full');
     }
+    return { kind: 'ok', value: { writeIndex, nextWriteIndex } };
+}
 
-    const base = guiWebSharedEventSlotBase(writeIndex);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_ACTION);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID, event.actionId);
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, Math.round(event.point.x * 1000));
-    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, Math.round(event.point.y * 1000));
-    Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, nextWriteIndex);
-    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
-    return { kind: 'ok', value: 'queued' };
+function guiWebSharedActionWritePlan(queue: Int32Array): GuiWebSharedEventQueueResult<{ writeIndex: number; nextWriteIndex: number }> {
+    const readIndex = Atomics.load(queue, GUI_WEB_ACTION_QUEUE_READ_INDEX);
+    const writeIndex = Atomics.load(queue, GUI_WEB_ACTION_QUEUE_WRITE_INDEX);
+    const nextWriteIndex = guiWebSharedActionNextIndex(writeIndex);
+    if (nextWriteIndex === readIndex) {
+        return err('action-queue-full', '$.action', 'available action queue slot', 'full');
+    }
+    return { kind: 'ok', value: { writeIndex, nextWriteIndex } };
 }
 
 function guiWebSharedEventNextIndex(index: number): number {
     return (index + 1) % GUI_WEB_EVENT_QUEUE_CAPACITY;
 }
 
+function guiWebSharedActionNextIndex(index: number): number {
+    return (index + 1) % GUI_WEB_ACTION_QUEUE_CAPACITY;
+}
+
 function guiWebSharedEventSlotBase(index: number): number {
     return GUI_WEB_EVENT_QUEUE_HEADER_LENGTH + index * GUI_WEB_EVENT_QUEUE_SLOT_LENGTH;
 }
 
-function guiWebSharedActionIdFromTakeResult(result: GuiWebSharedInputEventTakeResult): number {
-    if (result.kind === 'empty') {
-        return 0;
+function guiWebSharedActionSlotBase(index: number): number {
+    return GUI_WEB_EVENT_QUEUE_HEADER_LENGTH + GUI_WEB_EVENT_QUEUE_CAPACITY * GUI_WEB_EVENT_QUEUE_SLOT_LENGTH + index;
+}
+
+function guiWebSharedPointerKindFromRaw(raw: number): GuiWebSharedEventQueueResult<GuiWebPointerEventKind> {
+    switch (raw) {
+        case GUI_WEB_POINTER_KIND_MOVE:
+            return { kind: 'ok', value: 'move' };
+        case GUI_WEB_POINTER_KIND_DOWN:
+            return { kind: 'ok', value: 'down' };
+        case GUI_WEB_POINTER_KIND_UP:
+            return { kind: 'ok', value: 'up' };
+        case GUI_WEB_POINTER_KIND_CANCEL:
+            return { kind: 'ok', value: 'cancel' };
+        default:
+            return err('unsupported-event-kind', '$.pointerKind', 'known pointer kind', String(raw));
     }
-    if (result.kind === 'invalid') {
-        return GUI_WEB_EVENT_POLL_INVALID;
+}
+
+function guiWebSharedPointerButtonFromRaw(raw: number): GuiWebSharedEventQueueResult<GuiWebPointerButton> {
+    switch (raw) {
+        case GUI_WEB_POINTER_BUTTON_NONE:
+            return { kind: 'ok', value: 'none' };
+        case GUI_WEB_POINTER_BUTTON_PRIMARY:
+            return { kind: 'ok', value: 'primary' };
+        case GUI_WEB_POINTER_BUTTON_SECONDARY:
+            return { kind: 'ok', value: 'secondary' };
+        case GUI_WEB_POINTER_BUTTON_MIDDLE:
+            return { kind: 'ok', value: 'middle' };
+        default:
+            return err('unsupported-event-kind', '$.button', 'known pointer button', String(raw));
     }
-    if (result.event.kind === 'action') {
-        return result.event.actionId;
-    }
-    return GUI_WEB_EVENT_POLL_INVALID;
 }
 
 function err(

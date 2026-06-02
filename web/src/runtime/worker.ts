@@ -3,8 +3,11 @@ import { VFS } from './vfs.js';
 import type { CompilerAssetUrls } from './compiler-assets.js';
 import {
     GUI_WEB_EVENT_KIND_ACTION,
+    GUI_WEB_EVENT_KIND_POINTER,
     GUI_WEB_EVENT_POLL_INVALID,
     GUI_WEB_EVENT_POLL_UNSUPPORTED,
+    guiWebSharedPointerButtonToRaw,
+    guiWebSharedPointerKindToRaw,
     takeGuiWebSharedActionId,
     takeGuiWebSharedInputEvent,
     waitGuiWebSharedActionId,
@@ -102,6 +105,9 @@ class WorkerWASI extends WASI {
             last_event_action_id: this.nepl_gui_web_last_event_action_id.bind(this),
             last_event_point_x_milli: this.nepl_gui_web_last_event_point_x_milli.bind(this),
             last_event_point_y_milli: this.nepl_gui_web_last_event_point_y_milli.bind(this),
+            last_event_pointer_kind: this.nepl_gui_web_last_event_pointer_kind.bind(this),
+            last_event_pointer_id: this.nepl_gui_web_last_event_pointer_id.bind(this),
+            last_event_pointer_button: this.nepl_gui_web_last_event_pointer_button.bind(this),
         };
     }
 
@@ -244,6 +250,36 @@ class WorkerWASI extends WASI {
         return this.lastGuiWebInputEvent.event.pointYMilli;
     }
 
+    nepl_gui_web_last_event_pointer_kind(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'pointer') {
+            return 0;
+        }
+        return guiWebSharedPointerKindToRaw(this.lastGuiWebInputEvent.event.pointerKind);
+    }
+
+    nepl_gui_web_last_event_pointer_id(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'pointer') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.pointerId;
+    }
+
+    nepl_gui_web_last_event_pointer_button(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'pointer') {
+            return 0;
+        }
+        return guiWebSharedPointerButtonToRaw(this.lastGuiWebInputEvent.event.button);
+    }
+
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
         if (result.kind === 'empty') {
             this.lastGuiWebInputEvent = { kind: 'empty' };
@@ -259,6 +295,9 @@ class WorkerWASI extends WASI {
         };
         if (result.event.kind === 'action') {
             return GUI_WEB_EVENT_KIND_ACTION;
+        }
+        if (result.event.kind === 'pointer') {
+            return GUI_WEB_EVENT_KIND_POINTER;
         }
         this.lastGuiWebInputEvent = { kind: 'empty' };
         return GUI_WEB_EVENT_POLL_INVALID;

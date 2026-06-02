@@ -255,13 +255,83 @@ pub fn widget_id_raw %fn &WidgetId i32 \id:
 pub fn key_modifiers_new %fn i32 KeyModifiers \bits:
     KeyModifiers bits
 
+//: key_modifiers_bits: modifier bitset の raw bits を[読/よ]む
+pub fn key_modifiers_bits %fn &KeyModifiers i32 \modifiers:
+    *field::get_ref modifiers "bits"
+
+//: pointer_event_new: pointer event を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - Web、terminal mouse、native window、mobile touch などの platform backend が、raw event を core の typed event へ[正規化/せいきか]してから上位へ[渡/わた]せるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - position の単位や座標原点は backend contract です。この constructor は DOM / OS handle を[保持/ほじ]しません。
+pub fn pointer_event_new %fn PointerEventKind fn i32 fn GuiPoint fn PointerButton PointerEvent \kind\pointer_id\position\button:
+    PointerEvent kind pointer_id position button
+
+//: pointer_event_kind: pointer event kind を[読/よ]む
+pub fn pointer_event_kind %fn &PointerEvent PointerEventKind \event:
+    *field::get_ref event "kind"
+
+//: pointer_event_pointer_id: pointer id を[読/よ]む
+pub fn pointer_event_pointer_id %fn &PointerEvent i32 \event:
+    *field::get_ref event "pointer_id"
+
+//: pointer_event_position: pointer position を[読/よ]む
+pub fn pointer_event_position %fn &PointerEvent GuiPoint \event:
+    *field::get_ref event "position"
+
+//: pointer_event_button: pointer button を[読/よ]む
+pub fn pointer_event_button %fn &PointerEvent PointerButton \event:
+    *field::get_ref event "button"
+
+//: keyboard_event_new: keyboard event を[作/つく]る
+pub fn keyboard_event_new %fn KeyboardEventKind fn i32 fn KeyModifiers KeyboardEvent \kind\key_code\modifiers:
+    KeyboardEvent kind key_code modifiers
+
 //: text_input_event_new: text input event を[作/つく]る
 pub fn text_input_event_new %fn char TextInputEvent \value:
     TextInputEvent value
 
+//: text_input_event_value: text input event の scalar value を[読/よ]む
+pub fn text_input_event_value %fn &TextInputEvent char \event:
+    *field::get_ref event "value"
+
+//: window_event_new: window/surface event を[作/つく]る
+pub fn window_event_new %fn WindowEventKind fn GuiSize WindowEvent \kind\size:
+    WindowEvent kind size
+
+//: timer_event_new: timer event を[作/つく]る
+pub fn timer_event_new %fn i32 fn i32 TimerEvent \timer_id\tick:
+    TimerEvent timer_id tick
+
+//: gui_event_pointer: pointer event を `GuiEvent` に[包/つつ]む
+pub fn gui_event_pointer %fn PointerEvent GuiEvent \event:
+    GuiEvent::Pointer event
+
+//: gui_event_keyboard: keyboard event を `GuiEvent` に[包/つつ]む
+pub fn gui_event_keyboard %fn KeyboardEvent GuiEvent \event:
+    GuiEvent::Keyboard event
+
+//: gui_event_text_input: text input event を `GuiEvent` に[包/つつ]む
+pub fn gui_event_text_input %fn TextInputEvent GuiEvent \event:
+    GuiEvent::TextInput event
+
+//: gui_event_window: window event を `GuiEvent` に[包/つつ]む
+pub fn gui_event_window %fn WindowEvent GuiEvent \event:
+    GuiEvent::Window event
+
+//: gui_event_timer: timer event を `GuiEvent` に[包/つつ]む
+pub fn gui_event_timer %fn TimerEvent GuiEvent \event:
+    GuiEvent::Timer event
+
 //: gui_event_lifecycle: lifecycle event を `GuiEvent` に[包/つつ]む
 pub fn gui_event_lifecycle %fn LifecycleEvent GuiEvent \event:
     GuiEvent::Lifecycle event
+
+//: gui_event_accessibility: accessibility event を `GuiEvent` に[包/つつ]む
+pub fn gui_event_accessibility %fn AccessibilityEvent GuiEvent \event:
+    GuiEvent::Accessibility event
 
 //: gui_event_action: action id を `GuiEvent` に[包/つつ]む
 pub fn gui_event_action %fn ActionId GuiEvent \action:

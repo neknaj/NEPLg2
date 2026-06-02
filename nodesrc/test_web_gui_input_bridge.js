@@ -59,6 +59,26 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(takenAgain.kind, "ok");
     assert.equal(takenAgain.value.length, 0);
 
+    const queuedPointer = inputBridge.queueGuiWebInputEvent({
+        kind: "pointer",
+        windowId: 3,
+        pointerKind: "down",
+        pointerId: 5,
+        button: "primary",
+        point: { x: 10, y: 12 },
+    });
+    assert.equal(queuedPointer.kind, "ok");
+    assert.equal(observed.length, 2);
+    assert.equal(observed[1].kind, "pointer");
+    assert.equal(observed[1].pointerKind, "down");
+    const takenPointer = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenPointer.kind, "ok");
+    assert.equal(takenPointer.value.length, 1);
+    assert.equal(takenPointer.value[0].kind, "pointer");
+    assert.equal(takenPointer.value[0].windowId, 3);
+    assert.equal(takenPointer.value[0].pointerId, 5);
+    assert.equal(takenPointer.value[0].button, "primary");
+
     const invalidAction = inputBridge.queueGuiWebInputEvent({
         kind: "action",
         windowId: 3,
@@ -69,11 +89,26 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(invalidAction.error.kind, "invalid-action-event");
     assert.equal(invalidAction.error.path, "$.actionId");
 
+    const invalidPointer = inputBridge.queueGuiWebInputEvent({
+        kind: "pointer",
+        windowId: 3,
+        pointerKind: "drag",
+        pointerId: 5,
+        button: "primary",
+        point: { x: 1, y: 1 },
+    });
+    assert.equal(invalidPointer.kind, "err");
+    assert.equal(invalidPointer.error.kind, "invalid-pointer-event");
+    assert.equal(invalidPointer.error.path, "$.pointerKind");
+
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'action'/);
+    assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'pointer'/);
     assert.match(inputBridgeSource, /GuiWebInputResult<Value> =[\s\S]*kind: 'ok'[\s\S]*kind: 'err'/);
     assert.match(inputBridgeSource, /decodeGuiWebInputEvent/);
     assert.match(inputBridgeSource, /registerGuiWebInputEventListener/);
     assert.match(panelSource, /queueGuiWebInputEvent/);
+    assert.match(panelSource, /handleCanvasPointerDown/);
+    assert.match(panelSource, /guiWebPointerButtonFromDomButton/);
     assert.match(commandsSource, /GuiPreviewInputTarget/);
     assert.doesNotMatch(inputBridgeSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(inputBridgeSource, /\|\s*null|\|\s*undefined/);
@@ -84,6 +119,7 @@ async function runWebGuiInputBridgeRegression() {
         ok: true,
         checks: [
             "Web GUI input bridge queues action events as typed values",
+            "Web GUI input bridge queues pointer events as typed values",
             "Web GUI input bridge notifies typed listeners without app-state simulation",
             "Web GUI input bridge exposes take/reset event boundaries",
             "Web GUI input bridge keeps DOM and Canvas types out of the input queue",

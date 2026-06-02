@@ -91,6 +91,44 @@ fn main %fn unit i32 \unit:
     0
 ```
 
+## event constructors keep platform data typed
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#target core
+#indent 4
+
+#import "core/gui" as *
+#import "core/test" as *
+
+fn pointer_code %fn GuiEvent i32 \event:
+    match event:
+        GuiEvent::Pointer pointer:
+            match pointer_event_kind &pointer:
+                PointerEventKind::Down:
+                    pointer_event_pointer_id &pointer
+                _:
+                    1
+        _:
+            2
+
+fn main %fn unit i32 \unit:
+    let point %GuiPoint gui_point_new 1200 3400
+    let pointer %PointerEvent pointer_event_new PointerEventKind::Down 7 point PointerButton::Primary
+    let position %GuiPoint pointer_event_position &pointer
+    assert_eq_i32 1200 gui_point_x &position
+    assert_eq_i32 3400 gui_point_y &position
+    match pointer_event_button &pointer:
+        PointerButton::Primary:
+            unit
+        _:
+            test_fail "unexpected pointer button"
+    assert_eq_i32 7 pointer_code gui_event_pointer pointer
+    0
+```
+
 ## text measurement mock
 
 neplg2:test

@@ -11,6 +11,7 @@ import {
 } from './canvas-renderer.js';
 import type { GuiPreviewCommandFrame } from './commands.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
+import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
 
 export type GuiPreviewSource =
     | { kind: 'none' }
@@ -78,6 +79,9 @@ export class GuiPreviewPanel {
             this.setKind(this.selectEl.value as GuiPreviewKind);
         });
         this.canvas.addEventListener('click', (event) => this.handleCanvasClick(event));
+        this.canvas.addEventListener('pointerdown', (event) => this.handleCanvasPointerDown(event));
+        this.canvas.addEventListener('pointerup', (event) => this.handleCanvasPointerUp(event));
+        this.canvas.addEventListener('pointercancel', (event) => this.handleCanvasPointerCancel(event));
         this.canvas.addEventListener('mousemove', (event) => this.handleCanvasPointer(event));
         this.syncSelect();
         this.resizeEditor();
@@ -222,6 +226,36 @@ export class GuiPreviewPanel {
         this.canvas.style.cursor = hasHit ? 'pointer' : 'default';
     }
 
+    handleCanvasPointerDown(event: PointerEvent) {
+        this.queueHostPointerEvent(event, 'down');
+    }
+
+    handleCanvasPointerUp(event: PointerEvent) {
+        this.queueHostPointerEvent(event, 'up');
+    }
+
+    handleCanvasPointerCancel(event: PointerEvent) {
+        this.queueHostPointerEvent(event, 'cancel');
+    }
+
+    queueHostPointerEvent(event: PointerEvent, pointerKind: GuiWebPointerEventKind) {
+        if (this.hostFrame.kind !== 'presented') {
+            return;
+        }
+        const point = this.toScenePoint(event);
+        const queued = queueGuiWebInputEvent({
+            kind: 'pointer',
+            windowId: this.hostFrame.windowId,
+            pointerKind,
+            pointerId: event.pointerId,
+            button: guiWebPointerButtonFromDomButton(event.button),
+            point,
+        });
+        if (queued.kind === 'err') {
+            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+        }
+    }
+
     toScenePoint(event: MouseEvent): { x: number; y: number } {
         const rect = this.canvas.getBoundingClientRect();
         return {
@@ -245,5 +279,18 @@ export class GuiPreviewPanel {
     }
 
     dispose() {
+    }
+}
+
+function guiWebPointerButtonFromDomButton(button: number): GuiWebPointerButton {
+    switch (button) {
+        case 0:
+            return 'primary';
+        case 1:
+            return 'middle';
+        case 2:
+            return 'secondary';
+        default:
+            return 'none';
     }
 }

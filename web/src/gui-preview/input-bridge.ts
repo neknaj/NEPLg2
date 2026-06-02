@@ -3,17 +3,38 @@ export type GuiWebInputPoint = {
     y: number;
 };
 
+export type GuiWebPointerEventKind =
+    | 'move'
+    | 'down'
+    | 'up'
+    | 'cancel';
+
+export type GuiWebPointerButton =
+    | 'none'
+    | 'primary'
+    | 'secondary'
+    | 'middle';
+
 export type GuiWebInputEvent =
     | {
         kind: 'action';
         windowId: number;
         actionId: number;
         point: GuiWebInputPoint;
+    }
+    | {
+        kind: 'pointer';
+        windowId: number;
+        pointerKind: GuiWebPointerEventKind;
+        pointerId: number;
+        button: GuiWebPointerButton;
+        point: GuiWebInputPoint;
     };
 
 export type GuiWebInputErrorKind =
     | 'invalid-input-event'
-    | 'invalid-action-event';
+    | 'invalid-action-event'
+    | 'invalid-pointer-event';
 
 export type GuiWebInputError = {
     kind: GuiWebInputErrorKind;
@@ -96,18 +117,25 @@ export function decodeGuiWebInputEvent(input: unknown): GuiWebInputResult<GuiWeb
     if (kind.kind === 'err') {
         return kind;
     }
-    if (kind.value !== 'action') {
-        return err('invalid-input-event', '$.kind', 'action', kind.value);
+    if (kind.value === 'action') {
+        return decodeGuiWebActionInputEvent(event.value);
     }
-    const windowId = readPositiveInteger(event.value, 'windowId', '$.windowId', 'invalid-action-event');
+    if (kind.value === 'pointer') {
+        return decodeGuiWebPointerInputEvent(event.value);
+    }
+    return err('invalid-input-event', '$.kind', 'action or pointer', kind.value);
+}
+
+function decodeGuiWebActionInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
+    const windowId = readPositiveInteger(event, 'windowId', '$.windowId', 'invalid-action-event');
     if (windowId.kind === 'err') {
         return windowId;
     }
-    const actionId = readPositiveInteger(event.value, 'actionId', '$.actionId', 'invalid-action-event');
+    const actionId = readPositiveInteger(event, 'actionId', '$.actionId', 'invalid-action-event');
     if (actionId.kind === 'err') {
         return actionId;
     }
-    const point = readPoint(event.value, 'point', '$.point');
+    const point = readPoint(event, 'point', '$.point', 'invalid-action-event');
     if (point.kind === 'err') {
         return point;
     }
@@ -122,22 +150,56 @@ export function decodeGuiWebInputEvent(input: unknown): GuiWebInputResult<GuiWeb
     };
 }
 
+function decodeGuiWebPointerInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
+    const windowId = readPositiveInteger(event, 'windowId', '$.windowId', 'invalid-pointer-event');
+    if (windowId.kind === 'err') {
+        return windowId;
+    }
+    const pointerKind = readPointerKind(event, 'pointerKind', '$.pointerKind');
+    if (pointerKind.kind === 'err') {
+        return pointerKind;
+    }
+    const pointerId = readPositiveInteger(event, 'pointerId', '$.pointerId', 'invalid-pointer-event');
+    if (pointerId.kind === 'err') {
+        return pointerId;
+    }
+    const button = readPointerButton(event, 'button', '$.button');
+    if (button.kind === 'err') {
+        return button;
+    }
+    const point = readPoint(event, 'point', '$.point', 'invalid-pointer-event');
+    if (point.kind === 'err') {
+        return point;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'pointer',
+            windowId: windowId.value,
+            pointerKind: pointerKind.value,
+            pointerId: pointerId.value,
+            button: button.value,
+            point: point.value,
+        },
+    };
+}
+
 function notifyGuiWebInputEventListeners(event: GuiWebInputEvent) {
     for (const listener of inputEventListeners) {
         listener.onInputEvent(event);
     }
 }
 
-function readPoint(record: UnknownRecord, name: string, path: string): GuiWebInputResult<GuiWebInputPoint> {
-    const point = readRecord(record, name, path, 'invalid-action-event');
+function readPoint(record: UnknownRecord, name: string, path: string, kind: GuiWebInputErrorKind): GuiWebInputResult<GuiWebInputPoint> {
+    const point = readRecord(record, name, path, kind);
     if (point.kind === 'err') {
         return point;
     }
-    const x = readFiniteNumber(point.value, 'x', `${path}.x`, 'invalid-action-event');
+    const x = readFiniteNumber(point.value, 'x', `${path}.x`, kind);
     if (x.kind === 'err') {
         return x;
     }
-    const y = readFiniteNumber(point.value, 'y', `${path}.y`, 'invalid-action-event');
+    const y = readFiniteNumber(point.value, 'y', `${path}.y`, kind);
     if (y.kind === 'err') {
         return y;
     }
@@ -148,6 +210,38 @@ function readPoint(record: UnknownRecord, name: string, path: string): GuiWebInp
             y: y.value,
         },
     };
+}
+
+function readPointerKind(record: UnknownRecord, name: string, path: string): GuiWebInputResult<GuiWebPointerEventKind> {
+    const value = readString(record, name, path, 'invalid-pointer-event');
+    if (value.kind === 'err') {
+        return value;
+    }
+    switch (value.value) {
+        case 'move':
+        case 'down':
+        case 'up':
+        case 'cancel':
+            return { kind: 'ok', value: value.value };
+        default:
+            return err('invalid-pointer-event', path, 'move, down, up, or cancel', value.value);
+    }
+}
+
+function readPointerButton(record: UnknownRecord, name: string, path: string): GuiWebInputResult<GuiWebPointerButton> {
+    const value = readString(record, name, path, 'invalid-pointer-event');
+    if (value.kind === 'err') {
+        return value;
+    }
+    switch (value.value) {
+        case 'none':
+        case 'primary':
+        case 'secondary':
+        case 'middle':
+            return { kind: 'ok', value: value.value };
+        default:
+            return err('invalid-pointer-event', path, 'none, primary, secondary, or middle', value.value);
+    }
 }
 
 function readRecord(record: UnknownRecord, name: string, path: string, kind: GuiWebInputErrorKind): GuiWebInputResult<UnknownRecord> {

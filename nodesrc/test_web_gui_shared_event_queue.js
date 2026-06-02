@@ -33,6 +33,7 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.equal(sharedQueue.takeGuiWebSharedActionId(created.value), 11);
     assert.equal(sharedQueue.takeGuiWebSharedActionId(created.value), 0);
 
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
     const queuedRecord = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
         kind: "action",
         windowId: 4,
@@ -50,6 +51,27 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
 
     sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    const queuedPointer = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "pointer",
+        windowId: 4,
+        pointerKind: "down",
+        pointerId: 8,
+        button: "primary",
+        point: { x: 1.5, y: 2.25 },
+    });
+    assert.equal(queuedPointer.kind, "ok");
+    assert.equal(sharedQueue.takeGuiWebSharedActionId(created.value), 0);
+    const takenPointer = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(takenPointer.kind, "event");
+    assert.equal(takenPointer.event.kind, "pointer");
+    assert.equal(takenPointer.event.windowId, 4);
+    assert.equal(takenPointer.event.pointerKind, "down");
+    assert.equal(takenPointer.event.pointerId, 8);
+    assert.equal(takenPointer.event.button, "primary");
+    assert.equal(takenPointer.event.pointXMilli, 1500);
+    assert.equal(takenPointer.event.pointYMilli, 2250);
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
     const rawQueue = new Int32Array(created.value);
     Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
     Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH, 99);
@@ -58,8 +80,10 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.equal(invalidRecord.rawKind, 99);
 
     sharedQueue.resetGuiWebSharedEventBuffer(created.value);
-    Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
-    Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH, 99);
+    const actionQueueBase = sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH
+        + sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * sharedQueue.GUI_WEB_EVENT_QUEUE_SLOT_LENGTH;
+    Atomics.store(rawQueue, sharedQueue.GUI_WEB_ACTION_QUEUE_WRITE_INDEX, 1);
+    Atomics.store(rawQueue, actionQueueBase, -5);
     assert.equal(sharedQueue.takeGuiWebSharedActionId(created.value), sharedQueue.GUI_WEB_EVENT_POLL_INVALID);
 
     assert.equal(sharedQueue.waitGuiWebSharedInputEvent(created.value, 0).kind, "empty");
@@ -97,9 +121,12 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(queueSource, /writeGuiWebSharedInputEvent/);
     assert.match(queueSource, /takeGuiWebSharedInputEvent/);
     assert.match(queueSource, /waitGuiWebSharedInputEvent/);
+    assert.match(queueSource, /GUI_WEB_EVENT_KIND_POINTER/);
+    assert.match(queueSource, /GUI_WEB_ACTION_QUEUE_WRITE_INDEX/);
+    assert.match(queueSource, /guiWebSharedPointerKindToRaw/);
     assert.match(queueSource, /pointXMilli/);
     assert.match(queueSource, /GUI_WEB_EVENT_POLL_INVALID/);
-    assert.match(queueSource, /guiWebSharedActionIdFromTakeResult/);
+    assert.doesNotMatch(queueSource, /guiWebSharedActionIdFromTakeResult/);
     assert.match(queueSource, /waitGuiWebSharedActionId/);
     assert.match(workerSource, /nepl_gui_web/);
     assert.match(workerSource, /poll_action_id/);
@@ -108,6 +135,8 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(workerSource, /wait_event_kind/);
     assert.match(workerSource, /last_event_window_id/);
     assert.match(workerSource, /last_event_point_x_milli/);
+    assert.match(workerSource, /last_event_pointer_kind/);
+    assert.match(workerSource, /GUI_WEB_EVENT_KIND_POINTER/);
     assert.match(workerSource, /lastGuiWebInputEvent = \{ kind: 'empty' \}/);
     assert.match(workerSource, /return -1;/);
     assert.match(shellSource, /registerGuiWebInputEventListener/);
@@ -120,7 +149,9 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(webInputSource, /#extern "nepl_gui_web" "wait_action_id"/);
     assert.match(webInputSource, /#extern "nepl_gui_web" "poll_event_kind"/);
     assert.match(webInputSource, /#extern "nepl_gui_web" "last_event_window_id"/);
+    assert.match(webInputSource, /#extern "nepl_gui_web" "last_event_pointer_kind"/);
     assert.match(webInputSource, /pub struct GuiWebEvent/);
+    assert.match(webInputSource, /pub fn gui_web_event_pointer %fn &GuiWebEvent Option PointerEvent/);
     assert.match(webInputSource, /pub fn gui_web_wait_event_result %impure fn i32 Result Option GuiWebEvent GuiError/);
     assert.match(webInputSource, /pub fn gui_web_wait_action %impure fn i32 Option ActionId/);
     assert.match(webInputSource, /pub fn gui_web_wait_action_result %impure fn i32 Result Option ActionId GuiError/);
@@ -150,6 +181,7 @@ async function runWebGuiSharedEventQueueRegression() {
         checks: [
             "Web GUI shared event queue transfers typed action events through SharedArrayBuffer",
             "Web GUI shared event queue exposes full action records with window and pointer fields",
+            "Web GUI shared event queue exposes pointer records without consuming the legacy action projection",
             "Web GUI shared event queue reports invalid records instead of collapsing them into no event",
             "Web runtime worker exposes a dedicated nepl_gui_web host import module",
             "Web runtime worker exposes event-kind and last-event field imports for GuiEvent polling",
