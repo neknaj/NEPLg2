@@ -40,6 +40,52 @@
 #import "alloc/collections/stack" as stk
 #import "alloc/diag/error" as *
 
+//: RpnLegacyOp: 互換 RPN REPL が対応する二項演算子
+//:
+//: [目的/もくてき]:
+//: - 演算子 token の文字列比較を処理本体へ散らさず、分類済み enum として扱います。
+//: - `apply_op` は `match` で演算を選び、演算子追加時の修正漏れを見つけやすくします。
+enum RpnLegacyOp:
+    Add
+    Sub
+    Mul
+
+//: operator_from_token: token を互換 RPN 演算子へ分類する
+//:
+//: [契約/けいやく]:
+//: - `+` / `-` / `*` は対応する `RpnLegacyOp` を返します。
+//: - `-5` のような負数 literal は `Option::None` として数値 parser へ渡します。
+fn operator_from_token %fn str Option RpnLegacyOp \token:
+    if:
+        string_search::str_eq token "+"
+        then:
+            Option::Some RpnLegacyOp::Add
+        else:
+            if:
+                string_search::str_eq token "-"
+                then:
+                    Option::Some RpnLegacyOp::Sub
+                else:
+                    if:
+                        string_search::str_eq token "*"
+                        then:
+                            Option::Some RpnLegacyOp::Mul
+                        else:
+                            Option::None
+
+//: apply_op_values: 分類済み演算子を 2 つの値へ適用する
+//:
+//: [目的/もくてき]:
+//: - Stack owner flow と i32 演算選択を分離します。
+fn apply_op_values %fn RpnLegacyOp fn i32 fn i32 i32 \op\a\b:
+    match op:
+        RpnLegacyOp::Add:
+            add a b
+        RpnLegacyOp::Sub:
+            sub a b
+        RpnLegacyOp::Mul:
+            mul a b
+
 //: print_error: エラーメッセージを赤色で表示する
 //:
 //: [目的/もくてき]:
@@ -93,7 +139,7 @@ fn push_or_report %impure fn Stack i32 impure fn i32 Result Stack i32 str \stack
 //: [目的/もくてき]:
 //: - `+` `-` `*` を適用し、結果を同じ stack に積み直します。
 //: - stack が不足する場合はエラーを表示し、stack をそのまま返します。
-fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token:
+fn apply_op %impure fn Stack i32 impure fn RpnLegacyOp Result Stack i32 str \stack\op:
     if:
         lt stk::len &stack 2
         then:
@@ -110,15 +156,7 @@ fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token
                     let stack_a %Stack i32 stk::stack_pop_stack popped_a
                     match a_opt:
                         Option::Some a:
-                            let res %i32:
-                                if:
-                                    string_search::str_eq token "+"
-                                    then add a b
-                                    else:
-                                        if:
-                                            string_search::str_eq token "-"
-                                            then sub a b
-                                            else mul a b
+                            let res %i32 apply_op_values op a b
                             push_or_report stack_a res
                         Option::None:
                             print_error "stack underflow";
@@ -138,12 +176,10 @@ fn process_token %impure fn Stack i32 impure fn str Result Stack i32 str \stack\
         then:
             ok stack
         else:
-            let is_op %bool or or string_search::str_eq token "+" string_search::str_eq token "-" string_search::str_eq token "*";
-            if:
-                is_op
-                then:
-                    apply_op stack token
-                else:
+            match operator_from_token token:
+                Option::Some op:
+                    apply_op stack op
+                Option::None:
                     match string_parse::to_i32 token:
                         Result::Ok val:
                             push_or_report stack val
@@ -151,6 +187,11 @@ fn process_token %impure fn Stack i32 impure fn str Result Stack i32 str \stack\
                             print_error "unknown token";
                             ok stack
 
+//: process_token_state: 失敗済みの評価状態では追加 token を処理しない
+//:
+//: [目的/もくてき]:
+//: - token 走査 loop から `Result Stack i32 str` を安全に更新する小さな境界です。
+//: - 一度 Err になった状態は、その後の token で上書きせず Err のまま伝播します。
 fn process_token_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\token:
     match state:
         Result::Ok stack:
@@ -158,6 +199,10 @@ fn process_token_state %impure fn Result Stack i32 str impure fn str Result Stac
         Result::Err msg:
             err msg
 
+//: token_error_state: token slicing error 時に stack owner を閉じる
+//:
+//: [目的/もくてき]:
+//: - 文字列 slice に失敗した場合、保持中の stack を解放して Err 状態へ移します。
 fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\msg:
     match state:
         Result::Ok stack:

@@ -46,6 +46,51 @@
 #import "alloc/collections/stack" as stk
 #import "alloc/collections/vec" as v
 
+//: BfCommand: Brainfuck の 1 byte 命令を分類した値
+//:
+//: [目的/もくてき]:
+//: - `43` や `91` のような ASCII 数値を VM 本体へ散らさず、命令の意味を enum として保持します。
+//: - 実行 loop と jump table compiler は `match` で全命令を扱い、分岐漏れを見つけやすくします。
+//:
+//: [注意/ちゅうい]:
+//: - Brainfuck 以外の文字は comment として扱うため `Other` に分類します。
+enum BfCommand:
+    Inc
+    Dec
+    MoveRight
+    MoveLeft
+    Output
+    Input
+    LoopStart
+    LoopEnd
+    Other
+
+//: bf_command_from_byte: 入力 byte を Brainfuck 命令 enum へ分類する
+//:
+//: [契約/けいやく]:
+//: - `+ - > < . , [ ]` は対応する `BfCommand` を返します。
+//: - それ以外の byte は `Other` を返し、実行時は no-op comment として扱います。
+fn bf_command_from_byte %fn i32 BfCommand \byte:
+    match byte:
+        43:
+            BfCommand::Inc
+        45:
+            BfCommand::Dec
+        62:
+            BfCommand::MoveRight
+        60:
+            BfCommand::MoveLeft
+        46:
+            BfCommand::Output
+        44:
+            BfCommand::Input
+        91:
+            BfCommand::LoopStart
+        93:
+            BfCommand::LoopEnd
+        _:
+            BfCommand::Other
+
 //: print_error: Brainfuck 実行時エラーを赤色で表示する
 //:
 //: [目的/もくてき]:
@@ -116,9 +161,9 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                             b
                                         Option::None:
                                             0
-                                    if:
-                                        eq ch 91 // '['
-                                        then:
+                                    let command %BfCommand bf_command_from_byte ch
+                                    match command:
+                                        BfCommand::LoopStart:
                                             match stk::push stk pc:
                                                 Result::Ok next_stack:
                                                     set stack_state ok next_stack
@@ -128,25 +173,22 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                                     set error true;
                                                     set error_msg "out of memory";
                                                     set stack_state err "out of memory"
-                                        else:
-                                            if:
-                                                eq ch 93 // ']'
-                                                then:
-                                                    let popped %StackPop i32 stk::pop_top stk
-                                                    let start_opt %Option i32 stk::stack_pop_item &popped
-                                                    let next_stack %Stack i32 stk::stack_pop_stack popped
-                                                    match start_opt:
-                                                        Option::Some start_pc:
-                                                            v::replace &jump_table start_pc pc;
-                                                            v::replace &jump_table pc start_pc;
-                                                            set stack_state ok next_stack
-                                                        Option::None:
-                                                            set error true;
-                                                            set error_msg "unmatched ']'";
-                                                            stk::free next_stack;
-                                                            set stack_state err "unmatched ']'"
-                                                else:
-                                                    set stack_state ok stk
+                                        BfCommand::LoopEnd:
+                                            let popped %StackPop i32 stk::pop_top stk
+                                            let start_opt %Option i32 stk::stack_pop_item &popped
+                                            let next_stack %Stack i32 stk::stack_pop_stack popped
+                                            match start_opt:
+                                                Option::Some start_pc:
+                                                    v::replace &jump_table start_pc pc;
+                                                    v::replace &jump_table pc start_pc;
+                                                    set stack_state ok next_stack
+                                                Option::None:
+                                                    set error true;
+                                                    set error_msg "unmatched ']'";
+                                                    stk::free next_stack;
+                                                    set stack_state err "unmatched ']'"
+                                        _:
+                                            set stack_state ok stk
                                 Result::Err msg:
                                     set error true;
                                     set error_msg msg;
@@ -229,55 +271,33 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
                                     b
                                 Option::None:
                                     0
+                            let command %BfCommand bf_command_from_byte cmd
                             let cell %i32 current_cell &tape ptr_idx
 
-                            if:
-                                eq cmd 43 // '+'
-                                then:
+                            match command:
+                                BfCommand::Inc:
                                     let next_cell %i32 cell_inc cell
                                     v::replace &tape ptr_idx next_cell
-                                else: unit
-
-                            if:
-                                eq cmd 45 // '-'
-                                then:
+                                BfCommand::Dec:
                                     let prev_cell %i32 cell_dec cell
                                     v::replace &tape ptr_idx prev_cell
-                                else: unit
-
-                            if:
-                                eq cmd 62 // '>'
-                                then:
+                                BfCommand::MoveRight:
                                     set ptr_idx add ptr_idx 1;
                                     if:
                                         ge ptr_idx tape_len
                                         then: set ptr_idx 0
                                         else: unit
-                                else: unit
-
-                            if:
-                                eq cmd 60 // '<'
-                                then:
+                                BfCommand::MoveLeft:
                                     set ptr_idx sub ptr_idx 1;
                                     if:
                                         lt ptr_idx 0
                                         then: set ptr_idx sub tape_len 1
                                         else: unit
-                                else: unit
-
-                            if:
-                                eq cmd 46 // '.'
-                                then: print_byte cell
-                                else: unit
-
-                            if:
-                                eq cmd 44 // ','
-                                then: v::replace &tape ptr_idx 0
-                                else: unit
-
-                            if:
-                                eq cmd 91 // '['
-                                then:
+                                BfCommand::Output:
+                                    print_byte cell
+                                BfCommand::Input:
+                                    v::replace &tape ptr_idx 0
+                                BfCommand::LoopStart:
                                     let should_skip %bool eq cell 0;
                                     if:
                                         should_skip
@@ -285,11 +305,7 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
                                             set pc jump_target &jump_table pc
                                         else:
                                             unit
-                                else: unit
-
-                            if:
-                                eq cmd 93 // ']'
-                                then:
+                                BfCommand::LoopEnd:
                                     let should_jump_back %bool ne cell 0;
                                     if:
                                         should_jump_back
@@ -297,7 +313,8 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
                                             set pc jump_target &jump_table pc
                                         else:
                                             unit
-                                else: unit
+                                BfCommand::Other:
+                                    unit
 
                             set pc add pc 1;
 
