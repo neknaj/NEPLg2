@@ -681,6 +681,24 @@ wall-clock を CLI stage まで分解した。`NEPL_CLI_STAGE_TIMING=1` を追�
 `loader_load` と typecheck が残るため、次の主経路は stdlib body merge と依存先再 typecheck を避ける
 bundled stdlib `.neplmeta` / typed interface artifact である。
 
+2026-06-02 の shallow arity path snapshot checkpoint では、loader の浅い type arity preload cache を
+単一 loader traversal 内の canonical path snapshot cache として扱うようにした。従来は path + source hash
+を key にしていたため、同じ compile 内の cache hit でも source hash 計算のために同じ file を再読込していた。
+長寿命 `LoaderSessionCache` の source hash 境界は維持し、per-load の浅い arity cache だけを path snapshot
+にした。
+
+最終 release CLI の RPN proof-backed stage 5 run は `861.388ms / 934.839ms / 939.280ms / 937.742ms /
+910.578ms`、中央値 `934.839ms` だった。階層中央値付近は `loader_load=370.406ms`、
+`check_pipeline=542.679ms`、`resource_typecheck=144ms`、`resource_static_check=369ms` である。
+no-stage 9 run は `918.851ms / 828.838ms / 908.978ms / 915.552ms / 918.349ms / 839.093ms /
+896.248ms / 825.581ms / 905.472ms`、中央値 `905.472ms` だった。
+
+merge 済み `Module` の per-load cache store clone を外す案は、loader test は通ったが RPN 実測で
+`loader_load` が約 `0.39-0.40s` へ悪化したため採用しない。次の主経路は変わらず、native CLI `--check`
+へ `.neplmeta` / typed public surface を接続することである。ただし現行 prepare path は selected
+materialized callable の body 欠落を拒否するため、check 専用の public interface + Resource proof summary
+境界、または `.neplobj` body fragment 併用の設計が必要である。
+
 ## 検証
 
 - `trunk build`

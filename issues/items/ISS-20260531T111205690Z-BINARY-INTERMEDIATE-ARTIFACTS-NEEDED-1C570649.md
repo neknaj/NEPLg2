@@ -857,3 +857,17 @@ typecheck 境界である。
 materialized typed public surface から依存先 environment を構成し、stdlib body merge と依存先再
 typecheck を避ける設計・実装である。`.neplobj` や codegen fragment より前に、`import` / `prelude` を
 interface boundary として扱えるようにする。
+
+2026-06-02 の shallow arity path snapshot checkpoint では、per-load shallow type arity cache の key を
+canonical path にし、同じ compile 内で同じ file を再読込して source hash を再計算する固定費を削った。
+これは永続 artifact ではないが、`.neplmeta` へ進む前に loader query の純粋な snapshot 境界を整理する
+下準備である。RPN proof-backed no-stage median は `905.472ms`、stage median は `934.839ms`、
+`loader_load=370.406ms`、`check_pipeline=542.679ms`、`resource_typecheck=144ms`、
+`resource_static_check=369ms` だった。
+
+この結果でも 0.5 秒未満には届かない。既存 Web path の `.neplmeta` materializer は dependency body merge
+を skip できるが、native CLI `--check` はまだ public interface artifact 入力を渡していない。また、現行
+prepare path は selected materialized callable の body が無い場合に `MaterializedFunctionBodyMissing`
+で fail-closed するため、RPN のように stdlib callable を実際に呼ぶ program では `.neplmeta` だけでは
+source fallback に戻る。次は check 専用の public interface + Resource proof summary 境界、または
+`.neplobj` body fragment を併用する native CLI artifact path を設計・実装する。

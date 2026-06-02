@@ -451,13 +451,15 @@ struct LoaderDependencyAggregatePublicSurfaceClosedSourceKey {
     source_hash: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct LoaderShallowTypeArityKey {
-    path: PathBuf,
-    source_hash: u64,
-}
-
-type ShallowTypeArityHintCache = BTreeMap<LoaderShallowTypeArityKey, Vec<(String, usize)>>;
+/// One loader traversal treats each canonical path as a stable source snapshot.
+///
+/// This cache is not shared across compiler sessions.  Long-lived stdlib caches
+/// still use source hashes, but the shallow arity preload inside one load should
+/// not re-read the same path merely to prove that the already observed snapshot
+/// is unchanged.  Reusing the first complete arity surface also makes a single
+/// compile deterministic if a file changes while the host is reading the import
+/// graph.
+type ShallowTypeArityHintCache = BTreeMap<PathBuf, Vec<(String, usize)>>;
 
 #[derive(Debug, Clone)]
 struct ShallowTypeArityHints {
@@ -1551,17 +1553,13 @@ impl Loader {
                 complete: false,
             });
         }
-        let src = read_file_to_string(&canon)?;
-        let key = LoaderShallowTypeArityKey {
-            path: canon.clone(),
-            source_hash: fnv1a64(src.as_bytes()),
-        };
-        if let Some(hints) = shallow_type_arity_cache.get(&key) {
+        if let Some(hints) = shallow_type_arity_cache.get(&canon) {
             return Ok(ShallowTypeArityHints {
                 hints: hints.clone(),
                 complete: true,
             });
         }
+        let src = read_file_to_string(&canon)?;
         let hints = self.shallow_type_arity_hints_from_source(
             &canon,
             file_id,
@@ -1570,7 +1568,7 @@ impl Loader {
             shallow_type_arity_cache,
         );
         if hints.complete {
-            shallow_type_arity_cache.insert(key, hints.hints.clone());
+            shallow_type_arity_cache.insert(canon, hints.hints.clone());
         }
         Ok(hints)
     }
@@ -1591,17 +1589,13 @@ impl Loader {
                 complete: false,
             });
         }
-        let src = provider(&canon)?;
-        let key = LoaderShallowTypeArityKey {
-            path: canon.clone(),
-            source_hash: fnv1a64(src.as_bytes()),
-        };
-        if let Some(hints) = shallow_type_arity_cache.get(&key) {
+        if let Some(hints) = shallow_type_arity_cache.get(&canon) {
             return Ok(ShallowTypeArityHints {
                 hints: hints.clone(),
                 complete: true,
             });
         }
+        let src = provider(&canon)?;
         let hints = self.shallow_type_arity_hints_from_source_with(
             &canon,
             file_id,
@@ -1612,7 +1606,7 @@ impl Loader {
             session_cache,
         )?;
         if hints.complete {
-            shallow_type_arity_cache.insert(key, hints.hints.clone());
+            shallow_type_arity_cache.insert(canon, hints.hints.clone());
         }
         Ok(hints)
     }

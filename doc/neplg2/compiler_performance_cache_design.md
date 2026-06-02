@@ -3790,6 +3790,51 @@ RPN proof-backed native wall-clock after loader/process-directives cleanup
 `resource_typecheck` 約 `0.13-0.15s` である。したがって次の主経路は、stdlib body merge と
 依存先再 typecheck を避ける bundled stdlib `.neplmeta` / typed interface artifact である。
 
+2026-06-02 の shallow arity path snapshot checkpoint では、RPN cold base の loader 側固定費をさらに
+分解した。current HEAD `9e461fcf` の独立計測では no-stage median `897.079ms`、stage wall median
+`886.132ms`、`loader_load=383.927ms`、`check_pipeline=497.417ms`、`resource_typecheck=130ms`、
+`resource_static_check=339ms` だった。構造は前 checkpoint と同じで、`.neplproof` read は約 `0.744ms`
+で支配点ではない。
+
+shallow type arity preload の per-load cache は、これまで canonical path と source hash を key にしていた。
+しかしこの cache は `LoaderSessionCache` と違い、1 回の loader traversal 内に閉じた snapshot cache である。
+source hash を key に含めると、cache hit 判定のために同じ file を再度読み、hash を再計算する必要がある。
+そこで canonical path だけを key にし、最初に観測した complete arity surface を同じ compile 内で再利用する
+形へ変えた。長寿命 stdlib cache の source hash 境界は維持し、単一 compile 内だけを path snapshot として扱う。
+
+merge 済み `Module` の per-load cache store clone を外す案も試したが、RPN 実測では `loader_load` が
+約 `0.39-0.40s` へ悪化したため採用しない。現行 loader では `imported_once` だけで cache 効果を完全には
+置き換えられない。
+
+最終 release CLI で専用 `.neplproof` cache を bootstrap し直した RPN proof-backed run は次の通りである。
+
+```text
+RPN proof-backed native wall-clock after shallow arity path snapshot
+  stage timing enabled:
+    wall-clock runs: 861.388ms / 934.839ms / 939.280ms / 937.742ms / 910.578ms
+    wall-clock median: 934.839ms
+    loader_load median: 370.406ms
+    check_pipeline median: 542.679ms
+      resource_typecheck median: 144ms
+      resource_static_check median: 369ms
+        resource_initialized_moves median-near: 211ms
+        resource_owner_obligations median-near: 51ms
+    proof_cache_read: about 0.6-0.7ms
+
+  no stage timing:
+    runs: 918.851ms / 828.838ms / 908.978ms / 915.552ms / 918.349ms /
+          839.093ms / 896.248ms / 825.581ms / 905.472ms
+    median: 905.472ms
+```
+
+この checkpoint は loader の小さい固定費削減であり、issue の完了ではない。既存 Web 実装には
+`.neplmeta` store と `MaterializedPublicSurfaceInput` を使って dependency body merge を skip する
+経路があるが、native CLI `--check` はまだ `PublicInterfaceArtifactInputs::new(None, None, &[])` 固定である。
+さらに現行 prepare path は選択された materialized callable の body が無い場合に
+`MaterializedFunctionBodyMissing` で拒否する。RPN は stdlib callable を実際に呼ぶため、次の主経路は
+check 専用の public interface + Resource proof summary 境界、または `.neplobj` body fragment 併用を
+設計してから native CLI に接続することである。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

@@ -1,3 +1,15 @@
+# 2026-06-02 RPN shallow arity path snapshot cold base checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の性能方針に従い、RPN cold base の残支配点である loader/typecheck 側を継続して計測した。
+- 独立計測では current HEAD `9e461fcf` で no-stage median `897.079ms`、stage wall median `886.132ms`、`loader_load=383.927ms`、`check_pipeline=497.417ms`、`resource_typecheck=130ms`、`resource_static_check=339ms` だった。`.neplproof` read は約 `0.744ms` で、引き続き支配点ではない。
+- shallow type arity preload の per-load cache は、これまで canonical path と source hash を key にしていたため、cache hit のたびに同じ file を再度読み、hash を再計算していた。この cache は compiler session をまたぐ永続 cache ではなく 1 回の loader traversal 内の snapshot なので、canonical path だけを key にし、最初に観測した complete arity surface を同じ compile 内で再利用する形へ変えた。
+- 長寿命 stdlib cache の source hash 境界は維持している。今回の path snapshot は単一 compile 内に閉じており、host が import graph を読む最中に file が変わる場合も最初に読んだ snapshot へそろえるため、compile 内 determinism の面でも自然である。
+- 併せて merge 済み `Module` の per-load cache store clone を外す案も試したが、RPN 実測では `loader_load` が約 `0.39-0.40s` へ悪化したため戻した。`imported_once` だけでは現行 loader の cache 効果を完全には置き換えられない。
+- 最終 release CLI で専用 `.neplproof` cache を作り直した proof-backed RPN stage 5 run は wall-clock `861.388ms / 934.839ms / 939.280ms / 937.742ms / 910.578ms`、中央値 `934.839ms`。階層中央値付近は `loader_load=370.406ms`、`check_pipeline=542.679ms`、`resource_typecheck=144ms`、`resource_static_check=369ms`、`proof_cache_read=0.664-0.699ms`。
+- no-stage 9 run は `918.851ms / 828.838ms / 908.978ms / 915.552ms / 918.349ms / 839.093ms / 896.248ms / 825.581ms / 905.472ms`、中央値 `905.472ms`。前 checkpoint の no-stage median `965.283ms` より改善したが、まだ 0.5 秒未満ではない。
+- `.neplmeta` / `MaterializedPublicSurfaceInput` の既存 Web 経路は native CLI `--check` に接続可能だが、現行 prepare path は選択された materialized callable の body 欠落を `MaterializedFunctionBodyMissing` として拒否する。RPN は stdlib callable を実際に多数呼ぶため、次は check 専用の public interface + Resource proof summary 境界、または `.neplobj` body fragment 併用を設計してから native CLI に接続する。
+- focused verification は `cargo check -p nepl-core`、`cargo test -p nepl-core loader --lib -- --nocapture`、`cargo build -p nepl-cli --release`、`cargo check -p nepl-cli`、`node nodesrc\tests.js -i examples\rpn.nepl --no-tree -o tmp\rpn-shallow-arity-path-snapshot-tests-20260602.json -j 2 --assert-io`、release CLI の RPN `--check`、`node nodesrc\issues.js check --dir issues`、`git diff --check` を通した。
+
 # 2026-06-02 RPN loader/process-directives cold base checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、RPN cold base の支配点を Resource IR だけでなく native CLI / loader / proof I/O まで分解した。
