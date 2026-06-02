@@ -1,3 +1,14 @@
+# 2026-06-03 Agent2 compiler-backed syntax highlight palette checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の静的検査活用、言語仕様を Web 表層の推測へ閉じ込めない方針に従い、Web Playground editor の色分けを compiler-provided `token_classifications` 起点に整理した。
+- `origin/main` と同期後、`agent2/redesign-syntax-highlighting-compiler-ranges` branch で作業した。Canvas editor は DOM class を token ごとに付けられないため、色指定は `web/src/editor/editor.ts` の TS palette に集約した。
+- `nepl-language` と `nepl-web` の分類契約を合わせ、`void` は `literal-void`、`unit` は型式範囲内でも値式でも表示 category を `literal-unit` とする。型文脈は `function_type_result` などの role で保持する。
+- parse が AST まで進めない場合や VFS loader error の場合でも、lexer marker と path 文脈から作れる `token_classifications` を返すようにした。未完成コードでも `fn`、`void`、`unit`、`Result::Ok` などの基本色が消えない。
+- `group1::group2::name` の左側 group / namespace は `namespace` として薄く、右端 member は `constant` / `function` などの解決済み category で目立つようにする既存契約を維持した。
+- static playground article code block の highlighter も同じ色方針へ寄せた。Canvas editor 本体は TS palette、静的 HTML code block は CSS class のままだが、`unit` は `literal-unit`、`void` は `literal-void` として分類契約を揃えている。
+- focused verification は `cargo check -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`npm --prefix web run build:ts`、`trunk build --release`、`node nodesrc/test_analysis_api.js` 14/14、`node nodesrc/test_editor_current_syntax_highlighting.js`、`node nodesrc/test_neplg2_language_provider_vfs.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-highlight-redesign.json`、`cargo test -p nepl-language --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は editor / GUI / VFS 関連の回帰を通過し、今回触っていない cliarg、stdlib documentation gap、static_check/typecheck facade、resource checker responsibility、codegen_wasm line limit、resource gate order、diagnostic registry、stdio print_i32 boundary の既存 warning 8 件を報告した。
+
 # 2026-06-03 RPN return-path merge clone pruning checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、cache hit 前提の改善ではなく、RPN cold base で同じ状態表を余分に clone / merge している箇所を測定した。

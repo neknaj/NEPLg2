@@ -376,9 +376,11 @@ self.onmessage = async (e) => {
       'block', 'tuple'
     ]);
     const types = new Set([
-      'i32', 'i64', 'u32', 'u64', 'u8', 'f32', 'f64', 'bool', 'str', 'char', 'void', 'unit',
+      'i32', 'i64', 'u32', 'u64', 'u8', 'f32', 'f64', 'bool', 'str', 'char',
       'Result', 'Option', 'Vec', 'String', 'StringBuilder', 'List', 'Set', 'Self'
     ]);
+    const unitLiterals = new Set(['unit']);
+    const voidLiterals = new Set(['void']);
     const constants = new Set([
       'true', 'false', 'Ok', 'Err', 'Some', 'None'
     ]);
@@ -466,6 +468,10 @@ self.onmessage = async (e) => {
             const tok = ln.slice(i, j);
             if (kwds.has(tok)) {
               out += '<span class="nm-syn-keyword">' + esc(tok) + '</span>';
+            } else if (unitLiterals.has(tok)) {
+              out += '<span class="nm-syn-literal-unit">' + esc(tok) + '</span>';
+            } else if (voidLiterals.has(tok)) {
+              out += '<span class="nm-syn-literal-void">' + esc(tok) + '</span>';
             } else if (types.has(tok)) {
               out += '<span class="nm-syn-type">' + esc(tok) + '</span>';
             } else if (constants.has(tok)) {

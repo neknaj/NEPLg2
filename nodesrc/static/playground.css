@@ -191,16 +191,18 @@ ul{margin:10px 0 10px 22px;}
 .nm-code-content{position:relative;}
 .nm-code{background:var(--code);padding:12px;overflow:auto;margin:0;border:none;border-radius:0;}
 .nm-code code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;white-space:pre;}
-.nm-syn-keyword{color:#7aa2f7;}
-.nm-syn-string{color:#9ece6a;}
-.nm-syn-number{color:#ff9e64;}
+.nm-syn-keyword{color:#ff5a5f;}
+.nm-syn-string{color:#f59f3a;}
+.nm-syn-number{color:#b8e450;}
 .nm-syn-comment{color:#7f8ea3;}
-.nm-syn-boolean{color:#e0af68;}
-.nm-syn-function{color:#73daca;}
+.nm-syn-boolean{color:#ff9f7a;}
+.nm-syn-function{color:#ffd166;}
 .nm-syn-operator{color:#c0caf5;}
 .nm-syn-punctuation{color:#a9b1d6;}
-.nm-syn-type{color:#e5c07b;}
-.nm-syn-constant{color:#bb9af7;}
+.nm-syn-type{color:#57d68d;}
+.nm-syn-constant{color:#4f8cff;}
+.nm-syn-literal-unit{color:#ff7ac8;}
+.nm-syn-literal-void{color:#ff7ac8;}
 .nm-code-inline{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:1px 6px;}
 .nm-gloss, .nm-ruby{ruby-position:over;}
 .nm-gloss rt{font-size:0.72em;color:var(--muted);line-height:1.1;}

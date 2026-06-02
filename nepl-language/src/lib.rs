@@ -549,6 +549,12 @@ fn analyze_semantics_from_parts(
         .any(|d| matches!(d.severity, Severity::Error));
 
     let Some(module) = module else {
+        let token_classifications = build_lexical_token_classifications(&tokens)
+            .iter()
+            .map(|classification| {
+                token_classification_to_editor(source, source_map, classification)
+            })
+            .collect::<Vec<_>>();
         return SemanticsAnalysis {
             ok: false,
             tokens: token_infos,
@@ -557,7 +563,7 @@ fn analyze_semantics_from_parts(
             token_semantics: Vec::new(),
             token_hints: Vec::new(),
             syntax_ranges: Vec::new(),
-            token_classifications: Vec::new(),
+            token_classifications,
             functions: Vec::new(),
             name_resolution: None,
             token_resolution: Vec::new(),
@@ -1672,7 +1678,8 @@ fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
     match kind {
         TokenKind::KwFn | TokenKind::KwMut => Some("keyword"),
         TokenKind::Ident(value) if value == "impure" => Some("keyword"),
-        TokenKind::Ident(_) | TokenKind::UnitLiteral => Some("type"),
+        TokenKind::Ident(_) => Some("type"),
+        TokenKind::UnitLiteral => Some("literal-unit"),
         TokenKind::VoidMarker => Some("literal-void"),
         TokenKind::Percent
         | TokenKind::Ampersand
@@ -1833,6 +1840,7 @@ fn classification_priority(category: &str, role: &str) -> u8 {
         "keyword" => 70,
         "operator" => 60,
         "punctuation" => 50,
+        "literal-unit" if role != "unit_literal" => 45,
         "literal-void" => 45,
         "literal-unit" | "literal-string" | "literal-char" | "literal-number" | "literal-bool" => {
             40
@@ -1968,6 +1976,11 @@ fn build_token_classifications(
     best.into_iter()
         .filter_map(|entry| entry.map(|(_, classification)| classification))
         .collect()
+}
+
+fn build_lexical_token_classifications(tokens: &[Token]) -> Vec<TokenClassificationTrace> {
+    let resolve_trace = NameResolutionTrace::new_with_options(false);
+    build_token_classifications(tokens, &[], &resolve_trace)
 }
 
 fn callee_def_id(callee: &FuncRef) -> Option<DefId> {
