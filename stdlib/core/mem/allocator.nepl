@@ -18,6 +18,7 @@
 
 #import "core/math" as *
 #import "core/result" as *
+#import "core/field" as *
 #import "./layout" as *
 #import "./raw" as *
 
@@ -26,6 +27,90 @@
 //: block header の先頭 address と header に保存された total size から、隣接判定に使う半開区間の終端を計算します。
 pub fn mem_block_end %fn i32 i32 \blk:
     add blk load_i32 blk
+
+//: ## FreeListInsertPosition
+//: free list の address-order insertion 位置
+//:
+//: [目的/もくてき]:
+//: - `prev < blk <= cur` になる挿入位置を、名前付き field で返します。
+//: - 匿名 tuple にせず field 名を持たせ、allocator の探索結果が何を表すのかを静的検査と読解の両方で明確にします。
+struct FreeListInsertPosition:
+    prev %i32
+    cur %i32
+
+//: free_list_find_insert_position: block を挿入する free list 位置を探す
+//:
+//: [目的/もくてき]:
+//: - free list は block address の昇順で保持されます。
+//: - `blk` より小さい最後の block を `prev`、`blk` 以上の最初の block を `cur` として返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)。free list の長さに比例します。
+fn free_list_find_insert_position %fn i32 FreeListInsertPosition \blk:
+    let mut prev %i32 0
+    let mut cur %i32 load_i32 4
+    let mut done %bool false
+    while and ne cur 0 not done:
+        do:
+            if:
+                lt cur blk
+                then:
+                    set prev cur
+                    set cur load_i32 add cur 4
+                else:
+                    set done true
+    FreeListInsertPosition prev cur
+
+//: free_list_link_between: block を探索済みの前後 node の間へ接続する
+//:
+//: [目的/もくてき]:
+//: - `free_list_find_insert_position` が返した `prev` と `cur` の間に `blk` を挿入します。
+//: - free list head の更新と `prev.next` の更新を同じ境界へ集約し、caller は挿入後の coalesce だけに集中できます。
+//:
+//: [注意/ちゅうい]:
+//: - `blk` の size field は呼び出し前に初期化済みでなければなりません。
+fn free_list_link_between %fn i32 fn i32 fn i32 unit \prev\blk\cur:
+    let blk_next_ptr %i32 add blk 4
+    store_i32 blk_next_ptr cur
+    if:
+        cond:
+            eq prev 0
+        then:
+            store_i32 4 blk
+        else:
+            store_i32 add prev 4 blk
+
+//: free_list_coalesce_next: block と次 block が隣接するとき 1 つに結合する
+//:
+//: [目的/もくてき]:
+//: - `blk` の直後に `cur` が続く場合、`blk` の size と next pointer を更新して後続 block を吸収します。
+//: - allocator の「隣接 free block を残さない」不変条件のうち、後方側だけを担当します。
+fn free_list_coalesce_next %fn i32 fn i32 unit \blk\cur:
+    if:
+        cond:
+            and ne cur 0 eq mem_block_end blk cur
+        then:
+            let cur_next %i32 load_i32 add cur 4
+            let blk_next_ptr %i32 add blk 4
+            store_i32 blk add load_i32 blk load_i32 cur
+            store_i32 blk_next_ptr cur_next
+        else:
+            unit
+
+//: free_list_coalesce_prev: 前 block と block が隣接するとき 1 つに結合する
+//:
+//: [目的/もくてき]:
+//: - `prev` の直後に `blk` が続く場合、`prev` の size と next pointer を更新して `blk` を吸収します。
+//: - `free_list_coalesce_next` の後に呼ぶことで、`prev + blk + cur` が連続している場合も 1 つの free block にまとまります。
+fn free_list_coalesce_prev %fn i32 fn i32 unit \prev\blk:
+    if:
+        cond:
+            and ne prev 0 eq mem_block_end prev blk
+        then:
+            store_i32 prev add load_i32 prev load_i32 blk
+            store_i32 add prev 4 load_i32 add blk 4
+        else:
+            unit
 
 //: alloc_raw: ヒープから領域を確保する（生ポインタAPI）
 //:
@@ -174,45 +259,13 @@ pub fn dealloc_raw %fn i32 fn i32 unit \ptr\size:
             let header %i32 8
             let total %i32 align8 add size header
             let blk %i32 sub ptr header
-            let mut prev %i32 0
-            let mut cur %i32 load_i32 4
-            let mut done %bool false
-            while and ne cur 0 not done:
-                do:
-                    if:
-                        lt cur blk
-                        then:
-                            set prev cur
-                            set cur load_i32 add cur 4
-                        else:
-                            set done true
+            let position %FreeListInsertPosition free_list_find_insert_position blk
+            let prev %i32 *get_ref &position "prev"
+            let cur %i32 *get_ref &position "cur"
             store_i32 blk total
-            let blk_next_ptr %i32 add blk 4
-            store_i32 blk_next_ptr cur
-            if:
-                cond:
-                    eq prev 0
-                then:
-                    store_i32 4 blk
-                else:
-                    store_i32 add prev 4 blk
-            if:
-                cond:
-                    and ne cur 0 eq mem_block_end blk cur
-                then:
-                    let cur_next %i32 load_i32 add cur 4
-                    store_i32 blk add load_i32 blk load_i32 cur
-                    store_i32 blk_next_ptr cur_next
-                else:
-                    unit
-            if:
-                cond:
-                    and ne prev 0 eq mem_block_end prev blk
-                then:
-                    store_i32 prev add load_i32 prev load_i32 blk
-                    store_i32 add prev 4 load_i32 blk_next_ptr
-                else:
-                    unit
+            free_list_link_between prev blk cur
+            free_list_coalesce_next blk cur
+            free_list_coalesce_prev prev blk
 
 //: realloc_raw: 既存領域を再確保する（生ポインタAPI）
 //:

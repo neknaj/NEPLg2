@@ -3419,6 +3419,53 @@ cache instrumentation が起動しないことを固定する。次は disk / bu
 accepted usable entry を持つ `.neplproof` を渡し、RPN cold base の initialized moves と owner
 obligations を初回から replay できるかを測る。
 
+2026-06-02 の allocator / ByteBuilder reserve helper split checkpoint では、proof-backed check gate
+後の RPN cold base をさらに関数構造から削った。開始時点の native release stage-only 3 run は
+`resource_static_check=3888ms / 3600ms / 4158ms`、中央値 `3888ms` である。支配階層は次の通り。
+
+```text
+RPN cold base static check before allocator / ByteBuilder split
+  resource_static_check: median 3888ms
+    resource_initialized_moves: 2677-3107ms
+      resource_initialized_i32_scalar_summaries: 903-1017ms
+      resource_initialized_raw_init_summaries: 896-1020ms
+      resource_initialized_function_checks: 801-993ms
+    resource_owner_obligations: 788-895ms
+```
+
+per-function timing では `dealloc_raw` が raw-init summary と final initialized function check の両方に
+残り、`byte_builder_reserve` が i32 scalar summary 上位に残っていた。対応として、allocator は
+free list 挿入位置探索、link、next coalesce、prev coalesce を private helper へ分割し、public
+`dealloc_raw` をこれらの接続へ縮めた。ByteBuilder は Empty storage grow と Owned storage grow を
+private helper へ分け、public `byte_builder_reserve` を capacity 計算と storage branch 接続へ縮めた。
+
+この変更は公開 API や検査契約を変えない。allocator は address-order free list、`ptr <= 0` no-op、
+前後 coalesce、runtime ABI を維持する。ByteBuilder は失敗時の builder owner recovery、
+capacity exceeded / out-of-memory / invalid operation の分類、旧 region token recovery を維持する。
+
+変更後の native release stage-only 5 run は次の通り。
+
+```text
+RPN cold base static check after allocator / ByteBuilder split
+  resource_static_check: 3134ms / 2819ms / 3054ms / 2801ms / 3018ms
+    median: 3018ms
+    resource_initialized_moves median: 2248ms
+      resource_initialized_i32_scalar_summaries median: 783ms
+      resource_initialized_raw_init_summaries median: 741ms
+      resource_initialized_function_checks median: 651ms
+    resource_owner_obligations median: 607ms
+  native CLI elapsed by Measure-Command: about 3720ms
+```
+
+per-function timing では `byte_builder_reserve` i32 scalar summary が約 `166ms` から約 `36ms` へ下がった。
+allocator 分割後、`dealloc_raw` は hot path 上位から大きく後退した。これは RPN cold base を
+0.5 秒未満へ到達させるものではないが、stdlib の支配関数を小さい proof boundary へ分けると
+Resource IR の固定点探索が実測で下がることを示す。
+
+残る支配点は `sb_append_non_empty_result` / `byte_builder_push_bytes_ref` / `byte_builder_push_u8` の
+i32 scalar と raw-init、`apply_op` / parse 系 function check、owner obligation である。次の主経路は
+actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

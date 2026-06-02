@@ -208,6 +208,57 @@ pub fn byte_builder_next_capacity %fn i32 fn i32 Result i32 StdErrorKind \cap\ne
         else:
             Result::Ok next
 
+//: byte_builder_reserve_empty_storage: 空 storage を必要 capacity へ grow する
+//:
+//: [目的/もくてき]:
+//: - `ByteBuilderStorage::Empty` branch の不変条件確認と新規確保を、reserve 本体から分離します。
+//: - 空 storage なのに `len` または `cap` が正である状態は表現不整合として拒否し、失敗時も builder owner を `ByteBuilderError` に戻します。
+//:
+//: [注意/ちゅうい]:
+//: - `next_cap` は `byte_builder_next_capacity` で計算済みの正の capacity であることを想定します。
+fn byte_builder_reserve_empty_storage %fn i32 fn i32 fn i32 Result ByteBuilder ByteBuilderError \len0\cap0\next_cap:
+    if:
+        or gt len0 0 gt cap0 0
+        then:
+            Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
+        else:
+            if:
+                not alloc_payload_fits next_cap
+                then:
+                    Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::CapacityExceeded
+                else:
+                    match alloc_region_bytes<u8> next_cap:
+                        Result::Ok region:
+                            Result::Ok byte_builder_from_owned_region region len0 next_cap
+                        Result::Err _e:
+                            Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::OutOfMemory
+
+//: byte_builder_reserve_owned_storage: 所有 storage を必要 capacity へ grow する
+//:
+//: [目的/もくてき]:
+//: - `ByteBuilderStorage::Owned` branch の capacity 検査、payload 上限検査、realloc 失敗時の旧 owner recovery を集約します。
+//: - 成功時は新しい `RegionToken u8` を持つ builder を返し、失敗時は旧 token を包み直して `ByteBuilderError` に戻します。
+//:
+//: [注意/ちゅうい]:
+//: - `region` はこの関数が消費します。realloc 失敗時には `RegionReallocError` から旧 token を取り戻して返します。
+fn byte_builder_reserve_owned_storage %fn RegionToken u8 fn i32 fn i32 fn i32 Result ByteBuilder ByteBuilderError \region\len0\cap0\next_cap:
+    if:
+        le cap0 0
+        then:
+            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
+        else:
+            if:
+                not alloc_payload_fits next_cap
+                then:
+                    Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::CapacityExceeded
+                else:
+                    match byte_builder_realloc_region_or_keep region next_cap:
+                        Result::Ok next_region:
+                            Result::Ok byte_builder_from_owned_region next_region len0 next_cap
+                        Result::Err e:
+                            let old_region %RegionToken u8 region_realloc_error_region<u8> e
+                            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory
+
 //: byte_builder_reserve: 追加 byte [数/すう]ぶんの capacity を[確保/かくほ]する
 //:
 //: [目的/もくてき]:
@@ -240,35 +291,6 @@ pub fn byte_builder_reserve %fn ByteBuilder fn i32 Result ByteBuilder ByteBuilde
                         Result::Ok next_cap:
                             match get builder "storage":
                                 ByteBuilderStorage::Empty:
-                                    if:
-                                        or gt len0 0 gt cap0 0
-                                        then:
-                                            Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
-                                        else:
-                                            if:
-                                                not alloc_payload_fits next_cap
-                                                then:
-                                                    Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::CapacityExceeded
-                                                else:
-                                                    match alloc_region_bytes<u8> next_cap:
-                                                        Result::Ok region:
-                                                            Result::Ok byte_builder_from_owned_region region len0 next_cap
-                                                        Result::Err _e:
-                                                            Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::OutOfMemory
+                                    byte_builder_reserve_empty_storage len0 cap0 next_cap
                                 ByteBuilderStorage::Owned region:
-                                    if:
-                                        le cap0 0
-                                        then:
-                                            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
-                                        else:
-                                            if:
-                                                not alloc_payload_fits next_cap
-                                                then:
-                                                    Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::CapacityExceeded
-                                                else:
-                                                    match byte_builder_realloc_region_or_keep region next_cap:
-                                                        Result::Ok next_region:
-                                                            Result::Ok byte_builder_from_owned_region next_region len0 next_cap
-                                                        Result::Err e:
-                                                            let old_region %RegionToken u8 region_realloc_error_region<u8> e
-                                                            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory
+                                    byte_builder_reserve_owned_storage region len0 cap0 next_cap

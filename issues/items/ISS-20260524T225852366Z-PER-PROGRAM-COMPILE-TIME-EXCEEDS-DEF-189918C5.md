@@ -450,6 +450,30 @@ check へ cache を渡し、artifact missing / compatibility reject / empty arti
 0.5 秒未満目標にはまだ届いていない。この変更は actual `.neplproof` を速くするものではなく、次の
 persistent / bundled proof artifact を native `--check` cold path へ安全に接続するための境界である。
 
+2026-06-02 の RPN allocator / ByteBuilder reserve helper split checkpoint では、proof-backed check gate 後の
+native release RPN を再測定した。作業開始時点の stage-only 3 run は
+`resource_static_check=3888ms / 3600ms / 4158ms`、中央値 `3888ms` である。per-function timing では
+`dealloc_raw` が raw-init summary と final initialized function check の両方に残り、
+`byte_builder_reserve` が i32 scalar summary 上位に残っていた。
+
+対応として、`stdlib/core/mem/allocator.nepl` の `dealloc_raw` を free list 挿入位置探索、link、
+next coalesce、prev coalesce の private helper へ分けた。address-order free list、`ptr <= 0` no-op、
+前後 coalesce、runtime ABI は変えていない。`stdlib/alloc/io/bytebuilder/storage.nepl` では
+`byte_builder_reserve` の Empty storage grow と Owned storage grow を private helper へ分けた。失敗時の
+builder owner recovery、capacity exceeded / out-of-memory / invalid operation の分類、旧 region token
+recovery は維持している。
+
+変更後の native release RPN stage-only 5 run は
+`resource_static_check=3134ms / 2819ms / 3054ms / 2801ms / 3018ms`、中央値 `3018ms` である。中央値内訳は
+`resource_initialized_moves=2248ms`、`resource_initialized_i32_scalar_summaries=783ms`、
+`resource_initialized_raw_init_summaries=741ms`、`resource_initialized_function_checks=651ms`、
+`resource_owner_obligations=607ms` だった。native CLI 全体 elapsed は `Measure-Command` で約 `3720ms`。
+per-function timing では `byte_builder_reserve` i32 scalar summary が約 `166ms` から約 `36ms` へ下がり、
+`dealloc_raw` は上位 hot path から大きく後退した。
+
+この checkpoint でも issue は解決しない。RPN cold base は秒単位であり、0.5 秒未満へ進める主経路は
+actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror のままである。
+
 ## 検証
 
 - `trunk build`
