@@ -2071,7 +2071,8 @@ fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
     match kind {
         TokenKind::KwFn | TokenKind::KwMut => Some("keyword"),
         TokenKind::Ident(value) if value == "impure" => Some("keyword"),
-        TokenKind::Ident(_) | TokenKind::UnitLiteral => Some("type"),
+        TokenKind::Ident(_) => Some("type"),
+        TokenKind::UnitLiteral => Some("literal-unit"),
         TokenKind::VoidMarker => Some("literal-void"),
         TokenKind::Percent
         | TokenKind::Ampersand
@@ -2232,6 +2233,7 @@ fn classification_priority(category: &str, role: &str) -> u8 {
         "keyword" => 70,
         "operator" => 60,
         "punctuation" => 50,
+        "literal-unit" if role != "unit_literal" => 45,
         "literal-void" => 45,
         "literal-unit" | "literal-string" | "literal-char" | "literal-number" | "literal-bool" => 40,
         "type" | "constant" => 35,
@@ -2364,6 +2366,11 @@ fn build_token_classifications(
     best.into_iter()
         .filter_map(|entry| entry.map(|(_, classification)| classification))
         .collect()
+}
+
+fn build_lexical_token_classifications(tokens: &[Token]) -> Vec<TokenClassificationTrace> {
+    let resolve_trace = NameResolutionTrace::new_with_options(false);
+    build_token_classifications(tokens, &[], &resolve_trace)
 }
 
 fn callee_def_id(callee: &FuncRef) -> Option<DefId> {
@@ -3333,6 +3340,7 @@ pub fn analyze_semantics(source: &str) -> JsValue {
             let _ = Reflect::set(&out, &JsValue::from_str("token_resolution"), &js_sys::Array::new());
         }
     } else {
+        let token_classifications = build_lexical_token_classifications(&tokens);
         let diagnostics = diagnostics_to_js(source, &all_diags);
         let _ = Reflect::set(&out, &JsValue::from_str("diagnostics"), &diagnostics);
         let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(false));
@@ -3350,7 +3358,7 @@ pub fn analyze_semantics(source: &str) -> JsValue {
         let _ = Reflect::set(
             &out,
             &JsValue::from_str("token_classifications"),
-            &js_sys::Array::new(),
+            &token_classifications_to_js(source, None, &token_classifications),
         );
     }
 
@@ -3403,6 +3411,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
     let loaded = match loaded {
         Ok(v) => v,
         Err(e) => {
+            let token_classifications = build_lexical_token_classifications(&tokens);
             let mut ds = all_diags;
             ds.push(loader_error(
                 LoaderDiagnosticCode::SourceFailure,
@@ -3426,7 +3435,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
             let _ = Reflect::set(
                 &out,
                 &JsValue::from_str("token_classifications"),
-                &js_sys::Array::new(),
+                &token_classifications_to_js(source, None, &token_classifications),
             );
             return out.into();
         }

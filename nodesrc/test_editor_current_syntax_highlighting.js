@@ -184,7 +184,7 @@ async function main() {
                 },
                 {
                     token_index: 39,
-                    category: "type",
+                    category: "literal-unit",
                     role: "function_type_parameter",
                     span: span(source, "unit", 0),
                     enclosing_span: span(source, "Result unit GuiError", 0),
@@ -238,7 +238,7 @@ async function main() {
     assertHighlighted(source, payload, "&", "operator");
     assertHighlighted(source, payload, "Result", "type");
     assertHighlighted(source, payload, "Result", "namespace", 1);
-    assertHighlighted(source, payload, "unit", "type");
+    assertHighlighted(source, payload, "unit", "literal-unit");
     assertHighlighted(source, payload, "::", "operator");
     assertHighlighted(source, payload, "Ok", "constant");
     assertHighlighted(source, payload, "true", "literal-bool");
@@ -282,7 +282,7 @@ async function main() {
                 },
                 {
                     token_index: 5,
-                    category: "type",
+                    category: "literal-unit",
                     role: "function_type_result",
                     span: span(voidSource, "unit", 0),
                     enclosing_span: span(voidSource, "unit", 0),
@@ -307,7 +307,7 @@ async function main() {
     const voidPayload = bridge.buildEditorUpdatePayloadFromAnalysis(voidSource, voidAnalysis);
     assertHighlighted(voidSource, voidPayload, "main", "function");
     assertHighlighted(voidSource, voidPayload, "void", "literal-void", 0);
-    assertHighlighted(voidSource, voidPayload, "unit", "type", 0);
+    assertHighlighted(voidSource, voidPayload, "unit", "literal-unit", 0);
     assertHighlighted(voidSource, voidPayload, "void", "literal-void", 1);
     assertHighlighted(voidSource, voidPayload, "unit", "literal-unit", 1);
 
@@ -431,6 +431,27 @@ async function main() {
     };
     const authorityPayload = bridge.buildEditorUpdatePayloadFromAnalysis(authoritySource, authorityAnalysis);
     assertHighlighted(authoritySource, authorityPayload, "callable", "constant");
+
+    const editorSource = fs.readFileSync(path.join(repo, "web", "src", "editor", "editor.ts"), "utf8");
+    const expectedPalette = [
+        ["keyword", "#ff5a5f"],
+        ["type", "#57d68d"],
+        ["constant", "#4f8cff"],
+        ["variable", "#35d6e8"],
+        ["function", "#ffd166"],
+        ["literal-string", "#f59f3a"],
+        ["literal-number", "#b8e450"],
+        ["literal-unit", "#ff7ac8"],
+        ["literal-void", "#ff7ac8"],
+        ["namespace", "#7f8ea3"],
+    ];
+    for (const [tokenType, color] of expectedPalette) {
+        assert.match(
+            editorSource,
+            new RegExp(`['"]${tokenType}['"]:\\s*['"]${color}['"]`),
+            `${tokenType} palette color`,
+        );
+    }
 
     console.log("editor current syntax highlighting regression passed");
 }

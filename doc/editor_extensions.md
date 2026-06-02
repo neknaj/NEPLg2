@@ -34,7 +34,7 @@
   - prefix call argument range と互換 alias を含む semantic token range
   - `%T expr`、関数 signature、struct field、enum payload、trait / impl type argument などの syntax range
   - syntax range、lexer marker、name-resolution trace に基づく token classification。字句だけでは判定できない lower-case type 名も、型式範囲内では `type` として扱う
-  - `void` は型ではなく 0 引数 marker として `literal-void` / `zero_arg_void_marker` に分類する。`unit` は型式範囲内では `type`、値式では `literal-unit` に分類する
+  - `void` は型ではなく 0 引数 marker として `literal-void` / `zero_arg_void_marker` に分類する。`unit` は型式範囲内でも値式でも表示 category は `literal-unit` とし、syntax range の role により `function_type_result` などの文脈を保持する
   - 関数名、定数名、変数名、parameter 名は name-resolution trace を使って `function` / `constant` / `variable` に分類する
   - `group1::group2::name` のような path は、左側の group / namespace を `namespace`、右端 member を解決結果または `constant` として分類する
   - editor の色付けは `token_classifications` を権威として扱う。`token_resolution` は hover / definition jump / 互換 fallback 用であり、Rust 側が返した分類を上書きしない
