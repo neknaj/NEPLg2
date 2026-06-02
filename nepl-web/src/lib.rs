@@ -4,7 +4,8 @@ use std::path::PathBuf;
 
 use js_sys::{Function, Reflect, Uint8Array};
 use nepl_core::ast::{
-    Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
+    Block, Directive, FnBody, FnDef, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt,
+    Symbol, TraitRef, TypeExpr, TypeParam,
 };
 use nepl_core::compiler::{
     compile_nepl_meta_artifact_with_source_identity,
@@ -895,6 +896,23 @@ struct SemanticTokenTrace {
     selected_resolved_def_id: Option<usize>,
 }
 
+#[derive(Clone)]
+struct SyntaxRangeTrace {
+    kind: &'static str,
+    role: &'static str,
+    span: Span,
+    inner_span: Option<Span>,
+}
+
+#[derive(Clone)]
+struct TokenClassificationTrace {
+    token_index: usize,
+    category: &'static str,
+    role: &'static str,
+    span: Span,
+    enclosing_span: Span,
+}
+
 #[derive(Default)]
 struct NameResolutionTrace {
     defs: Vec<NameDefTrace>,
@@ -1401,7 +1419,11 @@ fn name_resolution_payload_to_js(
     payload.into()
 }
 
-fn semantic_expr_to_js(source: &str, se: &SemanticExprTrace) -> JsValue {
+fn semantic_expr_to_js(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    se: &SemanticExprTrace,
+) -> JsValue {
     let obj = js_sys::Object::new();
     let _ = Reflect::set(&obj, &JsValue::from_str("id"), &JsValue::from_f64(se.id as f64));
     let _ = Reflect::set(
@@ -1410,7 +1432,11 @@ fn semantic_expr_to_js(source: &str, se: &SemanticExprTrace) -> JsValue {
         &JsValue::from_str(&se.function_name),
     );
     let _ = Reflect::set(&obj, &JsValue::from_str("kind"), &JsValue::from_str(se.kind));
-    let _ = Reflect::set(&obj, &JsValue::from_str("span"), &span_to_js(source, se.span));
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("span"),
+        &span_to_js_with_map(source, se.span, source_map),
+    );
     let _ = Reflect::set(&obj, &JsValue::from_str("inferred_type"), &JsValue::from_str(&se.ty));
     let _ = Reflect::set(
         &obj,
@@ -1421,13 +1447,17 @@ fn semantic_expr_to_js(source: &str, se: &SemanticExprTrace) -> JsValue {
     );
     let arg_arr = js_sys::Array::new();
     for sp in &se.arg_spans {
-        arg_arr.push(&span_to_js(source, *sp));
+        arg_arr.push(&span_to_js_with_map(source, *sp, source_map));
     }
     let _ = Reflect::set(&obj, &JsValue::from_str("argument_ranges"), &arg_arr);
     obj.into()
 }
 
-fn semantic_token_to_js(source: &str, st: &SemanticTokenTrace) -> JsValue {
+fn semantic_token_to_js(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    st: &SemanticTokenTrace,
+) -> JsValue {
     let obj = js_sys::Object::new();
     let _ = Reflect::set(
         &obj,
@@ -1451,9 +1481,16 @@ fn semantic_token_to_js(source: &str, st: &SemanticTokenTrace) -> JsValue {
     );
     let _ = Reflect::set(
         &obj,
+        &JsValue::from_str("expr_span"),
+        &st.expr_span
+            .map(|s| span_to_js_with_map(source, s, source_map))
+            .unwrap_or(JsValue::NULL),
+    );
+    let _ = Reflect::set(
+        &obj,
         &JsValue::from_str("expression_range"),
         &st.expr_span
-            .map(|s| span_to_js(source, s))
+            .map(|s| span_to_js_with_map(source, s, source_map))
             .unwrap_or(JsValue::NULL),
     );
     let _ = Reflect::set(
@@ -1465,9 +1502,16 @@ fn semantic_token_to_js(source: &str, st: &SemanticTokenTrace) -> JsValue {
     );
     let _ = Reflect::set(
         &obj,
+        &JsValue::from_str("arg_span"),
+        &st.arg_span
+            .map(|s| span_to_js_with_map(source, s, source_map))
+            .unwrap_or(JsValue::NULL),
+    );
+    let _ = Reflect::set(
+        &obj,
         &JsValue::from_str("arg_range"),
         &st.arg_span
-            .map(|s| span_to_js(source, s))
+            .map(|s| span_to_js_with_map(source, s, source_map))
             .unwrap_or(JsValue::NULL),
     );
     let _ = Reflect::set(
@@ -1478,6 +1522,88 @@ fn semantic_token_to_js(source: &str, st: &SemanticTokenTrace) -> JsValue {
             .unwrap_or(JsValue::NULL),
     );
     obj.into()
+}
+
+fn syntax_range_to_js(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    range: &SyntaxRangeTrace,
+) -> JsValue {
+    let obj = js_sys::Object::new();
+    let _ = Reflect::set(&obj, &JsValue::from_str("kind"), &JsValue::from_str(range.kind));
+    let _ = Reflect::set(&obj, &JsValue::from_str("role"), &JsValue::from_str(range.role));
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("span"),
+        &span_to_js_with_map(source, range.span, source_map),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("inner_span"),
+        &range
+            .inner_span
+            .map(|span| span_to_js_with_map(source, span, source_map))
+            .unwrap_or(JsValue::NULL),
+    );
+    obj.into()
+}
+
+fn token_classification_to_js(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    classification: &TokenClassificationTrace,
+) -> JsValue {
+    let obj = js_sys::Object::new();
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("token_index"),
+        &JsValue::from_f64(classification.token_index as f64),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("category"),
+        &JsValue::from_str(classification.category),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("role"),
+        &JsValue::from_str(classification.role),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("span"),
+        &span_to_js_with_map(source, classification.span, source_map),
+    );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("enclosing_span"),
+        &span_to_js_with_map(source, classification.enclosing_span, source_map),
+    );
+    obj.into()
+}
+
+fn syntax_ranges_to_js(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    ranges: &[SyntaxRangeTrace],
+) -> js_sys::Array {
+    let arr = js_sys::Array::new();
+    for range in ranges {
+        arr.push(&syntax_range_to_js(source, source_map, range));
+    }
+    arr
+}
+
+fn token_classifications_to_js(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    classifications: &[TokenClassificationTrace],
+) -> js_sys::Array {
+    let arr = js_sys::Array::new();
+    for classification in classifications {
+        arr.push(&token_classification_to_js(source, source_map, classification));
+    }
+    arr
 }
 
 fn build_token_hints_to_js(
@@ -1720,6 +1846,266 @@ fn span_contains(outer: Span, inner: Span) -> bool {
 
 fn span_width(span: Span) -> usize {
     span.end.saturating_sub(span.start) as usize
+}
+
+fn is_precise_span(span: Span) -> bool {
+    span != Span::dummy() && span.end >= span.start
+}
+
+fn push_type_syntax_range(
+    out: &mut Vec<SyntaxRangeTrace>,
+    role: &'static str,
+    span: Span,
+    inner_span: Option<Span>,
+) {
+    if !is_precise_span(span) {
+        return;
+    }
+    out.push(SyntaxRangeTrace {
+        kind: "type_expression",
+        role,
+        span,
+        inner_span,
+    });
+}
+
+fn collect_type_expr_syntax(
+    out: &mut Vec<SyntaxRangeTrace>,
+    ty: &TypeExpr,
+    role: &'static str,
+) {
+    let span = ty.span();
+    if is_precise_span(span) {
+        push_type_syntax_range(out, role, span, Some(span));
+    }
+    match ty.as_unspanned() {
+        TypeExpr::Apply(base, args) => {
+            collect_type_expr_syntax(out, base, "type_constructor");
+            for arg in args {
+                collect_type_expr_syntax(out, arg, "type_argument");
+            }
+        }
+        TypeExpr::Boxed(inner) => {
+            collect_type_expr_syntax(out, inner, "boxed_type_inner");
+        }
+        TypeExpr::Reference(inner, _) => {
+            collect_type_expr_syntax(out, inner, "reference_type_inner");
+        }
+        TypeExpr::Tuple(items) => {
+            for item in items {
+                collect_type_expr_syntax(out, item, "tuple_type_item");
+            }
+        }
+        TypeExpr::Function { params, result, .. } => {
+            for param in params {
+                collect_type_expr_syntax(out, param, "function_type_parameter");
+            }
+            collect_type_expr_syntax(out, result, "function_type_result");
+        }
+        TypeExpr::Unit
+        | TypeExpr::I32
+        | TypeExpr::U8
+        | TypeExpr::F32
+        | TypeExpr::Bool
+        | TypeExpr::Char
+        | TypeExpr::Never
+        | TypeExpr::Str
+        | TypeExpr::Label(_)
+        | TypeExpr::Named(_) => {}
+        TypeExpr::Spanned(_, _) => unreachable!("as_unspanned removes Spanned wrappers"),
+    }
+}
+
+fn collect_type_params_syntax(out: &mut Vec<SyntaxRangeTrace>, params: &[TypeParam]) {
+    for param in params {
+        for bound in &param.bounds {
+            collect_trait_ref_syntax(out, bound);
+        }
+    }
+}
+
+fn collect_trait_ref_syntax(out: &mut Vec<SyntaxRangeTrace>, trait_ref: &TraitRef) {
+    for arg in &trait_ref.args {
+        collect_type_expr_syntax(out, arg, "trait_bound_type_argument");
+    }
+}
+
+fn collect_fn_syntax_ranges(out: &mut Vec<SyntaxRangeTrace>, def: &FnDef) {
+    collect_type_params_syntax(out, &def.type_params);
+    collect_type_expr_syntax(out, &def.signature, "function_signature");
+    if let FnBody::Parsed(body) = &def.body {
+        collect_block_syntax_ranges(out, body);
+    }
+}
+
+fn collect_prefix_expr_syntax_ranges(out: &mut Vec<SyntaxRangeTrace>, expr: &PrefixExpr) {
+    for item in &expr.items {
+        match item {
+            PrefixItem::TypeAnnotation(ty, span) => {
+                let inner = ty.span();
+                out.push(SyntaxRangeTrace {
+                    kind: "type_annotation",
+                    role: "prefix_type_annotation",
+                    span: *span,
+                    inner_span: if is_precise_span(inner) { Some(inner) } else { None },
+                });
+                collect_type_expr_syntax(out, ty, "prefix_type_annotation_inner");
+            }
+            PrefixItem::Block(block, _) => {
+                collect_block_syntax_ranges(out, block);
+            }
+            PrefixItem::Match(match_expr, _) => {
+                collect_prefix_expr_syntax_ranges(out, &match_expr.scrutinee);
+                for arm in &match_expr.arms {
+                    collect_block_syntax_ranges(out, &arm.body);
+                }
+            }
+            PrefixItem::Tuple(items, _) => {
+                for item in items {
+                    collect_prefix_expr_syntax_ranges(out, item);
+                }
+            }
+            PrefixItem::Group(inner, _) => {
+                collect_prefix_expr_syntax_ranges(out, inner);
+            }
+            PrefixItem::Intrinsic(intrinsic, _) => {
+                for ty in &intrinsic.type_args {
+                    collect_type_expr_syntax(out, ty, "intrinsic_type_argument");
+                }
+                for arg in &intrinsic.args {
+                    collect_prefix_expr_syntax_ranges(out, arg);
+                }
+            }
+            PrefixItem::Symbol(_)
+            | PrefixItem::Literal(_, _)
+            | PrefixItem::Pipe(_) => {}
+        }
+    }
+}
+
+fn collect_directive_syntax_ranges(out: &mut Vec<SyntaxRangeTrace>, directive: &Directive) {
+    if let Directive::Extern { signature, .. } = directive {
+        collect_type_expr_syntax(out, signature, "extern_signature");
+    }
+}
+
+fn collect_stmt_syntax_ranges(out: &mut Vec<SyntaxRangeTrace>, stmt: &Stmt) {
+    match stmt {
+        Stmt::Directive(directive) => collect_directive_syntax_ranges(out, directive),
+        Stmt::FnDef(def) => collect_fn_syntax_ranges(out, def),
+        Stmt::StructDef(def) => {
+            collect_type_params_syntax(out, &def.type_params);
+            for (_, ty) in &def.fields {
+                collect_type_expr_syntax(out, ty, "struct_field_type");
+            }
+        }
+        Stmt::EnumDef(def) => {
+            collect_type_params_syntax(out, &def.type_params);
+            for variant in &def.variants {
+                if let Some(payload) = &variant.payload {
+                    collect_type_expr_syntax(out, payload, "enum_payload_type");
+                }
+            }
+        }
+        Stmt::Trait(def) => {
+            collect_type_params_syntax(out, &def.type_params);
+            for method in &def.methods {
+                collect_fn_syntax_ranges(out, method);
+            }
+        }
+        Stmt::Impl(def) => {
+            collect_type_params_syntax(out, &def.type_params);
+            if let Some(trait_ref) = &def.trait_ref {
+                collect_trait_ref_syntax(out, trait_ref);
+            }
+            collect_type_expr_syntax(out, &def.target_ty, "impl_target_type");
+            for method in &def.methods {
+                collect_fn_syntax_ranges(out, method);
+            }
+        }
+        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
+            collect_prefix_expr_syntax_ranges(out, expr);
+        }
+        Stmt::FnAlias(_)
+        | Stmt::Wasm(_)
+        | Stmt::LlvmIr(_) => {}
+    }
+}
+
+fn collect_block_syntax_ranges(out: &mut Vec<SyntaxRangeTrace>, block: &Block) {
+    for stmt in &block.items {
+        collect_stmt_syntax_ranges(out, stmt);
+    }
+}
+
+fn collect_syntax_ranges(module: &nepl_core::ast::Module) -> Vec<SyntaxRangeTrace> {
+    let mut out = Vec::new();
+    for directive in &module.directives {
+        collect_directive_syntax_ranges(&mut out, directive);
+    }
+    collect_block_syntax_ranges(&mut out, &module.root);
+    out
+}
+
+fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
+    match kind {
+        TokenKind::KwFn | TokenKind::KwMut => Some("keyword"),
+        TokenKind::Ident(value) if value == "impure" => Some("keyword"),
+        TokenKind::Ident(_) | TokenKind::UnitLiteral => Some("type"),
+        TokenKind::Percent
+        | TokenKind::Ampersand
+        | TokenKind::Star
+        | TokenKind::PathSep
+        | TokenKind::Arrow(_) => Some("operator"),
+        TokenKind::LAngle
+        | TokenKind::RAngle
+        | TokenKind::LParen
+        | TokenKind::RParen
+        | TokenKind::Comma
+        | TokenKind::Dot => Some("punctuation"),
+        _ => None,
+    }
+}
+
+fn build_token_classifications(
+    tokens: &[Token],
+    syntax_ranges: &[SyntaxRangeTrace],
+) -> Vec<TokenClassificationTrace> {
+    let mut out = Vec::new();
+    for (token_index, token) in tokens.iter().enumerate() {
+        let Some(category) = type_syntax_category_for_token(&token.kind) else {
+            continue;
+        };
+        let mut best_range: Option<&SyntaxRangeTrace> = None;
+        for range in syntax_ranges {
+            let classification_span = if category == "type" {
+                range.inner_span.unwrap_or(range.span)
+            } else {
+                range.span
+            };
+            let contains = span_contains(classification_span, token.span);
+            if !contains {
+                continue;
+            }
+            if let Some(prev) = best_range {
+                if span_width(range.span) < span_width(prev.span) {
+                    best_range = Some(range);
+                }
+            } else {
+                best_range = Some(range);
+            }
+        }
+        if let Some(range) = best_range {
+            out.push(TokenClassificationTrace {
+                token_index,
+                category,
+                role: range.role,
+                span: token.span,
+                enclosing_span: range.span,
+            });
+        }
+    }
+    out
 }
 
 fn callee_def_id(callee: &FuncRef) -> Option<DefId> {
@@ -2314,6 +2700,18 @@ pub fn analyze_semantics(source: &str) -> JsValue {
         let mut resolve_trace = NameResolutionTrace::new();
         trace_block(&mut resolve_trace, &module.root);
         let resolve_payload = name_resolution_payload_to_js(source, None, &resolve_trace);
+        let syntax_ranges = collect_syntax_ranges(module);
+        let token_classifications = build_token_classifications(&tokens, &syntax_ranges);
+        let _ = Reflect::set(
+            &out,
+            &JsValue::from_str("syntax_ranges"),
+            &syntax_ranges_to_js(source, None, &syntax_ranges),
+        );
+        let _ = Reflect::set(
+            &out,
+            &JsValue::from_str("token_classifications"),
+            &token_classifications_to_js(source, None, &token_classifications),
+        );
 
         let (target, mut target_diags) = resolve_target_for_analysis(module);
         has_error |= target_diags
@@ -2353,7 +2751,7 @@ pub fn analyze_semantics(source: &str) -> JsValue {
 
             let expr_arr = js_sys::Array::new();
             for ex in &exprs {
-                expr_arr.push(&semantic_expr_to_js(source, ex));
+                expr_arr.push(&semantic_expr_to_js(source, None, ex));
             }
 
             let token_res_arr = js_sys::Array::new();
@@ -2557,7 +2955,7 @@ pub fn analyze_semantics(source: &str) -> JsValue {
             }
             let token_sem_arr = js_sys::Array::new();
             for ts in &token_semantics {
-                token_sem_arr.push(&semantic_token_to_js(source, ts));
+                token_sem_arr.push(&semantic_token_to_js(source, None, ts));
             }
             let token_hint_arr =
                 build_token_hints_to_js(source, None, &tokens, &token_semantics, &resolve_trace);
@@ -2596,6 +2994,12 @@ pub fn analyze_semantics(source: &str) -> JsValue {
         let _ = Reflect::set(&out, &JsValue::from_str("functions"), &js_sys::Array::new());
         let _ = Reflect::set(&out, &JsValue::from_str("name_resolution"), &JsValue::NULL);
         let _ = Reflect::set(&out, &JsValue::from_str("token_resolution"), &js_sys::Array::new());
+        let _ = Reflect::set(&out, &JsValue::from_str("syntax_ranges"), &js_sys::Array::new());
+        let _ = Reflect::set(
+            &out,
+            &JsValue::from_str("token_classifications"),
+            &js_sys::Array::new(),
+        );
     }
 
     out.into()
@@ -2666,6 +3070,12 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
             let _ = Reflect::set(&out, &JsValue::from_str("functions"), &js_sys::Array::new());
             let _ = Reflect::set(&out, &JsValue::from_str("name_resolution"), &JsValue::NULL);
             let _ = Reflect::set(&out, &JsValue::from_str("token_resolution"), &js_sys::Array::new());
+            let _ = Reflect::set(&out, &JsValue::from_str("syntax_ranges"), &js_sys::Array::new());
+            let _ = Reflect::set(
+                &out,
+                &JsValue::from_str("token_classifications"),
+                &js_sys::Array::new(),
+            );
             return out.into();
         }
     };
@@ -2676,6 +3086,18 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
     let mut resolve_trace = NameResolutionTrace::new();
     trace_block(&mut resolve_trace, &module.root);
     let resolve_payload = name_resolution_payload_to_js(source, Some(&source_map), &resolve_trace);
+    let syntax_ranges = collect_syntax_ranges(&module);
+    let token_classifications = build_token_classifications(&tokens, &syntax_ranges);
+    let _ = Reflect::set(
+        &out,
+        &JsValue::from_str("syntax_ranges"),
+        &syntax_ranges_to_js(source, Some(&source_map), &syntax_ranges),
+    );
+    let _ = Reflect::set(
+        &out,
+        &JsValue::from_str("token_classifications"),
+        &token_classifications_to_js(source, Some(&source_map), &token_classifications),
+    );
 
     let (target, mut target_diags) = resolve_target_for_analysis(&module);
     has_error |= target_diags
@@ -2719,7 +3141,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
 
         let expr_arr = js_sys::Array::new();
         for ex in &exprs {
-            expr_arr.push(&semantic_expr_to_js(source, ex));
+            expr_arr.push(&semantic_expr_to_js(source, Some(&source_map), ex));
         }
 
         let token_res_arr = js_sys::Array::new();
@@ -2927,7 +3349,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
         }
         let token_sem_arr = js_sys::Array::new();
         for ts in &token_semantics {
-            token_sem_arr.push(&semantic_token_to_js(source, ts));
+            token_sem_arr.push(&semantic_token_to_js(source, Some(&source_map), ts));
         }
         let token_hint_arr = build_token_hints_to_js(
             source,

@@ -7,7 +7,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use nepl_core::ast::{
-    Block, Directive, FnBody, MatchArm, MatchPattern, Module, PrefixExpr, PrefixItem, Stmt, Symbol,
+    Block, Directive, FnBody, FnDef, MatchArm, MatchPattern, Module, PrefixExpr, PrefixItem, Stmt,
+    Symbol, TraitRef, TypeExpr, TypeParam,
 };
 use nepl_core::compiler::BuildProfile;
 use nepl_core::diagnostic::{Diagnostic, Severity};
@@ -151,8 +152,28 @@ pub struct SemanticTokenInfo {
     pub inferred_expr_id: Option<usize>,
     pub inferred_type: Option<String>,
     pub expression_range: Option<TextRange>,
+    pub expr_span: Option<TextRange>,
+    pub expr_range: Option<TextRange>,
     pub arg_index: Option<usize>,
+    pub arg_span: Option<TextRange>,
     pub arg_range: Option<TextRange>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyntaxRangeInfo {
+    pub kind: &'static str,
+    pub role: &'static str,
+    pub range: TextRange,
+    pub inner_range: Option<TextRange>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TokenClassificationInfo {
+    pub token_index: usize,
+    pub category: &'static str,
+    pub role: &'static str,
+    pub range: TextRange,
+    pub enclosing_range: TextRange,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -186,6 +207,8 @@ pub struct SemanticsAnalysis {
     pub expressions: Vec<SemanticExpressionInfo>,
     pub token_semantics: Vec<SemanticTokenInfo>,
     pub token_hints: Vec<TokenHintInfo>,
+    pub syntax_ranges: Vec<SyntaxRangeInfo>,
+    pub token_classifications: Vec<TokenClassificationInfo>,
     pub functions: Vec<SemanticFunctionInfo>,
     pub name_resolution: Option<NameResolutionAnalysis>,
     pub token_resolution: Vec<NameReferenceInfo>,
@@ -241,6 +264,23 @@ struct SemanticTokenTrace {
     expr_span: Option<Span>,
     arg_index: Option<usize>,
     arg_span: Option<Span>,
+}
+
+#[derive(Clone)]
+struct SyntaxRangeTrace {
+    kind: &'static str,
+    role: &'static str,
+    span: Span,
+    inner_span: Option<Span>,
+}
+
+#[derive(Clone)]
+struct TokenClassificationTrace {
+    token_index: usize,
+    category: &'static str,
+    role: &'static str,
+    span: Span,
+    enclosing_span: Span,
 }
 
 #[derive(Default)]
@@ -512,12 +552,16 @@ fn analyze_semantics_from_parts(
             expressions: Vec::new(),
             token_semantics: Vec::new(),
             token_hints: Vec::new(),
+            syntax_ranges: Vec::new(),
+            token_classifications: Vec::new(),
             functions: Vec::new(),
             name_resolution: None,
             token_resolution: Vec::new(),
         };
     };
 
+    let syntax_ranges = collect_syntax_ranges(&module);
+    let token_classifications = build_token_classifications(&tokens, &syntax_ranges);
     let mut resolve_trace = NameResolutionTrace::new_with_options(true);
     trace_block(&mut resolve_trace, &module.root);
     let name_resolution = name_resolution_to_editor(source, source_map, true, &[], &resolve_trace);
@@ -546,6 +590,8 @@ fn analyze_semantics_from_parts(
         &tc.types,
         diagnostics_to_editor(source, source_map, &all_diags),
         !has_error,
+        syntax_ranges,
+        token_classifications,
     )
 }
 
@@ -565,6 +611,8 @@ fn analyze_semantics_from_loaded(
     let mut resolve_trace = NameResolutionTrace::new_with_options(true);
     trace_block(&mut resolve_trace, &module.root);
     let name_resolution = name_resolution_to_editor(source, source_map, true, &[], &resolve_trace);
+    let syntax_ranges = collect_syntax_ranges(module);
+    let token_classifications = build_token_classifications(&tokens, &syntax_ranges);
 
     let (target, mut target_diags) = resolve_target_for_analysis(module);
     has_error |= target_diags
@@ -590,6 +638,8 @@ fn analyze_semantics_from_loaded(
         &tc.types,
         diagnostics_to_editor(source, source_map, &all_diags),
         !has_error,
+        syntax_ranges,
+        token_classifications,
     )
 }
 
@@ -604,7 +654,18 @@ fn build_semantics_output(
     types: &TypeCtx,
     diagnostics: Vec<EditorDiagnostic>,
     ok: bool,
+    syntax_ranges: Vec<SyntaxRangeTrace>,
+    token_classifications: Vec<TokenClassificationTrace>,
 ) -> SemanticsAnalysis {
+    let syntax_range_infos = syntax_ranges
+        .iter()
+        .map(|range| syntax_range_to_editor(source, source_map, range))
+        .collect::<Vec<_>>();
+    let token_classification_infos = token_classifications
+        .iter()
+        .map(|classification| token_classification_to_editor(source, source_map, classification))
+        .collect::<Vec<_>>();
+
     let Some(hir_module) = hir_module else {
         return SemanticsAnalysis {
             ok: false,
@@ -613,6 +674,8 @@ fn build_semantics_output(
             expressions: Vec::new(),
             token_semantics: Vec::new(),
             token_hints: Vec::new(),
+            syntax_ranges: syntax_range_infos,
+            token_classifications: token_classification_infos,
             functions: Vec::new(),
             name_resolution: Some(name_resolution),
             token_resolution: Vec::new(),
@@ -672,6 +735,8 @@ fn build_semantics_output(
         expressions,
         token_semantics,
         token_hints,
+        syntax_ranges: syntax_range_infos,
+        token_classifications: token_classification_infos,
         functions,
         name_resolution: Some(name_resolution),
         token_resolution,
@@ -996,17 +1061,52 @@ fn semantic_token_to_editor(
     source_map: Option<&SourceMap>,
     item: &SemanticTokenTrace,
 ) -> SemanticTokenInfo {
+    let expression_range = item
+        .expr_span
+        .map(|span| range_from_span(source, source_map, span));
     SemanticTokenInfo {
         token_index: item.token_index,
         inferred_expr_id: item.inferred_expr_id,
         inferred_type: item.inferred_type.clone(),
-        expression_range: item
-            .expr_span
-            .map(|span| range_from_span(source, source_map, span)),
+        expression_range: expression_range.clone(),
+        expr_span: expression_range.clone(),
+        expr_range: expression_range,
         arg_index: item.arg_index,
+        arg_span: item
+            .arg_span
+            .map(|span| range_from_span(source, source_map, span)),
         arg_range: item
             .arg_span
             .map(|span| range_from_span(source, source_map, span)),
+    }
+}
+
+fn syntax_range_to_editor(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    item: &SyntaxRangeTrace,
+) -> SyntaxRangeInfo {
+    SyntaxRangeInfo {
+        kind: item.kind,
+        role: item.role,
+        range: range_from_span(source, source_map, item.span),
+        inner_range: item
+            .inner_span
+            .map(|span| range_from_span(source, source_map, span)),
+    }
+}
+
+fn token_classification_to_editor(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    item: &TokenClassificationTrace,
+) -> TokenClassificationInfo {
+    TokenClassificationInfo {
+        token_index: item.token_index,
+        category: item.category,
+        role: item.role,
+        range: range_from_span(source, source_map, item.span),
+        enclosing_range: range_from_span(source, source_map, item.enclosing_span),
     }
 }
 
@@ -1352,6 +1452,266 @@ fn span_contains(outer: Span, inner: Span) -> bool {
 
 fn span_width(span: Span) -> usize {
     span.end.saturating_sub(span.start) as usize
+}
+
+fn is_precise_span(span: Span) -> bool {
+    span != Span::dummy() && span.end >= span.start
+}
+
+fn push_type_syntax_range(
+    output: &mut Vec<SyntaxRangeTrace>,
+    role: &'static str,
+    span: Span,
+    inner_span: Option<Span>,
+) {
+    if !is_precise_span(span) {
+        return;
+    }
+    output.push(SyntaxRangeTrace {
+        kind: "type_expression",
+        role,
+        span,
+        inner_span,
+    });
+}
+
+fn collect_type_expr_syntax(
+    output: &mut Vec<SyntaxRangeTrace>,
+    ty: &TypeExpr,
+    role: &'static str,
+) {
+    let span = ty.span();
+    if is_precise_span(span) {
+        push_type_syntax_range(output, role, span, Some(span));
+    }
+    match ty.as_unspanned() {
+        TypeExpr::Apply(base, args) => {
+            collect_type_expr_syntax(output, base, "type_constructor");
+            for arg in args {
+                collect_type_expr_syntax(output, arg, "type_argument");
+            }
+        }
+        TypeExpr::Boxed(inner) => {
+            collect_type_expr_syntax(output, inner, "boxed_type_inner");
+        }
+        TypeExpr::Reference(inner, _) => {
+            collect_type_expr_syntax(output, inner, "reference_type_inner");
+        }
+        TypeExpr::Tuple(items) => {
+            for item in items {
+                collect_type_expr_syntax(output, item, "tuple_type_item");
+            }
+        }
+        TypeExpr::Function { params, result, .. } => {
+            for param in params {
+                collect_type_expr_syntax(output, param, "function_type_parameter");
+            }
+            collect_type_expr_syntax(output, result, "function_type_result");
+        }
+        TypeExpr::Unit
+        | TypeExpr::I32
+        | TypeExpr::U8
+        | TypeExpr::F32
+        | TypeExpr::Bool
+        | TypeExpr::Char
+        | TypeExpr::Never
+        | TypeExpr::Str
+        | TypeExpr::Label(_)
+        | TypeExpr::Named(_) => {}
+        TypeExpr::Spanned(_, _) => unreachable!("as_unspanned removes Spanned wrappers"),
+    }
+}
+
+fn collect_type_params_syntax(output: &mut Vec<SyntaxRangeTrace>, params: &[TypeParam]) {
+    for param in params {
+        for bound in &param.bounds {
+            collect_trait_ref_syntax(output, bound);
+        }
+    }
+}
+
+fn collect_trait_ref_syntax(output: &mut Vec<SyntaxRangeTrace>, trait_ref: &TraitRef) {
+    for arg in &trait_ref.args {
+        collect_type_expr_syntax(output, arg, "trait_bound_type_argument");
+    }
+}
+
+fn collect_fn_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, definition: &FnDef) {
+    collect_type_params_syntax(output, &definition.type_params);
+    collect_type_expr_syntax(output, &definition.signature, "function_signature");
+    if let FnBody::Parsed(body) = &definition.body {
+        collect_block_syntax_ranges(output, body);
+    }
+}
+
+fn collect_prefix_expr_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, expr: &PrefixExpr) {
+    for item in &expr.items {
+        match item {
+            PrefixItem::TypeAnnotation(ty, span) => {
+                let inner = ty.span();
+                output.push(SyntaxRangeTrace {
+                    kind: "type_annotation",
+                    role: "prefix_type_annotation",
+                    span: *span,
+                    inner_span: if is_precise_span(inner) { Some(inner) } else { None },
+                });
+                collect_type_expr_syntax(output, ty, "prefix_type_annotation_inner");
+            }
+            PrefixItem::Block(block, _) => {
+                collect_block_syntax_ranges(output, block);
+            }
+            PrefixItem::Match(match_expr, _) => {
+                collect_prefix_expr_syntax_ranges(output, &match_expr.scrutinee);
+                for arm in &match_expr.arms {
+                    collect_block_syntax_ranges(output, &arm.body);
+                }
+            }
+            PrefixItem::Tuple(items, _) => {
+                for item in items {
+                    collect_prefix_expr_syntax_ranges(output, item);
+                }
+            }
+            PrefixItem::Group(inner, _) => {
+                collect_prefix_expr_syntax_ranges(output, inner);
+            }
+            PrefixItem::Intrinsic(intrinsic, _) => {
+                for ty in &intrinsic.type_args {
+                    collect_type_expr_syntax(output, ty, "intrinsic_type_argument");
+                }
+                for arg in &intrinsic.args {
+                    collect_prefix_expr_syntax_ranges(output, arg);
+                }
+            }
+            PrefixItem::Symbol(_)
+            | PrefixItem::Literal(_, _)
+            | PrefixItem::Pipe(_) => {}
+        }
+    }
+}
+
+fn collect_directive_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, directive: &Directive) {
+    if let Directive::Extern { signature, .. } = directive {
+        collect_type_expr_syntax(output, signature, "extern_signature");
+    }
+}
+
+fn collect_stmt_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, stmt: &Stmt) {
+    match stmt {
+        Stmt::Directive(directive) => collect_directive_syntax_ranges(output, directive),
+        Stmt::FnDef(definition) => collect_fn_syntax_ranges(output, definition),
+        Stmt::StructDef(definition) => {
+            collect_type_params_syntax(output, &definition.type_params);
+            for (_, ty) in &definition.fields {
+                collect_type_expr_syntax(output, ty, "struct_field_type");
+            }
+        }
+        Stmt::EnumDef(definition) => {
+            collect_type_params_syntax(output, &definition.type_params);
+            for variant in &definition.variants {
+                if let Some(payload) = &variant.payload {
+                    collect_type_expr_syntax(output, payload, "enum_payload_type");
+                }
+            }
+        }
+        Stmt::Trait(definition) => {
+            collect_type_params_syntax(output, &definition.type_params);
+            for method in &definition.methods {
+                collect_fn_syntax_ranges(output, method);
+            }
+        }
+        Stmt::Impl(definition) => {
+            collect_type_params_syntax(output, &definition.type_params);
+            if let Some(trait_ref) = &definition.trait_ref {
+                collect_trait_ref_syntax(output, trait_ref);
+            }
+            collect_type_expr_syntax(output, &definition.target_ty, "impl_target_type");
+            for method in &definition.methods {
+                collect_fn_syntax_ranges(output, method);
+            }
+        }
+        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
+            collect_prefix_expr_syntax_ranges(output, expr);
+        }
+        Stmt::FnAlias(_)
+        | Stmt::Wasm(_)
+        | Stmt::LlvmIr(_) => {}
+    }
+}
+
+fn collect_block_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, block: &Block) {
+    for stmt in &block.items {
+        collect_stmt_syntax_ranges(output, stmt);
+    }
+}
+
+fn collect_syntax_ranges(module: &Module) -> Vec<SyntaxRangeTrace> {
+    let mut output = Vec::new();
+    for directive in &module.directives {
+        collect_directive_syntax_ranges(&mut output, directive);
+    }
+    collect_block_syntax_ranges(&mut output, &module.root);
+    output
+}
+
+fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
+    match kind {
+        TokenKind::KwFn | TokenKind::KwMut => Some("keyword"),
+        TokenKind::Ident(value) if value == "impure" => Some("keyword"),
+        TokenKind::Ident(_) | TokenKind::UnitLiteral => Some("type"),
+        TokenKind::Percent
+        | TokenKind::Ampersand
+        | TokenKind::Star
+        | TokenKind::PathSep
+        | TokenKind::Arrow(_) => Some("operator"),
+        TokenKind::LAngle
+        | TokenKind::RAngle
+        | TokenKind::LParen
+        | TokenKind::RParen
+        | TokenKind::Comma
+        | TokenKind::Dot => Some("punctuation"),
+        _ => None,
+    }
+}
+
+fn build_token_classifications(
+    tokens: &[Token],
+    syntax_ranges: &[SyntaxRangeTrace],
+) -> Vec<TokenClassificationTrace> {
+    let mut output = Vec::new();
+    for (token_index, token) in tokens.iter().enumerate() {
+        let Some(category) = type_syntax_category_for_token(&token.kind) else {
+            continue;
+        };
+        let mut best_range: Option<&SyntaxRangeTrace> = None;
+        for range in syntax_ranges {
+            let classification_span = if category == "type" {
+                range.inner_span.unwrap_or(range.span)
+            } else {
+                range.span
+            };
+            let contains = span_contains(classification_span, token.span);
+            if !contains {
+                continue;
+            }
+            if let Some(prev) = best_range {
+                if span_width(range.span) < span_width(prev.span) {
+                    best_range = Some(range);
+                }
+            } else {
+                best_range = Some(range);
+            }
+        }
+        if let Some(range) = best_range {
+            output.push(TokenClassificationTrace {
+                token_index,
+                category,
+                role: range.role,
+                span: token.span,
+                enclosing_span: range.span,
+            });
+        }
+    }
+    output
 }
 
 fn hir_kind_name(kind: &HirExprKind) -> &'static str {

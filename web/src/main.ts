@@ -96,7 +96,7 @@ function startApp() {
         guiWindowLayer,
         popup,
         vfs,
-        createNeplProvider: () => new NEPLg2LanguageProvider(),
+        createNeplProvider: () => new NEPLg2LanguageProvider({ vfs }),
         cursorSpan,
         analysisSpan,
         terminalStatusSpan,

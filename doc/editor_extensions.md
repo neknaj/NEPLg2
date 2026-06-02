@@ -31,6 +31,9 @@
 - semantic 解析結果
   - expression range と推論型
   - token 単位の inferred type / argument range
+  - prefix call argument range と互換 alias を含む semantic token range
+  - `%T expr`、関数 signature、struct field、enum payload、trait / impl type argument などの syntax range
+  - syntax range に基づく token classification。字句だけでは判定できない lower-case type 名も、型式範囲内では `type` として扱う
   - hover / 定義ジャンプ用の resolved definition
   - 複数ファイル時の file path 付き range
 

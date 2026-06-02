@@ -1,3 +1,17 @@
+# 2026-06-02 Agent2 Rust language-service highlight ranges checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の静的検査活用、platform 境界、`null` / `undefined` を境界で閉じる方針を再確認し、Web Playground editor の syntax highlight を DOM / Canvas 側の推測ではなく Rust compiler analysis payload から決める方向へ寄せた。
+- `nepl-web/src/lib.rs` と `nepl-language/src/lib.rs` は、AST から `syntax_ranges` と `token_classifications` を生成するようにした。`%T expr` の outer range と `%` 後続の type expression inner range を分け、`%widget_state` のような lower-case 型名も Rust AST 範囲内では `type` として分類する。
+- prefix call の token semantics は `expr_span` / `arg_span` を正式名として出し、旧 `expression_range` / `expr_range` / `arg_range` を互換 alias として残した。`argument_ranges` と VFS source map 付き span も `span_to_js_with_map` 経由で返す。
+- `web/src/editor-core/language-analysis.ts` は `token_classifications` を lexical fallback より先に使い、Rust 側が示した範囲だけ highlight category を上書きする。`expression_range` / `arg_range` しかない古い payload も読める互換を残した。
+- `web/src/language/neplg2/neplg2-provider.ts` は、VFS と `.nepl` path がある場合に `analyze_semantics_with_vfs` を使う。未保存の editor text を `serializeForCompile()` の同 path に overlay してから解析するため、import 解決と visible document がずれない。
+- subagent 初回レビューでは、`nepl-language` 側に `expr_span` / `arg_span` がないこと、タブ切替時に `setText` が `setPath` より先で旧 path の VFS 解析結果が一瞬 publish され得ることが Medium として指摘された。`SemanticTokenInfo` に alias を追加し、`tabs.ts` の active / empty / detached 経路で path set / clear を `setText` より先に移動して解消した。
+- `nodesrc/test_analysis_api.js` は prefix 引数 `arg_span` と `%` 型注釈 token classification を直接検査する。`nodesrc/test_editor_current_syntax_highlighting.js` は Rust 解析由来の classification が lower-case 型名の色を上書きすることを固定する。`nodesrc/test_neplg2_language_provider_vfs.js` は provider が VFS 解析と未保存本文 overlay を使うことを固定する。`nodesrc/playground_editability_test_runner.js` は tab activation で path が text より先に伝わることを固定する。
+- `doc/web_playground.md` と `doc/editor_extensions.md` は、`expr_span` / `arg_span`、`syntax_ranges` / `token_classifications`、VFS 解析経路を contract と current implementation に分けて追記した。
+- 検証: `cargo check -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`npm --prefix web run build:ts`、`node nodesrc/test_analysis_api.js`、`node nodesrc/test_editor_current_syntax_highlighting.js`、`node nodesrc/test_neplg2_language_provider_vfs.js`、`node nodesrc/playground_editability_test_runner.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-language-service-spans-final.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。playground editor JSON は 13/13 pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は Web / editor / GUI 関連の新旧 regression を含めて通過したが、既存の resource/parser/diagnostic/builder/print_i32 系 warning 8 件は残っている。
+- subagent 再レビューは `Findings: None`、merge 可。初回指摘 2 件は解消済みと判定された。
+
 # 2026-06-02 Agent2 Web Playground current syntax highlight checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の Web frontend 方針に従い、Web Playground 固有の DOM / Canvas 表示を editor 表層に閉じ、syntax highlight の本体は compiler analysis を UI 非依存の update payload へ正規化する境界で扱う方針を再確認した。

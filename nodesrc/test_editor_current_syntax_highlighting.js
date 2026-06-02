@@ -183,6 +183,42 @@ async function main() {
     assertHighlighted(source, payload, "true", "boolean");
     assertHighlighted(source, payload, "false", "boolean");
 
+    const annotationSource = [
+        "fn main %fn unit unit \\u:",
+        "    %widget_state value",
+        "",
+    ].join("\n");
+    const annotationAnalysis = {
+        lex: {
+            tokens: [
+                token(annotationSource, "Percent", "%", 1),
+                token(annotationSource, "Ident", "widget_state", 0, "widget_state"),
+            ],
+            diagnostics: [],
+        },
+        semantics: {
+            token_classifications: [
+                {
+                    token_index: 0,
+                    category: "operator",
+                    role: "prefix_type_annotation",
+                    span: span(annotationSource, "%", 1),
+                    enclosing_span: span(annotationSource, "%widget_state", 0),
+                },
+                {
+                    token_index: 1,
+                    category: "type",
+                    role: "prefix_type_annotation_inner",
+                    span: span(annotationSource, "widget_state", 0),
+                    enclosing_span: span(annotationSource, "widget_state", 0),
+                },
+            ],
+        },
+    };
+    const annotationPayload = bridge.buildEditorUpdatePayloadFromAnalysis(annotationSource, annotationAnalysis);
+    assertHighlighted(annotationSource, annotationPayload, "%", "operator", 1);
+    assertHighlighted(annotationSource, annotationPayload, "widget_state", "type");
+
     console.log("editor current syntax highlighting regression passed");
 }
 
