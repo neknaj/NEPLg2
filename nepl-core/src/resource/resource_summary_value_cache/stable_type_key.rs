@@ -19,7 +19,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 /// この value 側 key では `TypeId` や `Span` ではなく、source path、定義名、type
 /// parameter 境界、field / variant 形状から作った definition fingerprint を含める。
 /// 未解決の `Named` placeholder は、どの定義を指すかを再投影時に検証できないため拒否する。
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryStableTypeKey(String);
 
 impl ResourceSummaryStableTypeKey {

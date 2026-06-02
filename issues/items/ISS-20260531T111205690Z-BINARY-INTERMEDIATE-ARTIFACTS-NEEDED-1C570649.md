@@ -794,3 +794,23 @@ native release RPN stage-only 5 run の median は `resource_static_check=2922ms
 の完了ではない。RPN cold base はまだ 0.5 秒未満ではなく、final initialized pass、owner obligation、
 raw-init / i32 scalar summary を cold start 前から使える `.neplproof` codec / bundled preseed が引き続き
 主経路である。
+
+2026-06-02 の `.neplproof` persistent codec checkpoint で、native CLI 向けの Resource proof artifact
+保存・読込を実装した。ファイル名の系統は `.neplproof` とし、`.class` / `.o` を単純に模倣するのではなく、
+Resource IR proof summary の再利用に特化する。
+
+実装済みの境界は次の通り。
+
+- fixed header を payload より先に decode し、互換性がない artifact では payload を読まない。
+- container schema `2` では fixed header に payload hash も持たせ、header は一致するが payload bytes が壊れている artifact も decode 前に拒否する。
+- payload は stable entry map だけで、`TypeId`、`Span`、`SourceMap`、diagnostic、compile-local replay plan を含めない。
+- `nepl-core` は no-std / alloc のまま、serde/postcard codec と preseed 判定だけを持つ。
+- disk path、temporary write、rename、環境変数、compiler executable identity は `nepl-cli/src/proof_cache.rs` に閉じる。
+- RPN 実測で raw-alias stable entry は再計算より高いため、native disk proof 経路では raw-alias kind を永続 proof から外す。
+- `.neplproof` は compiler が生成した local build cache を信頼する設計である。未信頼の CI cache / workspace artifact を扱う場合は `NEPL_DISABLE_PROOF_CACHE=1` で通常検査へ戻す。
+
+RPN proof-backed cold base は `resource_static_check=1417ms / 988ms / 911ms / 1304ms / 1017ms`、
+中央値 `1017ms` だった。proof bootstrap は `resource_static_check=2771ms` で、生成された `.neplproof`
+は約 `2.17MB` だった。これは `.neplproof` 境界の実装 checkpoint であり、issue は open のまま維持する。
+残件は bundled stdlib `.neplproof` preseed、owner obligation pass-level snapshot、`.neplobj` の
+generic / string-data / raw body / function value / memoized function value 対応である。

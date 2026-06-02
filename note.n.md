@@ -1,3 +1,16 @@
+# 2026-06-02 RPN `.neplproof` persistent codec / native proof cache checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の `core` / `cli` 分離、静的検査を弱めない fail-closed cache、試作段階でも雑設計を残さない方針に従い、Resource proof の永続化境界を実装した。
+- `nepl-core` に `.neplproof` bytes codec を追加した。fixed header を payload より先に decode し、schema / compiler identity / target / profile / stdlib content / dependency public surface / Resource summary namespace / source capability policy / private effect policy が一致しない artifact は payload を読まずに拒否する。container schema `2` では payload hash も固定 header に含め、header は一致するが payload bytes が壊れている artifact も decode 前に拒否する。payload は stable entry map だけで、`TypeId`、`Span`、`SourceMap`、diagnostic、compile-local replay plan は含めない。
+- `nepl-cli/src/proof_cache.rs` を追加し、disk I/O、cache directory、temporary write、rename、compiler executable identity、環境変数を CLI 側へ閉じた。`nepl-core` には filesystem 依存を入れていない。
+- `.neplproof` は compiler が生成した local build cache を信頼する設計であり、悪意ある第三者が任意に書き換えられる cache directory は信頼境界外である。未信頼の CI cache や workspace artifact を扱う場合は `NEPL_DISABLE_PROOF_CACHE=1` で通常検査へ戻す。今後 bundled stdlib proof へ進める場合は、配布 artifact の署名や compiler release hash と同じ trust root に載せる必要がある。
+- RPN 実測で raw-alias stable entry は再計算より高く、preseed 時に `resource_initialized_raw_alias_summaries` が約 `29ms` から約 `590-640ms` へ悪化した。そのため native disk-backed `.neplproof` 経路では `disable_raw_alias_return_entry_collection` により raw-alias stable entry replay / candidate collection / old artifact preseed を無効化し、raw-alias summary 本体は再計算する。same-session cache と通常の in-memory `.neplproof` export の既定挙動は維持している。
+- 最新 release binary での RPN proof-disabled cold base 3 run は `resource_static_check=1601ms / 1880ms / 1737ms`、中央値 `1737ms` だった。`.neplproof` preseed cold base 5 run は `resource_static_check=1417ms / 988ms / 911ms / 1304ms / 1017ms`、中央値 `1017ms` だった。階層は `resource_initialized_raw_alias_summaries=28-42ms`、`resource_initialized_i32_scalar_summaries=347-393ms`、`resource_initialized_raw_init_summaries=113-131ms`、`resource_initialized_function_checks=242-288ms`、`resource_owner_obligations` は `50-57ms` 台と `441-516ms` 台に揺れる。
+- proof bootstrap は `resource_static_check=2771ms` で、生成 `.neplproof` は約 `2.17MB` だった。今回の checkpoint は proof-backed cold process の preseed 境界であり、初回 proof generation を 0.5 秒未満へ下げるものではない。
+- i32 scalar stable entry を永続 proof から外す案も測ったが、raw-alias 除外後の主経路として採用できるほど安定しなかったため戻した。実測で改善した raw-alias kind policy だけを残した。
+- subagent review で、header-first decode、core no-std / CLI disk I/O 分離、old artifact raw-alias entry の policy 無効時不使用を確認した。残件は owner obligation pass-level snapshot、bundled stdlib `.neplproof` preseed、stdlib proof template、bootstrap proof generation 短縮である。
+- focused verification は `cargo check -p nepl-cli`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo build -p nepl-cli --release`、RPN proof-backed 5 run を通した。commit 前に issues check / diff check を再実行する。
+
 # 2026-06-02 RPN print_i32 allocation-free cold base checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱めずに、RPN cold base が不要な stdlib formatting proof graph を引き込む根本経路を削った。

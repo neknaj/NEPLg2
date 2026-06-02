@@ -598,6 +598,7 @@ pub use report::{
 };
 pub use resource_summary_value_cache::{
     resource_function_body_stable_hash, ResourceSummaryProofArtifact,
+    ResourceSummaryProofArtifactByteReject, ResourceSummaryProofArtifactCodecError,
     ResourceSummaryProofArtifactCompatibilityReject, ResourceSummaryProofArtifactHeader,
     ResourceSummaryProofSnapshot, ResourceSummaryProofSnapshotCounts,
     ResourceSummaryProofSnapshotMergeStats, ResourceSummaryProofSnapshotPreseedStats,

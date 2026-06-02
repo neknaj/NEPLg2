@@ -159,11 +159,12 @@ pub struct ResourceSummaryProofArtifactPreseedReport {
     pub rejected_conflict_entries: usize,
     pub compatibility_reject:
         Option<crate::resource::ResourceSummaryProofArtifactCompatibilityReject>,
+    pub codec_error: Option<crate::resource::ResourceSummaryProofArtifactCodecError>,
 }
 
 impl ResourceSummaryProofArtifactPreseedReport {
     pub fn usable_entries(self) -> usize {
-        if self.compatibility_reject.is_some() {
+        if self.compatibility_reject.is_some() || self.codec_error.is_some() {
             0
         } else {
             self.accepted_entries + self.existing_matching_entries
@@ -202,6 +203,7 @@ impl Default for ResourceSummaryValueCacheActivation {
 /// canonical な形で組み立てる。
 pub struct ResourceSummaryProofArtifactCacheOptions<'a> {
     pub preseed_artifact: Option<&'a crate::resource::ResourceSummaryProofArtifact>,
+    pub preseed_artifact_bytes: Option<&'a [u8]>,
     pub stdlib_content_hash: Option<u64>,
     pub preseed_report_out: Option<&'a mut Option<ResourceSummaryProofArtifactPreseedReport>>,
     pub value_cache_activation: ResourceSummaryValueCacheActivation,
@@ -211,6 +213,7 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
     pub fn none() -> Self {
         Self {
             preseed_artifact: None,
+            preseed_artifact_bytes: None,
             stdlib_content_hash: None,
             preseed_report_out: None,
             value_cache_activation: ResourceSummaryValueCacheActivation::Always,
@@ -223,6 +226,7 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
     ) -> Self {
         Self {
             preseed_artifact: Some(artifact),
+            preseed_artifact_bytes: None,
             stdlib_content_hash,
             preseed_report_out: None,
             value_cache_activation: ResourceSummaryValueCacheActivation::Always,
@@ -236,6 +240,31 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
     ) -> Self {
         Self {
             preseed_artifact: Some(artifact),
+            preseed_artifact_bytes: None,
+            stdlib_content_hash,
+            preseed_report_out: Some(preseed_report_out),
+            value_cache_activation: ResourceSummaryValueCacheActivation::Always,
+        }
+    }
+
+    pub fn preseed_bytes(artifact_bytes: &'a [u8], stdlib_content_hash: Option<u64>) -> Self {
+        Self {
+            preseed_artifact: None,
+            preseed_artifact_bytes: Some(artifact_bytes),
+            stdlib_content_hash,
+            preseed_report_out: None,
+            value_cache_activation: ResourceSummaryValueCacheActivation::Always,
+        }
+    }
+
+    pub fn preseed_bytes_with_report(
+        artifact_bytes: &'a [u8],
+        stdlib_content_hash: Option<u64>,
+        preseed_report_out: &'a mut Option<ResourceSummaryProofArtifactPreseedReport>,
+    ) -> Self {
+        Self {
+            preseed_artifact: None,
+            preseed_artifact_bytes: Some(artifact_bytes),
             stdlib_content_hash,
             preseed_report_out: Some(preseed_report_out),
             value_cache_activation: ResourceSummaryValueCacheActivation::Always,
@@ -4480,25 +4509,55 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
             source_map,
             resource_summary_proof_options.stdlib_content_hash,
         );
-    let resource_summary_proof_preseed_report =
-        if let Some(artifact) = resource_summary_proof_options.preseed_artifact {
-            resource_summary_value_cache.as_deref_mut().map(|cache| {
-                match cache.preseed_neplproof_artifact(artifact, resource_summary_proof_header) {
+    let resource_summary_proof_preseed_report = resource_summary_value_cache
+        .as_deref_mut()
+        .and_then(|cache| {
+            if let Some(artifact) = resource_summary_proof_options.preseed_artifact {
+                return Some(match cache
+                    .preseed_neplproof_artifact(artifact, resource_summary_proof_header)
+                {
                     Ok(stats) => ResourceSummaryProofArtifactPreseedReport {
                         accepted_entries: stats.accepted_entries(),
                         existing_matching_entries: stats.existing_matching_entries(),
                         rejected_conflict_entries: stats.rejected_conflict_entries(),
                         compatibility_reject: None,
+                        codec_error: None,
                     },
                     Err(reject) => ResourceSummaryProofArtifactPreseedReport {
                         compatibility_reject: Some(reject),
                         ..ResourceSummaryProofArtifactPreseedReport::default()
                     },
+                });
+            }
+            let artifact_bytes = resource_summary_proof_options.preseed_artifact_bytes?;
+            Some(match crate::resource::ResourceSummaryProofArtifact::from_neplproof_bytes_with_expected_header(
+                artifact_bytes,
+                resource_summary_proof_header,
+            ) {
+                Ok(artifact) => {
+                    let stats = cache.preseed_neplproof_snapshot(artifact.snapshot());
+                    ResourceSummaryProofArtifactPreseedReport {
+                        accepted_entries: stats.accepted_entries(),
+                        existing_matching_entries: stats.existing_matching_entries(),
+                        rejected_conflict_entries: stats.rejected_conflict_entries(),
+                        compatibility_reject: None,
+                        codec_error: None,
+                    }
+                }
+                Err(crate::resource::ResourceSummaryProofArtifactByteReject::Compatibility(
+                    reject,
+                )) => ResourceSummaryProofArtifactPreseedReport {
+                    compatibility_reject: Some(reject),
+                    ..ResourceSummaryProofArtifactPreseedReport::default()
+                },
+                Err(crate::resource::ResourceSummaryProofArtifactByteReject::Codec(error)) => {
+                    ResourceSummaryProofArtifactPreseedReport {
+                        codec_error: Some(error),
+                        ..ResourceSummaryProofArtifactPreseedReport::default()
+                    }
                 }
             })
-        } else {
-            None
-        };
+        });
     if let Some(report_out) = resource_summary_proof_options.preseed_report_out.as_mut() {
         **report_out = resource_summary_proof_preseed_report;
     }

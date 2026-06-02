@@ -3598,6 +3598,63 @@ RPN cold base static check after allocation-free print_i32
 closure に含めないようにする構造改善である。0.5 秒未満目標にはまだ届いていないため、次の根本対応は
 actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。
 
+2026-06-02 の `.neplproof` persistent codec / native proof cache checkpoint では、RPN cold base を
+`examples/rpn.nepl` に固定し、native release `--check` の Resource proof を disk-backed
+`.neplproof` へ保存・preseed する入口を追加した。
+
+`.neplproof` bytes は header-first container とした。先頭の fixed header だけを先に decode し、
+schema / compiler identity / target / profile / stdlib content / dependency public surface /
+Resource summary namespace / source capability policy / private effect policy が一致しない場合は、
+payload を postcard decode しない。payload は `ResourceSummaryProofSnapshot` の stable entry map で、
+`TypeId`、`Span`、`FileId`、`SourceMap`、diagnostic、compile-local replay plan は含めない。
+container schema `2` では fixed header に payload hash も持たせ、header は一致しているが payload
+bytes が壊れた artifact も postcard decode 前に拒否する。`nepl-core` は bytes codec と fail-closed
+preseed 判定だけを持ち、disk I/O と cache directory policy は `nepl-cli` の `proof_cache` module に
+閉じる。
+
+`.neplproof` は compiler が生成した local build cache を信頼する設計であり、悪意ある第三者が
+任意に書き換えられる directory を proof cache として使ってはならない。未信頼の workspace /
+CI cache / artifact restore を扱う場合は `NEPL_DISABLE_PROOF_CACHE=1` を使い、Resource static check
+を通常経路で実行する。今後 bundled stdlib proof へ進める場合は、配布 artifact の署名や compiler
+release hash と同じ trust root に載せる。
+
+RPN の実測では、raw-alias stable entry を永続 proof として扱うと、entry 再投影候補生成の固定費が
+raw-alias summary 再計算より高く、`resource_initialized_raw_alias_summaries` が約 `29ms` から
+約 `590-640ms` へ悪化した。raw-alias summary 本体は RPN では軽いため、CLI の disk-backed
+`.neplproof` 経路では `ResourceSummaryValueCache::disable_raw_alias_return_entry_collection` を使い、
+raw-alias stable entry の replay / candidate collection / old artifact preseed を無効にする。
+same-session cache と通常の in-memory `.neplproof` export の既定値は有効なまま維持し、native
+disk-backed proof cache で明示的に disable した場合だけ raw-alias kind を空にする。
+
+最終 checkpoint の RPN proof-backed 5 run は次の通りである。exact `.neplcheck` は無効化し、
+`.neplproof` だけの効果を測っている。
+
+```text
+RPN proof-backed cold base static check
+  proof disabled resource_static_check: 1601ms / 1880ms / 1737ms
+    median: 1737ms
+  proof preseed resource_static_check: 1417ms / 988ms / 911ms / 1304ms / 1017ms
+    median: 1017ms
+    resource_initialized_moves median-near: 841ms
+      resource_initialized_raw_alias_summaries: 28-42ms
+      resource_initialized_i32_scalar_summaries: 347-393ms
+      resource_initialized_raw_init_summaries: 113-131ms
+      resource_initialized_function_checks: 242-288ms
+    resource_owner_obligations: 50-57ms cluster / 441-516ms cluster
+
+RPN bootstrap proof generation
+  resource_static_check: 2771ms
+  .neplproof size: 2,165,719 bytes
+```
+
+この checkpoint は初回 proof 生成を速くするものではなく、既存 proof を持つ cold process で
+stdlib-heavy Resource proof を再利用するための永続 artifact 境界である。RPN の median は
+`resource_static_check` 約 `1.7s` から proof-backed 約 `1.02s` へ下がったが、0.5 秒未満目標には
+まだ届かない。残る主課題は owner obligation replay が全関数の dependency closure hash を毎回構築する
+こと、i32 scalar stable entry replay が再計算より高い run を持つこと、bootstrap proof generation が
+まだ秒単位であることである。次は owner obligation も initialized check と同様の pass-level snapshot /
+bundled stdlib `.neplproof` preseed / proof template 化へ進める。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

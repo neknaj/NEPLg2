@@ -102,30 +102,34 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        (Some(cache), Some(context)) => Some(cache.begin_raw_alias_summary_replay_plan(
-            context,
-            types,
-            module,
-            dependency_graph,
-            &relevant_functions,
-        )),
+        (Some(cache), Some(context)) if cache.raw_alias_return_entry_collection_enabled() => {
+            Some(cache.begin_raw_alias_summary_replay_plan(
+                context,
+                types,
+                module,
+                dependency_graph,
+                &relevant_functions,
+            ))
+        }
         _ => None,
     };
     if let (Some(cache), Some(context)) = (
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        preseed_raw_alias_return_summaries_from_value_cache(
-            cache,
-            context,
-            types,
-            module,
-            dependency_graph.dependencies(),
-            &mut initially_skipped_functions,
-            &mut preseeded_functions,
-            &mut summaries,
-            replay_plan.as_mut(),
-        );
+        if cache.raw_alias_return_entry_collection_enabled() {
+            preseed_raw_alias_return_summaries_from_value_cache(
+                cache,
+                context,
+                types,
+                module,
+                dependency_graph.dependencies(),
+                &mut initially_skipped_functions,
+                &mut preseeded_functions,
+                &mut summaries,
+                replay_plan.as_mut(),
+            );
+        }
     }
     let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph_and_initial_skips(
         module,
@@ -149,17 +153,20 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        let candidate_skipped_functions = worklist.unrecomputed_initial_skips(&preseeded_functions);
-        record_raw_alias_return_summary_value_cache_candidates(
-            cache,
-            context,
-            types,
-            module,
-            dependency_graph.dependencies(),
-            &candidate_skipped_functions,
-            &summaries,
-            replay_plan.as_mut(),
-        );
+        if cache.raw_alias_return_entry_collection_enabled() {
+            let candidate_skipped_functions =
+                worklist.unrecomputed_initial_skips(&preseeded_functions);
+            record_raw_alias_return_summary_value_cache_candidates(
+                cache,
+                context,
+                types,
+                module,
+                dependency_graph.dependencies(),
+                &candidate_skipped_functions,
+                &summaries,
+                replay_plan.as_mut(),
+            );
+        }
     }
     if let (Some(cache), Some(plan)) = (summary_value_cache.as_deref_mut(), replay_plan) {
         cache.finish_raw_alias_summary_replay_plan(plan);

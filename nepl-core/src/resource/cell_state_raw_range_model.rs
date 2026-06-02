@@ -10,7 +10,7 @@ pub(super) struct InitializedRawByteRange {
     pub(super) ty: TypeId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) enum InitializedRawRangeUnit {
     Bytes,
     Elements { stride: usize },

@@ -10,17 +10,23 @@ use anyhow::{Context, Result};
 use check_cache::ExactCheckCacheProbe;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use nepl_core::{
-    check_module_with_source_map, compile_module_with_source_map_and_artifact_options,
+    check_module_with_source_map,
+    check_module_with_source_map_resource_summary_value_cache_and_neplproof,
+    compile_module_with_source_map_and_artifact_options,
     diagnostic::{Diagnostic, Severity},
     error::CoreError,
     loader::{Loader, SourceMap},
+    resource::ResourceSummaryValueCache,
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
+    ResourceSummaryProofArtifactCacheOptions,
 };
+use proof_cache::ResourceProofCacheProbe;
 use wasmi::{Caller, Engine, Linker, Module, Store};
 use wasmprinter::print_bytes;
 
 mod check_cache;
 mod codegen_llvm;
+mod proof_cache;
 
 macro_rules! cli_verbose {
     ($enabled:expr, $($arg:tt)*) => {
@@ -647,6 +653,62 @@ fn execute_inner(cli: Cli) -> Result<()> {
             cli_verbose!(cli.verbose, "DEBUG: exact --check cache hit");
             println!("Check successful");
             return Ok(());
+        }
+        let proof_cache = input_path.as_ref().and_then(|path| {
+            ResourceProofCacheProbe::new(Path::new(path), &std_root, run_target, active_profile)
+        });
+        let use_proof_cache = proof_cache
+            .as_ref()
+            .is_some_and(|cache| cache.has_preseed_bytes() || cache.should_bootstrap_on_miss());
+        if use_proof_cache {
+            let mut resource_summary_value_cache = ResourceSummaryValueCache::new();
+            resource_summary_value_cache.disable_raw_alias_return_entry_collection();
+            let proof_options = match proof_cache
+                .as_ref()
+                .and_then(ResourceProofCacheProbe::preseed_bytes)
+            {
+                Some(bytes) => ResourceSummaryProofArtifactCacheOptions::preseed_bytes(bytes, None)
+                    .only_after_accepted_preseed(),
+                None => ResourceSummaryProofArtifactCacheOptions::none(),
+            };
+            match check_module_with_source_map_resource_summary_value_cache_and_neplproof(
+                module,
+                Some(&source_map),
+                options,
+                Some(&mut resource_summary_value_cache),
+                proof_options,
+            ) {
+                Ok(result) => {
+                    if let Some(report) = result.resource_summary_proof_preseed_report {
+                        cli_verbose!(
+                            cli.verbose,
+                            "DEBUG: .neplproof preseed accepted={} existing={} conflicts={} compatibility_reject={:?} codec_error={:?}",
+                            report.accepted_entries,
+                            report.existing_matching_entries,
+                            report.rejected_conflict_entries,
+                            report.compatibility_reject,
+                            report.codec_error
+                        );
+                    }
+                    if let Some(cache) = proof_cache.as_ref() {
+                        let artifact = resource_summary_value_cache
+                            .export_neplproof_artifact(result.resource_summary_proof_header);
+                        cache.store_artifact(&artifact)?;
+                    }
+                    if let Some(cache) = exact_check_cache.as_ref() {
+                        cache.store_success()?;
+                    }
+                    println!("Check successful");
+                    return Ok(());
+                }
+                Err(CoreError::Diagnostics(diags)) => {
+                    render_diagnostics(&diags, &source_map);
+                    return Err(anyhow::anyhow!("compilation failed"));
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!(e.to_string()));
+                }
+            }
         }
         match check_module_with_source_map(module, Some(&source_map), options) {
             Ok(()) => {

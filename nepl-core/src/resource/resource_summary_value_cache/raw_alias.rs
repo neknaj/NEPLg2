@@ -24,6 +24,7 @@ use super::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::resource) enum RawAliasReturnEntryCandidateReject {
+    CollectionDisabled,
     MissingSourcePolicy,
     UnstableKey,
     UnstableEntry(ResourceSummaryStableRawAliasReturnEntryReject),
@@ -42,6 +43,9 @@ impl ResourceSummaryValueCache {
         summary: &RawCellAddressReturnSummary,
     ) -> Result<ResourceSummaryRawAliasReturnEntryCandidate, RawAliasReturnEntryCandidateReject>
     {
+        if !self.raw_alias_return_entry_collection_enabled() {
+            return Err(RawAliasReturnEntryCandidateReject::CollectionDisabled);
+        }
         let Some(source_capability_policy_hash) =
             context.source_capability_policy_hash_for_function(function)
         else {
@@ -87,6 +91,9 @@ impl ResourceSummaryValueCache {
         type_params: &[TypeId],
         dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     ) -> Option<RawCellAddressReturnSummary> {
+        if !self.raw_alias_return_entry_collection_enabled() {
+            return None;
+        }
         let key = self.raw_alias_return_entry_replay_key(
             context,
             types,
@@ -110,6 +117,9 @@ impl ResourceSummaryValueCache {
         function: &ResourceFunction,
         type_params: &[TypeId],
     ) -> Option<RawCellAddressReturnSummary> {
+        if !self.raw_alias_return_entry_collection_enabled() {
+            return None;
+        }
         let key = plan.previous_key(function_index)?;
         let summary =
             self.replay_raw_alias_return_entry_by_key(types, function, type_params, &key)?;
@@ -126,6 +136,9 @@ impl ResourceSummaryValueCache {
         type_params: &[TypeId],
         dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     ) -> Option<ResourceSummaryValueCacheKey> {
+        if !self.raw_alias_return_entry_collection_enabled() {
+            return None;
+        }
         let source_capability_policy_hash =
             context.source_capability_policy_hash_for_function(function)?;
         let generic_type_args = if function.type_params.is_empty() && type_params.is_empty() {
@@ -151,6 +164,9 @@ impl ResourceSummaryValueCache {
         type_params: &[TypeId],
         key: &ResourceSummaryValueCacheKey,
     ) -> Option<RawCellAddressReturnSummary> {
+        if !self.raw_alias_return_entry_collection_enabled() {
+            return None;
+        }
         let entry = self.raw_alias_return_entries.get(key)?.clone();
         let alias_count = entry.len();
         let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
@@ -191,6 +207,12 @@ impl ResourceSummaryValueCache {
         reason: RawAliasReturnEntryCandidateReject,
         alias_count: usize,
     ) {
+        if matches!(
+            reason,
+            RawAliasReturnEntryCandidateReject::CollectionDisabled
+        ) {
+            return;
+        }
         self.record_raw_alias_return_entry_bypass_count(alias_count);
         match reason {
             RawAliasReturnEntryCandidateReject::MissingSourcePolicy => {
@@ -225,6 +247,7 @@ impl ResourceSummaryValueCache {
                     alias_count;
                 self.record_raw_alias_reprojection_value_bypass(reason, alias_count);
             }
+            RawAliasReturnEntryCandidateReject::CollectionDisabled => {}
         }
     }
 
@@ -276,6 +299,9 @@ impl ResourceSummaryValueCache {
         &mut self,
         candidates: Vec<ResourceSummaryRawAliasReturnEntryCandidate>,
     ) {
+        if !self.raw_alias_return_entry_collection_enabled() {
+            return;
+        }
         let candidates_with_hits = candidates
             .into_iter()
             .map(|candidate| {

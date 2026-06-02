@@ -7,6 +7,8 @@ authors = ["NEPL Team"]
 [dependencies]
 wasm-encoder = { version = "0.244.0", default-features = false }
 wasmparser = { version = "0.244", default-features = false, features = ["validate"] }
+serde.workspace = true
+postcard.workspace = true
 
 [dev-dependencies]
 wasmi.workspace = true

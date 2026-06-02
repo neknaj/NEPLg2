@@ -576,6 +576,30 @@ RPN base compile の Resource static check はまだ 1 秒台であり、この 
 初回 base 0.5 秒未満の主経路は引き続き actual `.neplproof` stable codec、stdlib proof template、
 owner return summary stable mirror、bundled `.neplmeta` / `.neplproof` preseed である。
 
+2026-06-02 の `.neplproof` persistent codec / native proof cache checkpoint では、native `--check`
+が disk-backed `.neplproof` を読み、header が一致した場合だけ Resource summary cache へ preseed する
+経路を追加した。`nepl-core` は header-first bytes codec と fail-closed preseed だけを持ち、disk I/O は
+`nepl-cli/src/proof_cache.rs` に閉じている。
+
+RPN cold base の比較では、proof なしの現行 stage-only は
+`resource_static_check=1601ms / 1880ms / 1737ms`、中央値 `1737ms` だった。`.neplproof` preseed では
+`resource_static_check=1417ms / 988ms / 911ms / 1304ms / 1017ms`、中央値 `1017ms` まで下がった。
+階層は `resource_initialized_raw_alias_summaries=28-42ms`、`resource_initialized_i32_scalar_summaries=347-393ms`、
+`resource_initialized_raw_init_summaries=113-131ms`、`resource_initialized_function_checks=242-288ms` である。
+`resource_owner_obligations` は `50-57ms` 台と `441-516ms` 台に揺れており、owner obligation proof replay が
+全関数の dependency closure hash を毎回構築する点が次の支配点である。
+
+raw-alias stable entry は RPN では再計算の方が安く、永続 proof に含めると
+`resource_initialized_raw_alias_summaries` が約 `590-640ms` へ悪化した。このため native disk-backed
+`.neplproof` 経路では `disable_raw_alias_return_entry_collection` で raw-alias stable entry replay /
+candidate collection / old artifact preseed を無効化し、raw-alias summary 本体は現在の Resource IR から
+再計算する。これは検査を skip する変更ではなく、再利用すべき proof kind を実測で選ぶための cache policy
+である。
+
+この checkpoint でも issue は解決しない。RPN proof-backed median はまだ 0.5 秒未満ではない。
+次の根本対応は、owner obligation の pass-level snapshot、bundled stdlib `.neplproof` preseed、
+stdlib proof template、bootstrap proof generation の短縮である。
+
 ## 検証
 
 - `trunk build`
