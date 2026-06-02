@@ -1,7 +1,17 @@
 import { WASI } from './wasi.js';
 import { VFS } from './vfs.js';
 import type { CompilerAssetUrls } from './compiler-assets.js';
-import { takeGuiWebSharedActionId, waitGuiWebSharedActionId } from '../gui-preview/shared-event-queue.js';
+import {
+    GUI_WEB_EVENT_KIND_ACTION,
+    GUI_WEB_EVENT_POLL_INVALID,
+    GUI_WEB_EVENT_POLL_UNSUPPORTED,
+    takeGuiWebSharedActionId,
+    takeGuiWebSharedInputEvent,
+    waitGuiWebSharedActionId,
+    waitGuiWebSharedInputEvent,
+    type GuiWebSharedInputEventRecord,
+    type GuiWebSharedInputEventTakeResult,
+} from '../gui-preview/shared-event-queue.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -60,6 +70,10 @@ type ExecuteNeplg2Request = {
 
 type IncomingMessage = RunWasmRequest | ExecuteNeplg2Request;
 
+type LastGuiWebInputEvent =
+    | { kind: 'empty' }
+    | { kind: 'event'; event: GuiWebSharedInputEventRecord };
+
 let compilerInitPromise: Promise<any> | null = null;
 let compilerSession: any | null = null;
 let compilerSessionChecked = false;
@@ -68,6 +82,7 @@ class WorkerWASI extends WASI {
     stdinBuffer: Int32Array | null = null;
     stdinData: Uint8Array | null = null;
     guiEventBuffer: SharedArrayBuffer | null = null;
+    private lastGuiWebInputEvent: LastGuiWebInputEvent = { kind: 'empty' };
     private stdinOffset = 0;
     private stdinTotal = 0;
 
@@ -81,6 +96,12 @@ class WorkerWASI extends WASI {
         this.imports.nepl_gui_web = {
             poll_action_id: this.nepl_gui_web_poll_action_id.bind(this),
             wait_action_id: this.nepl_gui_web_wait_action_id.bind(this),
+            poll_event_kind: this.nepl_gui_web_poll_event_kind.bind(this),
+            wait_event_kind: this.nepl_gui_web_wait_event_kind.bind(this),
+            last_event_window_id: this.nepl_gui_web_last_event_window_id.bind(this),
+            last_event_action_id: this.nepl_gui_web_last_event_action_id.bind(this),
+            last_event_point_x_milli: this.nepl_gui_web_last_event_point_x_milli.bind(this),
+            last_event_point_y_milli: this.nepl_gui_web_last_event_point_y_milli.bind(this),
         };
     }
 
@@ -171,6 +192,76 @@ class WorkerWASI extends WASI {
             ? timeoutMs
             : 0;
         return waitGuiWebSharedActionId(this.guiEventBuffer, normalizedTimeout);
+    }
+
+    nepl_gui_web_poll_event_kind(): number {
+        if (!this.guiEventBuffer) {
+            this.lastGuiWebInputEvent = { kind: 'empty' };
+            return GUI_WEB_EVENT_POLL_UNSUPPORTED;
+        }
+        return this.storeGuiWebInputEventTakeResult(takeGuiWebSharedInputEvent(this.guiEventBuffer));
+    }
+
+    nepl_gui_web_wait_event_kind(timeoutMs: number): number {
+        if (!this.guiEventBuffer) {
+            this.lastGuiWebInputEvent = { kind: 'empty' };
+            return GUI_WEB_EVENT_POLL_UNSUPPORTED;
+        }
+        const normalizedTimeout = Number.isFinite(timeoutMs) && timeoutMs >= 0
+            ? timeoutMs
+            : 0;
+        return this.storeGuiWebInputEventTakeResult(waitGuiWebSharedInputEvent(this.guiEventBuffer, normalizedTimeout));
+    }
+
+    nepl_gui_web_last_event_window_id(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.windowId;
+    }
+
+    nepl_gui_web_last_event_action_id(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'action') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.actionId;
+    }
+
+    nepl_gui_web_last_event_point_x_milli(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.pointXMilli;
+    }
+
+    nepl_gui_web_last_event_point_y_milli(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.pointYMilli;
+    }
+
+    private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
+        if (result.kind === 'empty') {
+            this.lastGuiWebInputEvent = { kind: 'empty' };
+            return 0;
+        }
+        if (result.kind === 'invalid') {
+            this.lastGuiWebInputEvent = { kind: 'empty' };
+            return GUI_WEB_EVENT_POLL_INVALID;
+        }
+        this.lastGuiWebInputEvent = {
+            kind: 'event',
+            event: result.event,
+        };
+        if (result.event.kind === 'action') {
+            return GUI_WEB_EVENT_KIND_ACTION;
+        }
+        this.lastGuiWebInputEvent = { kind: 'empty' };
+        return GUI_WEB_EVENT_POLL_INVALID;
     }
 }
 

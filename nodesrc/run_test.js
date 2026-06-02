@@ -143,6 +143,12 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
             nepl_gui_web: {
                 poll_action_id: () => 0,
                 wait_action_id: () => 0,
+                poll_event_kind: () => 0,
+                wait_event_kind: () => 0,
+                last_event_window_id: () => 0,
+                last_event_action_id: () => 0,
+                last_event_point_x_milli: () => 0,
+                last_event_point_y_milli: () => 0,
             },
             ...extraImports,
         });

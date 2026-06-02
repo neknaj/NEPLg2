@@ -2,18 +2,20 @@
 //: Web Playground GUI input host boundary
 //:
 //: ### [目的/もくてき]
-//: - Web Playground host が保持する GUI event queue から、NEPLg2 app が action event を[取/と]り[出/だ]します。
-//: - raw host import はこの module に閉じ、application code には `Result Option ActionId GuiError` として公開します。
+//: - Web Playground host が保持する GUI event queue から、NEPLg2 app が typed GUI event を[取/と]り[出/だ]します。
+//: - raw host import はこの module に閉じ、application code には `Result Option GuiWebEvent GuiError` として公開します。
+//: - action-only caller のため、互換 wrapper として `Result Option ActionId GuiError` も維持します。
 //:
 //: ### [契約/けいやく]
 //: - event がある場合は `Result::Ok (Option::Some action)` を返します。
 //: - timeout または empty queue の場合は `Result::Ok Option::None` を返します。
 //: - host が GUI input queue を持たない場合は `Result::Err GuiError::Unsupported` を返します。
+//: - invalid queue record は `Result::Err GuiError::InvalidCommand` を返します。
 //: - raw host import の 0 / 負 sentinel はこの module の境界内でだけ扱います。
 //:
 //: ### [現状/げんじょう]
-//: - Phase 1 では Web Playground の action event だけを扱います。
-//: - pointer position や window id は host queue に保持されていますが、NEPL public API へ渡す typed event record は後続 phase で追加します。
+//: - Phase 2 では Web Playground の action event を `GuiEvent::Action` として扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
+//: - pointer move / keyboard / text input / lifecycle などの full event union は後続 phase で追加します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -24,13 +26,66 @@
 #indent 4
 
 #import "alloc/gui/app" as app
+#import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 
 #extern "nepl_gui_web" "poll_action_id" fn gui_web_poll_action_id_raw %impure fn unit i32
 #extern "nepl_gui_web" "wait_action_id" fn gui_web_wait_action_id_raw %impure fn i32 i32
+#extern "nepl_gui_web" "poll_event_kind" fn gui_web_poll_event_kind_raw %impure fn unit i32
+#extern "nepl_gui_web" "wait_event_kind" fn gui_web_wait_event_kind_raw %impure fn i32 i32
+#extern "nepl_gui_web" "last_event_window_id" fn gui_web_last_event_window_id_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_action_id" fn gui_web_last_event_action_id_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_point_x_milli" fn gui_web_last_event_point_x_milli_raw %impure fn unit i32
+#extern "nepl_gui_web" "last_event_point_y_milli" fn gui_web_last_event_point_y_milli_raw %impure fn unit i32
+
+//: GuiWebEvent: Web backend が[取/と]り[出/だ]した typed GUI event record
+//:
+//: [目的/もくてき]:
+//: - `GuiEvent` と backend-local routing metadata を 1 つの値として[渡/わた]します。
+//: - window id と pointer position は Web Playground backend の queue record から来る値であり、core/gui の public event identity にはしません。
+//:
+//: [現状/げんじょう]:
+//: - point は milli-unit の整数です。formal host ABI では logical / physical unit の契約へ移します。
+pub struct GuiWebEvent:
+    window_id %i32
+    point_milli %GuiPoint
+    event %GuiEvent
+
+impl Clone for GuiWebEvent:
+    fn clone %fn &GuiWebEvent GuiWebEvent \event:
+        *event
+
+impl Copy for GuiWebEvent:
+    fn copy_mark %fn GuiWebEvent GuiWebEvent \event:
+        event
+
+//: gui_web_event_window_id: Web event の window id を[読/よ]む
+pub fn gui_web_event_window_id %fn &GuiWebEvent i32 \event:
+    *field::get_ref event "window_id"
+
+//: gui_web_event_point_milli: Web event の pointer position milli-unit を[読/よ]む
+pub fn gui_web_event_point_milli %fn &GuiWebEvent GuiPoint \event:
+    *field::get_ref event "point_milli"
+
+//: gui_web_event_gui_event: Web event が[包/つつ]む `GuiEvent` を[読/よ]む
+pub fn gui_web_event_gui_event %fn &GuiWebEvent GuiEvent \event:
+    *field::get_ref event "event"
+
+//: gui_web_event_action: action event なら `ActionId` を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - event が `GuiEvent::Action` の場合は `Option::Some` を返します。
+//: - それ以外の event variant は `Option::None` を返します。
+pub fn gui_web_event_action %fn &GuiWebEvent Option ActionId \event:
+    match gui_web_event_gui_event event:
+        GuiEvent::Action action:
+            Option::Some action
+        _:
+            Option::None
 
 //: gui_web_action_result_from_raw: host raw action id を `Result Option ActionId GuiError` へ[正規化/せいきか]する
 //:
@@ -40,7 +95,8 @@
 //: [契約/けいやく]:
 //: - raw が 1 以上なら `Option::Some` を返します。
 //: - raw が 0 なら timeout / empty queue として `Option::None` を返します。
-//: - raw が負なら host queue unsupported として `GuiError::Unsupported` を返します。
+//: - raw が -1 なら host queue unsupported として `GuiError::Unsupported` を返します。
+//: - raw がその他の負値なら invalid queue record として `GuiError::InvalidCommand` を返します。
 fn gui_web_action_result_from_raw %fn i32 Result Option ActionId GuiError \raw:
     if:
         gt raw 0
@@ -52,10 +108,63 @@ fn gui_web_action_result_from_raw %fn i32 Result Option ActionId GuiError \raw:
             if:
                 lt raw 0
                 then:
-                    Result::Err GuiError::Unsupported
+                    if:
+                        eq raw -1
+                        then:
+                            Result::Err GuiError::Unsupported
+                        else:
+                            Result::Err GuiError::InvalidCommand
                 else:
                     let none %Option ActionId Option::None
                     Result::Ok none
+
+//: gui_web_event_result_from_kind_raw: host raw event kind と last event payload を typed result へ[正規化/せいきか]する
+//:
+//: [目的/もくてき]:
+//: - event kind の sentinel と、last-event accessor の raw field を public API に漏らさず、`Result Option GuiWebEvent GuiError` に変換します。
+//:
+//: [契約/けいやく]:
+//: - raw kind 1 は action event です。
+//: - raw kind 0 は timeout / empty queue です。
+//: - raw kind -1 は unsupported host queue です。
+//: - raw kind -2 または未知の kind は invalid command です。
+fn gui_web_event_result_from_kind_raw %impure fn i32 Result Option GuiWebEvent GuiError \raw:
+    if:
+        gt raw 0
+        then:
+            if:
+                eq raw 1
+                then:
+                    let action_raw %i32 gui_web_last_event_action_id_raw
+                    if:
+                        gt action_raw 0
+                        then:
+                            let action %ActionId app::action_id action_raw
+                            let x_milli %i32 gui_web_last_event_point_x_milli_raw
+                            let y_milli %i32 gui_web_last_event_point_y_milli_raw
+                            let point %GuiPoint gui_point_new x_milli y_milli
+                            let gui_event %GuiEvent gui_event_action action
+                            let window_id %i32 gui_web_last_event_window_id_raw
+                            let web_event %GuiWebEvent GuiWebEvent window_id point gui_event
+                            let some %Option GuiWebEvent Option::Some web_event
+                            Result::Ok some
+                        else:
+                            Result::Err GuiError::InvalidCommand
+                else:
+                    Result::Err GuiError::InvalidCommand
+        else:
+            if:
+                eq raw 0
+                then:
+                    let none %Option GuiWebEvent Option::None
+                    Result::Ok none
+                else:
+                    if:
+                        eq raw -1
+                        then:
+                            Result::Err GuiError::Unsupported
+                        else:
+                            Result::Err GuiError::InvalidCommand
 
 //: gui_web_action_from_raw: host raw action id を legacy `Option ActionId` へ[正規化/せいきか]する
 //:
@@ -88,6 +197,18 @@ pub fn gui_web_poll_action_result %impure fn unit Result Option ActionId GuiErro
     let raw %i32 gui_web_poll_action_id_raw
     gui_web_action_result_from_raw raw
 
+//: gui_web_poll_event_result: GUI event を非 blocking に[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - action id だけではなく、window id と pointer position を含む typed event record を 1 件だけ読みます。
+//: - unsupported host、empty queue、invalid queue record を `Result` / `Option` で[分/わ]けます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn gui_web_poll_event_result %impure fn unit Result Option GuiWebEvent GuiError \unit:
+    let raw %i32 gui_web_poll_event_kind_raw
+    gui_web_event_result_from_kind_raw raw
+
 //: gui_web_wait_action: GUI action event を待って[取/と]り[出/だ]す
 //:
 //: [目的/もくてき]:
@@ -113,3 +234,17 @@ pub fn gui_web_wait_action %impure fn i32 Option ActionId \timeout_ms:
 pub fn gui_web_wait_action_result %impure fn i32 Result Option ActionId GuiError \timeout_ms:
     let raw %i32 gui_web_wait_action_id_raw timeout_ms
     gui_web_action_result_from_raw raw
+
+//: gui_web_wait_event_result: GUI event を待って[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - interactive app が busy loop を避けつつ、action 以外の event へ拡張できる typed record 境界を使えるようにします。
+//:
+//: [契約/けいやく]:
+//: - event が来た場合は `Result::Ok (Option::Some event)` を返します。
+//: - timeout した場合は `Result::Ok Option::None` を返します。
+//: - host queue が存在しない場合は `Result::Err GuiError::Unsupported` を返します。
+//: - queue record が不正な場合は `Result::Err GuiError::InvalidCommand` を返します。
+pub fn gui_web_wait_event_result %impure fn i32 Result Option GuiWebEvent GuiError \timeout_ms:
+    let raw %i32 gui_web_wait_event_kind_raw timeout_ms
+    gui_web_event_result_from_kind_raw raw

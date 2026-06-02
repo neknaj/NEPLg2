@@ -4,6 +4,8 @@ export const GUI_WEB_EVENT_QUEUE_CAPACITY = 64;
 export const GUI_WEB_EVENT_QUEUE_HEADER_LENGTH = 2;
 export const GUI_WEB_EVENT_QUEUE_SLOT_LENGTH = 5;
 export const GUI_WEB_EVENT_KIND_ACTION = 1;
+export const GUI_WEB_EVENT_POLL_UNSUPPORTED = -1;
+export const GUI_WEB_EVENT_POLL_INVALID = -2;
 export const GUI_WEB_EVENT_QUEUE_READ_INDEX = 0;
 export const GUI_WEB_EVENT_QUEUE_WRITE_INDEX = 1;
 
@@ -28,6 +30,20 @@ export type GuiWebSharedEventQueueError = {
 export type GuiWebSharedEventQueueResult<Value> =
     | { kind: 'ok'; value: Value }
     | { kind: 'err'; error: GuiWebSharedEventQueueError };
+
+export type GuiWebSharedInputEventRecord =
+    | {
+        kind: 'action';
+        windowId: number;
+        actionId: number;
+        pointXMilli: number;
+        pointYMilli: number;
+    };
+
+export type GuiWebSharedInputEventTakeResult =
+    | { kind: 'empty' }
+    | { kind: 'event'; event: GuiWebSharedInputEventRecord }
+    | { kind: 'invalid'; rawKind: number };
 
 export function createGuiWebSharedEventBuffer(): GuiWebSharedEventQueueResult<SharedArrayBuffer> {
     if (typeof SharedArrayBuffer === 'undefined') {
@@ -57,27 +73,43 @@ export function writeGuiWebSharedInputEvent(
 }
 
 export function takeGuiWebSharedActionId(buffer: SharedArrayBuffer): number {
+    return guiWebSharedActionIdFromTakeResult(takeGuiWebSharedInputEvent(buffer));
+}
+
+export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSharedInputEventTakeResult {
     const queue = new Int32Array(buffer);
     const readIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX);
     const writeIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX);
     if (readIndex === writeIndex) {
-        return 0;
+        return { kind: 'empty' };
     }
 
     const base = guiWebSharedEventSlotBase(readIndex);
     const kind = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_KIND);
+    const windowId = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID);
     const actionId = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_ACTION_ID);
+    const pointXMilli = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI);
+    const pointYMilli = Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI);
     const nextReadIndex = guiWebSharedEventNextIndex(readIndex);
     Atomics.store(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX, nextReadIndex);
     if (kind !== GUI_WEB_EVENT_KIND_ACTION || actionId <= 0) {
-        return 0;
+        return { kind: 'invalid', rawKind: kind };
     }
-    return actionId;
+    return {
+        kind: 'event',
+        event: {
+            kind: 'action',
+            windowId,
+            actionId,
+            pointXMilli,
+            pointYMilli,
+        },
+    };
 }
 
-export function waitGuiWebSharedActionId(buffer: SharedArrayBuffer, timeoutMs: number): number {
-    const first = takeGuiWebSharedActionId(buffer);
-    if (first > 0) {
+export function waitGuiWebSharedInputEvent(buffer: SharedArrayBuffer, timeoutMs: number): GuiWebSharedInputEventTakeResult {
+    const first = takeGuiWebSharedInputEvent(buffer);
+    if (first.kind !== 'empty') {
         return first;
     }
 
@@ -86,9 +118,13 @@ export function waitGuiWebSharedActionId(buffer: SharedArrayBuffer, timeoutMs: n
     try {
         Atomics.wait(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, writeIndex, timeoutMs);
     } catch {
-        return 0;
+        return { kind: 'empty' };
     }
-    return takeGuiWebSharedActionId(buffer);
+    return takeGuiWebSharedInputEvent(buffer);
+}
+
+export function waitGuiWebSharedActionId(buffer: SharedArrayBuffer, timeoutMs: number): number {
+    return guiWebSharedActionIdFromTakeResult(waitGuiWebSharedInputEvent(buffer, timeoutMs));
 }
 
 export function guiWebSharedEventQueueInt32Length(): number {
@@ -124,6 +160,19 @@ function guiWebSharedEventNextIndex(index: number): number {
 
 function guiWebSharedEventSlotBase(index: number): number {
     return GUI_WEB_EVENT_QUEUE_HEADER_LENGTH + index * GUI_WEB_EVENT_QUEUE_SLOT_LENGTH;
+}
+
+function guiWebSharedActionIdFromTakeResult(result: GuiWebSharedInputEventTakeResult): number {
+    if (result.kind === 'empty') {
+        return 0;
+    }
+    if (result.kind === 'invalid') {
+        return GUI_WEB_EVENT_POLL_INVALID;
+    }
+    if (result.event.kind === 'action') {
+        return result.event.actionId;
+    }
+    return GUI_WEB_EVENT_POLL_INVALID;
 }
 
 function err(
