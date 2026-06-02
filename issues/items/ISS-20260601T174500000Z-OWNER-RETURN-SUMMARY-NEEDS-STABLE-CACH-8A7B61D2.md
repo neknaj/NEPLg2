@@ -69,6 +69,10 @@ partial miss / bootstrap proof generation / stdlib proof template のために�
 `resource_static_check=363ms / 366ms / 379ms / 360ms / 398ms` だった。owner obligation all-hit path は安定して
 50ms 台へ入ったが、partial miss 時に必要な owner return summary stable mirror はまだ未実装である。
 
+`origin/main` merge と release CLI 再ビルド後の再 bootstrap でも、preseed run の
+`resource_owner_obligations=59ms / 50ms / 52ms / 51ms / 62ms`、`resource_static_check=408ms / 359ms / 362ms / 361ms / 412ms`
+であり、all-hit owner pass snapshot は release binary identity 更新後も fail-closed bootstrap 後に有効である。
+
 ## 検証
 
 - focused unit test で、unchanged owner return summary が replay され、function body edit と callee body edit では miss することを確認する。

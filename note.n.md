@@ -8,9 +8,10 @@
 - subagent review では、owner obligation の `resource_owner_summaries_skipped_by_pass_cache` が「skip そのもの」ではなく全関数 replay probe / dependency closure hash 構築時間を含むこと、次段階として owner return summary stable mirror と bundled stdlib proof が必要であることを確認した。
 - formatter 後の最終 RPN `.neplproof` preseed 5 run は `resource_static_check=418ms / 420ms / 414ms / 416ms / 376ms`、中央値 `416ms` だった。階層中央値付近は `resource_initialized_moves=236ms`、`resource_initialized_i32_scalar_summaries=72ms`、`resource_initialized_raw_init_summaries=69ms`、`resource_initialized_function_checks=58ms`、`resource_owner_obligations=58ms`。Resource static check stage は 0.5 秒未満に入った。
 - `trunk build` 修正後に専用 proof cache directory で再確認した RPN `.neplproof` preseed 追加 5 run は `resource_static_check=363ms / 366ms / 379ms / 360ms / 398ms`、中央値 `366ms` だった。階層中央値付近は `resource_initialized_moves=204ms`、`resource_initialized_i32_scalar_summaries=62ms`、`resource_initialized_raw_init_summaries=58ms`、`resource_initialized_function_checks=51ms`、`resource_owner_obligations=50ms` である。
+- `origin/main` merge と release CLI 再ビルド後は compiler identity が変わったため、古い `.neplproof` は fail-closed に使われなかった。専用 proof cache を bootstrap し直した後の RPN `.neplproof` preseed 5 run は `resource_static_check=408ms / 359ms / 362ms / 361ms / 412ms`、中央値 `362ms` だった。
 - formatter 後の bootstrap proof generation はまだ `resource_static_check=3073ms` であり、初回 proof 作成の高速化ではない。`NEPL_DISABLE_CHECK_CACHE=1` かつ `.neplproof` preseed ありの native CLI wall-clock 10 run は約 `915-1041ms` で、process / loader / typecheck / host overhead を含む全体はまだ 0.5 秒未満ではない。
 - 残件は、native / Web の base compile wall-clock を下げる bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirror である。
-- focused verification は `cargo check -p nepl-core`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo test -p nepl-core owner_pass_plan_marks_changed_callee_and_reverse_dependents --lib -- --nocapture`、`cargo build -p nepl-cli --release`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-pass-snapshot-20260602.json`、RPN proof-backed 追加 5 run、RPN wall-clock 10 run を通した。commit 前に format / broader check / issues check / diff check を再実行する。
+- focused verification は `cargo check -p nepl-core`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo test -p nepl-core owner_pass_plan_marks_changed_callee_and_reverse_dependents --lib -- --nocapture`、`cargo build -p nepl-cli --release`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-pass-snapshot-20260602.json`、RPN proof-backed 追加 5 run、RPN wall-clock 10 run を通した。`origin/main` merge 後にも同 verifier と RPN proof-backed 5 run を再実行した。
 
 # 2026-06-02 RPN `.neplproof` persistent codec / native proof cache checkpoint
 
@@ -24,6 +25,18 @@
 - i32 scalar stable entry を永続 proof から外す案も測ったが、raw-alias 除外後の主経路として採用できるほど安定しなかったため戻した。実測で改善した raw-alias kind policy だけを残した。
 - subagent review で、header-first decode、core no-std / CLI disk I/O 分離、old artifact raw-alias entry の policy 無効時不使用を確認した。残件は owner obligation pass-level snapshot、bundled stdlib `.neplproof` preseed、stdlib proof template、bootstrap proof generation 短縮である。
 - focused verification は `cargo check -p nepl-cli`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo build -p nepl-cli --release`、RPN proof-backed 5 run を通した。commit 前に issues check / diff check を再実行する。
+
+# 2026-06-02 Agent2 native GUI platform behavior checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / enum / struct による明示状態、契約と現状実装の分離、環境差が出る内容へのテスト整備方針を再確認した。
+- macOS AppKit、Windows Win32、Linux Wayland / X11 の window lifecycle、close request、resize、event pump を調べ、`doc/neplg2/gui_native_platform_behavior.md` に native backend contract と参考 URL を分けて記録した。
+- `nepl-gui-native` の minifb smoke runner は固定 size 前提をやめ、`WindowOptions.resize = true`、`ScaleMode::AspectRatioStretch`、`set_target_fps 60`、window size 監視、dark letterbox background、close button / Escape 正常終了へ寄せた。
+- counter hit test は `get_mouse_pos MouseMode::Clamp` と raw scale 除算をやめ、`get_unscaled_mouse_pos MouseMode::Discard`、`NativeSurfaceState`、`NativeSurfacePlacement`、`map_native_window_point_to_image` で current window size と letterbox を考慮して scene coordinate へ変換する。
+- `nodesrc/test_native_gui_platform_behavior.js` を追加し、native smoke backend が resize / close / event pump 契約、letterbox-aware hit test、OS 別 doc 参照を維持することを source policy regression に固定した。
+- focused 検証: `cargo test -p nepl-gui-native --lib`、`cargo check -p nepl-gui-native --features window`、`node nodesrc/test_native_gui_platform_behavior.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-native-platform-behavior.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。playground editor JSON は 13/13 pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は GUI / native 関連 regression を含めて通過したが、origin/main 側の resource/parser/diagnostic/builder/print_i32 系の非 GUI warning が 8 件残る。
+- 実装後の subagent review は `MERGE_APPROVED`。blocking finding は無く、Zenn 記事と GUI/TUI substrate 方針に反していないと判定された。非 blocking 推奨に合わせて、top / bottom letterbox、unavailable surface、negative / non-finite pointer の mapping regression を追加した。
+- 追加後の focused 検証: `cargo test -p nepl-gui-native --lib` は 10/10 pass。`cargo test -p nepl-gui-native --features window --no-run` と `node nodesrc/test_native_gui_platform_behavior.js` も pass。
 
 # 2026-06-02 RPN print_i32 allocation-free cold base checkpoint
 

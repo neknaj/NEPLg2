@@ -3699,6 +3699,10 @@ RPN proof-backed cold base static check after pass snapshots
 `resource_initialized_raw_init_summaries=58ms`、`resource_initialized_function_checks=51ms`、
 `resource_owner_obligations=50ms` である。
 
+`origin/main` merge と release CLI 再ビルド後は compiler identity が変わったため、古い `.neplproof`
+artifact は fail-closed に拒否された。新しい release binary 用に専用 proof cache を bootstrap し直した後の
+preseed 5 run は `resource_static_check=408ms / 359ms / 362ms / 361ms / 412ms`、中央値 `362ms` である。
+
 これにより Resource static check stage は 0.5 秒未満に入った。一方で native CLI の wall-clock は
 process 起動、loader、typecheck、artifact I/O、host 側 overhead を含むためまだ 0.5 秒未満ではない。
 次の base compile 改善は、bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface

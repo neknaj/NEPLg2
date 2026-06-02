@@ -635,6 +635,10 @@ generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirro
 `resource_owner_obligations=50ms` である。この再測定でも Resource static check stage は 0.5 秒未満だが、
 初回 proof generation と native CLI wall-clock は未達のため issue は open のまま維持する。
 
+`origin/main` merge と release CLI 再ビルド後は compiler identity が変わり、古い `.neplproof` は
+fail-closed に拒否された。新しい release binary 用に専用 proof cache を bootstrap し直した後の追加 5 run は
+`resource_static_check=408ms / 359ms / 362ms / 361ms / 412ms`、中央値 `362ms` である。
+
 ## 検証
 
 - `trunk build`
