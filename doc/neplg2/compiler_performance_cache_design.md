@@ -3149,6 +3149,80 @@ Resource proof を初回 compile 前から利用できる `.neplproof` preseed �
 `ResourceSummaryValueCache` を CLI `--check` に接続する試行は miss/store overhead だけが増えて
 悪化したため、persistent / bundled artifact なしの cache 接続は採用しない。
 
+## RPN release requirement state-step checkpoint
+
+2026-06-02 の follow-up では、`examples/rpn.nepl` の cold base を引き続き代表 workload とし、
+raw-init summary 内の release requirement collector を詳しく測定した。
+
+変更前の sequential baseline は `resource_static_check=5406ms / 5737ms / 5317ms`、
+`resource_initialized_moves=4414ms / 4583ms / 4245ms`、
+`resource_initialized_raw_init_summaries=2325ms / 2348ms / 2189ms` だった。
+`dealloc_raw` の op timing では、release requirement collector が nested `Branch` body を
+full `check_ops` で再実行しており、`branch count=15 total=1225ms max=319ms`、
+`call count=144 total=647ms max=162ms` が支配的だった。
+
+対応として、release requirement collector に control-flow state step を追加した。`Branch` と
+`Match` は nested body の release obligation を再帰的に収集しつつ、後続 sibling op に必要な
+`CellTable`、`CollectionSlotStateTable`、raw alias、function alias、pending realloc、variant
+initialization だけを実際の Resource check と同じ規則で軽く進める。これにより、release obligation
+収集と full state replay を重複させない。`CollectionSlotStateTable` は再帰呼び出しにも渡し、
+control value transfer が collection slot lifecycle proof を失わないようにした。
+
+あわせて、i32 scalar return fact の condition 収集に guard を入れた。raw alias 側に
+i32 value condition を証明できる source がない場合、parameter / return condition の全候補探索を
+行わない。直接定数と offset constant endpoint は保持するため、既存の condition proof 能力は
+削っていない。
+
+最終形の native release stage-only 3 run は次の通りである。
+
+| stage | baseline median | final run1 | final run2 | final run3 | final median |
+|---|---:|---:|---:|---:|---:|
+| `resource_typecheck` | 160ms | 167ms | 148ms | 160ms | 160ms |
+| `resource_initialized_i32_scalar_summaries` | 1104ms | 1116ms | 997ms | 1076ms | 1076ms |
+| `resource_initialized_raw_init_summaries` | 2325ms | 918ms | 821ms | 935ms | 918ms |
+| `resource_initialized_function_checks` | 922ms | 849ms | 765ms | 833ms | 833ms |
+| `resource_initialized_moves` | 4414ms | 2958ms | 2648ms | 2917ms | 2917ms |
+| `resource_owner_obligations` | 929ms | 847ms | 824ms | 831ms | 831ms |
+| `resource_static_check` | 5406ms | 3941ms | 3595ms | 3878ms | 3878ms |
+
+今回の範囲では、baseline 中央値 `resource_static_check=5406ms` から `3878ms` へ約 28% 下がった。
+`resource_initialized_raw_init_summaries` は `2325ms` から `918ms` へ約 61% 下がり、今回の主効果は
+raw-init release requirement の control-flow replay 削減である。
+
+最終形の per-function timing は次の階層で残る支配点を示している。
+
+```text
+RPN final hot spots
+  resource_initialized_i32_scalar_summaries=957ms
+    sb_append_non_empty_result: 269ms
+    byte_builder_reserve: 156ms
+    byte_builder_push_bytes_ref: 96ms
+    apply_op: 91ms
+    byte_builder_push_u8: 82ms
+  resource_initialized_raw_init_summaries=943ms
+    apply_op: 189ms
+    dealloc_raw: 164ms
+    byte_builder_push_bytes_ref: 64ms
+    byte_builder_reserve: 49ms
+    vec_cleanup_copy_initialized_prefix: 29ms
+  resource_initialized_function_checks=838ms
+    dealloc_raw: 162ms
+    parse_u128_radix_digits_from: 97ms
+    apply_op: 93ms
+    str_slice_result: 45ms
+    eval_line: 41ms
+```
+
+`dealloc_raw` の最終 op timing では `branch count=6 total=288ms max=152ms`、
+`call count=86 total=194ms max=75ms` になった。初期測定の `branch total=1225ms`、
+`call total=647ms` からは大きく下がったが、Branch / call はまだ `dealloc_raw` raw-init summary の
+主要部分である。
+
+この checkpoint でも RPN cold base は 0.5 秒未満に届いていない。次の根本対応は、
+`sb_append_non_empty_result` / ByteBuilder 系の i32 scalar condition proof の探索空間削減、
+`dealloc_raw` / `apply_op` / Stack owner flow の Resource proof template 化、bundled / persistent
+`.neplproof` preseed である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

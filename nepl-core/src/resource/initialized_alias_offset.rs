@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use super::model::Place;
+use super::model::{Place, PlaceRoot};
 use super::place_utils::{place_suffix_after_prefix, replace_place_prefix};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +18,13 @@ pub(super) struct I32OffsetFacts {
 }
 
 impl I32OffsetFacts {
+    pub(super) fn has_i32_constant_endpoint(&self) -> bool {
+        self.facts.iter().any(|fact| {
+            matches!(fact.source.root, PlaceRoot::I32Constant(_))
+                || matches!(fact.target.root, PlaceRoot::I32Constant(_))
+        })
+    }
+
     pub(super) fn set_offsets_for_target(
         &mut self,
         sources: Vec<Place>,

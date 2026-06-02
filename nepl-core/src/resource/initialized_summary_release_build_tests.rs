@@ -9,8 +9,9 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::initialized_summary::RawCellReleaseRequirementKind;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::model::{
-    Place, PlaceProjection, RawAddressViewKind, ResourceBlock, ResourceBlockId, ResourceFunction,
-    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceTerminator,
+    Place, PlaceProjection, RawAddressViewKind, ResourceBlock, ResourceBlockId, ResourceExprKind,
+    ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
+    ResourceModule, ResourceOffset, ResourceOp, ResourceTerminator,
 };
 
 #[test]
@@ -69,6 +70,284 @@ fn release_summary_keeps_requirements_for_registered_raw_pointer_fields() {
         .any(|requirement| {
             requirement.param_index == 0
                 && requirement.kind == RawCellReleaseRequirementKind::BulkSource
+                && matches!(
+                    requirement.suffix.as_slice(),
+                    [PlaceProjection::Field {
+                        index: 0,
+                        offset_bytes: 0
+                    }]
+                )
+        }));
+}
+
+#[test]
+fn branch_release_summary_uses_merged_branch_output_alias() {
+    let mut types = TypeCtx::new();
+    types.register_copy_impl_target(types.bool());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.unit());
+    let mem_ptr = memory_struct(&mut types, CompilerMemoryType::RawPointer);
+    let source = Place::local("source".to_string(), mem_ptr);
+    let condition = Place::local("condition".to_string(), types.bool());
+    let size = Place::local("size".to_string(), types.i32());
+    let raw_source = source.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        types.i32(),
+    );
+    let then_raw = Place::temporary(ResourceId(0), types.i32());
+    let else_raw = Place::temporary(ResourceId(1), types.i32());
+    let branch_raw = Place::temporary(ResourceId(2), types.i32());
+    let raw_release = Place::temporary(ResourceId(3), types.unit());
+    let function = ResourceFunction {
+        name: "branch_release".to_string(),
+        origin_name: "branch_release".to_string(),
+        type_params: Vec::new(),
+        params: vec![
+            ResourceLocal {
+                name: "source".to_string(),
+                ty: source.ty,
+                mutable: false,
+                place: source,
+            },
+            ResourceLocal {
+                name: "condition".to_string(),
+                ty: condition.ty,
+                mutable: false,
+                place: condition.clone(),
+            },
+            ResourceLocal {
+                name: "size".to_string(),
+                ty: size.ty,
+                mutable: false,
+                place: size.clone(),
+            },
+        ],
+        result: types.unit(),
+        effect: Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![
+                ResourceOp::Branch {
+                    output: branch_raw.clone(),
+                    condition,
+                    condition_fact: None,
+                    then_ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::LiteralI32(0),
+                            output: then_raw.clone(),
+                            ty: types.i32(),
+                            span: Span::dummy(),
+                        },
+                        ResourceOp::RawAddressView {
+                            source: raw_source.clone(),
+                            target: then_raw.clone(),
+                            kind: RawAddressViewKind::NonOwningProjection,
+                            span: Span::dummy(),
+                        },
+                    ],
+                    then_value: then_raw,
+                    else_ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::LiteralI32(0),
+                            output: else_raw.clone(),
+                            ty: types.i32(),
+                            span: Span::dummy(),
+                        },
+                        ResourceOp::RawAddressView {
+                            source: raw_source,
+                            target: else_raw.clone(),
+                            kind: RawAddressViewKind::NonOwningProjection,
+                            span: Span::dummy(),
+                        },
+                    ],
+                    else_value: else_raw,
+                    span: Span::dummy(),
+                },
+                ResourceOp::RawMemory {
+                    operation: RawMemoryOp::Dealloc,
+                    output: raw_release,
+                    args: vec![branch_raw, size],
+                    span: Span::dummy(),
+                },
+            ],
+            terminator: ResourceTerminator::Return {
+                value: None,
+                span: Span::dummy(),
+            },
+            span: Span::dummy(),
+        }],
+        span: Span::dummy(),
+    };
+    let summaries = compute_raw_cell_initialization_function_summaries(
+        &module(function),
+        &types,
+        &[],
+        &[],
+        None,
+        None,
+    );
+    let summary = summaries
+        .iter()
+        .find(|summary| summary.function == "branch_release")
+        .expect("branch output alias should make the release summary relevant");
+
+    assert!(summary
+        .param_release_requirements
+        .iter()
+        .any(|requirement| {
+            requirement.param_index == 0
+                && requirement.kind == RawCellReleaseRequirementKind::Dealloc
+                && matches!(
+                    requirement.suffix.as_slice(),
+                    [PlaceProjection::Field {
+                        index: 0,
+                        offset_bytes: 0
+                    }]
+                )
+        }));
+}
+
+#[test]
+fn match_release_summary_uses_merged_match_output_alias() {
+    let mut types = TypeCtx::new();
+    types.register_copy_impl_target(types.bool());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.unit());
+    let mem_ptr = memory_struct(&mut types, CompilerMemoryType::RawPointer);
+    let source = Place::local("source".to_string(), mem_ptr);
+    let scrutinee = Place::local("scrutinee".to_string(), types.bool());
+    let size = Place::local("size".to_string(), types.i32());
+    let raw_source = source.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        types.i32(),
+    );
+    let true_raw = Place::temporary(ResourceId(0), types.i32());
+    let false_raw = Place::temporary(ResourceId(1), types.i32());
+    let match_raw = Place::temporary(ResourceId(2), types.i32());
+    let raw_release = Place::temporary(ResourceId(3), types.unit());
+    let function = ResourceFunction {
+        name: "match_release".to_string(),
+        origin_name: "match_release".to_string(),
+        type_params: Vec::new(),
+        params: vec![
+            ResourceLocal {
+                name: "source".to_string(),
+                ty: source.ty,
+                mutable: false,
+                place: source,
+            },
+            ResourceLocal {
+                name: "scrutinee".to_string(),
+                ty: scrutinee.ty,
+                mutable: false,
+                place: scrutinee.clone(),
+            },
+            ResourceLocal {
+                name: "size".to_string(),
+                ty: size.ty,
+                mutable: false,
+                place: size.clone(),
+            },
+        ],
+        result: types.unit(),
+        effect: Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![
+                ResourceOp::Match {
+                    output: match_raw.clone(),
+                    scrutinee,
+                    scrutinee_is_borrow_target: false,
+                    arms: vec![
+                        ResourceMatchArm {
+                            pattern: ResourceMatchPattern::BoolLiteral(true),
+                            bind_local: None,
+                            bind_source_name: None,
+                            bind_mode: None,
+                            ops: vec![
+                                ResourceOp::Expr {
+                                    kind: ResourceExprKind::LiteralI32(0),
+                                    output: true_raw.clone(),
+                                    ty: types.i32(),
+                                    span: Span::dummy(),
+                                },
+                                ResourceOp::RawAddressView {
+                                    source: raw_source.clone(),
+                                    target: true_raw.clone(),
+                                    kind: RawAddressViewKind::NonOwningProjection,
+                                    span: Span::dummy(),
+                                },
+                            ],
+                            value: true_raw,
+                            span: Span::dummy(),
+                        },
+                        ResourceMatchArm {
+                            pattern: ResourceMatchPattern::BoolLiteral(false),
+                            bind_local: None,
+                            bind_source_name: None,
+                            bind_mode: None,
+                            ops: vec![
+                                ResourceOp::Expr {
+                                    kind: ResourceExprKind::LiteralI32(0),
+                                    output: false_raw.clone(),
+                                    ty: types.i32(),
+                                    span: Span::dummy(),
+                                },
+                                ResourceOp::RawAddressView {
+                                    source: raw_source,
+                                    target: false_raw.clone(),
+                                    kind: RawAddressViewKind::NonOwningProjection,
+                                    span: Span::dummy(),
+                                },
+                            ],
+                            value: false_raw,
+                            span: Span::dummy(),
+                        },
+                    ],
+                    span: Span::dummy(),
+                },
+                ResourceOp::RawMemory {
+                    operation: RawMemoryOp::Dealloc,
+                    output: raw_release,
+                    args: vec![match_raw, size],
+                    span: Span::dummy(),
+                },
+            ],
+            terminator: ResourceTerminator::Return {
+                value: None,
+                span: Span::dummy(),
+            },
+            span: Span::dummy(),
+        }],
+        span: Span::dummy(),
+    };
+    let summaries = compute_raw_cell_initialization_function_summaries(
+        &module(function),
+        &types,
+        &[],
+        &[],
+        None,
+        None,
+    );
+    let summary = summaries
+        .iter()
+        .find(|summary| summary.function == "match_release")
+        .expect("match output alias should make the release summary relevant");
+
+    assert!(summary
+        .param_release_requirements
+        .iter()
+        .any(|requirement| {
+            requirement.param_index == 0
+                && requirement.kind == RawCellReleaseRequirementKind::Dealloc
                 && matches!(
                     requirement.suffix.as_slice(),
                     [PlaceProjection::Field {

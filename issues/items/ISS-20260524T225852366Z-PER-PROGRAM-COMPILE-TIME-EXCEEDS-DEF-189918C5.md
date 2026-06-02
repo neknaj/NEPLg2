@@ -320,6 +320,40 @@ i32 scalar summary だった。filtered sequential timing では `dealloc_raw` r
 局所構造改善だけではなく、raw-init release requirement の control-flow replay と stdlib-heavy
 Resource proof を `.neplproof` persistent / bundled preseed へ移す必要がある。
 
+2026-06-02 の RPN release requirement state-step checkpoint では、raw-init release requirement
+collector が `Branch` / `Match` body を obligation 収集と full `check_ops` replay の両方で重複して
+歩いていたことを確認した。初期計測では `dealloc_raw` の op timing が `branch count=15 total=1225ms`
+と `call count=144 total=647ms` に偏っていた。
+
+対応として、release requirement collector に `Branch` / `Match` 専用の state step を追加した。
+nested body の release obligation は再帰で収集し、後続 sibling op に必要な `CellTable`、
+`CollectionSlotStateTable`、raw alias、function alias、pending realloc、variant initialization だけを
+実際の Resource check と同じ転送規則で進める。これにより、検査規則を弱めずに raw-init summary の
+control-flow replay を削減した。`CollectionSlotStateTable` は再帰にも渡し、control value transfer が
+collection slot lifecycle proof を失わないようにした。
+
+あわせて i32 scalar return fact 収集では、raw alias 側に i32 value condition を証明できる source が
+ない場合に parameter / return condition の全候補探索を省く guard を追加した。直接定数と offset
+constant endpoint は保持するため、既存の condition proof 能力は維持している。
+
+最終形の native release RPN stage-only 3 run は `resource_static_check=3941ms / 3595ms / 3878ms`、
+`resource_initialized_moves=2958ms / 2648ms / 2917ms`、
+`resource_initialized_raw_init_summaries=918ms / 821ms / 935ms`、
+`resource_initialized_i32_scalar_summaries=1116ms / 997ms / 1076ms`、
+`resource_initialized_function_checks=849ms / 765ms / 833ms`、
+`resource_owner_obligations=847ms / 824ms / 831ms` だった。baseline median `resource_static_check=5406ms`
+から final median `3878ms` へ約 28% 下がり、raw-init summary median は `2325ms` から `918ms` へ下がった。
+
+最終形の hotspot は、i32 scalar summary では `sb_append_non_empty_result=269ms`、
+`byte_builder_reserve=156ms`、`byte_builder_push_bytes_ref=96ms`、raw-init summary では
+`apply_op=189ms`、`dealloc_raw=164ms`、function check では `dealloc_raw=162ms`、
+`parse_u128_radix_digits_from=97ms`、`apply_op=93ms` である。`dealloc_raw` の最終 op timing は
+`branch count=6 total=288ms`、`call count=86 total=194ms` まで下がった。
+
+この checkpoint でも issue は解決しない。RPN cold base はまだ 0.5 秒未満ではなく、次の根本対応は
+ByteBuilder / StringBuilder 系 i32 scalar condition proof の探索空間削減、`dealloc_raw` / `apply_op`
+/ Stack owner flow の Resource proof template 化、bundled / persistent `.neplproof` preseed である。
+
 ## 検証
 
 - `trunk build`

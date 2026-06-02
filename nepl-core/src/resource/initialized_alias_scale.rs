@@ -18,6 +18,10 @@ pub(super) struct I32ScaleFacts {
 }
 
 impl I32ScaleFacts {
+    pub(super) fn has_facts(&self) -> bool {
+        !self.facts.is_empty()
+    }
+
     pub(super) fn set_scales_for_target(
         &mut self,
         sources: Vec<Place>,

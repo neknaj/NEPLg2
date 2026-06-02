@@ -4,7 +4,7 @@ use alloc::vec;
 use crate::types::TypeCtx;
 
 use super::super::initialized_alias::RawCellAddressAliases;
-use super::super::model::{Place, ResourceI32RelationOp};
+use super::super::model::{I32ValueCondition, Place, ResourceI32RelationOp, ResourceLocal};
 use super::super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::*;
 
@@ -101,5 +101,82 @@ fn i32_return_facts_preserve_offset_derived_equal_leaf_relations() {
                 && relation.right_return_projection == leaves[1].suffix
         }),
         "offset graph から導出できる戻り値 leaf の等価 relation が summary に保存される必要がある"
+    );
+}
+
+/// 引数 leaf に対して既に成立している i32 condition は、呼び出し元へ戻す
+/// parameter condition として保存する。
+///
+/// condition 探索には高速化のための前提判定があるため、直接条件が存在する
+/// 経路で parameter condition を落とさないことを確認する。
+#[test]
+fn i32_return_facts_preserve_direct_parameter_conditions() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let param = ResourceLocal {
+        name: String::from("value"),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local(String::from("value"), i32_ty),
+    };
+    let returned_value = Place::local(String::from("out"), i32_ty);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.add_i32_condition(&param.place, I32ValueCondition::NonNegative);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix(
+        &[param.clone()],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+    );
+
+    assert!(
+        facts.parameter_conditions.iter().any(|condition| {
+            condition.parameter_index == 0
+                && condition.parameter_projection.is_empty()
+                && condition.condition == I32ValueCondition::NonNegative
+        }),
+        "直接記録された引数 condition は summary に保存される必要がある"
+    );
+}
+
+/// literal から offset graph で導ける引数 condition も、直接条件と同じく
+/// parameter condition として保存する。
+///
+/// condition 探索の短絡は、i32 fact table が空でも offset が literal に到達する
+/// ケースを安全側に残す必要がある。
+#[test]
+fn i32_return_facts_preserve_offset_constant_parameter_conditions() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let param = ResourceLocal {
+        name: String::from("value"),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local(String::from("value"), i32_ty),
+    };
+    let returned_value = Place::local(String::from("out"), i32_ty);
+    let zero = Place::i32_constant(0, i32_ty);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.add_i32_offset(&zero, &param.place, 1);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix(
+        &[param.clone()],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+    );
+
+    assert!(
+        facts.parameter_conditions.iter().any(|condition| {
+            condition.parameter_index == 0
+                && condition.parameter_projection.is_empty()
+                && condition.condition == I32ValueCondition::Positive
+        }),
+        "literal 起点の offset から導ける引数 condition は summary に保存される必要がある"
     );
 }

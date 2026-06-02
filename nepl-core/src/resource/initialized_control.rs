@@ -606,7 +606,7 @@ impl ResourceCheckEngine<'_> {
         }
     }
 
-    fn apply_branch_condition_fact(
+    pub(super) fn apply_branch_condition_fact(
         &mut self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
@@ -618,7 +618,7 @@ impl ResourceCheckEngine<'_> {
         self.apply_realloc_condition_fact(cells, raw_aliases, pending_reallocs, fact, truthy_path);
     }
 
-    fn place_is_never(&self, place: &Place) -> bool {
+    pub(super) fn place_is_never(&self, place: &Place) -> bool {
         matches!(
             self.types.get_ref(self.types.resolve_id(place.ty)),
             TypeKind::Never
@@ -626,7 +626,7 @@ impl ResourceCheckEngine<'_> {
     }
 }
 
-fn path_alternatives_or_single(
+pub(super) fn path_alternatives_or_single(
     path_alternatives: ResourcePathAlternatives,
     cells: CellTable,
     collection_slots: CollectionSlotStateTable,
@@ -652,7 +652,7 @@ fn path_alternatives_or_single(
     }
 }
 
-fn invalidate_control_output_path_states(
+pub(super) fn invalidate_control_output_path_states(
     alternatives: &mut ResourcePathAlternatives,
     output: &Place,
 ) {
@@ -673,7 +673,7 @@ fn invalidate_control_output_path_states(
     }
 }
 
-fn invalidate_control_output_state(
+pub(super) fn invalidate_control_output_state(
     cells: &mut CellTable,
     raw_aliases: &mut RawCellAddressAliases,
     function_aliases: &mut FunctionAliasTable,
