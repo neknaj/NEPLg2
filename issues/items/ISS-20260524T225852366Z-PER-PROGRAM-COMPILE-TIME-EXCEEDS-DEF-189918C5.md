@@ -724,6 +724,28 @@ stage timing 付き 5 run の中央値付近は `loader_load=377.565ms`、`check
 bundled stdlib `.neplmeta` / typed interface artifact を接続して stdlib body merge と依存先再 typecheck を
 避けることである。
 
+2026-06-02 の RPN direct import / root source single-read checkpoint では、`examples/rpn.nepl` の
+数値演算 import を `core/math` facade から実際に使う `core/math/i32` へ狭めた。これは compiler 側の
+0.5 秒未満達成ではなく、代表 workload の dependency surface を実需要に合わせる整理である。
+
+併せて `Loader::load` の entry source 二重読み取りをやめ、public module surface 作成と通常 load が
+同じ canonical source snapshot を共有するようにした。RPN では `read_file` 自体は支配点ではないため、
+この変更は小さいが、native `.neplmeta` / typed interface materialization 前の loader 境界を単純にする。
+
+同 branch 上の直前 baseline は no-stage median `968.599ms`、stage median は `loader_load=380.185ms`、
+`check_pipeline=576.847ms`、`resource_typecheck=148ms`、`resource_static_check=394ms` だった。
+最終 no-stage 10 run は `953.505ms / 896.248ms / 894.861ms / 876.222ms / 865.402ms /
+924.871ms / 862.790ms / 872.495ms / 928.304ms / 867.538ms`、中央値 `885.542ms` である。
+stage timing 付き 5 run の中央値は `loader_load=357.711ms`、`check_pipeline=569.216ms`、
+`resource_typecheck=141ms`、`resource_static_check=396ms`、`resource_initialized_moves=235ms` だった。
+
+check cache が有効な測定では 2 回目以降が `18ms` 台になるが、これは exact `.neplcheck` hit であり
+base compile 目標の比較値ではない。今回の最新値でも `loader_load` 約 `0.36s` と
+`resource_static_check` 約 `0.40s` が残るため、この issue は open のまま維持する。次の focused issue は
+[ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD](./ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD.md)
+であり、native CLI `--check` が依存 module body を読み込む前に `.neplmeta` / typed public interface を
+fail-closed に materialize できるようにする。
+
 ## 検証
 
 - `trunk build`

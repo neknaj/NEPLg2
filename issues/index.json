@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-02T12:43:18.019Z",
+  "generated_at": "2026-06-02T13:41:18.438Z",
   "counts": {
-    "total": 1307,
-    "open": 32,
+    "total": 1308,
+    "open": 33,
     "resolved": 1275,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 662,
-        "open": 25,
+        "total": 663,
+        "open": 26,
         "resolved": 637
       },
       "neplg21": {
@@ -488,6 +488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md"
+    },
+    {
+      "id": "ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD",
+      "title": "Native check should use pre-typecheck interface artifacts before loading stdlib bodies",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-06-02",
+      "updated": "2026-06-02",
+      "target": "nepl-core/src/loader.rs; nepl-core/src/compiler.rs; nepl-cli/src/main.rs; nepl-core/src/artifact.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",

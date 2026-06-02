@@ -1159,17 +1159,24 @@ impl Loader {
     }
 
     pub fn load(&mut self, entry: &PathBuf) -> Result<LoadResult, LoaderError> {
-        let module_surface = match read_file_to_string(&canonicalize_path(entry)) {
-            Ok(source) => Some(self.nepl_meta_module_surface_for_source(entry, &source, None)),
-            Err(_) => None,
-        };
+        let canonical_entry = canonicalize_path(entry);
         let mut sm = SourceMap::new();
+        let entry_source = match read_file_to_string(&canonical_entry) {
+            Ok(source) => source,
+            Err(e) => {
+                self.source_map = sm.clone();
+                return Err(e);
+            }
+        };
+        let module_surface =
+            Some(self.nepl_meta_module_surface_for_source(&canonical_entry, &entry_source, None));
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let mut shallow_type_arity_cache = BTreeMap::new();
-        let module = match self.load_file(
-            entry,
+        let module = match self.load_from_contents(
+            canonical_entry,
+            entry_source,
             &mut sm,
             &mut cache,
             &mut processing,
