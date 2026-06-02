@@ -3543,6 +3543,12 @@ RPN cold base static check after allocation-free print_i32
   reachable functions: 271 kept=268
 ```
 
+`origin/main` `c3066b8a` を merge した後の current tree では、
+`resource_static_check=1433ms / 1535ms / 1504ms / 1460ms / 1500ms`、中央値 `1500ms` だった。
+階層中央値は `resource_initialized_moves=1013ms`、`resource_initialized_i32_scalar_summaries=194ms`、
+`resource_initialized_raw_init_summaries=355ms`、`resource_initialized_function_checks=435ms`、
+`resource_owner_obligations=383ms` である。
+
 これは compile check を skip する最適化ではなく、RPN が不要な stdlib formatting 実装を reachable
 closure に含めないようにする構造改善である。0.5 秒未満目標にはまだ届いていないため、次の根本対応は
 actual `.neplproof` preseed、stdlib proof template、owner return summary stable mirror である。

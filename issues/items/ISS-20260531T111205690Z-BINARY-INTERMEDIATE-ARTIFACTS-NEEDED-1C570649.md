@@ -781,7 +781,8 @@ regression を起こさず、accepted usable entry を持つ artifact だけを 
 由来の StringBuilder / ByteBuilder proof graph を error path と整数表示のために引き込んでいたため、
 `print_i32` を digit byte 直接出力に変え、RPN の stack count error も文字列連結から直接出力へ変えた。
 native release RPN stage-only 5 run の median は `resource_static_check=2922ms -> 1539ms`、到達関数は
-`307 kept=304 -> 271 kept=268` へ下がった。
+`307 kept=304 -> 271 kept=268` へ下がった。`origin/main` `c3066b8a` merge 後の current tree では
+`resource_static_check` median は `1500ms` だった。
 
 ただし、この改善は reachable stdlib graph を小さくする局所構造改善であり、binary intermediate artifact
 の完了ではない。RPN cold base はまだ 0.5 秒未満ではなく、final initialized pass、owner obligation、
