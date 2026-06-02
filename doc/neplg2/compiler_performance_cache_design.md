@@ -3835,6 +3835,62 @@ RPN proof-backed native wall-clock after shallow arity path snapshot
 check 専用の public interface + Resource proof summary 境界、または `.neplobj` body fragment 併用を
 設計してから native CLI に接続することである。
 
+2026-06-02 の raw-alias proof dependency / raw pointer identity filter checkpoint では、RPN cold base
+を `examples/rpn.nepl` に固定し、cache に頼るだけでなく Resource summary 固定点の探索範囲そのものを
+縮小した。raw pointer / raw identity return summary は、結果型が raw pointer alias または raw identity
+projection を保持できる関数だけを worklist に入れる。scalar-only signature は除外するが、aggregate、
+reference、box など、戻り値から raw identity が観測され得る carrier は残す。
+
+raw-alias summary は、以前の checkpoint では `.neplproof` replay が再計算より高く、native disk-backed
+経路で明示的に無効化していた。今回、raw-alias 用の dependency view を shared summary dependency から
+分離した。raw-alias summary が実際に読むのは direct call と、同じ関数内に indirect call がある場合に
+callable value として流れ得る関数だけである。単に function value を作るだけの facade / constructor
+helper は raw alias summary を消費しないため、dependency closure hash と pass replay probe の対象から外せる。
+この専用依存グラフにより、RPN の preseed run では raw-alias recomputation が `82 -> 0` になり、
+以前の `590-640ms` 台の replay 悪化は再現しなかった。そのため native disk-backed `.neplproof` でも
+raw-alias stable entry collection を再有効化した。
+
+最終 release CLI で専用 `.neplproof` cache を bootstrap し直した RPN proof-backed run は次の通りである。
+exact `.neplcheck` は無効化し、`.neplproof` preseed と loader/check pipeline の実時間を測っている。
+
+```text
+RPN proof-backed native wall-clock after raw-alias dependency filtering
+  no stage timing:
+    runs: 938.085ms / 930.487ms / 926.397ms / 931.507ms / 926.388ms /
+          932.914ms / 872.149ms / 918.265ms / 925.630ms / 935.201ms
+    median: 928.442ms
+
+  stage timing enabled:
+    wall-clock runs: 966.541ms / 955.479ms / 904.968ms / 943.314ms / 879.269ms
+    wall-clock median: 943.314ms
+    loader_load: 348.337-402.651ms
+    check_pipeline: 522.908-569.938ms
+      resource_typecheck: 128-145ms
+      resource_static_check: 366-401ms
+        resource_initialized_moves: 219ms near median run
+          resource_initialized_raw_alias_summaries: 58ms
+            raw_alias recomputations: 0, summaries: 40
+            raw_alias relevant functions: 82
+          resource_initialized_i32_scalar_summaries: 57ms
+          resource_initialized_raw_init_summaries: 55ms
+            raw_init relevant functions: 135
+            raw_init dependency edges: 716
+          resource_initialized_function_checks: 49ms
+        resource_borrow_lifetimes: 24ms
+        resource_effect_boundaries: 32ms
+          raw_pointer recomputations: 88, summaries: 29
+          raw_identity recomputations: 99, summaries: 36
+        resource_owner_obligations: 52ms
+```
+
+この checkpoint は no-stage median を shallow arity path snapshot 後の `905.472ms` から一気に下げるものでは
+なかった。測定環境を揃えた直前 baseline では no-stage median `1013.481ms` で、今回の final median
+`928.442ms` は約 `85ms` の改善である。0.5 秒未満目標にはまだ届かないため issue は open のまま維持する。
+残る支配点は `loader_load` 約 `0.35-0.40s`、`resource_typecheck` 約 `0.13-0.15s`、および
+`resource_initialized_moves` 内の proof replay / final function check である。次は native CLI `--check`
+を bundled stdlib `.neplmeta` / typed interface artifact に接続し、stdlib body merge と依存先再 typecheck を
+避ける設計を進める。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

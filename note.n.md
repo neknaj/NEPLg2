@@ -1,3 +1,16 @@
+# 2026-06-02 RPN raw-alias proof dependency / raw pointer identity filter checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針とパフォーマンス方針に従い、RPN cold base の改善を cache policy だけでなく Resource summary 固定点の探索範囲削減として進めた。
+- subagent 調査では、loader 側は依存 module body merge / public surface hash 境界、Resource 側は raw pointer / identity return summary の全関数固定点と raw-alias summary の過剰な dependency view が支配点として確認された。
+- raw pointer return summary は、結果型が raw pointer alias summary を保持できる関数だけを worklist に入れるようにした。raw identity return summary も、結果型 projection が raw identity summary を必要とする関数だけを relevant にした。RPN preseed では raw pointer recomputations が `268 -> 88`、raw identity recomputations が `268 -> 99` になった。
+- raw-alias summary は shared dependency graph ではなく専用 dependency view を使うようにした。direct call は保持し、function value は同じ関数内に indirect call がある場合だけ dependency にする。単に callable value を生成する facade / constructor helper は raw-alias summary を消費しないため、dependency closure と replay probe から外せる。
+- 以前は native disk-backed `.neplproof` で raw-alias entry replay が再計算より高く `disable_raw_alias_return_entry_collection` を使っていたが、専用依存グラフでは RPN preseed の raw-alias recomputations が `82 -> 0` になり、過去の `590-640ms` 台 replay 悪化は再現しなかった。そのため CLI の raw-alias proof collection 無効化を外した。
+- `NEPL_LOADER_STAGE_TIMING=1` により native loader 内の `read_file`、`source_map_add`、`imported_type_arity_hints`、`parse_module`、`source_capabilities`、`process_directives`、`cache_store_module_clone` を測れるようにした。通常 run では `OnceLock` で環境変数確認の固定費を抑える。
+- RPN final no-stage 10 run は `938.085ms / 930.487ms / 926.397ms / 931.507ms / 926.388ms / 932.914ms / 872.149ms / 918.265ms / 925.630ms / 935.201ms`、中央値 `928.442ms`。測定条件を揃えた直前 baseline の中央値 `1013.481ms` から約 `85ms` 改善した。
+- RPN final stage 5 run は wall-clock 中央値 `943.314ms`。階層中央値付近は `loader_load=377.565ms`、`check_pipeline=548.099ms`、`resource_typecheck=139ms`、`resource_static_check=372ms`、`resource_initialized_moves=219ms`、`resource_initialized_raw_alias_summaries=58ms`、`resource_initialized_i32_scalar_summaries=57ms`、`resource_initialized_raw_init_summaries=55ms`、`resource_initialized_function_checks=49ms`、`resource_effect_boundaries=32ms`、`resource_owner_obligations=52ms`。
+- 0.5 秒未満目標にはまだ届かない。次の支配点は `loader_load` 約 `0.35-0.40s` と `resource_typecheck` 約 `0.13-0.15s` であり、bundled stdlib `.neplmeta` / typed interface artifact を native CLI `--check` に接続して stdlib body merge と依存先再 typecheck を避ける設計が必要である。
+- focused verification は `cargo test -p nepl-core resource::summary_dependency::tests --lib -- --nocapture`、`cargo check -p nepl-cli`、`cargo build -p nepl-cli --release`、RPN `.neplproof` bootstrap / preseed stage/no-stage 測定を通した。commit 前に full core test、issues check、diff check を再実行する。
+
 # 2026-06-02 Agent2 Rust language-service highlight ranges checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の静的検査活用、platform 境界、`null` / `undefined` を境界で閉じる方針を再確認し、Web Playground editor の syntax highlight を DOM / Canvas 側の推測ではなく Rust compiler analysis payload から決める方向へ寄せた。

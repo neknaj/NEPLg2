@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::vec::Vec;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
@@ -29,7 +30,8 @@ pub(super) fn compute_raw_identity_return_summaries(
     pointer_summaries: &[RawPointerReturnSummary],
     types: Option<&TypeCtx>,
 ) -> Vec<RawIdentityReturnSummary> {
-    let mut worklist = SummaryWorklist::new(module);
+    let relevant_functions = raw_identity_return_summary_relevant_functions(module, types);
+    let mut worklist = SummaryWorklist::new_filtered(module, relevant_functions.clone());
     let mut summaries = Vec::new();
     let pointer_summary_index = RawPointerReturnSummaryIndex::new(pointer_summaries);
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
@@ -54,8 +56,37 @@ pub(super) fn compute_raw_identity_return_summaries(
             worklist.recomputations(),
             summaries.len()
         );
+        std::eprintln!(
+            "[compile-stage] resource_raw_identity_summary_relevant_functions={}",
+            relevant_functions
+                .iter()
+                .filter(|is_relevant| **is_relevant)
+                .count()
+        );
     }
     summaries
+}
+
+fn raw_identity_return_summary_relevant_functions(
+    module: &ResourceModule,
+    types: Option<&TypeCtx>,
+) -> Vec<bool> {
+    let Some(types) = types else {
+        return vec![true; module.functions.len()];
+    };
+    module
+        .functions
+        .iter()
+        .map(|function| {
+            let returned = Place::temporary(super::model::ResourceId(usize::MAX), function.result);
+            raw_identity_return_projection_requires_summary(
+                Some(types),
+                &returned,
+                &[],
+                function.result,
+            )
+        })
+        .collect()
 }
 
 fn function_raw_identity_return_summary(

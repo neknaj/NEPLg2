@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::vec::Vec;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
@@ -26,7 +27,8 @@ pub(super) fn compute_raw_pointer_return_summaries(
     module: &ResourceModule,
     types: Option<&TypeCtx>,
 ) -> Vec<RawPointerReturnSummary> {
-    let mut worklist = SummaryWorklist::new(module);
+    let relevant_functions = raw_pointer_return_summary_relevant_functions(module, types);
+    let mut worklist = SummaryWorklist::new_filtered(module, relevant_functions.clone());
     let mut summaries = Vec::new();
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
@@ -49,8 +51,29 @@ pub(super) fn compute_raw_pointer_return_summaries(
             worklist.recomputations(),
             summaries.len()
         );
+        std::eprintln!(
+            "[compile-stage] resource_raw_pointer_summary_relevant_functions={}",
+            relevant_functions
+                .iter()
+                .filter(|is_relevant| **is_relevant)
+                .count()
+        );
     }
     summaries
+}
+
+fn raw_pointer_return_summary_relevant_functions(
+    module: &ResourceModule,
+    types: Option<&TypeCtx>,
+) -> Vec<bool> {
+    let Some(types) = types else {
+        return vec![true; module.functions.len()];
+    };
+    module
+        .functions
+        .iter()
+        .map(|function| type_can_carry_raw_pointer_alias_summary(types, function.result))
+        .collect()
 }
 
 fn function_raw_pointer_return_summary(

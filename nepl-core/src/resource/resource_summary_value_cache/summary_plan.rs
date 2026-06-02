@@ -56,7 +56,7 @@ impl ResourceSummaryValueCache {
             context,
             types,
             module,
-            dependency_graph.dependents(),
+            dependency_graph.raw_alias_dependents(),
             relevant_functions,
         )
     }

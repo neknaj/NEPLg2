@@ -679,7 +679,6 @@ fn execute_inner(cli: Cli) -> Result<()> {
             .is_some_and(|cache| cache.has_preseed_bytes() || cache.should_bootstrap_on_miss());
         if use_proof_cache {
             let mut resource_summary_value_cache = ResourceSummaryValueCache::new();
-            resource_summary_value_cache.disable_raw_alias_return_entry_collection();
             let proof_options = match proof_cache
                 .as_ref()
                 .and_then(ResourceProofCacheProbe::preseed_bytes)

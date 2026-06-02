@@ -128,7 +128,7 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
                 types,
                 module,
                 &relevant_functions,
-                dependency_graph.dependencies(),
+                dependency_graph.raw_alias_dependencies(),
                 &mut initially_skipped_functions,
                 &mut preseeded_functions,
                 &mut summaries,
@@ -136,11 +136,12 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
             );
         }
     }
-    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph_and_initial_skips(
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_edges_and_initial_skips(
         module,
         relevant_functions.clone(),
         initially_skipped_functions,
-        dependency_graph,
+        dependency_graph.raw_alias_dependents(),
+        dependency_graph.raw_alias_initial_order(),
     );
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
@@ -168,7 +169,7 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
                 context,
                 types,
                 module,
-                dependency_graph.dependencies(),
+                dependency_graph.raw_alias_dependencies(),
                 &relevant_functions,
                 &candidate_skipped_functions,
                 &summaries,

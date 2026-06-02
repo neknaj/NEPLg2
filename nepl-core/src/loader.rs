@@ -37,6 +37,37 @@ macro_rules! loader_log {
     };
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn loader_stage_start() -> Option<std::time::Instant> {
+    loader_stage_timing_enabled().then(std::time::Instant::now)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn loader_stage_finish(stage: &str, path: &PathBuf, start: Option<std::time::Instant>) {
+    if let Some(start) = start {
+        std::eprintln!(
+            "[loader-stage] {}={}us path={}",
+            stage,
+            start.elapsed().as_micros(),
+            path.to_string_lossy()
+        );
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn loader_stage_timing_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| std::env::var_os("NEPL_LOADER_STAGE_TIMING").is_some())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn loader_stage_start() -> Option<()> {
+    None
+}
+
+#[cfg(target_arch = "wasm32")]
+fn loader_stage_finish(_stage: &str, _path: &PathBuf, _start: Option<()>) {}
+
 #[derive(Debug)]
 pub enum LoaderError {
     Io(String),
@@ -1319,13 +1350,18 @@ impl Loader {
             )));
         }
         loader_log!("[Loader] Loading file: {:?}", canon);
+        let stage_start = loader_stage_start();
         let src = read_file_to_string(&canon)?;
+        loader_stage_finish("read_file", &canon, stage_start);
+        let stage_start = loader_stage_start();
         let file_id = sm.add_with_capabilities(
             path_to_source_label(&canon),
             src.clone(),
             SourceCapabilities::none(),
         );
+        loader_stage_finish("source_map_add", &canon, stage_start);
         loader_log!("[Loader] Parsing module: {:?}", canon);
+        let stage_start = loader_stage_start();
         let type_arity_hints = self.imported_type_arity_hints(
             &canon,
             file_id,
@@ -1337,12 +1373,18 @@ impl Loader {
             shallow_type_arity_cache,
             is_root,
         )?;
+        loader_stage_finish("imported_type_arity_hints", &canon, stage_start);
+        let stage_start = loader_stage_start();
         let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
+        loader_stage_finish("parse_module", &canon, stage_start);
+        let stage_start = loader_stage_start();
         sm.set_capabilities(
             file_id,
             self.source_capabilities_for_module(&canon, &module),
         );
+        loader_stage_finish("source_capabilities", &canon, stage_start);
         loader_log!("[Loader] Processing directives for: {:?}", canon);
+        let stage_start = loader_stage_start();
         let module = self.process_directives(
             canon.clone(),
             module,
@@ -1353,9 +1395,12 @@ impl Loader {
             shallow_type_arity_cache,
             is_root,
         )?;
+        loader_stage_finish("process_directives", &canon, stage_start);
         loader_log!("[Loader] Finished loading: {:?}", canon);
         processing.remove(&canon);
+        let stage_start = loader_stage_start();
         cache.insert(canon.clone(), module.clone());
+        loader_stage_finish("cache_store_module_clone", &canon, stage_start);
         Ok(module)
     }
 

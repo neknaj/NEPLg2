@@ -699,6 +699,31 @@ merge 済み `Module` の per-load cache store clone を外す案は、loader te
 materialized callable の body 欠落を拒否するため、check 専用の public interface + Resource proof summary
 境界、または `.neplobj` body fragment 併用の設計が必要である。
 
+2026-06-02 の raw-alias proof dependency / raw pointer identity filter checkpoint では、Resource summary
+固定点の探索範囲をさらに削った。raw pointer / raw identity return summary は戻り値型から summary が
+観測され得る関数だけを worklist に入れる。RPN preseed では raw pointer recomputations が `268 -> 88`、
+raw identity recomputations が `268 -> 99` になった。
+
+また、raw-alias summary 専用の dependency view を追加した。direct call は保持し、function value は同じ関数内に
+indirect call がある場合だけ dependency にする。過去には raw-alias stable entry replay が再計算より高かったため
+native disk-backed `.neplproof` で無効化していたが、専用 dependency view では RPN preseed の raw-alias
+recomputations が `82 -> 0` になり、過去の `590-640ms` 台 replay 悪化は再現しなかった。そのため CLI の
+raw-alias proof collection 無効化を外した。
+
+最終 release CLI の RPN proof-backed no-stage 10 run は
+`938.085ms / 930.487ms / 926.397ms / 931.507ms / 926.388ms / 932.914ms / 872.149ms / 918.265ms /
+925.630ms / 935.201ms`、中央値 `928.442ms` だった。測定条件を揃えた直前 baseline の中央値
+`1013.481ms` からは約 `85ms` 改善したが、0.5 秒未満目標にはまだ届いていない。
+
+stage timing 付き 5 run の中央値付近は `loader_load=377.565ms`、`check_pipeline=548.099ms`、
+`resource_typecheck=139ms`、`resource_static_check=372ms` である。`resource_static_check` 内は
+`resource_initialized_moves=219ms`、`resource_initialized_raw_alias_summaries=58ms`、
+`resource_initialized_i32_scalar_summaries=57ms`、`resource_initialized_raw_init_summaries=55ms`、
+`resource_initialized_function_checks=49ms`、`resource_effect_boundaries=32ms`、
+`resource_owner_obligations=52ms` だった。次の主経路は引き続き、native CLI `--check` に
+bundled stdlib `.neplmeta` / typed interface artifact を接続して stdlib body merge と依存先再 typecheck を
+避けることである。
+
 ## 検証
 
 - `trunk build`
