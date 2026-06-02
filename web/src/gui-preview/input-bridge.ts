@@ -94,10 +94,7 @@ export function queueGuiWebInputEvent(input: unknown): GuiWebInputResult<'queued
     if (event.kind === 'err') {
         return event;
     }
-    inputEvents = [
-        ...inputEvents,
-        event.value,
-    ];
+    inputEvents = guiWebInputEventsWithQueuedEvent(inputEvents, event.value);
     notifyGuiWebInputEventListeners(event.value);
     return { kind: 'ok', value: 'queued' };
 }
@@ -148,6 +145,41 @@ export function decodeGuiWebInputEvent(input: unknown): GuiWebInputResult<GuiWeb
         return decodeGuiWebTextInputEvent(event.value);
     }
     return err('invalid-input-event', '$.kind', 'action, pointer, keyboard, or text-input', kind.value);
+}
+
+function guiWebInputEventsWithQueuedEvent(events: GuiWebInputEvent[], event: GuiWebInputEvent): GuiWebInputEvent[] {
+    if (event.kind === 'pointer' && event.pointerKind === 'move') {
+        return guiWebInputEventsWithPointerMove(events, event);
+    }
+    return [
+        ...events,
+        event,
+    ];
+}
+
+function guiWebInputEventsWithPointerMove(
+    events: GuiWebInputEvent[],
+    event: Extract<GuiWebInputEvent, { kind: 'pointer' }>,
+): GuiWebInputEvent[] {
+    const lastIndex = events.length - 1;
+    const lastEvent = events[lastIndex];
+    if (
+        lastEvent
+        && lastEvent.kind === 'pointer'
+        && lastEvent.pointerKind === 'move'
+        && lastEvent.windowId === event.windowId
+        && lastEvent.pointerId === event.pointerId
+        && lastEvent.button === event.button
+    ) {
+        return [
+            ...events.slice(0, lastIndex),
+            event,
+        ];
+    }
+    return [
+        ...events,
+        event,
+    ];
 }
 
 function decodeGuiWebActionInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
