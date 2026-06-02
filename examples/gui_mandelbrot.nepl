@@ -1,14 +1,12 @@
 //: neplg2:test[gui_mandelbrot, normalize_newlines]
-//: [目的/もくてき]: GUI command stream で Mandelbrot preview を描画する例が固定個数の command を生成することを確認する
-//: stdout: mlstr:
-//:     ##: mandelbrot commands = 64
-//:     ##: mandelbrot inside = 8
+//: [目的/もくてき]: GUI command stream で Mandelbrot preview を描画し、Web Playground host protocol へ frame を出力できることを確認する
 //:
 //: gui_mandelbrot: Mandelbrot 集合を GUI render command として描画する例
 //:
 //: [目的/もくてき]:
-//: - 実 window backend に依存せず、`RenderCommand` と `MockRenderTarget` だけで描画 contract を示します。
-//: - 8 x 8 の小さな固定小数点 Mandelbrot preview を `FillRect` command stream へ変換します。
+//: - 実 window backend に依存せず、`RenderCommand` と `MockRenderTarget` で描画 contract を確認します。
+//: - 同じ model から Web Playground stdout protocol frame を出力し、Run 時に floating GUI window へ渡します。
+//: - 8 x 8 の小さな固定小数点 Mandelbrot preview を `FillRect` command stream と Web frame へ変換します。
 //:
 //: [実装/じっそう]:
 //: - 座標を i32 の fixed point scale 100 で扱い、各 cell の escape iteration を求めます。
@@ -16,6 +14,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - これは GUI substrate の例であり、Canvas、DOM、GPU、OS window は使いません。
+//: - Web stdout protocol は `platforms/gui/web` の一時 transport であり、正式 host import ABI へ置き換える予定です。
 //: - 実 backend が接続された後も、同じ command stream を Web や native の surface へ渡せます。
 #entry main
 #indent 4
@@ -25,6 +24,7 @@
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "platforms/gui/web" as *
 #import "std/stdio" as *
 
 fn mandelbrot_width %fn unit i32 \unit:
@@ -35,6 +35,15 @@ fn mandelbrot_height %fn unit i32 \unit:
 
 fn mandelbrot_limit %fn unit i32 \unit:
     24
+
+fn mandelbrot_cell_size %fn unit i32 \unit:
+    18
+
+fn mandelbrot_frame_width %fn unit i32 \unit:
+    mul mandelbrot_width mandelbrot_cell_size
+
+fn mandelbrot_frame_height %fn unit i32 \unit:
+    mul mandelbrot_height mandelbrot_cell_size
 
 fn mandelbrot_cx %fn i32 i32 \x:
     let step %i32 50
@@ -86,7 +95,7 @@ fn mandelbrot_color %fn i32 Rgba8888 \iter:
             rgba8888_new shade shade full full
 
 fn mandelbrot_render_cell %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y:
-    let cell_size %i32 2
+    let cell_size %i32 mandelbrot_cell_size
     let px %i32 mul x cell_size
     let py %i32 mul y cell_size
     let rect %GuiRect gui_rect_new px py cell_size cell_size
@@ -95,6 +104,52 @@ fn mandelbrot_render_cell %fn MockRenderTarget fn i32 fn i32 Result MockRenderTa
     let paint %GuiPaint gui_paint_solid color
     let command %RenderCommand render_command_fill_rect rect paint
     render_one target command
+
+fn mandelbrot_present_cell %impure fn i32 impure fn i32 Result unit GuiError \x\y:
+    let cell_size %i32 mandelbrot_cell_size
+    let px %i32 mul x cell_size
+    let py %i32 mul y cell_size
+    let rect %GuiRect gui_rect_new px py cell_size cell_size
+    let iter %i32 mandelbrot_cell_iter x y
+    let color %Rgba8888 mandelbrot_color iter
+    gui_web_stdout_fill_rect rect color
+
+fn mandelbrot_present_row %impure fn i32 impure fn i32 Result unit GuiError \x\y:
+    if:
+        ge x mandelbrot_width
+        then:
+            Result::Ok unit
+        else:
+            match mandelbrot_present_cell x y:
+                Result::Ok _:
+                    let next_x %i32 add x 1
+                    mandelbrot_present_row next_x y
+                Result::Err err:
+                    Result::Err err
+
+fn mandelbrot_present_rows %impure fn i32 Result unit GuiError \y:
+    if:
+        ge y mandelbrot_height
+        then:
+            Result::Ok unit
+        else:
+            match mandelbrot_present_row 0 y:
+                Result::Ok _:
+                    let next_y %i32 add y 1
+                    mandelbrot_present_rows next_y
+                Result::Err err:
+                    Result::Err err
+
+fn mandelbrot_present_frame %impure fn unit Result unit GuiError \unit:
+    match gui_web_stdout_frame_begin 1 mandelbrot_frame_width mandelbrot_frame_height "NEPLg2 Mandelbrot":
+        Result::Ok _:
+            match mandelbrot_present_rows 0:
+                Result::Ok _:
+                    gui_web_stdout_frame_end
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
 
 fn mandelbrot_render_row %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y:
     if:
@@ -160,9 +215,15 @@ fn mandelbrot_inside_count %fn unit i32 \unit:
 fn main %impure fn unit unit \unit:
     match mandelbrot_render:
         Result::Ok target:
-            print "mandelbrot commands = "
-            println_i32 mock_render_target_command_count &target
-            print "mandelbrot inside = "
-            println_i32 mandelbrot_inside_count
+            match mandelbrot_present_frame:
+                Result::Ok _:
+                    print "mandelbrot commands = "
+                    let command_count %i32 mock_render_target_command_count &target
+                    println_i32 command_count
+                    print "mandelbrot inside = "
+                    let inside_count %i32 mandelbrot_inside_count
+                    println_i32 inside_count
+                Result::Err _:
+                    println "mandelbrot gui protocol error"
         Result::Err _:
             println "mandelbrot render error"

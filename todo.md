@@ -3,7 +3,8 @@
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
-- NEPL/Wasm が生成した `DrawCommand` stream を Web Playground の `neplGuiHost.presentCommands` へ接続し、`web/src/gui-preview/runtime-bridge.ts` と `host-bridge.ts` の typed Result 境界経由で floating GUI window surface へ渡す
+- Web Playground の stdout protocol fallback を正式な Wasm host import ABI へ置き換え、NEPL/Wasm が生成した `DrawCommand` stream を `neplGuiHost.beginFrame` / `pushCommand` / `endFrame` 相当へ直接渡す
+- Web Playground の GUI input event bridge を実装し、resolution 指定、Life の next step / animate、Counter の button click を TS 側 simulation ではなく NEPL app の `GuiEvent` / `ActionId` へ戻す
 - `nepl-gui-native` の framebuffer renderer を、`std/gui::GuiHost` と `platforms/gui/native` の正式 `present` 実装へ寄せる
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
 - `features/tui` を互換 path として保ちながら、内部を `features/gui` + terminal backend へ差し替える

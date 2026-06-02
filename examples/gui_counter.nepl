@@ -1,32 +1,33 @@
 //: neplg2:test[gui_counter, normalize_newlines]
-//: [目的/もくてき]: ButtonConfig の ActionId が update へ渡り counter model を更新することを確認する
-//: stdout: mlstr:
-//:     ##: counter action = 1
-//:     ##: counter value = 1
-//:     ##: counter redraw target = 0
+//: [目的/もくてき]: ButtonConfig の ActionId が update へ渡り counter model を更新し、Web Playground host protocol へ frame を出力できることを確認する
 //:
 //: gui_counter: button action で数字を increment する GUI app model の例
 //:
 //: [目的/もくてき]:
 //: - button が closure ではなく `ActionId` を持つ設計を実行例として示します。
 //: - `GuiEvent::Action` を `update` で受け取り、model と `GuiEffect` を data として返します。
+//: - 更新後の model から Web Playground stdout protocol frame を出力し、Run 時に floating GUI window へ渡します。
 //:
 //: [実装/じっそう]:
 //: - `counter_view` は increment 用 button を返します。
 //: - `counter_update` は action id を `match` と比較で扱い、counter を 1 増やして redraw effect を返します。
 //:
 //: [注意/ちゅうい]:
-//: - この例は app model の contract を示すもので、host runtime や real button backend は使いません。
+//: - この例は app model の contract を示すもので、real button event backend は使いません。
+//: - Web stdout protocol は `platforms/gui/web` の一時 transport であり、正式 host import ABI と input event bridge へ置き換える予定です。
 #entry main
 #indent 4
 #target std
 
 #import "alloc/gui/app" as *
+#import "core/cast" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
+#import "platforms/gui/web" as *
 #import "std/stdio" as *
 
 struct CounterModel:
@@ -98,6 +99,85 @@ fn counter_effect_redraw_target %fn GuiEffect i32 \effect:
         _:
             -1
 
+fn counter_color_background %fn unit Rgba8888 \unit:
+    let r %u8 cast 16
+    let g %u8 cast 24
+    let b %u8 cast 32
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn counter_color_panel %fn unit Rgba8888 \unit:
+    let r %u8 cast 29
+    let g %u8 cast 43
+    let b %u8 cast 53
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn counter_color_button %fn unit Rgba8888 \unit:
+    let r %u8 cast 45
+    let g %u8 cast 125
+    let b %u8 cast 111
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn counter_color_text %fn unit Rgba8888 \unit:
+    let r %u8 cast 242
+    let g %u8 cast 247
+    let b %u8 cast 245
+    let a %u8 cast 255
+    rgba8888_new r g b a
+
+fn counter_present_frame_end %impure fn unit Result unit GuiError \unit:
+    gui_web_stdout_frame_end
+
+fn counter_present_button_label %impure fn GuiPoint impure fn Rgba8888 Result unit GuiError \button_origin\text_color:
+    gui_web_stdout_text_run button_origin 14 GuiWebTextAlign::Center text_color "Increment"
+
+fn counter_present_value %impure fn GuiPoint impure fn Rgba8888 impure fn i32 Result unit GuiError \value_origin\text_color\value:
+    match gui_web_stdout_text_i32 value_origin 28 GuiWebTextAlign::Center text_color value:
+        Result::Ok _:
+            let button_origin %GuiPoint gui_point_new 110 97
+            counter_present_button_label button_origin text_color
+        Result::Err err:
+            Result::Err err
+
+fn counter_present_button_rect %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn Rgba8888 impure fn i32 Result unit GuiError \button_rect\value_origin\button_color\text_color\value:
+    match gui_web_stdout_fill_rect button_rect button_color:
+        Result::Ok _:
+            counter_present_value value_origin text_color value
+        Result::Err err:
+            Result::Err err
+
+fn counter_present_value_rect %impure fn GuiRect impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn Rgba8888 impure fn Rgba8888 impure fn i32 Result unit GuiError \value_rect\button_rect\value_origin\panel_color\button_color\text_color\value:
+    match gui_web_stdout_fill_rect value_rect panel_color:
+        Result::Ok _:
+            counter_present_button_rect button_rect value_origin button_color text_color value
+        Result::Err err:
+            Result::Err err
+
+fn counter_present_panel_rect %impure fn GuiRect impure fn GuiRect impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn Rgba8888 impure fn Rgba8888 impure fn Rgba8888 impure fn i32 Result unit GuiError \panel_rect\value_rect\button_rect\value_origin\background_color\panel_color\button_color\text_color\value:
+    match gui_web_stdout_fill_rect panel_rect background_color:
+        Result::Ok _:
+            counter_present_value_rect value_rect button_rect value_origin panel_color button_color text_color value
+        Result::Err err:
+            Result::Err err
+
+fn counter_present_frame %impure fn CounterModel Result unit GuiError \model:
+    let value %i32 counter_model_value &model
+    let panel_rect %GuiRect gui_rect_new 0 0 220 142
+    let value_rect %GuiRect gui_rect_new 18 20 184 50
+    let button_rect %GuiRect gui_rect_new 18 88 184 34
+    let value_origin %GuiPoint gui_point_new 110 36
+    match gui_web_stdout_frame_begin 3 220 142 "NEPLg2 Counter":
+        Result::Ok _:
+            match counter_present_panel_rect panel_rect value_rect button_rect value_origin counter_color_background counter_color_panel counter_color_button counter_color_text value:
+                Result::Ok _:
+                    counter_present_frame_end
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
+
 fn main %impure fn unit unit \unit:
     let model0 %CounterModel counter_model_new 0
     let view0 %ViewNode counter_view model0
@@ -112,9 +192,16 @@ fn main %impure fn unit unit \unit:
                 found
             Option::None:
                 GuiEffect::None
-    print "counter action = "
-    println_i32 action_id_value action
-    print "counter value = "
-    println_i32 counter_model_value &model1
-    print "counter redraw target = "
-    println_i32 counter_effect_redraw_target effect
+    match counter_present_frame model1:
+        Result::Ok _:
+            print "counter action = "
+            let action_value %i32 action_id_value action
+            println_i32 action_value
+            print "counter value = "
+            let counter_value %i32 counter_model_value &model1
+            println_i32 counter_value
+            print "counter redraw target = "
+            let redraw_target %i32 counter_effect_redraw_target effect
+            println_i32 redraw_target
+        Result::Err _:
+            println "counter gui protocol error"
