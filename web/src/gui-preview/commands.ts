@@ -1,5 +1,3 @@
-export type GuiPreviewKind = 'mandelbrot' | 'life' | 'counter';
-
 export type GuiPreviewPoint = {
     x: number;
     y: number;

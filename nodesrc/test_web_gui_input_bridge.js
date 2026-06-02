@@ -363,7 +363,7 @@ async function runWebGuiInputBridgeRegression() {
     assert.match(panelSource, /queueHostKeyboardEvent[\s\S]*event\.metaKey/);
     assert.match(windowManagerSource, /queueGuiWebInputEvent/);
     assert.match(windowManagerSource, /queueHostWindowEvent/);
-    assert.match(windowManagerSource, /source\.kind !== 'host-frame'/);
+    assert.doesNotMatch(windowManagerSource, /source-path|preview-kind/);
     assert.match(windowManagerSource, /'close-requested'/);
     assert.match(windowManagerSource, /previousWidth !== next\.width \|\| previousHeight !== next\.height/);
     assert.match(windowManagerSource, /this\.queueHostWindowEvent\(windowState, 'resized'\)/);

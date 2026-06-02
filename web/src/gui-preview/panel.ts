@@ -1,26 +1,19 @@
 import {
-    createGuiPreviewScene,
-    GuiPreviewKind,
-    guiPreviewKindFromPath,
-    summarizeGuiPreviewScene,
-} from './renderer.js';
-import {
     GuiPreviewCanvasViewport,
     renderGuiPreviewFrameToCanvas,
-    renderGuiPreviewSceneToCanvas,
 } from './canvas-renderer.js';
 import type { GuiPreviewCommandFrame } from './commands.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
 import type { GuiWebInputEvent, GuiWebKeyboardEventKind } from './input-bridge.js';
 import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
 
-export type GuiPreviewSource =
-    | { kind: 'none' }
-    | { kind: 'path'; path: string };
-
 type GuiHostFrameState =
     | { kind: 'none' }
     | { kind: 'presented'; frame: GuiPreviewCommandFrame; windowId: number };
+
+type GuiCanvasContextState =
+    | { kind: 'ready'; ctx: CanvasRenderingContext2D }
+    | { kind: 'unavailable'; message: string };
 
 type GuiWebPointerInputEvent = Extract<GuiWebInputEvent, { kind: 'pointer' }>;
 
@@ -36,66 +29,39 @@ type GuiWebScalarLookup =
     | { kind: 'scalar'; value: number }
     | { kind: 'none' };
 
-const ignoreKindChange = (_kind: GuiPreviewKind) => {};
-
-export type GuiPreviewPanelOptions = {
-    kind?: GuiPreviewKind;
-    source?: GuiPreviewSource;
-    onKindChange?: (kind: GuiPreviewKind) => void;
-};
-
 export class GuiPreviewPanel {
     contentEl: HTMLElement;
     rootEl: HTMLElement;
-    toolbarEl: HTMLElement;
-    selectEl: HTMLSelectElement;
     metricsEl: HTMLElement;
     canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-    kind: GuiPreviewKind;
-    source: GuiPreviewSource;
-    counterValue: number;
+    contextState: GuiCanvasContextState;
     fontSize: number;
     viewport: GuiPreviewCanvasViewport;
-    onKindChange: (kind: GuiPreviewKind) => void;
     hostFrame: GuiHostFrameState;
     hostPointerMove: GuiHostPointerMoveState;
 
-    constructor(contentEl: HTMLElement, options: GuiPreviewPanelOptions = {}) {
+    constructor(contentEl: HTMLElement) {
         this.contentEl = contentEl;
         this.rootEl = document.createElement('div');
         this.rootEl.className = 'gui-preview-panel';
-        this.toolbarEl = document.createElement('div');
-        this.toolbarEl.className = 'gui-preview-toolbar';
-        this.selectEl = document.createElement('select');
-        this.selectEl.className = 'gui-preview-select';
         this.metricsEl = document.createElement('div');
         this.metricsEl.className = 'gui-preview-metrics';
         this.canvas = document.createElement('canvas');
         this.canvas.className = 'gui-preview-canvas';
         this.canvas.tabIndex = 0;
         const ctx = this.canvas.getContext('2d');
-        if (!ctx) {
-            throw new Error('Could not get GUI preview 2D context');
-        }
-        this.ctx = ctx;
-        this.kind = options.kind || 'mandelbrot';
-        this.source = options.source || { kind: 'none' };
-        this.counterValue = 0;
+        this.contextState = ctx
+            ? { kind: 'ready', ctx }
+            : { kind: 'unavailable', message: 'Canvas2D unavailable' };
         this.fontSize = 14;
         this.viewport = { left: 0, top: 0, scale: 1 };
-        this.onKindChange = options.onKindChange || ignoreKindChange;
         this.hostFrame = { kind: 'none' };
         this.hostPointerMove = { kind: 'idle' };
 
-        this.mountToolbar();
-        this.rootEl.appendChild(this.toolbarEl);
+        this.rootEl.appendChild(this.metricsEl);
         this.rootEl.appendChild(this.canvas);
         this.contentEl.appendChild(this.rootEl);
 
-        this.selectEl.addEventListener('change', () => {
-            this.setKind(this.selectEl.value as GuiPreviewKind);
-        });
         this.canvas.addEventListener('click', (event) => this.handleCanvasClick(event));
         this.canvas.addEventListener('pointerdown', (event) => this.handleCanvasPointerDown(event));
         this.canvas.addEventListener('pointermove', (event) => this.handleCanvasPointerMove(event));
@@ -104,58 +70,12 @@ export class GuiPreviewPanel {
         this.canvas.addEventListener('mousemove', (event) => this.handleCanvasPointer(event));
         this.canvas.addEventListener('keydown', (event) => this.handleCanvasKeyDown(event));
         this.canvas.addEventListener('keyup', (event) => this.handleCanvasKeyUp(event));
-        this.syncSelect();
         this.resizeEditor();
-    }
-
-    setOnKindChange(handler: (kind: GuiPreviewKind) => void) {
-        this.onKindChange = handler;
-    }
-
-    mountToolbar() {
-        const options: Array<{ value: GuiPreviewKind; label: string }> = [
-            { value: 'mandelbrot', label: 'Mandelbrot' },
-            { value: 'life', label: 'Life' },
-            { value: 'counter', label: 'Counter' },
-        ];
-        for (const option of options) {
-            const optionEl = document.createElement('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.label;
-            this.selectEl.appendChild(optionEl);
-        }
-        this.toolbarEl.appendChild(this.selectEl);
-        this.toolbarEl.appendChild(this.metricsEl);
-    }
-
-    setSourcePath(path: string) {
-        this.hostFrame = { kind: 'none' };
-        this.hostPointerMove = { kind: 'idle' };
-        this.source = { kind: 'path', path };
-        this.setKind(guiPreviewKindFromPath(path));
-    }
-
-    clearSourcePath() {
-        this.hostFrame = { kind: 'none' };
-        this.hostPointerMove = { kind: 'idle' };
-        this.source = { kind: 'none' };
-        this.setKind('mandelbrot');
-    }
-
-    setKind(kind: GuiPreviewKind) {
-        this.hostFrame = { kind: 'none' };
-        this.hostPointerMove = { kind: 'idle' };
-        this.selectEl.disabled = false;
-        this.kind = kind;
-        this.syncSelect();
-        this.render();
-        this.onKindChange(kind);
     }
 
     presentHostFrame(frame: GuiPreviewCommandFrame, windowId: number) {
         this.hostFrame = { kind: 'presented', frame, windowId };
         this.hostPointerMove = { kind: 'idle' };
-        this.selectEl.disabled = true;
         this.render();
         this.focusInputSurface();
     }
@@ -171,10 +91,6 @@ export class GuiPreviewPanel {
         this.render();
     }
 
-    syncSelect() {
-        this.selectEl.value = this.kind;
-    }
-
     resizeEditor() {
         const rect = this.canvas.getBoundingClientRect();
         const width = Math.max(1, Math.floor(rect.width));
@@ -182,80 +98,62 @@ export class GuiPreviewPanel {
         const pixelRatio = window.devicePixelRatio || 1;
         this.canvas.width = Math.max(1, Math.floor(width * pixelRatio));
         this.canvas.height = Math.max(1, Math.floor(height * pixelRatio));
-        this.ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        if (this.contextState.kind === 'ready') {
+            this.contextState.ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        }
         this.render();
     }
 
     render() {
         const width = this.canvas.clientWidth || Math.max(1, this.canvas.width);
         const height = this.canvas.clientHeight || Math.max(1, this.canvas.height);
-        this.ctx.clearRect(0, 0, width, height);
-        this.ctx.fillStyle = '#0d1117';
-        this.ctx.fillRect(0, 0, width, height);
+        if (this.contextState.kind === 'unavailable') {
+            this.metricsEl.textContent = this.contextState.message;
+            return;
+        }
+        const ctx = this.contextState.ctx;
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#0d1117';
+        ctx.fillRect(0, 0, width, height);
         if (this.hostFrame.kind === 'presented') {
-            const rendered = renderGuiPreviewFrameToCanvas(this.ctx, this.hostFrame.frame, width, height, { fontSize: this.fontSize });
+            const rendered = renderGuiPreviewFrameToCanvas(ctx, this.hostFrame.frame, width, height, { fontSize: this.fontSize });
             this.viewport = rendered.viewport;
             this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length}`;
             return;
         }
-        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
-        const rendered = renderGuiPreviewSceneToCanvas(this.ctx, scene, width, height, { fontSize: this.fontSize });
-        this.viewport = rendered.viewport;
-        this.metricsEl.textContent = summarizeGuiPreviewScene(scene);
+        this.metricsEl.textContent = 'waiting for host frame';
     }
 
     handleCanvasClick(event: MouseEvent) {
-        if (this.hostFrame.kind === 'presented') {
-            const point = this.toScenePoint(event);
-            const target = this.hitHostInputTarget(this.hostFrame.frame, point);
-            if (target.kind === 'found') {
-                const queued = queueGuiWebInputEvent({
-                    kind: 'action',
-                    windowId: this.hostFrame.windowId,
-                    actionId: target.actionId,
-                    point,
-                });
-                if (queued.kind === 'ok') {
-                    this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length} / queued action ${target.actionId}`;
-                } else {
-                    this.metricsEl.textContent = `host input error ${queued.error.kind}`;
-                }
-            }
+        if (this.hostFrame.kind !== 'presented') {
             return;
         }
-        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const point = this.toScenePoint(event);
-        const hit = scene.hitTargets.find((target) => (
-            point.x >= target.x
-            && point.y >= target.y
-            && point.x < target.x + target.width
-            && point.y < target.y + target.height
-        ));
-        if (!hit) {
+        const target = this.hitHostInputTarget(this.hostFrame.frame, point);
+        if (target.kind !== 'found') {
             return;
         }
-        if (hit.action === 'increment-counter') {
-            this.counterValue += 1;
-            this.render();
+        const queued = queueGuiWebInputEvent({
+            kind: 'action',
+            windowId: this.hostFrame.windowId,
+            actionId: target.actionId,
+            point,
+        });
+        if (queued.kind === 'ok') {
+            this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length} / queued action ${target.actionId}`;
+        } else {
+            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
         }
     }
 
     handleCanvasPointer(event: MouseEvent) {
-        if (this.hostFrame.kind === 'presented') {
-            const point = this.toScenePoint(event);
-            const target = this.hitHostInputTarget(this.hostFrame.frame, point);
-            this.canvas.style.cursor = target.kind === 'found' ? 'pointer' : 'default';
+        if (this.hostFrame.kind !== 'presented') {
+            this.canvas.style.cursor = 'default';
             return;
         }
-        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const point = this.toScenePoint(event);
-        const hasHit = scene.hitTargets.some((target) => (
-            point.x >= target.x
-            && point.y >= target.y
-            && point.x < target.x + target.width
-            && point.y < target.y + target.height
-        ));
-        this.canvas.style.cursor = hasHit ? 'pointer' : 'default';
+        const target = this.hitHostInputTarget(this.hostFrame.frame, point);
+        this.canvas.style.cursor = target.kind === 'found' ? 'pointer' : 'default';
     }
 
     handleCanvasPointerDown(event: PointerEvent) {
@@ -416,6 +314,7 @@ export class GuiPreviewPanel {
 
     dispose() {
         this.hostPointerMove = { kind: 'idle' };
+        this.rootEl.remove();
     }
 }
 
@@ -481,14 +380,8 @@ function guiWebSingleScalarFromDomKey(key: string): GuiWebScalarLookup {
             scalar = code;
         }
     }
-    if (count === 1 && guiWebIsUnicodeScalarValue(scalar)) {
+    if (count === 1) {
         return { kind: 'scalar', value: scalar };
     }
     return { kind: 'none' };
-}
-
-function guiWebIsUnicodeScalarValue(value: number): boolean {
-    return value >= 0
-        && value <= 0x10FFFF
-        && !(value >= 0xD800 && value <= 0xDFFF);
 }

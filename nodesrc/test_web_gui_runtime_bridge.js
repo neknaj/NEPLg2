@@ -41,10 +41,15 @@ async function runWebGuiRuntimeBridgeRegression() {
     assert.equal(missingPresenter.error.path, "$");
 
     const receivedFrames = [];
+    const closedWindowIds = [];
     const presenter = {
         presentHostFrame(input) {
             receivedFrames.push(input);
             return { kind: "ok", value: "gui-window-runtime" };
+        },
+        closeHostFrameWindow(windowId) {
+            closedWindowIds.push(windowId);
+            return { kind: "ok", value: `closed:${windowId}` };
         },
     };
     const bridge = runtimeBridge.registerGuiWebRuntimePresenter(presenter);
@@ -61,6 +66,7 @@ async function runWebGuiRuntimeBridgeRegression() {
     const installed = runtimeBridge.installGuiWebRuntimeBridge(target);
     assert.equal(installed.kind, "ok");
     assert.equal(target.neplGuiHost.kind, "gui-runtime-bridge");
+    assert.equal(typeof target.neplGuiHost.closeWindow, "function");
     assert.equal(typeof target.neplGuiHost.takeInputEvents, "function");
     assert.equal(typeof target.neplGuiHost.resetInputEvents, "function");
     const resetInput = target.neplGuiHost.resetInputEvents();
@@ -71,6 +77,10 @@ async function runWebGuiRuntimeBridgeRegression() {
     const globalPresented = target.neplGuiHost.presentCommands(validFrame);
     assert.equal(globalPresented.kind, "ok");
     assert.equal(globalPresented.value, "gui-window-runtime");
+    const globalClosed = target.neplGuiHost.closeWindow({ windowId: 11 });
+    assert.equal(globalClosed.kind, "ok");
+    assert.equal(globalClosed.value, "closed:11");
+    assert.deepEqual(closedWindowIds, [11]);
 
     const beginFrame = target.neplGuiHost.beginFrame({
         windowId: 12,
@@ -192,14 +202,19 @@ async function runWebGuiRuntimeBridgeRegression() {
     const missingAfterClear = target.neplGuiHost.presentCommands(validFrame);
     assert.equal(missingAfterClear.kind, "err");
     assert.equal(missingAfterClear.error.kind, "presenter-missing");
+    const closeMissingAfterClear = target.neplGuiHost.closeWindow({ windowId: 11 });
+    assert.equal(closeMissingAfterClear.kind, "err");
+    assert.equal(closeMissingAfterClear.error.kind, "presenter-missing");
 
     assert.match(runtimeBridgeSource, /GuiWebRuntimePresenterState =[\s\S]*kind: 'missing'[\s\S]*kind: 'mounted'/);
     assert.match(runtimeBridgeSource, /GuiWebRuntimeResult<Value> =[\s\S]*kind: 'ok'[\s\S]*kind: 'err'/);
     assert.match(runtimeBridgeSource, /presentCommands: presentGuiWebRuntimeFrame/);
+    assert.match(runtimeBridgeSource, /closeWindow: closeGuiWebRuntimeHostFrameWindow/);
     assert.match(runtimeBridgeSource, /beginFrame: beginGuiWebRuntimeFrame/);
     assert.match(runtimeBridgeSource, /pushCommand: pushGuiWebRuntimeCommand/);
     assert.match(runtimeBridgeSource, /endFrame: endGuiWebRuntimeFrame/);
     assert.match(runtimeBridgeSource, /discardFrame: discardGuiWebRuntimeFrame/);
+    assert.match(runtimeBridgeSource, /closeHostFrameWindow/);
     assert.match(runtimeBridgeSource, /takeInputEvents: takeGuiWebInputEvents/);
     assert.match(runtimeBridgeSource, /resetInputEvents: resetGuiWebInputEvents/);
     assert.match(runtimeBridgeSource, /GuiWebRuntimeFrameStore/);
@@ -218,6 +233,7 @@ async function runWebGuiRuntimeBridgeRegression() {
             "Web GUI runtime bridge rejects present-commands before presenter registration",
             "Web GUI runtime bridge forwards frames through a typed presenter",
             "Web GUI runtime bridge installs a global neplGuiHost command surface",
+            "Web GUI runtime bridge closes host-frame windows through the presenter",
             "Web GUI runtime bridge supports begin/push/end streaming frames",
             "Web GUI runtime bridge validates pushed commands through host decode logic",
             "Web GUI runtime bridge keeps DOM and Canvas types out of the runtime boundary",

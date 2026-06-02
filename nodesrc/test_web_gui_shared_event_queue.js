@@ -181,7 +181,7 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.equal(sharedQueue.GUI_WEB_EVENT_QUEUE_SLOT_LENGTH, 8);
 
     sharedQueue.resetGuiWebSharedEventBuffer(created.value);
-    for (let i = 1; i < sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY; i++) {
+    for (let i = 1; i < sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2; i++) {
         const result = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
             kind: "action",
             windowId: 3,
@@ -190,15 +190,157 @@ async function runWebGuiSharedEventQueueRegression() {
         });
         assert.equal(result.kind, "ok");
     }
-    const overflow = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+    const saturatedAction = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
         kind: "action",
         windowId: 3,
         actionId: 999,
         point: { x: 0, y: 0 },
     });
-    assert.equal(overflow.kind, "err");
-    assert.equal(overflow.error.kind, "event-queue-full");
-    assert.equal(sharedQueue.takeGuiWebSharedActionId(created.value), 101);
+    assert.equal(saturatedAction.kind, "ok");
+    const projectedActions = [];
+    for (let i = 0; i < sharedQueue.GUI_WEB_ACTION_QUEUE_CAPACITY; i++) {
+        const actionId = sharedQueue.takeGuiWebSharedActionId(created.value);
+        if (actionId > 0) {
+            projectedActions.push(actionId);
+        }
+    }
+    assert.ok(projectedActions.includes(999));
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    for (let i = 1; i < sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2; i++) {
+        const result = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+            kind: "pointer",
+            windowId: 3,
+            pointerKind: "move",
+            pointerId: 1,
+            button: "primary",
+            point: { x: i, y: i + 1 },
+        });
+        assert.equal(result.kind, "ok");
+    }
+    const coalescedPointer = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(coalescedPointer.kind, "event");
+    assert.equal(coalescedPointer.event.kind, "pointer");
+    assert.equal(coalescedPointer.event.pointerKind, "move");
+    assert.equal(coalescedPointer.event.pointXMilli, (sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2 - 1) * 1000);
+    assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "pointer",
+        windowId: 3,
+        pointerKind: "move",
+        pointerId: 1,
+        button: "primary",
+        point: { x: 1, y: 1 },
+    }).kind, "ok");
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "pointer",
+        windowId: 3,
+        pointerKind: "up",
+        pointerId: 1,
+        button: "primary",
+        point: { x: 2, y: 2 },
+    }).kind, "ok");
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "pointer",
+        windowId: 3,
+        pointerKind: "move",
+        pointerId: 1,
+        button: "primary",
+        point: { x: 3, y: 3 },
+    }).kind, "ok");
+    const pointerMoveBeforeUp = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(pointerMoveBeforeUp.kind, "event");
+    assert.equal(pointerMoveBeforeUp.event.kind, "pointer");
+    assert.equal(pointerMoveBeforeUp.event.pointerKind, "move");
+    assert.equal(pointerMoveBeforeUp.event.pointXMilli, 1000);
+    const pointerUpBarrier = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(pointerUpBarrier.kind, "event");
+    assert.equal(pointerUpBarrier.event.kind, "pointer");
+    assert.equal(pointerUpBarrier.event.pointerKind, "up");
+    assert.equal(pointerUpBarrier.event.pointXMilli, 2000);
+    const pointerMoveAfterUp = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(pointerMoveAfterUp.kind, "event");
+    assert.equal(pointerMoveAfterUp.event.kind, "pointer");
+    assert.equal(pointerMoveAfterUp.event.pointerKind, "move");
+    assert.equal(pointerMoveAfterUp.event.pointXMilli, 3000);
+    assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    for (let i = 1; i < sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2; i++) {
+        const result = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+            kind: "window",
+            windowId: 3,
+            windowKind: "resized",
+            size: { width: 600 + i, height: 400 + i },
+        });
+        assert.equal(result.kind, "ok");
+    }
+    const coalescedWindow = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(coalescedWindow.kind, "event");
+    assert.equal(coalescedWindow.event.kind, "window");
+    assert.equal(coalescedWindow.event.windowKind, "resized");
+    assert.equal(coalescedWindow.event.width, 600 + sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2 - 1);
+    assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 640, height: 480 },
+    }).kind, "ok");
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "action",
+        windowId: 3,
+        actionId: 333,
+        point: { x: 0, y: 0 },
+    }).kind, "ok");
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 800, height: 600 },
+    }).kind, "ok");
+    const windowResizeBeforeAction = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(windowResizeBeforeAction.kind, "event");
+    assert.equal(windowResizeBeforeAction.event.kind, "window");
+    assert.equal(windowResizeBeforeAction.event.windowKind, "resized");
+    assert.equal(windowResizeBeforeAction.event.width, 640);
+    const actionBarrier = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(actionBarrier.kind, "event");
+    assert.equal(actionBarrier.event.kind, "action");
+    assert.equal(actionBarrier.event.actionId, 333);
+    const windowResizeAfterAction = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(windowResizeAfterAction.kind, "event");
+    assert.equal(windowResizeAfterAction.event.kind, "window");
+    assert.equal(windowResizeAfterAction.event.windowKind, "resized");
+    assert.equal(windowResizeAfterAction.event.width, 800);
+    assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "window",
+        windowId: 3,
+        windowKind: "focused",
+        size: { width: 640, height: 480 },
+    }).kind, "ok");
+    assert.equal(sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "window",
+        windowId: 3,
+        windowKind: "unfocused",
+        size: { width: 640, height: 480 },
+    }).kind, "ok");
+    const focusedWindow = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(focusedWindow.kind, "event");
+    assert.equal(focusedWindow.event.kind, "window");
+    assert.equal(focusedWindow.event.windowKind, "focused");
+    const unfocusedWindow = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(unfocusedWindow.kind, "event");
+    assert.equal(unfocusedWindow.event.kind, "window");
+    assert.equal(unfocusedWindow.event.windowKind, "unfocused");
+    assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
 
     sharedQueue.resetGuiWebSharedEventBuffer(created.value);
     for (let i = 1; i < sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY; i++) {
@@ -272,7 +414,12 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(queueSource, /pointXMilli/);
     assert.match(queueSource, /GUI_WEB_EVENT_POLL_INVALID/);
     assert.doesNotMatch(queueSource, /guiWebSharedActionIdFromTakeResult/);
-    assert.doesNotMatch(queueSource, /CoalescePreviousPointerMove|guiWebSharedEventPreviousIndex/);
+    assert.doesNotMatch(queueSource, /event-queue-full|action-queue-full/);
+    assert.match(queueSource, /guiWebSharedFindPointerMoveSlot/);
+    assert.match(queueSource, /guiWebSharedFindWindowStateSlot/);
+    assert.match(queueSource, /guiWebSharedFindLatestEventSlot/);
+    assert.doesNotMatch(queueSource, /while \(index !== writeIndex\)/);
+    assert.match(queueSource, /Atomics\.store\(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX, guiWebSharedEventNextIndex\(readIndex\)\)/);
     assert.match(queueSource, /waitGuiWebSharedActionId/);
     assert.match(workerSource, /nepl_gui_web/);
     assert.match(workerSource, /poll_action_id/);
@@ -299,8 +446,12 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(shellSource, /guiRuntimeInputWindowIds/);
     assert.match(shellSource, /has\(event\.windowId\)/);
     assert.match(shellSource, /add\(event\.frame\.windowId\)/);
+    assert.match(shellSource, /stopActiveGuiProcessFromWindowClose/);
+    assert.match(shellSource, /closeGuiRuntimeWindows/);
+    assert.match(shellSource, /closeGuiWebRuntimeHostFrameWindow/);
     assert.match(windowManagerSource, /queueHostWindowEvent/);
-    assert.match(windowManagerSource, /source\.kind !== 'host-frame'/);
+    assert.match(windowManagerSource, /closeHostFrameWindow/);
+    assert.doesNotMatch(windowManagerSource, /source-path|preview-kind/);
     assert.match(windowManagerSource, /'close-requested'/);
     assert.match(windowManagerSource, /'resized'/);
     assert.match(webInputSource, /#extern "nepl_gui_web" "poll_action_id"/);
@@ -352,7 +503,7 @@ async function runWebGuiSharedEventQueueRegression() {
             "Web GUI shared event queue exposes Unicode scalar text input records without consuming the legacy action projection",
             "Web GUI shared event queue exposes window records with a fixed eight-slot layout",
             "Web GUI shared event queue reports invalid records instead of collapsing them into no event",
-            "Web GUI shared event queue stays append-only after event publication",
+            "Web GUI shared event queue coalesces high-frequency state without producer overflow",
             "Web runtime worker exposes a dedicated nepl_gui_web host import module",
             "Web runtime worker exposes event-kind and last-event field imports for GuiEvent polling",
             "Web runtime worker exposes window event field imports for GuiEvent polling",
