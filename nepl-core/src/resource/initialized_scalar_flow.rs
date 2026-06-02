@@ -45,6 +45,11 @@ use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_index::{FunctionSummary, SummaryIndex, SummaryNameIndex};
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+use super::timing::{
+    resource_i32_op_timing_enabled, resource_i32_return_timing_enabled,
+    resource_timing_function_matches,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct I32ScalarReturnSummary {
@@ -415,14 +420,7 @@ fn i32_scalar_return_timing_start(
     function: &ResourceFunction,
     stage: &'static str,
 ) -> Option<std::time::Instant> {
-    if std::env::var_os("NEPL_RESOURCE_I32_RETURN_TIMING").is_none() {
-        return None;
-    }
-    if let Some(filter) = std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
-        .ok()
-        .filter(|filter| !function.name.contains(filter))
-    {
-        let _ = filter;
+    if !resource_i32_return_timing_enabled() || !resource_timing_function_matches(&function.name) {
         return None;
     }
     std::eprintln!(
@@ -513,14 +511,7 @@ fn i32_scalar_op_timing_start(
     op: &ResourceOp,
     incoming_paths: usize,
 ) -> Option<std::time::Instant> {
-    if std::env::var_os("NEPL_RESOURCE_I32_OP_TIMING").is_none() {
-        return None;
-    }
-    if let Some(filter) = std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
-        .ok()
-        .filter(|filter| !function_name.contains(filter))
-    {
-        let _ = filter;
+    if !resource_i32_op_timing_enabled() || !resource_timing_function_matches(function_name) {
         return None;
     }
     std::eprintln!(

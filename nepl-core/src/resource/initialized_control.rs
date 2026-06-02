@@ -391,15 +391,15 @@ impl ResourceCheckEngine<'_> {
         let mut match_paths = Vec::new();
 
         for (arm_index, arm) in arms.iter().enumerate() {
+            if !variant_initializations.match_arm_reachable(scrutinee, &arm.pattern) {
+                continue;
+            }
             let mut arm_cells = cells.clone();
             let mut arm_collection_slots = collection_slots.clone();
             let mut arm_aliases = raw_aliases.clone();
             let mut arm_function_aliases = function_aliases.clone();
             let mut arm_pending_reallocs = pending_reallocs.clone();
             let mut arm_variant_initializations = variant_initializations.clone();
-            if !arm_variant_initializations.match_arm_reachable(scrutinee, &arm.pattern) {
-                continue;
-            }
             if let Some(bind_local) = &arm.bind_local {
                 arm_cells.mark_initialized(bind_local);
                 if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {

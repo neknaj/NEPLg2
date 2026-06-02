@@ -28,6 +28,16 @@ pub(super) struct ResourceSummaryDependencyGraph {
     raw_init_dependencies: Vec<Vec<usize>>,
     raw_init_dependents: Vec<Vec<usize>>,
     raw_init_initial_order: Vec<usize>,
+    direct_raw_initialization_summary_ops: Vec<bool>,
+}
+
+#[derive(Default)]
+struct ResourceFunctionOpInventory {
+    summary_dependency_names: BTreeSet<String>,
+    function_value_call_dependency_names: BTreeSet<String>,
+    function_value_candidate_names: BTreeSet<String>,
+    has_indirect_call: bool,
+    has_direct_raw_initialization_summary_op: bool,
 }
 
 impl ResourceSummaryDependencyGraph {
@@ -37,20 +47,35 @@ impl ResourceSummaryDependencyGraph {
     /// 逆辺である。`initial_order` は callee 側を先に評価しやすい順序で、各
     /// `SummaryWorklist` が同じ初期条件から開始できるように保持する。
     pub(super) fn build(module: &ResourceModule) -> Self {
-        let dependencies = build_function_summary_dependencies(module);
+        let function_indices = build_function_indices(module);
+        let inventories = build_function_op_inventories(module);
+        let dependencies = summary_dependency_names_to_indices(
+            module.functions.len(),
+            &function_indices,
+            &inventories,
+        );
         let dependents =
             invert_function_summary_dependencies(module.functions.len(), &dependencies);
         let initial_order = summary_order_from_dependencies(module.functions.len(), &dependencies);
-        let raw_alias_dependencies = build_function_value_call_summary_dependencies(module);
+        let function_value_call_dependencies = function_value_call_dependency_names_to_indices(
+            module.functions.len(),
+            &function_indices,
+            &inventories,
+        );
+        let raw_alias_dependencies = function_value_call_dependencies.clone();
         let raw_alias_dependents =
             invert_function_summary_dependencies(module.functions.len(), &raw_alias_dependencies);
         let raw_alias_initial_order =
             summary_order_from_dependencies(module.functions.len(), &raw_alias_dependencies);
-        let raw_init_dependencies = build_raw_init_summary_dependencies(module);
+        let raw_init_dependencies = function_value_call_dependencies;
         let raw_init_dependents =
             invert_function_summary_dependencies(module.functions.len(), &raw_init_dependencies);
         let raw_init_initial_order =
             summary_order_from_dependencies(module.functions.len(), &raw_init_dependencies);
+        let direct_raw_initialization_summary_ops = inventories
+            .iter()
+            .map(|inventory| inventory.has_direct_raw_initialization_summary_op)
+            .collect();
         Self {
             dependencies,
             dependents,
@@ -61,6 +86,7 @@ impl ResourceSummaryDependencyGraph {
             raw_init_dependencies,
             raw_init_dependents,
             raw_init_initial_order,
+            direct_raw_initialization_summary_ops,
         }
     }
 
@@ -121,6 +147,19 @@ impl ResourceSummaryDependencyGraph {
     pub(super) fn raw_init_initial_order(&self) -> &[usize] {
         &self.raw_init_initial_order
     }
+
+    /// 関数内に raw initialization summary の起点になる operation があるかを返す。
+    ///
+    /// raw-init relevance は signature / raw alias summary / callee 伝播とは別に、
+    /// 関数自身が raw memory、collection slot、indirect call などの summary 起点を
+    /// 持つかを見る。依存辺構築時に同じ op tree を既に走査しているため、この結果を
+    /// graph に保持し、summary kind ごとの再走査を避ける。
+    pub(super) fn has_direct_raw_initialization_summary_op(&self, function_index: usize) -> bool {
+        self.direct_raw_initialization_summary_ops
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+    }
 }
 
 pub(super) fn build_function_summary_dependents(module: &ResourceModule) -> Vec<Vec<usize>> {
@@ -129,45 +168,93 @@ pub(super) fn build_function_summary_dependents(module: &ResourceModule) -> Vec<
 }
 
 pub(super) fn build_function_summary_dependencies(module: &ResourceModule) -> Vec<Vec<usize>> {
+    let function_indices = build_function_indices(module);
+    let inventories = build_function_op_inventories(module);
+    summary_dependency_names_to_indices(module.functions.len(), &function_indices, &inventories)
+}
+
+fn build_function_indices(module: &ResourceModule) -> BTreeMap<&str, usize> {
     let mut function_indices = BTreeMap::new();
     for (index, function) in module.functions.iter().enumerate() {
         function_indices.insert(function.name.as_str(), index);
     }
+    function_indices
+}
 
-    let mut dependencies = vec![Vec::new(); module.functions.len()];
-    for (caller_index, function) in module.functions.iter().enumerate() {
-        let mut dependency_names = BTreeSet::new();
-        collect_function_summary_dependencies(function, &mut dependency_names);
-        for dependency in dependency_names {
-            if let Some(dependency_index) = function_indices.get(dependency.as_str()) {
-                dependencies[caller_index].push(*dependency_index);
-            }
+fn build_function_op_inventories(module: &ResourceModule) -> Vec<ResourceFunctionOpInventory> {
+    module
+        .functions
+        .iter()
+        .map(collect_function_op_inventory)
+        .collect()
+}
+
+fn summary_dependency_names_to_indices(
+    function_count: usize,
+    function_indices: &BTreeMap<&str, usize>,
+    inventories: &[ResourceFunctionOpInventory],
+) -> Vec<Vec<usize>> {
+    let mut dependencies = vec![Vec::new(); function_count];
+    for (caller_index, inventory) in inventories.iter().enumerate() {
+        push_dependency_indices(
+            &mut dependencies[caller_index],
+            function_indices,
+            inventory
+                .summary_dependency_names
+                .iter()
+                .map(String::as_str),
+        );
+    }
+    dependencies
+}
+
+fn function_value_call_dependency_names_to_indices(
+    function_count: usize,
+    function_indices: &BTreeMap<&str, usize>,
+    inventories: &[ResourceFunctionOpInventory],
+) -> Vec<Vec<usize>> {
+    let mut dependencies = vec![Vec::new(); function_count];
+    for (caller_index, inventory) in inventories.iter().enumerate() {
+        push_dependency_indices(
+            &mut dependencies[caller_index],
+            function_indices,
+            inventory
+                .function_value_call_dependency_names
+                .iter()
+                .map(String::as_str),
+        );
+        if inventory.has_indirect_call {
+            push_dependency_indices(
+                &mut dependencies[caller_index],
+                function_indices,
+                inventory
+                    .function_value_candidate_names
+                    .iter()
+                    .map(String::as_str),
+            );
         }
     }
     dependencies
 }
 
-fn build_raw_init_summary_dependencies(module: &ResourceModule) -> Vec<Vec<usize>> {
-    build_function_value_call_summary_dependencies(module)
-}
-
-fn build_function_value_call_summary_dependencies(module: &ResourceModule) -> Vec<Vec<usize>> {
-    let mut function_indices = BTreeMap::new();
-    for (index, function) in module.functions.iter().enumerate() {
-        function_indices.insert(function.name.as_str(), index);
-    }
-
-    let mut dependencies = vec![Vec::new(); module.functions.len()];
-    for (caller_index, function) in module.functions.iter().enumerate() {
-        let mut dependency_names = BTreeSet::new();
-        collect_function_value_call_summary_dependencies(function, &mut dependency_names);
-        for dependency in dependency_names {
-            if let Some(dependency_index) = function_indices.get(dependency.as_str()) {
-                dependencies[caller_index].push(*dependency_index);
-            }
+fn push_dependency_indices<'a>(
+    out: &mut Vec<usize>,
+    function_indices: &BTreeMap<&str, usize>,
+    names: impl Iterator<Item = &'a str>,
+) {
+    for dependency in names {
+        if let Some(dependency_index) = function_indices.get(dependency) {
+            out.push(*dependency_index);
         }
     }
-    dependencies
+}
+
+fn collect_function_op_inventory(function: &ResourceFunction) -> ResourceFunctionOpInventory {
+    let mut inventory = ResourceFunctionOpInventory::default();
+    for block in &function.blocks {
+        collect_ops_op_inventory(&block.ops, &mut inventory);
+    }
+    inventory
 }
 
 fn invert_function_summary_dependencies(
@@ -185,167 +272,59 @@ fn invert_function_summary_dependencies(
     dependents
 }
 
-fn collect_function_summary_dependencies(function: &ResourceFunction, out: &mut BTreeSet<String>) {
-    for block in &function.blocks {
-        collect_ops_summary_dependencies(&block.ops, out);
-    }
-}
-
-fn collect_function_value_call_summary_dependencies(
-    function: &ResourceFunction,
-    out: &mut BTreeSet<String>,
-) {
-    let mut function_values = BTreeSet::new();
-    let mut has_indirect_call = false;
-    for block in &function.blocks {
-        collect_ops_function_value_call_summary_dependencies(
-            &block.ops,
-            out,
-            &mut function_values,
-            &mut has_indirect_call,
-        );
-    }
-    if has_indirect_call {
-        out.extend(function_values);
-    }
-}
-
-fn collect_ops_summary_dependencies(ops: &[ResourceOp], out: &mut BTreeSet<String>) {
+fn collect_ops_op_inventory(ops: &[ResourceOp], inventory: &mut ResourceFunctionOpInventory) {
     for op in ops {
-        collect_op_summary_dependencies(op, out);
+        collect_op_inventory(op, inventory);
     }
 }
 
-fn collect_ops_function_value_call_summary_dependencies(
-    ops: &[ResourceOp],
-    out: &mut BTreeSet<String>,
-    function_values: &mut BTreeSet<String>,
-    has_indirect_call: &mut bool,
-) {
-    for op in ops {
-        collect_op_function_value_call_summary_dependencies(
-            op,
-            out,
-            function_values,
-            has_indirect_call,
-        );
-    }
-}
-
-fn collect_op_summary_dependencies(op: &ResourceOp, out: &mut BTreeSet<String>) {
+fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInventory) {
     match op {
         ResourceOp::Call {
             target: ResourceCallTarget::User { name, .. },
             ..
         } => {
-            out.insert(name.clone());
+            inventory.summary_dependency_names.insert(name.clone());
+            inventory
+                .function_value_call_dependency_names
+                .insert(name.clone());
         }
         ResourceOp::FunctionValue { identity, .. } => {
-            out.insert(identity.symbol().to_string());
-        }
-        ResourceOp::Branch {
-            then_ops, else_ops, ..
-        } => {
-            collect_ops_summary_dependencies(then_ops, out);
-            collect_ops_summary_dependencies(else_ops, out);
-        }
-        ResourceOp::Loop {
-            condition_ops,
-            body_ops,
-            ..
-        } => {
-            collect_ops_summary_dependencies(condition_ops, out);
-            collect_ops_summary_dependencies(body_ops, out);
-        }
-        ResourceOp::Match { arms, .. } => {
-            for arm in arms {
-                collect_ops_summary_dependencies(&arm.ops, out);
-            }
-        }
-        ResourceOp::Call { .. }
-        | ResourceOp::IndirectCall { .. }
-        | ResourceOp::Expr { .. }
-        | ResourceOp::DeclareLocal { .. }
-        | ResourceOp::Read { .. }
-        | ResourceOp::Assign { .. }
-        | ResourceOp::Borrow { .. }
-        | ResourceOp::Move { .. }
-        | ResourceOp::Drop { .. }
-        | ResourceOp::EndScope { .. }
-        | ResourceOp::CallEffect { .. }
-        | ResourceOp::RawMemory { .. }
-        | ResourceOp::RawAddressAlias { .. }
-        | ResourceOp::RawAddressView { .. }
-        | ResourceOp::StorageOrigin { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. }
-        | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. }
-        | ResourceOp::CollectionSlotTransformRange { .. }
-        | ResourceOp::Construct { .. } => {}
-    }
-}
-
-fn collect_op_function_value_call_summary_dependencies(
-    op: &ResourceOp,
-    out: &mut BTreeSet<String>,
-    function_values: &mut BTreeSet<String>,
-    has_indirect_call: &mut bool,
-) {
-    match op {
-        ResourceOp::Call {
-            target: ResourceCallTarget::User { name, .. },
-            ..
-        } => {
-            out.insert(name.clone());
-        }
-        ResourceOp::FunctionValue { identity, .. } => {
-            function_values.insert(identity.symbol().to_string());
+            let symbol = identity.symbol().to_string();
+            inventory.summary_dependency_names.insert(symbol.clone());
+            inventory.function_value_candidate_names.insert(symbol);
         }
         ResourceOp::IndirectCall { .. } => {
-            *has_indirect_call = true;
+            inventory.has_indirect_call = true;
+            inventory.has_direct_raw_initialization_summary_op = true;
+        }
+        ResourceOp::RawMemory { .. }
+        | ResourceOp::RawAddressAlias { .. }
+        | ResourceOp::RawAddressView { .. }
+        | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => {
+            inventory.has_direct_raw_initialization_summary_op = true;
         }
         ResourceOp::Branch {
             then_ops, else_ops, ..
         } => {
-            collect_ops_function_value_call_summary_dependencies(
-                then_ops,
-                out,
-                function_values,
-                has_indirect_call,
-            );
-            collect_ops_function_value_call_summary_dependencies(
-                else_ops,
-                out,
-                function_values,
-                has_indirect_call,
-            );
+            collect_ops_op_inventory(then_ops, inventory);
+            collect_ops_op_inventory(else_ops, inventory);
         }
         ResourceOp::Loop {
             condition_ops,
             body_ops,
             ..
         } => {
-            collect_ops_function_value_call_summary_dependencies(
-                condition_ops,
-                out,
-                function_values,
-                has_indirect_call,
-            );
-            collect_ops_function_value_call_summary_dependencies(
-                body_ops,
-                out,
-                function_values,
-                has_indirect_call,
-            );
+            collect_ops_op_inventory(condition_ops, inventory);
+            collect_ops_op_inventory(body_ops, inventory);
         }
         ResourceOp::Match { arms, .. } => {
             for arm in arms {
-                collect_ops_function_value_call_summary_dependencies(
-                    &arm.ops,
-                    out,
-                    function_values,
-                    has_indirect_call,
-                );
+                collect_ops_op_inventory(&arm.ops, inventory);
             }
         }
         ResourceOp::Call { .. }
@@ -358,14 +337,6 @@ fn collect_op_function_value_call_summary_dependencies(
         | ResourceOp::Drop { .. }
         | ResourceOp::EndScope { .. }
         | ResourceOp::CallEffect { .. }
-        | ResourceOp::RawMemory { .. }
-        | ResourceOp::RawAddressAlias { .. }
-        | ResourceOp::RawAddressView { .. }
-        | ResourceOp::StorageOrigin { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. }
-        | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. }
-        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::Construct { .. } => {}
     }
 }

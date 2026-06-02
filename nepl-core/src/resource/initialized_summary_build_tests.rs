@@ -6,10 +6,11 @@ use crate::span::Span;
 use crate::types::TypeCtx;
 
 use super::super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
-use super::super::initialized_summary_build_relevance::function_has_direct_raw_initialization_summary_op;
 use super::super::model::{
-    Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceOp, ResourceTerminator,
+    Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceModule, ResourceOp,
+    ResourceTerminator,
 };
+use super::super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::*;
 
 /// collection slot helper は raw memory op を直接持たない場合でも、
@@ -44,10 +45,17 @@ fn collection_slot_ops_are_raw_initialization_summary_triggers() {
         span: Span::dummy(),
     };
 
+    let module = ResourceModule {
+        functions: vec![function],
+        entry: None,
+        string_literals: vec![],
+    };
+    let dependency_graph = ResourceSummaryDependencyGraph::build(&module);
+
     assert!(
-            function_has_direct_raw_initialization_summary_op(&function),
-            "collection slot marker だけを持つ helper も raw initialization summary worklist の seed である必要がある"
-        );
+        dependency_graph.has_direct_raw_initialization_summary_op(0),
+        "collection slot marker だけを持つ helper も raw initialization summary worklist の seed である必要がある"
+    );
 }
 
 /// variant-param summary の前提判定は、collector が実際に読む
