@@ -24,7 +24,7 @@ module.exports = {
 
 #import "std/stdio" as *
 
-fn main <()*>i32> ():
+fn main %impure fn void i32 \\void:
     debug "hidden"
     debug_color AnsiColor::Red "hidden"
     debugln "hidden"

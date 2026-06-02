@@ -143,7 +143,7 @@ fn main %fn void i32 \void:
 ## block_last_semicolon_breaks_function_return_type
 
 neplg2:test[compile_fail]
-diag_code: type.annotation.mismatch
+diag_code: type.return.mismatch
 ```neplg2
 #entry main
 #indent 4

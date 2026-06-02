@@ -286,14 +286,14 @@ fn parse_u128_radix_digits_from %fn str fn i32 fn i32 Result u128 i32 \s\radix\s
     let n %i32 len s;
     let mut i %i32 start;
     let mut res %u128 u128_zero;
-    let mut ok %i32 1;
+    let mut digits_valid %i32 1;
     let max_qr %U128DivRem u128_divrem_small u128_max radix;
     let max_quotient %u128 get max_qr "quotient";
     let max_remainder %i32 get max_qr "remainder";
     if:
         le n start
         then:
-            set ok 0;
+            set digits_valid 0;
         else:
             while lt i n:
                 do:
@@ -303,7 +303,7 @@ fn parse_u128_radix_digits_from %fn str fn i32 fn i32 Result u128 i32 \s\radix\s
                             if:
                                 ge digit radix
                                 then:
-                                    set ok 0;
+                                    set digits_valid 0;
                                     set i n;
                                 else:
                                     if:
@@ -312,13 +312,13 @@ fn parse_u128_radix_digits_from %fn str fn i32 fn i32 Result u128 i32 \s\radix\s
                                             set res u128_add_small u128_mul_small res radix digit;
                                             set i add i 1;
                                         else:
-                                            set ok 0;
+                                            set digits_valid 0;
                                             set i n;
                         Result::Err _:
-                            set ok 0;
+                            set digits_valid 0;
                             set i n;
     if:
-        eq ok 1
+        eq digits_valid 1
         then:
             Result::Ok res
         else:
@@ -428,18 +428,18 @@ pub fn to_i128_radix %fn str fn i32 Result i128 i32 \s\radix:
                     Result::Err 1
                 else:
                     let first %i32 integer_parse_byte_or_invalid s 0;
-                    let neg %bool eq first '-';
-                    let start %i32 if neg:
+                    let has_minus %bool eq first '-';
+                    let start %i32 if has_minus:
                         then 1
                         else 0
                     match parse_u128_radix_digits_from s radix start:
                         Result::Ok mag:
                             if:
-                                i128_magnitude_allowed mag neg
+                                i128_magnitude_allowed mag has_minus
                                 then:
                                     let base %i128 i128_from_u128_bits mag;
                                     if:
-                                        neg
+                                        has_minus
                                         then:
                                             Result::Ok i128_neg base
                                         else:

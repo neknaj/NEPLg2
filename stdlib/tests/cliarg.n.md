@@ -116,6 +116,7 @@ stdout: "test_report name=\"cliarg_cstr_bounded_conversion_reports\" count=3 fai
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 #import "alloc/string" as *
+#import "core/mem" as *
 #import "core/result" as *
 #import "core/math" as *
 #import "std/test" as *

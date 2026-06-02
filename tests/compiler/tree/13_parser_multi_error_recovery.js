@@ -16,7 +16,7 @@ module.exports = {
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let cond 1;
     let then 2;
     let else 3;

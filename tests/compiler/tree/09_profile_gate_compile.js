@@ -26,28 +26,28 @@ module.exports = {
     async run(api) {
         const debugOnlySource = `#entry main
 #if[profile=debug]
-fn only_debug <()->i32> ():
+fn only_debug %fn void i32 \\void:
     123
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     only_debug
 `;
 
         const releaseOnlySource = `#entry main
 #if[profile=release]
-fn only_release <()->i32> ():
+fn only_release %fn void i32 \\void:
     456
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     only_release
 `;
 
         const releaseSkipUnknownSource = `#entry main
 #if[profile=release]
-fn only_release_bad <()->i32> ():
+fn only_release_bad %fn void i32 \\void:
     unknown_symbol
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     0
 `;
 

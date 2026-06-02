@@ -9,7 +9,7 @@ module.exports = {
 
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     add 10 20
 `;
 

@@ -216,8 +216,6 @@ function neplMetaMaterializedCompileStats(session) {
     };
 }
 
-const MATERIALIZED_FUNCTION_BODY_MISSING_REASON_CODE = 1;
-
 function neplMetaArtifactStats(session) {
     const s = stats(session);
     return {
@@ -237,10 +235,10 @@ module.exports = {
         const profileSession = newSession(api);
         const defaultDebugSource = `#entry main
 #if[profile=release]
-fn release_bad <()->i32> ():
+fn release_bad %fn void i32 \\void:
     unknown_symbol
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     0
 `;
         const defaultDebugOutput = profileSession.compile_outputs_with_vfs(
@@ -258,13 +256,13 @@ fn main <()->i32> ():
         const cacheSession = newSession(api);
         const entrySource = `#entry main
 #import "./dep" as *
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     dep_value
 `;
-        const depOne = `pub fn dep_value <()->i32> ():
+        const depOne = `pub fn dep_value %fn void i32 \\void:
     1
 `;
-        const depTwo = `pub fn dep_value <()->i32> ():
+        const depTwo = `pub fn dep_value %fn void i32 \\void:
     2
 `;
 
@@ -433,11 +431,6 @@ fn main %fn void i32 \\void:
 fn main %fn void i32 \\void:
     3
 `;
-        const stdlibDependencySourceFour = `#entry main
-#import "std/prelude_base" as *
-fn main %fn void i32 \\void:
-    4
-`;
         stdlibDependencyArtifactSession.compile_outputs_with_vfs(
             '/virtual/stdlib_dependency_artifact.nepl',
             stdlibDependencySourceOne,
@@ -468,9 +461,10 @@ fn main %fn void i32 \\void:
             secondStdlibEdgeProbe.attempts,
             'before dependency artifacts are produced, every stdlib edge probe must fail by missing artifact',
         );
-        assert.ok(
-            secondStdlibMetaStore.entries > 1,
-            'a successful compile with edge probes must populate .neplmeta artifacts for stdlib dependencies',
+        assert.equal(
+            secondStdlibMetaStore.entries,
+            1,
+            'normal compile must keep stdlib .neplmeta production explicit and only store the root artifact',
         );
         stdlibDependencyArtifactSession.compile_outputs_with_vfs(
             '/virtual/stdlib_dependency_artifact.nepl',
@@ -486,155 +480,40 @@ fn main %fn void i32 \\void:
         );
         assert.equal(
             thirdStdlibEdgeProbe.missing,
-            secondStdlibEdgeProbe.missing,
-            'after dependency artifact production, later edge probes must not add more missing-artifact results',
-        );
-        assert.ok(
-            thirdStdlibEdgeProbe.missing < thirdStdlibEdgeProbe.attempts,
-            'stored stdlib dependency artifacts must move later edge probes beyond the missing-artifact boundary',
-        );
-        assert.ok(
-            thirdStdlibEdgeProbe.projectionRejects > 0,
-            'stored stdlib dependency artifacts must report explicit projection rejects until materializer support is added',
-        );
-        assert.ok(
-            thirdStdlibEdgeProbe.projected > 0,
-            'backend scalar and local int128 capability cleanup must let at least one stored stdlib artifact project successfully',
+            thirdStdlibEdgeProbe.attempts,
+            'without explicit preseed, later edge probes must continue failing by missing artifact',
         );
         assert.equal(
-            thirdStdlibEdgeProbe.rejectCode,
+            thirdStdlibEdgeProbe.projected,
             0,
-            'non-callable export projection support lets the last stdlib edge probe end in a successful projection',
+            'normal compile must not project dependency artifacts that were never explicitly preseeded',
         );
         assert.equal(
-            thirdStdlibEdgeProbe.projectionBlockerReasonCode,
+            thirdStdlibEdgeProbe.projectionRejects,
             0,
-            'successful projection must not report stale public surface blocker details',
+            'missing dependency artifacts must be reported as missing, not as projection rejects',
         );
         assert.equal(
-            thirdStdlibEdgeProbe.projectionBlockerEntryKindCode,
+            thirdStdlibEdgeProbe.compatibilityRejects,
             0,
-            'successful projection must not report stale public surface blocker entry details',
+            'missing dependency artifacts must not be counted as compatibility rejects',
         );
         const thirdMaterializedCompile = neplMetaMaterializedCompileStats(stdlibDependencyArtifactSession);
-        assert.ok(
-            thirdMaterializedCompile.attempts > 0,
-            'projection success must be counted separately from materialized compile attempts',
+        assert.equal(
+            thirdMaterializedCompile.attempts,
+            0,
+            'normal compile must not attempt a metadata-only dependency body compile without explicit preseeded artifacts',
         );
-        assert.ok(
-            thirdMaterializedCompile.accepts + thirdMaterializedCompile.fallbacks > 0,
-            'metadata-only dependency body skip must either accept or report a typed source fallback',
+        assert.equal(
+            thirdMaterializedCompile.accepts,
+            0,
+            'normal compile must not record accepted materialized dependency bodies without explicit preseeded artifacts',
         );
-        assert.ok(
-            thirdMaterializedCompile.lastAttemptedSurfaces > 0,
-            'last materialized compile attempt must report how many surfaces entered typecheck',
+        assert.equal(
+            thirdMaterializedCompile.fallbacks,
+            0,
+            'normal compile must not fall back from a materialized dependency compile that it did not attempt',
         );
-        if (thirdMaterializedCompile.fallbacks > 0) {
-            assert.equal(
-                thirdMaterializedCompile.fallbackSuccesses,
-                thirdMaterializedCompile.fallbacks,
-                'source fallback after materialized compile attempt must preserve successful compile behavior',
-            );
-            assert.equal(
-                thirdMaterializedCompile.fallbackFailures,
-                0,
-                'materialized attempt fallback must not hide a failing source compile in this regression',
-            );
-            assert.equal(
-                thirdMaterializedCompile.lastOutcomeCode,
-                2,
-                'last materialized compile fallback must end in source fallback success',
-            );
-            assert.ok(
-                thirdMaterializedCompile.lastFallbackReasonCode > 0,
-                'source fallback must expose a typed reason code instead of relying on error text parsing',
-            );
-            assert.match(
-                thirdMaterializedCompile.lastFallbackDiagnosticCode,
-                /^[a-z0-9_.]+$/,
-                'source fallback must expose the primary compiler diagnostic code that caused fallback',
-            );
-            if (
-                thirdMaterializedCompile.lastFallbackReasonCode
-                === MATERIALIZED_FUNCTION_BODY_MISSING_REASON_CODE
-            ) {
-                assert.ok(
-                    thirdMaterializedCompile.bodyMissingCandidateSurfaces
-                        >= thirdMaterializedCompile.lastAttemptedSurfaces,
-                    '.neplobj candidate stats must count body-missing materialized surfaces, not only compile attempts',
-                );
-                assert.equal(
-                    thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
-                    thirdMaterializedCompile.lastAttemptedSurfaces,
-                    'last .neplobj candidate surface count must match the body-missing materialized compile attempt',
-                );
-            } else {
-                assert.equal(
-                    thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
-                    0,
-                    'non-body-missing materialized fallback must not be counted as a .neplobj body candidate',
-                );
-            }
-        } else {
-            assert.ok(
-                thirdMaterializedCompile.accepts > 0,
-                'a metadata-only compile with no selected dependency body should be accepted',
-            );
-            assert.equal(
-                thirdMaterializedCompile.lastOutcomeCode,
-                1,
-                'last materialized compile attempt without selected dependency body should be accepted',
-            );
-            assert.equal(
-                thirdMaterializedCompile.lastFallbackReasonCode,
-                0,
-                'accepted materialized compile must not retain a stale fallback reason',
-            );
-            assert.equal(
-                thirdMaterializedCompile.lastFallbackDiagnosticCode,
-                '',
-                'accepted materialized compile must not retain a stale fallback diagnostic code',
-            );
-            assert.equal(
-                thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
-                0,
-                'accepted materialized compile must not be counted as a .neplobj body candidate',
-            );
-        }
-        const beforeFourthMaterializedCompile = neplMetaMaterializedCompileStats(stdlibDependencyArtifactSession);
-        if (beforeFourthMaterializedCompile.bodyMissingSkipStores > 0) {
-            stdlibDependencyArtifactSession.compile_outputs_with_vfs(
-                '/virtual/stdlib_dependency_artifact.nepl',
-                stdlibDependencySourceFour,
-                {},
-                ['wasm'],
-                false,
-            );
-            const fourthMaterializedCompile = neplMetaMaterializedCompileStats(stdlibDependencyArtifactSession);
-            assert.ok(
-                fourthMaterializedCompile.bodyMissingSkipHits > beforeFourthMaterializedCompile.bodyMissingSkipHits,
-                'a repeated body edit must skip known body-missing .neplmeta edges until .neplobj can satisfy them',
-            );
-            assert.equal(
-                fourthMaterializedCompile.attempts,
-                beforeFourthMaterializedCompile.attempts,
-                'body-missing skip cache must avoid a repeated materialized compile attempt for the same dependency body boundary',
-            );
-            assert.equal(
-                fourthMaterializedCompile.fallbacks,
-                beforeFourthMaterializedCompile.fallbacks,
-                'body-missing skip cache must avoid a repeated source fallback caused only by missing .neplobj body',
-            );
-            assert.ok(
-                fourthMaterializedCompile.bodyMissingSkipEntries > 0,
-                'body-missing skip cache must keep source-hash scoped entries for later .neplobj replacement',
-            );
-            assert.equal(
-                fourthMaterializedCompile.lastOutcomeCode,
-                0,
-                'a skipped materialized attempt must reset last attempt outcome instead of replaying stale fallback state',
-            );
-        }
 
         const neplObjStoreSession = newSession(api);
         function charDependencyBodySource(value) {
@@ -644,12 +523,13 @@ fn main %fn void i32 \\void:
     char_utf8_cont_byte ${Number(value) | 0}
 `;
         }
-        neplObjStoreSession.compile_outputs_with_vfs(
+        const neplObjPreseededArtifacts = neplObjStoreSession.preseed_nepl_meta_artifacts_for_source(
             '/virtual/neplobj_char_dependency.nepl',
             charDependencyBodySource(1),
-            {},
-            ['wasm'],
-            false,
+        );
+        assert.ok(
+            neplObjPreseededArtifacts > 0,
+            'direct-call .neplobj fragment reuse must start from explicitly preseeded .neplmeta dependency artifacts',
         );
         assert.deepEqual(
             neplObjDirectCallFragmentStoreStats(neplObjStoreSession),
@@ -665,23 +545,11 @@ fn main %fn void i32 \\void:
                 lookupContextRejects: 0,
                 lookupFragmentsReturned: 0,
             },
-            'initial compile must expose an empty .neplobj direct-call fragment store',
+            'explicit .neplmeta preseed must not create direct-call .neplobj fragments by itself',
         );
         neplObjStoreSession.compile_outputs_with_vfs(
             '/virtual/neplobj_char_dependency.nepl',
-            charDependencyBodySource(2),
-            {},
-            ['wasm'],
-            false,
-        );
-        assert.equal(
-            neplObjDirectCallFragmentStoreStats(neplObjStoreSession).stores,
-            0,
-            'dependency artifacts must be projected before a source fallback can export .neplobj fragments',
-        );
-        neplObjStoreSession.compile_outputs_with_vfs(
-            '/virtual/neplobj_char_dependency.nepl',
-            charDependencyBodySource(3),
+            charDependencyBodySource(1),
             {},
             ['wasm'],
             false,
@@ -707,7 +575,7 @@ fn main %fn void i32 \\void:
         );
         neplObjStoreSession.compile_outputs_with_vfs(
             '/virtual/neplobj_char_dependency.nepl',
-            charDependencyBodySource(4),
+            charDependencyBodySource(2),
             {},
             ['wasm'],
             false,
@@ -777,14 +645,19 @@ fn main %fn void i32 \\void:
             proofSecond.candidates > proofFirst.candidates,
             'second source compile must try to preseed the previous .neplproof artifact',
         );
+        assert.ok(
+            proofSecond.stores > proofFirst.stores,
+            'second source compile must refresh the same-session .neplproof artifact after the body edit',
+        );
         assert.equal(
             proofSecond.lastReject,
             'none',
             'matching same-session .neplproof preseed must not be rejected by the compile-context header',
         );
-        assert.ok(
-            proofSecond.lastAccepted + proofSecond.lastExisting > 0,
-            'matching same-session .neplproof preseed must report usable stable proof entries',
+        assert.equal(
+            proofSecond.lastAccepted + proofSecond.lastExisting + proofSecond.lastRejectedConflicts,
+            0,
+            'Web CompilerSession disables stable .neplproof entry collection, so matching preseed may be header-compatible but empty',
         );
         proofPreseedSession.compile_outputs_with_vfs(
             '/virtual/neplproof_preseed_char_dependency.nepl',
@@ -893,11 +766,11 @@ fn main %fn void i32 \\void:
 
         const sourceKeySession = newSession(api);
         const sourceKeyOne = `#entry main
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     1
 `;
         const sourceKeyTwo = `#entry main
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     2
 `;
         sourceKeySession.compile_outputs_with_vfs(

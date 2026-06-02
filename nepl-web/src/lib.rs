@@ -4723,9 +4723,8 @@ fn compile_wasm_with_bundled_sources_and_cache(
             );
         }
     }
-    let proof_artifact_enabled = preseed_resource_summary_proof_artifact.is_some()
-        && resource_summary_value_cache.is_some()
-        && stdlib_content_hash.is_some();
+    let proof_artifact_enabled =
+        resource_summary_value_cache.is_some() && stdlib_content_hash.is_some();
     let loaded_source_map = loaded.source_map;
     let loaded_nepl_meta_edge_probes = loaded.nepl_meta_edge_probes;
     let loaded_materialized_public_surfaces = loaded.materialized_public_surfaces;
@@ -4786,11 +4785,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 None
             },
             preseed_artifact_bytes: None,
-            stdlib_content_hash: if proof_artifact_enabled {
-                stdlib_content_hash
-            } else {
-                None
-            },
+            stdlib_content_hash,
             preseed_report_out: resource_summary_proof_preseed_report_out.as_deref_mut(),
             value_cache_activation: ResourceSummaryValueCacheActivation::Always,
         },
@@ -4866,11 +4861,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                         None
                     },
                     preseed_artifact_bytes: None,
-                    stdlib_content_hash: if proof_artifact_enabled {
-                        stdlib_content_hash
-                    } else {
-                        None
-                    },
+                    stdlib_content_hash,
                     preseed_report_out: resource_summary_proof_preseed_report_out.as_deref_mut(),
                     value_cache_activation: ResourceSummaryValueCacheActivation::Always,
                 },

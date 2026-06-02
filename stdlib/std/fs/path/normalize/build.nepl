@@ -48,18 +48,18 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
                     let mut sb %StringBuilder sb0
                     let mut i %i32 0
                     let mut part_index %i32 0
-                    let mut ok %i32 1
-                    while and eq ok 1 lt i stack_len:
+                    let mut build_ok %i32 1
+                    while and eq build_ok 1 lt i stack_len:
                         do:
                             let start_opt %Option i32 v::get stack i
                             let end_opt %Option i32 v::get stack add i 1
                             match start_opt:
                                 Option::None:
-                                    set ok 0
+                                    set build_ok 0
                                 Option::Some part_start:
                                     match end_opt:
                                         Option::None:
-                                            set ok 0
+                                            set build_ok 0
                                         Option::Some part_end:
                                             let sep_added %Result StringBuilder str if:
                                                 gt part_index 0
@@ -70,18 +70,18 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
                                             match sep_added:
                                                 Result::Err _e:
                                                     set sb string_builder_empty
-                                                    set ok 0
+                                                    set build_ok 0
                                                 Result::Ok with_sep:
                                                     match sb_append_slice_result with_sep path part_start part_end:
                                                         Result::Err _e:
                                                             set sb string_builder_empty
-                                                            set ok 0
+                                                            set build_ok 0
                                                         Result::Ok next_sb:
                                                             set sb next_sb
                                                             set part_index add part_index 1
                             set i add i 2
                     if:
-                        eq ok 1
+                        eq build_ok 1
                         then:
                             Result::Ok sb
                         else:

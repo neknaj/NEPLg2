@@ -14,7 +14,7 @@ module.exports = {
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let outer_value 1;
     let result <i32> block:
         let outer_value 2;
@@ -33,7 +33,7 @@ fn main <()->i32> ():
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let local_value 10;
     local_value
 `;

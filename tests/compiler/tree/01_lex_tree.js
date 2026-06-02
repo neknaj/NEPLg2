@@ -6,7 +6,7 @@ module.exports = {
         const source = `#entry main
 #indent 4
 #target core
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     if cond true then 1 else 2
 `;
 

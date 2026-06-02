@@ -80,7 +80,7 @@ assert.doesNotMatch(
 );
 assert.match(
     parseCode,
-    /fn\s+to_f64[\s\S]*let\s+mut\s+has_digit\s+<i32>\s+0[\s\S]*eq\s+has_digit\s+0[\s\S]*set\s+ok\s+0/,
+    /fn\s+to_f64[\s\S]*let\s+mut\s+has_digit\s+<i32>\s+0[\s\S]*eq\s+has_digit\s+0[\s\S]*set\s+parse_ok\s+0/,
     'to_f64 must reject strings without any digit',
 );
 assert.ok(implementationLineCount(floatSrc) <= 80, `${floatRelPath} should stay within the float facade boundary`);

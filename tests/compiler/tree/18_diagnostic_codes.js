@@ -7,7 +7,7 @@ module.exports = {
 #indent 4
 #target wasi2
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     0
 `;
         const sem = api.analyze_semantics(badTarget);
@@ -27,7 +27,7 @@ fn main <()->i32> ():
 
         const missing = api.analyze_name_resolution_with_vfs(
             '/virtual/missing.nepl',
-            '#entry main\n#indent 4\n#target core\n#import \"missing/module\" as *\nfn main <()->i32> (): 0\n',
+            '#entry main\n#indent 4\n#target core\n#import \"missing/module\" as *\nfn main %fn void i32 \\void: 0\n',
             {},
             { warn_shadow: true }
         );
@@ -40,7 +40,7 @@ fn main <()->i32> ():
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let
 `;
         const parseRes = api.analyze_semantics(parseBad);
@@ -53,7 +53,7 @@ fn main <()->i32> ():
         const undefVar = `#entry main
 #indent 4
 #target core
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     unknown_symbol
 `;
         const undefRes = api.analyze_semantics(undefVar);
@@ -69,7 +69,7 @@ fn main <()->i32> ():
 
 fn cast <(i32)->i32> (x): x
 fn cast <(i32)->f32> (x): <f32> cast x
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let y cast 1
     0
 `;
@@ -83,7 +83,7 @@ fn main <()->i32> ():
         const lexBad = `#entry main
 #indent xx
 #target core
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     $
 `;
         const lexRes = api.analyze_lex(lexBad);

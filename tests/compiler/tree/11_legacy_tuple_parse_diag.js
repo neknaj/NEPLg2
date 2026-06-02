@@ -12,7 +12,7 @@ module.exports = {
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let t (1, true)
     0
 `;
@@ -29,7 +29,7 @@ fn main <()->i32> ():
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let t <(i32,i32)> Tuple:
         1
         2

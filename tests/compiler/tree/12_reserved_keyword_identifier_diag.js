@@ -18,7 +18,7 @@ module.exports = {
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let cond 1;
     cond
 `;
@@ -31,10 +31,10 @@ fn main <()->i32> ():
 #indent 4
 #target core
 
-fn let <()->i32> ():
+fn let %fn void i32 \\void:
     1
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let
 `;
         const r2 = api.analyze_parse(fnLet);
@@ -49,7 +49,7 @@ fn main <()->i32> ():
 fn id <(i32)->i32> (fn):
     fn
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     id 1
 `;
         const r3 = api.analyze_parse(paramFn);

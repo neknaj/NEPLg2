@@ -45,6 +45,7 @@
 //:| #target std
 //:| #import "std/env/cliarg/cstr" as *
 //:| #import "alloc/string/storage" as *
+//:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
@@ -63,8 +64,8 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
         else:
             let mut i %i32 0
             let mut done %i32 0
-            let mut ok %i32 1
-            while and and and eq done 0 eq ok 1 ge i 0 lt i max_len:
+            let mut pointer_valid %i32 1
+            while and and and eq done 0 eq pointer_valid 1 ge i 0 lt i max_len:
                 do:
                     match load_u8 mem_ptr_add p i:
                         Option::Some b:
@@ -76,9 +77,9 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
                                 else:
                                     set i add i 1
                         Option::None:
-                            set ok 0
+                            set pointer_valid 0
             if:
-                eq ok 0
+                eq pointer_valid 0
                 then:
                     Result::Err "cliarg.cstr_len invalid pointer"
                 else:
@@ -120,6 +121,7 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
 //:| #import "std/env/cliarg/cstr" as *
 //:| #import "alloc/string/storage" as *
 //:| #import "alloc/string" as *
+//:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
 //:     let p %MemPtr u8 string_data_ptr "nep\0";
@@ -133,8 +135,8 @@ pub fn cstr_to_str_bounded_result %impure fn MemPtr u8 impure fn i32 Result str 
     match cstr_len_bounded_result p max_len:
         Result::Err e:
             Result::Err e
-        Result::Ok len:
-            match string_from_utf8_mem_result p len:
+        Result::Ok cstr_len:
+            match string_from_utf8_mem_result p cstr_len:
                 Result::Err e:
                     Result::Err e
                 Result::Ok s:

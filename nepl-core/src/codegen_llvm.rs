@@ -3890,7 +3890,7 @@ mod tests {
     ; module header
     target triple = "x86_64-pc-linux-gnu"
 
-fn body <()->i32> ():
+fn body %fn void i32 \void:
     #llvmir:
         define i32 @body() {
         entry:
@@ -3911,7 +3911,7 @@ fn body <()->i32> ():
         // The function typechecks fine but must not appear in the LLVM output.
         let src = r#"
 #target llvm
-fn body <(i32)->i32> (x):
+fn body %fn i32 i32 \x:
     x
 "#;
         let module = parse_module(src);
@@ -3924,7 +3924,7 @@ fn body <(i32)->i32> (x):
     fn emit_ll_supports_parsed_const_i32_function() {
         let src = r#"
 #target llvm
-fn c <()->i32> ():
+fn c %fn void i32 \void:
     123
 "#;
         let module = parse_module(src);
@@ -3938,12 +3938,12 @@ fn c <()->i32> ():
         let src = r#"
 #target llvm
 #if[target=wasm]
-fn w <()->i32> ():
+fn w %fn void i32 \void:
     #wasm:
         i32.const 1
 
 #if[target=llvm]
-fn l <()->i32> ():
+fn l %fn void i32 \void:
     #llvmir:
         define i32 @l() {
         entry:
@@ -3966,7 +3966,7 @@ fn l <()->i32> ():
     fn emit_ll_supports_function_body_if_target_raw() {
         let src = r#"
 #target llvm
-fn f <()->i32> ():
+fn f %fn void i32 \void:
     #if[target=wasm]
     #wasm:
         i32.const 1
@@ -3994,7 +3994,7 @@ fn f <()->i32> ():
         let src = r#"
 #target llvm
 #entry main
-fn main <()->i32> ():
+fn main %fn void i32 \void:
     #wasm:
         i32.const 1
 "#;
@@ -4008,7 +4008,7 @@ fn main <()->i32> ():
         let src = r#"
 #target llvm
 #entry boot
-fn boot <()->i32> ():
+fn boot %fn void i32 \void:
     #llvmir:
         define i32 @boot() {
         entry:

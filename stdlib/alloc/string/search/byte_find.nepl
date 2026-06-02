@@ -30,7 +30,7 @@
 //: - O(sep_len)
 pub fn str_match_at %fn str fn str fn i32 fn i32 bool \s\sep\pos\sep_len:
     let mut i %i32 0;
-    let mut ok %i32 1;
+    let mut bytes_match %i32 1;
     while lt i sep_len:
         do:
             let rd_off %i32 add pos i;
@@ -38,9 +38,9 @@ pub fn str_match_at %fn str fn str fn i32 fn i32 bool \s\sep\pos\sep_len:
                 string_bytes_eq s rd_off sep i
                 then set i %i32 add i 1
                 else:
-                    set ok 0
+                    set bytes_match 0
                     set i sep_len
-    eq ok 1
+    eq bytes_match 1
 
 //: str_find: byte 列として最初に一致する位置を返す
 //:

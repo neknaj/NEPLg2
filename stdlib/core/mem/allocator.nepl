@@ -207,7 +207,7 @@ pub fn alloc_raw %fn i32 i32 \size:
                     let new_heap %i32 add start total
                     let cur_pages %i32 mem_size
                     let cur_bytes %i32 mul cur_pages 65536
-                    let mut ok %bool true
+                    let mut grow_ok %bool true
                     if:
                         cond:
                             le new_heap cur_bytes
@@ -222,12 +222,12 @@ pub fn alloc_raw %fn i32 i32 \size:
                                 cond:
                                     lt prev_pages 0
                                 then:
-                                    set ok false
+                                    set grow_ok false
                                 else:
                                     unit
                     if:
                         cond:
-                            ok
+                            grow_ok
                         then:
                             store_i32 0 new_heap
                             store_i32 start total

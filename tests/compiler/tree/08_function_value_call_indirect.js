@@ -13,7 +13,7 @@ fn inc <(i32)->i32> (x):
 fn apply <((i32)->i32, i32)->i32> (f, x):
     f x
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let f @inc;
     apply f 41
 `;

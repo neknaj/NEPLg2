@@ -6,7 +6,7 @@ module.exports = {
         const source = `#entry main
 #indent 4
 #target core
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let mut i 0;
     while cond lt i 2 do set i add i 1;
     let t Tuple:

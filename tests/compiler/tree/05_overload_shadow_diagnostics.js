@@ -18,7 +18,7 @@ fn val_cast <(i32)->i32> (v):
 fn val_cast <(i32)->bool> (v):
     ne v 0
 
-fn main <()*>i32> ():
+fn main %impure fn void i32 \\void:
     let v <i32> 10
     let res_i32 <i32> val_cast v
     let res_bool <bool> val_cast v
@@ -56,7 +56,7 @@ fn same <(i32)->i32> (x):
 fn same <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     same 1
 `;
 

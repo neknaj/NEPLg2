@@ -12,7 +12,7 @@ module.exports = {
 fn inc <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     ${chain} 0
 `;
 

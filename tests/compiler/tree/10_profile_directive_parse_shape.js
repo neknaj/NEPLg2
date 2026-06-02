@@ -5,9 +5,9 @@ module.exports = {
     async run(api) {
         const source = `#entry main
 #if[profile=debug]
-fn only_debug <()->i32> ():
+fn only_debug %fn void i32 \\void:
     1
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     only_debug
 `;
 

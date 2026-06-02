@@ -6,7 +6,7 @@ module.exports = {
         const source = `#entry main
 #indent 4
 #target core
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let x 1;
     let y <i32> block:
         let x 2;

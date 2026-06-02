@@ -90,23 +90,23 @@ pub fn sort_is_sorted <.T: Ord&Copy> %fn &Vec .T bool \v:
         then true
         else:
             let mut i %i32 1
-            let mut ok %bool true
-            while and ok lt i n:
+            let mut sorted %bool true
+            while and sorted lt i n:
                 do:
                     match get<.T> v sub i 1:
                         Option::None:
-                            set ok false
+                            set sorted false
                         Option::Some a:
                             match get<.T> v i:
                                 Option::None:
-                                    set ok false
+                                    set sorted false
                                 Option::Some b:
                                     if:
                                         sort_lt<.T> b a
-                                        then set ok false
+                                        then set sorted false
                                         else unit
                     set i add i 1;
-            ok
+            sorted
 
 
 // -----------------------------------------------------------------------------

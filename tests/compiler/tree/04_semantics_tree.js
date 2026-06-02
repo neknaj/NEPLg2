@@ -10,7 +10,7 @@ module.exports = {
 fn inc <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let a inc 41;
     a
 `;
@@ -58,7 +58,7 @@ fn main <()->i32> ():
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn void i32 \\void:
     let outer_value 5;
     let result <i32> block:
         let outer_value 6;

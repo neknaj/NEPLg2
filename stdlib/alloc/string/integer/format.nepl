@@ -222,12 +222,12 @@ pub fn from_i128 %fn i128 str \v:
 // 計算量:
 // - O(d)
 pub fn from_i128_radix %fn i128 fn i32 Result str i32 \v\radix:
-    let neg %bool i128_is_negative v;
+    let is_negative %bool i128_is_negative v;
     let mag %u128 i128_abs_u128 v;
     match from_u128_radix mag radix:
         Result::Ok body:
             if:
-                neg
+                is_negative
                 then:
                     match string_builder_with_capacity_result add 1 len body:
                         Result::Err _e:

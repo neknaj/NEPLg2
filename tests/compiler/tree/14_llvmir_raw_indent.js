@@ -14,7 +14,7 @@ module.exports = {
       ret i32 0
     }
 
-fn f <()->i32> ():
+fn f %fn void i32 \\void:
     #llvmir:
         define i32 @f() {
         entry:

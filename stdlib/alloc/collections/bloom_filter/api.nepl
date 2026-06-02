@@ -105,18 +105,19 @@ pub fn len <.T,.H> %fn &BloomFilter .T .H i32 \bf:
 //:     if ok 1 0
 //: ```
 pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H impure fn .T BloomFilter .T .H \bf\key:
-    let nbits %i32 *field::get_ref &bf "nbits"
-    let bits %&Vec u8 field::get_ref &bf "bits"
-    let hasher %.H *field::get_ref &bf "hasher"
+    let nbits %i32 field::get bf "nbits"
+    let nbytes %i32 field::get bf "nbytes"
+    let hasher %.H field::get bf "hasher"
+    let bits %Vec u8 field::get bf "bits"
     let h0 %i32 bloom_hash0<.T,.H> hasher key
     let h1 %i32 bloom_hash1<.T,.H> hasher key
     let i0 %i32 rem_u h0 nbits
     let i1 %i32 bloom_probe_index nbits h0 h1
     let i2 %i32 bloom_probe_index nbits i1 h1
-    bloom_set_bit bits i0
-    bloom_set_bit bits i1
-    bloom_set_bit bits i2
-    bf
+    bloom_set_bit &bits i0
+    bloom_set_bit &bits i1
+    bloom_set_bit &bits i2
+    BloomFilter<.T,.H> nbits nbytes bits hasher
 
 //: ## contains
 //: [要素/ようそ]が[登録済/とうろくず]みかを[近似/きんじ][判定/はんてい]する
@@ -181,10 +182,12 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &BloomFilter .T .H fn
 //:     if ok 0 1
 //: ```
 pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H BloomFilter .T .H \bf:
-    let nbytes %i32 *field::get_ref &bf "nbytes"
-    let bits %&Vec u8 field::get_ref &bf "bits"
-    bloom_fill_bytes bits nbytes 0
-    bf
+    let nbits %i32 field::get bf "nbits"
+    let nbytes %i32 field::get bf "nbytes"
+    let hasher %.H field::get bf "hasher"
+    let bits %Vec u8 field::get bf "bits"
+    bloom_fill_bytes &bits nbytes 0
+    BloomFilter<.T,.H> nbits nbytes bits hasher
 
 //: ## free
 //: bitset [領域/りょういき]を[解放/かいほう]する

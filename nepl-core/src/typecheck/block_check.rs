@@ -313,7 +313,9 @@ impl<'a> BlockChecker<'a> {
 
             match stmt {
                 Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
-                    let expected_stmt_ty = if Some(idx) == last_expr_idx {
+                    let expected_stmt_ty = if matches!(stmt, Stmt::ExprSemi(_, _)) {
+                        None
+                    } else if Some(idx) == last_expr_idx {
                         expected_last_ty
                     } else {
                         None
