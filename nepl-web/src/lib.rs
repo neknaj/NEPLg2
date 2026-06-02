@@ -37,6 +37,7 @@ use nepl_core::typecheck::{typecheck, MaterializedPublicSurfaceInput, PublicSurf
 use nepl_core::{
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
     ResourceSummaryProofArtifactCacheOptions, ResourceSummaryProofArtifactPreseedReport,
+    ResourceSummaryValueCacheActivation,
 };
 use wasmprinter::print_bytes;
 use wasm_bindgen::{prelude::*, JsCast};
@@ -3977,6 +3978,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 None
             },
             preseed_report_out: resource_summary_proof_preseed_report_out.as_deref_mut(),
+            value_cache_activation: ResourceSummaryValueCacheActivation::Always,
         },
         stage_timings.as_deref_mut(),
     );
@@ -4053,6 +4055,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                         None
                     },
                     preseed_report_out: resource_summary_proof_preseed_report_out.as_deref_mut(),
+                    value_cache_activation: ResourceSummaryValueCacheActivation::Always,
                 },
                 stage_timings.as_deref_mut(),
             );
