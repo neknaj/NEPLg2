@@ -380,6 +380,32 @@ function check は `dealloc_raw=175ms`、`parse_u128_radix_digits_from=106ms`、
 残っている。次の根本対応は actual `.neplproof` preseed を native `--check` cold path に接続することと、
 stdlib-heavy proof の事前検査済み artifact 化である。
 
+2026-06-02 の RPN source-specific proof gate checkpoint では、native `nepl-cli --check` が Web
+`CompilerSession` と違って `ResourceSummaryValueCache` / `.neplproof` preseed を使っていないことを
+確認した。空の `ResourceSummaryValueCache` を native check path に接続する試行は
+`resource_static_check=6761ms / 6849ms / 6816ms` へ悪化したため採用していない。preseed hit が無い状態で
+cache key / replay probe だけを追加しても cold base は速くならない。
+
+採用した対応は、raw-init release requirement の parameter alias list を summary application ごとに一度だけ
+作ることと、i32 scalar condition 探索の前提判定を対象 value の scalar aliases に届く fact へ狭めることである。
+無関係な i32 fact が同じ raw alias graph にあるだけでは cold leaf の condition 探索を開始しない。
+
+formatter 後の native release RPN stage-only 3 run は `resource_static_check=3979ms / 3433ms / 3538ms`、
+`resource_initialized_moves=2973ms / 2559ms / 2578ms`、
+`resource_initialized_i32_scalar_summaries=1035ms / 891ms / 860ms`、
+`resource_initialized_raw_init_summaries=976ms / 831ms / 896ms`、
+`resource_initialized_function_checks=883ms / 770ms / 757ms`、
+`resource_owner_obligations=865ms / 754ms / 839ms` だった。median `resource_static_check=3538ms` まで
+下がったが、0.5 秒未満目標にはまだ届かない。
+
+per-function timing の階層は、`resource_static_check=3723ms` のうち
+`resource_initialized_moves=2705ms`、その内訳として i32 scalar `929ms`、raw-init `890ms`、function check
+`811ms`、さらに owner obligations `881ms` が残る形である。上位関数は i32 scalar が
+`sb_append_non_empty_result=268ms`、`byte_builder_reserve=173ms`、raw-init が `apply_op=185ms`、
+`dealloc_raw=148ms`、function check が `dealloc_raw=151ms`、`parse_u128_radix_digits_from=91ms`、
+`apply_op=80ms` である。次の根本対応は bundled / persistent `.neplproof` preseed、stdlib proof template、
+owner return summary stable mirror である。
+
 ## 検証
 
 - `trunk build`

@@ -823,6 +823,7 @@ fn collect_function_summary_release_requirements(
     let Some(summary) = summary else {
         return;
     };
+    let param_alias_index = RawCellReleaseParamAliasIndex::new(engine.types, raw_aliases, params);
     for requirement in &summary.param_release_requirements {
         let Some(arg) = args.get(requirement.param_index) else {
             continue;
@@ -833,13 +834,12 @@ fn collect_function_summary_release_requirements(
             &requirement.suffix,
             requirement.ty,
         );
-        collect_address_release_requirements(
+        collect_address_release_requirements_with_param_alias_index(
             out,
-            engine.types,
             &address,
             requirement.kind,
             raw_aliases,
-            params,
+            &param_alias_index,
         );
     }
 }
@@ -852,28 +852,68 @@ pub(super) fn collect_address_release_requirements(
     raw_aliases: &RawCellAddressAliases,
     params: &[ResourceLocal],
 ) {
+    let param_alias_index = RawCellReleaseParamAliasIndex::new(types, raw_aliases, params);
+    collect_address_release_requirements_with_param_alias_index(
+        out,
+        address,
+        kind,
+        raw_aliases,
+        &param_alias_index,
+    );
+}
+
+fn collect_address_release_requirements_with_param_alias_index(
+    out: &mut Vec<RawCellReleaseParamRequirement>,
+    address: &Place,
+    kind: RawCellReleaseRequirementKind,
+    raw_aliases: &RawCellAddressAliases,
+    param_alias_index: &RawCellReleaseParamAliasIndex,
+) {
     let address = raw_aliases.canonicalize(address);
     for address_alias in raw_aliases.aliases_for(&address) {
+        for param_alias in &param_alias_index.entries {
+            let Some(suffix) = raw_address_suffix_after_address(&address_alias, &param_alias.alias)
+            else {
+                continue;
+            };
+            push_unique_param_release_requirement(
+                out,
+                RawCellReleaseParamRequirement {
+                    param_index: param_alias.param_index,
+                    suffix,
+                    ty: address_alias.ty,
+                    kind,
+                },
+            );
+        }
+    }
+}
+
+struct RawCellReleaseParamAliasIndex {
+    entries: Vec<RawCellReleaseParamAliasEntry>,
+}
+
+struct RawCellReleaseParamAliasEntry {
+    param_index: usize,
+    alias: Place,
+}
+
+impl RawCellReleaseParamAliasIndex {
+    fn new(
+        types: &crate::types::TypeCtx,
+        raw_aliases: &RawCellAddressAliases,
+        params: &[ResourceLocal],
+    ) -> Self {
+        let mut entries = Vec::new();
         for (param_index, param) in params.iter().enumerate() {
             if !summary_input_type_may_seed_raw_address_alias(types, param.place.ty) {
                 continue;
             }
-            for param_alias in raw_aliases.aliases_for(&param.place) {
-                let Some(suffix) = raw_address_suffix_after_address(&address_alias, &param_alias)
-                else {
-                    continue;
-                };
-                push_unique_param_release_requirement(
-                    out,
-                    RawCellReleaseParamRequirement {
-                        param_index,
-                        suffix,
-                        ty: address_alias.ty,
-                        kind,
-                    },
-                );
+            for alias in raw_aliases.aliases_for(&param.place) {
+                entries.push(RawCellReleaseParamAliasEntry { param_index, alias });
             }
         }
+        Self { entries }
     }
 }
 
