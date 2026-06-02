@@ -1,3 +1,17 @@
+# 2026-06-02 RPN i32 scalar variant projection filter checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の方針に従い、静的検査の意味を弱めない探索空間削減として、`examples/rpn.nepl` cold base の i32 scalar return fact 収集を再測定した。
+- 作業前に `origin/main` が最新であることを確認し、`perf/rpn-i32-scalar-hotspot-20260602` を作成した。release CLI を再ビルドしてから `target\release\nepl-cli.exe --check -i examples\rpn.nepl` を stage timing 付きで 3 回測定した。
+- baseline follow-up 測定は `resource_static_check=4056ms / 4247ms / 4008ms`、`resource_initialized_i32_scalar_summaries=1127ms / 1129ms / 1027ms` だった。per-function では `sb_append_non_empty_result=297ms`、`byte_builder_reserve=229ms`、`byte_builder_push_u8=131ms`、`byte_builder_push_bytes_ref=125ms`、`apply_op=107ms` が i32 scalar 上位だった。
+- subagent 調査では、i32 scalar return fact 収集が `Result` の Ok / Err のような concrete variant で到達不能な sibling payload leaf まで fact 収集対象にしていること、ただし不明な variant では従来通り fail-open にすべきことが指摘された。別 review では 0.5 秒未満化の本命は actual `.neplproof` check-only preseed であり、局所 i32 改善は限定的に留めるべきと確認された。
+- 試行として direct parameter condition の path 間 intersection を「1 path 目で候補収集、後続 path で候補再検査」に変える案を測ったが、`resource_initialized_i32_scalar_summaries=1314ms / 1270ms / 1062ms`、`resource_static_check=4411ms / 4318ms / 3725ms` へ悪化したため採用しなかった。`sb_append_non_empty_result` の詳細では 1 本目の候補収集が `400ms` になり、leaf 全探索削減より別 context での再照会 cost が大きかった。
+- 採用した変更では、`collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter` を追加し、`function_i32_scalar_return_summary` から `state.concrete_variants.projection_is_possible` を渡す。concrete variant で不可能な return leaf は fact 収集前に除外し、不明な場合は caller が常に true を返すため従来通り全探索する。
+- subagent review は blocking なしだった。指摘された残リスクに合わせて、`i32_return_facts_projection_filter_skips_impossible_leaf` に加え、fail-open、parameter condition 保持、到達可能 leaf 同士の offset 由来 relation 保持を focused test で固定した。
+- 変更後の native release stage-only 3 run は `resource_static_check=3834ms / 3793ms / 3684ms`、`resource_initialized_moves=2897ms / 2850ms / 2763ms`、`resource_initialized_i32_scalar_summaries=1107ms / 1040ms / 993ms`、`resource_initialized_raw_init_summaries=894ms / 901ms / 893ms`、`resource_initialized_function_checks=817ms / 839ms / 804ms`、`resource_owner_obligations=804ms / 805ms / 792ms` だった。直前 checkpoint の median `resource_static_check=3878ms` から `3793ms`、`resource_initialized_i32_scalar_summaries=1076ms` から `1040ms` への小幅改善であり、0.5 秒未満化には届いていない。
+- per-function timing では `sb_append_non_empty_result=317ms`、`byte_builder_reserve=189ms`、`byte_builder_push_bytes_ref=118ms`、`apply_op=112ms`、`byte_builder_push_u8=100ms` が引き続き i32 scalar 上位である。ログ overhead と実行ぶれを含むため総量比較には使わず、残る領域の順位として扱う。
+- focused 検証: `cargo test -p nepl-core i32_scalar_return_facts --lib -- --nocapture` は 11 tests pass。`cargo fmt --check`、`cargo check -p nepl-core`、`cargo build -p nepl-cli --release`、RPN stage-only 3 run、RPN per-function timing run は pass。
+- 残件は、actual `.neplproof` artifact を native `--check` cold path に接続すること、persistent / bundled `.neplproof` codec、`dealloc_raw` / `apply_op` / Stack owner flow の proof template 化、i32 condition query memo の source 単位化である。
+
 # 2026-06-02 RPN cold base release requirement state-step checkpoint
 
 - `plan.md` は変更していない。`examples/rpn.nepl` を cold base compile benchmark として、release CLI を再ビルドしてから `target\release\nepl-cli.exe --check -i examples\rpn.nepl` を stage timing 付きで再測定した。
