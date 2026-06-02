@@ -1,3 +1,17 @@
+# 2026-06-02 RPN cold base source-specific proof gate checkpoint
+
+- `plan.md` は変更していない。`origin/main` に同期した `main` から `perf/rpn-cold-base-neplproof-20260602b` を作成し、`examples/rpn.nepl` を cold base compile benchmark として継続計測した。
+- subagent 調査では、native `nepl-cli --check` が Web `CompilerSession` と違って `ResourceSummaryValueCache` / `.neplproof` preseed を使っていないこと、既存の `ResourceSummaryProofArtifact` は in-memory snapshot / header 境界までで disk codec ではないことを確認した。
+- 試行として空の `ResourceSummaryValueCache` を native CLI の check path に接続したが、preseed hit が無いまま stable key / replay probe の固定費だけが増え、RPN cold base は `resource_static_check=6761ms / 6849ms / 6816ms`、`resource_initialized_moves=4751ms / 4847ms / 4796ms`、`resource_owner_obligations=1873ms / 1862ms / 1875ms` へ悪化した。この案は採用せず revert した。
+- 採用した変更では、raw-init release requirement の param alias list を summary application ごとに一度だけ作る `RawCellReleaseParamAliasIndex` へ移した。`raw_address_suffix_after_address`、`ty: address_alias.ty`、`kind`、`push_unique_param_release_requirement` は維持し、alias pair の重複で同じ requirement を増やさない。
+- i32 scalar return fact 収集では、同じ `I32ConditionQueryContext` を relation / condition / parameter condition 収集で共有し、さらに対象 value の scalar alias に届く direct condition / value、relation、scale、offset が無い場合だけ condition 探索を省くようにした。無関係な i32 fact が同じ raw alias graph にあるだけでは cold leaf の全 condition 探索を始めない。
+- subagent review は blocking なしだった。非 blocking の test gap として、source-specific gate と param alias index の重複除去を指摘されたため、`i32_condition_gate_ignores_unrelated_scalar_facts` と `release_requirement_param_alias_index_deduplicates_equivalent_alias_pairs` を追加した。
+- formatter 後の native release RPN stage-only 3 run は `resource_static_check=3979ms / 3433ms / 3538ms`、`resource_initialized_moves=2973ms / 2559ms / 2578ms`、`resource_initialized_i32_scalar_summaries=1035ms / 891ms / 860ms`、`resource_initialized_raw_init_summaries=976ms / 831ms / 896ms`、`resource_initialized_function_checks=883ms / 770ms / 757ms`、`resource_owner_obligations=865ms / 754ms / 839ms` だった。median は `resource_static_check=3538ms` で、0.5 秒未満にはまだ遠い。
+- per-function timing では、i32 scalar summary の上位は `sb_append_non_empty_result=268ms`、`byte_builder_reserve=173ms`、`apply_op=97ms`、raw-init summary の上位は `apply_op=185ms`、`dealloc_raw=148ms`、function check の上位は `dealloc_raw=151ms`、`parse_u128_radix_digits_from=91ms`、`apply_op=80ms` だった。
+- この checkpoint の結論は、局所探索削減は有効だが小幅であり、RPN cold base を大きく下げる主経路は bundled / persistent `.neplproof` preseed、stdlib prechecked proof artifact、owner return summary stable mirror、`dealloc_raw` / ByteBuilder / `apply_op` の proof template 化である。
+- focused 検証: `cargo test -p nepl-core initialized_summary_release_build --lib -- --nocapture` は 5 tests pass。`cargo test -p nepl-core i32_scalar_return_facts --lib -- --nocapture` は 12 tests pass。`cargo build -p nepl-cli --release` は pass。RPN stage-only 3 run は pass。
+- broader 検証: `cargo test -p nepl-core --lib` は 764 passed / 2 failed。失敗は既存の loader session cache exact test である `provider_session_cache_misses_when_stdlib_source_hash_changes` と `provider_session_cache_misses_when_imported_type_arity_hints_change` で、今回変更した Resource proof / RPN cold base とは別領域である。
+
 # 2026-06-02 Agent2 Web GUI interactive examples checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` を fetch / merge し、`note.n.md` の並行追記競合だけを両方残す形で解消した。

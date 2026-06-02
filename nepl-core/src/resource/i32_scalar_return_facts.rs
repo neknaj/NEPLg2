@@ -7,7 +7,7 @@ use crate::types::{TypeCtx, TypeId};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_i32_condition_context::I32ConditionQueryContext;
 use super::model::{
-    I32ValueCondition, Place, PlaceProjection, PlaceRoot, ResourceI32RelationOp, ResourceLocal,
+    I32ValueCondition, Place, PlaceProjection, ResourceI32RelationOp, ResourceLocal,
 };
 use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::owner_summary_leaf::OwnerLeafPlace;
@@ -231,7 +231,13 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_proje
             &mut facts,
         );
     }
-    collect_i32_scalar_return_leaf_relations(raw_aliases, &leaves, target_suffix, &mut facts);
+    collect_i32_scalar_return_leaf_relations(
+        raw_aliases,
+        &leaves,
+        target_suffix,
+        &mut condition_context,
+        &mut facts,
+    );
     collect_i32_scalar_parameter_conditions(
         params,
         types,
@@ -465,12 +471,12 @@ fn collect_i32_scalar_return_leaf_relations(
     raw_aliases: &RawCellAddressAliases,
     leaves: &[OwnerLeafPlace],
     target_suffix: &[PlaceProjection],
+    condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
     // leaf 間の等価性照会は同じ raw alias graph に対する純粋な問い合わせである。
     // return value に多数の i32 leaf がある場合でも、alias/offset 到達性の memo を
     // relation 収集全体で共有し、同じ探索を leaf pair ごとに繰り返さない。
-    let mut condition_context = I32ConditionQueryContext::default();
     for (left_index, left) in leaves.iter().enumerate() {
         for right in leaves.iter().skip(left_index + 1) {
             if left.place.ty != right.place.ty
@@ -478,7 +484,7 @@ fn collect_i32_scalar_return_leaf_relations(
                     raw_aliases,
                     &left.place,
                     &right.place,
-                    &mut condition_context,
+                    condition_context,
                 )
             {
                 continue;
@@ -586,8 +592,7 @@ fn collect_i32_scalar_return_conditions(
     condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
-    if !raw_aliases.can_prove_i32_value_condition()
-        && !matches!(source.root, PlaceRoot::I32Constant(_))
+    if !raw_aliases.can_prove_i32_value_condition_for_value_with_context(source, condition_context)
     {
         return;
     }
@@ -693,8 +698,7 @@ fn collect_i32_scalar_parameter_conditions_for_source(
     condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
-    if !raw_aliases.can_prove_i32_value_condition()
-        && !matches!(source.root, PlaceRoot::I32Constant(_))
+    if !raw_aliases.can_prove_i32_value_condition_for_value_with_context(source, condition_context)
     {
         return;
     }
@@ -730,6 +734,12 @@ fn collect_i32_scalar_parameter_conditions(
     }
     for (parameter_index, param) in params.iter().enumerate() {
         for leaf in leaf_cache.leaf_places_for_conditions(types, &param.place) {
+            if !raw_aliases.can_prove_i32_value_condition_for_value_with_context(
+                &leaf.place,
+                condition_context,
+            ) {
+                continue;
+            }
             for condition in I32_SCALAR_SUMMARY_CONDITIONS {
                 if raw_aliases.i32_condition_is_known_true_with_context(
                     &leaf.place,

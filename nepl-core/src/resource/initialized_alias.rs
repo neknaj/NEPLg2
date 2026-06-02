@@ -414,6 +414,21 @@ impl RawCellAddressAliases {
             || self.i32_offsets.has_i32_constant_endpoint()
     }
 
+    pub(super) fn can_prove_i32_value_condition_for_value_with_context(
+        &self,
+        place: &Place,
+        context: &mut super::initialized_alias_i32_condition_context::I32ConditionQueryContext,
+    ) -> bool {
+        if matches!(place.root, super::model::PlaceRoot::I32Constant(_)) {
+            return true;
+        }
+        let aliases = self.scalar_aliases_for_value_with_context(place, context);
+        self.i32_facts.has_condition_sources_for_aliases(&aliases)
+            || self.i32_relations.has_relation_touching_aliases(&aliases)
+            || self.i32_scales.has_scaled_source_for_aliases(&aliases)
+            || self.i32_offsets.has_offset_for_aliases(&aliases)
+    }
+
     fn clear_scalar_metadata(&mut self, place: &Place) {
         self.scalar_origins.clear_prefix(place);
         self.i32_facts.clear_prefix(place);

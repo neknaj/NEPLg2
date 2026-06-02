@@ -17,6 +17,13 @@ impl I32AliasFacts {
         !self.values.is_empty() || !self.conditions.is_empty()
     }
 
+    pub(super) fn has_condition_sources_for_aliases(&self, aliases: &[Place]) -> bool {
+        aliases.iter().any(|alias| {
+            self.values.iter().any(|fact| fact.place == *alias)
+                || self.conditions.iter().any(|fact| fact.place == *alias)
+        })
+    }
+
     pub(super) fn set_value(&mut self, place: &Place, value: i32) {
         self.values.retain(|fact| fact.place != *place);
         self.conditions.retain(|fact| fact.place != *place);
