@@ -1,3 +1,15 @@
+# 2026-06-02 RPN cold base remeasure / rejected local-cache checkpoint
+
+- `plan.md` は変更していない。`perf/rpn-cold-base-next-20260602` で `origin/main` を fetch し、`examples/rpn.nepl` の native release `--check` を cold base 基準として再測定した。
+- Zenn 記事の試作段階方針に従い、静的検査を弱める skip ではなく、純粋 query / proof cache / artifact 化で探索空間を削る方針を再確認した。
+- 現在の HEAD 相当 release CLI での stage-only 3 run は `resource_static_check=6303ms / 4993ms / 4115ms`、`resource_initialized_moves=4754ms / 3383ms / 3154ms`、`resource_initialized_i32_scalar_summaries=1114ms / 1207ms / 1118ms`、`resource_initialized_raw_init_summaries=2390ms / 1086ms / 1052ms`、`resource_initialized_function_checks=1164ms / 1005ms / 895ms`、`resource_owner_obligations=1400ms / 1445ms / 816ms` だった。run1 は raw-init と owner が同時に外れたため、報告ではばらつき込みの cold base として扱う。
+- function timing 1 run では `resource_static_check=4358ms`、`resource_initialized_moves=3293ms`、`resource_owner_obligations=923ms` だった。内訳は i32 scalar `1177ms`、raw-init `1053ms`、final function check `959ms`。上位関数は i32 scalar が `sb_append_non_empty_result=344ms`、`byte_builder_reserve=239ms`、`apply_op=103ms`、raw-init が `apply_op=213ms`、`dealloc_raw=186ms`、function check が `dealloc_raw=168ms`、`parse_u128_radix_digits_from=111ms`、`apply_op=101ms`。
+- subagent 調査では、native `--check` が Web `CompilerSession` と違って `.neplproof` preseed を使っていないこと、owner return summary stable mirror がまだ無いこと、empty cache だけをつなぐと悪化することを再確認した。
+- 試行した `I32ConditionQueryContext` の condition-candidate memo は、`Place` key の `BTreeMap` 固定費が hit 率を上回り `resource_static_check=4588ms / 4283ms / 4021ms` へ悪化したため採用しなかった。
+- 試行した offset 由来 parameter condition の重複収集削減は、focused test は通ったが RPN では `resource_static_check=3947ms / 4063ms / 3595ms`、per-function で `sb_append_non_empty_result=312ms`、`byte_builder_reserve=175ms` へ悪化したため採用しなかった。
+- 試行した owner summary relevance filter は、recomputation を `295 -> 267`、summary count を `196 -> 187` へ減らしたが、filter 固定費と残った関数構成が上回り `resource_static_check=4493ms / 4328ms / 4125ms` へ悪化したため採用しなかった。
+- 採用差分はない。今回の結論は、RPN cold base の次の根本対応を bundled / persistent `.neplproof` stable codec、native `--check` preseed、stdlib proof template、owner return summary stable mirror に絞ることである。local memo / relevance filter は、RPN 実測で改善しない限り入れない。
+
 # 2026-06-02 RPN cold base source-specific proof gate checkpoint
 
 - `plan.md` は変更していない。`origin/main` に同期した `main` から `perf/rpn-cold-base-neplproof-20260602b` を作成し、`examples/rpn.nepl` を cold base compile benchmark として継続計測した。

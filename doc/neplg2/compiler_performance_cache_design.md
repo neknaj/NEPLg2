@@ -3350,6 +3350,51 @@ RPN cold base static check
     resource_owner_obligations=881ms
 ```
 
+2026-06-02 の follow-up remeasure では、HEAD 相当の native release `--check` でばらつきが大きい
+`resource_static_check=6303ms / 4993ms / 4115ms` になった。run1 は
+`resource_initialized_raw_init_summaries=2390ms` と `resource_owner_obligations=1400ms` が同時に
+外れたため、RPN cold base は単発値ではなく 3 run 以上の stage hierarchy で見る必要がある。
+
+同じ checkpoint の per-function timing 1 run は次の階層である。
+
+```text
+RPN cold base static check follow-up
+  resource_static_check=4358ms
+    resource_initialized_moves=3293ms
+      resource_initialized_i32_scalar_summaries=1177ms
+        sb_append_non_empty_result: 344ms
+        byte_builder_reserve: 239ms
+        apply_op: 103ms
+        byte_builder_push_bytes_ref: 97ms
+        byte_builder_push_u8: 90ms
+      resource_initialized_raw_init_summaries=1053ms
+        apply_op: 213ms
+        dealloc_raw: 186ms
+        byte_builder_push_bytes_ref: 75ms
+        byte_builder_reserve: 49ms
+        byte_builder_push_u8: 30ms
+      resource_initialized_function_checks=959ms
+        dealloc_raw: 168ms
+        parse_u128_radix_digits_from: 111ms
+        apply_op: 101ms
+    resource_owner_obligations=923ms
+      resource_owner_summaries=802ms
+      resource_owner_function_checks=120ms
+```
+
+この follow-up で試した local cache / relevance filter は採用しない。
+
+- `I32ConditionQueryContext` に condition candidate memo を追加する案は、`Place` key の `BTreeMap`
+  固定費が hit 率を上回った。
+- offset 由来 parameter condition の source 別収集を削る案は、focused test は通ったが RPN
+  per-function で StringBuilder / ByteBuilder の i32 scalar cost が増えた。
+- owner summary relevance filter は recomputation を `295 -> 267` へ減らしたが、filter 固定費が
+  上回った。
+
+したがって、RPN cold base を 0.5 秒未満へ進める主経路は、局所 memo ではなく bundled /
+persistent `.neplproof` stable codec、native `--check` preseed、stdlib proof template、owner return
+summary stable mirror である。
+
 この checkpoint でも RPN cold base は 0.5 秒未満に届いていない。次の根本対応は、actual
 `.neplproof` artifact を native `--check` cold path に接続し、stdlib-heavy proof を初回 compile 前から
 preseed することである。owner return summary はまだ `.neplproof` payload に入っていないため、owner
