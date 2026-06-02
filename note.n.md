@@ -1,3 +1,15 @@
+# 2026-06-02 Agent2 Web Playground current syntax highlight checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の Web frontend 方針に従い、Web Playground 固有の DOM / Canvas 表示を editor 表層に閉じ、syntax highlight の本体は compiler analysis を UI 非依存の update payload へ正規化する境界で扱う方針を再確認した。
+- `web/src/editor-core/language-analysis.ts` は `EditorTokenType` union を導入し、highlight category を文字列の ad-hoc 値ではなく固定集合として扱うようにした。
+- 最新 NEPLg2 構文に合わせ、`Percent`、`Backslash`、`Ampersand`、`PathSep` を operator、`UnitLiteral` や括弧系を punctuation、primitive type 名と大文字始まり identifier を type、`impure` など lexer 上 Ident として来る syntax marker を keyword として正規化する。
+- directive span tokenizer は `@merge` を keyword として扱い、`#import "..." as @merge` の directive body を keyword / string / operator に分ける。入力途中の単独 `@` も keyword に保ち、lexer token 分割の揺れで default 表示へ落ちないようにした。
+- `web/src/editor/editor.ts` は `type` token color を追加し、`NEPLg2LanguageProvider` の completion 候補は現行構文の `pub`、`impure`、`unit`、`#intrinsic`、`@merge` などを含む形へ更新した。
+- `nodesrc/test_editor_current_syntax_highlighting.js` を追加し、`pub enum`、`%impure fn`、`\arg`、`&App`、`Result::Ok`、`@merge`、boolean literal などの current syntax highlight contract を CLI で固定した。`nodesrc/run_source_policy_regressions.js` にもこの check を追加した。
+- `doc/web_playground.md` は editor language highlighting の contract と current implementation を分けて追記した。
+- 検証: `npm --prefix web run build:ts`、`node nodesrc/test_editor_current_syntax_highlighting.js`、`node nodesrc/test_editor_diagnostic_code_contract.js`、`node nodesrc/test_analysis_api.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-syntax-highlight-update-final.json`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を実行した。source-policy は `--warn-only` で完走し、Web GUI / editor 関連は通過、既存の責務分割系 warning 8 件は残っている。
+- Browser plugin は利用できなかったため Playwright CLI で確認した。`web/dist` の production `/NEPLg2/` asset path を一時配信し、`#workspace-root canvas` を待機して `C:\Users\bem\AppData\Local\Temp\neplg2-editor-syntax-highlight-public-url.png` を取得し、Playground の CSS と editor canvas 表示を確認した。
+
 # 2026-06-02 Agent2 GUI window title duplication checkpoint
 
 - `plan.md` は変更していない。window title は host frame metadata として floating window chrome に表示し、app content は command frame の描画命令だけで構成する責務分離を再確認した。

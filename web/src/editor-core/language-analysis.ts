@@ -82,10 +82,32 @@ export type LanguageAnalysisSnapshot = {
     } | null;
 };
 
+export type EditorTokenType =
+    | 'keyword'
+    | 'string'
+    | 'comment'
+    | 'function'
+    | 'number'
+    | 'boolean'
+    | 'operator'
+    | 'regex'
+    | 'property'
+    | 'punctuation'
+    | 'variable'
+    | 'type'
+    | 'heading'
+    | 'bold'
+    | 'italic'
+    | 'list'
+    | 'link'
+    | 'inline-code'
+    | 'code-block'
+    | 'default';
+
 export type EditorToken = {
     startIndex: number;
     endIndex: number;
-    type: string;
+    type: EditorTokenType;
 };
 
 export type EditorDiagnostic = {
@@ -380,19 +402,100 @@ function normalizeSeverity(severity?: string): 'error' | 'warning' {
     return String(severity ?? 'error').toLowerCase().includes('warn') ? 'warning' : 'error';
 }
 
-function normalizeTokenType(kind?: string, debug?: string, value?: string): string {
+const OPERATOR_TOKEN_KINDS = new Set([
+    'Ampersand',
+    'Arrow',
+    'Backslash',
+    'Equals',
+    'Minus',
+    'PathSep',
+    'Percent',
+    'Pipe',
+    'Plus',
+    'Slash',
+    'Star',
+]);
+
+const PUNCTUATION_TOKEN_KINDS = new Set([
+    'Colon',
+    'Comma',
+    'Dot',
+    'LAngle',
+    'LBrace',
+    'LBracket',
+    'LParen',
+    'RAngle',
+    'RBrace',
+    'RBracket',
+    'RParen',
+    'Semicolon',
+    'UnitLiteral',
+]);
+
+const IDENT_KEYWORDS = new Set([
+    'as',
+    'cond',
+    'do',
+    'else',
+    'fn',
+    'for',
+    'if',
+    'impl',
+    'impure',
+    'let',
+    'match',
+    'mut',
+    'pub',
+    'set',
+    'struct',
+    'then',
+    'trait',
+    'while',
+]);
+
+const PRIMITIVE_TYPE_NAMES = new Set([
+    'bool',
+    'char',
+    'f32',
+    'f64',
+    'i8',
+    'i16',
+    'i32',
+    'i64',
+    'i128',
+    'isize',
+    'str',
+    'u8',
+    'u16',
+    'u32',
+    'u64',
+    'u128',
+    'unit',
+    'usize',
+]);
+
+function isUppercaseIdentifier(value?: string): boolean {
+    if (!value || value.length === 0) {
+        return false;
+    }
+    const first = value.codePointAt(0);
+    return first != null && first >= 65 && first <= 90;
+}
+
+function normalizeTokenType(kind?: string, debug?: string, value?: string): EditorTokenType {
     if (!kind) {
         return 'default';
     }
-    if (kind.startsWith('Kw') || kind.startsWith('Dir') || kind === 'At' || kind === 'PathSep') return 'keyword';
+    if (kind.startsWith('Kw') || kind.startsWith('Dir') || kind === 'At') return 'keyword';
     if (kind.includes('String') || kind.includes('Mlstr')) return 'string';
     if (kind.includes('BoolLiteral')) return 'boolean';
     if (kind.includes('IntLiteral') || kind.includes('FloatLiteral')) return 'number';
     if (kind.includes('Comment')) return 'comment';
-    if (kind === 'Ident' && (value === 'as' || value === 'pub')) return 'keyword';
+    if (kind === 'Ident' && IDENT_KEYWORDS.has(value ?? '')) return 'keyword';
+    if (kind === 'Ident' && (PRIMITIVE_TYPE_NAMES.has(value ?? '') || isUppercaseIdentifier(value))) return 'type';
     if (kind === 'Ident') return 'variable';
-    if (kind === 'Pipe' || kind === 'Arrow' || kind === 'Plus' || kind === 'Minus' || kind === 'Star' || kind === 'Slash' || kind === 'Equals' || kind === 'Ampersand') return 'operator';
-    if (kind === 'LParen' || kind === 'RParen' || kind === 'LAngle' || kind === 'RAngle' || kind === 'Colon' || kind === 'Semicolon' || kind === 'Comma' || kind === 'Dot' || kind === 'UnitLiteral') return 'punctuation';
+    if (OPERATOR_TOKEN_KINDS.has(kind)) return 'operator';
+    if (PUNCTUATION_TOKEN_KINDS.has(kind)) return 'punctuation';
     if (debug && String(debug).includes('Fn')) return 'function';
     return 'default';
 }
@@ -404,7 +507,7 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
     const tokens: EditorToken[] = [];
     let offset = 0;
 
-    const push = (start: number, end: number, type: string) => {
+    const push = (start: number, end: number, type: EditorTokenType) => {
         if (end > start) {
             tokens.push({
                 startIndex: span.startIndex + start,
@@ -447,6 +550,15 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
             offset = Math.min(cursor, text.length);
             continue;
         }
+        if (ch === '@') {
+            let cursor = offset + 1;
+            while (cursor < text.length && /[A-Za-z0-9_-]/.test(text[cursor])) {
+                cursor += 1;
+            }
+            push(offset, cursor, 'keyword');
+            offset = cursor;
+            continue;
+        }
         if (/[0-9]/.test(ch)) {
             let cursor = offset + 1;
             while (cursor < text.length && /[0-9_]/.test(text[cursor])) {
@@ -462,11 +574,16 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
                 cursor += 1;
             }
             const word = text.slice(offset, cursor);
-            push(offset, cursor, word === 'as' || word === 'pub' ? 'keyword' : 'variable');
+            const type = IDENT_KEYWORDS.has(word)
+                ? 'keyword'
+                : PRIMITIVE_TYPE_NAMES.has(word) || isUppercaseIdentifier(word)
+                    ? 'type'
+                    : 'variable';
+            push(offset, cursor, type);
             offset = cursor;
             continue;
         }
-        if ('*&|+-/=!'.includes(ch)) {
+        if ('*&|+-/=!%\\'.includes(ch)) {
             push(offset, offset + 1, 'operator');
             offset += 1;
             continue;

@@ -89,7 +89,7 @@ class CanvasEditor {
                 'keyword': '#c678dd', 'string': '#98c379', 'comment': '#5c6370',
                 'function': '#61afef', 'number': '#d19a66', 'boolean': '#d19a66',
                 'operator': '#56b6c2', 'regex': '#d19a66', 'property': '#e06c75',
-                'punctuation': '#b3a5b0ff', 'variable': '#7da5f0ff',
+                'punctuation': '#b3a5b0ff', 'variable': '#7da5f0ff', 'type': '#e5c07b',
                 'heading': '#e06c75', 'bold': '#d19a66', 'italic': '#c678dd',
                 'list': '#56b6c2', 'link': '#61afef', 'inline-code': '#98c379',
                 'code-block': '#5c6370', 'default': '#b5b7bbff'

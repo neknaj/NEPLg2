@@ -192,6 +192,7 @@ const checks = [
     "nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js",
     "nodesrc/test_diagnostic_code_first_boundary.js",
     "nodesrc/test_editor_diagnostic_code_contract.js",
+    "nodesrc/test_editor_current_syntax_highlighting.js",
     "nodesrc/test_doctest_diag_code_metadata.js",
     "nodesrc/test_doctest_exit_code_metadata.js",
     "nodesrc/test_doctest_std_test_assertion_report_contract.js",

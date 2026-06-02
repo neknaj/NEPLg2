@@ -53,6 +53,25 @@ from WASI `fd_write` and rendered in the terminal pane.
 - The terminal is a browser-only convenience; it does not execute `cargo` commands.
 - Only stdlib imports are available in the browser; local file imports are not supported yet.
 
+## Editor Language Highlighting
+
+The editor receives compiler analysis output and normalizes it in `web/src/editor-core/language-analysis.ts` before the canvas renderer sees it.
+
+Contract:
+
+- Lexer token kinds, diagnostics, resolution data, and semantic token data are converted into editor-facing token decorations without exposing DOM or canvas types.
+- Latest NEPLg2 syntax markers such as `pub`, `%fn`, `%impure`, `\arg`, `&Type`, `Result::Ok`, `#import`, `@`, and `@merge` are classified at the analysis boundary.
+- Absence and errors remain explicit in the language provider boundary; browser rendering code consumes a completed update payload.
+- Token color names are stable editor categories such as `keyword`, `type`, `function`, `operator`, `punctuation`, `string`, `number`, `boolean`, and `comment`.
+
+Current implementation:
+
+- `Kw*` and directive tokens become `keyword`.
+- primitive type names and upper-case identifiers become `type` unless semantic resolution later narrows them.
+- `%`, `\`, `&`, `::`, arithmetic symbols, and pipe/arrow-like tokens become `operator`.
+- directive bodies are split so paths stay `string`, `as` / `@merge` stay `keyword`, and wildcard import markers stay `operator`; standalone `@` also remains a keyword token for incomplete editor input.
+- `nodesrc/test_editor_current_syntax_highlighting.js` fixes this contract for current NEPLg2 syntax.
+
 ## Editor redevelopment test path
 
 The playground editor redesign is expected to stay testable without a browser.

@@ -16,9 +16,11 @@ class NEPLg2LanguageProvider {
         this.lastAnalyzedText = '';
         this.definitionById = new Map();
         this.keywordCompletions = [
-            'fn', 'let', 'mut', 'set', 'if', 'while', 'cond', 'then', 'else', 'do',
-            'block', 'return', 'break', 'match', 'trait', 'impl', 'for', 'enum', 'struct',
-            '#entry', '#target', '#indent', '#import', '#use',
+            'fn', 'impure', 'pub', 'let', 'mut', 'set',
+            'if', 'cond', 'then', 'else', 'while', 'do', 'match',
+            'trait', 'impl', 'for', 'enum', 'struct',
+            'unit', 'bool', 'char', 'str', 'i32',
+            '#entry', '#target', '#indent', '#import', '#intrinsic', '@merge',
         ];
         this.lineStarts = [0];
         this.byteOffsets = [0];
