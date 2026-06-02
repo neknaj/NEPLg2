@@ -90,6 +90,7 @@ async function run() {
     if (typeof api.analyze_parse !== 'function') fail('analyze_parse is missing');
     if (typeof api.analyze_name_resolution !== 'function') fail('analyze_name_resolution is missing');
     if (typeof api.analyze_semantics !== 'function') fail('analyze_semantics is missing');
+    if (typeof api.analyze_semantics_with_vfs !== 'function') fail('analyze_semantics_with_vfs is missing');
 
     const cases = [
         {
@@ -120,7 +121,7 @@ fn main <()->i32> ():
 fn id %fn i32 i32 \\x:
     x
 
-fn main %fn unit i32 \\u:
+fn main %fn void i32 \\void:
     id 41
 `,
             checkSemantics(semResult, source) {
@@ -153,7 +154,7 @@ struct widget_state:
 fn id %fn widget_state widget_state \\x:
     x
 
-fn main %fn unit widget_state \\u:
+fn main %fn void widget_state \\void:
     %widget_state id
 `,
             checkSemantics(semResult, source) {
@@ -173,6 +174,76 @@ fn main %fn unit widget_state \\u:
                 }
                 if (typeClass.role !== 'prefix_type_annotation_inner') {
                     fail(`semantics_type_annotation_token_classifications: expected inner role, got ${typeClass.role}`);
+                }
+            },
+        },
+        {
+            id: 'semantics_current_name_and_literal_classifications',
+            source: `#no_prelude
+fn keep %fn unit unit \\arg:
+    arg
+
+fn main %fn void unit \\void:
+    let answer 1;
+    keep unit
+`,
+            checkSemantics(semResult, source) {
+                const callIndex = tokenIndexForText(semResult, source, 'keep', 1);
+                const constantIndex = tokenIndexForText(semResult, source, 'answer');
+                const argIndex = tokenIndexForText(semResult, source, 'arg', 1);
+                const signatureVoidIndex = tokenIndexForText(semResult, source, 'void', 0);
+                const lambdaVoidIndex = tokenIndexForText(semResult, source, 'void', 1);
+                const mainReturnUnitIndex = tokenIndexForText(semResult, source, 'unit', 2);
+                const valueUnitIndex = tokenIndexForText(semResult, source, 'unit', 3);
+                const callClass = tokenClassificationForIndex(semResult, callIndex);
+                const constantClass = tokenClassificationForIndex(semResult, constantIndex);
+                const argClass = tokenClassificationForIndex(semResult, argIndex);
+                const signatureVoidClass = tokenClassificationForIndex(semResult, signatureVoidIndex);
+                const lambdaVoidClass = tokenClassificationForIndex(semResult, lambdaVoidIndex);
+                const mainReturnUnitClass = tokenClassificationForIndex(semResult, mainReturnUnitIndex);
+                const valueUnitClass = tokenClassificationForIndex(semResult, valueUnitIndex);
+                if (!callClass || callClass.category !== 'function') {
+                    fail('semantics_current_name_and_literal_classifications: function call should be classified as function');
+                }
+                if (!constantClass || constantClass.category !== 'constant') {
+                    fail('semantics_current_name_and_literal_classifications: let name should be classified as constant');
+                }
+                if (!argClass || argClass.category !== 'variable') {
+                    fail('semantics_current_name_and_literal_classifications: parameter reference should be classified as variable');
+                }
+                if (!signatureVoidClass || signatureVoidClass.category !== 'literal-void') {
+                    fail('semantics_current_name_and_literal_classifications: signature void marker should be literal-void');
+                }
+                if (!lambdaVoidClass || lambdaVoidClass.category !== 'literal-void') {
+                    fail('semantics_current_name_and_literal_classifications: lambda void marker should be literal-void');
+                }
+                if (!mainReturnUnitClass || mainReturnUnitClass.category !== 'type') {
+                    fail('semantics_current_name_and_literal_classifications: return unit should be classified as type');
+                }
+                if (!valueUnitClass || valueUnitClass.category !== 'literal-unit') {
+                    fail('semantics_current_name_and_literal_classifications: unit value should be literal-unit');
+                }
+            },
+        },
+        {
+            id: 'semantics_path_namespace_member_classifications',
+            source: `#no_prelude
+enum Result:
+    Ok %unit
+
+fn main %fn void Result \\void:
+    Result::Ok unit
+`,
+            checkSemantics(semResult, source) {
+                const namespaceIndex = tokenIndexForText(semResult, source, 'Result', 2);
+                const memberIndex = tokenIndexForText(semResult, source, 'Ok', 1);
+                const namespaceClass = tokenClassificationForIndex(semResult, namespaceIndex);
+                const memberClass = tokenClassificationForIndex(semResult, memberIndex);
+                if (!namespaceClass || namespaceClass.category !== 'namespace') {
+                    fail('semantics_path_namespace_member_classifications: path namespace should be classified as namespace');
+                }
+                if (!memberClass || memberClass.category !== 'constant') {
+                    fail('semantics_path_namespace_member_classifications: path member should be classified as constant');
                 }
             },
         },
@@ -326,6 +397,48 @@ fn main <()->i32> ():
         if (!Array.isArray(semantics?.diagnostics)) fail(`${c.id}: semantics diagnostics missing`);
         if (typeof c.checkParse === 'function') c.checkParse(parse);
         if (typeof c.check === 'function') c.check(resolve);
+        if (typeof c.checkSemantics === 'function') c.checkSemantics(semantics, c.source);
+        results.push({ id: c.id, ok: true });
+    }
+
+    const vfsCases = [
+        {
+            id: 'semantics_vfs_qualified_function_call_keeps_namespace_dim',
+            entryPath: '/workspace/main.nepl',
+            source: `#no_prelude
+#import "./group1" as group1
+
+fn main %fn void unit \\void:
+    group1::name unit
+`,
+            vfs: {
+                '/workspace/group1.nepl': `#no_prelude
+pub fn name %fn unit unit \\arg:
+    arg
+`,
+            },
+            checkSemantics(semResult, source) {
+                const groupIndex = tokenIndexForText(semResult, source, 'group1', 2);
+                const nameIndex = tokenIndexForText(semResult, source, 'name', 0);
+                const groupClass = tokenClassificationForIndex(semResult, groupIndex);
+                const nameClass = tokenClassificationForIndex(semResult, nameIndex);
+                if (!groupClass || groupClass.category !== 'namespace') {
+                    fail('semantics_vfs_qualified_function_call_keeps_namespace_dim: qualified call group should stay namespace');
+                }
+                if (!nameClass || nameClass.category !== 'function') {
+                    fail('semantics_vfs_qualified_function_call_keeps_namespace_dim: qualified call terminal name should be function');
+                }
+            },
+        },
+    ];
+
+    for (const c of vfsCases) {
+        const semantics = api.analyze_semantics_with_vfs(c.entryPath, c.source, c.vfs);
+        if (!semantics || semantics.stage !== 'semantics') fail(`${c.id}: semantics stage mismatch`);
+        if (!semantics.ok) {
+            const diagnostics = Array.isArray(semantics?.diagnostics) ? semantics.diagnostics : [];
+            fail(`${c.id}: semantics not ok ${JSON.stringify(diagnostics)}`);
+        }
         if (typeof c.checkSemantics === 'function') c.checkSemantics(semantics, c.source);
         results.push({ id: c.id, ok: true });
     }

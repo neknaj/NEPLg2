@@ -22,7 +22,7 @@
           {
             "startIndex": 20,
             "endIndex": 21,
-            "type": "number"
+            "type": "literal-number"
           },
           {
             "startIndex": 22,
@@ -42,7 +42,7 @@
           {
             "startIndex": 43,
             "endIndex": 53,
-            "type": "string"
+            "type": "literal-string"
           },
           {
             "startIndex": 54,
@@ -62,7 +62,7 @@
           {
             "startIndex": 67,
             "endIndex": 78,
-            "type": "string"
+            "type": "literal-string"
           },
           {
             "startIndex": 79,

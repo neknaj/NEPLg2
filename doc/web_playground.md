@@ -63,16 +63,22 @@ Contract:
 - Latest NEPLg2 syntax markers such as `pub`, `%fn`, `%impure`, `\arg`, `&Type`, `Result::Ok`, `#import`, `@`, and `@merge` are classified at the analysis boundary.
 - Prefix expression ranges come from Rust semantic analysis. `expr_span` is the expression range for a token, and `arg_span` is the callee argument range when the token belongs to a prefix-call argument. The older `expression_range` / `arg_range` field names remain accepted as compatibility aliases.
 - `%T expr` type annotation highlighting is driven by Rust AST ranges. The outer annotation range covers `%T`, while the inner type-expression range covers the type after `%`; this prevents lower-case type names such as `%widget_state` from falling back to variable coloring.
+- `void` is highlighted as a zero-argument marker, not as a type. `unit` is highlighted as a type inside compiler-reported type syntax ranges and as a unit literal in value expression position.
+- Name colors are compiler-driven when name-resolution data is available: function names/calls are `function`, immutable `let` names are `constant`, mutable names and parameters are `variable`, and type declarations/usages are `type`.
+- Path-like names such as `group1::group2::name` classify the left namespace/group segments as `namespace` so they can be drawn dimmer than the final member name.
 - Absence and errors remain explicit in the language provider boundary; browser rendering code consumes a completed update payload.
-- Token color names are stable editor categories such as `keyword`, `type`, `function`, `operator`, `punctuation`, `string`, `number`, `boolean`, and `comment`.
+- Token color names are stable editor categories such as `keyword`, `type`, `function`, `constant`, `variable`, `namespace`, `operator`, `punctuation`, `literal-string`, `literal-char`, `literal-number`, `literal-bool`, `literal-unit`, `literal-void`, and `comment`.
 
 Current implementation:
 
 - `nepl-web` emits `syntax_ranges` and `token_classifications` from the parsed AST before type checking completes, so type-expression highlighting remains available even while a program has type errors.
-- `web/src/editor-core/language-analysis.ts` consumes `token_classifications` before lexical fallback colors. Rust-provided classifications therefore override heuristic identifier coloring only within the reported syntax range.
+- `nepl-web` also folds lexer marker tokens and name-resolution trace into `token_classifications`, so `fn void T`, `\void`, function names, parameter names, and immutable local names do not depend on TypeScript guessing.
+- `nepl-web` emits path namespace/member classifications from compiler token context. The editor theme draws `namespace` with a low-contrast color and keeps the final member as `constant`, `function`, or another resolved category.
+- `web/src/editor-core/language-analysis.ts` consumes `token_classifications` before lexical fallback colors. Rust-provided classifications therefore override heuristic identifier coloring within the reported compiler range.
+- `token_resolution` remains available for hover, definition jump, and compatibility fallback. It must not override `token_classifications`, because the compiler classification is the single authority for editor colors.
 - `web/src/language/neplg2/neplg2-provider.ts` uses `analyze_semantics_with_vfs` for editable `.nepl` files when the playground VFS is available. The current unsaved editor text is overlaid onto `serializeForCompile()` before analysis so imports and span source paths match the visible document.
 - `Kw*` and directive tokens become `keyword`.
-- primitive type names and upper-case identifiers become `type` unless semantic resolution later narrows them.
+- primitive type names and upper-case identifiers remain a fallback only. Compiler-provided type syntax and name-resolution classifications take priority when available.
 - `%`, `\`, `&`, `::`, arithmetic symbols, and pipe/arrow-like tokens become `operator`.
 - directive bodies are split so paths stay `string`, `as` / `@merge` stay `keyword`, and wildcard import markers stay `operator`; standalone `@` also remains a keyword token for incomplete editor input.
 - `nodesrc/test_analysis_api.js`, `nodesrc/test_editor_current_syntax_highlighting.js`, and `nodesrc/test_neplg2_language_provider_vfs.js` fix this contract for current NEPLg2 syntax, prefix-call argument ranges, `%` type annotation ranges, and VFS-backed playground analysis.

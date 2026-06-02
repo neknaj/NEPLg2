@@ -13,11 +13,12 @@ use nepl_core::ast::{
 use nepl_core::compiler::BuildProfile;
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
-use nepl_core::hir::{HirBlock, HirExpr, HirExprKind, HirLine, HirModule};
+use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirModule};
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{LoadResult, Loader, LoaderError, SourceMap};
 use nepl_core::nm::Document as NmDocument;
 use nepl_core::parser::parse_tokens;
+use nepl_core::resolve::DefId;
 use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::typecheck;
 use nepl_core::types::TypeCtx;
@@ -220,6 +221,7 @@ struct NameDefTrace {
     name: String,
     kind: &'static str,
     span: Span,
+    def_id: Option<DefId>,
     scope_depth: usize,
     doc: Option<String>,
 }
@@ -254,6 +256,7 @@ struct SemanticExprTrace {
     ty: String,
     parent_id: Option<usize>,
     arg_spans: Vec<Span>,
+    callee_def_id: Option<DefId>,
 }
 
 #[derive(Clone)]
@@ -332,6 +335,7 @@ impl NameResolutionTrace {
             name: name.clone(),
             kind,
             span,
+            def_id: DefId::from_span(span),
             scope_depth: depth,
             doc,
         });
@@ -560,11 +564,12 @@ fn analyze_semantics_from_parts(
         };
     };
 
-    let syntax_ranges = collect_syntax_ranges(&module);
-    let token_classifications = build_token_classifications(&tokens, &syntax_ranges);
     let mut resolve_trace = NameResolutionTrace::new_with_options(true);
     trace_block(&mut resolve_trace, &module.root);
     let name_resolution = name_resolution_to_editor(source, source_map, true, &[], &resolve_trace);
+    let syntax_ranges = collect_syntax_ranges(&module);
+    let token_classifications =
+        build_token_classifications(&tokens, &syntax_ranges, &resolve_trace);
 
     let (target, mut target_diags) = resolve_target_for_analysis(&module);
     has_error |= target_diags
@@ -612,7 +617,8 @@ fn analyze_semantics_from_loaded(
     trace_block(&mut resolve_trace, &module.root);
     let name_resolution = name_resolution_to_editor(source, source_map, true, &[], &resolve_trace);
     let syntax_ranges = collect_syntax_ranges(module);
-    let token_classifications = build_token_classifications(&tokens, &syntax_ranges);
+    let token_classifications =
+        build_token_classifications(&tokens, &syntax_ranges, &resolve_trace);
 
     let (target, mut target_diags) = resolve_target_for_analysis(module);
     has_error |= target_diags
@@ -655,18 +661,20 @@ fn build_semantics_output(
     diagnostics: Vec<EditorDiagnostic>,
     ok: bool,
     syntax_ranges: Vec<SyntaxRangeTrace>,
-    token_classifications: Vec<TokenClassificationTrace>,
+    mut token_classifications: Vec<TokenClassificationTrace>,
 ) -> SemanticsAnalysis {
     let syntax_range_infos = syntax_ranges
         .iter()
         .map(|range| syntax_range_to_editor(source, source_map, range))
         .collect::<Vec<_>>();
-    let token_classification_infos = token_classifications
-        .iter()
-        .map(|classification| token_classification_to_editor(source, source_map, classification))
-        .collect::<Vec<_>>();
 
     let Some(hir_module) = hir_module else {
+        let token_classification_infos = token_classifications
+            .iter()
+            .map(|classification| {
+                token_classification_to_editor(source, source_map, classification)
+            })
+            .collect::<Vec<_>>();
         return SemanticsAnalysis {
             ok: false,
             tokens: token_infos,
@@ -716,6 +724,16 @@ fn build_semantics_output(
 
     let token_resolution = build_token_resolution(source, source_map, tokens, resolve_trace);
     let token_semantics_trace = build_token_semantics(tokens, &exprs);
+    add_typed_callee_token_classifications(
+        tokens,
+        resolve_trace,
+        &exprs,
+        &mut token_classifications,
+    );
+    let token_classification_infos = token_classifications
+        .iter()
+        .map(|classification| token_classification_to_editor(source, source_map, classification))
+        .collect::<Vec<_>>();
     let token_semantics = token_semantics_trace
         .iter()
         .map(|item| semantic_token_to_editor(source, source_map, item))
@@ -1476,11 +1494,7 @@ fn push_type_syntax_range(
     });
 }
 
-fn collect_type_expr_syntax(
-    output: &mut Vec<SyntaxRangeTrace>,
-    ty: &TypeExpr,
-    role: &'static str,
-) {
+fn collect_type_expr_syntax(output: &mut Vec<SyntaxRangeTrace>, ty: &TypeExpr, role: &'static str) {
     let span = ty.span();
     if is_precise_span(span) {
         push_type_syntax_range(output, role, span, Some(span));
@@ -1554,7 +1568,11 @@ fn collect_prefix_expr_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, expr: &
                     kind: "type_annotation",
                     role: "prefix_type_annotation",
                     span: *span,
-                    inner_span: if is_precise_span(inner) { Some(inner) } else { None },
+                    inner_span: if is_precise_span(inner) {
+                        Some(inner)
+                    } else {
+                        None
+                    },
                 });
                 collect_type_expr_syntax(output, ty, "prefix_type_annotation_inner");
             }
@@ -1583,9 +1601,7 @@ fn collect_prefix_expr_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, expr: &
                     collect_prefix_expr_syntax_ranges(output, arg);
                 }
             }
-            PrefixItem::Symbol(_)
-            | PrefixItem::Literal(_, _)
-            | PrefixItem::Pipe(_) => {}
+            PrefixItem::Symbol(_) | PrefixItem::Literal(_, _) | PrefixItem::Pipe(_) => {}
         }
     }
 }
@@ -1633,9 +1649,7 @@ fn collect_stmt_syntax_ranges(output: &mut Vec<SyntaxRangeTrace>, stmt: &Stmt) {
         Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
             collect_prefix_expr_syntax_ranges(output, expr);
         }
-        Stmt::FnAlias(_)
-        | Stmt::Wasm(_)
-        | Stmt::LlvmIr(_) => {}
+        Stmt::FnAlias(_) | Stmt::Wasm(_) | Stmt::LlvmIr(_) => {}
     }
 }
 
@@ -1659,6 +1673,7 @@ fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
         TokenKind::KwFn | TokenKind::KwMut => Some("keyword"),
         TokenKind::Ident(value) if value == "impure" => Some("keyword"),
         TokenKind::Ident(_) | TokenKind::UnitLiteral => Some("type"),
+        TokenKind::VoidMarker => Some("literal-void"),
         TokenKind::Percent
         | TokenKind::Ampersand
         | TokenKind::Star
@@ -1674,12 +1689,211 @@ fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
     }
 }
 
+fn lexical_category_for_token(kind: &TokenKind) -> Option<(&'static str, &'static str)> {
+    match kind {
+        TokenKind::KwFn
+        | TokenKind::KwLet
+        | TokenKind::KwMut
+        | TokenKind::KwNoShadow
+        | TokenKind::KwSet
+        | TokenKind::KwIf
+        | TokenKind::KwWhile
+        | TokenKind::KwCond
+        | TokenKind::KwThen
+        | TokenKind::KwElse
+        | TokenKind::KwDo
+        | TokenKind::KwStruct
+        | TokenKind::KwEnum
+        | TokenKind::KwMatch
+        | TokenKind::KwTrait
+        | TokenKind::KwImpl
+        | TokenKind::KwFor
+        | TokenKind::KwPub
+        | TokenKind::KwBlock
+        | TokenKind::KwTuple
+        | TokenKind::KwMlstr
+        | TokenKind::At => Some(("keyword", "keyword")),
+        TokenKind::Ident(value) if value == "impure" || value == "as" => {
+            Some(("keyword", "keyword"))
+        }
+        TokenKind::StringLiteral(_) | TokenKind::MlstrLine(_) => {
+            Some(("literal-string", "string_literal"))
+        }
+        TokenKind::CharLiteral(_) => Some(("literal-char", "char_literal")),
+        TokenKind::IntLiteral(_) | TokenKind::FloatLiteral(_) => {
+            Some(("literal-number", "number_literal"))
+        }
+        TokenKind::BoolLiteral(_) => Some(("literal-bool", "bool_literal")),
+        TokenKind::UnitLiteral => Some(("literal-unit", "unit_literal")),
+        TokenKind::VoidMarker => Some(("literal-void", "zero_arg_void_marker")),
+        TokenKind::Percent
+        | TokenKind::Backslash
+        | TokenKind::Ampersand
+        | TokenKind::Star
+        | TokenKind::Minus
+        | TokenKind::Equals
+        | TokenKind::Pipe
+        | TokenKind::PathSep
+        | TokenKind::Arrow(_) => Some(("operator", "operator")),
+        TokenKind::Colon
+        | TokenKind::Semicolon
+        | TokenKind::Comma
+        | TokenKind::LAngle
+        | TokenKind::RAngle
+        | TokenKind::LParen
+        | TokenKind::RParen
+        | TokenKind::Dot => Some(("punctuation", "punctuation")),
+        TokenKind::DocComment(_) => Some(("comment", "doc_comment")),
+        _ => None,
+    }
+}
+
+fn category_for_definition_kind(kind: &str) -> Option<&'static str> {
+    match kind {
+        "fn" | "fn_alias" => Some("function"),
+        "struct" | "enum" | "trait" => Some("type"),
+        "let_hoisted" => Some("constant"),
+        "let_mut" | "param" | "match_bind" => Some("variable"),
+        _ => None,
+    }
+}
+
+fn role_for_definition_kind(kind: &str) -> &'static str {
+    match kind {
+        "fn" => "function_name",
+        "fn_alias" => "function_alias_name",
+        "struct" => "struct_name",
+        "enum" => "enum_name",
+        "trait" => "trait_name",
+        "let_hoisted" => "constant_name",
+        "let_mut" => "mutable_variable_name",
+        "param" => "parameter_name",
+        "match_bind" => "match_binding_name",
+        _ => "name",
+    }
+}
+
+fn significant_token_before(tokens: &[Token], index: usize) -> Option<&Token> {
+    tokens[..index].iter().rev().find(|token| {
+        !matches!(
+            token.kind,
+            TokenKind::Indent | TokenKind::Dedent | TokenKind::Newline | TokenKind::Eof
+        )
+    })
+}
+
+fn significant_token_after(tokens: &[Token], index: usize) -> Option<&Token> {
+    tokens[index.saturating_add(1)..].iter().find(|token| {
+        !matches!(
+            token.kind,
+            TokenKind::Indent | TokenKind::Dedent | TokenKind::Newline | TokenKind::Eof
+        )
+    })
+}
+
+fn is_uppercase_identifier(value: &str) -> bool {
+    value
+        .chars()
+        .next()
+        .map(|ch| ch.is_ascii_uppercase())
+        .unwrap_or(false)
+}
+
+fn inferred_path_category_for_token(
+    tokens: &[Token],
+    token_index: usize,
+    token: &Token,
+) -> Option<(&'static str, &'static str)> {
+    let TokenKind::Ident(value) = &token.kind else {
+        return None;
+    };
+    let prev_is_path_sep = significant_token_before(tokens, token_index)
+        .map(|prev| matches!(prev.kind, TokenKind::PathSep))
+        .unwrap_or(false);
+    let next_is_path_sep = significant_token_after(tokens, token_index)
+        .map(|next| matches!(next.kind, TokenKind::PathSep))
+        .unwrap_or(false);
+    if next_is_path_sep {
+        return Some(("namespace", "path_namespace_name"));
+    }
+    if prev_is_path_sep {
+        return Some(("constant", "path_member_name"));
+    }
+    if is_uppercase_identifier(value) {
+        return Some(("type", "uppercase_type_name"));
+    }
+    None
+}
+
+fn classification_priority(category: &str, role: &str) -> u8 {
+    match category {
+        "function" | "variable" | "constant" if role != "path_member_name" => 90,
+        "namespace" => 85,
+        "type" if role != "uppercase_type_name" && role != "path_namespace_name" => 80,
+        "keyword" => 70,
+        "operator" => 60,
+        "punctuation" => 50,
+        "literal-void" => 45,
+        "literal-unit" | "literal-string" | "literal-char" | "literal-number" | "literal-bool" => {
+            40
+        }
+        "type" | "constant" => 35,
+        _ => 20,
+    }
+}
+
+fn set_best_token_classification(
+    best: &mut [Option<(u8, TokenClassificationTrace)>],
+    token_index: usize,
+    category: &'static str,
+    role: &'static str,
+    span: Span,
+    enclosing_span: Span,
+) {
+    let priority = classification_priority(category, role);
+    let next = TokenClassificationTrace {
+        token_index,
+        category,
+        role,
+        span,
+        enclosing_span,
+    };
+    match &best[token_index] {
+        Some((prev_priority, _)) if *prev_priority >= priority => {}
+        _ => best[token_index] = Some((priority, next)),
+    }
+}
+
 fn build_token_classifications(
     tokens: &[Token],
     syntax_ranges: &[SyntaxRangeTrace],
+    resolve_trace: &NameResolutionTrace,
 ) -> Vec<TokenClassificationTrace> {
-    let mut output = Vec::new();
+    let mut best: Vec<Option<(u8, TokenClassificationTrace)>> = vec![None; tokens.len()];
+
     for (token_index, token) in tokens.iter().enumerate() {
+        if let Some((category, role)) = lexical_category_for_token(&token.kind) {
+            set_best_token_classification(
+                &mut best,
+                token_index,
+                category,
+                role,
+                token.span,
+                token.span,
+            );
+        }
+        if let Some((category, role)) = inferred_path_category_for_token(tokens, token_index, token)
+        {
+            set_best_token_classification(
+                &mut best,
+                token_index,
+                category,
+                role,
+                token.span,
+                token.span,
+            );
+        }
+
         let Some(category) = type_syntax_category_for_token(&token.kind) else {
             continue;
         };
@@ -1703,16 +1917,178 @@ fn build_token_classifications(
             }
         }
         if let Some(range) = best_range {
-            output.push(TokenClassificationTrace {
+            set_best_token_classification(
+                &mut best,
                 token_index,
                 category,
-                role: range.role,
-                span: token.span,
-                enclosing_span: range.span,
-            });
+                range.role,
+                token.span,
+                range.span,
+            );
         }
     }
-    output
+
+    for (token_index, token) in tokens.iter().enumerate() {
+        if !matches!(token.kind, TokenKind::Ident(_)) {
+            continue;
+        }
+        for definition in &resolve_trace.defs {
+            if span_contains(definition.span, token.span) {
+                if let Some(category) = category_for_definition_kind(definition.kind) {
+                    set_best_token_classification(
+                        &mut best,
+                        token_index,
+                        category,
+                        role_for_definition_kind(definition.kind),
+                        token.span,
+                        definition.span,
+                    );
+                }
+            }
+        }
+        if let Some(reference) = best_ref_for_token(resolve_trace, token.span) {
+            if let Some(definition) = reference
+                .resolved_def_id
+                .and_then(|id| resolve_trace.defs.get(id))
+            {
+                if let Some(category) = category_for_definition_kind(definition.kind) {
+                    set_best_token_classification(
+                        &mut best,
+                        token_index,
+                        category,
+                        role_for_definition_kind(definition.kind),
+                        token.span,
+                        reference.span,
+                    );
+                }
+            }
+        }
+    }
+
+    best.into_iter()
+        .filter_map(|entry| entry.map(|(_, classification)| classification))
+        .collect()
+}
+
+fn callee_def_id(callee: &FuncRef) -> Option<DefId> {
+    match callee {
+        FuncRef::User(_, _, def_id) => *def_id,
+        FuncRef::Builtin(_) | FuncRef::Trait { .. } => None,
+    }
+}
+
+fn trace_def_id(resolve_trace: &NameResolutionTrace, def_id: DefId) -> Option<usize> {
+    resolve_trace
+        .defs
+        .iter()
+        .find(|definition| definition.def_id == Some(def_id))
+        .map(|definition| definition.id)
+}
+
+fn token_is_path_namespace_segment(tokens: &[Token], token_index: usize) -> bool {
+    significant_token_after(tokens, token_index)
+        .map(|next| matches!(next.kind, TokenKind::PathSep))
+        .unwrap_or(false)
+}
+
+fn token_is_inside_call_argument(expr: &SemanticExprTrace, token: &Token) -> bool {
+    expr.arg_spans
+        .iter()
+        .any(|arg_span| span_contains(*arg_span, token.span))
+}
+
+fn best_callee_expr_for_token<'a>(
+    exprs: &'a [SemanticExprTrace],
+    tokens: &[Token],
+    token_index: usize,
+    token: &Token,
+) -> Option<&'a SemanticExprTrace> {
+    if token_is_path_namespace_segment(tokens, token_index) {
+        return None;
+    }
+
+    let mut best_expr: Option<&SemanticExprTrace> = None;
+    for expr in exprs {
+        if expr.callee_def_id.is_none() {
+            continue;
+        }
+        if !span_contains(expr.span, token.span) {
+            continue;
+        }
+        if token_is_inside_call_argument(expr, token) {
+            continue;
+        }
+        if let Some(prev) = best_expr {
+            if span_width(expr.span) < span_width(prev.span) {
+                best_expr = Some(expr);
+            }
+        } else {
+            best_expr = Some(expr);
+        }
+    }
+    best_expr
+}
+
+fn selected_resolved_def_id_for_token(
+    tokens: &[Token],
+    token_index: usize,
+    token: &Token,
+    exprs: &[SemanticExprTrace],
+    resolve_trace: &NameResolutionTrace,
+) -> Option<usize> {
+    best_callee_expr_for_token(exprs, tokens, token_index, token)
+        .and_then(|expr| expr.callee_def_id)
+        .and_then(|def_id| trace_def_id(resolve_trace, def_id))
+}
+
+fn upsert_token_classification(
+    output: &mut Vec<TokenClassificationTrace>,
+    classification: TokenClassificationTrace,
+) {
+    let next_priority = classification_priority(classification.category, classification.role);
+    if let Some(existing) = output
+        .iter_mut()
+        .find(|item| item.token_index == classification.token_index)
+    {
+        let existing_priority = classification_priority(existing.category, existing.role);
+        if next_priority >= existing_priority {
+            *existing = classification;
+        }
+        return;
+    }
+    output.push(classification);
+}
+
+fn add_typed_callee_token_classifications(
+    tokens: &[Token],
+    resolve_trace: &NameResolutionTrace,
+    exprs: &[SemanticExprTrace],
+    output: &mut Vec<TokenClassificationTrace>,
+) {
+    for (token_index, token) in tokens.iter().enumerate() {
+        if !matches!(token.kind, TokenKind::Ident(_)) {
+            continue;
+        }
+        let Some(definition) =
+            selected_resolved_def_id_for_token(tokens, token_index, token, exprs, resolve_trace)
+                .and_then(|id| resolve_trace.defs.get(id))
+        else {
+            continue;
+        };
+        let Some(category) = category_for_definition_kind(definition.kind) else {
+            continue;
+        };
+        upsert_token_classification(
+            output,
+            TokenClassificationTrace {
+                token_index,
+                category,
+                role: role_for_definition_kind(definition.kind),
+                span: token.span,
+                enclosing_span: token.span,
+            },
+        );
+    }
 }
 
 fn hir_kind_name(kind: &HirExprKind) -> &'static str {
@@ -1772,6 +2148,10 @@ fn collect_semantic_expr(
     out: &mut Vec<SemanticExprTrace>,
 ) -> usize {
     let id = out.len();
+    let expr_callee_def_id = match &expr.kind {
+        HirExprKind::Call { callee, .. } => callee_def_id(callee),
+        _ => None,
+    };
     out.push(SemanticExprTrace {
         id,
         function_name: function_name.to_string(),
@@ -1780,6 +2160,7 @@ fn collect_semantic_expr(
         ty: types.type_to_string(expr.ty),
         parent_id,
         arg_spans: Vec::new(),
+        callee_def_id: expr_callee_def_id,
     });
 
     let mut arg_spans = Vec::new();
