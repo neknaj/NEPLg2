@@ -19,6 +19,7 @@ async function runWebGuiInputBridgeRegression() {
     const inputBridge = await loadInputBridgeModule();
     const inputBridgeSource = readRepoFile("web", "src", "gui-preview", "input-bridge.ts");
     const panelSource = readRepoFile("web", "src", "gui-preview", "panel.ts");
+    const windowManagerSource = readRepoFile("web", "src", "gui-preview", "window-manager.ts");
     const commandsSource = readRepoFile("web", "src", "gui-preview", "commands.ts");
 
     const reset = inputBridge.resetGuiWebInputEvents();
@@ -239,6 +240,25 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(takenNulTextInput.value[0].kind, "text-input");
     assert.equal(takenNulTextInput.value[0].scalarValue, 0);
 
+    const queuedWindow = inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 640, height: 480 },
+    });
+    assert.equal(queuedWindow.kind, "ok");
+    assert.equal(observed.length, observedBeforeKeyboard + 4);
+    assert.equal(observed[observedBeforeKeyboard + 3].kind, "window");
+    assert.equal(observed[observedBeforeKeyboard + 3].windowKind, "resized");
+    const takenWindow = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenWindow.kind, "ok");
+    assert.equal(takenWindow.value.length, 1);
+    assert.equal(takenWindow.value[0].kind, "window");
+    assert.equal(takenWindow.value[0].windowId, 3);
+    assert.equal(takenWindow.value[0].windowKind, "resized");
+    assert.equal(takenWindow.value[0].size.width, 640);
+    assert.equal(takenWindow.value[0].size.height, 480);
+
     const invalidAction = inputBridge.queueGuiWebInputEvent({
         kind: "action",
         windowId: 3,
@@ -281,12 +301,47 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(invalidTextScalar.error.kind, "invalid-text-input-event");
     assert.equal(invalidTextScalar.error.path, "$.scalarValue");
 
+    const invalidWindowKind = inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "moved",
+        size: { width: 640, height: 480 },
+    });
+    assert.equal(invalidWindowKind.kind, "err");
+    assert.equal(invalidWindowKind.error.kind, "invalid-window-event");
+    assert.equal(invalidWindowKind.error.path, "$.windowKind");
+
+    const invalidWindowWidth = inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 0, height: 480 },
+    });
+    assert.equal(invalidWindowWidth.kind, "err");
+    assert.equal(invalidWindowWidth.error.kind, "invalid-window-event");
+    assert.equal(invalidWindowWidth.error.path, "$.size.width");
+
+    const invalidWindowHeight = inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 640, height: 480.5 },
+    });
+    assert.equal(invalidWindowHeight.kind, "err");
+    assert.equal(invalidWindowHeight.error.kind, "invalid-window-event");
+    assert.equal(invalidWindowHeight.error.path, "$.size.height");
+
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'action'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'pointer'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'keyboard'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'text-input'/);
+    assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'window'/);
     assert.match(inputBridgeSource, /GuiWebInputResult<Value> =[\s\S]*kind: 'ok'[\s\S]*kind: 'err'/);
     assert.match(inputBridgeSource, /decodeGuiWebInputEvent/);
+    assert.match(inputBridgeSource, /decodeGuiWebWindowInputEvent/);
+    assert.match(inputBridgeSource, /readWindowKind/);
+    assert.match(inputBridgeSource, /readSize/);
+    assert.match(inputBridgeSource, /invalid-window-event/);
     assert.match(inputBridgeSource, /guiWebInputEventsWithPointerMove/);
     assert.match(inputBridgeSource, /isUnicodeScalarValue/);
     assert.match(inputBridgeSource, /registerGuiWebInputEventListener/);
@@ -306,6 +361,12 @@ async function runWebGuiInputBridgeRegression() {
     assert.match(panelSource, /event\.isComposing/);
     assert.match(panelSource, /event\.metaKey/);
     assert.match(panelSource, /queueHostKeyboardEvent[\s\S]*event\.metaKey/);
+    assert.match(windowManagerSource, /queueGuiWebInputEvent/);
+    assert.match(windowManagerSource, /queueHostWindowEvent/);
+    assert.match(windowManagerSource, /source\.kind !== 'host-frame'/);
+    assert.match(windowManagerSource, /'close-requested'/);
+    assert.match(windowManagerSource, /previousWidth !== next\.width \|\| previousHeight !== next\.height/);
+    assert.match(windowManagerSource, /this\.queueHostWindowEvent\(windowState, 'resized'\)/);
     assert.match(commandsSource, /GuiPreviewInputTarget/);
     assert.doesNotMatch(inputBridgeSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(inputBridgeSource, /\|\s*null|\|\s*undefined/);
@@ -322,6 +383,8 @@ async function runWebGuiInputBridgeRegression() {
             "Web GUI panel flushes pending pointer move before immediate barrier events",
             "Web GUI input bridge queues keyboard events as typed values",
             "Web GUI input bridge queues Unicode scalar text input events as typed values",
+            "Web GUI input bridge queues window events as typed values",
+            "Web GUI floating windows publish host-frame resize and close requests through the input queue",
             "Web GUI input bridge notifies typed listeners without app-state simulation",
             "Web GUI input bridge exposes take/reset event boundaries",
             "Web GUI input bridge keeps DOM and Canvas types out of the input queue",

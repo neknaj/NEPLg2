@@ -4,7 +4,7 @@
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
 - Web Playground の stdout protocol fallback を正式な Wasm host import ABI へ置き換え、NEPL/Wasm が生成した `DrawCommand` stream を `neplGuiHost.beginFrame` / `pushCommand` / `endFrame` 相当へ直接渡す
-- Web Playground の `GuiWebEvent` action / pointer down-move-up-cancel / keyboard / single-scalar text input checkpoint を、IME composition / multi-scalar text、window / timer / lifecycle variant、session id formalization へ拡張する
+- Web Playground の `GuiWebEvent` action / pointer down-move-up-cancel / keyboard / single-scalar text input / window resized-close checkpoint を、IME composition / multi-scalar text、window focus-unfocus policy、timer / lifecycle variant、session id formalization へ拡張する
 - Mandelbrot progressive rendering を TS 側 simulation ではなく NEPL app の update loop で処理する
 - `nepl-gui-native` の framebuffer renderer を、`std/gui::GuiHost` と `platforms/gui/native` の正式 `present` 実装へ寄せる
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する

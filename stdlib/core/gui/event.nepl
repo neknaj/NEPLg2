@@ -305,6 +305,14 @@ pub fn text_input_event_value %fn &TextInputEvent char \event:
 pub fn window_event_new %fn WindowEventKind fn GuiSize WindowEvent \kind\size:
     WindowEvent kind size
 
+//: window_event_kind: window/surface event kind を[読/よ]む
+pub fn window_event_kind %fn &WindowEvent WindowEventKind \event:
+    *field::get_ref event "kind"
+
+//: window_event_size: window/surface event の size を[読/よ]む
+pub fn window_event_size %fn &WindowEvent GuiSize \event:
+    *field::get_ref event "size"
+
 //: timer_event_new: timer event を[作/つく]る
 pub fn timer_event_new %fn i32 fn i32 TimerEvent \timer_id\tick:
     TimerEvent timer_id tick

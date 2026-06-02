@@ -6,11 +6,13 @@ import {
     GUI_WEB_EVENT_KIND_KEYBOARD,
     GUI_WEB_EVENT_KIND_POINTER,
     GUI_WEB_EVENT_KIND_TEXT_INPUT,
+    GUI_WEB_EVENT_KIND_WINDOW,
     GUI_WEB_EVENT_POLL_INVALID,
     GUI_WEB_EVENT_POLL_UNSUPPORTED,
     guiWebSharedKeyboardKindToRaw,
     guiWebSharedPointerButtonToRaw,
     guiWebSharedPointerKindToRaw,
+    guiWebSharedWindowKindToRaw,
     takeGuiWebSharedActionId,
     takeGuiWebSharedInputEvent,
     waitGuiWebSharedActionId,
@@ -115,6 +117,9 @@ class WorkerWASI extends WASI {
             last_event_key_code: this.nepl_gui_web_last_event_key_code.bind(this),
             last_event_key_modifiers: this.nepl_gui_web_last_event_key_modifiers.bind(this),
             last_event_text_scalar_value: this.nepl_gui_web_last_event_text_scalar_value.bind(this),
+            last_event_window_kind: this.nepl_gui_web_last_event_window_kind.bind(this),
+            last_event_window_width: this.nepl_gui_web_last_event_window_width.bind(this),
+            last_event_window_height: this.nepl_gui_web_last_event_window_height.bind(this),
         };
     }
 
@@ -333,6 +338,36 @@ class WorkerWASI extends WASI {
         return this.lastGuiWebInputEvent.event.scalarValue;
     }
 
+    nepl_gui_web_last_event_window_kind(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'window') {
+            return 0;
+        }
+        return guiWebSharedWindowKindToRaw(this.lastGuiWebInputEvent.event.windowKind);
+    }
+
+    nepl_gui_web_last_event_window_width(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'window') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.width;
+    }
+
+    nepl_gui_web_last_event_window_height(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'window') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.height;
+    }
+
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
         if (result.kind === 'empty') {
             this.lastGuiWebInputEvent = { kind: 'empty' };
@@ -357,6 +392,9 @@ class WorkerWASI extends WASI {
         }
         if (result.event.kind === 'text-input') {
             return GUI_WEB_EVENT_KIND_TEXT_INPUT;
+        }
+        if (result.event.kind === 'window') {
+            return GUI_WEB_EVENT_KIND_WINDOW;
         }
         this.lastGuiWebInputEvent = { kind: 'empty' };
         return GUI_WEB_EVENT_POLL_INVALID;

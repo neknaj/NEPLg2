@@ -3,6 +3,11 @@ export type GuiWebInputPoint = {
     y: number;
 };
 
+export type GuiWebInputSize = {
+    width: number;
+    height: number;
+};
+
 export type GuiWebPointerEventKind =
     | 'move'
     | 'down'
@@ -18,6 +23,12 @@ export type GuiWebPointerButton =
 export type GuiWebKeyboardEventKind =
     | 'down'
     | 'up';
+
+export type GuiWebWindowEventKind =
+    | 'resized'
+    | 'focused'
+    | 'unfocused'
+    | 'close-requested';
 
 export type GuiWebInputEvent =
     | {
@@ -45,6 +56,12 @@ export type GuiWebInputEvent =
         kind: 'text-input';
         windowId: number;
         scalarValue: number;
+    }
+    | {
+        kind: 'window';
+        windowId: number;
+        windowKind: GuiWebWindowEventKind;
+        size: GuiWebInputSize;
     };
 
 export type GuiWebInputErrorKind =
@@ -52,7 +69,8 @@ export type GuiWebInputErrorKind =
     | 'invalid-action-event'
     | 'invalid-pointer-event'
     | 'invalid-keyboard-event'
-    | 'invalid-text-input-event';
+    | 'invalid-text-input-event'
+    | 'invalid-window-event';
 
 export type GuiWebInputError = {
     kind: GuiWebInputErrorKind;
@@ -144,7 +162,10 @@ export function decodeGuiWebInputEvent(input: unknown): GuiWebInputResult<GuiWeb
     if (kind.value === 'text-input') {
         return decodeGuiWebTextInputEvent(event.value);
     }
-    return err('invalid-input-event', '$.kind', 'action, pointer, keyboard, or text-input', kind.value);
+    if (kind.value === 'window') {
+        return decodeGuiWebWindowInputEvent(event.value);
+    }
+    return err('invalid-input-event', '$.kind', 'action, pointer, keyboard, text-input, or window', kind.value);
 }
 
 function guiWebInputEventsWithQueuedEvent(events: GuiWebInputEvent[], event: GuiWebInputEvent): GuiWebInputEvent[] {
@@ -288,10 +309,56 @@ function decodeGuiWebTextInputEvent(event: UnknownRecord): GuiWebInputResult<Gui
     };
 }
 
+function decodeGuiWebWindowInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
+    const windowId = readPositiveInteger(event, 'windowId', '$.windowId', 'invalid-window-event');
+    if (windowId.kind === 'err') {
+        return windowId;
+    }
+    const windowKind = readWindowKind(event, 'windowKind', '$.windowKind');
+    if (windowKind.kind === 'err') {
+        return windowKind;
+    }
+    const size = readSize(event, 'size', '$.size', 'invalid-window-event');
+    if (size.kind === 'err') {
+        return size;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'window',
+            windowId: windowId.value,
+            windowKind: windowKind.value,
+            size: size.value,
+        },
+    };
+}
+
 function notifyGuiWebInputEventListeners(event: GuiWebInputEvent) {
     for (const listener of inputEventListeners) {
         listener.onInputEvent(event);
     }
+}
+
+function readSize(record: UnknownRecord, name: string, path: string, kind: GuiWebInputErrorKind): GuiWebInputResult<GuiWebInputSize> {
+    const size = readRecord(record, name, path, kind);
+    if (size.kind === 'err') {
+        return size;
+    }
+    const width = readPositiveInteger(size.value, 'width', `${path}.width`, kind);
+    if (width.kind === 'err') {
+        return width;
+    }
+    const height = readPositiveInteger(size.value, 'height', `${path}.height`, kind);
+    if (height.kind === 'err') {
+        return height;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            width: width.value,
+            height: height.value,
+        },
+    };
 }
 
 function readPoint(record: UnknownRecord, name: string, path: string, kind: GuiWebInputErrorKind): GuiWebInputResult<GuiWebInputPoint> {
@@ -359,6 +426,22 @@ function readKeyboardKind(record: UnknownRecord, name: string, path: string): Gu
             return { kind: 'ok', value: value.value };
         default:
             return err('invalid-keyboard-event', path, 'down or up', value.value);
+    }
+}
+
+function readWindowKind(record: UnknownRecord, name: string, path: string): GuiWebInputResult<GuiWebWindowEventKind> {
+    const value = readString(record, name, path, 'invalid-window-event');
+    if (value.kind === 'err') {
+        return value;
+    }
+    switch (value.value) {
+        case 'resized':
+        case 'focused':
+        case 'unfocused':
+        case 'close-requested':
+            return { kind: 'ok', value: value.value };
+        default:
+            return err('invalid-window-event', path, 'resized, focused, unfocused, or close-requested', value.value);
     }
 }
 
