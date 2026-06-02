@@ -349,7 +349,7 @@ fn resource_op_kind(op: &ResourceOp) -> &'static str {
     }
 }
 
-fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
+pub(super) fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
     match op {
         ResourceOp::Expr { kind, output, .. } => expr_can_run_on_merged_path_state(*kind, output),
         ResourceOp::EndScope { locals, .. } => {

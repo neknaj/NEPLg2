@@ -7,7 +7,7 @@ use crate::types::{TypeCtx, TypeId};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_i32_condition_context::I32ConditionQueryContext;
 use super::model::{
-    I32ValueCondition, Place, PlaceProjection, ResourceI32RelationOp, ResourceLocal,
+    I32ValueCondition, Place, PlaceProjection, PlaceRoot, ResourceI32RelationOp, ResourceLocal,
 };
 use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::owner_summary_leaf::OwnerLeafPlace;
@@ -558,6 +558,11 @@ fn collect_i32_scalar_return_conditions(
     condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
+    if !raw_aliases.can_prove_i32_value_condition()
+        && !matches!(source.root, PlaceRoot::I32Constant(_))
+    {
+        return;
+    }
     for condition in I32_SCALAR_SUMMARY_CONDITIONS {
         if raw_aliases.i32_condition_is_known_true_with_context(
             source,
@@ -660,6 +665,11 @@ fn collect_i32_scalar_parameter_conditions_for_source(
     condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
+    if !raw_aliases.can_prove_i32_value_condition()
+        && !matches!(source.root, PlaceRoot::I32Constant(_))
+    {
+        return;
+    }
     for condition in I32_SCALAR_SUMMARY_CONDITIONS {
         if raw_aliases.i32_condition_is_known_true_with_context(
             source,
@@ -687,6 +697,9 @@ fn collect_i32_scalar_parameter_conditions(
     condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
+    if !raw_aliases.can_prove_i32_value_condition() {
+        return;
+    }
     for (parameter_index, param) in params.iter().enumerate() {
         for leaf in leaf_cache.leaf_places_for_conditions(types, &param.place) {
             for condition in I32_SCALAR_SUMMARY_CONDITIONS {

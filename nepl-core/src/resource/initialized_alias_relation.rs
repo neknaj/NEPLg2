@@ -18,6 +18,10 @@ pub(super) struct I32RelationFacts {
 }
 
 impl I32RelationFacts {
+    pub(super) fn has_facts(&self) -> bool {
+        !self.relations.is_empty()
+    }
+
     pub(super) fn add_relation(&mut self, left: &Place, op: ResourceI32RelationOp, right: &Place) {
         self.push_relation_fact(I32RelationFact {
             left: left.clone(),

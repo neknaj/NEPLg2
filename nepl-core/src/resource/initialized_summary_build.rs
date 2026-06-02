@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use crate::types::TypeCtx;
 
 use super::cell_state::CellTable;
+use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::CollectionSlotLifecycleFunctionSummaryIndex;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -200,6 +201,7 @@ fn function_raw_cell_initialization_summary(
     };
     let mut cells = CellTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
+    let mut collection_slots = CollectionSlotStateTable::new();
     let mut function_aliases = FunctionAliasTable::default();
     let mut pending_reallocs = PendingRawReallocs::default();
     for param in &function.params {
@@ -237,6 +239,7 @@ fn function_raw_cell_initialization_summary(
             &mut out.param_release_requirements,
             &engine,
             &mut cells,
+            &mut collection_slots,
             &mut raw_aliases,
             &mut function_aliases,
             &mut pending_reallocs,

@@ -13,6 +13,10 @@ pub(super) struct I32AliasFacts {
 }
 
 impl I32AliasFacts {
+    pub(super) fn has_condition_sources(&self) -> bool {
+        !self.values.is_empty() || !self.conditions.is_empty()
+    }
+
     pub(super) fn set_value(&mut self, place: &Place, value: i32) {
         self.values.retain(|fact| fact.place != *place);
         self.conditions.retain(|fact| fact.place != *place);

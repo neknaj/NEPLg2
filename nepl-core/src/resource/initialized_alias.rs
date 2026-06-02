@@ -407,6 +407,13 @@ impl RawCellAddressAliases {
         self.clear_scalar_metadata(place);
     }
 
+    pub(super) fn can_prove_i32_value_condition(&self) -> bool {
+        self.i32_facts.has_condition_sources()
+            || self.i32_relations.has_facts()
+            || self.i32_scales.has_facts()
+            || self.i32_offsets.has_i32_constant_endpoint()
+    }
+
     fn clear_scalar_metadata(&mut self, place: &Place) {
         self.scalar_origins.clear_prefix(place);
         self.i32_facts.clear_prefix(place);
