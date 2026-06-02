@@ -87,15 +87,76 @@ pub fn str_slice_trim_suffix_cr %fn str fn i32 fn i32 str \s\start\end:
         then str_slice s s0 sub e0 1
         else str_slice s s0 e0
 
+//: str_trim_left_index: 先頭側の ASCII 空白が終わる byte index を返す
+//:
+//: [目的/もくてき]:
+//: - `str_trim` の先頭側 scan を独立させ、trim 本体が左右の scan と slice construction だけを接続できるようにします。
+//:
+//: [実装/じっそう]:
+//: - `0` から `n` 未満を順に調べ、最初の非 ASCII 空白 byte の位置で停止します。
+//: - すべて ASCII 空白であれば `n` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - `n` は通常 `len s` を渡します。範囲外 access の扱いは `str_byte_is_ascii_space_at` に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn str_trim_left_index %fn str fn i32 i32 \s\n:
+    let mut start %i32 0;
+    let mut done %i32 0;
+    while eq done 0:
+        do:
+            if:
+                lt start n
+                then:
+                    if:
+                        str_byte_is_ascii_space_at s start
+                        then set start %i32 add start 1
+                        else set done 1
+                else:
+                    set done 1
+    start
+
+//: str_trim_right_index: 末尾側の ASCII 空白が始まる byte index を返す
+//:
+//: [目的/もくてき]:
+//: - `str_trim` の末尾側 scan を独立させ、先頭側 scan で決まった `start` より前へ戻らない `end` を返します。
+//:
+//: [実装/じっそう]:
+//: - `n` から 1 byte ずつ戻り、`start <= end` を保ちながら末尾の ASCII 空白を読み飛ばします。
+//: - 残りが空になる場合は `start` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - `start` は通常 `str_trim_left_index s (len s)` の結果です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n - start)
+fn str_trim_right_index %fn str fn i32 fn i32 i32 \s\start\n:
+    let mut end %i32 n;
+    let mut done %i32 0;
+    while eq done 0:
+        do:
+            if:
+                lt start end
+                then:
+                    let idx %i32 sub end 1;
+                    if:
+                        str_byte_is_ascii_space_at s idx
+                        then set end %i32 sub end 1
+                        else set done 1
+                else:
+                    set done 1
+    end
+
 //: str_trim: 前後の ASCII 空白を取り除く
 //:
 //: [目的/もくてき]:
 //: - 先頭と末尾の space/tab/LF/CR を除いた文字列を返します。
 //:
 //: [実装/じっそう]:
-//: - 先頭側と末尾側から `str_byte_is_ascii_space_at` が true の位置を読み飛ばします。
+//: - 先頭側 scan と末尾側 scan は private helper へ分けています。
+//: - helper は `str_byte_is_ascii_space_at` が true の位置を読み飛ばし、最後に残った範囲を `str_slice` で切り出します。
 //: - 範囲確認と raw read は `byte_index` module に閉じ、trim 側は範囲外を false とする predicate だけを使います。
-//: - 最後に残った byte 範囲を `str_slice` で切り出します。
 //:
 //: [注意/ちゅうい]:
 //: - 空白判定は ASCII のみです。
@@ -105,31 +166,6 @@ pub fn str_slice_trim_suffix_cr %fn str fn i32 fn i32 str \s\start\end:
 //: - O(n)
 pub fn str_trim %fn str str \s:
     let n %i32 len s;
-    let mut start %i32 0;
-    let mut end %i32 n;
-    let mut done %i32 0;
-    while eq done 0:
-        do:
-            if:
-                lt start end
-                then:
-                    if:
-                        str_byte_is_ascii_space_at s start
-                        then set start %i32 add start 1
-                        else set done 1
-                else:
-                    set done 1
-    let mut done2 %i32 0;
-    while eq done2 0:
-        do:
-            if:
-                lt start end
-                then:
-                    let idx %i32 sub end 1;
-                    if:
-                        str_byte_is_ascii_space_at s idx
-                        then set end %i32 sub end 1
-                        else set done2 1
-                else:
-                    set done2 1
+    let start %i32 str_trim_left_index s n;
+    let end %i32 str_trim_right_index s start n;
     str_slice s start end

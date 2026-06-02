@@ -21,6 +21,33 @@
 #import "./types" as *
 #import "./reserve" as *
 
+//: sb_byte_builder_error_text: ByteBuilderError を StringBuilder の error text へ変換する
+//:
+//: [目的/もくてき]:
+//: - ByteBuilder 層から戻った error payload の cleanup と、StringBuilder API が返す `str` error への変換を集約します。
+//:
+//: [注意/ちゅうい]:
+//: - `e` に含まれる builder owner は必ずここで解放します。
+fn sb_byte_builder_error_text %fn ByteBuilderError str \e:
+    let kind %StdErrorKind byte_builder_error_kind &e
+    byte_builder_error_free e
+    string_builder_error kind
+
+//: sb_append_non_empty_result: 非空文字列を builder へ追加する
+//:
+//: [目的/もくてき]:
+//: - `sb_append_result` の空文字 fast path と、ByteBuilder へ委譲する非空 append path を分けます。
+//: - `s` が非空であることは caller 側で確認済みとし、この関数は storage への append と error cleanup に集中します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(s))。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
+fn sb_append_non_empty_result %fn StringBuilder fn str Result StringBuilder str \sb\s:
+    match byte_builder_push_str string_builder_into_byte_builder sb s:
+        Result::Ok bytes:
+            Result::Ok string_builder_from_byte_builder bytes
+        Result::Err e:
+            Result::Err sb_byte_builder_error_text e
+
 //: sb_append_result: builder に文字列片を追加する
 //:
 //: [目的/もくてき]:
@@ -42,13 +69,7 @@ pub fn sb_append_result %fn StringBuilder fn str Result StringBuilder str \sb\s:
         then:
             Result::Ok sb
         else:
-            match byte_builder_push_str string_builder_into_byte_builder sb s:
-                Result::Ok bytes:
-                    Result::Ok string_builder_from_byte_builder bytes
-                Result::Err e:
-                    let kind %StdErrorKind byte_builder_error_kind &e
-                    byte_builder_error_free e
-                    Result::Err string_builder_error kind
+            sb_append_non_empty_result sb s
 
 //: sb_append_char_result: builder に char を UTF-8 として追加する
 //:

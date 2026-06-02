@@ -244,6 +244,53 @@ remote/main の GUI 関連変更を取り込んだ main 上で release CLI を�
 主経路は引き続き bundled / persistent `.neplproof` preseed、stdlib proof template、changed-expression
 query cache である。
 
+2026-06-02 の `str_trim` scan helper split checkpoint では、remote/main 同期後の native release
+RPN baseline を再測定した。同期後の stage-only run は `resource_static_check=7565ms` / `7455ms`、
+`resource_initialized_moves=6452ms` / `6351ms`、`resource_initialized_function_checks=2014ms` /
+`1974ms` で、per-function timing では `str_trim__str__str__pure` の final initialized check が
+`1117ms` だった。
+
+対応として、`str_trim` の先頭側 scan と末尾側 scan を `str_trim_left_index` /
+`str_trim_right_index` の private helper へ分け、public `str_trim` は `len`、左右 index、
+`str_slice` を接続するだけにした。公開 API、空白判定、範囲確認境界、allocation failure の扱いは
+変えていない。変更後の native release RPN stage-only 後続 run は `resource_static_check=5787ms` /
+`5397ms`、`resource_initialized_moves=4742ms` / `4514ms`、
+`resource_initialized_function_checks=1029ms` / `921ms` だった。per-function timing では `str_trim`
+が上位 50 件から外れた。
+
+この改善でも RPN cold base は 0.5 秒未満から遠いため、この issue は open のまま維持する。残る
+支配点は `apply_op` / `dealloc_raw` の raw-init summary、`sb_append_result` の i32 scalar summary、
+および stdlib-heavy Resource proof を初回 compile ごとに構築する固定費である。次の根本対応は
+bundled / persistent `.neplproof` preseed と stdlib proof template である。
+
+2026-06-02 の RPN operator / builder helper split checkpoint では、`str_trim` 分割後の
+`examples/rpn.nepl` cold base をさらに分解した。変更前の同 branch baseline は
+`resource_static_check=5870ms` / `5900ms`、`resource_initialized_moves=4897ms` / `5011ms`、
+`resource_initialized_i32_scalar_summaries=1258ms` / `1273ms`、
+`resource_initialized_raw_init_summaries=2560ms` / `2655ms` だった。per-function timing では
+`apply_op__Stack_T_i32_str...` raw-init summary が `611ms`、`dealloc_raw` raw-init summary が
+`520ms`、`sb_append_result` i32 scalar summary が `441ms` だった。
+
+対応として、RPN operator token を先に `RpnOp` enum へ分類する `operator_from_token` を追加し、
+`apply_op` は分類済み `RpnOp` を受け取るようにした。演算選択は pure helper `apply_op_values` へ分け、
+Stack owner の pop / push と文字列比較 chain を同じ関数へ集中させない。StringBuilder 側は
+`sb_append_non_empty_result` と `sb_byte_builder_error_text` を追加し、public `sb_append_result` を
+空文字 fast path と非空 append path の接続に絞った。
+
+変更後の native release RPN stage-only run は `resource_static_check=5372ms` / `4927ms`、
+`resource_initialized_moves=4340ms` / `4013ms`、`resource_initialized_i32_scalar_summaries=1135ms` /
+`1090ms`、`resource_initialized_raw_init_summaries=2309ms` / `2047ms`、
+`resource_initialized_function_checks=824ms` / `801ms` だった。per-function timing run は
+`resource_static_check=5453ms` で、hot path は `dealloc_raw` raw-init `498ms`、`apply_op` raw-init
+`426ms`、`sb_append_non_empty_result` i32 scalar `320ms`、`byte_builder_push_bytes_ref` raw-init `232ms`、
+`byte_builder_reserve` i32 scalar `183ms` の順である。
+
+`apply_op` raw-init は `611ms` から `426ms` へ下がり、`sb_append_result` wrapper は `3ms` まで
+小さくなった。ただし残る支配点は `dealloc_raw` / ByteBuilder / Stack owner flow の proof と
+stdlib-heavy Resource proof の初回構築であるため、この issue は open のまま維持する。base compile
+0.5 秒未満には、引き続き actual `.neplproof` artifact の bundled / persistent preseed と stdlib
+proof template が必要である。
+
 ## 検証
 
 - `trunk build`

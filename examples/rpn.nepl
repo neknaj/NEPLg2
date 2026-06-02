@@ -149,6 +149,55 @@ fn print_stack_line %impure fn &Stack i32 unit \stack:
 
     print "\n";
 
+//: RpnOp: RPN が対応する二項演算子
+//:
+//: [目的/もくてき]:
+//: - token 文字列の分類結果を enum として保持し、演算適用側が文字列比較を繰り返さないようにします。
+//: - `apply_op` は分類済みの operator だけを受け取り、Stack owner flow と演算結果の push に集中します。
+enum RpnOp:
+    Add
+    Sub
+    Mul
+
+//: operator_from_token: token を RPN 演算子へ分類する
+//:
+//: [目的/もくてき]:
+//: - `+` `-` `*` の判定を 1 か所に集め、数値 token の parse と演算適用の前提を明確にします。
+//:
+//: [注意/ちゅうい]:
+//: - `-5` のような負数 literal は `-` だけと一致しないため、`Option::None` として数値 parse 側へ渡します。
+fn operator_from_token %fn str Option RpnOp \token:
+    if:
+        string_search::str_eq token "+"
+        then:
+            Option::Some RpnOp::Add
+        else:
+            if:
+                string_search::str_eq token "-"
+                then:
+                    Option::Some RpnOp::Sub
+                else:
+                    if:
+                        string_search::str_eq token "*"
+                        then:
+                            Option::Some RpnOp::Mul
+                        else:
+                            Option::None
+
+//: apply_op_values: 分類済み operator を 2 つの値へ適用する
+//:
+//: [目的/もくてき]:
+//: - Stack owner の pop / push と、純粋な i32 演算選択を分けます。
+//: - `apply_op` は所有権を扱い、この helper は `RpnOp` に対応する計算だけを担当します。
+fn apply_op_values %fn RpnOp fn i32 fn i32 i32 \op\a\b:
+    match op:
+        RpnOp::Add:
+            add a b
+        RpnOp::Sub:
+            sub a b
+        RpnOp::Mul:
+            mul a b
+
 //: print_step_after: 途中計算の適用後状態を表示する
 //:
 //: [目的/もくてき]:
@@ -167,7 +216,8 @@ fn print_step_after %impure fn &Stack i32 impure fn i32 unit \stack\res:
 //: [目的/もくてき]:
 //: - `+` `-` `*` のいずれかの演算を適用し、結果をスタックに積みます。
 //: - `pop_top` で更新後 owner と取り出した値を同時に受け取り、owner flow を途切れさせません。
-fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token:
+//: - token 文字列の分類は `operator_from_token` に閉じ、ここでは分類済み `RpnOp` だけを扱います。
+fn apply_op %impure fn Stack i32 impure fn RpnOp Result Stack i32 str \stack\op:
     if:
         lt stk::len &stack 2
         then:
@@ -184,21 +234,7 @@ fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token
                     let stack_a %Stack i32 stk::stack_pop_stack popped_a
                     match a_opt:
                         Option::Some a:
-                            let res %i32:
-                                if:
-                                    string_search::str_eq token "+"
-                                    then add a b
-                                    else:
-                                        if:
-                                            string_search::str_eq token "-"
-                                            then sub a b
-                                            else:
-                                                if:
-                                                    string_search::str_eq token "*"
-                                                    then mul a b
-                                                    else:
-                                                        print_error "unknown operator";
-                                                        0
+                            let res %i32 apply_op_values op a b
                             print_step_after &stack_a res;
                             push_or_report stack_a res
                         Option::None:
@@ -218,12 +254,10 @@ fn process_token %impure fn Stack i32 impure fn str Result Stack i32 str \stack\
         then:
             ok stack
         else:
-            let is_op %bool or or string_search::str_eq token "+" string_search::str_eq token "-" string_search::str_eq token "*";
-            if:
-                is_op
-                then:
-                    apply_op stack token
-                else:
+            match operator_from_token token:
+                Option::Some op:
+                    apply_op stack op
+                Option::None:
                     match string_parse::to_i32 token:
                         Result::Ok val:
                             push_or_report stack val
