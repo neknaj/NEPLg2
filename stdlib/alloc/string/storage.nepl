@@ -15,7 +15,7 @@
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/result" as *
-#import "core/math" as *
+#import "core/math/i32" as *
 #import "core/field" as *
 #import "alloc/string/utf8" as *
 

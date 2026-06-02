@@ -13,7 +13,8 @@
 
 #import "core/mem" as *
 #import "core/result" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "alloc/string/access" as *
 #import "alloc/string/search" as *
 #import "alloc/string/storage" as *

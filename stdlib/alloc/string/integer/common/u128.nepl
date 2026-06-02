@@ -7,7 +7,10 @@
 
 #indent 4
 
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
+#import "core/math/i64" as *
+#import "core/math/int128" as *
 #import "core/cast" as *
 #import "core/field" as *
 

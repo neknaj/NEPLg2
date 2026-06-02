@@ -16,7 +16,8 @@
 //:     mem_size
 //: ```
 
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 
 #if[target=llvm]
 #llvmir:

@@ -50,7 +50,8 @@
 #import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 
 //: UTF-8 leading byte の[種類/しゅるい]
 //:

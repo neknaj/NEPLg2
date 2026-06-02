@@ -11,7 +11,8 @@
 #indent 4
 
 #import "alloc/io/bytebuf" as *
-#import "core/math" as math
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "core/mem/layout" as *
 #import "core/mem/pointer/region" as *
 #import "core/mem/pointer/scalar" as *
@@ -41,33 +42,33 @@
 //: - O(1)
 fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 StdErrorKind \fd\iov\nread\data\data_len:
     if:
-        math::lt data_len 0
+        lt data_len 0
         then:
             Result::Err StdErrorKind::InvalidOperation
         else:
             if:
-                math::eq data_len 0
+                eq data_len 0
                 then:
                     Result::Ok 0
                 else:
                     let iov_raw %i32 mem_ptr_addr iov
                     let nread_raw %i32 mem_ptr_addr nread
                     let data_raw %i32 mem_ptr_addr data
-                    let invalid_iov %bool math::le iov_raw 0
-                    let invalid_nread %bool math::le nread_raw 0
-                    let invalid_data %bool math::le data_raw 0
-                    let invalid_scratch %bool math::or invalid_iov invalid_nread
+                    let invalid_iov %bool le iov_raw 0
+                    let invalid_nread %bool le nread_raw 0
+                    let invalid_data %bool le data_raw 0
+                    let invalid_scratch %bool or invalid_iov invalid_nread
                     if:
-                        math::or invalid_scratch invalid_data
+                        or invalid_scratch invalid_data
                         then:
                             Result::Err StdErrorKind::InvalidOperation
                         else:
                             store_i32 iov_raw data_raw
-                            store_i32 math::add iov_raw 4 data_len
+                            store_i32 add iov_raw 4 data_len
                             store_i32 nread_raw 0
                             let errno %i32 stdio_fd_read_raw fd iov_raw 1 nread_raw
                             if:
-                                math::ne errno 0
+                                ne errno 0
                                 then:
                                     Result::Err StdErrorKind::IoError
                                 else:
@@ -133,12 +134,12 @@ pub fn stdio_discard_read_buffer %impure fn RegionToken u8 impure fn StdErrorKin
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
 pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf StdErrorKind \region\data_len:
     let cap %i32 region_size &region
-    let invalid_cap %bool math::lt cap 0
-    let invalid_len %bool math::lt data_len 0
-    let len_exceeds_cap %bool math::gt data_len cap
-    let invalid_size %bool math::or invalid_cap invalid_len
+    let invalid_cap %bool lt cap 0
+    let invalid_len %bool lt data_len 0
+    let len_exceeds_cap %bool gt data_len cap
+    let invalid_size %bool or invalid_cap invalid_len
     if:
-        math::or invalid_size len_exceeds_cap
+        or invalid_size len_exceeds_cap
         then:
             match dealloc_region<u8> region:
                 Result::Ok _:
@@ -148,7 +149,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
             Result::Err StdErrorKind::InvalidOperation
         else:
             if:
-                math::eq data_len 0
+                eq data_len 0
                 then:
                     match dealloc_region<u8> region:
                         Result::Ok _:
@@ -158,7 +159,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
                     Result::Ok io_bytebuf_empty
                 else:
                     if:
-                        math::eq data_len cap
+                        eq data_len cap
                         then:
                             Result::Ok io_bytebuf_finish_region region data_len
                         else:
@@ -238,21 +239,21 @@ pub fn stdio_read_all_buffer_result %impure fn void Result ByteBuf StdErrorKind 
                             let mut failed %i32 0;
                             let mut failure %StdErrorKind StdErrorKind::Failure;
 
-                            while math::eq done 0:
+                            while eq done 0:
                                 do:
                                     if:
-                                        math::eq read_len cap
+                                        eq read_len cap
                                         then:
-                                            let new_cap %i32 math::mul cap 2;
+                                            let new_cap %i32 mul cap 2;
                                             if:
-                                                math::le new_cap cap
+                                                le new_cap cap
                                                 then:
                                                     set failed 1;
                                                     set failure StdErrorKind::CapacityExceeded;
                                                     set done 1;
                                                 else:
                                                     if:
-                                                        math::not alloc_payload_fits new_cap
+                                                        not alloc_payload_fits new_cap
                                                         then:
                                                             set failed 1;
                                                             set failure StdErrorKind::CapacityExceeded;
@@ -272,9 +273,9 @@ pub fn stdio_read_all_buffer_result %impure fn void Result ByteBuf StdErrorKind 
                                             unit;
 
                                     if:
-                                        math::eq done 0
+                                        eq done 0
                                         then:
-                                            let remaining %i32 math::sub cap read_len;
+                                            let remaining %i32 sub cap read_len;
                                             let write_base %MemPtr u8 region_ptr &buf_region
                                             let write_ptr %MemPtr u8 mem_ptr_add write_base read_len
                                             match stdio_fd_read_into_result 0 iov nread_ptr write_ptr remaining:
@@ -283,21 +284,21 @@ pub fn stdio_read_all_buffer_result %impure fn void Result ByteBuf StdErrorKind 
                                                     set failure e;
                                                     set done 1;
                                                 Result::Ok n:
-                                                    let read_all_negative %bool math::lt n 0
-                                                    let read_all_exceeds_remaining %bool math::gt n remaining
+                                                    let read_all_negative %bool lt n 0
+                                                    let read_all_exceeds_remaining %bool gt n remaining
                                                     if:
-                                                        math::or read_all_negative read_all_exceeds_remaining
+                                                        or read_all_negative read_all_exceeds_remaining
                                                         then:
                                                             set failed 1;
                                                             set failure StdErrorKind::InvalidOperation;
                                                             set done 1;
                                                         else:
                                                             if:
-                                                                math::eq n 0
+                                                                eq n 0
                                                                 then:
                                                                     set done 1;
                                                                 else:
-                                                                    set read_len math::add read_len n;
+                                                                    set read_len add read_len n;
                                         else:
                                             unit;
 
@@ -313,7 +314,7 @@ pub fn stdio_read_all_buffer_result %impure fn void Result ByteBuf StdErrorKind 
                                     unit
 
                             if:
-                                math::eq failed 1
+                                eq failed 1
                                 then:
                                     stdio_discard_read_buffer buf_region failure
                                 else:
@@ -382,10 +383,10 @@ pub fn stdio_read_line_buffer_result %impure fn void Result ByteBuf StdErrorKind
                             let mut failed %i32 0;
                             let mut failure %StdErrorKind StdErrorKind::Failure;
 
-                            while math::eq done 0:
+                            while eq done 0:
                                 do:
                                     if:
-                                        math::ge line_len cap
+                                        ge line_len cap
                                         then:
                                             set done 1;
                                         else:
@@ -403,28 +404,28 @@ pub fn stdio_read_line_buffer_result %impure fn void Result ByteBuf StdErrorKind
                                                             set failure e;
                                                             set done 1;
                                                         Result::Ok n:
-                                                            let read_line_negative %bool math::lt n 0
-                                                            let read_line_exceeds_one %bool math::gt n 1
+                                                            let read_line_negative %bool lt n 0
+                                                            let read_line_exceeds_one %bool gt n 1
                                                             if:
-                                                                math::or read_line_negative read_line_exceeds_one
+                                                                or read_line_negative read_line_exceeds_one
                                                                 then:
                                                                     set failed 1;
                                                                     set failure StdErrorKind::InvalidOperation;
                                                                     set done 1;
                                                                 else:
                                                                     if:
-                                                                        math::eq n 0
+                                                                        eq n 0
                                                                         then:
                                                                             set done 1;
                                                                         else:
                                                                             match load_u8 write_ptr:
                                                                                 Option::Some b:
                                                                                     if:
-                                                                                        math::eq b '\n'
+                                                                                        eq b '\n'
                                                                                         then:
                                                                                             set done 1;
                                                                                         else:
-                                                                                            set line_len math::add line_len 1;
+                                                                                            set line_len add line_len 1;
                                                                                 Option::None:
                                                                                     set failed 1;
                                                                                     set failure StdErrorKind::InvalidOperation;
@@ -442,7 +443,7 @@ pub fn stdio_read_line_buffer_result %impure fn void Result ByteBuf StdErrorKind
                                     unit
 
                             if:
-                                math::eq failed 1
+                                eq failed 1
                                 then:
                                     stdio_discard_read_buffer buf_region failure
                                 else:

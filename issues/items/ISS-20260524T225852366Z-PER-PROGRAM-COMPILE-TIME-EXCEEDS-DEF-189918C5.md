@@ -746,6 +746,27 @@ base compile 目標の比較値ではない。今回の最新値でも `loader_l
 であり、native CLI `--check` が依存 module body を読み込む前に `.neplmeta` / typed public interface を
 fail-closed に materialize できるようにする。
 
+2026-06-02 の RPN import graph narrowing checkpoint では、cache だけに頼らず、RPN が読み込む
+stdlib dependency DAG そのものを縮小した。`examples/rpn.nepl` と RPN closure 内の `core/math`
+facade import を、実使用 module である `core/math/i32` / `core/math/bool` / `core/math/convert` /
+`core/math/int128` / `core/math/i64` へ狭めた。また `std/stdio/print` は root `std/stdio/write`
+facade ではなく `write/text` と `write/byte` を直接 import し、RPN root は `std/stdio/ansi` と
+`alloc/collections/stack` の facade を通らず必要 submodule を直接 import するようにした。
+
+この変更で RPN loader detail の module count は direct import 前の `115` から `99` まで下がった。
+final no-stage 10 run は `832.779ms / 889.649ms / 886.363ms / 788.952ms / 856.798ms / 794.100ms /
+864.652ms / 805.392ms / 871.770ms / 813.986ms`、中央値 `844.789ms` だった。stage timing 5 run の
+中央値は `execute_inner=837.613ms`、`loader_load=334.056ms`、`check_pipeline=502.638ms`、
+`resource_typecheck=115ms`、`resource_static_check=360ms`、`resource_initialized_moves=214ms`、
+`resource_initialized_raw_alias_summaries=57ms`、`resource_initialized_i32_scalar_summaries=56ms`、
+`resource_initialized_raw_init_summaries=52ms`、`resource_initialized_function_checks=46ms`、
+`resource_owner_obligations=45ms` だった。
+
+同時に `push_loader_type_arity_hints` の一時 BTreeMap index 化も試したが、RPN 実測では
+`imported_type_arity_hints` と全体 stage が改善せず悪化したため採用しなかった。残る root path は、
+小さな局所 map 化ではなく、native CLI `--check` が pre-typecheck interface artifact を用いて
+dependency body merge と shallow type-boundary preparation 自体を避けることである。
+
 ## 検証
 
 - `trunk build`

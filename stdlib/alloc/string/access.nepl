@@ -14,7 +14,8 @@
 #import "core/mem" as *
 #import "core/mem/raw" as *
 #import "core/option" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 
 //: string_access_addr: `str` の内部アドレスを access module 内部で取り出す
 //:

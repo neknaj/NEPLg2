@@ -40,7 +40,8 @@
 #import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "./types" as *
 #import "./storage" as *
 

@@ -12,7 +12,8 @@
 #import "alloc/string/access" as string
 #import "alloc/string/storage" as string_storage
 #import "core/field" as *
-#import "core/math" as math
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
@@ -39,33 +40,33 @@
 //: - O(1)
 fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 StdErrorKind \fd\iov\nwritten\data\data_len:
     if:
-        math::lt data_len 0
+        lt data_len 0
         then:
             Result::Err StdErrorKind::InvalidOperation
         else:
             if:
-                math::eq data_len 0
+                eq data_len 0
                 then:
                     Result::Ok 0
                 else:
                     let iov_raw %i32 mem_ptr_addr iov
                     let nwritten_raw %i32 mem_ptr_addr nwritten
                     let data_raw %i32 mem_ptr_addr data
-                    let invalid_iov %bool math::le iov_raw 0
-                    let invalid_nwritten %bool math::le nwritten_raw 0
-                    let invalid_data %bool math::le data_raw 0
-                    let invalid_scratch %bool math::or invalid_iov invalid_nwritten
+                    let invalid_iov %bool le iov_raw 0
+                    let invalid_nwritten %bool le nwritten_raw 0
+                    let invalid_data %bool le data_raw 0
+                    let invalid_scratch %bool or invalid_iov invalid_nwritten
                     if:
-                        math::or invalid_scratch invalid_data
+                        or invalid_scratch invalid_data
                         then:
                             Result::Err StdErrorKind::InvalidOperation
                         else:
                             store_i32 iov_raw data_raw
-                            store_i32 math::add iov_raw 4 data_len
+                            store_i32 add iov_raw 4 data_len
                             store_i32 nwritten_raw 0
                             let errno %i32 stdio_fd_write_raw fd iov_raw 1 nwritten_raw
                             if:
-                                math::ne errno 0
+                                ne errno 0
                                 then:
                                     Result::Err StdErrorKind::IoError
                                 else:
@@ -92,7 +93,7 @@ fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPt
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
 fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Result unit StdErrorKind \fd\data\data_len:
     if:
-        math::le data_len 0
+        le data_len 0
         then:
             Result::Ok unit
         else:
@@ -114,24 +115,24 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
                             let mut off %i32 0;
                             let mut done %i32 0;
                             let mut failed %i32 0;
-                            while math::eq done 0:
+                            while eq done 0:
                                 do:
                                     if:
-                                        math::ge off data_len
+                                        ge off data_len
                                         then:
                                             set done 1;
                                             unit
                                         else:
-                                            match stdio_fd_write_from_result fd iov nwritten mem_ptr_add data off math::sub data_len off:
+                                            match stdio_fd_write_from_result fd iov nwritten mem_ptr_add data off sub data_len off:
                                                 Result::Ok n:
                                                     if:
-                                                        math::le n 0
+                                                        le n 0
                                                         then:
                                                             set failed 1;
                                                             set done 1;
                                                             unit
                                                         else:
-                                                            set off math::add off n;
+                                                            set off add off n;
                                                             unit
                                                 Result::Err write_error:
                                                     set failed 1;
@@ -148,7 +149,7 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
                                 Result::Err release_iov_error:
                                     unit
                             if:
-                                math::eq failed 0
+                                eq failed 0
                                 then:
                                     Result::Ok unit
                                 else:
@@ -209,7 +210,7 @@ pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result unit StdErr
 pub fn stdio_write_fd_bytebuf_result %impure fn i32 impure fn ByteBuf Result unit StdErrorKind \fd\bytes:
     let data_len %i32 io_bytebuf_len_ref &bytes;
     if:
-        math::le data_len 0
+        le data_len 0
         then:
             io_bytebuf_free bytes
             Result::Ok unit
@@ -236,17 +237,17 @@ pub fn stdio_write_fd_bytebuf_result %impure fn i32 impure fn ByteBuf Result uni
 pub fn stdio_write_fd_bytebuilder_prefix_result %impure fn i32 impure fn &ByteBuilder impure fn i32 Result unit StdErrorKind \fd\builder\byte_len:
     let builder_len %i32 *get_ref builder "len";
     if:
-        math::lt byte_len 0
+        lt byte_len 0
         then:
             Result::Err StdErrorKind::InvalidOperation
         else:
             if:
-                math::gt byte_len builder_len
+                gt byte_len builder_len
                 then:
                     Result::Err StdErrorKind::InvalidOperation
                 else:
                     if:
-                        math::le byte_len 0
+                        le byte_len 0
                         then:
                             Result::Ok unit
                         else:

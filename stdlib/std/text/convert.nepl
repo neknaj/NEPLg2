@@ -17,7 +17,7 @@
 #import "core/result" as *
 #import "./validate" as *
 #import "core/field" as *
-#import "core/math" as *
+#import "core/math/i32" as *
 
 //: text_bytebuf_to_utf8_str_result: `ByteBuf` を UTF-8 [検証/けんしょう]して `str` へ[変換/へんかん]する
 //:

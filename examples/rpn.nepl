@@ -58,15 +58,18 @@
 #import "core/math/i32" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/field" as field
 #import "std/stdio/print" as *
-#import "std/stdio/ansi" as *
+#import "std/stdio/ansi/types" as *
+#import "std/stdio/ansi/code" as *
+#import "std/stdio/ansi/print" as *
 #import "std/stdio/read/text" as *
 #import "alloc/string/access" as string_access
 #import "alloc/string/search" as string_search
 #import "alloc/string/slice" as string_slice
 #import "alloc/string/integer/parse" as string_parse
-#import "alloc/collections/stack" as stk
+#import "alloc/collections/stack/types" as *
+#import "alloc/collections/stack/types" as stk
+#import "alloc/collections/stack/api" as stk
 #import "alloc/diag/error/types" as *
 
 //: print_error: エラーメッセージを赤色太字で出力する

@@ -12,7 +12,7 @@
 #import "core/mem/allocator" as allocator
 #import "core/field" as field
 #import "../types" as *
-#import "core/math" as *
+#import "core/math/i32" as *
 #import "core/traits/copy" as *
 #import "core/traits/drop" as *
 

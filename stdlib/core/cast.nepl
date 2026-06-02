@@ -19,7 +19,9 @@
 #indent 4
 
 #import "core/mem" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/convert" as *
+#import "core/math/int128" as *
 #import "core/result" as *
 #import "core/field" as *
 

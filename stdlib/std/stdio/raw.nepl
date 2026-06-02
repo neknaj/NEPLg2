@@ -19,7 +19,7 @@
 #extern "c" "syscall" fn __nepl_syscall %impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 i64
 
 #import "core/cast" as *
-#import "core/math" as *
+#import "core/math/i32" as *
 #import "core/mem/raw" as *
 
 //: stdio_fd_read_raw: raw address iovec で fd_read ABI を呼ぶ

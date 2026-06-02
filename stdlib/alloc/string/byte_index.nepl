@@ -14,7 +14,8 @@
 
 #import "alloc/string/access" as string_access
 #import "core/field" as field
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "core/mem/raw" as *
 #import "core/option" as *
 

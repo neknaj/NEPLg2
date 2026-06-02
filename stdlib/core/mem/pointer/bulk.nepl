@@ -34,7 +34,8 @@
 //:             0
 //: ```
 
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "core/result" as *
 #import "../types" as *
 #import "../layout" as *

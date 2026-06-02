@@ -8,7 +8,8 @@
 #indent 4
 
 #import "core/result" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 
 //: digit_to_char_lower: 0..15 の数値を小文字 16 進数字へ変換する
 //:

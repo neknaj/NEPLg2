@@ -11,7 +11,8 @@
 #indent 4
 
 #import "core/result" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "core/field" as *
 #import "core/option" as *
 #import "alloc/string/access" as *

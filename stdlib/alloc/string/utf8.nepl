@@ -14,7 +14,8 @@
 #import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/option" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 
 //: StringUtf8LeadKind: UTF-8 leading byte の分類
 //:

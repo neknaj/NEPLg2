@@ -30,7 +30,7 @@
 #import "core/result" as *
 #import "alloc/diag/error/types" as *
 #import "core/field" as *
-#import "core/math" as *
+#import "core/math/bool" as *
 //: diag_kind_new: `DiagKind` を[構築/こうちく]する
 pub fn diag_kind_new %fn DiagLevel fn Option StdErrorKind fn Option str DiagKind \level\std_error\local_kind:
     DiagKind level std_error local_kind

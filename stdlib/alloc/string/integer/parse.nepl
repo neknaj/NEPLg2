@@ -12,7 +12,9 @@
 #indent 4
 
 #import "core/result" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
+#import "core/math/i64" as *
 #import "core/cast" as *
 #import "core/char" as *
 #import "core/field" as *

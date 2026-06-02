@@ -10,7 +10,7 @@
 #import "alloc/diag/error/types" as *
 #import "alloc/io/bytebuf" as *
 #import "core/field" as *
-#import "core/math" as *
+#import "core/math/i32" as *
 #import "core/result" as *
 
 //: neplg2:test[stdio, normalize_newlines]

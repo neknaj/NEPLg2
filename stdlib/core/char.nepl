@@ -41,7 +41,8 @@
 #indent 4
 
 #import "core/cast" as *
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "core/result" as *
 
 //: CharUtf8Step: UTF-8 decode の 1 step を表す

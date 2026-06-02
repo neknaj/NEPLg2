@@ -10,7 +10,8 @@
 
 #indent 4
 
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
 #import "alloc/string/search" as *

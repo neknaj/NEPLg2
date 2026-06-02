@@ -1,3 +1,16 @@
+# 2026-06-02 RPN import graph narrowing checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の依存DAG化、探索範囲削減、試作段階でも技術的負債を残さない方針に従い、RPN cold base を cache だけでなく stdlib import graph 自体の縮小として改善した。
+- `examples/rpn.nepl` と RPN が通る stdlib closure で、`core/math` facade import を実際に使う `core/math/i32` / `core/math/bool` / `core/math/convert` / `core/math/int128` / `core/math/i64` へ狭めた。RPN 経路では `core/math` root や f32 / f64 / u8 math module を読み込まない。
+- `stdlib/std/stdio/print.nepl` は `std/stdio/write` facade ではなく、実際に使う `std/stdio/write/text` と `std/stdio/write/byte` を直接 import するようにした。`write/bytes` と root write facade は RPN print 経路から外れた。
+- `examples/rpn.nepl` は `std/stdio/ansi` facade と `alloc/collections/stack` facade を外し、ANSI は `types` / `code` / `print`、Stack は `types` と `api` を直接 import するようにした。`Stack` 型は unqualified、操作 API と helper は `stk::` alias のまま使う。
+- loader 詳細計測の module count は direct import 前の `115` から、math narrowing 後 `103`、direct write 後 `101`、RPN direct facade 後 `99` になった。
+- final RPN no-stage 10 run は `832.779ms / 889.649ms / 886.363ms / 788.952ms / 856.798ms / 794.100ms / 864.652ms / 805.392ms / 871.770ms / 813.986ms`、中央値 `844.789ms` だった。`NEPL_DISABLE_CHECK_CACHE=1` を付け、exact `.neplcheck` hit は比較から除外している。
+- final stage timing 5 run の中央値は `execute_inner=837.613ms`、`loader_load=334.056ms`、`check_pipeline=502.638ms`、`resource_typecheck=115ms`、`resource_static_check=360ms`、`resource_initialized_moves=214ms`、`resource_initialized_raw_alias_summaries=57ms`、`resource_initialized_i32_scalar_summaries=56ms`、`resource_initialized_raw_init_summaries=52ms`、`resource_initialized_function_checks=46ms`、`resource_owner_obligations=45ms` だった。
+- loader detail final は `process_directives count=99 total=902.365ms max=93.407ms stdlib/std/stdio/print.nepl`、`imported_type_arity_hints count=99 total=199.897ms max=9.564ms stdlib/core/option.nepl` だった。detail の stage は inclusive なので合計値は wall-clock 内訳としては扱わず、残る探索構造の目印として使う。
+- compiler 側の `push_loader_type_arity_hints` を BTreeMap index 化する試行は、RPN 実測で `imported_type_arity_hints` が改善せず、stage / no-stage も悪化したため採用せず戻した。今後は小さな局所 map 化ではなく、pre-typecheck interface artifact により依存 body merge と shallow type-boundary preparation 自体を減らす。
+- 0.5 秒未満目標にはまだ届かない。次の root task は `ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD` と、Resource initialized moves の function-level relevance / stable proof artifact 境界である。
+
 # 2026-06-02 RPN direct import / root source single-read checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針と性能方針に従い、RPN cold base を `examples/rpn.nepl` に固定して測定を続けた。

@@ -11,9 +11,11 @@
 
 #indent 4
 
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 #import "core/result" as *
-#import "std/stdio/write" as *
+#import "std/stdio/write/text" as *
+#import "std/stdio/write/byte" as *
 
 //: print: 文字列を標準出力へ出す
 //:

@@ -16,7 +16,8 @@
 //:     if eq align8 9 16 1 0
 //: ```
 
-#import "core/math" as *
+#import "core/math/i32" as *
+#import "core/math/bool" as *
 
 //: align8: 8 バイト境界に切り上げる
 //:
