@@ -114,7 +114,10 @@ async function runWebGuiStdoutProtocolRegression() {
     assert.match(shellSource, /presentGuiWebRuntimeFrame/);
     assert.match(shellSource, /message\.fd === 1/, "GUI stdout protocol must only parse stdout fd=1");
     assert.match(panelSource, /renderGuiPreviewFrameToCanvas/);
-    assert.match(panelSource, /waiting for host frame/);
+    assert.match(panelSource, /GuiPreviewDebugSink/);
+    assert.match(panelSource, /waiting-for-frame/);
+    assert.doesNotMatch(panelSource, /waiting for host frame/);
+    assert.doesNotMatch(panelSource, /metricsEl|gui-preview-metrics|host commands/);
     assert.doesNotMatch(panelSource, /createGuiPreviewScene|summarizeGuiPreviewScene|renderGuiPreviewSceneToCanvas/);
     for (const [name, source] of [
         ["stdout-protocol.ts", protocolSource],

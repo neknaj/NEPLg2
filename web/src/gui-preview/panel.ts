@@ -21,6 +21,18 @@ type GuiHostPointerMoveState =
     | { kind: 'idle' }
     | { kind: 'scheduled'; event: GuiWebPointerInputEvent };
 
+export type GuiPreviewDebugRecord =
+    | { kind: 'waiting-for-frame' }
+    | { kind: 'canvas-unavailable'; message: string }
+    | { kind: 'frame-presented'; windowId: number; commandCount: number; inputTargetCount: number }
+    | { kind: 'input-queued'; windowId: number; eventKind: GuiWebInputEvent['kind'] }
+    | { kind: 'action-queued'; windowId: number; actionId: number }
+    | { kind: 'input-error'; windowId: number; eventKind: GuiWebInputEvent['kind']; errorKind: string };
+
+export type GuiPreviewDebugSink =
+    | { kind: 'none' }
+    | { kind: 'present'; report: (record: GuiPreviewDebugRecord) => void };
+
 type GuiWebKeyCodeLookup =
     | { kind: 'mapped'; keyCode: number }
     | { kind: 'unmapped' };
@@ -32,23 +44,22 @@ type GuiWebScalarLookup =
 export class GuiPreviewPanel {
     contentEl: HTMLElement;
     rootEl: HTMLElement;
-    metricsEl: HTMLElement;
     canvas: HTMLCanvasElement;
+    debugSink: GuiPreviewDebugSink;
     contextState: GuiCanvasContextState;
     fontSize: number;
     viewport: GuiPreviewCanvasViewport;
     hostFrame: GuiHostFrameState;
     hostPointerMove: GuiHostPointerMoveState;
 
-    constructor(contentEl: HTMLElement) {
+    constructor(contentEl: HTMLElement, debugSink: GuiPreviewDebugSink) {
         this.contentEl = contentEl;
         this.rootEl = document.createElement('div');
         this.rootEl.className = 'gui-preview-panel';
-        this.metricsEl = document.createElement('div');
-        this.metricsEl.className = 'gui-preview-metrics';
         this.canvas = document.createElement('canvas');
         this.canvas.className = 'gui-preview-canvas';
         this.canvas.tabIndex = 0;
+        this.debugSink = debugSink;
         const ctx = this.canvas.getContext('2d');
         this.contextState = ctx
             ? { kind: 'ready', ctx }
@@ -58,7 +69,6 @@ export class GuiPreviewPanel {
         this.hostFrame = { kind: 'none' };
         this.hostPointerMove = { kind: 'idle' };
 
-        this.rootEl.appendChild(this.metricsEl);
         this.rootEl.appendChild(this.canvas);
         this.contentEl.appendChild(this.rootEl);
 
@@ -71,11 +81,18 @@ export class GuiPreviewPanel {
         this.canvas.addEventListener('keydown', (event) => this.handleCanvasKeyDown(event));
         this.canvas.addEventListener('keyup', (event) => this.handleCanvasKeyUp(event));
         this.resizeEditor();
+        this.reportDebug({ kind: 'waiting-for-frame' });
     }
 
     presentHostFrame(frame: GuiPreviewCommandFrame, windowId: number) {
         this.hostFrame = { kind: 'presented', frame, windowId };
         this.hostPointerMove = { kind: 'idle' };
+        this.reportDebug({
+            kind: 'frame-presented',
+            windowId,
+            commandCount: frame.commands.length,
+            inputTargetCount: frame.inputTargets.length,
+        });
         this.render();
         this.focusInputSurface();
     }
@@ -108,7 +125,7 @@ export class GuiPreviewPanel {
         const width = this.canvas.clientWidth || Math.max(1, this.canvas.width);
         const height = this.canvas.clientHeight || Math.max(1, this.canvas.height);
         if (this.contextState.kind === 'unavailable') {
-            this.metricsEl.textContent = this.contextState.message;
+            this.reportDebug({ kind: 'canvas-unavailable', message: this.contextState.message });
             return;
         }
         const ctx = this.contextState.ctx;
@@ -118,10 +135,8 @@ export class GuiPreviewPanel {
         if (this.hostFrame.kind === 'presented') {
             const rendered = renderGuiPreviewFrameToCanvas(ctx, this.hostFrame.frame, width, height, { fontSize: this.fontSize });
             this.viewport = rendered.viewport;
-            this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length}`;
             return;
         }
-        this.metricsEl.textContent = 'waiting for host frame';
     }
 
     handleCanvasClick(event: MouseEvent) {
@@ -140,9 +155,13 @@ export class GuiPreviewPanel {
             point,
         });
         if (queued.kind === 'ok') {
-            this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length} / queued action ${target.actionId}`;
+            this.reportDebug({
+                kind: 'action-queued',
+                windowId: this.hostFrame.windowId,
+                actionId: target.actionId,
+            });
         } else {
-            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+            this.reportInputError(this.hostFrame.windowId, 'action', queued.error.kind);
         }
     }
 
@@ -188,8 +207,10 @@ export class GuiPreviewPanel {
             point,
         });
         if (queued.kind === 'err') {
-            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+            this.reportInputError(this.hostFrame.windowId, 'pointer', queued.error.kind);
+            return;
         }
+        this.reportInputQueued(this.hostFrame.windowId, 'pointer');
     }
 
     queueHostPointerMoveEvent(event: PointerEvent) {
@@ -221,8 +242,10 @@ export class GuiPreviewPanel {
         }
         const queued = queueGuiWebInputEvent(pending.event);
         if (queued.kind === 'err') {
-            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+            this.reportInputError(pending.event.windowId, 'pointer', queued.error.kind);
+            return;
         }
+        this.reportInputQueued(pending.event.windowId, 'pointer');
     }
 
     handleCanvasKeyDown(event: KeyboardEvent) {
@@ -264,9 +287,10 @@ export class GuiPreviewPanel {
             modifierBits: guiWebModifierBitsFromDomEvent(event),
         });
         if (queued.kind === 'err') {
-            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+            this.reportInputError(this.hostFrame.windowId, 'keyboard', queued.error.kind);
             return false;
         }
+        this.reportInputQueued(this.hostFrame.windowId, 'keyboard');
         return true;
     }
 
@@ -284,9 +308,10 @@ export class GuiPreviewPanel {
             scalarValue: scalar.value,
         });
         if (queued.kind === 'err') {
-            this.metricsEl.textContent = `host input error ${queued.error.kind}`;
+            this.reportInputError(this.hostFrame.windowId, 'text-input', queued.error.kind);
             return false;
         }
+        this.reportInputQueued(this.hostFrame.windowId, 'text-input');
         return true;
     }
 
@@ -315,6 +340,20 @@ export class GuiPreviewPanel {
     dispose() {
         this.hostPointerMove = { kind: 'idle' };
         this.rootEl.remove();
+    }
+
+    private reportInputQueued(windowId: number, eventKind: GuiWebInputEvent['kind']) {
+        this.reportDebug({ kind: 'input-queued', windowId, eventKind });
+    }
+
+    private reportInputError(windowId: number, eventKind: GuiWebInputEvent['kind'], errorKind: string) {
+        this.reportDebug({ kind: 'input-error', windowId, eventKind, errorKind });
+    }
+
+    private reportDebug(record: GuiPreviewDebugRecord) {
+        if (this.debugSink.kind === 'present') {
+            this.debugSink.report(record);
+        }
     }
 }
 

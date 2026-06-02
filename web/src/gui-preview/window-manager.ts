@@ -3,6 +3,7 @@ import { decodeGuiWebHostPresentedFrame } from './host-bridge.js';
 import type { GuiWebHostResult } from './host-bridge.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
 import type { GuiWebWindowEventKind } from './input-bridge.js';
+import type { GuiPreviewDebugRecord } from './panel.js';
 
 type GuiWindowRect = {
     left: number;
@@ -63,6 +64,15 @@ type WindowLookup =
     | { kind: 'missing' }
     | { kind: 'found'; windowState: FloatingGuiWindow };
 
+type DebugPanelMode =
+    | { kind: 'collapsed' }
+    | { kind: 'expanded' };
+
+type GuiWindowDebugRecord =
+    | GuiPreviewDebugRecord
+    | { kind: 'window-event-queued'; windowId: number; windowKind: GuiWebWindowEventKind; width: number; height: number }
+    | { kind: 'window-event-error'; windowId: number; windowKind: GuiWebWindowEventKind; errorKind: string };
+
 const MIN_WINDOW_WIDTH = 360;
 const MIN_WINDOW_HEIGHT = 260;
 const WINDOW_MARGIN = 8;
@@ -71,6 +81,7 @@ const RESIZE_HANDLES: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 's
 export class GuiFloatingWindowManager {
     layerEl: HTMLElement;
     dockEl: HTMLElement;
+    debugPanel: GuiWindowDebugPanel;
     windows: Map<string, FloatingGuiWindow>;
     nextId: number;
     nextZIndex: number;
@@ -81,12 +92,14 @@ export class GuiFloatingWindowManager {
         this.layerEl = layerEl;
         this.dockEl = document.createElement('div');
         this.dockEl.className = 'gui-window-dock';
+        this.debugPanel = new GuiWindowDebugPanel();
         this.windows = new Map();
         this.nextId = 1;
         this.nextZIndex = 80;
         this.activeMove = { kind: 'idle' };
         this.fontSize = 14;
         this.layerEl.appendChild(this.dockEl);
+        this.layerEl.appendChild(this.debugPanel.rootEl);
 
         document.addEventListener('pointermove', (event) => this.handlePointerMove(event));
         document.addEventListener('pointerup', () => this.stopMove());
@@ -181,7 +194,10 @@ export class GuiFloatingWindowManager {
         contentEl.className = 'gui-window-content';
         frameEl.appendChild(contentEl);
 
-        const preview = new GuiPreviewPanel(contentEl);
+        const preview = new GuiPreviewPanel(contentEl, {
+            kind: 'present',
+            report: (record) => this.debugPanel.record(record),
+        });
         preview.setFontSize(this.fontSize);
 
         const windowState: FloatingGuiWindow = {
@@ -545,7 +561,21 @@ export class GuiFloatingWindowManager {
         });
         if (result.kind === 'err') {
             windowState.frameEl.dataset.guiInputError = result.error.kind;
+            this.debugPanel.record({
+                kind: 'window-event-error',
+                windowId: windowState.source.windowId,
+                windowKind,
+                errorKind: result.error.kind,
+            });
+            return;
         }
+        this.debugPanel.record({
+            kind: 'window-event-queued',
+            windowId: windowState.source.windowId,
+            windowKind,
+            width: Math.max(1, Math.floor(windowState.rect.width)),
+            height: Math.max(1, Math.floor(windowState.rect.height)),
+        });
     }
 
     private defaultRect(): GuiWindowRect {
@@ -605,5 +635,91 @@ export class GuiFloatingWindowManager {
             width: Math.max(1, rect.width || window.innerWidth),
             height: Math.max(1, rect.height || window.innerHeight),
         };
+    }
+}
+
+class GuiWindowDebugPanel {
+    rootEl: HTMLElement;
+    toggleEl: HTMLButtonElement;
+    summaryEl: HTMLElement;
+    detailEl: HTMLElement;
+    mode: DebugPanelMode;
+    records: GuiWindowDebugRecord[];
+
+    constructor() {
+        this.rootEl = document.createElement('aside');
+        this.rootEl.className = 'gui-debug-panel is-collapsed';
+        this.rootEl.setAttribute('aria-label', 'GUI debug panel');
+        this.rootEl.setAttribute('aria-live', 'off');
+        this.toggleEl = document.createElement('button');
+        this.toggleEl.type = 'button';
+        this.toggleEl.className = 'gui-debug-toggle';
+        this.toggleEl.textContent = 'Debug';
+        this.toggleEl.setAttribute('aria-controls', 'gui-debug-detail');
+        this.summaryEl = document.createElement('div');
+        this.summaryEl.className = 'gui-debug-summary';
+        this.summaryEl.setAttribute('aria-live', 'off');
+        this.detailEl = document.createElement('div');
+        this.detailEl.id = 'gui-debug-detail';
+        this.detailEl.className = 'gui-debug-detail';
+        this.detailEl.setAttribute('aria-live', 'off');
+        this.mode = { kind: 'collapsed' };
+        this.records = [];
+
+        this.toggleEl.addEventListener('click', () => this.toggle());
+        this.rootEl.appendChild(this.toggleEl);
+        this.rootEl.appendChild(this.summaryEl);
+        this.rootEl.appendChild(this.detailEl);
+        this.render();
+    }
+
+    record(record: GuiWindowDebugRecord) {
+        this.records = [record, ...this.records].slice(0, 8);
+        this.render();
+    }
+
+    private toggle() {
+        this.mode = this.mode.kind === 'collapsed'
+            ? { kind: 'expanded' }
+            : { kind: 'collapsed' };
+        this.render();
+    }
+
+    private render() {
+        this.rootEl.classList.toggle('is-collapsed', this.mode.kind === 'collapsed');
+        this.rootEl.classList.toggle('is-expanded', this.mode.kind === 'expanded');
+        this.toggleEl.setAttribute('aria-expanded', this.mode.kind === 'expanded' ? 'true' : 'false');
+        this.detailEl.setAttribute('aria-hidden', this.mode.kind === 'expanded' ? 'false' : 'true');
+        const latest = this.records[0];
+        this.summaryEl.textContent = latest
+            ? this.describeRecord(latest)
+            : 'GUI queue idle';
+        this.detailEl.replaceChildren(...this.records.map((record) => {
+            const row = document.createElement('div');
+            row.className = 'gui-debug-row';
+            row.textContent = this.describeRecord(record);
+            return row;
+        }));
+    }
+
+    private describeRecord(record: GuiWindowDebugRecord): string {
+        switch (record.kind) {
+            case 'waiting-for-frame':
+                return 'host frame waiting';
+            case 'canvas-unavailable':
+                return `canvas unavailable: ${record.message}`;
+            case 'frame-presented':
+                return `window ${record.windowId}: frame commands ${record.commandCount}, targets ${record.inputTargetCount}`;
+            case 'input-queued':
+                return `window ${record.windowId}: queued ${record.eventKind}`;
+            case 'action-queued':
+                return `window ${record.windowId}: queued action ${record.actionId}`;
+            case 'input-error':
+                return `window ${record.windowId}: ${record.eventKind} error ${record.errorKind}`;
+            case 'window-event-queued':
+                return `window ${record.windowId}: queued ${record.windowKind} ${record.width}x${record.height}`;
+            case 'window-event-error':
+                return `window ${record.windowId}: ${record.windowKind} error ${record.errorKind}`;
+        }
     }
 }
