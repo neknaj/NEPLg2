@@ -54,6 +54,8 @@ use super::resource_summary_value_cache::{
     ResourceSummaryComputationStage, ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 use super::summary_dependency::ResourceSummaryDependencyGraph;
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+use super::timing::{resource_op_timing_enabled, resource_timing_function_matches};
 use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
 pub fn check_resource_initialized_moves(
@@ -715,23 +717,21 @@ impl ResourceCheckEngine<'_> {
     ) {
         for (index, op) in ops.iter().enumerate() {
             #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
-            let op_timing = std::env::var_os("NEPL_RESOURCE_OP_TIMING").map(|_| {
-                if let Some(filter) = std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
-                    .ok()
-                    .filter(|filter| !self.function.contains(filter))
+            let op_timing = {
+                if !resource_op_timing_enabled() || !resource_timing_function_matches(self.function)
                 {
-                    let _ = filter;
-                    return None;
+                    None
+                } else {
+                    std::eprintln!(
+                        "[resource-op-timing] start function={} op={} kind={} incoming_paths={}",
+                        self.function,
+                        index,
+                        resource_op_kind(op),
+                        self.path_alternatives.len()
+                    );
+                    Some(std::time::Instant::now())
                 }
-                std::eprintln!(
-                    "[resource-op-timing] start function={} op={} kind={} incoming_paths={}",
-                    self.function,
-                    index,
-                    resource_op_kind(op),
-                    self.path_alternatives.len()
-                );
-                Some(std::time::Instant::now())
-            });
+            };
             let mut pending_transform_range_certificates = self
                 .pending_local_transform_range_certificates(
                     cells,
@@ -788,7 +788,7 @@ impl ResourceCheckEngine<'_> {
                 candidates.append(&mut pending_transform_range_certificates);
             }
             #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
-            if let Some(Some(start)) = op_timing {
+            if let Some(start) = op_timing {
                 std::eprintln!(
                     "[resource-op-timing] end function={} op={} kind={} outgoing_paths={} elapsed_ms={}",
                     self.function,

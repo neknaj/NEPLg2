@@ -1,3 +1,17 @@
+# 2026-06-02 RPN Resource op inventory / algorithmic pruning checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、cache 設計だけでなく、Resource IR の同じ op tree を複数回走査している箇所と制御構造内の探索範囲を確認した。
+- subagent 調査では、`incoming_paths=0` の `parse_u128_radix_digits_from` でも `Branch` / `Loop` / `Match` が約 `90ms` を占めることを確認した。これは path-sensitive replay の指数増殖ではなく、control op 内部の `CellTable`、raw alias、collection slot、function alias、pending realloc、variant initialization table の clone / merge が主因である。
+- `ResourceSummaryDependencyGraph` の構築では、通常 summary dependency、function-value call dependency、raw-init direct trigger 判定が近い op tree を別々に走査していた。`ResourceFunctionOpInventory` を追加し、1 回の再帰走査で direct call、function value、indirect call、raw initialization summary trigger を収集するようにした。
+- dependency name から function index への変換では、`BTreeSet<String>` を再 clone せず、既存 inventory の集合を参照して index 辺を作るようにした。raw alias / raw-init 用の function-value call dependency view は direct call を保持し、indirect call が同じ関数内にある場合だけ function value candidates を追加する。
+- raw-init relevance は、関数ごとに direct raw initialization summary trigger を再走査せず、dependency graph の inventory 結果を使う。collection slot lifecycle helper が raw-init summary seed から落ちないことは既存 test を graph inventory 経由へ更新して固定した。
+- 計測用環境変数は `OnceLock` で compile 中に一度だけ読むようにした。`NEPL_RESOURCE_OP_TIMING_FUNCTION` などの per-op / per-function timing filter は、計測時だけ有効で、通常 run では環境変数検索を繰り返さない。
+- `match_arm_reachable` は arm state table を clone する前に判定するようにした。判定対象は clone 前後で同じ `variant_initializations` なので意味は変えず、unreachable arm の不要な table clone を避ける。
+- 別 worktree の `main` と同じ release 条件で RPN proof-disabled stage 5 run を比較した。`main` 中央値は `execute_inner=2309.319ms`、`loader_load=400.730ms`、`check_pipeline=1911.687ms`、`resource_initialized_moves=1174ms`、`resource_initialized_function_checks=508ms`、`resource_static_check=1753ms`。current branch 中央値は `execute_inner=2232.829ms`、`loader_load=391.132ms`、`check_pipeline=1853.580ms`、`resource_initialized_moves=1127ms`、`resource_initialized_function_checks=491ms`、`resource_static_check=1695ms`。
+- 専用 `.neplproof` を bootstrap した proof-backed no-stage 10 run では、`main` 中央値 `905.280ms` に対して current branch 中央値 `927.817ms` だった。true cold 寄りの Resource 再計算は少し下がったが、通常 base wall-clock の改善とはまだ扱わない。
+- branch / loop の入口 state を `mem::take` で move する試行、`CellTable::availability_state_with_types` の Copy 型 exact initialized fast path は、RPN 実測で改善しなかったため採用せず戻した。次は touched table を制御部分木ごとに判定する effect mask、または `CellTable` / alias table の stable place index 化を設計してから入れる。
+- 0.5 秒未満目標にはまだ届いていない。RPN は proof-backed でも loader 約 `0.39s`、Resource static check 約 `0.44s` が残るため、`.neplmeta` typed public interface artifact と stdlib body merge 回避の issue は引き続き優先である。
+
 # 2026-06-02 RPN import graph narrowing checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の依存DAG化、探索範囲削減、試作段階でも技術的負債を残さない方針に従い、RPN cold base を cache だけでなく stdlib import graph 自体の縮小として改善した。

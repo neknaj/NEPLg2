@@ -46,6 +46,8 @@ use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+use super::timing::{resource_raw_init_summary_timing_enabled, resource_timing_function_matches};
 
 #[cfg(test)]
 pub(super) fn compute_raw_cell_initialization_function_summaries(
@@ -391,10 +393,8 @@ struct RawInitSummaryTiming<'a> {
 #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
 impl<'a> RawInitSummaryTiming<'a> {
     fn from_env(function: &'a ResourceFunction) -> Self {
-        let enabled = std::env::var_os("NEPL_RESOURCE_RAW_INIT_SUMMARY_TIMING").is_some()
-            && std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
-                .map(|filter| function.name.contains(&filter))
-                .unwrap_or(true);
+        let enabled = resource_raw_init_summary_timing_enabled()
+            && resource_timing_function_matches(&function.name);
         Self {
             function_name: function.name.as_str(),
             enabled,

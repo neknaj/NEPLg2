@@ -3952,6 +3952,49 @@ recursive `process_directives` と dependency body merge であり、`read_file`
 typed public interface artifact を fail-closed に materialize し、stdlib body merge と依存先再 typecheck を
 避ける必要がある。これは `.neplproof` の Resource summary preseed とは別の interface boundary である。
 
+2026-06-02 の Resource op inventory checkpoint では、cache だけに寄らない探索範囲削減として、
+Resource summary dependency graph の op tree 走査を統合した。以前は通常 summary dependency、
+function-value call dependency、raw-init relevance の direct trigger 判定が近い木を別々に走査していた。
+新しい `ResourceFunctionOpInventory` は、1 回の再帰走査で direct call、function value、indirect call、
+raw initialization summary trigger を集める。これは proof key や summary value を再利用する変更ではなく、
+同じ `ResourceModule` から導ける compile-local view の重複計算を減らす変更である。
+
+`examples/rpn.nepl` の比較では、別 worktree の `main` と現在 branch を同じ release binary 条件で測った。
+`NEPL_DISABLE_CHECK_CACHE=1` で exact `.neplcheck` は無効化している。proof cache も無効化した true cold 寄りの
+Resource 再計算では、中央値が次のようになった。
+
+```text
+RPN proof-disabled native stage median
+  main:
+    execute_inner: 2309.319ms
+    loader_load: 400.730ms
+    check_pipeline: 1911.687ms
+      resource_initialized_moves: 1174ms
+      resource_initialized_function_checks: 508ms
+      resource_static_check: 1753ms
+
+  Resource op inventory branch:
+    execute_inner: 2232.829ms
+    loader_load: 391.132ms
+    check_pipeline: 1853.580ms
+      resource_initialized_moves: 1127ms
+      resource_initialized_function_checks: 491ms
+      resource_static_check: 1695ms
+```
+
+一方で、専用 `.neplproof` を bootstrap した proof-backed no-stage wall-clock は、main median
+`905.280ms` に対して同 branch median `927.817ms` であり、通常 base の wall-clock 改善とは
+まだ言えない。つまり今回の変更は true cold 再計算の重複走査を少し減らしたが、RPN の通常 base を
+0.5 秒未満へ進める主経路ではない。
+
+同じ調査で、`parse_u128_radix_digits_from` の `ResourceOp::Branch` / `Loop` / `Match` が
+`incoming_paths=0` でも約 `90ms` を占めることを確認した。これは path-sensitive replay の指数増殖ではなく、
+制御構造内で `CellTable`、raw alias、collection slot、function alias、pending realloc、
+variant initialization table を clone / merge する固定費である。ただし、branch / loop の入口 state を
+単純に `mem::take` で move する試行、Copy 型 exact initialized fast path の試行はいずれも RPN 実測で
+改善しなかったため採用しない。次に触るべき根本は、表ごとの touched set を事前に持つ control-subtree
+effect mask、または `CellTable` / alias table の線形探索を stable place index へ変える設計である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
