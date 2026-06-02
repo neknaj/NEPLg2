@@ -3709,6 +3709,41 @@ process 起動、loader、typecheck、artifact I/O、host 側 overhead を含む
 artifact、bootstrap proof generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirror に
 分けて進める。
 
+2026-06-02 の `.neplproof` no-op rewrite skip checkpoint では、preseed artifact が現在 compile で
+そのまま有効だった場合に、同じ `.neplproof` payload を native CLI が毎回書き直す経路を止めた。
+bootstrap、preseed reject、codec error、compatibility reject、conflict、usable entry なしの run は
+従来どおり保存する。usable preseed があり、new stable entry store も recomputed stable work も無い場合だけ
+store を省く。
+
+RPN の verbose run では `.neplproof preseed accepted=869` の後に
+`DEBUG: .neplproof store skipped because preseed artifact remained current` が出た。これは `.neplproof`
+の authority を変えるものではなく、host I/O と同一 file への競合窓を減らす policy である。
+
+この checkpoint 後の RPN proof-backed native wall-clock は次の通りである。exact `.neplcheck` は無効化し、
+`.neplproof` preseed だけを測っている。
+
+```text
+RPN proof-backed native wall-clock after no-op rewrite skip
+  no stage timing:
+    runs: 1067.531ms / 964.44ms / 1048.574ms / 1118.6ms / 1051.188ms /
+          1005.428ms / 1055.084ms / 1047.505ms / 1036.807ms / 1052.546ms /
+          1087.151ms / 1057.379ms / 1015.738ms / 971.733ms / 964.974ms
+    median: 1048.574ms
+
+  stage timing enabled:
+    wall-clock median: about 1155ms
+    resource_static_check: usually 404-438ms
+      resource_initialized_moves: about 188-274ms
+      resource_owner_obligations: about 46-62ms
+    resource_typecheck: usually 153-171ms
+```
+
+この結果から、無変更 `.neplproof` の再書き込みは不要 I/O として削れたが、RPN cold base の
+wall-clock はまだ約 1 秒であり、0.5 秒未満目標には届かない。残る根本課題は loader / typecheck /
+proof decode / process overhead を base compile 前から減らすことである。次の主経路は bundled stdlib
+`.neplmeta` / `.neplproof` preseed と typecheck/interface artifact であり、`.neplproof` store policy
+だけでは base compile 目標を満たせない。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

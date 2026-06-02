@@ -1,3 +1,12 @@
+# 2026-06-02 RPN `.neplproof` no-op rewrite skip checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査結果を緩めず、既存 `.neplproof` artifact を完全に再利用できた native cold run で同じ巨大 payload を再書き込みしない方針へ整理した。
+- `ResourceProofCacheProbe::should_store_artifact_after_check` を追加し、bootstrap run、preseed reject、codec error、compatibility reject、conflict、usable entry なしの場合は保存を継続する。usable preseed があり、新しい stable entry も再計算された stable work も無い場合だけ、disk `.neplproof` の store を抑制する。
+- verbose run で `.neplproof preseed accepted=869` の後に `DEBUG: .neplproof store skipped because preseed artifact remained current` が出ることを確認した。これは host I/O と同一 cache file への競合窓を減らす cache policy であり、proof 自体の authority を増やす変更ではない。
+- RPN no-stage wall-clock 15 run は `1067.531ms / 964.44ms / 1048.574ms / 1118.6ms / 1051.188ms / 1005.428ms / 1055.084ms / 1047.505ms / 1036.807ms / 1052.546ms / 1087.151ms / 1057.379ms / 1015.738ms / 971.733ms / 964.974ms`、中央値 `1048.574ms` だった。stage timing 付きの追加 10 run は wall-clock 中央値約 `1155ms`、`resource_static_check` はおおむね `404-438ms`、`resource_typecheck` はおおむね `153-171ms` である。
+- `.neplproof` の無変更再書き込み抑制は正しい I/O policy だが、RPN cold base 全体はまだ 0.5 秒未満ではない。残りの支配点は process / loader / typecheck / proof decode / host overhead であり、次の主経路は bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof generation 短縮である。
+- focused verification は `cargo check -p nepl-cli`、`cargo test -p nepl-cli --bin nepl-cli proof_cache -- --nocapture`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo build -p nepl-cli --release`、RPN `.neplproof` bootstrap/preseed wall-clock 測定を通した。
+
 # 2026-06-02 RPN `.neplproof` pass snapshot cold base checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱める skip ではなく、既存 proof entry の探索空間を fail-closed な artifact snapshot へ移した。

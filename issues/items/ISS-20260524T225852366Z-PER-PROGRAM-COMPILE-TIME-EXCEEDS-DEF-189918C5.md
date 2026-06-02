@@ -639,6 +639,23 @@ generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirro
 fail-closed に拒否された。新しい release binary 用に専用 proof cache を bootstrap し直した後の追加 5 run は
 `resource_static_check=408ms / 359ms / 362ms / 361ms / 412ms`、中央値 `362ms` である。
 
+2026-06-02 の `.neplproof` no-op rewrite skip checkpoint では、RPN proof-backed cold process が
+preseed artifact を完全に再利用できた場合に、同じ `.neplproof` payload を再書き込みしないようにした。
+bootstrap、preseed reject、codec error、compatibility reject、conflict、usable entry なし、new stable
+entry store、recomputed stable work がある場合は引き続き保存する。usable preseed があり、既存 proof を
+replay しただけの run では store を省く。
+
+verbose run では `.neplproof preseed accepted=869` の後に
+`DEBUG: .neplproof store skipped because preseed artifact remained current` が出た。RPN no-stage wall-clock
+15 run は `1067.531ms / 964.44ms / 1048.574ms / 1118.6ms / 1051.188ms / 1005.428ms / 1055.084ms /
+1047.505ms / 1036.807ms / 1052.546ms / 1087.151ms / 1057.379ms / 1015.738ms / 971.733ms / 964.974ms`、
+中央値 `1048.574ms` だった。stage timing 付きの追加 10 run は wall-clock 中央値約 `1155ms`、
+`resource_static_check` はおおむね `404-438ms`、`resource_typecheck` はおおむね `153-171ms` である。
+
+この checkpoint は不要な artifact I/O を減らすが、base compile 0.5 秒未満の達成ではない。RPN cold base
+全体の残件は process / loader / typecheck / proof decode / host overhead であり、次の主経路は bundled
+stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof generation 短縮である。
+
 ## 検証
 
 - `trunk build`

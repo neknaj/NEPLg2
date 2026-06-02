@@ -826,3 +826,14 @@ wall-clock はまだ約 `0.9-1.0s` であり、binary intermediate artifact issu
 次の artifact 側作業は bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、
 bootstrap proof generation 短縮、`.neplobj` の generic / string-data / raw body / function value /
 memoized function value 対応である。
+
+2026-06-02 の `.neplproof` no-op rewrite skip checkpoint では、native CLI の disk proof cache が
+preseed artifact を完全に再利用した場合、同じ `.neplproof` bytes を再度 export/store しない policy を
+追加した。bootstrap と reject / conflict / recomputed stable work のある run は保存を維持するため、
+stale artifact を残す方向には働かない。
+
+RPN no-stage wall-clock 15 run の中央値は `1048.574ms` であり、stage timing 付きでは
+`resource_static_check` が主に `404-438ms`、`resource_typecheck` が主に `153-171ms` だった。したがって、
+store skip は同一 artifact への不要 I/O と競合窓を減らす正しい policy だが、binary intermediate
+artifact issue の本筋はまだ loader / typecheck / proof decode を含む base compile 前半である。次は
+bundled stdlib `.neplmeta` / `.neplproof` preseed と typecheck/interface artifact を優先する。

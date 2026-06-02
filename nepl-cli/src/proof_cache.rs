@@ -12,7 +12,10 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
-use nepl_core::{resource::ResourceSummaryProofArtifact, BuildProfile, CompileTarget};
+use nepl_core::{
+    resource::{ResourceSummaryProofArtifact, ResourceSummaryValueCacheStats},
+    BuildProfile, CompileTarget, ResourceSummaryProofArtifactPreseedReport,
+};
 
 const NEPL_PROOF_CACHE_SCHEMA: &str = "neplproof-cache-v1";
 const NEPL_PROOF_CACHE_DIR_ENV: &str = "NEPL_PROOF_CACHE_DIR";
@@ -69,6 +72,37 @@ impl ResourceProofCacheProbe {
         self.bootstrap_on_miss
     }
 
+    /// Returns whether the proof artifact should be rewritten after a check.
+    ///
+    /// A preseeded run that only replayed existing proof information does not
+    /// make the on-disk artifact more authoritative. Rewriting the same
+    /// multi-megabyte payload in that case only adds host I/O and also widens
+    /// the window for concurrent native checks to race on the same file. A
+    /// bootstrap run still stores unconditionally because it has no prior bytes
+    /// to reuse. A preseeded run stores again only when Resource checking
+    /// observed new stable proof information that can make a later run faster.
+    pub(crate) fn should_store_artifact_after_check(
+        &self,
+        preseed_report: Option<ResourceSummaryProofArtifactPreseedReport>,
+        stats: ResourceSummaryValueCacheStats,
+    ) -> bool {
+        if self.preseed_bytes.is_none() {
+            return true;
+        }
+        let Some(report) = preseed_report else {
+            return true;
+        };
+        if !report.has_usable_entries()
+            || report.rejected_conflict_entries > 0
+            || report.compatibility_reject.is_some()
+            || report.codec_error.is_some()
+        {
+            return true;
+        }
+        proof_stats_observed_new_stable_entries(stats)
+            || proof_stats_observed_recomputed_stable_work(stats)
+    }
+
     pub(crate) fn store_artifact(&self, artifact: &ResourceSummaryProofArtifact) -> Result<()> {
         if artifact.counts().total_entries() == 0 {
             return Ok(());
@@ -110,6 +144,23 @@ fn proof_cache_disabled() -> bool {
     std::env::var_os(NEPL_DISABLE_PROOF_CACHE_ENV).is_some()
         || std::env::var_os("NEPL_RESOURCE_PER_FUNCTION_TIMING").is_some()
         || std::env::var_os("NEPL_RESOURCE_OP_TIMING").is_some()
+}
+
+fn proof_stats_observed_new_stable_entries(stats: ResourceSummaryValueCacheStats) -> bool {
+    stats.resource_summary_value_drop_traversal_forall_stores > 0
+        || stats.resource_summary_value_raw_alias_return_entry_stores > 0
+        || stats.resource_summary_value_i32_scalar_return_facts_stores > 0
+        || stats.resource_summary_value_initialized_function_check_stores > 0
+        || stats.resource_summary_value_owner_obligation_check_stores > 0
+        || stats.resource_summary_value_raw_init_param_facts_stores > 0
+}
+
+fn proof_stats_observed_recomputed_stable_work(stats: ResourceSummaryValueCacheStats) -> bool {
+    stats.resource_summary_value_recomputed_ops > 0
+        || stats.resource_summary_value_drop_traversal_forall_recomputed_ops > 0
+        || stats.resource_summary_value_raw_alias_return_entry_recomputed_ops > 0
+        || stats.resource_summary_value_i32_scalar_return_facts_recomputed_ops > 0
+        || stats.resource_summary_value_raw_init_param_facts_recomputed_ops > 0
 }
 
 fn proof_cache_dir() -> Option<PathBuf> {
@@ -179,4 +230,74 @@ fn fnv1a64_with_seed(mut hash: u64, bytes: &[u8]) -> u64 {
         hash = hash.wrapping_mul(0x100000001b3);
     }
     hash
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn probe_with_preseed(preseeded: bool) -> ResourceProofCacheProbe {
+        ResourceProofCacheProbe {
+            path: PathBuf::from("cache.neplproof"),
+            preseed_bytes: preseeded.then(Vec::new),
+            bootstrap_on_miss: !preseeded,
+        }
+    }
+
+    #[test]
+    fn proof_cache_bootstrap_store_does_not_depend_on_stats() {
+        let probe = probe_with_preseed(false);
+
+        assert!(probe
+            .should_store_artifact_after_check(None, ResourceSummaryValueCacheStats::default()));
+    }
+
+    #[test]
+    fn proof_cache_preseed_replay_without_new_entries_skips_rewrite() {
+        let probe = probe_with_preseed(true);
+        let mut stats = ResourceSummaryValueCacheStats::default();
+        stats.resource_summary_value_replay_hits = 100;
+        stats.resource_summary_value_lazy_pass_hits = 20;
+
+        assert!(!probe.should_store_artifact_after_check(Some(usable_preseed_report()), stats));
+    }
+
+    #[test]
+    fn proof_cache_preseed_stores_when_new_stable_entries_appear() {
+        let probe = probe_with_preseed(true);
+        let mut stats = ResourceSummaryValueCacheStats::default();
+        stats.resource_summary_value_owner_obligation_check_stores = 1;
+
+        assert!(probe.should_store_artifact_after_check(Some(usable_preseed_report()), stats));
+    }
+
+    #[test]
+    fn proof_cache_preseed_stores_when_recomputed_work_may_refresh_snapshots() {
+        let probe = probe_with_preseed(true);
+        let mut stats = ResourceSummaryValueCacheStats::default();
+        stats.resource_summary_value_recomputed_ops = 1;
+
+        assert!(probe.should_store_artifact_after_check(Some(usable_preseed_report()), stats));
+    }
+
+    #[test]
+    fn proof_cache_preseed_reject_rewrites_artifact() {
+        let probe = probe_with_preseed(true);
+        let report = ResourceSummaryProofArtifactPreseedReport {
+            codec_error: Some(nepl_core::resource::ResourceSummaryProofArtifactCodecError::Decode),
+            ..ResourceSummaryProofArtifactPreseedReport::default()
+        };
+
+        assert!(probe.should_store_artifact_after_check(
+            Some(report),
+            ResourceSummaryValueCacheStats::default()
+        ));
+    }
+
+    fn usable_preseed_report() -> ResourceSummaryProofArtifactPreseedReport {
+        ResourceSummaryProofArtifactPreseedReport {
+            accepted_entries: 1,
+            ..ResourceSummaryProofArtifactPreseedReport::default()
+        }
+    }
 }

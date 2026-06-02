@@ -691,9 +691,20 @@ fn execute_inner(cli: Cli) -> Result<()> {
                         );
                     }
                     if let Some(cache) = proof_cache.as_ref() {
-                        let artifact = resource_summary_value_cache
-                            .export_neplproof_artifact(result.resource_summary_proof_header);
-                        cache.store_artifact(&artifact)?;
+                        let cache_stats = resource_summary_value_cache.stats();
+                        if cache.should_store_artifact_after_check(
+                            result.resource_summary_proof_preseed_report,
+                            cache_stats,
+                        ) {
+                            let artifact = resource_summary_value_cache
+                                .export_neplproof_artifact(result.resource_summary_proof_header);
+                            cache.store_artifact(&artifact)?;
+                        } else {
+                            cli_verbose!(
+                                cli.verbose,
+                                "DEBUG: .neplproof store skipped because preseed artifact remained current"
+                            );
+                        }
                     }
                     if let Some(cache) = exact_check_cache.as_ref() {
                         cache.store_success()?;
