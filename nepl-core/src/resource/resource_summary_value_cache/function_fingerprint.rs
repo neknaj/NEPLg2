@@ -14,7 +14,7 @@ use super::type_boundary::{
 /// dependency closure は呼び出し関係から別に閉じるため、ここには関数自身の identity、
 /// Resource IR body、型境界、generic 境界、source capability policy だけを入れる。
 /// `TypeId`、`Span`、`SourceMap` は長寿命 snapshot に保存しない。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceFunctionLocalFingerprint {
     identity: ResourceSummaryFunctionIdentity,
     body_hash: u64,

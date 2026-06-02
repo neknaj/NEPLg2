@@ -814,3 +814,15 @@ RPN proof-backed cold base は `resource_static_check=1417ms / 988ms / 911ms / 1
 は約 `2.17MB` だった。これは `.neplproof` 境界の実装 checkpoint であり、issue は open のまま維持する。
 残件は bundled stdlib `.neplproof` preseed、owner obligation pass-level snapshot、`.neplobj` の
 generic / string-data / raw body / function value / memoized function value 対応である。
+
+2026-06-02 の `.neplproof` pass snapshot checkpoint では、関数単位 stable entry map に加えて、
+stable key / function fingerprint だけの replay snapshot と deferred counter だけの pass snapshot を
+payload に含めた。これは summary 本体や diagnostic を保存する `.neplhir` / `.neplobj` ではなく、
+現在の `TypeCtx` へ再投影できる stable proof entry を高速に見つけるための `.neplproof` 内部 index である。
+schema は `2` へ上げ、古い `.neplproof` は fail-closed に拒否する。
+
+この変更で RPN proof-backed `resource_static_check` median は約 `416ms` になった。ただし native CLI
+wall-clock はまだ約 `0.9-1.0s` であり、binary intermediate artifact issue は open のまま維持する。
+次の artifact 側作業は bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、
+bootstrap proof generation 短縮、`.neplobj` の generic / string-data / raw body / function value /
+memoized function value 対応である。

@@ -55,10 +55,35 @@ fn check_resource_owner_obligations_inner(
     let dependency_graph = summary_value_cache
         .as_ref()
         .map(|_| ResourceSummaryDependencyGraph::build(module));
+    let mut owner_check_pass_plan = match (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+        dependency_graph.as_ref(),
+    ) {
+        (Some(cache), Some(context), Some(graph)) => {
+            Some(cache.begin_owner_obligation_check_pass_plan(context, types, module, graph))
+        }
+        _ => None,
+    };
     let mut pending_checks = Vec::new();
     if summary_value_cache.is_some() && summary_value_cache_context.is_some() {
         for (function_index, function) in module.functions.iter().enumerate() {
             let function_op_count = resource_function_op_count(function);
+            if let (Some(cache), Some(plan)) = (
+                summary_value_cache.as_deref_mut(),
+                owner_check_pass_plan.as_mut(),
+            ) {
+                if let Some(replayed_check) = cache.replay_unchanged_owner_obligation_check_pass(
+                    plan,
+                    function_index,
+                    function,
+                    function_op_count,
+                ) {
+                    merge_owner_deferred(&mut deferred, replayed_check.deferred);
+                    function_results[function_index] = Some(replayed_check);
+                    continue;
+                }
+            }
             let function_check_cache_input = owner_obligation_check_cache_input(
                 summary_value_cache.as_deref_mut(),
                 summary_value_cache_context,
@@ -83,6 +108,9 @@ fn check_resource_owner_obligations_inner(
                 function_op_count,
             ) {
                 merge_owner_deferred(&mut deferred, replayed_check.deferred);
+                if let Some(plan) = owner_check_pass_plan.as_mut() {
+                    plan.record_pass(function_index, replayed_check.deferred);
+                }
                 function_results[function_index] = Some(replayed_check);
                 continue;
             }
@@ -96,6 +124,12 @@ fn check_resource_owner_obligations_inner(
             });
         }
         if pending_checks.is_empty() {
+            if let (Some(cache), Some(plan)) = (
+                summary_value_cache.as_deref_mut(),
+                owner_check_pass_plan.take(),
+            ) {
+                cache.finish_owner_obligation_check_pass_plan(plan);
+            }
             if let Some(cache) = summary_value_cache.as_deref_mut() {
                 cache.record_owner_return_summary_pass_cache_skip(module.functions.len());
             }
@@ -163,7 +197,18 @@ fn check_resource_owner_obligations_inner(
             function_has_diagnostics,
             pending.function_op_count,
         );
+        if !function_has_diagnostics {
+            if let Some(plan) = owner_check_pass_plan.as_mut() {
+                plan.record_pass(pending.function_index, function_deferred);
+            }
+        }
         function_results[pending.function_index] = Some(function_check);
+    }
+    if let (Some(cache), Some(plan)) = (
+        summary_value_cache.as_deref_mut(),
+        owner_check_pass_plan.take(),
+    ) {
+        cache.finish_owner_obligation_check_pass_plan(plan);
     }
     stage_start.log("resource_owner_function_checks");
 

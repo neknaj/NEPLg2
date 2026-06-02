@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-06-01
-updated: 2026-06-01
+updated: 2026-06-02
 target: "nepl-core/src/resource/owner_summary.rs; nepl-core/src/resource/resource_summary_value_cache"
 ---
 
@@ -46,6 +46,28 @@ RPN same-session edit では、owner obligation の function check は diagnosti
 このため、今回の checkpoint は all-hit warm edit の固定費を削るものであり、callee summary だけが変わる partial miss や owner summary 自体の proof reuse はまだ解決していない。最終対応としては、subagent review の通り `OwnerReturnSummaryEntryV1`、owner summary dependency closure kind、stable type/projection mirror、fail-closed bypass reason counter を追加する必要がある。
 
 `tmp/rpn_owner_summary_lazy_skip_code_literal_20260601.json` では、RPN の実コード文字列 literal edit が base `compile_ms=10254`、edit `compile_ms=2110` だった。edit の `resource_static_owner_obligations` は `745.034ms` で、直前 checkpoint の `1534.075ms` から下がった。edit delta は `resource_owner_return_summary_recomputations=0`、`resource_owner_return_summary_count=0`、`resource_owner_return_summary_pass_cache_skip_functions=288`、`resource_owner_obligation_function_checks=0`、`resource_summary_value_owner_obligation_check_replay_hit_functions=288` である。
+
+## 2026-06-02 disk `.neplproof` owner pass snapshot checkpoint
+
+RPN proof-backed cold base の再測定では、owner obligation pass entry が全関数で hit している場合でも、
+disk `.neplproof` から復元した entry を使うには全関数の dependency closure hash / body hash /
+source capability policy hash / type boundary hash を再構築していた。そのため
+`resource_owner_summaries_skipped_by_pass_cache` が `430-490ms` 台に残った。
+
+今回の checkpoint では `OwnerObligationCheckPassPlan` を追加し、owner obligation も final initialized
+check と同じく stable function fingerprint と reverse dependency closure で pass snapshot を再利用する。
+snapshot は `ResourceOwnerCheckDeferred` だけを保存し、`final_owners` や診断 span は保存しない。
+`.neplproof` preseed 後の all-hit path では、owner obligation entry key を全関数で再構築せず pass を戻せる。
+
+RPN proof-backed cold base では `resource_owner_obligations` が `52-60ms` まで下がり、
+`resource_static_check` median は `416ms` になった。ただしこれは all-hit owner pass の probe 固定費を
+削る checkpoint であり、1 関数でも miss した場合の `compute_owner_return_summaries` 全関数固定点はまだ
+残る。したがってこの issue の本体である `OwnerReturnSummaryEntryV1` stable mirror は未解決であり、
+partial miss / bootstrap proof generation / stdlib proof template のために引き続き必要である。
+
+`trunk build` 修正後の専用 proof cache 追加 5 run では、`resource_owner_obligations=51ms / 50ms / 55ms / 50ms / 55ms`、
+`resource_static_check=363ms / 366ms / 379ms / 360ms / 398ms` だった。owner obligation all-hit path は安定して
+50ms 台へ入ったが、partial miss 時に必要な owner return summary stable mirror はまだ未実装である。
 
 ## 検証
 

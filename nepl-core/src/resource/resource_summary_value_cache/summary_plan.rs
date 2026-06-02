@@ -30,13 +30,13 @@ pub(in crate::resource) struct ResourceSummaryReplayPlan {
     previous_keys: Vec<Option<ResourceSummaryValueCacheKey>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(super) struct ResourceSummaryReplaySnapshot {
     namespace_hash: u64,
     functions: Vec<ResourceSummaryReplaySnapshotEntry>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryReplaySnapshotEntry {
     fingerprint: ResourceFunctionLocalFingerprint,
     key: Option<ResourceSummaryValueCacheKey>,

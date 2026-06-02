@@ -3972,6 +3972,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
             } else {
                 None
             },
+            preseed_artifact_bytes: None,
             stdlib_content_hash: if proof_artifact_enabled {
                 stdlib_content_hash
             } else {
@@ -4049,6 +4050,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     } else {
                         None
                     },
+                    preseed_artifact_bytes: None,
                     stdlib_content_hash: if proof_artifact_enabled {
                         stdlib_content_hash
                     } else {

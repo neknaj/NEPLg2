@@ -222,6 +222,8 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_owner_obligation_check_hits: usize,
     pub resource_summary_value_owner_obligation_check_stores: usize,
     pub resource_summary_value_owner_obligation_check_bypasses: usize,
+    pub resource_summary_value_owner_obligation_check_plan_skip_functions: usize,
+    pub resource_summary_value_owner_obligation_check_plan_skip_ops: usize,
     pub resource_summary_value_owner_obligation_check_replay_probe_functions: usize,
     pub resource_summary_value_owner_obligation_check_replay_hit_functions: usize,
     pub resource_summary_value_owner_obligation_check_replay_miss_functions: usize,
@@ -308,6 +310,7 @@ pub struct ResourceSummaryValueCache {
         Option<pass_plan::InitializedFunctionCheckPassSnapshot>,
     owner_obligation_check_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableOwnerObligationCheckEntry>,
+    owner_obligation_check_pass_snapshot: Option<pass_plan::OwnerObligationCheckPassSnapshot>,
     raw_init_complete_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitCompleteLeafEntry>,
     raw_init_complete_leaf_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
@@ -326,6 +329,7 @@ impl Default for ResourceSummaryValueCache {
             initialized_function_check_entries: BTreeMap::new(),
             initialized_function_check_pass_snapshot: None,
             owner_obligation_check_entries: BTreeMap::new(),
+            owner_obligation_check_pass_snapshot: None,
             raw_init_complete_leaf_entries: BTreeMap::new(),
             raw_init_complete_leaf_summary_snapshot: None,
         }
@@ -448,7 +452,7 @@ impl ResourceSummaryProofSnapshotPreseedStats {
 /// stable mirror entry の形や envelope に含める invalidation 入力が変わる場合は、この値を
 /// 上げる。古い artifact は読み込めても preseed 前の互換性検査で拒否し、通常の Resource
 /// check へ戻す。
-pub const RESOURCE_SUMMARY_PROOF_ARTIFACT_SCHEMA_VERSION: u32 = 1;
+pub const RESOURCE_SUMMARY_PROOF_ARTIFACT_SCHEMA_VERSION: u32 = 2;
 
 /// `.neplproof` artifact の invalidation envelope。
 ///
@@ -808,25 +812,32 @@ fn read_exact<const N: usize>(
 
 /// `.neplproof` の Resource proof payload に相当する in-memory snapshot。
 ///
-/// この型は serialization schema ではない。`TypeId`、`Span`、`SourceMap`、diagnostic、
-/// changed-function replay plan を含めず、現行 `ResourceSummaryValueCache` が既に持つ
-/// stable mirror entry だけをまとめる。disk-backed artifact は、この snapshot に
-/// compiler version、schema version、target/profile、stdlib hash、dependency public surface
-/// hash などの envelope を付け、読み込み時には必ず再投影できる entry だけを使う。
+/// この型は serialization schema ではない。`TypeId`、`Span`、`SourceMap`、diagnostic は
+/// 含めず、現行 `ResourceSummaryValueCache` が既に持つ stable mirror entry と、
+/// stable key/fingerprint だけで構成された replay snapshot をまとめる。disk-backed
+/// artifact は、この snapshot に compiler version、schema version、target/profile、
+/// stdlib hash、dependency public surface hash などの envelope を付け、読み込み時には
+/// 必ず再投影できる entry だけを使う。
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct ResourceSummaryProofSnapshot {
     drop_traversal_forall_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
     raw_alias_return_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawAliasReturnEntry>,
+    raw_alias_return_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
     i32_scalar_return_facts_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableI32ScalarReturnFactsEntry>,
+    i32_scalar_return_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
     initialized_function_check_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableInitializedFunctionCheckEntry>,
+    initialized_function_check_pass_snapshot:
+        Option<pass_plan::InitializedFunctionCheckPassSnapshot>,
     owner_obligation_check_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableOwnerObligationCheckEntry>,
+    owner_obligation_check_pass_snapshot: Option<pass_plan::OwnerObligationCheckPassSnapshot>,
     raw_init_complete_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitCompleteLeafEntry>,
+    raw_init_complete_leaf_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
 }
 
 impl ResourceSummaryProofSnapshot {
@@ -899,6 +910,7 @@ impl ResourceSummaryValueCache {
         self.initialized_function_check_entries.clear();
         self.initialized_function_check_pass_snapshot = None;
         self.owner_obligation_check_entries.clear();
+        self.owner_obligation_check_pass_snapshot = None;
         self.raw_init_complete_leaf_entries.clear();
         self.raw_init_complete_leaf_summary_snapshot = None;
     }
@@ -926,22 +938,36 @@ impl ResourceSummaryValueCache {
 
     /// 現在の Resource proof cache から `.neplproof` 用 snapshot を作る。
     ///
-    /// export 対象は stable mirror entry の map だけである。`raw_alias_return_summary_snapshot`
-    /// などの replay plan は関数順序と前回 compile の fingerprint に依存する局所的な
-    /// 高速化材料なので、snapshot へ含めない。
+    /// export 対象は stable mirror entry の map と stable key/fingerprint だけの replay
+    /// snapshot である。summary 本体や final cell state は保存せず、次回 compile では
+    /// snapshot が指す key の entry を現在の `TypeCtx` へ再投影できた場合だけ使う。
     pub fn export_neplproof_snapshot(&self) -> ResourceSummaryProofSnapshot {
         let raw_alias_return_entries = if self.raw_alias_return_entry_collection_enabled {
             self.raw_alias_return_entries.clone()
         } else {
             BTreeMap::new()
         };
+        let raw_alias_return_summary_snapshot = if self.raw_alias_return_entry_collection_enabled {
+            self.raw_alias_return_summary_snapshot.clone()
+        } else {
+            None
+        };
         ResourceSummaryProofSnapshot {
             drop_traversal_forall_leaf_entries: self.drop_traversal_forall_leaf_entries.clone(),
             raw_alias_return_entries,
+            raw_alias_return_summary_snapshot,
             i32_scalar_return_facts_entries: self.i32_scalar_return_facts_entries.clone(),
+            i32_scalar_return_summary_snapshot: self.i32_scalar_return_summary_snapshot.clone(),
             initialized_function_check_entries: self.initialized_function_check_entries.clone(),
+            initialized_function_check_pass_snapshot: self
+                .initialized_function_check_pass_snapshot
+                .clone(),
             owner_obligation_check_entries: self.owner_obligation_check_entries.clone(),
+            owner_obligation_check_pass_snapshot: self.owner_obligation_check_pass_snapshot.clone(),
             raw_init_complete_leaf_entries: self.raw_init_complete_leaf_entries.clone(),
+            raw_init_complete_leaf_summary_snapshot: self
+                .raw_init_complete_leaf_summary_snapshot
+                .clone(),
         }
     }
 
@@ -961,15 +987,16 @@ impl ResourceSummaryValueCache {
     ///
     /// preseed は Resource proof を確定させる操作ではない。ここでは stable key/value を
     /// cache map へ足すだけに留め、実際の replay 時に現在の型境界と source capability
-    /// policy へ fail-closed に再投影する。compile-local replay plan は snapshot の外に
-    /// あるため、この時点で破棄して、古い関数順序に依存した高速化だけが残らないようにする。
+    /// policy へ fail-closed に再投影する。replay snapshot は stable key と fingerprint
+    /// だけを保持し、次の plan 作成時に現在 module の namespace / 関数順序 / 関数本体 /
+    /// 依存閉包を再照合できる場合だけ dependency key の再構築を省く。
     pub fn preseed_neplproof_snapshot(
         &mut self,
         snapshot: &ResourceSummaryProofSnapshot,
     ) -> ResourceSummaryProofSnapshotPreseedStats {
         self.clear_compile_local_replay_snapshots();
 
-        ResourceSummaryProofSnapshotPreseedStats {
+        let stats = ResourceSummaryProofSnapshotPreseedStats {
             drop_traversal_forall_leaf_entries: preseed_neplproof_entry_map(
                 &mut self.drop_traversal_forall_leaf_entries,
                 &snapshot.drop_traversal_forall_leaf_entries,
@@ -998,7 +1025,22 @@ impl ResourceSummaryValueCache {
                 &mut self.raw_init_complete_leaf_entries,
                 &snapshot.raw_init_complete_leaf_entries,
             ),
+        };
+
+        if self.raw_alias_return_entry_collection_enabled {
+            self.raw_alias_return_summary_snapshot =
+                snapshot.raw_alias_return_summary_snapshot.clone();
         }
+        self.i32_scalar_return_summary_snapshot =
+            snapshot.i32_scalar_return_summary_snapshot.clone();
+        self.initialized_function_check_pass_snapshot =
+            snapshot.initialized_function_check_pass_snapshot.clone();
+        self.owner_obligation_check_pass_snapshot =
+            snapshot.owner_obligation_check_pass_snapshot.clone();
+        self.raw_init_complete_leaf_summary_snapshot =
+            snapshot.raw_init_complete_leaf_summary_snapshot.clone();
+
+        stats
     }
 
     /// `.neplproof` artifact を header 照合後に現在の cache へ preseed する。
@@ -1024,6 +1066,7 @@ impl ResourceSummaryValueCache {
         self.raw_alias_return_summary_snapshot = None;
         self.i32_scalar_return_summary_snapshot = None;
         self.initialized_function_check_pass_snapshot = None;
+        self.owner_obligation_check_pass_snapshot = None;
         self.raw_init_complete_leaf_summary_snapshot = None;
     }
 
@@ -1380,26 +1423,117 @@ mod tests {
         ResourceSummaryProofArtifactByteReject, ResourceSummaryProofArtifactCodecError,
         ResourceSummaryProofArtifactCompatibilityReject, ResourceSummaryProofArtifactHeader,
         ResourceSummaryProofSnapshot, ResourceSummaryProofSnapshotMergeStats,
-        ResourceSummaryValueCache,
+        ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
     };
+    use crate::ast::Effect;
+    use crate::resource::model::{
+        Place, ResourceBlock, ResourceBlockId, ResourceExprKind, ResourceFunction, ResourceModule,
+        ResourceOp, ResourceTerminator,
+    };
+    use crate::resource::summary_dependency::ResourceSummaryDependencyGraph;
+    use crate::span::{FileId, Span};
+    use crate::types::TypeCtx;
     use alloc::collections::BTreeMap;
+    use alloc::string::ToString;
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     fn test_neplproof_header() -> ResourceSummaryProofArtifactHeader {
         ResourceSummaryProofArtifactHeader::new(2, 3, 4, Some(5), Some(6), 7, Some(8), Some(9))
     }
 
+    fn test_context(policy_hash: u64) -> ResourceSummaryValueCacheContext {
+        let mut context = ResourceSummaryValueCacheContext::new(7);
+        context.insert_source_policy_hash(FileId(0), policy_hash);
+        context
+    }
+
+    fn summary_key(name: &str) -> ResourceSummaryValueCacheKey {
+        ResourceSummaryValueCacheKey::new_i32_scalar_return_facts_entry(
+            7,
+            ResourceSummaryFunctionIdentity::new(name, name)
+                .expect("test function identity should be valid"),
+            11,
+            13,
+            17,
+            19,
+            23,
+        )
+    }
+
+    fn module_with_functions(functions: Vec<ResourceFunction>) -> ResourceModule {
+        ResourceModule {
+            functions,
+            entry: None,
+            string_literals: Vec::new(),
+        }
+    }
+
+    fn function_with_ops(
+        types: &TypeCtx,
+        name: &str,
+        mut ops: Vec<ResourceOp>,
+        literal: i32,
+    ) -> ResourceFunction {
+        let value = Place::temporary(crate::resource::model::ResourceId(0), types.i32());
+        ops.push(ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(literal),
+            output: value.clone(),
+            ty: types.i32(),
+            span: span(),
+        });
+        ResourceFunction {
+            name: name.to_string(),
+            origin_name: name.to_string(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: types.i32(),
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops,
+                terminator: ResourceTerminator::Return {
+                    value: Some(value),
+                    span: span(),
+                },
+                span: span(),
+            }],
+            span: span(),
+        }
+    }
+
+    fn span() -> Span {
+        Span::new(FileId(0), 1, 2)
+    }
+
     #[test]
-    fn neplproof_snapshot_excludes_compile_local_replay_plans() {
+    fn neplproof_snapshot_preseeds_stable_replay_plan() {
+        let types = TypeCtx::new();
+        let module =
+            module_with_functions(vec![function_with_ops(&types, "stable", Vec::new(), 1)]);
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+        let context = test_context(11);
+        let relevant = vec![true];
+        let key = summary_key("stable");
         let mut cache = ResourceSummaryValueCache::new();
+        let mut plan = cache
+            .begin_i32_scalar_summary_replay_plan(&context, &types, &module, &graph, &relevant);
+        plan.record_key(0, key.clone());
+        cache.finish_i32_scalar_summary_replay_plan(plan);
 
         let snapshot = cache.export_neplproof_snapshot();
-        let preseed = cache.preseed_neplproof_snapshot(&snapshot);
+        let mut preseeded = ResourceSummaryValueCache::new();
+        let preseed = preseeded.preseed_neplproof_snapshot(&snapshot);
+        let replay_plan = preseeded
+            .begin_i32_scalar_summary_replay_plan(&context, &types, &module, &graph, &relevant);
 
         assert!(snapshot.is_empty());
         assert_eq!(snapshot.counts().total_entries(), 0);
         assert_eq!(preseed.accepted_entries(), 0);
         assert_eq!(preseed.existing_matching_entries(), 0);
         assert_eq!(preseed.rejected_conflict_entries(), 0);
+        assert_eq!(replay_plan.previous_key(0), Some(key));
     }
 
     #[test]

@@ -600,6 +600,41 @@ candidate collection / old artifact preseed を無効化し、raw-alias summary 
 次の根本対応は、owner obligation の pass-level snapshot、bundled stdlib `.neplproof` preseed、
 stdlib proof template、bootstrap proof generation の短縮である。
 
+2026-06-02 の `.neplproof` pass snapshot checkpoint では、i32 scalar / raw-init / final initialized check
+の replay snapshot と owner obligation pass snapshot を disk-backed `.neplproof` payload へ含めた。
+snapshot は stable key / function fingerprint / deferred counter だけを保存し、summary 本体、
+final cell / owner state、diagnostic、`TypeId`、`Span`、`SourceMap` は保存しない。`.neplproof` schema は
+`2` へ上げ、古い artifact は header 互換性検査で fail-closed に拒否する。
+
+この変更後の RPN proof-backed cold base 7 run は次の通りである。
+
+```text
+RPN proof-backed cold base static check after pass snapshots
+  resource_static_check: 418ms / 420ms / 414ms / 416ms / 376ms
+    median: 416ms
+    resource_initialized_moves median-near: 236ms
+      resource_initialized_raw_alias_summaries: 29-33ms
+      resource_initialized_i32_scalar_summaries: 64-74ms
+      resource_initialized_raw_init_summaries: 63-70ms
+      resource_initialized_function_checks: 55-59ms
+    resource_borrow_lifetimes: 26-30ms
+    resource_effect_boundaries: 36-41ms
+    resource_owner_obligations: 52-60ms
+```
+
+Resource static check stage は 0.5 秒未満に入った。ただし proof bootstrap は
+`resource_static_check=3073ms` であり、`NEPL_DISABLE_CHECK_CACHE=1` かつ `.neplproof` preseed ありの
+native CLI wall-clock 10 run は `915.3-1040.5ms` に残る。したがって issue は open のまま維持する。
+残件は、bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof
+generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirror である。
+
+`trunk build` 修正後に専用 proof cache directory で再確認した追加 5 run は
+`resource_static_check=363ms / 366ms / 379ms / 360ms / 398ms`、中央値 `366ms` だった。階層中央値付近は
+`resource_initialized_moves=204ms`、`resource_initialized_i32_scalar_summaries=62ms`、
+`resource_initialized_raw_init_summaries=58ms`、`resource_initialized_function_checks=51ms`、
+`resource_owner_obligations=50ms` である。この再測定でも Resource static check stage は 0.5 秒未満だが、
+初回 proof generation と native CLI wall-clock は未達のため issue は open のまま維持する。
+
 ## 検証
 
 - `trunk build`

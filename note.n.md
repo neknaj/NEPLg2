@@ -1,3 +1,17 @@
+# 2026-06-02 RPN `.neplproof` pass snapshot cold base checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、静的検査を弱める skip ではなく、既存 proof entry の探索空間を fail-closed な artifact snapshot へ移した。
+- 変更前の `.neplproof` preseed 5 run では `resource_static_check` 中央値が約 `934ms` だった。階層は `resource_initialized_i32_scalar_summaries` が約 `345ms`、`resource_initialized_raw_init_summaries` が約 `120ms`、`resource_initialized_function_checks` が約 `250ms`、owner obligation は run により約 `50ms` と約 `440-516ms` に分かれた。
+- `ResourceSummaryReplaySnapshot` と `InitializedFunctionCheckPassSnapshot` を stable key / fingerprint だけの serde payload にし、`.neplproof` schema を `2` へ上げた。古い artifact は header 互換性検査で拒否される。
+- `.neplproof` preseed 時に i32 scalar / raw-init / final initialized check の replay/pass snapshot を復元するようにした。summary 本体、final cell state、diagnostic、`TypeId`、`Span`、`SourceMap` は保存しない。実際に使う時は、snapshot が指す stable entry を現在の `TypeCtx` と関数境界へ再投影できた場合だけ replay する。
+- owner obligation にも `OwnerObligationCheckPassPlan` を追加し、diagnostic-free pass の deferred counter だけを保存するようにした。disk preseed 後の all-hit path では、owner obligation entry key / dependency closure hash を全関数で再構築せず、function fingerprint と reverse dependency closure で invalidation できる場合だけ pass を戻す。
+- subagent review では、owner obligation の `resource_owner_summaries_skipped_by_pass_cache` が「skip そのもの」ではなく全関数 replay probe / dependency closure hash 構築時間を含むこと、次段階として owner return summary stable mirror と bundled stdlib proof が必要であることを確認した。
+- formatter 後の最終 RPN `.neplproof` preseed 5 run は `resource_static_check=418ms / 420ms / 414ms / 416ms / 376ms`、中央値 `416ms` だった。階層中央値付近は `resource_initialized_moves=236ms`、`resource_initialized_i32_scalar_summaries=72ms`、`resource_initialized_raw_init_summaries=69ms`、`resource_initialized_function_checks=58ms`、`resource_owner_obligations=58ms`。Resource static check stage は 0.5 秒未満に入った。
+- `trunk build` 修正後に専用 proof cache directory で再確認した RPN `.neplproof` preseed 追加 5 run は `resource_static_check=363ms / 366ms / 379ms / 360ms / 398ms`、中央値 `366ms` だった。階層中央値付近は `resource_initialized_moves=204ms`、`resource_initialized_i32_scalar_summaries=62ms`、`resource_initialized_raw_init_summaries=58ms`、`resource_initialized_function_checks=51ms`、`resource_owner_obligations=50ms` である。
+- formatter 後の bootstrap proof generation はまだ `resource_static_check=3073ms` であり、初回 proof 作成の高速化ではない。`NEPL_DISABLE_CHECK_CACHE=1` かつ `.neplproof` preseed ありの native CLI wall-clock 10 run は約 `915-1041ms` で、process / loader / typecheck / host overhead を含む全体はまだ 0.5 秒未満ではない。
+- 残件は、native / Web の base compile wall-clock を下げる bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface artifact、bootstrap proof generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirror である。
+- focused verification は `cargo check -p nepl-core`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo test -p nepl-core owner_pass_plan_marks_changed_callee_and_reverse_dependents --lib -- --nocapture`、`cargo build -p nepl-cli --release`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-pass-snapshot-20260602.json`、RPN proof-backed 追加 5 run、RPN wall-clock 10 run を通した。commit 前に format / broader check / issues check / diff check を再実行する。
+
 # 2026-06-02 RPN `.neplproof` persistent codec / native proof cache checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の `core` / `cli` 分離、静的検査を弱めない fail-closed cache、試作段階でも雑設計を残さない方針に従い、Resource proof の永続化境界を実装した。

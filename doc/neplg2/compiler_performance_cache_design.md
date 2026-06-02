@@ -3655,6 +3655,56 @@ stdlib-heavy Resource proof を再利用するための永続 artifact 境界で
 まだ秒単位であることである。次は owner obligation も initialized check と同様の pass-level snapshot /
 bundled stdlib `.neplproof` preseed / proof template 化へ進める。
 
+2026-06-02 の `.neplproof` pass snapshot checkpoint では、関数単位 stable entry map だけでなく、
+stable key / fingerprint だけの replay snapshot を `.neplproof` payload に含めるようにした。
+`.neplproof` schema は `2` へ上げ、古い artifact は header 互換性検査で拒否する。
+
+保存する snapshot は summary 本体ではない。i32 scalar / raw-init / raw-alias の replay snapshot は
+function fingerprint と stable cache key だけを持ち、final initialized check / owner obligation の
+pass snapshot は function fingerprint と deferred counter だけを持つ。次回 compile では、現在 module の
+namespace、関数順序、関数 local fingerprint、reverse dependency closure を照合し、さらに snapshot が
+指す stable entry を現在の `TypeCtx` へ再投影できた場合だけ replay する。`TypeId`、`Span`、`SourceMap`、
+diagnostic、final cell state、final owner state は保存しない。
+
+この変更後の RPN proof-backed cold base は次の通りである。exact `.neplcheck` は無効化し、
+`.neplproof` だけの効果を測っている。
+
+```text
+RPN proof-backed cold base static check after pass snapshots
+  bootstrap proof generation:
+    resource_static_check: 3073ms
+      resource_initialized_moves: 2312ms
+      resource_owner_obligations: 637ms
+
+  proof preseed resource_static_check:
+    runs: 418ms / 420ms / 414ms / 416ms / 376ms
+    median: 416ms
+    resource_initialized_moves median-near: 236ms
+      resource_initialized_raw_alias_summaries: 29-33ms
+      resource_initialized_i32_scalar_summaries: 64-74ms
+      resource_initialized_raw_init_summaries: 63-70ms
+      resource_initialized_function_checks: 55-59ms
+    resource_borrow_lifetimes: 26-30ms
+    resource_effect_boundaries: 36-41ms
+    resource_owner_obligations: 52-60ms
+
+  native CLI wall-clock with exact check cache disabled:
+    runs: 1040.5ms / 980.3ms / 1005.7ms / 918.5ms / 1003.7ms /
+          927.2ms / 1003.0ms / 1001.9ms / 915.3ms / 921.1ms
+```
+
+`trunk build` 修正後に専用 proof cache directory を使って追加確認した 5 run では、
+`resource_static_check=363ms / 366ms / 379ms / 360ms / 398ms`、中央値 `366ms` だった。
+階層中央値付近は `resource_initialized_moves=204ms`、`resource_initialized_i32_scalar_summaries=62ms`、
+`resource_initialized_raw_init_summaries=58ms`、`resource_initialized_function_checks=51ms`、
+`resource_owner_obligations=50ms` である。
+
+これにより Resource static check stage は 0.5 秒未満に入った。一方で native CLI の wall-clock は
+process 起動、loader、typecheck、artifact I/O、host 側 overhead を含むためまだ 0.5 秒未満ではない。
+次の base compile 改善は、bundled stdlib `.neplmeta` / `.neplproof` preseed、typecheck/interface
+artifact、bootstrap proof generation 短縮、partial miss 用の `OwnerReturnSummaryEntryV1` stable mirror に
+分けて進める。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
