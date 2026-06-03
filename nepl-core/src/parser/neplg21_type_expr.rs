@@ -79,7 +79,7 @@ impl Parser {
                 })
             }
             TokenKind::Ident(_) => {
-                let (name, _) = self.parse_path_ident()?;
+                let (name, name_span) = self.parse_path_ident()?;
                 let mut ty = match name.as_str() {
                     "i32" => TypeExpr::I32,
                     "u8" => TypeExpr::U8,
@@ -100,11 +100,14 @@ impl Parser {
 
                 let arity = self.neplg21_type_arity(&name);
                 if arity > 0 {
+                    let base = ty.with_span(name_span);
                     let mut args = Vec::new();
                     for _ in 0..arity {
                         args.push(self.parse_neplg21_type_expr()?);
                     }
-                    ty = TypeExpr::Apply(Box::new(ty), args);
+                    ty = TypeExpr::Apply(Box::new(base), args);
+                } else {
+                    ty = ty.with_span(name_span);
                 }
                 Some(Neplg21ParsedType { ty, grouped: false })
             }

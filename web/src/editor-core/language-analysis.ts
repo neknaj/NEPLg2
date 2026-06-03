@@ -120,6 +120,7 @@ export type EditorTokenType =
     | 'constant'
     | 'namespace'
     | 'type'
+    | 'type-constructor'
     | 'heading'
     | 'bold'
     | 'italic'
@@ -689,6 +690,7 @@ const EDITOR_TOKEN_TYPE_VALUES = new Set<EditorTokenType>([
     'constant',
     'namespace',
     'type',
+    'type-constructor',
     'heading',
     'bold',
     'italic',

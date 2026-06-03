@@ -1674,10 +1674,34 @@ fn collect_syntax_ranges(module: &Module) -> Vec<SyntaxRangeTrace> {
     output
 }
 
-fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
+fn type_syntax_token_can_be_classified(kind: &TokenKind) -> bool {
     match kind {
-        TokenKind::KwFn | TokenKind::KwMut => Some("keyword"),
-        TokenKind::Ident(value) if value == "impure" => Some("keyword"),
+        TokenKind::KwFn
+        | TokenKind::KwMut
+        | TokenKind::Ident(_)
+        | TokenKind::UnitLiteral
+        | TokenKind::VoidMarker
+        | TokenKind::Percent
+        | TokenKind::Ampersand
+        | TokenKind::Star
+        | TokenKind::PathSep
+        | TokenKind::Arrow(_)
+        | TokenKind::LAngle
+        | TokenKind::RAngle
+        | TokenKind::LParen
+        | TokenKind::RParen
+        | TokenKind::Comma
+        | TokenKind::Dot => true,
+        _ => false,
+    }
+}
+
+fn type_syntax_category_for_token(kind: &TokenKind, role: &str) -> Option<&'static str> {
+    match kind {
+        TokenKind::KwFn => Some("type-constructor"),
+        TokenKind::KwMut => Some("keyword"),
+        TokenKind::Ident(value) if value == "impure" => Some("type-constructor"),
+        TokenKind::Ident(_) if role == "type_constructor" => Some("type-constructor"),
         TokenKind::Ident(_) => Some("type"),
         TokenKind::UnitLiteral => Some("literal-unit"),
         TokenKind::VoidMarker => Some("literal-void"),
@@ -1836,6 +1860,7 @@ fn classification_priority(category: &str, role: &str) -> u8 {
     match category {
         "function" | "variable" | "constant" if role != "path_member_name" => 90,
         "namespace" => 85,
+        "type-constructor" => 80,
         "type" if role != "uppercase_type_name" && role != "path_namespace_name" => 80,
         "keyword" => 70,
         "operator" => 60,
@@ -1902,15 +1927,14 @@ fn build_token_classifications(
             );
         }
 
-        let Some(category) = type_syntax_category_for_token(&token.kind) else {
+        if !type_syntax_token_can_be_classified(&token.kind) {
             continue;
-        };
+        }
         let mut best_range: Option<&SyntaxRangeTrace> = None;
         for range in syntax_ranges {
-            let classification_span = if category == "type" {
-                range.inner_span.unwrap_or(range.span)
-            } else {
-                range.span
+            let classification_span = match token.kind {
+                TokenKind::Percent => range.span,
+                _ => range.inner_span.unwrap_or(range.span),
             };
             let contains = span_contains(classification_span, token.span);
             if !contains {
@@ -1925,6 +1949,9 @@ fn build_token_classifications(
             }
         }
         if let Some(range) = best_range {
+            let Some(category) = type_syntax_category_for_token(&token.kind, range.role) else {
+                continue;
+            };
             set_best_token_classification(
                 &mut best,
                 token_index,

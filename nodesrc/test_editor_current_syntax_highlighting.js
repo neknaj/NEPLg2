@@ -183,6 +183,48 @@ async function main() {
                     enclosing_span: span(source, "present", 0),
                 },
                 {
+                    token_index: 24,
+                    category: "type-constructor",
+                    role: "function_signature",
+                    span: span(source, "fn", 1),
+                    enclosing_span: span(source, "fn &App App", 0),
+                },
+                {
+                    token_index: 32,
+                    category: "type-constructor",
+                    role: "function_signature",
+                    span: span(source, "impure", 0),
+                    enclosing_span: span(source, "impure fn &App impure fn Result unit GuiError", 0),
+                },
+                {
+                    token_index: 33,
+                    category: "type-constructor",
+                    role: "function_signature",
+                    span: span(source, "fn", 3),
+                    enclosing_span: span(source, "impure fn &App impure fn Result unit GuiError", 0),
+                },
+                {
+                    token_index: 36,
+                    category: "type-constructor",
+                    role: "function_type_result",
+                    span: span(source, "impure", 1),
+                    enclosing_span: span(source, "impure fn Result unit GuiError", 0),
+                },
+                {
+                    token_index: 37,
+                    category: "type-constructor",
+                    role: "function_type_result",
+                    span: span(source, "fn", 4),
+                    enclosing_span: span(source, "impure fn Result unit GuiError", 0),
+                },
+                {
+                    token_index: 38,
+                    category: "type-constructor",
+                    role: "type_constructor",
+                    span: span(source, "Result", 0),
+                    enclosing_span: span(source, "Result", 0),
+                },
+                {
                     token_index: 39,
                     category: "literal-unit",
                     role: "function_type_parameter",
@@ -234,9 +276,13 @@ async function main() {
     assertHighlighted(source, payload, "i32", "type");
     assertHighlighted(source, payload, "App", "type");
     assertHighlighted(source, payload, "\\", "operator");
-    assertHighlighted(source, payload, "impure", "keyword");
+    assertHighlighted(source, payload, "fn", "keyword", 0);
+    assertHighlighted(source, payload, "fn", "type-constructor", 1);
+    assertHighlighted(source, payload, "fn", "keyword", 2);
+    assertHighlighted(source, payload, "fn", "type-constructor", 3);
+    assertHighlighted(source, payload, "impure", "type-constructor");
     assertHighlighted(source, payload, "&", "operator");
-    assertHighlighted(source, payload, "Result", "type");
+    assertHighlighted(source, payload, "Result", "type-constructor");
     assertHighlighted(source, payload, "Result", "namespace", 1);
     assertHighlighted(source, payload, "unit", "literal-unit");
     assertHighlighted(source, payload, "::", "operator");
@@ -274,6 +320,13 @@ async function main() {
                     enclosing_span: span(voidSource, "main", 0),
                 },
                 {
+                    token_index: 3,
+                    category: "type-constructor",
+                    role: "function_signature",
+                    span: span(voidSource, "fn", 1),
+                    enclosing_span: span(voidSource, "fn void unit", 0),
+                },
+                {
                     token_index: 4,
                     category: "literal-void",
                     role: "zero_arg_void_marker",
@@ -306,6 +359,8 @@ async function main() {
     };
     const voidPayload = bridge.buildEditorUpdatePayloadFromAnalysis(voidSource, voidAnalysis);
     assertHighlighted(voidSource, voidPayload, "main", "function");
+    assertHighlighted(voidSource, voidPayload, "fn", "keyword", 0);
+    assertHighlighted(voidSource, voidPayload, "fn", "type-constructor", 1);
     assertHighlighted(voidSource, voidPayload, "void", "literal-void", 0);
     assertHighlighted(voidSource, voidPayload, "unit", "literal-unit", 0);
     assertHighlighted(voidSource, voidPayload, "void", "literal-void", 1);
@@ -434,16 +489,17 @@ async function main() {
 
     const editorSource = fs.readFileSync(path.join(repo, "web", "src", "editor", "editor.ts"), "utf8");
     const expectedPalette = [
-        ["keyword", "#ff5a5f"],
-        ["type", "#57d68d"],
-        ["constant", "#4f8cff"],
-        ["variable", "#35d6e8"],
-        ["function", "#ffd166"],
-        ["literal-string", "#f59f3a"],
-        ["literal-number", "#b8e450"],
-        ["literal-unit", "#ff7ac8"],
-        ["literal-void", "#ff7ac8"],
-        ["namespace", "#7f8ea3"],
+        ["keyword", "#f3a2a6"],
+        ["type", "#c7ebcf"],
+        ["type-constructor", "#84bf94"],
+        ["constant", "#a5c2ff"],
+        ["variable", "#9ee4ec"],
+        ["function", "#f4df9a"],
+        ["literal-string", "#f4bf8c"],
+        ["literal-number", "#d7e99d"],
+        ["literal-unit", "#f2add4"],
+        ["literal-void", "#f2add4"],
+        ["namespace", "#aeb8c7"],
     ];
     for (const [tokenType, color] of expectedPalette) {
         assert.match(

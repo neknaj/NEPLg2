@@ -151,8 +151,14 @@ fn main %fn void i32 \\void:
 struct widget_state:
     value %i32
 
+struct Holder<.T>:
+    value %.T
+
 fn id %fn widget_state widget_state \\x:
     x
+
+fn effect %impure fn Holder widget_state unit \\x:
+    unit
 
 fn main %fn void widget_state \\void:
     %widget_state id
@@ -162,10 +168,20 @@ fn main %fn void widget_state \\void:
                 if (!ranges.some((item) => item?.role === 'prefix_type_annotation')) {
                     fail('semantics_type_annotation_token_classifications: prefix_type_annotation range missing');
                 }
-                const percentIndex = tokenIndexForText(semResult, source, '%', 3);
-                const typeIndex = tokenIndexForText(semResult, source, 'widget_state', 4);
+                const percentIndex = tokenIndexForText(semResult, source, '%', 5);
+                const typeIndex = tokenIndexForText(semResult, source, 'widget_state', 5);
+                const leadingFnIndex = tokenIndexForText(semResult, source, 'fn', 0);
+                const typeFnIndex = tokenIndexForText(semResult, source, 'fn', 1);
+                const impureIndex = tokenIndexForText(semResult, source, 'impure', 0);
+                const impureFnIndex = tokenIndexForText(semResult, source, 'fn', 3);
+                const holderIndex = tokenIndexForText(semResult, source, 'Holder', 1);
                 const percentClass = tokenClassificationForIndex(semResult, percentIndex);
                 const typeClass = tokenClassificationForIndex(semResult, typeIndex);
+                const leadingFnClass = tokenClassificationForIndex(semResult, leadingFnIndex);
+                const typeFnClass = tokenClassificationForIndex(semResult, typeFnIndex);
+                const impureClass = tokenClassificationForIndex(semResult, impureIndex);
+                const impureFnClass = tokenClassificationForIndex(semResult, impureFnIndex);
+                const holderClass = tokenClassificationForIndex(semResult, holderIndex);
                 if (!percentClass || percentClass.category !== 'operator') {
                     fail('semantics_type_annotation_token_classifications: % should be classified as operator by syntax range');
                 }
@@ -174,6 +190,24 @@ fn main %fn void widget_state \\void:
                 }
                 if (typeClass.role !== 'prefix_type_annotation_inner') {
                     fail(`semantics_type_annotation_token_classifications: expected inner role, got ${typeClass.role}`);
+                }
+                if (!leadingFnClass || leadingFnClass.category !== 'keyword') {
+                    fail('semantics_type_annotation_token_classifications: definition fn should stay keyword');
+                }
+                if (!typeFnClass || typeFnClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: function type fn should be type-constructor');
+                }
+                if (!impureClass || impureClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: impure function type marker should be type-constructor');
+                }
+                if (!impureFnClass || impureFnClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: impure function type fn should be type-constructor');
+                }
+                if (!holderClass || holderClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: generic type constructor should be type-constructor');
+                }
+                if (holderClass.role !== 'type_constructor') {
+                    fail(`semantics_type_annotation_token_classifications: expected type_constructor role, got ${holderClass.role}`);
                 }
             },
         },
