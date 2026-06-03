@@ -28,6 +28,11 @@ pub(super) struct RawCellInitializationVariantParamRequirement {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationVariantCondition {
     pub(super) variant: String,
+    pub(super) conditions: Vec<RawCellInitializationVariantValueCondition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RawCellInitializationVariantValueCondition {
     pub(super) param_index: usize,
     pub(super) suffix: Vec<SummaryProjection>,
     pub(super) ty: TypeId,

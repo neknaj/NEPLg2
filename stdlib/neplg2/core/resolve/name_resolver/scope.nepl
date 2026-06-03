@@ -76,7 +76,7 @@ pub fn selfhost_name_scope_add_binding %impure fn SelfhostNameScope impure fn Se
             Result::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free field::get e "vec"
+            v::free v::vec_push_error_vec e
             Result::Err error
 
 //: selfhost_name_scope_get: DefId の binding record を[返/かえ]す

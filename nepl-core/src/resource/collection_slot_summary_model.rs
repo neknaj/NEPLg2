@@ -156,6 +156,11 @@ pub(super) type CollectionSlotLifecycleSummaryPlace = SummaryPlace;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum CollectionSlotLifecycleSummaryI32Operand {
     Place(CollectionSlotLifecycleSummaryPlace),
+    Offset {
+        base: CollectionSlotLifecycleSummaryPlace,
+        offset: i64,
+        ty: TypeId,
+    },
     KnownI32 { value: i32, ty: TypeId },
 }
 

@@ -39,6 +39,7 @@ trait Eq:
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/traits/eq" as *
+//:| #import "core/math" as *
 //:| fn main %impure fn void i32 \void:
 //:     assert eq_by_trait 10 10;
 //:     assert not eq_by_trait 10 11;

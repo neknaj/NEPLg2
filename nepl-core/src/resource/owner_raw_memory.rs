@@ -110,7 +110,9 @@ impl ResourceOwnerCheckEngine<'_> {
                         owners.set_state(output, OwnerState::MaybeFreed { storage: None });
                         raw_aliases.mark(output);
                         raw_views.clear(output);
-                        let storage_source = raw_aliases.canonicalize_owner_cell_address(ptr);
+                        let storage_source = storage_origins
+                            .origin_source(ptr)
+                            .unwrap_or_else(|| raw_aliases.canonicalize_owner_cell_address(ptr));
                         pending_reallocs.mark(
                             ptr,
                             &storage_source,
@@ -139,7 +141,9 @@ impl ResourceOwnerCheckEngine<'_> {
                         owners.set_state(output, OwnerState::MaybeFreed { storage: None });
                         raw_aliases.mark(output);
                         raw_views.clear(output);
-                        let storage_source = raw_aliases.canonicalize_owner_cell_address(ptr);
+                        let storage_source = storage_origins
+                            .origin_source(ptr)
+                            .unwrap_or_else(|| raw_aliases.canonicalize_owner_cell_address(ptr));
                         pending_reallocs.mark(
                             ptr,
                             &storage_source,

@@ -29,6 +29,7 @@
 //:| #import "neplg2/cli/file_io" as *
 //:| #import "neplg2/core/module/loader" as *
 //:| #import "std/fs" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let path %str "tmp/selfhost_file_io_module_doc.nepl"
 //:     match fs_write_to_string path "fn main %fn void i32 \\void:\n    0\n":

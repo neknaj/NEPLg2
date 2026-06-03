@@ -7,6 +7,9 @@ use crate::types::{TypeCtx, TypeId};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::owner_extent::instantiate_owner_extent_summary;
+use super::owner_projection_source::{
+    owner_projection_source_consumed_unconditionally, owner_projection_source_returned_by_variant,
+};
 use super::owner_return_apply_place::{
     owner_projection_source_place_for_arg, summary_projection_place,
 };
@@ -48,12 +51,6 @@ impl PendingVariantOwnerEffects {
             self.push_unique_value_condition(condition);
         }
         for entry in &summary.variant_consumed_parameter_indices {
-            if summary
-                .consumed_parameter_indices
-                .contains(&entry.parameter_index)
-            {
-                continue;
-            }
             let Some(arg) = args.get(entry.parameter_index) else {
                 continue;
             };
@@ -62,6 +59,11 @@ impl PendingVariantOwnerEffects {
                 suffix: Vec::new(),
                 ty: arg.ty,
             };
+            if owner_projection_source_consumed_unconditionally(summary, &source)
+                && !owner_projection_source_returned_by_variant(summary, &source)
+            {
+                continue;
+            }
             self.push_unique_consumption(PendingVariantOwnerConsumption {
                 result: output.clone(),
                 variant: normalize_variant_name(&entry.variant),
@@ -80,13 +82,8 @@ impl PendingVariantOwnerEffects {
             });
         }
         for entry in &summary.variant_consumed_parameter_sources {
-            if summary
-                .consumed_parameter_indices
-                .contains(&entry.source.parameter_index)
-                || summary
-                    .consumed_parameter_sources
-                    .iter()
-                    .any(|source| source == &entry.source)
+            if owner_projection_source_consumed_unconditionally(summary, &entry.source)
+                && !owner_projection_source_returned_by_variant(summary, &entry.source)
             {
                 continue;
             }
@@ -112,6 +109,7 @@ impl PendingVariantOwnerEffects {
             });
         }
         for entry in &summary.variant_projection_returns {
+            let target = summary_projection_place(output, &entry.suffix, entry.ty);
             let source = match &entry.owner {
                 OwnerProjectionReturnOwner::Parameter {
                     source,
@@ -170,7 +168,7 @@ impl PendingVariantOwnerEffects {
                 result: output.clone(),
                 variant: normalize_variant_name(&entry.variant),
                 target_suffix: entry.suffix.clone(),
-                target_ty: summary_projection_place(output, &entry.suffix, entry.ty).ty,
+                target_ty: target.ty,
                 source,
             });
         }

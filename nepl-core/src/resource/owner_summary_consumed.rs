@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 
 use super::model::OwnerState;
+use super::owner_projection_source::owner_projection_sources_overlap;
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::{
     push_unique_owner_projection_source, OwnerParameterStorageSource,
@@ -17,7 +18,10 @@ pub(super) fn consumed_owner_parameters(
     let mut sources = Vec::new();
     for entry in parameter_storage_sources {
         let source = &entry.source;
-        if returned_sources.iter().any(|returned| returned == source) {
+        if returned_sources
+            .iter()
+            .any(|returned| owner_projection_sources_overlap(returned, source))
+        {
             continue;
         }
         if !state_consumes_parameter_owner(owners.state(&entry.place), entry) {

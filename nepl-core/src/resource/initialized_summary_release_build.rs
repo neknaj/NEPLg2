@@ -6,10 +6,11 @@ use super::cell_state::{raw_address_suffix_after_address, CellTable};
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
-use super::initialized::{op_can_run_on_merged_path_state, ResourceCheckEngine};
+use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_control::{
-    invalidate_control_output_path_states, invalidate_control_output_state,
+    initialize_control_output_path_states, invalidate_control_output_path_states,
+    invalidate_control_output_state,
     path_alternatives_or_single,
 };
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
@@ -78,52 +79,28 @@ fn collect_param_release_requirements_from_ops_with_engine(
     raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     ops: &[ResourceOp],
 ) {
-    for (index, op) in ops.iter().enumerate() {
+    for op in ops {
         let incoming_path_alternatives = core::mem::take(&mut step_engine.path_alternatives);
         if let Some(alternatives) = incoming_path_alternatives.into_feasible_states() {
-            if !op_can_run_on_merged_path_state(step_engine.types, op) {
-                // Path-sensitive state は collection slot、function alias、pending realloc、
-                // variant initialization の対応関係を保つための精密化である。merged
-                // state だけで release obligation を収集すると、後続の indirect call や
-                // raw release が path ごとの証明状態を失うため、actual checker と同じく
-                // operation を各 feasible path 上で進める。
-                for state in &alternatives {
-                    collect_param_release_requirements_from_op(
-                        out,
-                        &step_engine,
-                        &state.cells,
-                        &state.collection_slots,
-                        &state.raw_aliases,
-                        &state.function_aliases,
-                        &state.pending_reallocs,
-                        &state.variant_initializations,
-                        params,
-                        raw_init_summaries,
-                        op,
-                    );
-                }
-                let advanced = step_engine.advance_path_alternatives_after_op(
-                    alternatives,
-                    op,
-                    ResourceDropPointPath {
-                        block: ResourceBlockId(usize::MAX),
-                        steps: Vec::new(),
-                    }
-                    .with_step(super::drop_point_path::ResourceDropPointStep::Op { index }),
-                );
-                merge_path_alternatives_into(
-                    &advanced,
-                    cells,
-                    collection_slots,
-                    raw_aliases,
-                    function_aliases,
-                    pending_reallocs,
-                    variant_initializations,
-                );
-                step_engine.path_alternatives = ResourcePathAlternatives::from_states(advanced);
-                step_engine.auto_drop_points.clear();
+            if alternatives.is_empty() {
+                step_engine.path_alternatives = ResourcePathAlternatives::from_states(alternatives);
                 continue;
             }
+            // Release requirement summaries are may-summaries over raw-cell release
+            // operations. Once a branch or match has merged its feasible states into the
+            // straight-line tables, carrying the exact alternatives into every later op only
+            // multiplies the traversal. The merged raw-address alias table conservatively
+            // contains aliases from every feasible path, so collecting from the merged state can
+            // over-approximate requirements but does not miss a parameter-backed release.
+            merge_path_alternatives_into(
+                &alternatives,
+                cells,
+                collection_slots,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+            );
         }
         if let ResourceOp::Branch {
             output,
@@ -355,6 +332,7 @@ fn collect_match_release_requirements_and_step(
     if scrutinee_available && arms_available {
         cells.set_state(output, CellState::Initialized(output.ty));
         seed_str_storage_layout(engine.types, cells, raw_aliases, output);
+        initialize_control_output_path_states(engine.types, &mut engine.path_alternatives, output);
     } else {
         invalidate_control_output_state(
             cells,
@@ -513,6 +491,7 @@ fn collect_branch_release_requirements_and_step(
     if paths_available && has_branch_paths {
         cells.set_state(output, CellState::Initialized(output.ty));
         seed_str_storage_layout(engine.types, cells, raw_aliases, output);
+        initialize_control_output_path_states(engine.types, &mut engine.path_alternatives, output);
     } else {
         invalidate_control_output_state(
             cells,

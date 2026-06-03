@@ -24,6 +24,7 @@
 //:| #target std
 //:| #import "core/field" as *
 //:| #import "neplg2/cli/args/types" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let emit %SelfhostCliEmitSet SelfhostCliEmitSet true false false true false;
 //:     let ok %bool and get emit "wasm" get emit "llvm";

@@ -14,6 +14,7 @@ use super::owner_extent::{
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
+use super::owner_summary_leaf::type_has_owner_leaf_projection;
 use super::owner_summary_parameters::seed_owner_summary_parameters;
 use super::owner_summary_raw_view_return::{
     record_non_owning_raw_view_returns, returned_projection_is_non_owning_raw_view,
@@ -406,11 +407,13 @@ fn function_owner_return_summary(
                             continue;
                         }
                         Some(OwnerState::MaybeFreed { storage: None }) => {
-                            record_projection_maybe_owner_return(
-                                &mut projection_returns,
-                                suffix,
-                                entry.place.ty,
-                            );
+                            if type_has_owner_leaf_projection(types, entry.place.ty) {
+                                record_projection_maybe_owner_return(
+                                    &mut projection_returns,
+                                    suffix,
+                                    entry.place.ty,
+                                );
+                            }
                             continue;
                         }
                         Some(
@@ -436,6 +439,9 @@ fn function_owner_return_summary(
         &mut projection_returns,
         &mut returned_sources,
         &mut variant_projection_returns,
+        &mut variant_consumed_parameter_sources,
+        types,
+        function.result,
         &parameter_storage_sources,
     );
 

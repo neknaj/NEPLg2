@@ -8339,7 +8339,7 @@ fn main <()*>i32> ():
                             ok
 "#;
 
-    compile_resource_source_with_target(source, CompileTarget::Wasm)
+    compile_resource_source_with_raw_boundary(source, CompileTarget::Wasm)
         .expect("borrowed region_ptr MemPtr retag must remain non-owning until token dealloc");
 }
 
@@ -8414,7 +8414,7 @@ fn main <()*>i32> ():
         resource.dump_text()
     );
 
-    compile_resource_source_with_target(source, CompileTarget::Wasm)
+    compile_resource_source_with_raw_boundary(source, CompileTarget::Wasm)
         .expect("borrowed region_ptr retag with byte and word fill must compile");
 }
 
@@ -12974,6 +12974,76 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_initialized_check_vec_push_drop_error_rejected_with_recovers_slots() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value %i32
+
+impl Drop for DropPayload:
+    fn drop %impure fn &DropPayload unit \_self:
+        unit
+
+fn recover_failed_push %impure fn Vec DropPayload impure fn DropPayload i32 \returned\rejected:
+    Drop::drop &rejected
+    free returned
+    1
+
+fn push_or_recover %impure fn Vec DropPayload impure fn DropPayload i32 \items\item:
+    match push items item:
+        Result::Ok out:
+            free out
+            0
+        Result::Err err:
+            let rejected %VecPushRejected DropPayload vec_push_error_rejected err
+            vec_push_rejected_with rejected @recover_failed_push
+
+fn main %impure fn void i32 \void:
+    let items %Vec DropPayload unwrap_ok new
+    push_or_recover items (DropPayload 7)
+"#;
+
+    let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("push_or_recover__")
+                    || function.starts_with("recover_failed_push__")
+                    || function.starts_with("vec_push_rejected_with__")
+                    || function.starts_with("push__")
+                    || function.starts_with("free__")
+            }
+            ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
+                function.starts_with("main__")
+                    || function.starts_with("push_or_recover__")
+                    || function.starts_with("recover_failed_push__")
+                    || function.starts_with("vec_push_rejected_with__")
+                    || function.starts_with("push__")
+                    || function.starts_with("free__")
+            }
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Vec<DropPayload>.push failure recovery must preserve collection slot proofs through Result::Ok and VecPushRejected callback boundaries: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_transfers_nested_btree_insert_error_owner_through_helper() {
     let source = r#"
 #entry main
@@ -13015,6 +13085,51 @@ fn main <()*>()> ():
     assert!(
         diagnostics.is_empty(),
         "nested BTreeMap insert error owner must transfer through helper summary: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_hashmap_prepare_insert_returns_rehash_error_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/hashmap" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+#import "core/traits/hash" as *
+
+fn main %impure fn void i32 \void:
+    let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32
+    let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok insert hm0 1 10
+    let found %bool contains &hm1 1
+    let ok %i32 if found 0 1
+    free hm1
+    ok
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("hashmap_prepare_insert__")
+                || function.starts_with("hashmap_rehash_to__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "HashMap prepare-insert must keep the old map owner live on rehash Err and consume it only on successful rehash: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );
@@ -15053,6 +15168,54 @@ fn main <()* >()> ():
 }
 
 #[test]
+fn resource_ir_initialized_accepts_byte_builder_finish_empty_result_match() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/io/bytebuilder" as *
+#import "core/result" as *
+
+fn main %impure fn void i32 \void:
+    match byte_builder_finish byte_builder_empty:
+        Result::Ok _:
+            1
+        Result::Err e:
+            byte_builder_error_free e
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    let main_check = report
+        .functions
+        .iter()
+        .find(|check| check.name.starts_with("main__"));
+    assert!(
+        diagnostics.is_empty(),
+        "ByteBuilder finish on an empty builder must leave the enclosing match output initialized on every Result path: {:#?}\nfinal_cells:\n{:#?}\nresource:\n{}",
+        diagnostics,
+        main_check.map(|check| &check.final_cells),
+        resource.dump_text()
+    );
+
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("empty ByteBuilder finish Result match must pass the full Resource IR gate");
+}
+
+#[test]
 fn resource_ir_effect_check_accepts_vec_owner_result_return_identity() {
     let source = r#"
 #entry main
@@ -15549,6 +15712,44 @@ fn main <()* >()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_test_report_push_rebuilds_owned_fields() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "std/test" as *
+
+fn main <()* >()> ():
+    let report0 <TestReport> test_report_new "owner-check"
+    let report1 <TestReport> test_report_push report0 assert "ok" true
+    test_report_release report1
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. }
+                    if function.starts_with("test_report_push__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "TestReport push must move or consume replaced owned fields: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view() {
     let source = r#"
 #entry main
@@ -15921,7 +16122,7 @@ impl Drop for DropPayload:
         ()
 
 fn main <()*>i32> ():
-    let v <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v <Vec<DropPayload>> unwrap_ok with_capacity<DropPayload> 2
     free<DropPayload> v
     0
 "#;
@@ -15989,20 +16190,20 @@ fn resource_ir_initialized_check_vec_storage_invariant_accepts_drop_payload_with
 #import "core/traits/drop" as *
 
 struct DropPayload:
-    value <i32>
+    value %i32
 
 impl Drop for DropPayload:
-    fn drop <(&DropPayload)*>()> (_self):
-        ()
+    fn drop %impure fn &DropPayload unit \_self:
+        unit
 
-fn main <()*>i32> ():
-    let v <Vec<DropPayload>> unwrap_ok new<DropPayload>
-    let ok <bool> match vec_current_storage_invariant<DropPayload> &v:
+fn main %impure fn void i32 \void:
+    let v %Vec DropPayload unwrap_ok with_capacity 2
+    let ok %bool match vec_current_storage_invariant &v:
         VecStorageInvariant::Valid:
             true
         VecStorageInvariant::Invalid _reason:
             false
-    free<DropPayload> v
+    free v
     if ok 0 1
 "#;
 
@@ -16014,13 +16215,13 @@ fn main <()*>i32> ():
         .diagnostics
         .iter()
         .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CellUnavailable { function, .. } => function.starts_with("main__"),
             ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
                 function.starts_with("main__")
                     || function.starts_with("vec_buffer_current_storage_invariant__")
                     || function.starts_with("free__")
                     || function.starts_with("vec_cleanup_")
             }
-            _ => false,
         })
         .collect::<Vec<_>>();
     assert!(
@@ -16029,6 +16230,8 @@ fn main <()*>i32> ():
         diagnostics,
         resource.dump_text()
     );
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("VecStorageInvariant with Drop payload capacity must compile through full pipeline");
     assert!(
         resource
             .functions
@@ -16152,6 +16355,60 @@ fn main <()*>i32> ():
             }),
         "main must not retain initialized Drop payload Vec slots after free: {:#?}",
         report.functions
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_vec_drop_push_free_closes_stdlib_owner_flow() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn main <()*>i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+    free<DropPayload> v1
+    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("main__")
+                || function.starts_with("push__")
+                || function.starts_with("vec_push_storage_checked__")
+                || function.starts_with("vec_push_slot_store_initialized__")
+                || function.starts_with("free__")
+                || function.starts_with("vec_cleanup_")
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        diagnostics.is_empty(),
+        "actual stdlib Vec<DropPayload>.push -> free must move raw-cell owners through Result::Ok and branch outputs without stale moved aliases: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
     );
 }
 
@@ -17370,6 +17627,70 @@ fn main <()*>()> ():
     assert!(
         diagnostics.is_empty(),
         "owner stored into a raw node field must move under the new raw storage owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_raw_store_parameter_cell_escapes_stored_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn store_payload <(i32,DropPayload)->()> (ptr, payload):
+    store<DropPayload> ptr payload
+
+fn main <()*>i32> ():
+    match alloc_region<DropPayload> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let ptr <MemPtr<DropPayload>> region_ptr &region
+            let raw <i32> mem_ptr_addr ptr
+            store_payload raw (DropPayload 7)
+            let mut loaded <DropPayload> load<DropPayload> raw
+            set loaded DropPayload 0
+            match dealloc_region region:
+                Result::Err _drop:
+                    1
+                Result::Ok _:
+                    0
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("store__") || function.starts_with("store_payload__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "raw store into a parameter-derived cell transfers the owner out of the callee instead of leaking locally: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );
@@ -24941,6 +25262,48 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_generic_field_get_ref_deref_uses_borrowed_field_cell() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/traits/copy" as *
+
+struct Holder<.T>:
+    value <.T>
+    count <i32>
+
+fn read_value <.T: Copy> <(Holder<.T>)->.T> (holder):
+    *field::get_ref &holder "value"
+
+fn main <()->i32> ():
+    let holder <Holder<i32>> Holder<i32> 42 7
+    read_value<i32> holder
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
+                function.starts_with("read_value__")
+            }
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "generic field::get_ref deref should read the borrowed field cell without uninit diagnostics: {diagnostics:#?}\nresource:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_match_never_arm_does_not_poison_initialized_state() {
     let source = r#"
 #entry main
@@ -25255,28 +25618,28 @@ fn resource_ir_collection_slot_source_summary_rejects_double_move_across_calls()
 #target wasm
 #no_prelude
 
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/mem/types" as *
-#import "core/traits/copy" as *
 
-struct LocalToken:
+struct LocalOwner:
     token_id <i32>
 
-impl Clone for LocalToken:
-    fn clone <(&LocalToken)->LocalToken> (self):
-        *self
+fn move_slot <(&RegionToken<LocalOwner>)->LocalOwner> (storage):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let raw <i32> mem_ptr_addr data
+    let loaded <LocalOwner> load<LocalOwner> raw
+    #intrinsic "collection_slot_move_out" <LocalOwner> (storage, 0)
+    loaded
 
-impl Copy for LocalToken:
-    fn copy_mark <(LocalToken)->LocalToken> (self):
-        self
-
-fn move_slot <(&RegionToken<LocalToken>)->i32> (storage):
-    #intrinsic "collection_slot_move_out" <LocalToken> (storage, 0)
-    0
-
-fn caller <(&RegionToken<LocalToken>)->i32> (storage):
-    #intrinsic "collection_slot_initialize_empty" <LocalToken> (storage, 0)
-    move_slot storage
-    move_slot storage
+fn caller <(&RegionToken<LocalOwner>,LocalOwner)->i32> (storage, payload):
+    let data <MemPtr<LocalOwner>> region_ptr storage
+    let raw <i32> mem_ptr_addr data
+    store<LocalOwner> raw payload
+    #intrinsic "collection_slot_initialize_empty" <LocalOwner> (storage, 0)
+    let first <LocalOwner> move_slot storage
+    let second <LocalOwner> move_slot storage
     0
 "#;
 
@@ -25285,7 +25648,7 @@ fn caller <(&RegionToken<LocalToken>)->i32> (storage):
         "alloc/collections/vec/slot_summary.nepl",
         CompileTarget::Wasm,
     );
-    let owned_ty = types.lookup_named("LocalToken").expect("LocalToken type");
+    let owned_ty = types.lookup_named("LocalOwner").expect("LocalOwner type");
     let resource = lower_hir_module(&module, &types);
     let report = check_resource_initialized_moves(&resource, &types);
 
@@ -26524,7 +26887,7 @@ fn cleanup_region <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->i32> (stora
     #intrinsic "collection_slot_drop_traversal" <LocalOwner> (storage, 2)
     let total_size <i32> region_size storage
     allocator::dealloc_raw raw total_size
-    #intrinsic "collection_slot_storage_dealloc" <> (storage)
+    #intrinsic "collection_slot_storage_dealloc" <LocalOwner> (storage)
     0
 "#;
 
@@ -33692,6 +34055,184 @@ fn main <()*>i32> ():
     compile_resource_source_with_target(source, CompileTarget::Wasi).expect(
         "Copy payload sources inside unresolved Result variants must not be owner-reserved",
     );
+}
+
+#[test]
+fn resource_ir_result_ok_copy_struct_payload_field_reads_leave_no_owner_obligation() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+struct State:
+    h0 %i32
+    h1 %i32
+    h2 %i32
+    h3 %i32
+
+impl Clone for State:
+    fn clone %fn &State State \self:
+        *self
+
+impl Copy for State:
+    fn copy_mark %fn State State \self:
+        self
+
+fn make_state %fn i32 Result State i32 \seed:
+    Result::Ok State seed add seed 1 add seed 2 add seed 3
+
+fn rotate_state %fn i32 fn i32 fn i32 fn i32 Result State i32 \a\b\c\d:
+    Result::Ok State a b c d
+
+fn rotate_state_loop %fn i32 fn i32 fn i32 fn i32 fn i32 Result State i32 \i\a\b\c\d:
+    if:
+        ge i 2
+        then:
+            Result::Ok State a b c d
+        else:
+            rotate_state_loop add i 1 add a 1 a b c
+
+fn main %fn void i32 \void:
+    match rotate_state_loop 0 10 11 12 13:
+        Result::Err e:
+            e
+        Result::Ok state:
+            let r0 %i32 *field::get_ref &state "h0"
+            let r1 %i32 *field::get_ref &state "h1"
+            let r2 %i32 *field::get_ref &state "h2"
+            let r3 %i32 *field::get_ref &state "h3"
+            add add r0 r1 add r2 r3
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("main__") || function.starts_with("make_state__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Result::Ok Copy struct payload field reads must not leave owner obligations: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("Result::Ok Copy struct payload should compile without resource.owner.maybe_leak");
+}
+
+#[test]
+fn resource_ir_owner_check_does_not_seed_copy_parameter_owner_obligations() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/option" as *
+
+fn ignore_str %fn str unit \value:
+    unit
+
+fn ignore_option_str %fn Option str unit \value:
+    unit
+
+fn ignore_nested_option_i32 %fn Option Option i32 unit \value:
+    unit
+
+fn main %fn void i32 \void:
+    ignore_str "alpha"
+    ignore_option_str some "beta"
+    let item %Option i32 some 7
+    let nested %Option Option i32 some item
+    ignore_nested_option_i32 nested
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("ignore_str__")
+                || function.starts_with("ignore_option_str__")
+                || function.starts_with("ignore_nested_option_i32__")
+                || function.starts_with("some__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Copy parameters must not be seeded as fresh owner obligations: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("Copy str and Option str parameters should not create owner leaks");
+}
+
+#[test]
+fn resource_ir_host_output_span_defers_through_borrowed_region_token_parameter() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/result" as *
+
+#extern "wasi_snapshot_preview1" "fd_tell" fn fd_tell %impure fn i32 impure fn i32 i32
+
+fn tell_into_scratch %impure fn &RegionToken u8 i32 \scratch:
+    let p %MemPtr u8 region_ptr scratch
+    let raw %i32 mem_ptr_addr p
+    fd_tell 1 raw
+
+fn main %impure fn void i32 \void:
+    match alloc_region<u8> 8:
+        Result::Err e:
+            1
+        Result::Ok region:
+            let errno %i32 tell_into_scratch &region
+            match dealloc_region<u8> region:
+                Result::Err cleanup:
+                    2
+                Result::Ok released:
+                    errno
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "__resource_ir_boundary_test.nepl",
+        CompileTarget::Wasi,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "host output span through &RegionToken should defer extent proof to caller: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_as_compiler_owned(source, CompileTarget::Wasi)
+        .expect("host output span through &RegionToken should compile after caller proof");
 }
 
 #[test]

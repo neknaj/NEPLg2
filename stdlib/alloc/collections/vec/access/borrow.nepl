@@ -58,6 +58,7 @@ fn vec_borrow_slot_predicate <.T> %fn &RegionToken .T fn i32 fn fn &.T bool bool
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/collections/vec" as *
 //:| #import "alloc/collections/vec/access/borrow" as *
 //:| #import "alloc/collections/vec/mutation/cleanup" as *
 //:| #import "alloc/collections/vec/storage/api" as *

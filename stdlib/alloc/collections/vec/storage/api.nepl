@@ -112,7 +112,7 @@ pub fn new <.T: Copy> %fn void Result Vec .T StdErrorKind \void:
 //: ```
 //:
 //: neplg2:test[compile_fail]
-//: diag_codes: type.overload.no_match
+//: diag_codes: type.trait_bound.unsatisfied
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -214,7 +214,7 @@ pub fn with_capacity <.T: Copy> %fn i32 Result Vec .T StdErrorKind \cap:
 //: ```
 //:
 //: neplg2:test[compile_fail]
-//: diag_codes: type.overload.no_match
+//: diag_codes: type.trait_bound.unsatisfied
 //: ```neplg2
 //:| #entry main
 //:| #target std

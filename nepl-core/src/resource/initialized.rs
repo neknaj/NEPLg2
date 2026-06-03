@@ -38,7 +38,7 @@ use super::initialized_scalar_flow::{
 };
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
-use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries_with_recomputations;
+use super::initialized_summary_build::compute_call_boundary_raw_cell_initialization_function_summaries_with_recomputations;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
     CellStateEntry, Place, PlaceRoot, ResourceBlock, ResourceCallTarget, ResourceExprKind,
@@ -141,7 +141,7 @@ fn check_resource_initialized_moves_inner(
     stage_start.log("resource_initialized_i32_scalar_summaries");
     let stage_start = ResourceStageTimer::start();
     let (raw_init_summaries, raw_init_recomputations) =
-        compute_raw_cell_initialization_function_summaries_with_recomputations(
+        compute_call_boundary_raw_cell_initialization_function_summaries_with_recomputations(
             module,
             types,
             &raw_alias_summaries,
@@ -373,47 +373,48 @@ fn resource_op_kind(op: &ResourceOp) -> &'static str {
     }
 }
 
-pub(super) fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
+pub(super) fn op_can_run_on_merged_path_state(_types: &TypeCtx, op: &ResourceOp) -> bool {
+    matches!(op, ResourceOp::Branch { .. } | ResourceOp::Match { .. })
+}
+
+pub(super) fn apply_path_preserving_fast_op(
+    types: &TypeCtx,
+    cells: &mut CellTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    op: &ResourceOp,
+) -> bool {
     match op {
-        ResourceOp::Expr { kind, output, .. } => expr_can_run_on_merged_path_state(*kind, output),
-        ResourceOp::EndScope { locals, .. } => {
-            // path alternatives は branch/match/call return の診断精度を保つための
-            // 精密化であり、Drop 候補を持たない scope 終了では merged state と
-            // 同じ安全性になる。Copy local だけの EndScope を各 path で再実行すると、
-            // 文字列処理の loop 内で同じ no-op cleanup を何千回も replay してしまう。
-            locals.iter().all(|local| types.is_copy(local.ty))
+        ResourceOp::Expr { kind, output, .. } if expr_can_use_path_preserving_fast_op(*kind, output) => {
+            match kind {
+                ResourceExprKind::LiteralI32(value) => {
+                    cells.mark_initialized(output);
+                    raw_aliases.set_i32_value(output, *value);
+                }
+                ResourceExprKind::LayoutSizeOf(ty) => {
+                    cells.mark_initialized(output);
+                    raw_aliases.set_i32_type_size(output, *ty);
+                }
+                _ => return false,
+            }
+            true
         }
-        ResourceOp::CallEffect { .. } => true,
-        ResourceOp::DeclareLocal { .. }
-        | ResourceOp::Read { .. }
-        | ResourceOp::Assign { .. }
-        | ResourceOp::Borrow { .. }
-        | ResourceOp::Move { .. }
-        | ResourceOp::Drop { .. }
-        | ResourceOp::FunctionValue { .. }
-        | ResourceOp::Call { .. }
-        | ResourceOp::IndirectCall { .. }
-        | ResourceOp::RawMemory { .. }
-        | ResourceOp::RawAddressAlias { .. }
-        | ResourceOp::RawAddressView { .. }
-        | ResourceOp::StorageOrigin { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. }
-        | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. }
-        | ResourceOp::CollectionSlotTransformRange { .. }
-        | ResourceOp::Construct { .. }
-        | ResourceOp::Branch { .. }
-        | ResourceOp::Loop { .. }
-        | ResourceOp::Match { .. } => false,
+        ResourceOp::EndScope { locals, .. } if locals.iter().all(|local| types.is_copy(local.ty)) => {
+            // Copy local だけを含む scope 終了は auto drop を生成せず、path ごとの差分も
+            // 変更しない。path alternatives を保持したまま処理済みとして扱うことで、
+            // Result return path や collection slot proof を誤って畳まない。
+            true
+        }
+        _ => false,
     }
 }
 
-fn expr_can_run_on_merged_path_state(kind: ResourceExprKind, output: &Place) -> bool {
+fn expr_can_use_path_preserving_fast_op(kind: ResourceExprKind, output: &Place) -> bool {
     // path-sensitive alternatives を保持している最中に merged state だけを進めると、
-    // その operation のあとで alternatives は破棄される。ここで許可する式は、
+    // その operation のあとで alternatives を破棄してしまう。ここで許可する式は、
     // 既存 place を読まず、診断も生成せず、fresh temporary だけに確定値を置くものに
-    // 限定する。local や projection 付き output を許すと、別 path の alias / scalar fact
-    // を merged state 上で上書きし、後続診断の精度を落とす可能性がある。
+    // 限定し、各 alternative に同じ小さな状態更新だけを反映する。local や projection
+    // 付き output を許すと、別 path の alias / scalar fact を上書きし、後続診断の精度を
+    // 落とす可能性がある。
     matches!(
         kind,
         ResourceExprKind::LiteralI32(_) | ResourceExprKind::LayoutSizeOf(_)
@@ -697,11 +698,60 @@ impl ResourceCheckEngine<'_> {
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
-                    self.consume_by_value(cells, value, ResourceCheckOperation::ReturnValue, *span);
+                    self.consume_return_value(
+                        cells,
+                        collection_slots,
+                        raw_aliases,
+                        function_aliases,
+                        pending_reallocs,
+                        variant_initializations,
+                        value,
+                        *span,
+                    );
                 }
             }
             ResourceTerminator::Unreachable { .. } | ResourceTerminator::RawBody { .. } => {}
         }
+    }
+
+    fn consume_return_value(
+        &mut self,
+        cells: &mut CellTable,
+        collection_slots: &mut CollectionSlotStateTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        function_aliases: &mut FunctionAliasTable,
+        pending_reallocs: &mut PendingRawReallocs,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
+        value: &Place,
+        span: crate::span::Span,
+    ) {
+        let Some(mut alternatives) =
+            core::mem::take(&mut self.path_alternatives).into_feasible_states()
+        else {
+            self.consume_by_value(cells, value, ResourceCheckOperation::ReturnValue, span);
+            return;
+        };
+        if alternatives.is_empty() {
+            self.path_alternatives = ResourcePathAlternatives::from_states(alternatives);
+            return;
+        }
+        for state in &mut alternatives {
+            self.consume_by_value(
+                &mut state.cells,
+                value,
+                ResourceCheckOperation::ReturnValue,
+                span,
+            );
+        }
+        merge_path_alternatives_into(
+            &alternatives,
+            cells,
+            collection_slots,
+            raw_aliases,
+            function_aliases,
+            pending_reallocs,
+            variant_initializations,
+        );
     }
 
     pub(super) fn check_ops(
@@ -756,7 +806,30 @@ impl ResourceCheckEngine<'_> {
                     op_path,
                 ),
                 ResourcePathAlternatives::Feasible(alternatives) => {
-                    if op_can_run_on_merged_path_state(self.types, op) {
+                    let mut alternatives = alternatives;
+                    if alternatives.is_empty() {
+                        self.path_alternatives =
+                            ResourcePathAlternatives::from_states(alternatives);
+                    } else if apply_path_preserving_fast_op(self.types, cells, raw_aliases, op) {
+                        for state in &mut alternatives {
+                            apply_path_preserving_fast_op(
+                                self.types,
+                                &mut state.cells,
+                                &mut state.raw_aliases,
+                                op,
+                            );
+                        }
+                        merge_path_alternatives_into(
+                            &alternatives,
+                            cells,
+                            collection_slots,
+                            raw_aliases,
+                            function_aliases,
+                            pending_reallocs,
+                            variant_initializations,
+                        );
+                        self.path_alternatives = ResourcePathAlternatives::from_states(alternatives);
+                    } else if op_can_run_on_merged_path_state(self.types, op) {
                         self.check_op(
                             cells,
                             collection_slots,
@@ -945,7 +1018,7 @@ impl ResourceCheckEngine<'_> {
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
     }
 
-    fn reference_target_type(&self, ty: TypeId) -> Option<TypeId> {
+    pub(super) fn reference_target_type(&self, ty: TypeId) -> Option<TypeId> {
         let resolved = self.types.resolve_named_type_id(self.types.resolve_id(ty));
         match self.types.get_ref(resolved) {
             TypeKind::Reference(target, _) => Some(*target),
@@ -968,7 +1041,7 @@ mod tests {
 
     use crate::ast::Effect;
     use crate::resource::model::{
-        PlaceProjection, PlaceRoot, ResourceId, ResourceMatchArm, ResourceMatchPattern,
+        EffectOp, PlaceProjection, PlaceRoot, ResourceId, ResourceMatchArm, ResourceMatchPattern,
     };
     use crate::span::Span;
 
@@ -1013,10 +1086,12 @@ mod tests {
     }
 
     /// fresh temporary へ書く i32 scalar 生成は、path ごとの入力を読まず診断も
-    /// 生成しないため、分岐後の merged state で一度だけ処理できることを確認する。
+    /// 生成しないため、path alternatives を保持したまま軽量に反映できることを確認する。
     #[test]
-    fn merged_path_state_accepts_fresh_temporary_i32_scalar_exprs() {
+    fn path_preserving_fast_op_accepts_fresh_temporary_i32_scalar_exprs() {
         let types = TypeCtx::new();
+        let mut cells = CellTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
         let literal = ResourceOp::Expr {
             kind: ResourceExprKind::LiteralI32(42),
             output: temporary(0),
@@ -1030,15 +1105,29 @@ mod tests {
             span: Span::dummy(),
         };
 
-        assert!(op_can_run_on_merged_path_state(&types, &literal));
-        assert!(op_can_run_on_merged_path_state(&types, &layout_size));
+        assert!(apply_path_preserving_fast_op(
+            &types,
+            &mut cells,
+            &mut raw_aliases,
+            &literal
+        ));
+        assert!(apply_path_preserving_fast_op(
+            &types,
+            &mut cells,
+            &mut raw_aliases,
+            &layout_size
+        ));
+        assert!(!op_can_run_on_merged_path_state(&types, &literal));
+        assert!(!op_can_run_on_merged_path_state(&types, &layout_size));
     }
 
     /// local や projection 付き output は、path ごとに異なる alias / scalar fact を
-    /// 持ち得るため、merged state だけで処理しないことを確認する。
+    /// 持ち得るため、path-preserving fast path でも処理しないことを確認する。
     #[test]
-    fn merged_path_state_rejects_non_fresh_scalar_expr_outputs() {
+    fn path_preserving_fast_op_rejects_non_fresh_scalar_expr_outputs() {
         let types = TypeCtx::new();
+        let mut cells = CellTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
         let local_output = ResourceOp::Expr {
             kind: ResourceExprKind::LiteralI32(7),
             output: local("x"),
@@ -1058,15 +1147,38 @@ mod tests {
             span: Span::dummy(),
         };
 
-        assert!(!op_can_run_on_merged_path_state(&types, &local_output));
-        assert!(!op_can_run_on_merged_path_state(
+        assert!(!apply_path_preserving_fast_op(
             &types,
+            &mut cells,
+            &mut raw_aliases,
+            &local_output
+        ));
+        assert!(!apply_path_preserving_fast_op(
+            &types,
+            &mut cells,
+            &mut raw_aliases,
             &projected_temporary
         ));
-        assert!(!op_can_run_on_merged_path_state(
+        assert!(!apply_path_preserving_fast_op(
             &types,
+            &mut cells,
+            &mut raw_aliases,
             &non_scalar_literal
         ));
+    }
+
+    /// `CallEffect` は initialized-state を直接変更しないが、call の直前に置かれる。
+    /// Result return path などの path-sensitive fact を次の `Call` へ渡す必要があるため、
+    /// merged state だけで処理して path alternatives を畳んではならない。
+    #[test]
+    fn merged_path_state_rejects_call_effect_path_collapse() {
+        let types = TypeCtx::new();
+        let call_effect = ResourceOp::CallEffect {
+            effect: EffectOp::Pure,
+            span: Span::dummy(),
+        };
+
+        assert!(!op_can_run_on_merged_path_state(&types, &call_effect));
     }
 
     fn literal_op(output: &str) -> ResourceOp {

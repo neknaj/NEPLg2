@@ -145,8 +145,6 @@ fn add_one %fn i32 i32 \a:
         i32.add
 
 fn main %fn void i32 \void:
-    #import "core/math" as *
-#import "core/field" as *
     add_one 1
 ```
 
@@ -511,7 +509,7 @@ diag_code: effect.raw_body.target_mismatch
 
 fn main %fn void i32 \void:
     #llvmir:
-        define i32 @mainunit {
+        define i32 @main() {
         entry:
             ret i32 1
         }
@@ -532,7 +530,7 @@ fn main %fn void i32 \void:
         i32.const 1
     #if[target=core]
     #llvmir:
-        define i32 @mainunit {
+        define i32 @main() {
         entry:
             ret i32 2
         }

@@ -25,8 +25,8 @@
 //: fd_write の iovec/nwritten raw layout を stdout/stderr fd 境界へ閉じ込める内部 helper
 //:
 //: ### [目的/もくてき]
-//: - `stdio_write_fd_mem_result` が所有する `iov` 8 byte と `nwritten` 4 byte を初期化し、`fd_write` の結果として書けた byte 数を返します。
-//: - caller-selected `MemPtr` / length pair を受け取るため public API にはせず、この file の typed wrapper からだけ呼びます。
+//: - `stdio_write_fd_mem_result` が所有する `iov` 8 byte と `nwritten` 4 byte の owner token を借用し、`fd_write` の結果として書けた byte 数を返します。
+//: - caller-selected data `MemPtr` / length pair と scratch `RegionToken` を受け取るため public API にはせず、この file の typed wrapper からだけ呼びます。
 //:
 //: ### [実装/じっそう]
 //: - `data` の raw address と `data_len` を iovec に store し、`nwritten` を 0 に初期化してから `fd_write` を呼びます。
@@ -34,11 +34,11 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `iov` は 8 byte、`nwritten` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
-//: - 呼び出し元の `stdio_write_fd_mem_result` は `iov` / `nwritten` を local `RegionToken u8` owner から導出します。
+//: - 呼び出し元の `stdio_write_fd_mem_result` は `iov` / `nwritten` の local `RegionToken u8` owner を保持したまま、この helper には参照だけを渡します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
-fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 StdErrorKind \fd\iov\nwritten\data\data_len:
+fn stdio_fd_write_from_result %impure fn i32 impure fn &RegionToken u8 impure fn &RegionToken u8 impure fn MemPtr u8 impure fn i32 Result i32 StdErrorKind \fd\iov_region\nwritten_region\data\data_len:
     if:
         lt data_len 0
         then:
@@ -49,6 +49,8 @@ fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPt
                 then:
                     Result::Ok 0
                 else:
+                    let iov %MemPtr u8 region_ptr iov_region
+                    let nwritten %MemPtr u8 region_ptr nwritten_region
                     let iov_raw %i32 mem_ptr_addr iov
                     let nwritten_raw %i32 mem_ptr_addr nwritten
                     let data_raw %i32 mem_ptr_addr data
@@ -61,8 +63,9 @@ fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPt
                         then:
                             Result::Err StdErrorKind::InvalidOperation
                         else:
+                            let iov_len_raw %i32 add iov_raw 4
                             store_i32 iov_raw data_raw
-                            store_i32 add iov_raw 4 data_len
+                            store_i32 iov_len_raw data_len
                             store_i32 nwritten_raw 0
                             let errno %i32 stdio_fd_write_raw fd iov_raw 1 nwritten_raw
                             if:
@@ -101,7 +104,6 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
                 Result::Err iov_alloc_error:
                     Result::Err StdErrorKind::IoError
                 Result::Ok iov_region:
-                    let iov %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err nwritten_alloc_error:
                             match dealloc_region<u8> iov_region:
@@ -111,7 +113,6 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
                                     unit
                             Result::Err StdErrorKind::IoError
                         Result::Ok nwritten_region:
-                            let nwritten %MemPtr u8 region_ptr &nwritten_region
                             let mut off %i32 0;
                             let mut done %i32 0;
                             let mut failed %i32 0;
@@ -123,7 +124,7 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
                                             set done 1;
                                             unit
                                         else:
-                                            match stdio_fd_write_from_result fd iov nwritten mem_ptr_add data off sub data_len off:
+                                            match stdio_fd_write_from_result fd &iov_region &nwritten_region mem_ptr_add data off sub data_len off:
                                                 Result::Ok n:
                                                     if:
                                                         le n 0

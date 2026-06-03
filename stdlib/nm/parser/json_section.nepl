@@ -19,6 +19,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "nm/parser/json_section" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let s0 %NmJsonSectionState nm_json_section_state_new
 //:     let s1 %NmJsonSectionState nm_json_section_mark_current_has s0

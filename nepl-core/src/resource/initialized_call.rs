@@ -1,3 +1,5 @@
+extern crate alloc;
+
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::function_alias::FunctionAliasTable;
@@ -87,10 +89,10 @@ impl ResourceCheckEngine<'_> {
         );
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
         pending_reallocs.clear_result(output);
-        // return path summary が存在しても、concrete variant 条件に合う path が
-        // ない場合は path-sensitive refinement を作らない。通常の call output
-        // 初期化済み状態をそのまま直線経路として後続 op に渡す。
-        if let Some(return_path_states) = return_path_states.filter(|states| !states.is_empty()) {
+        // return path summary が存在する場合、空集合にも意味がある。
+        // call-site の concrete variant 条件に合う通常復帰 path がないときは、
+        // その feasible path 自体を後続検査から外す必要がある。
+        if let Some(return_path_states) = return_path_states {
             let alternatives = return_path_states
                 .into_iter()
                 .map(|mut state| {
@@ -110,7 +112,11 @@ impl ResourceCheckEngine<'_> {
                     )
                 })
                 .collect();
-            self.path_alternatives = ResourcePathAlternatives::from_states(alternatives);
+            self.path_alternatives =
+                ResourcePathAlternatives::from_states_preserving_result_variants(
+                    alternatives,
+                    output,
+                );
         }
     }
 

@@ -42,7 +42,7 @@ use super::super::initialized_summary_release_model::{
 };
 use super::super::initialized_summary_variant_model::{
     RawCellInitializationVariantCondition, RawCellInitializationVariantParamCell,
-    RawCellInitializationVariantParamRequirement,
+    RawCellInitializationVariantParamRequirement, RawCellInitializationVariantValueCondition,
 };
 use super::super::model::{
     CellState, CellStateEntry, I32ValueCondition, Place, PlaceProjection, PlaceRoot,
@@ -696,7 +696,11 @@ impl ResourceSummaryStableRawInitCompleteLeafEntry {
             + self.variant_param_cells.len()
             + self.variant_param_byte_ranges.len()
             + self.variant_required_param_cells.len()
-            + self.variant_conditions.len()
+            + self
+                .variant_conditions
+                .iter()
+                .map(|condition| core::cmp::max(1, condition.conditions.len()))
+                .sum::<usize>()
     }
 }
 
@@ -900,6 +904,11 @@ struct ResourceSummaryStableRawInitVariantParamRequirement {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ResourceSummaryStableRawInitVariantCondition {
     variant: String,
+    conditions: Vec<ResourceSummaryStableRawInitVariantValueCondition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+struct ResourceSummaryStableRawInitVariantValueCondition {
     param_index: usize,
     suffix: Vec<ResourceSummaryStableProjection>,
     ty: ResourceSummaryStableTypeKey,
@@ -936,6 +945,11 @@ enum ResourceSummaryStableRawCellReleaseRequirementKind {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum ResourceSummaryStableI32Operand {
     Place(ResourceSummaryStablePlace),
+    Offset {
+        base: ResourceSummaryStablePlace,
+        offset: i64,
+        ty: ResourceSummaryStableTypeKey,
+    },
     KnownI32 {
         value: i32,
         ty: ResourceSummaryStableTypeKey,
@@ -2301,6 +2315,17 @@ fn reproject_i32_operand(
             (ctx.types.resolve_id(place.ty) == ctx.types.i32())
                 .then_some(CollectionSlotLifecycleSummaryI32Operand::Place(place))
         }
+        ResourceSummaryStableI32Operand::Offset { base, offset, ty } => {
+            let base = reproject_summary_place(ctx, base)?;
+            let ty = ctx.reproject_type(ty)?;
+            (ctx.types.resolve_id(base.ty) == ctx.types.i32()
+                && ctx.types.resolve_id(ty) == ctx.types.i32())
+            .then_some(CollectionSlotLifecycleSummaryI32Operand::Offset {
+                base,
+                offset: *offset,
+                ty,
+            })
+        }
         ResourceSummaryStableI32Operand::KnownI32 { value, ty } => {
             let ty = ctx.reproject_type(ty)?;
             (ctx.types.resolve_id(ty) == ctx.types.i32())
@@ -2369,6 +2394,13 @@ fn stable_i32_operand(
         CollectionSlotLifecycleSummaryI32Operand::Place(place) => Some(
             ResourceSummaryStableI32Operand::Place(stable_summary_place(types, place)?),
         ),
+        CollectionSlotLifecycleSummaryI32Operand::Offset { base, offset, ty } => {
+            Some(ResourceSummaryStableI32Operand::Offset {
+                base: stable_summary_place(types, base)?,
+                offset: *offset,
+                ty: ResourceSummaryStableTypeKey::from_type(types, *ty)?,
+            })
+        }
         CollectionSlotLifecycleSummaryI32Operand::KnownI32 { value, ty } => {
             Some(ResourceSummaryStableI32Operand::KnownI32 {
                 value: *value,
@@ -2946,6 +2978,24 @@ fn stable_raw_init_variant_condition(
     ResourceSummaryStableRawInitVariantCondition,
     ResourceSummaryStableRawInitCompleteLeafEntryReject,
 > {
+    let conditions = condition
+        .conditions
+        .iter()
+        .map(|condition| stable_raw_init_variant_value_condition(types, condition))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ResourceSummaryStableRawInitVariantCondition {
+        variant: condition.variant.clone(),
+        conditions,
+    })
+}
+
+fn stable_raw_init_variant_value_condition(
+    types: &TypeCtx,
+    condition: &RawCellInitializationVariantValueCondition,
+) -> Result<
+    ResourceSummaryStableRawInitVariantValueCondition,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
     let suffix = condition
         .suffix
         .iter()
@@ -2956,8 +3006,7 @@ fn stable_raw_init_variant_condition(
         .collect::<Result<Vec<_>, _>>()?;
     let ty = ResourceSummaryStableTypeKey::from_type(types, condition.ty)
         .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
-    Ok(ResourceSummaryStableRawInitVariantCondition {
-        variant: condition.variant.clone(),
+    Ok(ResourceSummaryStableRawInitVariantValueCondition {
         param_index: condition.param_index,
         suffix,
         ty,
@@ -4026,6 +4075,24 @@ fn reproject_raw_init_variant_condition(
     RawCellInitializationVariantCondition,
     ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
 > {
+    let conditions = condition
+        .conditions
+        .iter()
+        .map(|condition| reproject_raw_init_variant_value_condition(ctx, condition))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(RawCellInitializationVariantCondition {
+        variant: condition.variant.clone(),
+        conditions,
+    })
+}
+
+fn reproject_raw_init_variant_value_condition(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    condition: &ResourceSummaryStableRawInitVariantValueCondition,
+) -> Result<
+    RawCellInitializationVariantValueCondition,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
     let base = ctx
         .function
         .params
@@ -4034,8 +4101,7 @@ fn reproject_raw_init_variant_condition(
         .ty;
     let (suffix, ty) =
         reproject_raw_init_param_cell_summary_suffix(ctx, base, &condition.ty, &condition.suffix)?;
-    Ok(RawCellInitializationVariantCondition {
-        variant: condition.variant.clone(),
+    Ok(RawCellInitializationVariantValueCondition {
         param_index: condition.param_index,
         suffix,
         ty,
@@ -5410,6 +5476,44 @@ mod tests {
 
         let reprojected = reproject_drop_traversal_forall_value(&ctx, &value)
             .expect("stable state-only value should reproject");
+
+        assert_eq!(reprojected, op);
+    }
+
+    #[test]
+    fn stable_drop_traversal_forall_value_reprojects_i32_offset_count() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let op = CollectionSlotLifecycleSummaryOp::DropTraversal {
+            storage: SummaryPlace {
+                parameter_index: 0,
+                suffix: Vec::new(),
+                ty: types.i32(),
+            },
+            initialized_count: CollectionSlotLifecycleSummaryI32Operand::Offset {
+                base: SummaryPlace {
+                    parameter_index: 0,
+                    suffix: Vec::new(),
+                    ty: types.i32(),
+                },
+                offset: 1,
+                ty: types.i32(),
+            },
+            expected_ty: types.i32(),
+            coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                CollectionSlotInitializedRangeDropTraversalCertificate {
+                    element_stride: 4,
+                    drop_proof: CollectionSlotInitializedRangeDropTraversalProof::StateOnly,
+                },
+            ),
+        };
+        let value = stable_drop_traversal_forall_value(&types, &op)
+            .expect("relative i32 count should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_drop_traversal_forall_value(&ctx, &value)
+            .expect("relative i32 count should reproject");
 
         assert_eq!(reprojected, op);
     }

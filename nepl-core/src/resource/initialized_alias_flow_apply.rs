@@ -17,6 +17,9 @@ pub(super) fn construct_raw_cell_address_alias_fields(
 ) {
     for (index, input) in inputs.iter().enumerate() {
         let field = construct_aggregate_field_place(output, kind, index, input);
+        // Construct は field ごとの値移動でもある。raw address alias だけに依存せず、
+        // len や byte offset のような通常の i32 proof も field projection へ写す。
+        raw_aliases.copy_scalar_facts_if_tracked(input, &field);
         raw_aliases.copy_alias_if_tracked(input, &field);
     }
 }

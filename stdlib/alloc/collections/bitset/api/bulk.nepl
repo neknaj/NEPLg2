@@ -32,6 +32,7 @@ pub fn bitset_fill_value %impure fn BitSet impure fn i32 BitSet \bs\byte_value:
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let bs %BitSet:
 //:         unwrap_ok new 16

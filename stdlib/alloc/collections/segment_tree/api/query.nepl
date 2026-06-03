@@ -29,6 +29,7 @@
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let st %SegmentTree:
 //:         unwrap_ok new 5

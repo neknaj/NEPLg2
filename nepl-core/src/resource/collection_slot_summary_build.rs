@@ -11,6 +11,7 @@ use super::collection_slot_summary_build_value_cache::{
     preseed_collection_slot_lifecycle_summaries_from_value_cache,
     record_resource_summary_value_cache_candidates,
 };
+use super::collection_slot_owner_carrier::type_carries_collection_slot_owner;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
     CollectionSlotLifecycleReturnPath,
@@ -180,6 +181,18 @@ fn function_collection_slot_lifecycle_summary(
     raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
     collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
 ) -> CollectionSlotLifecycleFunctionSummary {
+    let signature_carries_owner = function_signature_carries_collection_slot_owner(types, function);
+    if !signature_carries_owner {
+        return CollectionSlotLifecycleFunctionSummary {
+            function: function.name.clone(),
+            type_params: owner_summary_type_params(types, function),
+            ops: Vec::new(),
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+    }
     let mut engine = ResourceCheckEngine {
         function: function.name.as_str(),
         types,
@@ -222,7 +235,7 @@ fn function_collection_slot_lifecycle_summary(
             &block.terminator,
         );
     }
-    return_paths.retain(collection_return_path_has_lifecycle_facts);
+    return_paths.retain(collection_return_path_carries_replay_facts);
     CollectionSlotLifecycleFunctionSummary {
         function: function.name.clone(),
         type_params: owner_summary_type_params(types, function),
@@ -234,11 +247,23 @@ fn function_collection_slot_lifecycle_summary(
     }
 }
 
-fn collection_return_path_has_lifecycle_facts(path: &CollectionSlotLifecycleReturnPath) -> bool {
+fn function_signature_carries_collection_slot_owner(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+) -> bool {
+    function
+        .params
+        .iter()
+        .any(|param| type_carries_collection_slot_owner(types, param.place.ty))
+        || type_carries_collection_slot_owner(types, function.result)
+}
+
+fn collection_return_path_carries_replay_facts(path: &CollectionSlotLifecycleReturnPath) -> bool {
     !path.ops.is_empty()
         || !path.return_transfers.is_empty()
         || !path.return_slots.is_empty()
         || !path.return_ranges.is_empty()
+        || path.return_variant.is_some()
 }
 
 #[cfg(test)]

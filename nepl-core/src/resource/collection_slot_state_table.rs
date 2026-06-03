@@ -118,11 +118,11 @@ impl CollectionSlotStateTable {
         raw_aliases: &RawCellAddressAliases,
     ) -> CollectionSlotState {
         let state = self.state_with_aliases(slot, raw_aliases);
+        let range_state = self.initialized_range_state_with_aliases(types, slot, raw_aliases);
         if !matches!(state, CollectionSlotState::Uninitialized) {
             return state;
         }
-        self.initialized_range_state_with_aliases(types, slot, raw_aliases)
-            .unwrap_or(CollectionSlotState::Uninitialized)
+        range_state.unwrap_or(CollectionSlotState::Uninitialized)
     }
 
     pub(super) fn mark_initialized_range_with_aliases(

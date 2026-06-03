@@ -24,6 +24,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/diag/error" as *
 //:| #import "alloc/collections/vec" as v
 //:| #import "core/result" as *
 //:| #import "neplg2/cli/args" as *
@@ -33,7 +34,7 @@
 //:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let args %Vec str:
-//:         unwrap_ok v::new
+//:         unwrap_ok %Result Vec str StdErrorKind v::new
 //:         |> v::push "-i" |> uwok
 //:         |> v::push "main.nepl" |> uwok
 //:     match selfhost_cli_parse_args &args:

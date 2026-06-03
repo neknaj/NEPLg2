@@ -1,6 +1,9 @@
 use alloc::vec::Vec;
 
-use super::model::PlaceProjection;
+use crate::types::{TypeCtx, TypeId};
+
+use super::model::{Place, PlaceProjection};
+use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_summary_record::{
     parameter_return_extent_for_source, OwnerParameterStorageSource,
 };
@@ -12,13 +15,19 @@ use super::variant_name::normalize_variant_name;
 
 pub(super) fn record_variant_projection_returns(
     out: &mut Vec<OwnerVariantProjectionReturn>,
+    types: &TypeCtx,
+    result_ty: TypeId,
     variant: &str,
     projection_returns: &[OwnerProjectionReturnSummary],
     parameter_storage_sources: &[OwnerParameterStorageSource],
-) {
+) -> Vec<OwnerProjectionSource> {
     let variant = normalize_variant_name(variant);
+    let mut ambiguous_parameter_sources = Vec::new();
     for projection in projection_returns {
         if !projection_targets_variant(projection, &variant) {
+            continue;
+        }
+        if !projection_can_carry_owner(types, result_ty, projection) {
             continue;
         }
         for parameter_index in &projection.parameter_indices {
@@ -42,6 +51,7 @@ pub(super) fn record_variant_projection_returns(
                         source,
                     },
                 },
+                &mut ambiguous_parameter_sources,
             );
         }
         for source in &projection.parameter_sources {
@@ -61,6 +71,7 @@ pub(super) fn record_variant_projection_returns(
                         source: source.clone(),
                     },
                 },
+                &mut ambiguous_parameter_sources,
             );
         }
         if projection.returns_fresh_owner {
@@ -74,6 +85,7 @@ pub(super) fn record_variant_projection_returns(
                         extent: projection.returns_fresh_owner_extent.clone(),
                     },
                 },
+                &mut ambiguous_parameter_sources,
             );
         }
         if projection.returns_maybe_owner {
@@ -85,9 +97,22 @@ pub(super) fn record_variant_projection_returns(
                     ty: projection.ty,
                     owner: OwnerProjectionReturnOwner::Maybe,
                 },
+                &mut ambiguous_parameter_sources,
             );
         }
     }
+    ambiguous_parameter_sources
+}
+
+fn projection_can_carry_owner(
+    types: &TypeCtx,
+    result_ty: TypeId,
+    projection: &OwnerProjectionReturnSummary,
+) -> bool {
+    let result = Place::unknown(result_ty);
+    owner_leaf_places(types, &result)
+        .iter()
+        .any(|leaf| leaf.suffix == projection.suffix && leaf.place.ty == projection.ty)
 }
 
 fn projection_targets_variant(projection: &OwnerProjectionReturnSummary, variant: &str) -> bool {
@@ -115,6 +140,7 @@ fn root_parameter_source(
 fn push_unique_variant_projection_return(
     out: &mut Vec<OwnerVariantProjectionReturn>,
     entry: OwnerVariantProjectionReturn,
+    ambiguous_parameter_sources: &mut Vec<OwnerProjectionSource>,
 ) {
     let Some(existing) = out.iter_mut().find(|existing| {
         existing.variant == entry.variant
@@ -128,6 +154,8 @@ fn push_unique_variant_projection_return(
         return;
     }
     let entry_owner_extent = projection_return_owner_extent(&entry.owner);
+    let existing_parameter_source = projection_return_owner_parameter_source(&existing.owner);
+    let entry_parameter_source = projection_return_owner_parameter_source(&entry.owner);
     match (&mut existing.owner, entry.owner) {
         (
             OwnerProjectionReturnOwner::Parameter {
@@ -162,11 +190,24 @@ fn push_unique_variant_projection_return(
             *extent =
                 super::owner_extent::merge_owner_extent_summaries(extent.clone(), next_extent);
         }
-        (OwnerProjectionReturnOwner::Maybe, _) => {}
+        (OwnerProjectionReturnOwner::Maybe, _) => {
+            if let Some(source) = entry_parameter_source {
+                push_unique_owner_projection_source(ambiguous_parameter_sources, &source);
+            }
+        }
         (_, OwnerProjectionReturnOwner::Maybe) => {
+            if let Some(source) = existing_parameter_source {
+                push_unique_owner_projection_source(ambiguous_parameter_sources, &source);
+            }
             existing.owner = OwnerProjectionReturnOwner::Maybe;
         }
         _ => {
+            if let Some(source) = existing_parameter_source {
+                push_unique_owner_projection_source(ambiguous_parameter_sources, &source);
+            }
+            if let Some(source) = entry_parameter_source {
+                push_unique_owner_projection_source(ambiguous_parameter_sources, &source);
+            }
             existing.owner = OwnerProjectionReturnOwner::UnknownSource {
                 extent: super::owner_extent::merge_owner_extent_summaries(
                     projection_return_owner_extent(&existing.owner),
@@ -174,6 +215,26 @@ fn push_unique_variant_projection_return(
                 ),
             };
         }
+    }
+}
+
+fn push_unique_owner_projection_source(
+    out: &mut Vec<OwnerProjectionSource>,
+    source: &OwnerProjectionSource,
+) {
+    if !out.iter().any(|existing| existing == source) {
+        out.push(source.clone());
+    }
+}
+
+fn projection_return_owner_parameter_source(
+    owner: &OwnerProjectionReturnOwner,
+) -> Option<OwnerProjectionSource> {
+    match owner {
+        OwnerProjectionReturnOwner::Parameter { source, .. } => Some(source.clone()),
+        OwnerProjectionReturnOwner::Fresh { .. }
+        | OwnerProjectionReturnOwner::UnknownSource { .. }
+        | OwnerProjectionReturnOwner::Maybe => None,
     }
 }
 

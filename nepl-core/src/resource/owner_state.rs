@@ -202,8 +202,9 @@ impl OwnerTable {
         let mut out = OwnerTable::default();
         out.next_storage = self.next_storage;
         for entry in &self.owners {
-            let place = if place_has_raw_owner_projection(&entry.place) {
-                raw_aliases.canonicalize_owner_cell_address(&entry.place)
+            let aliases = raw_aliases.aliases_for(&entry.place);
+            let place = if place_has_raw_owner_projection(&entry.place) || aliases.len() > 1 {
+                self.canonical_owner_alias_for_entry(raw_aliases, entry, aliases)
             } else {
                 entry.place.clone()
             };
@@ -216,6 +217,21 @@ impl OwnerTable {
             out.set_state(&place, state);
         }
         out
+    }
+
+    fn canonical_owner_alias_for_entry(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        entry: &OwnerStateEntry,
+        aliases: Vec<Place>,
+    ) -> Place {
+        if let Some(alias) = best_available_owner_alias(self, &aliases) {
+            return alias;
+        }
+        if owner_state_is_transferable_or_reserved(&entry.state) {
+            return entry.place.clone();
+        }
+        raw_aliases.canonicalize_owner_cell_address(&entry.place)
     }
 
     fn state_for_variant_merge(&self, place: &Place) -> Option<OwnerState> {
@@ -272,6 +288,41 @@ fn place_has_raw_owner_projection(place: &Place) -> bool {
             PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
         )
     })
+}
+
+fn best_available_owner_alias(owners: &OwnerTable, aliases: &[Place]) -> Option<Place> {
+    let mut best: Option<(u8, usize, Place)> = None;
+    for (index, alias) in aliases.iter().enumerate() {
+        let Some(rank) = owners
+            .state(alias)
+            .as_ref()
+            .and_then(owner_state_alias_availability_rank)
+        else {
+            continue;
+        };
+        if best
+            .as_ref()
+            .is_none_or(|(best_rank, best_index, _)| (rank, index) < (*best_rank, *best_index))
+        {
+            best = Some((rank, index, alias.clone()));
+        }
+    }
+    best.map(|(_, _, alias)| alias)
+}
+
+fn owner_state_alias_availability_rank(state: &OwnerState) -> Option<u8> {
+    match state {
+        OwnerState::Live { .. } | OwnerState::MaybeFreed { .. } => Some(0),
+        OwnerState::Reserved { .. } => Some(1),
+        OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => None,
+    }
+}
+
+fn owner_state_is_transferable_or_reserved(state: &OwnerState) -> bool {
+    matches!(
+        state,
+        OwnerState::Live { .. } | OwnerState::MaybeFreed { .. } | OwnerState::Reserved { .. }
+    )
 }
 
 fn merge_owner_states(left: OwnerState, right: OwnerState, next_storage: &mut usize) -> OwnerState {

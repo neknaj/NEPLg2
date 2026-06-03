@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
@@ -236,6 +237,16 @@ fn collect_return_paths_from_value_producer(
                 if target_suffix.is_empty() {
                     if let AggregateKind::Enum { variant, .. } = kind {
                         let variant = normalize_variant_name(variant);
+                        if construct_paths.is_empty() {
+                            collect_construct_variant_reachability_return_paths(
+                                &mut construct_paths,
+                                engine,
+                                params,
+                                start.clone(),
+                                prior_ops,
+                                &variant,
+                            );
+                        }
                         for path in &mut construct_paths {
                             path.return_variant = Some(variant.clone());
                         }
@@ -464,6 +475,30 @@ fn collect_return_paths_from_value_producer(
         }
     }
     false
+}
+
+fn collect_construct_variant_reachability_return_paths(
+    out: &mut Vec<CollectionSlotLifecycleReturnPath>,
+    engine: &ResourceCheckEngine<'_>,
+    params: &[ResourceLocal],
+    start: ReturnPathBuildState,
+    prior_ops: &[ResourceOp],
+    variant: &str,
+) {
+    for path in return_path_states_after_ops(engine, params, start, prior_ops) {
+        push_return_path(
+            out,
+            CollectionSlotLifecycleReturnPath {
+                return_variant: Some(String::from(variant)),
+                preconditions: path.preconditions,
+                ops: path.ops,
+                return_transfers: Vec::new(),
+                return_slots: Vec::new(),
+                return_ranges: Vec::new(),
+                i32_scalar_facts: Default::default(),
+            },
+        );
+    }
 }
 
 fn collect_construct_output_return_ranges(

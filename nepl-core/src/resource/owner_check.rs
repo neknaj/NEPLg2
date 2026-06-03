@@ -9,15 +9,16 @@ use super::function_alias::{construct_function_alias_fields, FunctionAliasTable}
 use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    BorrowKind, EffectOp, OwnerStateEntry, Place, ResourceBlock, ResourceFunction, ResourceLocal,
-    ResourceOp, ResourceTerminator,
+    BorrowKind, EffectOp, OwnerState, OwnerStateEntry, Place, RawAddressAliasKind, ResourceBlock,
+    ResourceFunction, ResourceLocal, ResourceOp, ResourceTerminator,
 };
 use super::owner_check_utils::{direct_raw_memory_effect, raw_owner_alias_moves_into_wrapper};
 use super::owner_extent::PendingOwnerExtentRequirement;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_summary_i32_leaf::raw_i32_owner_leaf_places;
 use super::owner_summary_leaf::owner_leaf_places;
-use super::owner_summary_parameters::seed_owner_check_parameter_raw_address_aliases;
+use super::owner_summary_parameters::seed_owner_check_parameters;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{
     call_uses_checked_mem_ptr_wrapper, reference_target_place,
@@ -48,7 +49,14 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut storage_origins = StorageOriginTable::default();
         let mut pending_reallocs = PendingRawReallocs::default();
         let mut variant_owner_effects = PendingVariantOwnerEffects::default();
-        seed_owner_check_parameter_raw_address_aliases(self.types, function, &mut raw_aliases);
+        seed_owner_check_parameters(
+            self.types,
+            function,
+            self.summaries,
+            &mut owners,
+            &mut raw_aliases,
+            &mut storage_origins,
+        );
         for block in &function.blocks {
             self.check_block(
                 &mut owners,
@@ -61,7 +69,13 @@ impl ResourceOwnerCheckEngine<'_> {
                 block,
             );
         }
-        self.push_live_owner_diagnostics(&owners, function.span);
+        self.push_live_owner_diagnostics(
+            &owners,
+            &raw_aliases,
+            &raw_views,
+            &storage_origins,
+            function.span,
+        );
         owners.into_entries()
     }
 
@@ -108,15 +122,28 @@ impl ResourceOwnerCheckEngine<'_> {
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
-                    variant_owner_effects.materialize_result_owner_effects(
-                        self,
-                        owners,
-                        raw_aliases,
-                        raw_views,
-                        storage_origins,
-                        value,
-                        *span,
-                    );
+                    if variant_owner_effects.has_result_effects(value) {
+                        variant_owner_effects.move_result_effect_sources_out(
+                            self,
+                            owners,
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            value,
+                            ResourceOwnerOperation::ReturnValue,
+                            *span,
+                        );
+                    } else {
+                        variant_owner_effects.materialize_result_owner_effects(
+                            self,
+                            owners,
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            value,
+                            *span,
+                        );
+                    }
                     if !variant_owner_effects.reject_reserved_source_use(
                         self,
                         owners,
@@ -602,7 +629,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 source,
                 target,
                 span,
-                ..
+                kind,
             } => {
                 let moves_into_owner_wrapper = raw_owner_alias_moves_into_wrapper(source, target);
                 let transfer_source = moves_into_owner_wrapper
@@ -619,27 +646,47 @@ impl ResourceOwnerCheckEngine<'_> {
                 let source_transfers_owner = transfer_source.is_some();
                 let target_already_owns = moves_into_owner_wrapper
                     && self.has_transferable_owner(owners, raw_aliases, target);
-                if let Some(transfer_source) = transfer_source.as_ref() {
-                    self.transfer_owner(
-                        owners,
-                        raw_aliases,
-                        raw_views,
-                        storage_origins,
-                        transfer_source,
-                        target,
-                        ResourceOwnerOperation::Move,
+                if matches!(kind, RawAddressAliasKind::OwnerTokenConstruct)
+                    && moves_into_owner_wrapper
+                    && !source_transfers_owner
+                    && !target_already_owns
+                {
+                    self.push_unavailable(
+                        ResourceOwnerOperation::ConstructInput,
+                        source,
+                        owners.state(source).unwrap_or(OwnerState::NoFreeObligation),
                         *span,
                     );
-                }
-                if source_transfers_owner || target_already_owns {
-                    raw_aliases.copy_explicit_raw_address_alias_preserving_target(source, target);
+                    owners.set_state(target, OwnerState::NoFreeObligation);
+                    raw_aliases.clear(target);
+                    storage_origins.clear(target);
+                    raw_views.clear(target);
+                    pending_reallocs.clear_result(target);
+                    variant_owner_effects.clear_result(target);
                 } else {
-                    raw_aliases.copy_explicit_raw_address_alias(source, target);
+                    if let Some(transfer_source) = transfer_source.as_ref() {
+                        self.transfer_owner(
+                            owners,
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            transfer_source,
+                            target,
+                            ResourceOwnerOperation::Move,
+                            *span,
+                        );
+                    }
+                    if source_transfers_owner || target_already_owns {
+                        raw_aliases
+                            .copy_explicit_raw_address_alias_preserving_target(source, target);
+                    } else {
+                        raw_aliases.copy_explicit_raw_address_alias(source, target);
+                    }
+                    storage_origins.copy_origin(source, target);
+                    raw_views.copy(source, target);
+                    pending_reallocs.copy_result(source, target);
+                    variant_owner_effects.copy_result(source, target);
                 }
-                storage_origins.copy_origin(source, target);
-                raw_views.copy(source, target);
-                pending_reallocs.copy_result(source, target);
-                variant_owner_effects.copy_result(source, target);
             }
             ResourceOp::RawAddressView {
                 source,
@@ -671,9 +718,13 @@ impl ResourceOwnerCheckEngine<'_> {
                 let target = reference_target_place(output, source.ty);
                 match kind {
                     BorrowKind::Shared => {
-                        raw_aliases.clear(&target);
-                        storage_origins.clear(&target);
-                        raw_views.copy_non_owning(source, &target);
+                        self.copy_shared_borrow_raw_address_provenance(
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            source,
+                            &target,
+                        );
                     }
                     BorrowKind::Unique => {
                         raw_aliases.copy_alias_if_tracked(source, &target);
@@ -744,5 +795,47 @@ impl ResourceOwnerCheckEngine<'_> {
         }
         raw_aliases.copy_alias_if_tracked(source, target);
         storage_origins.copy_origin(source, target);
+    }
+
+    fn copy_shared_borrow_raw_address_provenance(
+        &self,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        source: &Place,
+        target: &Place,
+    ) {
+        if !type_can_seed_raw_address_alias(self.types, source.ty)
+            && !type_can_seed_raw_address_alias(self.types, target.ty)
+        {
+            raw_aliases.clear(target);
+            storage_origins.clear(target);
+            raw_views.copy_non_owning(source, target);
+            return;
+        }
+
+        let source_leaves = raw_i32_owner_leaf_places(self.types, source);
+        if source_leaves.is_empty() {
+            raw_aliases.clear(target);
+            storage_origins.clear(target);
+            raw_views.copy_non_owning(source, target);
+            return;
+        }
+
+        let target_leaves = raw_i32_owner_leaf_places(self.types, target);
+        raw_aliases.clear(target);
+        storage_origins.clear(target);
+        raw_views.clear(target);
+        for source_leaf in source_leaves {
+            let Some(target_leaf) = target_leaves
+                .iter()
+                .find(|target_leaf| target_leaf.suffix == source_leaf.suffix)
+            else {
+                continue;
+            };
+            raw_aliases.copy_explicit_raw_address_alias(&source_leaf.place, &target_leaf.place);
+            storage_origins.copy_origin(&source_leaf.place, &target_leaf.place);
+            raw_views.mark_non_owning_projection(&target_leaf.place);
+        }
     }
 }

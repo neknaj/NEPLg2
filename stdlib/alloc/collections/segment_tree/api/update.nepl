@@ -39,6 +39,7 @@ pub fn seg_update_err %fn SegmentTree fn Diag Result SegmentTree SegmentTreeUpda
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let st0 %SegmentTree unwrap_ok new 4;
 //:     let st1 %SegmentTree unwrap_ok replace st0 1 5;
@@ -84,6 +85,7 @@ pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result Segment
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let st %SegmentTree:
 //:         unwrap_ok new 4

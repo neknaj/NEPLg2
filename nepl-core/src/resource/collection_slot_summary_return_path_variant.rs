@@ -129,6 +129,9 @@ fn summary_i32_operand_matches_callsite_variants(
         CollectionSlotLifecycleSummaryI32Operand::Place(place) => {
             summary_place_matches_callsite_variants(engine, args, variants, place)
         }
+        CollectionSlotLifecycleSummaryI32Operand::Offset { base, .. } => {
+            summary_place_matches_callsite_variants(engine, args, variants, base)
+        }
         CollectionSlotLifecycleSummaryI32Operand::KnownI32 { .. } => true,
     }
 }

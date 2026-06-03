@@ -4,15 +4,16 @@ use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary_condition::RawCellValueCondition;
-use super::initialized_summary_variant_model::RawCellInitializationVariantCondition;
+use super::initialized_summary_variant_model::{
+    RawCellInitializationVariantCondition, RawCellInitializationVariantValueCondition,
+};
 use super::model::{Place, ResourceConditionFact, ResourceLocal};
 use super::place_utils::place_suffix_after_prefix;
 use super::summary_projection::summary_suffix_for_params;
 use super::variant_name::normalize_variant_name;
 
-pub(super) fn collect_variant_param_condition(
-    out: &mut Vec<RawCellInitializationVariantCondition>,
-    variant: &str,
+pub(super) fn collect_variant_param_value_conditions(
+    out: &mut Vec<RawCellInitializationVariantValueCondition>,
     condition_fact: Option<&ResourceConditionFact>,
     truthy_path: bool,
     raw_aliases: &RawCellAddressAliases,
@@ -21,9 +22,9 @@ pub(super) fn collect_variant_param_condition(
     let Some((place, condition)) = variant_value_condition(condition_fact, truthy_path) else {
         return;
     };
-    for condition_alias in raw_aliases.aliases_for(place) {
+    for condition_alias in raw_aliases.scalar_aliases_for_value(place) {
         for (param_index, param) in params.iter().enumerate() {
-            for param_alias in raw_aliases.aliases_for(&param.place) {
+            for param_alias in raw_aliases.scalar_aliases_for_value(&param.place) {
                 let Some(suffix) = place_suffix_after_prefix(&condition_alias, &param_alias) else {
                     continue;
                 };
@@ -32,8 +33,7 @@ pub(super) fn collect_variant_param_condition(
                 };
                 push_unique_variant_condition(
                     out,
-                    RawCellInitializationVariantCondition {
-                        variant: normalize_variant_name(variant),
+                    RawCellInitializationVariantValueCondition {
                         param_index,
                         suffix,
                         ty: condition_alias.ty,
@@ -42,6 +42,20 @@ pub(super) fn collect_variant_param_condition(
                 );
             }
         }
+    }
+}
+
+pub(super) fn push_unique_variant_path_condition(
+    conditions: &mut Vec<RawCellInitializationVariantCondition>,
+    variant: &str,
+    path_conditions: Vec<RawCellInitializationVariantValueCondition>,
+) {
+    let condition = RawCellInitializationVariantCondition {
+        variant: normalize_variant_name(variant),
+        conditions: path_conditions,
+    };
+    if !conditions.iter().any(|existing| existing == &condition) {
+        conditions.push(condition);
     }
 }
 
@@ -81,8 +95,8 @@ fn variant_value_condition(
 }
 
 fn push_unique_variant_condition(
-    conditions: &mut Vec<RawCellInitializationVariantCondition>,
-    condition: RawCellInitializationVariantCondition,
+    conditions: &mut Vec<RawCellInitializationVariantValueCondition>,
+    condition: RawCellInitializationVariantValueCondition,
 ) {
     if !conditions.iter().any(|existing| existing == &condition) {
         conditions.push(condition);

@@ -911,7 +911,9 @@ pub(super) fn lower_expr_skeleton(
             if matches!(&source.root, super::model::PlaceRoot::Unknown) {
                 source = lower_expr_skeleton(inner, ops, ctx, env);
             }
-            let source = source.with_projection(super::model::PlaceProjection::Deref, expr.ty);
+            let projection_ty = deref_projection_type(env.types, inner.ty, expr.ty);
+            let source =
+                source.with_projection(super::model::PlaceProjection::Deref, projection_ty);
             let output = ctx.temporary(expr.ty);
             ops.push(ResourceOp::Read {
                 source,
@@ -1170,6 +1172,14 @@ fn borrow_kind_for_reference_type(types: &TypeCtx, ty: TypeId) -> BorrowKind {
         TypeKind::Reference(_, true) => BorrowKind::Unique,
         TypeKind::Reference(_, false) => BorrowKind::Shared,
         _ => BorrowKind::Shared,
+    }
+}
+
+fn deref_projection_type(types: &TypeCtx, reference_ty: TypeId, fallback_ty: TypeId) -> TypeId {
+    let resolved = types.resolve_named_type_id(types.resolve_id(reference_ty));
+    match types.get_ref(resolved) {
+        TypeKind::Reference(target, _) => *target,
+        _ => fallback_ty,
     }
 }
 

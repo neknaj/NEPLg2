@@ -101,15 +101,17 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut pending_realloc_paths = Vec::new();
         let mut variant_owner_effect_paths = Vec::new();
         if !self.place_is_never(then_value) {
-            then_variant_owner_effects.materialize_result_owner_effects(
-                self,
-                &mut then_owners,
-                &mut then_raw_aliases,
-                &mut then_raw_views,
-                &mut then_storage_origins,
-                then_value,
-                span,
-            );
+            if !then_variant_owner_effects.has_result_effects(then_value) {
+                then_variant_owner_effects.materialize_result_owner_effects(
+                    self,
+                    &mut then_owners,
+                    &mut then_raw_aliases,
+                    &mut then_raw_views,
+                    &mut then_storage_origins,
+                    then_value,
+                    span,
+                );
+            }
             if !then_variant_owner_effects.reject_reserved_source_use(
                 self,
                 &then_owners,
@@ -132,6 +134,19 @@ impl ResourceOwnerCheckEngine<'_> {
                 then_raw_views.copy_non_owning(then_value, output);
                 then_pending_reallocs.copy_result(then_value, output);
                 then_variant_owner_effects.copy_result(then_value, output);
+                if then_variant_owner_effects
+                    .result_effects_have_temporary_sources(&then_raw_aliases, output)
+                {
+                    then_variant_owner_effects.materialize_result_owner_effects(
+                        self,
+                        &mut then_owners,
+                        &mut then_raw_aliases,
+                        &mut then_raw_views,
+                        &mut then_storage_origins,
+                        output,
+                        span,
+                    );
+                }
             }
             owner_paths.push(then_owners);
             function_alias_paths.push(then_function_aliases);
@@ -142,15 +157,17 @@ impl ResourceOwnerCheckEngine<'_> {
             variant_owner_effect_paths.push(then_variant_owner_effects);
         }
         if !self.place_is_never(else_value) {
-            else_variant_owner_effects.materialize_result_owner_effects(
-                self,
-                &mut else_owners,
-                &mut else_raw_aliases,
-                &mut else_raw_views,
-                &mut else_storage_origins,
-                else_value,
-                span,
-            );
+            if !else_variant_owner_effects.has_result_effects(else_value) {
+                else_variant_owner_effects.materialize_result_owner_effects(
+                    self,
+                    &mut else_owners,
+                    &mut else_raw_aliases,
+                    &mut else_raw_views,
+                    &mut else_storage_origins,
+                    else_value,
+                    span,
+                );
+            }
             if !else_variant_owner_effects.reject_reserved_source_use(
                 self,
                 &else_owners,
@@ -173,6 +190,19 @@ impl ResourceOwnerCheckEngine<'_> {
                 else_raw_views.copy_non_owning(else_value, output);
                 else_pending_reallocs.copy_result(else_value, output);
                 else_variant_owner_effects.copy_result(else_value, output);
+                if else_variant_owner_effects
+                    .result_effects_have_temporary_sources(&else_raw_aliases, output)
+                {
+                    else_variant_owner_effects.materialize_result_owner_effects(
+                        self,
+                        &mut else_owners,
+                        &mut else_raw_aliases,
+                        &mut else_raw_views,
+                        &mut else_storage_origins,
+                        output,
+                        span,
+                    );
+                }
             }
             owner_paths.push(else_owners);
             function_alias_paths.push(else_function_aliases);
@@ -416,15 +446,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 &arm.ops,
             );
             if !self.place_is_never(&arm.value) {
-                arm_variant_owner_effects.materialize_result_owner_effects(
-                    self,
-                    &mut arm_owners,
-                    &mut arm_raw_aliases,
-                    &mut arm_raw_views,
-                    &mut arm_storage_origins,
-                    &arm.value,
-                    span,
-                );
+                if !arm_variant_owner_effects.has_result_effects(&arm.value) {
+                    arm_variant_owner_effects.materialize_result_owner_effects(
+                        self,
+                        &mut arm_owners,
+                        &mut arm_raw_aliases,
+                        &mut arm_raw_views,
+                        &mut arm_storage_origins,
+                        &arm.value,
+                        span,
+                    );
+                }
                 if !arm_variant_owner_effects.reject_reserved_source_use(
                     self,
                     &arm_owners,
@@ -447,6 +479,19 @@ impl ResourceOwnerCheckEngine<'_> {
                     arm_raw_views.copy_non_owning(&arm.value, output);
                     arm_pending_reallocs.copy_result(&arm.value, output);
                     arm_variant_owner_effects.copy_result(&arm.value, output);
+                    if arm_variant_owner_effects
+                        .result_effects_have_temporary_sources(&arm_raw_aliases, output)
+                    {
+                        arm_variant_owner_effects.materialize_result_owner_effects(
+                            self,
+                            &mut arm_owners,
+                            &mut arm_raw_aliases,
+                            &mut arm_raw_views,
+                            &mut arm_storage_origins,
+                            output,
+                            span,
+                        );
+                    }
                 }
                 arm_paths.push(arm_owners);
                 function_alias_paths.push(arm_function_aliases);
@@ -494,7 +539,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             raw_aliases,
                             raw_views,
                             storage_origins,
-                            &pending.source,
+                            &pending.storage_source,
                             &pending.result,
                             ResourceOwnerOperation::ReallocInput,
                             span,

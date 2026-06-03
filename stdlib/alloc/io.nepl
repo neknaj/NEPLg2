@@ -13,8 +13,12 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "std/test" as *
+//:| #import "alloc/diag/error" as *
 //:| #import "alloc/io" as *
+//:| #import "core/field" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
 //: struct CountSink:
 //:     total %i32
 //:

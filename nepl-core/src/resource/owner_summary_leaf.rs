@@ -103,6 +103,10 @@ pub(super) fn owner_leaf_projections_mapped(
     out
 }
 
+pub(super) fn type_has_owner_leaf_projection(types: &TypeCtx, ty: TypeId) -> bool {
+    !owner_leaf_projections_mapped(types, ty, &BTreeMap::new(), &mut BTreeSet::new()).is_empty()
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum AggregateProjectionKind {
     Struct,

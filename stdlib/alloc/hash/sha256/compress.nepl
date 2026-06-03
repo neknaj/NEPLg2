@@ -53,28 +53,28 @@ pub fn sha256_compress_block %impure fn &Vec i32 impure fn i32 impure fn i32 imp
         Result::Err e:
             Result::Err e
         Result::Ok w:
-            let h0 %i32 field::get state "h0"
-            let h1 %i32 field::get state "h1"
-            let h2 %i32 field::get state "h2"
-            let h3 %i32 field::get state "h3"
-            let h4 %i32 field::get state "h4"
-            let h5 %i32 field::get state "h5"
-            let h6 %i32 field::get state "h6"
-            let h7 %i32 field::get state "h7"
+            let h0 %i32 *field::get_ref &state "h0"
+            let h1 %i32 *field::get_ref &state "h1"
+            let h2 %i32 *field::get_ref &state "h2"
+            let h3 %i32 *field::get_ref &state "h3"
+            let h4 %i32 *field::get_ref &state "h4"
+            let h5 %i32 *field::get_ref &state "h5"
+            let h6 %i32 *field::get_ref &state "h6"
+            let h7 %i32 *field::get_ref &state "h7"
             match sha256_rounds_loop &w 0 h0 h1 h2 h3 h4 h5 h6 h7:
                 Result::Err e:
                     free w
                     Result::Err e
                 Result::Ok rounds:
                     free w
-                    let r0 %i32 field::get rounds "h0"
-                    let r1 %i32 field::get rounds "h1"
-                    let r2 %i32 field::get rounds "h2"
-                    let r3 %i32 field::get rounds "h3"
-                    let r4 %i32 field::get rounds "h4"
-                    let r5 %i32 field::get rounds "h5"
-                    let r6 %i32 field::get rounds "h6"
-                    let r7 %i32 field::get rounds "h7"
+                    let r0 %i32 *field::get_ref &rounds "h0"
+                    let r1 %i32 *field::get_ref &rounds "h1"
+                    let r2 %i32 *field::get_ref &rounds "h2"
+                    let r3 %i32 *field::get_ref &rounds "h3"
+                    let r4 %i32 *field::get_ref &rounds "h4"
+                    let r5 %i32 *field::get_ref &rounds "h5"
+                    let r6 %i32 *field::get_ref &rounds "h6"
+                    let r7 %i32 *field::get_ref &rounds "h7"
                     Result::Ok Sha256State add h0 r0 add h1 r1 add h2 r2 add h3 r3 add h4 r4 add h5 r5 add h6 r6 add h7 r7
 
 //: sha256_process_blocks: padding [後/ご]の block [列/れつ]を[順/じゅん]に compression する

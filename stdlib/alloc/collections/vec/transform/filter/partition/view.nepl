@@ -156,6 +156,7 @@ pub fn vec_partition_rest_get <.T: Copy> %fn &VecPartition .T fn i32 Option .T \
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/collections/vec" as *
 //:| #import "alloc/collections/vec/storage/view" as *
 //:| #import "alloc/collections/vec/mutation/cleanup" as *
 //:| #import "alloc/collections/vec/access/header" as *

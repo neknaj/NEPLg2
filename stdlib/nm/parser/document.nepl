@@ -79,6 +79,7 @@ impl Copy for Document:
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let d %Document parse_markdown "# T\n\nx\n";
 //:     let j %str document_to_json d;

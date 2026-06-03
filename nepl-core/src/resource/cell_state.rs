@@ -34,6 +34,12 @@ impl CellTable {
         &self.cells
     }
 
+    pub(super) fn has_maybe_moved_non_copy_entries(&self, types: &TypeCtx) -> bool {
+        self.cells.iter().any(|entry| {
+            matches!(entry.state, CellState::MaybeMoved) && !types.is_copy(entry.place.ty)
+        })
+    }
+
     pub(super) fn availability_state(&self, place: &Place) -> CellState {
         self.availability_state_by(place, None, &|left, right| left == right)
     }

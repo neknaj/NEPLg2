@@ -9,7 +9,7 @@ use super::owner_variant::{
     PendingVariantOwnerReturn, PendingVariantOwnerReturnSource,
     PendingVariantPayloadValueCondition,
 };
-use super::owner_variant_source_list::{push_unique_source, source_list_contains};
+use super::owner_variant_source_list::{push_unique_source, source_list_overlaps};
 use super::owner_variant_value_condition::PendingVariantValueCondition;
 
 impl PendingVariantOwnerEffects {
@@ -133,7 +133,7 @@ impl PendingVariantOwnerEffects {
         self.consumptions.retain(|entry| {
             let ty = summary_projection_place(&entry.arg, &entry.suffix, entry.ty).ty;
             entry.result != *result
-                && !source_list_contains(&resolved_sources, &entry.arg, &entry.suffix, ty)
+                && !source_list_overlaps(&resolved_sources, &entry.arg, &entry.suffix, ty)
         });
         self.returns.retain(|entry| {
             if entry.result == *result {
@@ -149,7 +149,7 @@ impl PendingVariantOwnerEffects {
                 return true;
             };
             let ty = summary_projection_place(arg, source_suffix, *source_ty).ty;
-            !source_list_contains(&resolved_sources, arg, source_suffix, ty)
+            !source_list_overlaps(&resolved_sources, arg, source_suffix, ty)
         });
         self.unreachable_variants
             .retain(|entry| entry.result != *result);

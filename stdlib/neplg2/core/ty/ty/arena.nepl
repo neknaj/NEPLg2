@@ -79,7 +79,7 @@ pub fn selfhost_type_arena_push_record %impure fn SelfhostTypeArena impure fn Se
             Result::Ok selfhost_type_arena_alloc_new (SelfhostTypeArena next_records function_args) type_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free field::get e "vec"
+            v::free v::vec_push_error_vec e
             v::free function_args
             Result::Err error
 
@@ -101,7 +101,7 @@ pub fn selfhost_type_arena_copy_function_args %impure fn Vec SelfhostTypeId impu
                             selfhost_type_arena_copy_function_args next_out params n add idx 1
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
-                            v::free field::get e "vec"
+                            v::free v::vec_push_error_vec e
                             Result::Err error
                 Option::None:
                     v::free out

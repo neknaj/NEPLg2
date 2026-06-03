@@ -93,6 +93,7 @@ pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuil
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/diag/error" as *
 //:| #import "neplg2/cli/args" as *
 //:| #import "neplg2/core/options" as *
 //:| #import "alloc/collections/vec" as v
@@ -102,7 +103,7 @@ pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuil
 //:| #import "std/test" as *
 //: fn main %impure fn void i32 \void:
 //:     let args %Vec str:
-//:         unwrap_ok v::new
+//:         unwrap_ok %Result Vec str StdErrorKind v::new
 //:         |> v::push "--target" |> uwok
 //:         |> v::push "std" |> uwok
 //:         |> v::push "--profile" |> uwok

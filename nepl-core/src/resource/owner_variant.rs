@@ -7,7 +7,7 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, ResourceMatchPattern};
+use super::model::{Place, PlaceRoot, ResourceMatchPattern};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::summarize_owner_storage_extent_for_owner;
@@ -19,7 +19,7 @@ use super::owner_variant_apply::{
     apply_pending_variant_owner_return, consume_pending_variant_owner, pending_consumption_source,
     pending_return_source, push_or_merge_variant_extent_requirement, reserved_owner_state,
 };
-use super::owner_variant_source_list::{push_unique_source, source_list_contains};
+use super::owner_variant_source_list::{push_unique_source, source_list_overlaps};
 use super::owner_variant_utils::{
     owner_projection_sources_for_place, payload_bind_suffix, push_unique_owner_variant_condition,
     push_unique_variant_consumed_source, push_unique_variant_projection_return,
@@ -189,7 +189,7 @@ impl PendingVariantOwnerEffects {
             }
             let arg = raw_aliases.canonicalize(&entry.arg);
             let place = summary_projection_place(&arg, &entry.suffix, entry.ty);
-            if source_list_contains(&handled_sources, &place, &[], place.ty) {
+            if source_list_overlaps(&handled_sources, &place, &[], place.ty) {
                 continue;
             }
             if consume_pending_variant_owner(
@@ -297,7 +297,15 @@ impl PendingVariantOwnerEffects {
         span: Span,
     ) {
         let mut handled_sources = Vec::new();
-        for entry in self.returns.iter().filter(|entry| entry.result == *result) {
+        for entry in self.returns.iter().filter(|entry| {
+            entry.result == *result && !self.variant_is_unreachable(result, &entry.variant)
+        }) {
+            if let Some(source) = pending_return_source(entry, raw_aliases) {
+                let ty = source.ty;
+                if source_list_overlaps(&handled_sources, &source, &[], ty) {
+                    continue;
+                }
+            }
             if let Some(source) = apply_pending_variant_owner_return(
                 engine,
                 owners,
@@ -312,14 +320,12 @@ impl PendingVariantOwnerEffects {
                 push_unique_source(&mut handled_sources, source, Vec::new(), ty);
             }
         }
-        for entry in self
-            .consumptions
-            .iter()
-            .filter(|entry| entry.result == *result)
-        {
+        for entry in self.consumptions.iter().filter(|entry| {
+            entry.result == *result && !self.variant_is_unreachable(result, &entry.variant)
+        }) {
             let source = pending_consumption_source(entry, raw_aliases);
             let ty = source.ty;
-            if source_list_contains(&handled_sources, &source, &[], ty) {
+            if source_list_overlaps(&handled_sources, &source, &[], ty) {
                 continue;
             }
             if consume_pending_variant_owner(
@@ -334,6 +340,109 @@ impl PendingVariantOwnerEffects {
                 raw_views.clear(&source);
                 push_unique_source(&mut handled_sources, source, Vec::new(), ty);
             }
+        }
+        self.resolve_result(result);
+    }
+
+    pub(super) fn has_result_effects(&self, result: &Place) -> bool {
+        self.consumptions
+            .iter()
+            .any(|entry| entry.result == *result)
+            || self.returns.iter().any(|entry| entry.result == *result)
+    }
+
+    pub(super) fn result_effects_have_temporary_sources(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        result: &Place,
+    ) -> bool {
+        for entry in self
+            .consumptions
+            .iter()
+            .filter(|entry| entry.result == *result)
+        {
+            let effect_source = pending_consumption_source(entry, raw_aliases);
+            if matches!(effect_source.root, PlaceRoot::Temporary(_)) {
+                return true;
+            }
+        }
+        for entry in self.returns.iter().filter(|entry| entry.result == *result) {
+            let Some(effect_source) = pending_return_source(entry, raw_aliases) else {
+                continue;
+            };
+            if matches!(effect_source.root, PlaceRoot::Temporary(_)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub(super) fn move_result_effect_sources_out(
+        &mut self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        result: &Place,
+        operation: ResourceOwnerOperation,
+        span: Span,
+    ) {
+        let mut handled_sources = Vec::new();
+        let returns = self
+            .returns
+            .iter()
+            .filter(|entry| entry.result == *result)
+            .cloned()
+            .collect::<Vec<_>>();
+        for entry in returns {
+            let Some(source) = pending_return_source(&entry, raw_aliases) else {
+                continue;
+            };
+            let ty = source.ty;
+            if source_list_overlaps(&handled_sources, &source, &[], ty) {
+                continue;
+            }
+            if !engine.place_is_copy_owner_view(owners, raw_aliases, &source)
+                && engine.has_transferable_owner(owners, raw_aliases, &source)
+            {
+                engine.move_owner_out(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    &source,
+                    operation,
+                    span,
+                );
+                raw_views.clear(&source);
+            }
+            push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+        }
+
+        let consumptions = self
+            .consumptions
+            .iter()
+            .filter(|entry| entry.result == *result)
+            .cloned()
+            .collect::<Vec<_>>();
+        for entry in consumptions {
+            let source = pending_consumption_source(&entry, raw_aliases);
+            let ty = source.ty;
+            if source_list_overlaps(&handled_sources, &source, &[], ty) {
+                continue;
+            }
+            if consume_pending_variant_owner(
+                engine,
+                owners,
+                raw_aliases,
+                storage_origins,
+                &entry,
+                &source,
+                span,
+            ) {
+                raw_views.clear(&source);
+            }
+            push_unique_source(&mut handled_sources, source, Vec::new(), ty);
         }
         self.resolve_result(result);
     }
@@ -631,7 +740,7 @@ impl PendingVariantOwnerEffects {
         {
             let source = pending_consumption_source(entry, raw_aliases);
             let ty = source.ty;
-            if source_list_contains(&handled_sources, &source, &[], ty) {
+            if source_list_overlaps(&handled_sources, &source, &[], ty) {
                 continue;
             }
             if consume_pending_variant_owner(
@@ -702,14 +811,14 @@ impl PendingVariantOwnerEffects {
         self.consumptions.retain(|entry| {
             let source = pending_consumption_source(entry, raw_aliases);
             let ty = source.ty;
-            !source_list_contains(materialized_sources, &source, &[], ty)
+            !source_list_overlaps(materialized_sources, &source, &[], ty)
         });
         self.returns.retain(|entry| {
             let Some(source) = pending_return_source(entry, raw_aliases) else {
                 return true;
             };
             let ty = source.ty;
-            !source_list_contains(materialized_sources, &source, &[], ty)
+            !source_list_overlaps(materialized_sources, &source, &[], ty)
         });
     }
 }

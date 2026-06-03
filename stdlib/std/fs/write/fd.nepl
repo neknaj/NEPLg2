@@ -26,7 +26,7 @@
 //: fs_fd_write_from_result: WASI fd_write の iov/nwritten scratch を fd write 境界へ閉じ込める内部 helper
 //:
 //: 目的:
-//: - `fd_write` が要求する iovec と nwritten の raw layout をこの module 内で初期化し、書けた byte 数だけを返します。
+//: - `fd_write` が要求する iovec と nwritten の raw layout を、この module が借用した scratch owner token から初期化し、書けた byte 数だけを返します。
 //: - public caller には `fs_write_fd_bytes` の `ByteBuf` owner 境界だけを公開し、この raw span helper は fd write loop 内部に閉じます。
 //:
 //: 実装(アルゴリズム):
@@ -34,11 +34,11 @@
 //: - `fd_write` 成功後、同じ raw address から `nwritten` を load します。
 //:
 //: 注意(重要):
-//: - `iov` は 8 byte、`nwritten` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
+//: - `iov_region` は 8 byte、`nwritten_region` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
 //:
 //: 計算量:
 //: - O(1)
-fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 i32 \fd\iov\nwritten\data\data_len:
+fn fs_fd_write_from_result %impure fn i32 impure fn &RegionToken u8 impure fn &RegionToken u8 impure fn MemPtr u8 impure fn i32 Result i32 i32 \fd\iov_region\nwritten_region\data\data_len:
     if:
         lt data_len 0
         then:
@@ -49,6 +49,8 @@ fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u
                 then:
                     Result::Ok 0
                 else:
+                    let iov %MemPtr u8 region_ptr iov_region
+                    let nwritten %MemPtr u8 region_ptr nwritten_region
                     let iov_raw %i32 mem_ptr_addr iov
                     let nwritten_raw %i32 mem_ptr_addr nwritten
                     let data_raw %i32 mem_ptr_addr data
@@ -57,8 +59,9 @@ fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u
                         then:
                             Result::Err fs_errno_inval
                         else:
+                            let iov_len_raw %i32 add iov_raw 4
                             store_i32 iov_raw data_raw
-                            store_i32 add iov_raw 4 data_len
+                            store_i32 iov_len_raw data_len
                             store_i32 nwritten_raw 0
                             let errno %i32 wasi_fd_write fd iov_raw 1 nwritten_raw
                             if:
@@ -95,7 +98,6 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                 Result::Err _e:
                     Result::Err 12
                 Result::Ok iov_region:
-                    let iov_buf %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
@@ -105,7 +107,6 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                                     unit
                             Result::Err 12
                         Result::Ok nwritten_region:
-                            let nwritten_buf %MemPtr u8 region_ptr &nwritten_region
                             let mut off %i32 0
                             let mut done %i32 0
                             let mut err %i32 0
@@ -116,7 +117,7 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                                         then:
                                             set done 1
                                         else:
-                                            match fs_fd_write_from_result fd iov_buf nwritten_buf mem_ptr_add data off sub data_len off:
+                                            match fs_fd_write_from_result fd &iov_region &nwritten_region mem_ptr_add data off sub data_len off:
                                                 Result::Ok n:
                                                     if:
                                                         le n 0

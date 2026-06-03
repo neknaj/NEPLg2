@@ -44,7 +44,7 @@ pub fn mem_size %fn void i32 \void:
         memory.size
     #if[target=llvm]
     #llvmir:
-        define i32 @mem_sizeunit {
+        define i32 @mem_size() {
         entry:
             %0 = load i32, ptr @__nepl_pages, align 4
             ret i32 %0

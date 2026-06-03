@@ -347,8 +347,10 @@ fn collect_variant_consumed_owner_parameters_from_path(
         parameter_storage_sources,
         parameter_condition_sources,
     );
-    record_variant_projection_returns(
+    let ambiguous_return_sources = record_variant_projection_returns(
         return_out,
+        path_engine.types,
+        path_value.ty,
         &constructed_variant.variant,
         &projection_returns,
         parameter_storage_sources,
@@ -374,6 +376,15 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
     }
     for source in sources {
+        push_unique_variant_projection_source(
+            source_out,
+            OwnerVariantProjectionSource {
+                variant: variant.clone(),
+                source,
+            },
+        );
+    }
+    for source in ambiguous_return_sources {
         push_unique_variant_projection_source(
             source_out,
             OwnerVariantProjectionSource {

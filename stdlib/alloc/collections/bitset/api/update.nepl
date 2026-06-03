@@ -81,6 +81,7 @@ pub fn insert %impure fn BitSet impure fn i32 Result BitSet BitSetUpdateError \b
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let bs %BitSet:
 //:         unwrap_ok new 16

@@ -3,9 +3,10 @@ use alloc::vec::Vec;
 
 use crate::resource_primitives::type_is_owner_token;
 use crate::span::Span;
+use crate::types::TypeId;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{AggregateKind, OwnerState, OwnerStorageExtent, Place};
+use super::model::{AggregateKind, OwnerState, OwnerStorageExtent, Place, PlaceProjection};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
@@ -421,8 +422,23 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    pub(super) fn push_live_owner_diagnostics(&mut self, owners: &OwnerTable, span: Span) {
+    pub(super) fn push_live_owner_diagnostics(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &StorageOriginTable,
+        span: Span,
+    ) {
         for entry in owners.live_entries() {
+            if self.owner_escapes_through_parameter_raw_cell(
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &entry.place,
+            ) {
+                continue;
+            }
             match entry.state {
                 OwnerState::Live { storage, .. } => {
                     self.diagnostics.push(ResourceOwnerDiagnostic::OwnerLeaked {
@@ -453,6 +469,46 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
+    fn owner_escapes_through_parameter_raw_cell(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &StorageOriginTable,
+        place: &Place,
+    ) -> bool {
+        let Some(address) = raw_cell_address_prefix(place, self.types.i32()) else {
+            return false;
+        };
+        if raw_views.contains_non_owning(&address)
+            || raw_views.contains_non_owning_projection(&address)
+        {
+            return true;
+        }
+        self.raw_address_reaches_parameter(raw_aliases, storage_origins, &address)
+    }
+
+    fn raw_address_reaches_parameter(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        storage_origins: &StorageOriginTable,
+        address: &Place,
+    ) -> bool {
+        let mut candidates = raw_aliases.raw_address_aliases_for_value(address);
+        if let Some(origin) = storage_origins.origin_source(address) {
+            candidates.push(origin);
+        }
+        candidates
+            .iter()
+            .any(|candidate| self.place_reaches_parameter(candidate))
+    }
+
+    fn place_reaches_parameter(&self, place: &Place) -> bool {
+        self.params.iter().any(|param| {
+            place_suffix_after_prefix(place, &param.place).is_some()
+                || place_suffix_after_prefix(&param.place, place).is_some()
+        })
+    }
+
     pub(super) fn push_unavailable(
         &mut self,
         operation: ResourceOwnerOperation,
@@ -469,6 +525,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             });
     }
+}
+
+fn raw_cell_address_prefix(place: &Place, raw_address_ty: TypeId) -> Option<Place> {
+    let deref_index = place
+        .projections
+        .iter()
+        .position(|projection| matches!(projection, PlaceProjection::Deref))?;
+    let mut address = place.clone();
+    address.projections.truncate(deref_index);
+    address.ty = raw_address_ty;
+    Some(address)
 }
 
 fn replacement_preserves_live_storage(

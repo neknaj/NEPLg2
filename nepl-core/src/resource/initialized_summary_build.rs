@@ -19,8 +19,10 @@ use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
 };
 use super::initialized_summary_build_relevance::{
-    raw_cell_initialization_summary_relevance_with_graph, reference_target_type,
+    raw_cell_initialization_call_boundary_summary_relevance_with_graph, reference_target_type,
 };
+#[cfg(test)]
+use super::initialized_summary_build_relevance::raw_cell_initialization_summary_relevance_with_graph;
 use super::initialized_summary_build_update::update_raw_cell_initialization_summary;
 use super::initialized_summary_build_value_cache::{
     preseed_raw_cell_initialization_summaries_from_value_cache,
@@ -71,7 +73,57 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
     .0
 }
 
+#[cfg(test)]
 pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputations(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    raw_alias_summaries: &[RawCellAddressReturnSummary],
+    i32_scalar_summaries: &[I32ScalarReturnSummary],
+    dependency_graph: &ResourceSummaryDependencyGraph,
+    summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
+) -> (Vec<RawCellInitializationFunctionSummary>, usize) {
+    compute_raw_cell_initialization_function_summaries_with_recomputations_inner(
+        module,
+        types,
+        raw_alias_summaries,
+        i32_scalar_summaries,
+        dependency_graph,
+        summary_value_cache,
+        summary_value_cache_context,
+        RawCellInitializationSummaryScope::DirectBuilder,
+    )
+}
+
+pub(super) fn compute_call_boundary_raw_cell_initialization_function_summaries_with_recomputations(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    raw_alias_summaries: &[RawCellAddressReturnSummary],
+    i32_scalar_summaries: &[I32ScalarReturnSummary],
+    dependency_graph: &ResourceSummaryDependencyGraph,
+    summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
+) -> (Vec<RawCellInitializationFunctionSummary>, usize) {
+    compute_raw_cell_initialization_function_summaries_with_recomputations_inner(
+        module,
+        types,
+        raw_alias_summaries,
+        i32_scalar_summaries,
+        dependency_graph,
+        summary_value_cache,
+        summary_value_cache_context,
+        RawCellInitializationSummaryScope::CallBoundary,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum RawCellInitializationSummaryScope {
+    #[cfg(test)]
+    DirectBuilder,
+    CallBoundary,
+}
+
+fn compute_raw_cell_initialization_function_summaries_with_recomputations_inner(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
@@ -79,14 +131,28 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
     dependency_graph: &ResourceSummaryDependencyGraph,
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
+    scope: RawCellInitializationSummaryScope,
 ) -> (Vec<RawCellInitializationFunctionSummary>, usize) {
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
-    let relevant = raw_cell_initialization_summary_relevance_with_graph(
-        module,
-        types,
-        &raw_alias_summary_index,
-        dependency_graph,
-    );
+    let relevant = match scope {
+        #[cfg(test)]
+        RawCellInitializationSummaryScope::DirectBuilder => {
+            raw_cell_initialization_summary_relevance_with_graph(
+                module,
+                types,
+                &raw_alias_summary_index,
+                dependency_graph,
+            )
+        }
+        RawCellInitializationSummaryScope::CallBoundary => {
+            raw_cell_initialization_call_boundary_summary_relevance_with_graph(
+                module,
+                types,
+                &raw_alias_summary_index,
+                dependency_graph,
+            )
+        }
+    };
     let mut worklist_relevant_functions = relevant.clone();
     let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();

@@ -131,6 +131,19 @@ fn replace_drop_old_accepts_maybe_initialized_no_drop_payload() {
 }
 
 #[test]
+fn borrow_read_accepts_maybe_initialized_matching_payload_without_strengthening() {
+    let (types, owned, _) = test_types();
+    assert_eq!(
+        apply_collection_slot_lifecycle_event(
+            &types,
+            CollectionSlotState::MaybeInitialized(Some(owned)),
+            CollectionSlotLifecycleEvent::BorrowRead { expected_ty: owned },
+        ),
+        Ok(CollectionSlotState::MaybeInitialized(Some(owned)))
+    );
+}
+
+#[test]
 fn drop_marks_slot_dropped_and_rejects_double_drop() {
     let (types, owned, _) = test_types();
     let dropped = apply_collection_slot_lifecycle_event(

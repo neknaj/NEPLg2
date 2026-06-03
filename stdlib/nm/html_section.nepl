@@ -20,6 +20,7 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/html_section" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let s0 %NmHtmlSectionState nm_section_state_new
 //:     let s1 %NmHtmlSectionState nm_section_state_open_level s0 2

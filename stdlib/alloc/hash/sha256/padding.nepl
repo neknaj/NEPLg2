@@ -64,7 +64,7 @@ pub fn sha256_length_byte %fn i32 fn i32 Result i32 StdErrorKind \msg_len\offset
             let bits %i64 mul n64 %i64 cast 8
             let shifted %i64 shr_u bits shift
             let masked %i64 and shifted %i64 cast 255
-            Result::Ok cast masked
+            Result::Ok %i32 cast masked
         Result::Err e:
             Result::Err e
 

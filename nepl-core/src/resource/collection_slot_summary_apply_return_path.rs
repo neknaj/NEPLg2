@@ -142,9 +142,9 @@ impl ResourceCheckEngine<'_> {
                 variant_initializations: variants,
             });
         }
-        // concrete variant 条件に合う return path がない場合でも、call 自体が
-        // 到達不能になるわけではない。path-sensitive な slot 情報だけを
-        // 適用しない状態として扱い、通常の call output 初期化済み状態を残す。
+        // concrete variant 条件に合う return path がない場合は、呼び出し側の
+        // 現在 path では通常復帰しない。空集合をそのまま返し、caller 側の
+        // path-sensitive replay でその feasible path を落とせるようにする。
         if path_states.is_empty() {
             return path_states;
         }

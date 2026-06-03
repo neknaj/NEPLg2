@@ -11,7 +11,7 @@ use super::initialized_alias_flow::construct_raw_cell_address_alias_fields;
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_variant::PendingVariantRawCellInitializations;
-use super::model::{CellState, ResourceOp};
+use super::model::{AggregateKind, CellState, ResourceOp};
 use super::place_utils::{
     construct_aggregate_field_place, reference_target_place,
     structural_i32_projection_preserves_raw_address,
@@ -197,7 +197,8 @@ impl ResourceCheckEngine<'_> {
                 if self.ensure_available(cells, source, ResourceCheckOperation::Borrow, *span) {
                     cells.mark_initialized(output);
                     raw_aliases.mark(output);
-                    let target = reference_target_place(output, source.ty);
+                    let target_ty = self.reference_target_type(output.ty).unwrap_or(source.ty);
+                    let target = reference_target_place(output, target_ty);
                     cells.mark_initialized(&target);
                     self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, &target);
                     seed_str_storage_layout(self.types, cells, raw_aliases, &target);
@@ -390,11 +391,18 @@ impl ResourceCheckEngine<'_> {
                             raw_aliases,
                             *span,
                         );
+                        // Constructed aggregates preserve proof metadata for each moved field.
+                        // Nested enum facts such as `VecStorage::Empty` must stay attached to the
+                        // field projection so later matches can reject unreachable storage arms.
+                        variant_initializations.copy_result(input, &field);
                     }
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
                     seed_str_storage_layout(self.types, cells, raw_aliases, output);
                     pending_reallocs.clear_result(output);
                     variant_initializations.clear_result(output);
+                    if let AggregateKind::Enum { variant, .. } = kind {
+                        variant_initializations.record_concrete_variant(output, variant);
+                    }
                 }
             }
             ResourceOp::Branch {

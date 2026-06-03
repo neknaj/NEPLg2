@@ -155,7 +155,7 @@ pub fn selfhost_hir_module_copy_params %impure fn Vec SelfhostHirParam impure fn
                             selfhost_hir_module_copy_params next_out params n add idx 1
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
-                            v::free field::get e "vec"
+                            v::free v::vec_push_error_vec e
                             Result::Err error
                 Option::None:
                     v::free out
@@ -175,7 +175,7 @@ pub fn selfhost_hir_module_copy_expr_children %impure fn Vec SelfhostHirExprId i
                             selfhost_hir_module_copy_expr_children next_out children n add idx 1
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
-                            v::free field::get e "vec"
+                            v::free v::vec_push_error_vec e
                             Result::Err error
                 Option::None:
                     v::free out
@@ -196,7 +196,7 @@ pub fn selfhost_hir_module_add_expr %impure fn SelfhostHirModule impure fn Selfh
             Result::Ok selfhost_hir_module_add_expr_alloc_new (SelfhostHirModule functions params next_exprs expr_children) expr_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free field::get e "vec"
+            v::free v::vec_push_error_vec e
             v::free functions
             v::free params
             v::free expr_children
@@ -217,7 +217,7 @@ pub fn selfhost_hir_module_add_function %impure fn SelfhostHirModule impure fn S
             Result::Ok selfhost_hir_module_add_function_alloc_new (SelfhostHirModule next_functions params exprs expr_children) function_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free field::get e "vec"
+            v::free v::vec_push_error_vec e
             v::free params
             v::free exprs
             v::free expr_children

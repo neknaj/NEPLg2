@@ -47,12 +47,12 @@ pub(super) struct ResourceSummaryFunctionIdentity {
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
 )]
 pub(super) enum ResourceSummaryValueKind {
-    CollectionSlotDropTraversalForallLeafEntryV1,
+    CollectionSlotDropTraversalForallLeafEntryV2,
     I32ScalarReturnFactsEntryV1,
     InitializedFunctionCheckEntryV1,
     OwnerObligationCheckEntryV1,
     RawAliasReturnEntryV1,
-    RawInitCompleteLeafEntryV1,
+    RawInitCompleteLeafEntryV2,
 }
 
 impl ResourceSummaryValueCacheKey {
@@ -68,7 +68,7 @@ impl ResourceSummaryValueCacheKey {
         generic_type_argument_hash: u64,
         source_capability_policy_hash: u64,
     ) -> Self {
-        let summary_kind = ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1;
+        let summary_kind = ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV2;
         let stable_hash = resource_summary_value_cache_key_hash(
             namespace_hash,
             &function_identity,
@@ -101,7 +101,7 @@ impl ResourceSummaryValueCacheKey {
         generic_type_argument_hash: u64,
         source_capability_policy_hash: u64,
     ) -> Self {
-        let summary_kind = ResourceSummaryValueKind::RawInitCompleteLeafEntryV1;
+        let summary_kind = ResourceSummaryValueKind::RawInitCompleteLeafEntryV2;
         let stable_hash = resource_summary_value_cache_key_hash(
             namespace_hash,
             &function_identity,
@@ -369,8 +369,8 @@ fn resource_summary_value_cache_key_hash(
 impl ResourceSummaryValueKind {
     fn tag(self) -> &'static str {
         match self {
-            ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1 => {
-                "collection-slot-drop-traversal-forall-leaf-entry-v1"
+            ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV2 => {
+                "collection-slot-drop-traversal-forall-leaf-entry-v2"
             }
             ResourceSummaryValueKind::I32ScalarReturnFactsEntryV1 => {
                 "i32-scalar-return-facts-entry-v1"
@@ -382,8 +382,8 @@ impl ResourceSummaryValueKind {
                 "owner-obligation-check-entry-v1"
             }
             ResourceSummaryValueKind::RawAliasReturnEntryV1 => "raw-alias-return-entry-v1",
-            ResourceSummaryValueKind::RawInitCompleteLeafEntryV1 => {
-                "raw-init-complete-leaf-entry-v1"
+            ResourceSummaryValueKind::RawInitCompleteLeafEntryV2 => {
+                "raw-init-complete-leaf-entry-v2"
             }
         }
     }
@@ -473,6 +473,6 @@ mod tests {
     fn resource_summary_value_cache_key_hash_has_fixed_golden_value() {
         let key = key_with_parts(1, 2, 3, 4, 5);
 
-        assert_eq!(key.stable_hash(), 0x1e1a04999fb1863e);
+        assert_eq!(key.stable_hash(), 0x1e169e999faea315);
     }
 }

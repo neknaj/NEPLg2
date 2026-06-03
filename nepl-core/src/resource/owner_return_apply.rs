@@ -11,6 +11,7 @@ use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_extent::apply_returned_owner_extent;
 use super::owner_return_apply_place::owner_projection_source_place;
 use super::owner_state::OwnerTable;
+use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
@@ -235,6 +236,11 @@ impl ResourceOwnerCheckEngine<'_> {
         }
         for projection in &summary.projection_returns {
             let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
+            if !owner_leaf_places(self.types, output).iter().any(|leaf| {
+                leaf.suffix == projection.suffix && leaf.place.ty == output_projection.ty
+            }) {
+                continue;
+            }
             self.apply_owner_projection_return_summary(
                 owners,
                 raw_aliases,

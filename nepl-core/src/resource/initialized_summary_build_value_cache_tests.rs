@@ -22,7 +22,7 @@ use super::super::initialized_summary_release_model::{
 };
 use super::super::initialized_summary_variant_model::{
     RawCellInitializationVariantCondition, RawCellInitializationVariantParamCell,
-    RawCellInitializationVariantParamRequirement,
+    RawCellInitializationVariantParamRequirement, RawCellInitializationVariantValueCondition,
 };
 use super::super::model::{
     EffectOp, Place, ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind,
@@ -217,10 +217,12 @@ fn raw_init_complete_leaf_summary_for(
         }],
         variant_conditions: vec![RawCellInitializationVariantCondition {
             variant: String::from("Ready"),
-            param_index: 0,
-            suffix: Vec::new(),
-            ty,
-            condition: RawCellValueCondition::NeZero,
+            conditions: vec![RawCellInitializationVariantValueCondition {
+                param_index: 0,
+                suffix: Vec::new(),
+                ty,
+                condition: RawCellValueCondition::NeZero,
+            }],
         }],
     }
 }

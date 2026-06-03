@@ -99,11 +99,19 @@ pub(super) fn compute_i32_scalar_return_summaries(
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<I32ScalarReturnSummary>, usize) {
     let mut relevance_leaf_cache = I32LeafProjectionCache::default();
-    let relevant: Vec<bool> = module
+    let signature_relevant: Vec<bool> = module
         .functions
         .iter()
         .map(|function| {
             function_i32_scalar_summary_relevant(types, function, &mut relevance_leaf_cache)
+        })
+        .collect();
+    let relevant: Vec<bool> = signature_relevant
+        .iter()
+        .enumerate()
+        .map(|(index, is_signature_relevant)| {
+            *is_signature_relevant
+                && function_has_i32_scalar_summary_consumer(dependency_graph, index)
         })
         .collect();
     let mut worklist_relevant_functions = relevant.clone();
@@ -244,6 +252,19 @@ fn function_i32_scalar_summary_relevant(
             .params
             .iter()
             .any(|param| type_has_i32_scalar_leaf(types, param.place.ty, leaf_cache))
+}
+
+fn function_has_i32_scalar_summary_consumer(
+    dependency_graph: &ResourceSummaryDependencyGraph,
+    function_index: usize,
+) -> bool {
+    // i32 scalar summary は call 境界でだけ読まれる。entry や export された関数の本体は
+    // final initialized check が直接検査するため、内部 caller を持たない関数の summary を
+    // cold compile で固定点に入れても安全性には寄与しない。
+    dependency_graph
+        .dependents()
+        .get(function_index)
+        .is_some_and(|dependents| !dependents.is_empty())
 }
 
 fn type_has_i32_scalar_leaf(

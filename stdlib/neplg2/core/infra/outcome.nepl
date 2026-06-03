@@ -29,6 +29,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/outcome" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let ok_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_ok 7
 //:     match ok_result:

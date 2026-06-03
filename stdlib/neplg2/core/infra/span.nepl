@@ -19,6 +19,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "neplg2/core/infra/span" as *
+//:| #import "core/math" as *
 //: fn main %fn void i32 \void:
 //:     let s %SelfhostSourceSpan source_span_new 0 2 5
 //:     if and source_span_is_valid s and source_span_contains s 3 eq source_span_len s 3 0 1

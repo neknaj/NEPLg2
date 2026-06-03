@@ -322,7 +322,7 @@ fn raw_address_source_from_transparent_user_call(
     let return_expr = function_return_expr(callee_function)?;
     let mapped_arg_places = args
         .iter()
-        .map(|arg| transparent_actual_arg_place(arg, function, hir_args, arg_places))
+        .map(|arg| transparent_actual_arg_place(arg, function, hir_args, arg_places, env))
         .collect::<Option<Vec<_>>>()?;
     raw_address_source_from_return_expr(
         return_expr,
@@ -340,22 +340,39 @@ fn transparent_actual_arg_place(
     function: &HirFunction,
     hir_args: &[HirExpr],
     arg_places: &[Place],
+    env: &LoweringEnvironment,
 ) -> Option<Place> {
     match &expr.kind {
         HirExprKind::Var(name) => function_param_index(function, name)
             .and_then(|index| arg_places.get(index).cloned())
             .or_else(|| Some(Place::local(name.clone(), expr.ty))),
         HirExprKind::Deref(inner) => {
-            transparent_actual_arg_place(inner, function, hir_args, arg_places)
-                .map(|place| place.with_projection(super::model::PlaceProjection::Deref, expr.ty))
+            let projection_ty = deref_projection_type(env, inner.ty, expr.ty);
+            transparent_actual_arg_place(inner, function, hir_args, arg_places, env).map(|place| {
+                place.with_projection(super::model::PlaceProjection::Deref, projection_ty)
+            })
         }
         HirExprKind::AddrOf(inner) => {
-            transparent_actual_arg_place(inner, function, hir_args, arg_places)
+            transparent_actual_arg_place(inner, function, hir_args, arg_places, env)
         }
         _ => hir_args
             .iter()
             .position(|arg| core::ptr::eq(arg, expr))
             .and_then(|index| arg_places.get(index).cloned()),
+    }
+}
+
+fn deref_projection_type(
+    env: &LoweringEnvironment,
+    reference_ty: TypeId,
+    fallback_ty: TypeId,
+) -> TypeId {
+    let resolved = env
+        .types
+        .resolve_named_type_id(env.types.resolve_id(reference_ty));
+    match env.types.get_ref(resolved) {
+        TypeKind::Reference(target, _) => *target,
+        _ => fallback_ty,
     }
 }
 

@@ -616,10 +616,10 @@ fn main %impure fn void i32 \void:
     0
 ```
 
-## direct raw mem_ptr_add の user source 利用は raw boundary 外として拒否する
+## direct raw mem_ptr_add の派生先は初期化済み raw cell としては扱わない
 
 neplg2:test[compile_fail]
-diag_code: resource.raw.memory_outside_boundary
+diag_code: resource.cell.uninit
 ```neplg2
 #entry main
 #indent 4
@@ -1803,6 +1803,8 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
+#import "core/mem/pointer/bulk" as ptr_bulk
+#import "core/result" as *
 
 struct LocalToken:
     raw %fn i32 i32
@@ -1817,7 +1819,7 @@ fn main %impure fn void i32 \void:
     let src %MemPtr i32 mem_ptr_wrap<i32> raw_src
     store<LocalToken> raw_dst LocalToken @token_id
     store_i32 raw_src 123
-    let r %Result unit str mem_copy<i32> dst src 1
+    let r %Result unit str ptr_bulk::mem_copy dst src 1
     0
 ```
 
@@ -1943,7 +1945,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn clobber_i32 %fn MemPtr i32 unit \p:
-    let r %Result unit str store_i32 p 0
+    store_i32 p 0
     unit
 
 fn main %impure fn void i32 \void:
@@ -1974,7 +1976,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn clobber_and_true %impure fn MemPtr i32 bool \p:
-    let r %Result unit str store_i32 p 0
+    store_i32 p 0
     true
 
 fn gated_clobber %impure fn MemPtr i32 unit \p:
@@ -2012,7 +2014,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn clobber_i32 %impure fn MemPtr i32 unit \p:
-    let r %Result unit str store_i32 p 0
+    store_i32 p 0
     unit
 
 fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 unit unit \p\f:
@@ -2046,7 +2048,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn clobber_i32 %impure fn MemPtr i32 unit \p:
-    let r %Result unit str store_i32 p 0
+    store_i32 p 0
     unit
 
 fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 unit unit \p\f:
@@ -2083,11 +2085,11 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn clobber_a %impure fn MemPtr i32 unit \p:
-    let r %Result unit str store_i32 p 0
+    store_i32 p 0
     unit
 
 fn clobber_b %impure fn MemPtr i32 unit \p:
-    let r %Result unit str store_i32 p 1
+    store_i32 p 1
     unit
 
 fn main %impure fn void i32 \void:
@@ -2128,7 +2130,7 @@ struct CallbackHolder:
     cb %impure fn MemPtr i32 unit
 
 fn clobber_i32 %impure fn MemPtr i32 unit \p:
-    let r %Result unit str store_i32 p 0
+    store_i32 p 0
     unit
 
 fn call_holder %impure fn MemPtr i32 impure fn CallbackHolder unit \p\holder:
@@ -2165,7 +2167,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn clobber_i32 %impure fn MemPtr i32 unit \p:
-    let r %Result unit str store_i32 p 0
+    store_i32 p 0
     unit
 
 fn call_option %impure fn MemPtr i32 impure fn Option impure fn MemPtr i32 unit unit \p\opt:
@@ -2590,7 +2592,7 @@ fn raw_io %fn void i32 \void:
         i32.const 0
     #if[target=llvm]
     #llvmir:
-        define i32 @raw_iounit {
+        define i32 @raw_io() {
         entry:
             %x = call i32 @fd_write(i32 0)
             ret i32 0

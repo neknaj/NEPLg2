@@ -13,6 +13,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/fs/constants" as *
+//:| #import "core/math" as *
 //: fn main %fn void i32 \void:
 //:     if eq fs_errno_notcapable 76 then 0 else 1
 //: ```

@@ -82,6 +82,7 @@ pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result Adja
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let g %AdjacencyMatrix:
 //:         unwrap_ok new 4

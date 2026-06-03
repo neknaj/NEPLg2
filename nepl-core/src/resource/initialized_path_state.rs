@@ -13,8 +13,9 @@ use super::initialized_path_state_merge::{
     dedup_resource_check_states, merge_resource_check_states,
 };
 use super::initialized_summary_engine::summary_check_engine;
-use super::model::ResourceOp;
+use super::model::{Place, ResourceOp};
 use super::raw_realloc::PendingRawReallocs;
+use crate::types::{TypeCtx, TypeKind};
 use super::{
     drop_point_path::ResourceDropPointPath,
     initialized_variant::PendingVariantRawCellInitializations,
@@ -63,17 +64,60 @@ pub(super) fn path_states_need_replay(states: &[ResourceCheckState]) -> bool {
     let Some(first) = states.first() else {
         return false;
     };
-    // CellTable / RawCellAddressAliases は join 時点で conservative merge 済みなので、
-    // それだけの差分では後続 op を path ごとに再実行しない。path replay は、
-    // collection slot transfer、indirect callee alias、realloc result、variant raw-cell
-    // initialization のように、複数の表を同じ feasible path として対応付ける必要が
-    // ある state に限定する。
+    // Path replay は、各 feasible path に閉じた proof state を後続 operation に渡す
+    // ための精密化である。CellTable と RawCellAddressAliases も単なる診断補助では
+    // なく、branch/match が作った戻り値の initialized fact、raw-cell の到達性、
+    // i32 の値・比較関係を保持する。merged state は安全側へ畳めるが、そのまま
+    // 後続の cleanup、return、collection slot proof を実行すると、path ごとには
+    // 初期化済み・範囲証明済みだった値を MaybeMoved/Uninit 扱いしてしまう。
+    // そのため、表のどれかに差分が残る場合は、上限付き alternatives として
+    // 後続 operation を再実行する。
     states.iter().skip(1).any(|state| {
-        state.collection_slots != first.collection_slots
+        state.cells != first.cells
+            || state.collection_slots != first.collection_slots
+            || state.raw_aliases != first.raw_aliases
             || state.function_aliases != first.function_aliases
             || state.pending_reallocs != first.pending_reallocs
             || state.variant_initializations != first.variant_initializations
     })
+}
+
+pub(super) fn control_path_states_need_replay(
+    types: &TypeCtx,
+    states: &[ResourceCheckState],
+    output: &Place,
+) -> bool {
+    if !path_states_need_replay(states) {
+        return false;
+    }
+    if states_have_resource_replay_relevant_difference(states) {
+        return true;
+    }
+    if !place_type_is_unit(types, output) && !types.is_copy(output.ty) {
+        return true;
+    }
+    merge_resource_check_states(states)
+        .cells
+        .has_maybe_moved_non_copy_entries(types)
+}
+
+fn states_have_resource_replay_relevant_difference(states: &[ResourceCheckState]) -> bool {
+    let Some(first) = states.first() else {
+        return false;
+    };
+    states.iter().skip(1).any(|state| {
+        state.collection_slots != first.collection_slots
+            || state.function_aliases != first.function_aliases
+            || state.pending_reallocs != first.pending_reallocs
+            || !state
+                .variant_initializations
+                .resource_payload_entries_equal(&first.variant_initializations)
+    })
+}
+
+fn place_type_is_unit(types: &TypeCtx, place: &Place) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(place.ty));
+    resolved == types.unit() || matches!(types.get_ref(resolved), TypeKind::Unit)
 }
 
 #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -130,6 +174,61 @@ impl ResourcePathAlternatives {
             // 超えた場合は全候補を一つの merged state に畳み、探索空間が
             // 後続 operation ごとに指数的に増え続けることを防ぐ。
             states = vec![merge_resource_check_states(&states)];
+        }
+        Self::Feasible(states)
+    }
+
+    pub(super) fn from_states_preserving_result_variants(
+        states: Vec<ResourceCheckState>,
+        result: &super::model::Place,
+    ) -> Self {
+        if states.len() <= MAX_PATH_SENSITIVE_ALTERNATIVES {
+            return Self::from_states(states);
+        }
+        let mut groups: Vec<(Option<alloc::string::String>, Vec<ResourceCheckState>)> = Vec::new();
+        for state in states {
+            let variant = state
+                .variant_initializations
+                .concrete_variant(result)
+                .map(alloc::string::String::from);
+            if let Some((_, grouped)) = groups
+                .iter_mut()
+                .find(|(existing_variant, _)| existing_variant == &variant)
+            {
+                grouped.push(state);
+            } else {
+                groups.push((variant, vec![state]));
+            }
+        }
+        if groups
+            .iter()
+            .all(|(variant, _)| variant.as_deref().is_none())
+        {
+            let states = groups
+                .into_iter()
+                .flat_map(|(_, grouped)| grouped)
+                .collect::<Vec<_>>();
+            return Self::from_states(states);
+        }
+
+        let mut states = Vec::new();
+        for (variant, mut group) in groups {
+            if group.len() > MAX_PATH_SENSITIVE_ALTERNATIVES {
+                dedup_resource_check_states(&mut group);
+            }
+            let mut collapsed = if group.len() > MAX_PATH_SENSITIVE_ALTERNATIVES {
+                merge_resource_check_states(&group)
+            } else if group.len() == 1 {
+                group.remove(0)
+            } else {
+                merge_resource_check_states(&group)
+            };
+            if let Some(variant) = variant {
+                collapsed
+                    .variant_initializations
+                    .record_concrete_variant(result, &variant);
+            }
+            states.push(collapsed);
         }
         Self::Feasible(states)
     }

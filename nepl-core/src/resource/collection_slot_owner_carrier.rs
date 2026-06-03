@@ -20,7 +20,8 @@ fn type_carries_collection_slot_owner_mapped(
 ) -> bool {
     let resolved = mapped_type_id(types, ty, mapping);
     if let Some(value_ty) = direct_owner_token_value_type(types, resolved) {
-        return !types.is_copy(types.resolve_named_type_id(types.resolve_id(value_ty)));
+        let mapped_value_ty = mapped_type_id(types, value_ty, mapping);
+        return !types.is_copy(types.resolve_named_type_id(types.resolve_id(mapped_value_ty)));
     }
     if type_is_owner_token(types, resolved) {
         return true;

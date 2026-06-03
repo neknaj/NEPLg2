@@ -9,6 +9,7 @@ use super::initialized_summary_seed::summary_input_type_may_seed_raw_address_ali
 use super::model::{ResourceFunction, ResourceModule};
 use super::summary_dependency::ResourceSummaryDependencyGraph;
 
+#[cfg(test)]
 pub(super) fn raw_cell_initialization_summary_relevance_with_graph(
     module: &ResourceModule,
     types: &TypeCtx,
@@ -20,6 +21,22 @@ pub(super) fn raw_cell_initialization_summary_relevance_with_graph(
         types,
         raw_alias_summaries,
         dependency_graph,
+        None,
+    )
+}
+
+pub(super) fn raw_cell_initialization_call_boundary_summary_relevance_with_graph(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    dependency_graph: &ResourceSummaryDependencyGraph,
+) -> Vec<bool> {
+    raw_cell_initialization_summary_relevance_with_dependencies(
+        module,
+        types,
+        raw_alias_summaries,
+        dependency_graph,
+        Some(dependency_graph.raw_init_dependents()),
     )
 }
 
@@ -28,6 +45,7 @@ fn raw_cell_initialization_summary_relevance_with_dependencies(
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
     dependency_graph: &ResourceSummaryDependencyGraph,
+    consumer_edges: Option<&[Vec<usize>]>,
 ) -> Vec<bool> {
     let dependencies = dependency_graph.raw_init_dependencies();
     let signature_relevant = module
@@ -41,6 +59,7 @@ fn raw_cell_initialization_summary_relevance_with_dependencies(
         .enumerate()
         .map(|(index, function)| {
             signature_relevant[index]
+                && function_has_raw_cell_initialization_summary_consumer(consumer_edges, index)
                 && (raw_alias_summaries.get(&function.name).is_some()
                     || dependency_graph.has_direct_raw_initialization_summary_op(index))
         })
@@ -49,7 +68,10 @@ fn raw_cell_initialization_summary_relevance_with_dependencies(
     while changed {
         changed = false;
         for (index, function_dependencies) in dependencies.iter().enumerate() {
-            if relevant[index] || !signature_relevant[index] {
+            if relevant[index]
+                || !signature_relevant[index]
+                || !function_has_raw_cell_initialization_summary_consumer(consumer_edges, index)
+            {
                 continue;
             }
             if function_dependencies
@@ -62,6 +84,23 @@ fn raw_cell_initialization_summary_relevance_with_dependencies(
         }
     }
     relevant
+}
+
+fn function_has_raw_cell_initialization_summary_consumer(
+    consumer_edges: Option<&[Vec<usize>]>,
+    function_index: usize,
+) -> bool {
+    // raw-init summary は call 境界で parameter / return の raw-cell facts を再生するための
+    // 要約である。consumer_edges が渡された実コンパイル経路では、内部 caller がいない
+    // 関数を固定点から外し、その本体は final initialized check に任せる。テスト用の直接
+    // builder 経路では None を渡して、summary builder 単体の性質を従来通り検査できる。
+    consumer_edges
+        .map(|edges| {
+            edges
+                .get(function_index)
+                .is_some_and(|dependents| !dependents.is_empty())
+        })
+        .unwrap_or(true)
 }
 
 fn function_raw_cell_initialization_signature_relevant(

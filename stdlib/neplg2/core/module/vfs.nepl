@@ -110,7 +110,7 @@ pub fn selfhost_vfs_add %impure fn SelfhostVirtualFileSystem impure fn str impur
             Result::Ok SelfhostVirtualFileSystem files
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free field::get e "vec"
+            v::free v::vec_push_error_vec e
             Result::Err error
 
 //: selfhost_vfs_len: VFS に[登録/とうろく]された file 数を[返/かえ]す

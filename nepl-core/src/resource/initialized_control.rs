@@ -21,8 +21,8 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
 use super::initialized_path_state::{
-    log_path_state_replay_reason, merge_path_alternatives_into, path_states_need_replay,
-    ResourceCheckState, ResourcePathAlternatives,
+    control_path_states_need_replay, log_path_state_replay_reason, merge_path_alternatives_into,
+    path_states_need_replay, ResourceCheckState, ResourcePathAlternatives,
 };
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
 use super::initialized_str_layout::seed_str_storage_layout;
@@ -168,14 +168,19 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
             );
-            if path_states_need_replay(&branch_paths) {
+            if control_path_states_need_replay(self.types, &branch_paths, output) {
                 log_path_state_replay_reason(self.function, "branch", &branch_paths);
-                self.path_alternatives = ResourcePathAlternatives::from_states(branch_paths);
+                self.path_alternatives =
+                    ResourcePathAlternatives::from_states_preserving_result_variants(
+                        branch_paths,
+                        output,
+                    );
             }
         }
         if paths_available && has_branch_paths {
             cells.set_state(output, CellState::Initialized(output.ty));
             seed_str_storage_layout(self.types, cells, raw_aliases, output);
+            initialize_control_output_path_states(self.types, &mut self.path_alternatives, output);
         } else {
             invalidate_control_output_state(
                 cells,
@@ -409,6 +414,9 @@ impl ResourceCheckEngine<'_> {
                         &source,
                         bind_local,
                     );
+                    // enum payload の bind は値の置き換えであり、payload 内の i32
+                    // proof も bind local の projection から参照できる必要がある。
+                    arm_aliases.copy_scalar_facts_if_tracked(&source, bind_local);
                     arm_cells.transfer_raw_cell_loaded_value_origin(&source, bind_local);
                     transfer_slots(self, &mut arm_collection_slots, &source, bind_local, span);
                     arm_function_aliases.copy_alias(&source, bind_local);
@@ -476,14 +484,19 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
             );
-            if path_states_need_replay(&match_paths) {
+            if control_path_states_need_replay(self.types, &match_paths, output) {
                 log_path_state_replay_reason(self.function, "match", &match_paths);
-                self.path_alternatives = ResourcePathAlternatives::from_states(match_paths);
+                self.path_alternatives =
+                    ResourcePathAlternatives::from_states_preserving_result_variants(
+                        match_paths,
+                        output,
+                    );
             }
         }
         if scrutinee_available && arms_available {
             cells.set_state(output, CellState::Initialized(output.ty));
             seed_str_storage_layout(self.types, cells, raw_aliases, output);
+            initialize_control_output_path_states(self.types, &mut self.path_alternatives, output);
         } else {
             invalidate_control_output_state(
                 cells,
@@ -654,6 +667,29 @@ pub(super) fn invalidate_control_output_path_states(
                     &mut state.variant_initializations,
                     output,
                 );
+            }
+        }
+    }
+}
+
+pub(super) fn initialize_control_output_path_states(
+    types: &crate::types::TypeCtx,
+    alternatives: &mut ResourcePathAlternatives,
+    output: &Place,
+) {
+    match alternatives {
+        ResourcePathAlternatives::None => {}
+        ResourcePathAlternatives::Feasible(states) => {
+            for state in states {
+                // Control expressions write the final output after merging feasible paths.
+                // When path-sensitive alternatives remain live, the same initialized fact must
+                // be present in each alternative; otherwise the next replayed operation can
+                // merge alternatives back over the already-correct linear state and erase the
+                // output before a following EndScope or return consumes it.
+                state
+                    .cells
+                    .set_state(output, CellState::Initialized(output.ty));
+                seed_str_storage_layout(types, &mut state.cells, &mut state.raw_aliases, output);
             }
         }
     }

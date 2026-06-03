@@ -40,6 +40,7 @@ trait Ord:
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/traits/ord" as *
+//:| #import "core/math" as *
 //:| fn main %impure fn void i32 \void:
 //:     assert ord_lt 2 3;
 //:     assert not ord_lt 3 3;

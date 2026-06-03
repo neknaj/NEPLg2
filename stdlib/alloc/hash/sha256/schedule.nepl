@@ -87,7 +87,7 @@ pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i3
 //: [注意/ちゅうい]:
 //: - [返/かえ]った `Vec i32` は block compression [後/ご]に `free` してください。
 pub fn sha256_build_schedule %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 Result Vec i32 StdErrorKind \buf\msg_len\total_len\block_start:
-    match with_capacity 64:
+    match %Result Vec i32 StdErrorKind with_capacity 64:
         Result::Err e:
             Result::Err e
         Result::Ok w0:

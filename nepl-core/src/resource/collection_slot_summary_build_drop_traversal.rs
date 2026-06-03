@@ -7,6 +7,7 @@ use crate::types::TypeId;
 use super::collection_slot_payload_tracking::collection_slot_payload_type_needs_tracking;
 use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
+use super::collection_slot_summary_i32_operand::summary_i32_operand_for_params_with_aliases;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
     CollectionSlotLifecycleSummaryOp,
@@ -94,16 +95,7 @@ fn summary_i32_operand_for_params(
     params: &[ResourceLocal],
     place: &Place,
 ) -> Option<CollectionSlotLifecycleSummaryI32Operand> {
-    if let Some(summary) = summary_place_for_params_with_aliases(params, &state.raw_aliases, place)
-    {
-        return Some(CollectionSlotLifecycleSummaryI32Operand::Place(summary));
-    }
-    state.raw_aliases.i32_value(place).map(|value| {
-        CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
-            value,
-            ty: place.ty,
-        }
-    })
+    summary_i32_operand_for_params_with_aliases(params, &state.raw_aliases, place)
 }
 
 fn find_range_certificate(

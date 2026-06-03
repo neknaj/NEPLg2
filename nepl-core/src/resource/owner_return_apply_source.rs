@@ -5,6 +5,7 @@ use crate::span::Span;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_projection_source::owner_projection_source_returned_by_variant;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_place::owner_projection_source_place;
 use super::owner_state::OwnerTable;
@@ -35,6 +36,9 @@ impl ResourceOwnerCheckEngine<'_> {
                 suffix: Vec::new(),
                 ty: arg.1.ty,
             };
+            if owner_projection_source_returned_by_variant(summary, &source) {
+                continue;
+            }
             self.consume_summary_argument_owner(
                 owners,
                 raw_aliases,
@@ -51,6 +55,9 @@ impl ResourceOwnerCheckEngine<'_> {
             );
         }
         for source in &summary.consumed_parameter_sources {
+            if owner_projection_source_returned_by_variant(summary, source) {
+                continue;
+            }
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };

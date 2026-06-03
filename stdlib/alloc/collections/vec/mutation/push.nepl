@@ -99,7 +99,7 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \s
 //: ```
 //:
 //: neplg2:test[compile_fail]
-//: diag_codes: type.overload.no_match
+//: diag_codes: type.trait_bound.unsatisfied
 //: ```neplg2
 //:| #entry main
 //:| #target std

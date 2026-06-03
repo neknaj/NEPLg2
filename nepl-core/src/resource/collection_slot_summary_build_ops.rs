@@ -33,7 +33,9 @@ use super::collection_slot_summary_translate::{
 };
 use super::drop_point_path::ResourceDropPointPath;
 use super::initialized::ResourceCheckEngine;
-use super::initialized_path_state::{ResourceCheckState, ResourcePathAlternatives};
+use super::initialized_path_state::{
+    merge_path_alternatives_into, ResourceCheckState, ResourcePathAlternatives,
+};
 use super::model::{ResourceBlockId, ResourceLocal, ResourceOp};
 use super::report::ResourceCheckOperation;
 
@@ -46,7 +48,6 @@ pub(super) fn collect_summary_ops_from_ops(
     ops: &[ResourceOp],
 ) {
     for op in ops {
-        collect_summary_ops_from_op(out, engine, state, params, collection_slot_summaries, op);
         let mut pending_range_certificates = if let ResourceOp::Loop {
             condition_ops,
             condition_fact,
@@ -81,7 +82,18 @@ pub(super) fn collect_summary_ops_from_ops(
         } else {
             Vec::new()
         };
-        apply_summary_state_after_op(engine, state, params, collection_slot_summaries, op);
+        if collect_summary_control_ops_and_apply_state(
+            out,
+            engine,
+            state,
+            params,
+            collection_slot_summaries,
+            op,
+        ) {
+        } else {
+            collect_summary_ops_from_op(out, engine, state, params, collection_slot_summaries, op);
+            apply_summary_state_after_op(engine, state, params, collection_slot_summaries, op);
+        }
         state.retain_drop_traversal_range_certificates_after_op(engine.types, op);
         state.retain_transform_range_certificates_after_op(engine.types, op);
         state
@@ -94,6 +106,155 @@ pub(super) fn collect_summary_ops_from_ops(
     }
 }
 
+fn collect_summary_control_ops_and_apply_state(
+    out: &mut Vec<CollectionSlotLifecycleSummaryOp>,
+    engine: &mut ResourceCheckEngine<'_>,
+    state: &mut CollectionSlotSummaryBuildState,
+    params: &[ResourceLocal],
+    collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
+    op: &ResourceOp,
+) -> bool {
+    match op {
+        ResourceOp::Branch {
+            output,
+            condition_fact,
+            then_ops,
+            then_value,
+            else_ops,
+            else_value,
+            span,
+            ..
+        } => {
+            let pre_state = state.clone();
+            let mut then_state = pre_state.clone();
+            apply_summary_condition_fact(&mut then_state, condition_fact.as_ref(), true);
+            let (then_summary_ops, then_state) = collect_nested_summary_path_from_state(
+                engine,
+                then_state,
+                params,
+                collection_slot_summaries,
+                then_ops,
+            );
+            let mut else_state = pre_state;
+            apply_summary_condition_fact(&mut else_state, condition_fact.as_ref(), false);
+            let (else_summary_ops, else_state) = collect_nested_summary_path_from_state(
+                engine,
+                else_state,
+                params,
+                collection_slot_summaries,
+                else_ops,
+            );
+            push_merge_summary(out, vec![then_summary_ops, else_summary_ops]);
+            let mut paths = Vec::new();
+            let mut paths_available = true;
+            if !summary_place_is_never(engine, then_value) {
+                paths.extend(engine.transfer_control_value_path_states(
+                    vec![summary_state_to_resource_state(then_state)],
+                    then_value,
+                    output,
+                    ResourceCheckOperation::BranchValue,
+                    *span,
+                    &mut paths_available,
+                ));
+            }
+            if !summary_place_is_never(engine, else_value) {
+                paths.extend(engine.transfer_control_value_path_states(
+                    vec![summary_state_to_resource_state(else_state)],
+                    else_value,
+                    output,
+                    ResourceCheckOperation::BranchValue,
+                    *span,
+                    &mut paths_available,
+                ));
+            }
+            merge_summary_control_paths(state, paths);
+            engine.path_alternatives = Default::default();
+            true
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            condition_fact,
+            body_ops,
+            ..
+        } => {
+            let (condition_summary_ops, mut condition_state) = collect_nested_summary_path(
+                engine,
+                state,
+                params,
+                collection_slot_summaries,
+                condition_ops,
+            );
+            let mut exit_state = condition_state.clone();
+            apply_summary_condition_fact(&mut exit_state, condition_fact.as_ref(), false);
+            apply_summary_condition_fact(&mut condition_state, condition_fact.as_ref(), true);
+            let (body_summary_ops, body_state) = collect_nested_summary_path_from_state(
+                engine,
+                condition_state,
+                params,
+                collection_slot_summaries,
+                body_ops,
+            );
+            if !condition_summary_ops.is_empty() || !body_summary_ops.is_empty() {
+                out.push(CollectionSlotLifecycleSummaryOp::Loop {
+                    condition_ops: condition_summary_ops,
+                    body_ops: body_summary_ops,
+                });
+            }
+            merge_summary_control_paths(
+                state,
+                vec![
+                    summary_state_to_resource_state(exit_state),
+                    summary_state_to_resource_state(body_state),
+                ],
+            );
+            engine.path_alternatives = Default::default();
+            true
+        }
+        ResourceOp::Match {
+            output,
+            scrutinee,
+            arms,
+            ..
+        } => {
+            let pre_state = state.clone();
+            let mut summary_paths = Vec::new();
+            let mut state_paths = Vec::new();
+            let mut paths_available = true;
+            for arm in arms {
+                let Some(arm_state) = collection_slot_summary_match_arm_entry_state(
+                    engine, &pre_state, scrutinee, arm,
+                ) else {
+                    continue;
+                };
+                let (arm_summary_ops, arm_state) = collect_nested_summary_path_from_state(
+                    engine,
+                    arm_state,
+                    params,
+                    collection_slot_summaries,
+                    &arm.ops,
+                );
+                summary_paths.push(arm_summary_ops);
+                if summary_place_is_never(engine, &arm.value) {
+                    continue;
+                }
+                state_paths.extend(engine.transfer_control_value_path_states(
+                    vec![summary_state_to_resource_state(arm_state)],
+                    &arm.value,
+                    output,
+                    ResourceCheckOperation::MatchValue,
+                    arm.span,
+                    &mut paths_available,
+                ));
+            }
+            push_merge_summary(out, summary_paths);
+            merge_summary_control_paths(state, state_paths);
+            engine.path_alternatives = Default::default();
+            true
+        }
+        _ => false,
+    }
+}
+
 fn apply_summary_state_after_op(
     engine: &mut ResourceCheckEngine<'_>,
     state: &mut CollectionSlotSummaryBuildState,
@@ -102,6 +263,17 @@ fn apply_summary_state_after_op(
     op: &ResourceOp,
 ) {
     let pre_state = state.clone();
+    if apply_summary_control_state_after_op(
+        engine,
+        state,
+        &pre_state,
+        params,
+        collection_slot_summaries,
+        op,
+    ) {
+        engine.path_alternatives = Default::default();
+        return;
+    }
     engine.check_ops(
         &mut state.cells,
         &mut state.collection_slots,
@@ -130,6 +302,163 @@ fn apply_summary_state_after_op(
     // state is already the merged post-control state, so following operations can continue from
     // that finite abstraction without losing the lifecycle summary emitted for each branch.
     engine.path_alternatives = Default::default();
+}
+
+fn apply_summary_control_state_after_op(
+    engine: &mut ResourceCheckEngine<'_>,
+    state: &mut CollectionSlotSummaryBuildState,
+    pre_state: &CollectionSlotSummaryBuildState,
+    params: &[ResourceLocal],
+    collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
+    op: &ResourceOp,
+) -> bool {
+    match op {
+        ResourceOp::Branch {
+            output,
+            condition_fact,
+            then_ops,
+            then_value,
+            else_ops,
+            else_value,
+            span,
+            ..
+        } => {
+            let mut paths = Vec::new();
+            let mut paths_available = true;
+            let mut then_state = pre_state.clone();
+            apply_summary_condition_fact(&mut then_state, condition_fact.as_ref(), true);
+            let then_state = collect_nested_summary_path_from_state(
+                engine,
+                then_state,
+                params,
+                collection_slot_summaries,
+                then_ops,
+            )
+            .1;
+            if !summary_place_is_never(engine, then_value) {
+                paths.extend(engine.transfer_control_value_path_states(
+                    vec![summary_state_to_resource_state(then_state)],
+                    then_value,
+                    output,
+                    ResourceCheckOperation::BranchValue,
+                    *span,
+                    &mut paths_available,
+                ));
+            }
+            let mut else_state = pre_state.clone();
+            apply_summary_condition_fact(&mut else_state, condition_fact.as_ref(), false);
+            let else_state = collect_nested_summary_path_from_state(
+                engine,
+                else_state,
+                params,
+                collection_slot_summaries,
+                else_ops,
+            )
+            .1;
+            if !summary_place_is_never(engine, else_value) {
+                paths.extend(engine.transfer_control_value_path_states(
+                    vec![summary_state_to_resource_state(else_state)],
+                    else_value,
+                    output,
+                    ResourceCheckOperation::BranchValue,
+                    *span,
+                    &mut paths_available,
+                ));
+            }
+            merge_summary_control_paths(state, paths);
+            true
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            condition_fact,
+            body_ops,
+            ..
+        } => {
+            let mut condition_state = collect_nested_summary_path_from_state(
+                engine,
+                pre_state.clone(),
+                params,
+                collection_slot_summaries,
+                condition_ops,
+            )
+            .1;
+            let mut exit_state = condition_state.clone();
+            apply_summary_condition_fact(&mut exit_state, condition_fact.as_ref(), false);
+            apply_summary_condition_fact(&mut condition_state, condition_fact.as_ref(), true);
+            let body_state = collect_nested_summary_path_from_state(
+                engine,
+                condition_state,
+                params,
+                collection_slot_summaries,
+                body_ops,
+            )
+            .1;
+            merge_summary_control_paths(
+                state,
+                vec![
+                    summary_state_to_resource_state(exit_state),
+                    summary_state_to_resource_state(body_state),
+                ],
+            );
+            true
+        }
+        ResourceOp::Match {
+            output,
+            scrutinee,
+            arms,
+            ..
+        } => {
+            let mut paths = Vec::new();
+            let mut paths_available = true;
+            for arm in arms {
+                let Some(arm_state) = collection_slot_summary_match_arm_entry_state(
+                    engine, pre_state, scrutinee, arm,
+                ) else {
+                    continue;
+                };
+                let arm_state = collect_nested_summary_path_from_state(
+                    engine,
+                    arm_state,
+                    params,
+                    collection_slot_summaries,
+                    &arm.ops,
+                )
+                .1;
+                if summary_place_is_never(engine, &arm.value) {
+                    continue;
+                }
+                paths.extend(engine.transfer_control_value_path_states(
+                    vec![summary_state_to_resource_state(arm_state)],
+                    &arm.value,
+                    output,
+                    ResourceCheckOperation::MatchValue,
+                    arm.span,
+                    &mut paths_available,
+                ));
+            }
+            merge_summary_control_paths(state, paths);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn merge_summary_control_paths(
+    state: &mut CollectionSlotSummaryBuildState,
+    paths: Vec<ResourceCheckState>,
+) {
+    if paths.is_empty() {
+        return;
+    }
+    merge_path_alternatives_into(
+        &paths,
+        &mut state.cells,
+        &mut state.collection_slots,
+        &mut state.raw_aliases,
+        &mut state.function_aliases,
+        &mut state.pending_reallocs,
+        &mut state.variant_initializations,
+    );
 }
 
 fn apply_summary_transform_range_state(

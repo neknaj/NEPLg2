@@ -27,11 +27,11 @@
 //:| #import "core/memo" as *
 //:|
 //:| fn inc %fn i32 i32 \x:
-//:|     add x 1
+//:|      add x 1
 //:|
 //:| fn main %fn void i32 \void:
-//:|     let f %fn i32 i32 memo_call @inc
-//:|     f 41
+//:|      let f %fn i32 i32 memo_call @inc
+//:|      f 41
 //: ```
 
 pub fn memo_call <.K: MemoKey&Copy, .V: MemoValue&Copy> %fn (fn .K .V) (fn .K .V) \func:

@@ -183,6 +183,7 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/diag/error" as *
 //:| #import "alloc/collections/vec" as v
 //:| #import "alloc/string" as *
 //:| #import "core/field" as *
@@ -195,7 +196,7 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //:| #import "std/test" as *
 //: fn main %impure fn void i32 \void:
 //:     let args %Vec str:
-//:         unwrap_ok v::new
+//:         unwrap_ok %Result Vec str StdErrorKind v::new
 //:         |> v::push "--check" |> uwok
 //:         |> v::push "--emit" |> uwok
 //:         |> v::push "wasm" |> uwok
@@ -256,6 +257,7 @@ pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCl
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/diag/error" as *
 //:| #import "alloc/collections/vec" as v
 //:| #import "alloc/string" as *
 //:| #import "core/field" as *
@@ -268,7 +270,7 @@ pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCl
 //:| #import "std/test" as *
 //: fn main %impure fn void i32 \void:
 //:     let argv %Vec str:
-//:         unwrap_ok v::new
+//:         unwrap_ok %Result Vec str StdErrorKind v::new
 //:         |> v::push "neplg2" |> uwok
 //:         |> v::push "--target" |> uwok
 //:         |> v::push "std" |> uwok

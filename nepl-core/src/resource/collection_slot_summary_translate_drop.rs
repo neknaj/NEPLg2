@@ -8,13 +8,14 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
     CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
 };
+use super::collection_slot_summary_i32_operand::summary_i32_operand_for_params_with_aliases;
 use super::collection_slot_summary_target::{
     instantiate_summary_target_with_aliases, summary_place_for_params_with_aliases_and_types,
     translate_summary_target_for_params_with_aliases,
 };
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, ResourceLocal};
+use super::model::{Place, ResourceId, ResourceLocal};
 
 pub(super) fn translate_drop_traversal_summary_op(
     out: &mut Vec<CollectionSlotLifecycleSummaryOp>,
@@ -63,18 +64,29 @@ fn translate_i32_operand(
             })
         }
         CollectionSlotLifecycleSummaryI32Operand::Place(place) => {
-            if let Some(place) = translate_summary_place(engine, args, params, raw_aliases, place) {
-                return Some(CollectionSlotLifecycleSummaryI32Operand::Place(place));
-            }
             let actual = instantiate_summary_target_with_aliases(engine, args, raw_aliases, place)?;
-            raw_aliases.i32_value(&actual).map(|value| {
-                CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
-                    value,
-                    ty: actual.ty,
-                }
-            })
+            summary_i32_operand_for_params_with_aliases(params, raw_aliases, &actual)
+                .or_else(|| {
+                    translate_summary_place(engine, args, params, raw_aliases, place)
+                        .map(CollectionSlotLifecycleSummaryI32Operand::Place)
+                })
+        }
+        CollectionSlotLifecycleSummaryI32Operand::Offset { base, offset, ty } => {
+            let actual_base =
+                instantiate_summary_target_with_aliases(engine, args, raw_aliases, base)?;
+            let operand_place = translated_i32_offset_operand_place(&actual_base, *offset, *ty);
+            let mut operand_aliases = raw_aliases.clone();
+            operand_aliases.add_i32_offset(&actual_base, &operand_place, *offset);
+            summary_i32_operand_for_params_with_aliases(params, &operand_aliases, &operand_place)
         }
     }
+}
+
+fn translated_i32_offset_operand_place(base: &Place, offset: i64, ty: TypeId) -> Place {
+    let synthetic_id = usize::MAX
+        .saturating_sub(base.projections.len())
+        .saturating_sub(offset.unsigned_abs() as usize);
+    Place::temporary(ResourceId(synthetic_id), ty)
 }
 
 fn translate_drop_traversal_coverage(

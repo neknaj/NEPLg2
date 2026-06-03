@@ -32,6 +32,7 @@ pub fn len %fn &SparseSet i32 \s:
 //:| #import "alloc/collections/sparse_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main %impure fn void i32 \void:
 //:     let s %SparseSet unwrap_ok new 8;
 //:     let ok %bool eq universe_len &s 8;

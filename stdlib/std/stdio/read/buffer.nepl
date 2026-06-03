@@ -63,8 +63,9 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
                         then:
                             Result::Err StdErrorKind::InvalidOperation
                         else:
+                            let iov_len_raw %i32 add iov_raw 4
                             store_i32 iov_raw data_raw
-                            store_i32 add iov_raw 4 data_len
+                            store_i32 iov_len_raw data_len
                             store_i32 nread_raw 0
                             let errno %i32 stdio_fd_read_raw fd iov_raw 1 nread_raw
                             if:

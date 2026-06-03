@@ -11,7 +11,7 @@ diag_code: effect.raw_body.target_mismatch
 
 fn main %fn void i32 \void:
     #llvmir:
-        define i32 @mainunit {
+        define i32 @main() {
         entry:
             ret i32 1
         }
@@ -46,7 +46,7 @@ fn main %fn void i32 \void:
         i32.const 1
     #if[target=core]
     #llvmir:
-        define i32 @mainunit {
+        define i32 @main() {
         entry:
             ret i32 2
         }

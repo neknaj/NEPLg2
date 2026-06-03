@@ -36,6 +36,56 @@ fn register_mem_ptr(types: &mut TypeCtx) -> TypeId {
     mem_ptr_ty
 }
 
+fn register_generic_region_token(types: &mut TypeCtx) -> TypeId {
+    let i32_ty = types.i32();
+    let value_ty = types.fresh_var(Some("T".to_string()));
+    let region_token_ty = types.register_named(
+        "GenericRegionToken".to_string(),
+        TypeKind::Struct {
+            name: "GenericRegionToken".to_string(),
+            type_params: vec![value_ty],
+            fields: vec![i32_ty, i32_ty],
+            field_names: vec!["raw".to_string(), "size".to_string()],
+        },
+    );
+    types.mark_compiler_memory_type(region_token_ty, CompilerMemoryType::OwnerToken);
+    region_token_ty
+}
+
+fn register_generic_vec(types: &mut TypeCtx) -> TypeId {
+    let i32_ty = types.i32();
+    let value_ty = types.fresh_var(Some("T".to_string()));
+    let region_token_ty = register_generic_region_token(types);
+    let region_payload_ty = types.apply(region_token_ty, vec![value_ty]);
+    let storage_ty = types.register_named(
+        "GenericVecStorage".to_string(),
+        TypeKind::Enum {
+            name: "GenericVecStorage".to_string(),
+            type_params: vec![value_ty],
+            variants: vec![
+                EnumVariantInfo {
+                    name: "Empty".to_string(),
+                    payload: None,
+                },
+                EnumVariantInfo {
+                    name: "Owned".to_string(),
+                    payload: Some(region_payload_ty),
+                },
+            ],
+        },
+    );
+    let storage_payload_ty = types.apply(storage_ty, vec![value_ty]);
+    types.register_named(
+        "GenericVec".to_string(),
+        TypeKind::Struct {
+            name: "GenericVec".to_string(),
+            type_params: vec![value_ty],
+            fields: vec![i32_ty, i32_ty, storage_payload_ty],
+            field_names: vec!["len".to_string(), "cap".to_string(), "storage".to_string()],
+        },
+    )
+}
+
 #[test]
 fn mem_ptr_is_non_owning_for_collection_slot_transfer() {
     let mut types = TypeCtx::new();
@@ -96,4 +146,35 @@ fn structural_storage_carrier_owns_collection_slots() {
     assert!(type_carries_collection_slot_owner(&types, region_token_ty));
     assert!(type_carries_collection_slot_owner(&types, storage_ty));
     assert!(type_carries_collection_slot_owner(&types, vec_ty));
+}
+
+#[test]
+fn generic_storage_carrier_uses_applied_copy_payload_type() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.i32());
+    let vec_ty = register_generic_vec(&mut types);
+    let vec_i32_ty = types.apply(vec_ty, vec![types.i32()]);
+
+    assert!(!type_carries_collection_slot_owner(&types, vec_i32_ty));
+}
+
+#[test]
+fn generic_storage_carrier_keeps_applied_non_copy_payload_type() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.i32());
+    let payload_ty = types.register_named(
+        "OwnedPayload".to_string(),
+        TypeKind::Struct {
+            name: "OwnedPayload".to_string(),
+            type_params: vec![],
+            fields: vec![],
+            field_names: vec![],
+        },
+    );
+    let vec_ty = register_generic_vec(&mut types);
+    let vec_payload_ty = types.apply(vec_ty, vec![payload_ty]);
+
+    assert!(type_carries_collection_slot_owner(&types, vec_payload_ty));
 }

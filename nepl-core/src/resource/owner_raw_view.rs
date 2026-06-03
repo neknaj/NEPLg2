@@ -5,7 +5,7 @@ use super::model::{OwnerState, Place, RawAddressViewKind};
 use super::owner_check::ResourceOwnerCheckEngine;
 pub(super) use super::owner_raw_view_table::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::place_utils::raw_address_view_candidate_bases;
+use super::place_utils::{place_suffix_after_prefix, raw_address_view_candidate_bases};
 use super::storage_origin::StorageOriginTable;
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -52,6 +52,12 @@ impl ResourceOwnerCheckEngine<'_> {
         source: &Place,
     ) -> bool {
         raw_aliases.raw_address_view_source_is_known(source)
+            // Parameter projections are not local owners, but they are stable provenance roots
+            // for deferred host-memory requirements in function summaries.
+            || self
+                .params
+                .iter()
+                .any(|param| place_suffix_after_prefix(source, &param.place).is_some())
             || raw_address_view_candidate_bases(source)
                 .iter()
                 .map(|base| raw_aliases.canonicalize(base))

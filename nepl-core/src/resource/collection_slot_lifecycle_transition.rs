@@ -16,13 +16,9 @@ pub fn apply_collection_slot_lifecycle_event(
         CollectionSlotLifecycleEvent::InitializeEmpty { value_ty } => {
             initialize_vacant_slot(state, value_ty)
         }
-        CollectionSlotLifecycleEvent::BorrowRead { expected_ty } => initialized_slot_type(
-            types,
-            state,
-            expected_ty,
-            CollectionSlotLifecycleOp::BorrowRead,
-        )
-        .map(CollectionSlotState::Initialized),
+        CollectionSlotLifecycleEvent::BorrowRead { expected_ty } => {
+            borrow_read_slot_state(types, state, expected_ty)
+        }
         CollectionSlotLifecycleEvent::MoveOut { expected_ty } => initialized_slot_type(
             types,
             state,
@@ -146,6 +142,44 @@ fn initialized_slot_type(
         | CollectionSlotState::Released
         | CollectionSlotState::MaybeReleased => {
             Err(CollectionSlotLifecycleRefutation::Unavailable { operation, state })
+        }
+    }
+}
+
+fn borrow_read_slot_state(
+    types: &TypeCtx,
+    state: CollectionSlotState,
+    expected_ty: TypeId,
+) -> Result<CollectionSlotState, CollectionSlotLifecycleRefutation> {
+    match state {
+        CollectionSlotState::Initialized(actual)
+            if collection_slot_payload_types_match(types, actual, expected_ty) =>
+        {
+            Ok(CollectionSlotState::Initialized(actual))
+        }
+        CollectionSlotState::MaybeInitialized(Some(actual))
+            if collection_slot_payload_types_match(types, actual, expected_ty) =>
+        {
+            Ok(CollectionSlotState::MaybeInitialized(Some(actual)))
+        }
+        CollectionSlotState::Initialized(actual)
+        | CollectionSlotState::MaybeInitialized(Some(actual)) => {
+            Err(CollectionSlotLifecycleRefutation::TypeMismatch {
+                operation: CollectionSlotLifecycleOp::BorrowRead,
+                expected: expected_ty,
+                actual,
+            })
+        }
+        CollectionSlotState::Uninitialized
+        | CollectionSlotState::MaybeInitialized(None)
+        | CollectionSlotState::Moved(_)
+        | CollectionSlotState::Dropped(_)
+        | CollectionSlotState::Released
+        | CollectionSlotState::MaybeReleased => {
+            Err(CollectionSlotLifecycleRefutation::Unavailable {
+                operation: CollectionSlotLifecycleOp::BorrowRead,
+                state,
+            })
         }
     }
 }

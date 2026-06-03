@@ -12,6 +12,7 @@ use super::owner_summary_raw_alias::collect_raw_owner_aliases;
 use super::owner_summary_raw_consumption::{
     function_consumes_raw_owner_from, function_returns_raw_owner_from,
 };
+use super::place_utils::type_can_seed_raw_address_alias;
 use super::summary::OwnerReturnSummaryIndex;
 
 pub(super) fn owner_seed_leaf_places(
@@ -21,7 +22,11 @@ pub(super) fn owner_seed_leaf_places(
     _parameter_index: usize,
     base: &Place,
 ) -> Vec<OwnerLeafPlace> {
-    let mut leaves = owner_leaf_places(types, base);
+    let mut leaves = if type_can_seed_structural_owner_leaf(types, base) {
+        owner_leaf_places(types, base)
+    } else {
+        Vec::new()
+    };
     for leaf in raw_i32_owner_leaf_places(types, base) {
         if raw_i32_leaf_is_copy_metadata(types, base, &leaf) {
             continue;
@@ -49,6 +54,12 @@ pub(super) fn owner_seed_leaf_places(
     leaves
 }
 
+fn type_can_seed_structural_owner_leaf(types: &TypeCtx, base: &Place) -> bool {
+    type_is_raw_pointer(types, base.ty)
+        || type_contains_owner_token(types, base.ty)
+        || !types.is_copy(base.ty)
+}
+
 fn function_returns_raw_owner_inside_returned_owner_leaf(
     types: &TypeCtx,
     function: &ResourceFunction,
@@ -70,9 +81,23 @@ fn function_returns_raw_owner_inside_returned_owner_leaf(
     })
 }
 
-fn raw_i32_leaf_is_copy_metadata(types: &TypeCtx, base: &Place, leaf: &OwnerLeafPlace) -> bool {
-    !leaf.suffix.is_empty()
-        && types.is_copy(base.ty)
-        && !type_is_raw_pointer(types, base.ty)
-        && !type_contains_owner_token(types, base.ty)
+pub(super) fn raw_i32_leaf_is_copy_metadata(
+    types: &TypeCtx,
+    base: &Place,
+    leaf: &OwnerLeafPlace,
+) -> bool {
+    if leaf.suffix.is_empty()
+        || type_is_raw_pointer(types, base.ty)
+        || type_contains_owner_token(types, base.ty)
+    {
+        return false;
+    }
+    if types.is_copy(base.ty) {
+        return true;
+    }
+    // A non-Copy aggregate can contain ordinary scalar counters next to owned
+    // fields. Those counters may flow through arithmetic and be returned in a
+    // rebuilt aggregate, but they are not raw owners unless the aggregate is a
+    // raw-address carrier.
+    !type_can_seed_raw_address_alias(types, base.ty)
 }

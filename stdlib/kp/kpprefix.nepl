@@ -36,7 +36,7 @@
 //:| #import "std/stdio" as *
 //: fn main %impure fn void unit \void:
 //:     let data %Vec i32:
-//:         unwrap_ok v::new
+//:         unwrap_ok %Result Vec i32 StdErrorKind v::new
 //:         |> v::push 1 |> unwrap_ok
 //:         |> v::push 2 |> unwrap_ok
 //:         |> v::push 3 |> unwrap_ok

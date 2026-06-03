@@ -27,6 +27,11 @@ pub(super) fn collection_slot_summary_match_arm_entry_state(
                 &source,
                 bind_local,
             );
+            // collection-slot summary の return path は match payload の field projection を
+            // caller 側へ再投影するため、payload bind 時点の scalar proof を保持する。
+            arm_state
+                .raw_aliases
+                .copy_scalar_facts_if_tracked(&source, bind_local);
             arm_state
                 .cells
                 .transfer_raw_cell_loaded_value_origin(&source, bind_local);
