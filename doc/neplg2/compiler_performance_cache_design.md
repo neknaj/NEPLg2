@@ -4020,6 +4020,70 @@ variant initialization table を clone / merge する固定費である。ただ
 改善しなかったため採用しない。次に触るべき根本は、表ごとの touched set を事前に持つ control-subtree
 effect mask、または `CellTable` / alias table の線形探索を stable place index へ変える設計である。
 
+2026-06-03 の RPN i32 decimal parser checkpoint では、cache に頼らない探索範囲削減として、
+`to_i32` の 10 進 parser を `to_i32_radix -> to_i64_radix -> to_i128_radix ->
+parse_u128_radix_digits_from` の汎用経路から切り離した。RPN は 10 進 `i32` token だけを読むため、
+`to_i32` は i32 の範囲だけを直接検査する private helper を使う。`to_i32_radix`、`to_i64_radix`、
+`to_i128_radix`、`to_u128_radix` の public API と radix 付き挙動は変更しない。
+
+新しい `parse_i32_decimal_digits_from` は、正数は正の accumulator、負数は負の accumulator へ累積する。
+これにより `-2147483648` を正しく受理しつつ、正の `2147483648` は更新前の境界検査で拒否できる。
+この変更は runtime micro optimization ではなく、RPN cold compile が到達する Resource IR 関数集合から
+u128 / i128 の大きい digit parser と補助関数群を外すことを目的にする。
+
+同じ checkpoint では、`std/stdio/ansi/print` の `print_style_start` を `ansi_text_style_code` の
+連結済み `str` 生成から field ごとの direct print へ変える試行も行った。しかし、到達関数は
+`226 kept=223` から `223 kept=220` へ減った一方で、RPN median は悪化した。直接 print は escape
+code ごとの `print` 呼び出しを増やし、raw-init / final function check の固定費を上げるため採用しない。
+
+測定条件は Windows native release CLI、`target\release\nepl-cli.exe --check -i examples\rpn.nepl
+--target std --stdlib-root stdlib`、`NEPL_COMPILE_STAGE_TIMING=1`、
+`NEPL_DISABLE_CHECK_CACHE=1`、`NEPL_DISABLE_PROOF_CACHE=1` である。専用 `.neplproof` や exact
+`.neplcheck` による短絡は除外した。
+
+```text
+RPN proof-disabled native stage median before i32 decimal parser split
+  wall elapsed: 3213.144ms
+  execute_inner: 3201.811ms
+  loader_load: 387.616ms
+  check_pipeline: 2749-2787ms
+    resource_typecheck: 126-242ms
+    resource_static_check: 2517ms
+      resource_initialized_moves: 2001ms
+        resource_initialized_i32_scalar_summaries: 211ms
+        resource_initialized_raw_init_summaries: 782ms
+        resource_initialized_function_checks: 957ms
+      resource_owner_obligations: 387ms
+  reachable Resource functions: 271, kept 268
+
+RPN proof-disabled native stage median after i32 decimal parser split
+  wall elapsed: 2645.443ms
+  execute_inner: 2633.789ms
+  loader_load: 334.529ms
+  check_pipeline: 2294.467ms
+    resource_typecheck: 116-117ms
+    resource_static_check: 2159ms
+      resource_initialized_moves: 1737ms
+        resource_initialized_i32_scalar_summaries: 187ms
+        resource_initialized_raw_init_summaries: 708ms
+        resource_initialized_function_checks: 820ms
+      resource_owner_obligations: 334ms
+  reachable Resource functions: 226, kept 223
+```
+
+per-function timing では、変更前に `parse_u128_radix_digits_from` が final initialized check
+`207ms`、raw-init summary `38ms` で上位にいた。変更後は RPN 到達から外れ、代わりに
+`parse_i32_decimal_digits_from` が final initialized check `142ms`、raw-init summary `9ms` になった。
+全体として Resource 関数数は 45 減り、proof-disabled cold median は約 `0.56s` 短縮した。
+
+まだ 0.5 秒未満には遠い。残る支配階層は `eval_line` final check、stdio read/write raw-init、
+`str_slice_result` final check、Stack owner flow、loader の dependency body merge である。次の
+cache-independent 候補は、`str_slice_result` の Result return path collapse を安全条件付きで入れること、
+または stdio read/write の private raw buffer helper をさらに proof boundary 化することである。
+Rust 側の全探索としては `borrow_summary` の fixed-point scan と owner summary の dependency graph
+構築重複も残るが、RPN の現測定では borrow は 20ms 台であり、まずは支配的な Resource function body
+shape と control merge 固定費を優先する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

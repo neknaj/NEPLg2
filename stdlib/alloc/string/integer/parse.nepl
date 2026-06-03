@@ -30,6 +30,109 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
         Option::None:
             -1
 
+//: decimal_digit_from_byte_or_invalid: ASCII 10 進 digit を i32 へ変換する
+//:
+//: [目的/もくてき]:
+//: - `to_i32` の 10 進専用 parser が、基数付き parser の `Result` 分岐を経由せず digit 判定できるようにします。
+//:
+//: [実装/じっそう]:
+//: - byte が `'0'` から `'9'` の範囲なら 0..9 を返します。
+//: - それ以外の byte は sentinel として -1 を返し、呼び出し側が `Result::Err` へ変換します。
+//:
+//: [注意/ちゅうい]:
+//: - この helper は 10 進専用です。2 / 8 / 16 進の digit 判定は `digit_from_char` を使います。
+fn decimal_digit_from_byte_or_invalid %fn i32 i32 \byte:
+    if:
+        and ge byte '0' le byte '9'
+        then:
+            sub byte '0'
+        else:
+            -1
+
+//: i32_decimal_step_allowed: 次の 10 進 digit を i32 範囲内で追加できるか判定する
+//:
+//: [目的/もくてき]:
+//: - `acc * 10 + digit` または `acc * 10 - digit` が i32 の範囲外へ出る前に拒否します。
+//:
+//: [実装/じっそう]:
+//: - 正数は `2147483647` を上限にします。
+//: - 負数は負のまま累積し、`-2147483648` を正しく受理します。
+//:
+//: [注意/ちゅうい]:
+//: - `2147483648` は i32 正数として保持できないため、負数だけを負方向に累積する設計にしています。
+fn i32_decimal_step_allowed %fn i32 fn i32 fn bool bool \acc\digit\has_minus:
+    if:
+        has_minus
+        then:
+            if:
+                gt acc -214748364
+                then:
+                    true
+                else:
+                    and eq acc -214748364 le digit 8
+        else:
+            if:
+                lt acc 214748364
+                then:
+                    true
+                else:
+                    and eq acc 214748364 le digit 7
+
+//: parse_i32_decimal_digits_from: 10 進 i32 本体を開始 index から読む
+//:
+//: [目的/もくてき]:
+//: - `to_i32` が `to_i128_radix` / `parse_u128_radix_digits_from` の大きい proof graph を経由せず、i32 の範囲だけを検査します。
+//:
+//: [実装/じっそう]:
+//: - `start` から末尾まで ASCII digit を走査します。
+//: - 正数は正の accumulator、負数は負の accumulator へ直接累積します。
+//:
+//: [注意/ちゅうい]:
+//: - 少なくとも 1 digit が必要です。`""` と `"-"` は `Result::Err 1` です。
+//: - この helper は 10 進専用であり、radix 付き API からは呼びません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n - start)
+fn parse_i32_decimal_digits_from %fn str fn i32 fn bool Result i32 i32 \s\start\has_minus:
+    let n %i32 len s;
+    let mut i %i32 start;
+    let mut acc %i32 0;
+    let mut digits_valid %i32 1;
+    if:
+        le n start
+        then:
+            set digits_valid 0;
+        else:
+            while lt i n:
+                do:
+                    let digit_chr %i32 integer_parse_byte_or_invalid s i;
+                    let digit %i32 decimal_digit_from_byte_or_invalid digit_chr;
+                    if:
+                        lt digit 0
+                        then:
+                            set digits_valid 0;
+                            set i n;
+                        else:
+                            if:
+                                i32_decimal_step_allowed acc digit has_minus
+                                then:
+                                    if:
+                                        has_minus
+                                        then:
+                                            set acc sub mul acc 10 digit;
+                                        else:
+                                            set acc add mul acc 10 digit;
+                                    set i add i 1;
+                                else:
+                                    set digits_valid 0;
+                                    set i n;
+    if:
+        eq digits_valid 1
+        then:
+            Result::Ok acc
+        else:
+            Result::Err 1
+
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
 //: stdout: "test_report name=\"string_integer_parse_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parse hex i32\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"parse negative hex i128\" expected=\"-42\" actual=\"-42\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"reject bare minus i128\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"reject invalid radix i128\" expected=\"1\" actual=\"1\" message=\"\"\n"
@@ -80,8 +183,8 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //: - 符号付き 10 進文字列を `i32` に変換します。
 //:
 //: [実装/じっそう]:
-//: - `to_i32_radix s 10` に委譲し、基数付き実装へ統一します。
-//: - `to_i32_radix` は `to_i64_radix` の結果を i32 表現域で検査してから縮小します。
+//: - 10 進専用の軽い parser で直接 i32 範囲を検査します。
+//: - 負数は負の accumulator へ累積するため、`-2147483648` を overflow せず受理できます。
 //:
 //: [注意/ちゅうい]:
 //: - 負号は先頭 1 byte の `-` だけを受理します。
@@ -90,11 +193,18 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //: [計算量/けいさんりょう]:
 //: - O(n)
 pub fn to_i32 %fn str Result i32 i32 \s:
-    match to_i32_radix s 10:
-        Result::Ok v:
-            Result::Ok v
-        Result::Err e:
-            Result::Err e
+    let n %i32 len s;
+    if:
+        eq n 0
+        then:
+            Result::Err 1
+        else:
+            let first %i32 integer_parse_byte_or_invalid s 0;
+            let has_minus %bool eq first '-';
+            let start %i32 if has_minus:
+                then 1
+                else 0
+            parse_i32_decimal_digits_from s start has_minus
 
 // to_i32_radix: 指定基数の文字列を i32 に変換する
 //
