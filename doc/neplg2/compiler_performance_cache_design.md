@@ -4084,6 +4084,50 @@ Rust 側の全探索としては `borrow_summary` の fixed-point scan と owner
 構築重複も残るが、RPN の現測定では borrow は 20ms 台であり、まずは支配的な Resource function body
 shape と control merge 固定費を優先する。
 
+2026-06-03 の RPN range scanner checkpoint では、cache に頼らない探索範囲削減として、
+RPN tokenization から `str_slice_result` と `str_trim` を外した。`to_i32_range` を
+`stdlib/alloc/string/integer/parse.nepl` に追加し、scanner が持つ `line/start/end` をそのまま
+10 進 i32 parser へ渡せるようにした。これにより RPN の正常 token path は、token 用 `str`
+確保、UTF-8 boundary check、`Result str str` の return path を Resource IR 上で証明しなくてよい。
+
+`to_i32_range` は `to_i32` と同じ i32 範囲検査を byte 範囲に適用するだけであり、radix 付き API や
+u128 / i128 parser の挙動は変更しない。空範囲、`-` だけの範囲、範囲外、無効 digit、表現域外入力は
+すべて `Result::Err 1` へ畳み込む。RPN 側には tab / CR / 余分な空白を含む integration test を追加し、
+trim を外しても ASCII 空白 separator の契約が維持されることを確認した。
+
+同じ checkpoint では、`string_search::str_range_eq` と `str_byte_is_ascii_space_at` も RPN local
+byte predicate へ置き換える試行を行った。到達関数は `217 kept=214` から `216 kept=213` へ 1 つ減ったが、
+`resource_initialized_raw_init_summaries` が増え、`resource_static_check` 中央値も悪化したため採用しない。
+関数数だけではなく、各関数 body の branch / raw-init / Result shape が Resource IR 探索量を決めるためである。
+
+測定条件は前 checkpoint と同じ Windows native release CLI、
+`NEPL_COMPILE_STAGE_TIMING=1`、`NEPL_DISABLE_CHECK_CACHE=1`、
+`NEPL_DISABLE_PROOF_CACHE=1`、`target\release\nepl-cli.exe --check -i examples\rpn.nepl
+--target std --stdlib-root stdlib` である。
+
+```text
+RPN proof-disabled native stage median after range scanner
+  loader_load: about 305ms
+  resource_typecheck: about 102ms
+  resource_static_check: about 1753ms
+    resource_initialized_moves: about 1366ms
+      resource_initialized_i32_scalar_summaries: about 178ms
+      resource_initialized_raw_init_summaries: about 638ms
+      resource_initialized_function_checks: about 528ms
+    resource_owner_obligations: about 303ms
+  reachable Resource functions: 217, kept 214
+
+No-stage wall-clock with exact/proof cache disabled:
+  median: about 2078ms
+```
+
+直前の i32 decimal parser checkpoint の中央値は `resource_static_check=2159ms`、
+`resource_initialized_moves=1737ms`、`resource_initialized_function_checks=820ms`、
+reachable `226 kept=223` だった。今回の range scanner により、Resource static check はさらに
+約 `0.4s`、final initialized function checks は約 `0.29s` 短縮した。依然として 0.5 秒未満には
+届いていないため、次の root target は `resource_initialized_raw_init_summaries` の raw-init relevance /
+control merge 固定費、stdio read/write raw buffer 境界、loader dependency body merge の typed interface 化である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

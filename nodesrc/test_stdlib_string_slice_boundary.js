@@ -35,7 +35,7 @@ assert.doesNotMatch(sliceCode, /\bfn\s+/, 'string/slice facade must not own impl
 assert.match(sliceByteSrc, /#import "alloc\/string\/search" as \*/, 'string/slice/byte must use string/search predicates');
 assert.match(sliceByteSrc, /#import "alloc\/string\/storage" as \*/, 'string/slice/byte must build owned output through string/storage');
 assert.match(sliceCharSrc, /#import "alloc\/string\/char_offsets" as \*/, 'string/slice/char must delegate char offset calculation');
-assert.match(sliceTrimSrc, /#import "alloc\/string\/search" as \*/, 'string/slice/trim must use string/search predicates');
+assert.match(sliceTrimSrc, /#import "alloc\/string\/search\/compare" as \*/, 'string/slice/trim must use string/search compare predicates directly');
 assert.match(charOffsetsSrc, /#import "alloc\/string\/access" as \*/, 'string/char_offsets must read str bytes through string/access');
 assert.match(charOffsetsSrc, /#import "alloc\/string\/utf8" as \*/, 'string/char_offsets must classify UTF-8 through string/utf8');
 

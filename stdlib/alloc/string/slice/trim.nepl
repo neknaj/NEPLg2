@@ -14,7 +14,7 @@
 #import "core/math/bool" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
-#import "alloc/string/search" as *
+#import "alloc/string/search/compare" as *
 #import "./byte" as *
 
 //: str_trim_suffix_cr: 末尾 CR を 1 byte だけ取り除く

@@ -31,21 +31,32 @@
 //:     ##: error: stack has 2 values
 //:     ##: > bye
 
+//: neplg2:test[rpn_repl_ascii_whitespace, normalize_newlines, strip_ansi]
+//: [目的/もくてき]: token scanner が tab / CR / 余分な空白を separator として扱うことを確認する
+//: stdin: "\t 1\t2\r + \n"
+//: stdout: mlstr:
+//:     ##: RPN REPL
+//:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
+//:     ##:
+//:     ##: > 3
+//:     ##: ok: result = 3
+//:     ##: > bye
+
 //: rpn: 逆ポーランド記法（RPN）電卓 TUI/REPL
 //:
 //: [目的/もくてき]:
-//: - スペース区切りの逆ポーランド記法を対話的に評価する REPL を提供します。
-//: - `Stack i32` / `str_slice_result` / `to_i32` などの stdlib を活用した実装例です。
+//: - ASCII 空白区切りの逆ポーランド記法を対話的に評価する REPL を提供します。
+//: - `Stack i32` / range-based string scanner / `to_i32_range` などの stdlib を活用した実装例です。
 //: - 各トークンごとの計算ステップがきれいに表示される TUI スタイルの UI レスポンスを行います。
 //:
 //: [実装/じっそう]:
-//: - 入力を space 区切りで走査し、各 token を順に処理します。
+//: - 入力を ASCII 空白区切りで走査し、各 token を元文字列の byte 範囲として順に処理します。
 //: - `Stack` は owner を返す `push` / `pop_top` で更新し、表示だけ `len` / `get` で借用します。
 //: - 演算結果やエラーメッセージには ANSI カラーを使い、視認性を高く保ちます。
 //:
 //: [注意/ちゅうい]:
 //: - 対応演算子は `+` `-` `*` の 3 種です。スタック不足時の保護付きです。
-//: - 負の整数リテラルにも対応しています（`to_i32` が符号付き解析を行います）。
+//: - 負の整数リテラルにも対応しています（`to_i32_range` が符号付き解析を行います）。
 //:
 //: [計算量/けいさんりょう]:
 //: - 1 トークンあたり O(1)、全体で O(n)（n = トークン数）
@@ -64,8 +75,7 @@
 #import "std/stdio/ansi/print" as *
 #import "std/stdio/read/text" as *
 #import "alloc/string/access" as string_access
-#import "alloc/string/search" as string_search
-#import "alloc/string/slice" as string_slice
+#import "alloc/string/search/compare" as string_search
 #import "alloc/string/integer/parse" as string_parse
 #import "alloc/collections/stack/types" as *
 #import "alloc/collections/stack/types" as stk
@@ -190,26 +200,27 @@ enum RpnOp:
     Sub
     Mul
 
-//: operator_from_token: token を RPN 演算子へ分類する
+//: operator_from_span: byte 範囲の token を RPN 演算子へ分類する
 //:
 //: [目的/もくてき]:
 //: - `+` `-` `*` の判定を 1 か所に集め、数値 token の parse と演算適用の前提を明確にします。
+//: - token 用の `str` を切り出さず、元の行と byte 範囲だけで operator 判定を行います。
 //:
 //: [注意/ちゅうい]:
 //: - `-5` のような負数 literal は `-` だけと一致しないため、`Option::None` として数値 parse 側へ渡します。
-fn operator_from_token %fn str Option RpnOp \token:
+fn operator_from_span %fn str fn i32 fn i32 Option RpnOp \line\start\end:
     if:
-        string_search::str_eq token "+"
+        string_search::str_range_eq line start end "+"
         then:
             Option::Some RpnOp::Add
         else:
             if:
-                string_search::str_eq token "-"
+                string_search::str_range_eq line start end "-"
                 then:
                     Option::Some RpnOp::Sub
                 else:
                     if:
-                        string_search::str_eq token "*"
+                        string_search::str_range_eq line start end "*"
                         then:
                             Option::Some RpnOp::Mul
                         else:
@@ -247,7 +258,7 @@ fn print_step_after %impure fn &Stack i32 impure fn i32 unit \stack\res:
 //: [目的/もくてき]:
 //: - `+` `-` `*` のいずれかの演算を適用し、結果をスタックに積みます。
 //: - `pop_top2` で更新後 owner と 2 つの値を同時に受け取り、二項演算の owner flow を 1 つの境界にまとめます。
-//: - token 文字列の分類は `operator_from_token` に閉じ、ここでは分類済み `RpnOp` だけを扱います。
+//: - token 範囲の分類は `operator_from_span` に閉じ、ここでは分類済み `RpnOp` だけを扱います。
 fn apply_op %impure fn Stack i32 impure fn RpnOp Result Stack i32 str \stack\op:
     let popped %StackPop2 i32 stk::pop_top2 stack
     let a_opt %Option i32 stk::stack_pop2_lower &popped
@@ -267,54 +278,47 @@ fn apply_op %impure fn Stack i32 impure fn RpnOp Result Stack i32 str \stack\op:
             print_error "stack underflow";
             ok stack_after_pop
 
-//: process_token: 1 つのトークンを分類して処理する
+//: process_token_span: 1 つの token 範囲を分類して処理する
 //:
 //: [目的/もくてき]:
 //: - 演算子か数値かを判定しスタックに反映させ、トレースを表示します。
-fn process_token %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token:
+//: - token は `line[start..end]` として扱い、slice 用の文字列確保を行いません。
+fn process_token_span %impure fn Stack i32 impure fn str impure fn i32 impure fn i32 Result Stack i32 str \stack\line\start\end:
     if:
-        string_search::str_eq token ""
+        eq start end
         then:
             ok stack
         else:
-            match operator_from_token token:
+            match operator_from_span line start end:
                 Option::Some op:
                     apply_op stack op
                 Option::None:
-                    match string_parse::to_i32 token:
+                    match string_parse::to_i32_range line start end:
                         Result::Ok val:
                             push_or_report stack val
                         Result::Err _:
                             print_error "unknown token";
                             ok stack
 
-fn process_token_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\token:
+fn process_token_state_span %impure fn Result Stack i32 str impure fn str impure fn i32 impure fn i32 Result Stack i32 str \state\line\start\end:
     match state:
         Result::Ok stack:
-            process_token stack token
+            process_token_span stack line start end
         Result::Err msg:
             err msg
-
-fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\msg:
-    match state:
-        Result::Ok stack:
-            stk::free stack;
-            err msg
-        Result::Err old_msg:
-            err old_msg
 
 //: eval_line: 1 行の RPN 式を評価する
 //:
 //: [目的/もくてき]:
-//: - スペース区切りの入力行をトークン化し、すべて適用して結果を出力します。
+//: - ASCII 空白区切りの入力行をトークン化し、すべて適用して結果を出力します。
 //:
 //: [実装/じっそう]:
-//: - `Stack` を new し、space 区切り token を `str_slice_result` で取り出して `process_token` を呼びます。
+//: - `Stack` を new し、ASCII 空白区切り token の byte 範囲を `process_token_span` へ渡します。
+//: - separator 判定は `str_byte_is_ascii_space_at` に閉じ、token 用の trim / slice 文字列は作りません。
 //: - 最終的なスタック長が 1 であれば結果を表示し、超過時はエラーを出力します。
 //: - `Stack` は関数終了時に正しく `free` します。
 fn eval_line %impure fn str unit \line:
-    let trimmed %str string_slice::str_trim line;
-    let n %i32 string_access::len trimmed;
+    let n %i32 string_access::len line;
 
     let stack_init %Result Stack i32 Diag stk::new;
     match stack_init:
@@ -330,19 +334,11 @@ fn eval_line %impure fn str unit \line:
                         then:
                             true
                         else:
-                            match string_access::byte_at trimmed i:
-                                Option::Some b:
-                                    eq b 32
-                                Option::None:
-                                    true
+                            string_search::str_byte_is_ascii_space_at line i
                     if:
                         is_sep
                         then:
-                            match string_slice::str_slice_result trimmed start i:
-                                Result::Ok tok:
-                                    set stack_state process_token_state stack_state tok
-                                Result::Err msg:
-                                    set stack_state token_error_state stack_state msg
+                            set stack_state process_token_state_span stack_state line start i
                             set start add i 1
                         else:
                             unit

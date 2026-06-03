@@ -78,32 +78,34 @@ fn i32_decimal_step_allowed %fn i32 fn i32 fn bool bool \acc\digit\has_minus:
                 else:
                     and eq acc 214748364 le digit 7
 
-//: parse_i32_decimal_digits_from: 10 進 i32 本体を開始 index から読む
+//: parse_i32_decimal_digits_range: 10 進 i32 本体を byte 範囲から読む
 //:
 //: [目的/もくてき]:
-//: - `to_i32` が `to_i128_radix` / `parse_u128_radix_digits_from` の大きい proof graph を経由せず、i32 の範囲だけを検査します。
+//: - 文字列全体を切り出さず、`s[start..end]` の digit だけを i32 として解析します。
+//: - scanner が token を範囲として保持できるようにし、slice allocation と UTF-8 boundary proof を不要にします。
 //:
 //: [実装/じっそう]:
-//: - `start` から末尾まで ASCII digit を走査します。
+//: - `start` から `end` 未満まで ASCII digit を走査します。
 //: - 正数は正の accumulator、負数は負の accumulator へ直接累積します。
 //:
 //: [注意/ちゅうい]:
-//: - 少なくとも 1 digit が必要です。`""` と `"-"` は `Result::Err 1` です。
+//: - 少なくとも 1 digit が必要です。空範囲は `Result::Err 1` です。
+//: - 範囲外、逆順範囲、無効 digit、表現域外入力はいずれも `Result::Err 1` です。
 //: - この helper は 10 進専用であり、radix 付き API からは呼びません。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(n - start)
-fn parse_i32_decimal_digits_from %fn str fn i32 fn bool Result i32 i32 \s\start\has_minus:
+//: - O(end - start)
+fn parse_i32_decimal_digits_range %fn str fn i32 fn i32 fn bool Result i32 i32 \s\start\end\has_minus:
     let n %i32 len s;
     let mut i %i32 start;
     let mut acc %i32 0;
     let mut digits_valid %i32 1;
     if:
-        le n start
+        or lt start 0 or le end start lt n end
         then:
             set digits_valid 0;
         else:
-            while lt i n:
+            while lt i end:
                 do:
                     let digit_chr %i32 integer_parse_byte_or_invalid s i;
                     let digit %i32 decimal_digit_from_byte_or_invalid digit_chr;
@@ -133,9 +135,26 @@ fn parse_i32_decimal_digits_from %fn str fn i32 fn bool Result i32 i32 \s\start\
         else:
             Result::Err 1
 
+//: parse_i32_decimal_digits_from: 10 進 i32 本体を開始 index から末尾まで読む
+//:
+//: [目的/もくてき]:
+//: - `to_i32` が `to_i128_radix` / `parse_u128_radix_digits_from` の大きい proof graph を経由せず、i32 の範囲だけを検査します。
+//:
+//: [実装/じっそう]:
+//: - 末尾 index を `len s` とし、範囲 parser へ委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - 少なくとも 1 digit が必要です。`""` と `"-"` は `Result::Err 1` です。
+//: - この helper は 10 進専用であり、radix 付き API からは呼びません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n - start)
+fn parse_i32_decimal_digits_from %fn str fn i32 fn bool Result i32 i32 \s\start\has_minus:
+    parse_i32_decimal_digits_range s start len s has_minus
+
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
-//: stdout: "test_report name=\"string_integer_parse_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parse hex i32\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"parse negative hex i128\" expected=\"-42\" actual=\"-42\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"reject bare minus i128\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"reject invalid radix i128\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: stdout: "test_report name=\"string_integer_parse_doc\" count=6 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parse hex i32\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"parse negative hex i128\" expected=\"-42\" actual=\"-42\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"reject bare minus i128\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"reject invalid radix i128\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"parse i32 range\" expected=\"-42\" actual=\"-42\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"reject empty i32 range\" expected=\"1\" actual=\"1\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -151,6 +170,13 @@ fn parse_i32_decimal_digits_from %fn str fn i32 fn bool Result i32 i32 \s\start\
 //:             assert_eq_i32 label expected actual
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "integer parse failed unexpectedly"
+//:
+//: fn assert_i32_err_i32 %fn str fn Result i32 i32 fn i32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected from_i32 actual "integer parse succeeded unexpectedly"
+//:         Result::Err e:
+//:             assert_eq_i32 label expected e
 //:
 //: fn assert_i128_ok_i32 %fn str fn Result i128 i32 fn i32 TestAssertion \label\got\expected:
 //:     match got:
@@ -173,6 +199,8 @@ fn parse_i32_decimal_digits_from %fn str fn i32 fn bool Result i32 i32 \s\start\
 //:         |> test_report_push assert_i128_ok_i32 "parse negative hex i128" (to_i128_radix "-2a" 16) -42
 //:         |> test_report_push assert_i128_err_i32 "reject bare minus i128" (to_i128_radix "-" 10) 1
 //:         |> test_report_push assert_i128_err_i32 "reject invalid radix i128" (to_i128_radix "10" 3) 1
+//:         |> test_report_push assert_i32_ok "parse i32 range" (to_i32_range "xx-42 yy" 2 5) -42
+//:         |> test_report_push assert_i32_err_i32 "reject empty i32 range" (to_i32_range "123" 1 1) 1
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
@@ -205,6 +233,30 @@ pub fn to_i32 %fn str Result i32 i32 \s:
                 then 1
                 else 0
             parse_i32_decimal_digits_from s start has_minus
+
+//: to_i32_range: 文字列の byte 範囲を 10 進 i32 として解析する
+//:
+//: [目的/もくてき]:
+//: - scanner が `str_slice_result` で token 文字列を確保せず、元の文字列と byte 範囲だけで数値 token を解析できるようにします。
+//: - `to_i32` と同じ 10 進 i32 の範囲検査を、`s[start..end]` に対して行います。
+//:
+//: [実装/じっそう]:
+//: - 範囲先頭の `-` だけを負号として扱い、その後の digit 範囲を `parse_i32_decimal_digits_range` へ渡します。
+//: - 負数は負の accumulator へ累積するため、`-2147483648` を overflow せず受理できます。
+//:
+//: [注意/ちゅうい]:
+//: - 範囲は byte index です。`start` と `end` は token scanner が持つ境界をそのまま渡します。
+//: - 空範囲、`-` だけの範囲、範囲外、無効 digit、表現域外入力はいずれも `Result::Err 1` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+pub fn to_i32_range %fn str fn i32 fn i32 Result i32 i32 \s\start\end:
+    let first %i32 integer_parse_byte_or_invalid s start;
+    let has_minus %bool eq first '-';
+    let digit_start %i32 if has_minus:
+        then add start 1
+        else start
+    parse_i32_decimal_digits_range s digit_start end has_minus
 
 // to_i32_radix: 指定基数の文字列を i32 に変換する
 //

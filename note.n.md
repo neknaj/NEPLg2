@@ -50176,3 +50176,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - per-function timing では、変更前に `parse_u128_radix_digits_from` が final initialized check `207ms` / raw-init summary `38ms` で上位だった。変更後は RPN 到達から外れ、代わりに `parse_i32_decimal_digits_from` が final initialized check `142ms` / raw-init summary `9ms` になった。
 - focused verification は `node nodesrc\tests.js -i stdlib\alloc\string\integer\parse.nepl -o tmp\string-integer-parse-i32-fast-path.json -j 1 --dist web\dist --assert-io`、`node nodesrc\tests.js -i tests\stdlib\string_numeric_overflow.n.md -o tmp\string-numeric-overflow-i32-fast-path.json -j 1 --dist web\dist --assert-io`、`node nodesrc\tests.js -i examples\rpn.nepl -o tmp\rpn-i32-fast-path-focused.json -j 1 --dist web\dist --assert-io` を通した。
 - `doc/neplg2/compiler_performance_cache_design.md` へ RPN 階層別 profiling、採用・不採用判断、残る支配点を追記した。次の候補は `str_slice_result` の Result return path collapse、stdio read/write raw-init の private helper 境界、または loader dependency body merge の typed interface 化である。
+
+## 2026-06-03 Agent RPN range scanner cold compile checkpoint
+
+- 同じ `fix/ci-gh-actions-followup-20260603` branch で、cache に頼らない追加改善として RPN の tokenization を `str` slice 生成から byte 範囲 scanner へ移した。`plan.md` は変更していない。
+- `stdlib/alloc/string/integer/parse.nepl` に `to_i32_range` と範囲指定 10 進 parser を追加した。`to_i32` は既存 helper 経由で同じ検査を使い、radix 付き API と u128 / i128 parser の挙動は変更していない。
+- `examples/rpn.nepl` は `str_trim` / `str_slice_result` で token 文字列を作らず、`line/start/end` を `operator_from_span` と `to_i32_range` へ渡す。tab / CR / 余分な空白を separator として扱う integration test を追加した。
+- `stdlib/alloc/string/slice/trim.nepl` は `alloc/string/search` facade ではなく、実際に使う `alloc/string/search/compare` を直接 import するようにした。facade 経由で不要な search helper を巻き込まないための責務境界整理である。
+- `string_search::str_range_eq` と `str_byte_is_ascii_space_at` を RPN local byte predicate へ置き換える試行も行ったが、到達関数数は 1 減る一方で raw-init summary と全体中央値が悪化したため採用しなかった。関数数だけでなく body shape と Resource IR の branch / raw-init 探索量を見る必要がある。
+- 最終 stage timing は `NEPL_COMPILE_STAGE_TIMING=1 NEPL_DISABLE_CHECK_CACHE=1 NEPL_DISABLE_PROOF_CACHE=1 target\release\nepl-cli.exe --check -i examples\rpn.nepl --target std --stdlib-root stdlib` で 7 run を取り、中央値付近は `resource_static_check=1753ms`、`resource_initialized_moves=1366ms`、`resource_initialized_i32_scalar_summaries=178ms`、`resource_initialized_raw_init_summaries=638ms`、`resource_initialized_function_checks=528ms`、`resource_owner_obligations=303ms`、reachable Resource functions `217 kept=214` だった。
+- no-stage wall-clock は exact/proof cache disabled で `2281.796ms / 2076.366ms / 2070.694ms / 2089.263ms / 2077.826ms`、中央値約 `2078ms` だった。直前 checkpoint の `resource_static_check=2159ms`、`initialized_moves=1737ms`、`function_checks=820ms`、reachable `226 kept=223` からは改善したが、0.5 秒未満にはまだ届かない。
+- `nodesrc/test_stdlib_string_slice_boundary.js` は、`trim` が `search/compare` の ASCII predicate だけを直接必要とする契約に更新した。`node nodesrc\test_stdlib_string_slice_boundary.js` は通過している。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は warn-only として完走し、今回変更した `string/slice` 境界の警告は解消した。残る警告は stdio / io bytebuf など別作業領域の既存 source policy mismatch であり、この checkpoint では触れていない。
+- 次の root target は `resource_initialized_raw_init_summaries` の relevance / control merge 固定費、stdio read/write raw buffer 境界、loader dependency body merge の typed interface 化である。
