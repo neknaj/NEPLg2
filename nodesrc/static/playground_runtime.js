@@ -377,7 +377,10 @@ self.onmessage = async (e) => {
     ]);
     const types = new Set([
       'i32', 'i64', 'u32', 'u64', 'u8', 'f32', 'f64', 'bool', 'str', 'char',
-      'Result', 'Option', 'Vec', 'String', 'StringBuilder', 'List', 'Set', 'Self'
+      'String', 'Self'
+    ]);
+    const typeConstructors = new Set([
+      'Result', 'Option', 'Vec', 'StringBuilder', 'List', 'Set'
     ]);
     const unitLiterals = new Set(['unit']);
     const voidLiterals = new Set(['void']);
@@ -472,6 +475,8 @@ self.onmessage = async (e) => {
               out += '<span class="nm-syn-literal-unit">' + esc(tok) + '</span>';
             } else if (voidLiterals.has(tok)) {
               out += '<span class="nm-syn-literal-void">' + esc(tok) + '</span>';
+            } else if (typeConstructors.has(tok)) {
+              out += '<span class="nm-syn-type-constructor">' + esc(tok) + '</span>';
             } else if (types.has(tok)) {
               out += '<span class="nm-syn-type">' + esc(tok) + '</span>';
             } else if (constants.has(tok)) {

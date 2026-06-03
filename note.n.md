@@ -1,3 +1,15 @@
+# 2026-06-03 Agent2 type constructor highlight / muted palette checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の静的検査活用、言語仕様を Web 表層の推測へ閉じ込めない方針に従い、型名の色分けを compiler-provided `token_classifications` 起点で拡張した。
+- `origin/main` と同期後、`agent2/type-arity-syntax-colors` branch で作業した。Canvas editor は DOM class ではなく TS palette で描画するため、色指定は `web/src/editor/editor.ts` に集約した。
+- 全体の色相は維持しつつ彩度を落とし、白寄りの palette に調整した。`type` は薄い緑、`type-constructor` は濃い緑として分けた。
+- 型式中で type parameter を取る constructor token は `type-constructor` として分類する。`Result unit GuiError` の `Result`、`%fn` の `fn`、`impure fn` の `impure` / `fn` が対象で、関数定義先頭の `fn` は型式範囲外なので `keyword` のまま維持した。
+- `TypeExpr::Apply` の base token span が失われていたため、NEPLg2.1 prefix type parser と legacy generic type parser で named type token に span を保持するようにした。これにより `Holder widget_state` の `Holder` へ `type_constructor` role を正しく出せる。
+- `nepl-language` / `nepl-web` の `token_classifications` は `type-constructor` category を追加し、`type_constructor` role、`KwFn`、`impure fn` を型式範囲内だけ濃い緑カテゴリへ上げるようにした。
+- static playground article code block highlighter も同じ落ち着いた palette へ寄せ、既知の `Result` / `Option` / `Vec` などを `type-constructor` 色に分けた。
+- focused verification は `cargo check -p nepl-core`、`cargo check -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`npm --prefix web run build:ts`、`trunk build --release`、`node nodesrc/test_analysis_api.js` 14/14、`node nodesrc/test_editor_current_syntax_highlighting.js`、`node nodesrc/test_neplg2_language_provider_vfs.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-type-arity-colors.json`、`cargo test -p nepl-core --lib` 786 tests、`cargo test -p nepl-language --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は editor / GUI / VFS 関連の回帰を通過し、今回触っていない cliarg、stdlib documentation gap、static_check/typecheck facade、resource checker responsibility、codegen_wasm line limit、resource gate order、diagnostic registry、stdio print_i32 boundary の既存 warning 8 件を報告した。
+
 # 2026-06-03 Agent2 compiler-backed syntax highlight palette checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の静的検査活用、言語仕様を Web 表層の推測へ閉じ込めない方針に従い、Web Playground editor の色分けを compiler-provided `token_classifications` 起点に整理した。
