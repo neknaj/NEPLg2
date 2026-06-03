@@ -191,16 +191,19 @@ ul{margin:10px 0 10px 22px;}
 .nm-code-content{position:relative;}
 .nm-code{background:var(--code);padding:12px;overflow:auto;margin:0;border:none;border-radius:0;}
 .nm-code code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;white-space:pre;}
-.nm-syn-keyword{color:#7aa2f7;}
-.nm-syn-string{color:#9ece6a;}
-.nm-syn-number{color:#ff9e64;}
-.nm-syn-comment{color:#7f8ea3;}
-.nm-syn-boolean{color:#e0af68;}
-.nm-syn-function{color:#73daca;}
+.nm-syn-keyword{color:#f3a2a6;}
+.nm-syn-string{color:#f4bf8c;}
+.nm-syn-number{color:#d7e99d;}
+.nm-syn-comment{color:#7b8493;}
+.nm-syn-boolean{color:#f4b99d;}
+.nm-syn-function{color:#f4df9a;}
 .nm-syn-operator{color:#c0caf5;}
-.nm-syn-punctuation{color:#a9b1d6;}
-.nm-syn-type{color:#e5c07b;}
-.nm-syn-constant{color:#bb9af7;}
+.nm-syn-punctuation{color:#c9c0c8;}
+.nm-syn-type{color:#c7ebcf;}
+.nm-syn-type-constructor{color:#84bf94;}
+.nm-syn-constant{color:#a5c2ff;}
+.nm-syn-literal-unit{color:#f2add4;}
+.nm-syn-literal-void{color:#f2add4;}
 .nm-code-inline{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:1px 6px;}
 .nm-gloss, .nm-ruby{ruby-position:over;}
 .nm-gloss rt{font-size:0.72em;color:var(--muted);line-height:1.1;}

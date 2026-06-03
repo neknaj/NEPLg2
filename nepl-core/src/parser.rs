@@ -3717,7 +3717,7 @@ impl Parser {
                 Some(TypeExpr::Unit)
             }
             TokenKind::Ident(name) => {
-                let _ = self.next();
+                let name_span = self.next().map(|token| token.span).unwrap_or_else(Span::dummy);
                 let mut ty = match name.as_str() {
                     "i32" => TypeExpr::I32,
                     "u8" => TypeExpr::U8,
@@ -3736,6 +3736,7 @@ impl Parser {
                 };
 
                 if self.consume_if(&TokenKind::LAngle) {
+                    let base = ty.with_span(name_span);
                     let mut args = Vec::new();
                     loop {
                         args.push(self.parse_type_expr()?);
@@ -3745,7 +3746,9 @@ impl Parser {
                         break;
                     }
                     self.expect(&TokenKind::RAngle)?;
-                    ty = TypeExpr::Apply(Box::new(ty), args);
+                    ty = TypeExpr::Apply(Box::new(base), args);
+                } else {
+                    ty = ty.with_span(name_span);
                 }
                 Some(ty)
             }

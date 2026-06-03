@@ -151,8 +151,14 @@ fn main %fn void i32 \\void:
 struct widget_state:
     value %i32
 
+struct Holder<.T>:
+    value %.T
+
 fn id %fn widget_state widget_state \\x:
     x
+
+fn effect %impure fn Holder widget_state unit \\x:
+    unit
 
 fn main %fn void widget_state \\void:
     %widget_state id
@@ -162,10 +168,20 @@ fn main %fn void widget_state \\void:
                 if (!ranges.some((item) => item?.role === 'prefix_type_annotation')) {
                     fail('semantics_type_annotation_token_classifications: prefix_type_annotation range missing');
                 }
-                const percentIndex = tokenIndexForText(semResult, source, '%', 3);
-                const typeIndex = tokenIndexForText(semResult, source, 'widget_state', 4);
+                const percentIndex = tokenIndexForText(semResult, source, '%', 5);
+                const typeIndex = tokenIndexForText(semResult, source, 'widget_state', 5);
+                const leadingFnIndex = tokenIndexForText(semResult, source, 'fn', 0);
+                const typeFnIndex = tokenIndexForText(semResult, source, 'fn', 1);
+                const impureIndex = tokenIndexForText(semResult, source, 'impure', 0);
+                const impureFnIndex = tokenIndexForText(semResult, source, 'fn', 3);
+                const holderIndex = tokenIndexForText(semResult, source, 'Holder', 1);
                 const percentClass = tokenClassificationForIndex(semResult, percentIndex);
                 const typeClass = tokenClassificationForIndex(semResult, typeIndex);
+                const leadingFnClass = tokenClassificationForIndex(semResult, leadingFnIndex);
+                const typeFnClass = tokenClassificationForIndex(semResult, typeFnIndex);
+                const impureClass = tokenClassificationForIndex(semResult, impureIndex);
+                const impureFnClass = tokenClassificationForIndex(semResult, impureFnIndex);
+                const holderClass = tokenClassificationForIndex(semResult, holderIndex);
                 if (!percentClass || percentClass.category !== 'operator') {
                     fail('semantics_type_annotation_token_classifications: % should be classified as operator by syntax range');
                 }
@@ -174,6 +190,24 @@ fn main %fn void widget_state \\void:
                 }
                 if (typeClass.role !== 'prefix_type_annotation_inner') {
                     fail(`semantics_type_annotation_token_classifications: expected inner role, got ${typeClass.role}`);
+                }
+                if (!leadingFnClass || leadingFnClass.category !== 'keyword') {
+                    fail('semantics_type_annotation_token_classifications: definition fn should stay keyword');
+                }
+                if (!typeFnClass || typeFnClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: function type fn should be type-constructor');
+                }
+                if (!impureClass || impureClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: impure function type marker should be type-constructor');
+                }
+                if (!impureFnClass || impureFnClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: impure function type fn should be type-constructor');
+                }
+                if (!holderClass || holderClass.category !== 'type-constructor') {
+                    fail('semantics_type_annotation_token_classifications: generic type constructor should be type-constructor');
+                }
+                if (holderClass.role !== 'type_constructor') {
+                    fail(`semantics_type_annotation_token_classifications: expected type_constructor role, got ${holderClass.role}`);
                 }
             },
         },
@@ -217,8 +251,8 @@ fn main %fn void unit \\void:
                 if (!lambdaVoidClass || lambdaVoidClass.category !== 'literal-void') {
                     fail('semantics_current_name_and_literal_classifications: lambda void marker should be literal-void');
                 }
-                if (!mainReturnUnitClass || mainReturnUnitClass.category !== 'type') {
-                    fail('semantics_current_name_and_literal_classifications: return unit should be classified as type');
+                if (!mainReturnUnitClass || mainReturnUnitClass.category !== 'literal-unit') {
+                    fail('semantics_current_name_and_literal_classifications: return unit should be classified as literal-unit');
                 }
                 if (!valueUnitClass || valueUnitClass.category !== 'literal-unit') {
                     fail('semantics_current_name_and_literal_classifications: unit value should be literal-unit');
@@ -399,6 +433,79 @@ fn main <()->i32> ():
         if (typeof c.check === 'function') c.check(resolve);
         if (typeof c.checkSemantics === 'function') c.checkSemantics(semantics, c.source);
         results.push({ id: c.id, ok: true });
+    }
+
+    {
+        const id = 'semantics_parse_error_keeps_compiler_token_classifications';
+        const source = 'fn main %fn void unit \\void:\n    Result::Ok unit\n    %widget_state\n';
+        const semantics = api.analyze_semantics(source);
+        if (!semantics || semantics.stage !== 'semantics') fail(`${id}: semantics stage mismatch`);
+        if (semantics.ok) fail(`${id}: expected parse/typecheck failure for incomplete source`);
+        const fnIndex = tokenIndexForText(semantics, source, 'fn', 0);
+        const voidIndex = tokenIndexForText(semantics, source, 'void', 0);
+        const returnUnitIndex = tokenIndexForText(semantics, source, 'unit', 0);
+        const groupIndex = tokenIndexForText(semantics, source, 'Result', 0);
+        const memberIndex = tokenIndexForText(semantics, source, 'Ok', 0);
+        const keywordClass = tokenClassificationForIndex(semantics, fnIndex);
+        const voidClass = tokenClassificationForIndex(semantics, voidIndex);
+        const unitClass = tokenClassificationForIndex(semantics, returnUnitIndex);
+        const groupClass = tokenClassificationForIndex(semantics, groupIndex);
+        const memberClass = tokenClassificationForIndex(semantics, memberIndex);
+        if (!keywordClass || keywordClass.category !== 'keyword') {
+            fail(`${id}: keyword classification missing after parse error`);
+        }
+        if (!voidClass || voidClass.category !== 'literal-void') {
+            fail(`${id}: void marker classification missing after parse error`);
+        }
+        if (!unitClass || unitClass.category !== 'literal-unit') {
+            fail(`${id}: unit classification missing after parse error`);
+        }
+        if (!groupClass || groupClass.category !== 'namespace') {
+            fail(`${id}: namespace classification missing after parse error`);
+        }
+        if (!memberClass || memberClass.category !== 'constant') {
+            fail(`${id}: path member classification missing after parse error`);
+        }
+        results.push({ id, ok: true });
+    }
+
+    {
+        const id = 'semantics_vfs_loader_error_keeps_compiler_token_classifications';
+        const source = `#no_prelude
+#import "./missing_file" as modx
+
+fn main %fn void unit \\void:
+    modx::call unit
+`;
+        const semantics = api.analyze_semantics_with_vfs('/workspace/main.nepl', source, {});
+        if (!semantics || semantics.stage !== 'semantics') fail(`${id}: semantics stage mismatch`);
+        if (semantics.ok) fail(`${id}: expected loader failure for missing import`);
+        const fnIndex = tokenIndexForText(semantics, source, 'fn', 0);
+        const voidIndex = tokenIndexForText(semantics, source, 'void', 0);
+        const unitIndex = tokenIndexForText(semantics, source, 'unit', 0);
+        const groupIndex = tokenIndexForText(semantics, source, 'modx', 1);
+        const memberIndex = tokenIndexForText(semantics, source, 'call', 0);
+        const keywordClass = tokenClassificationForIndex(semantics, fnIndex);
+        const voidClass = tokenClassificationForIndex(semantics, voidIndex);
+        const unitClass = tokenClassificationForIndex(semantics, unitIndex);
+        const groupClass = tokenClassificationForIndex(semantics, groupIndex);
+        const memberClass = tokenClassificationForIndex(semantics, memberIndex);
+        if (!keywordClass || keywordClass.category !== 'keyword') {
+            fail(`${id}: keyword classification missing after loader error`);
+        }
+        if (!voidClass || voidClass.category !== 'literal-void') {
+            fail(`${id}: void marker classification missing after loader error`);
+        }
+        if (!unitClass || unitClass.category !== 'literal-unit') {
+            fail(`${id}: unit classification missing after loader error`);
+        }
+        if (!groupClass || groupClass.category !== 'namespace') {
+            fail(`${id}: namespace classification missing after loader error`);
+        }
+        if (!memberClass || memberClass.category !== 'constant') {
+            fail(`${id}: path member classification missing after loader error`);
+        }
+        results.push({ id, ok: true });
     }
 
     const vfsCases = [

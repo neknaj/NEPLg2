@@ -2067,11 +2067,36 @@ fn collect_syntax_ranges(module: &nepl_core::ast::Module) -> Vec<SyntaxRangeTrac
     out
 }
 
-fn type_syntax_category_for_token(kind: &TokenKind) -> Option<&'static str> {
+fn type_syntax_token_can_be_classified(kind: &TokenKind) -> bool {
     match kind {
-        TokenKind::KwFn | TokenKind::KwMut => Some("keyword"),
-        TokenKind::Ident(value) if value == "impure" => Some("keyword"),
-        TokenKind::Ident(_) | TokenKind::UnitLiteral => Some("type"),
+        TokenKind::KwFn
+        | TokenKind::KwMut
+        | TokenKind::Ident(_)
+        | TokenKind::UnitLiteral
+        | TokenKind::VoidMarker
+        | TokenKind::Percent
+        | TokenKind::Ampersand
+        | TokenKind::Star
+        | TokenKind::PathSep
+        | TokenKind::Arrow(_)
+        | TokenKind::LAngle
+        | TokenKind::RAngle
+        | TokenKind::LParen
+        | TokenKind::RParen
+        | TokenKind::Comma
+        | TokenKind::Dot => true,
+        _ => false,
+    }
+}
+
+fn type_syntax_category_for_token(kind: &TokenKind, role: &str) -> Option<&'static str> {
+    match kind {
+        TokenKind::KwFn => Some("type-constructor"),
+        TokenKind::KwMut => Some("keyword"),
+        TokenKind::Ident(value) if value == "impure" => Some("type-constructor"),
+        TokenKind::Ident(_) if role == "type_constructor" => Some("type-constructor"),
+        TokenKind::Ident(_) => Some("type"),
+        TokenKind::UnitLiteral => Some("literal-unit"),
         TokenKind::VoidMarker => Some("literal-void"),
         TokenKind::Percent
         | TokenKind::Ampersand
@@ -2228,10 +2253,12 @@ fn classification_priority(category: &str, role: &str) -> u8 {
     match category {
         "function" | "variable" | "constant" if role != "path_member_name" => 90,
         "namespace" => 85,
+        "type-constructor" => 80,
         "type" if role != "uppercase_type_name" && role != "path_namespace_name" => 80,
         "keyword" => 70,
         "operator" => 60,
         "punctuation" => 50,
+        "literal-unit" if role != "unit_literal" => 45,
         "literal-void" => 45,
         "literal-unit" | "literal-string" | "literal-char" | "literal-number" | "literal-bool" => 40,
         "type" | "constant" => 35,
@@ -2290,15 +2317,14 @@ fn build_token_classifications(
             );
         }
 
-        let Some(category) = type_syntax_category_for_token(&token.kind) else {
+        if !type_syntax_token_can_be_classified(&token.kind) {
             continue;
-        };
+        }
         let mut best_range: Option<&SyntaxRangeTrace> = None;
         for range in syntax_ranges {
-            let classification_span = if category == "type" {
-                range.inner_span.unwrap_or(range.span)
-            } else {
-                range.span
+            let classification_span = match token.kind {
+                TokenKind::Percent => range.span,
+                _ => range.inner_span.unwrap_or(range.span),
             };
             let contains = span_contains(classification_span, token.span);
             if !contains {
@@ -2313,6 +2339,9 @@ fn build_token_classifications(
             }
         }
         if let Some(range) = best_range {
+            let Some(category) = type_syntax_category_for_token(&token.kind, range.role) else {
+                continue;
+            };
             set_best_token_classification(
                 &mut best,
                 token_index,
@@ -2364,6 +2393,11 @@ fn build_token_classifications(
     best.into_iter()
         .filter_map(|entry| entry.map(|(_, classification)| classification))
         .collect()
+}
+
+fn build_lexical_token_classifications(tokens: &[Token]) -> Vec<TokenClassificationTrace> {
+    let resolve_trace = NameResolutionTrace::new_with_options(false);
+    build_token_classifications(tokens, &[], &resolve_trace)
 }
 
 fn callee_def_id(callee: &FuncRef) -> Option<DefId> {
@@ -3333,6 +3367,7 @@ pub fn analyze_semantics(source: &str) -> JsValue {
             let _ = Reflect::set(&out, &JsValue::from_str("token_resolution"), &js_sys::Array::new());
         }
     } else {
+        let token_classifications = build_lexical_token_classifications(&tokens);
         let diagnostics = diagnostics_to_js(source, &all_diags);
         let _ = Reflect::set(&out, &JsValue::from_str("diagnostics"), &diagnostics);
         let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(false));
@@ -3350,7 +3385,7 @@ pub fn analyze_semantics(source: &str) -> JsValue {
         let _ = Reflect::set(
             &out,
             &JsValue::from_str("token_classifications"),
-            &js_sys::Array::new(),
+            &token_classifications_to_js(source, None, &token_classifications),
         );
     }
 
@@ -3403,6 +3438,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
     let loaded = match loaded {
         Ok(v) => v,
         Err(e) => {
+            let token_classifications = build_lexical_token_classifications(&tokens);
             let mut ds = all_diags;
             ds.push(loader_error(
                 LoaderDiagnosticCode::SourceFailure,
@@ -3426,7 +3462,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
             let _ = Reflect::set(
                 &out,
                 &JsValue::from_str("token_classifications"),
-                &js_sys::Array::new(),
+                &token_classifications_to_js(source, None, &token_classifications),
             );
             return out.into();
         }

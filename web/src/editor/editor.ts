@@ -86,14 +86,15 @@ class CanvasEditor {
             gutterBackground: '#171a22ff', lineNumber: '#41454eff', lineNumberActive: '#bfc9daff',
             cursorLineBorder: 'rgba(255, 255, 255, 0.49)',
             tokenColors: {
-                'keyword': '#c678dd', 'string': '#98c379', 'literal-string': '#98c379',
-                'literal-char': '#8fd6b4', 'comment': '#5c6370',
-                'function': '#61afef', 'number': '#d19a66', 'literal-number': '#d19a66',
-                'boolean': '#d19a66', 'literal-bool': '#d19a66',
-                'literal-unit': '#e6b673', 'literal-void': '#f08f7f',
-                'operator': '#56b6c2', 'regex': '#d19a66', 'property': '#e06c75',
-                'punctuation': '#b3a5b0ff', 'variable': '#7da5f0ff',
-                'constant': '#e06c75', 'namespace': '#6f7887', 'type': '#e5c07b',
+                'keyword': '#f3a2a6', 'string': '#f4bf8c', 'literal-string': '#f4bf8c',
+                'literal-char': '#f6caa2', 'comment': '#7b8493',
+                'function': '#f4df9a', 'number': '#d7e99d', 'literal-number': '#d7e99d',
+                'boolean': '#f4b99d', 'literal-bool': '#f4b99d',
+                'literal-unit': '#f2add4', 'literal-void': '#f2add4',
+                'operator': '#93d4dc', 'regex': '#e6ba87', 'property': '#e9a2a8',
+                'punctuation': '#c9c0c8ff', 'variable': '#9ee4ec',
+                'constant': '#a5c2ff', 'namespace': '#aeb8c7', 'type': '#c7ebcf',
+                'type-constructor': '#84bf94',
                 'heading': '#e06c75', 'bold': '#d19a66', 'italic': '#c678dd',
                 'list': '#56b6c2', 'link': '#61afef', 'inline-code': '#98c379',
                 'code-block': '#5c6370', 'default': '#b5b7bbff'
@@ -620,6 +621,7 @@ class CanvasEditor {
                 constant: 7,
                 namespace: 7,
                 type: 7,
+                'type-constructor': 7,
                 default: 8,
             };
             return order[segment.type] ?? 100;
