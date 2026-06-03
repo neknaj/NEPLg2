@@ -384,7 +384,9 @@ pub(super) fn apply_path_preserving_fast_op(
     op: &ResourceOp,
 ) -> bool {
     match op {
-        ResourceOp::Expr { kind, output, .. } if expr_can_use_path_preserving_fast_op(*kind, output) => {
+        ResourceOp::Expr { kind, output, .. }
+            if expr_can_use_path_preserving_fast_op(*kind, output) =>
+        {
             match kind {
                 ResourceExprKind::LiteralI32(value) => {
                     cells.mark_initialized(output);
@@ -398,7 +400,9 @@ pub(super) fn apply_path_preserving_fast_op(
             }
             true
         }
-        ResourceOp::EndScope { locals, .. } if locals.iter().all(|local| types.is_copy(local.ty)) => {
+        ResourceOp::EndScope { locals, .. }
+            if locals.iter().all(|local| types.is_copy(local.ty)) =>
+        {
             // Copy local だけを含む scope 終了は auto drop を生成せず、path ごとの差分も
             // 変更しない。path alternatives を保持したまま処理済みとして扱うことで、
             // Result return path や collection slot proof を誤って畳まない。
@@ -828,7 +832,8 @@ impl ResourceCheckEngine<'_> {
                             pending_reallocs,
                             variant_initializations,
                         );
-                        self.path_alternatives = ResourcePathAlternatives::from_states(alternatives);
+                        self.path_alternatives =
+                            ResourcePathAlternatives::from_states(alternatives);
                     } else if op_can_run_on_merged_path_state(self.types, op) {
                         self.check_op(
                             cells,

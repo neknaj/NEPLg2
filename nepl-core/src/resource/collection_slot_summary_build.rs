@@ -5,13 +5,13 @@ use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
 
+use super::collection_slot_owner_carrier::type_carries_collection_slot_owner;
 use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_build_value_cache::{
     preseed_collection_slot_lifecycle_summaries_from_value_cache,
     record_resource_summary_value_cache_candidates,
 };
-use super::collection_slot_owner_carrier::type_carries_collection_slot_owner;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
     CollectionSlotLifecycleReturnPath,
@@ -25,7 +25,7 @@ use super::initialized_alias_flow::{
 use super::initialized_scalar_flow::{I32ScalarReturnSummary, I32ScalarReturnSummaryIndex};
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
-use super::model::{ResourceFunction, ResourceModule};
+use super::model::{ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::report::ResourceCheckDeferred;
 use super::resource_summary_value_cache::{
@@ -182,16 +182,15 @@ fn function_collection_slot_lifecycle_summary(
     collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
 ) -> CollectionSlotLifecycleFunctionSummary {
     let signature_carries_owner = function_signature_carries_collection_slot_owner(types, function);
-    if !signature_carries_owner {
-        return CollectionSlotLifecycleFunctionSummary {
-            function: function.name.clone(),
-            type_params: owner_summary_type_params(types, function),
-            ops: Vec::new(),
-            return_transfers: Vec::new(),
-            return_slots: Vec::new(),
-            return_ranges: Vec::new(),
-            return_paths: Vec::new(),
-        };
+    let body_directly_records_slot_lifecycle =
+        function_body_directly_records_collection_slot_lifecycle(function);
+    let body_calls_known_slot_summary =
+        function_body_calls_collection_slot_summary(function, collection_slot_summaries);
+    if !signature_carries_owner
+        && !body_directly_records_slot_lifecycle
+        && !body_calls_known_slot_summary
+    {
+        return empty_collection_slot_lifecycle_summary(types, function);
     }
     let mut engine = ResourceCheckEngine {
         function: function.name.as_str(),
@@ -247,6 +246,21 @@ fn function_collection_slot_lifecycle_summary(
     }
 }
 
+fn empty_collection_slot_lifecycle_summary(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+) -> CollectionSlotLifecycleFunctionSummary {
+    CollectionSlotLifecycleFunctionSummary {
+        function: function.name.clone(),
+        type_params: owner_summary_type_params(types, function),
+        ops: Vec::new(),
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    }
+}
+
 fn function_signature_carries_collection_slot_owner(
     types: &TypeCtx,
     function: &ResourceFunction,
@@ -256,6 +270,107 @@ fn function_signature_carries_collection_slot_owner(
         .iter()
         .any(|param| type_carries_collection_slot_owner(types, param.place.ty))
         || type_carries_collection_slot_owner(types, function.result)
+}
+
+fn function_body_directly_records_collection_slot_lifecycle(function: &ResourceFunction) -> bool {
+    function
+        .blocks
+        .iter()
+        .any(|block| block.ops.iter().any(op_records_collection_slot_lifecycle))
+}
+
+fn op_records_collection_slot_lifecycle(op: &ResourceOp) -> bool {
+    match op {
+        ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => true,
+        ResourceOp::Branch {
+            then_ops, else_ops, ..
+        } => {
+            then_ops.iter().any(op_records_collection_slot_lifecycle)
+                || else_ops.iter().any(op_records_collection_slot_lifecycle)
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            body_ops,
+            ..
+        } => {
+            condition_ops
+                .iter()
+                .any(op_records_collection_slot_lifecycle)
+                || body_ops.iter().any(op_records_collection_slot_lifecycle)
+        }
+        ResourceOp::Match { arms, .. } => arms
+            .iter()
+            .any(|arm| arm.ops.iter().any(op_records_collection_slot_lifecycle)),
+        _ => false,
+    }
+}
+
+fn function_body_calls_collection_slot_summary(
+    function: &ResourceFunction,
+    collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
+) -> bool {
+    function.blocks.iter().any(|block| {
+        block
+            .ops
+            .iter()
+            .any(|op| op_calls_collection_slot_summary(op, collection_slot_summaries))
+    })
+}
+
+fn op_calls_collection_slot_summary(
+    op: &ResourceOp,
+    collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
+) -> bool {
+    match op {
+        ResourceOp::Call {
+            target: ResourceCallTarget::User {
+                name: callee_name, ..
+            },
+            ..
+        } => collection_slot_summaries
+            .get(callee_name)
+            .is_some_and(collection_slot_lifecycle_summary_has_facts),
+        ResourceOp::Branch {
+            then_ops, else_ops, ..
+        } => {
+            then_ops
+                .iter()
+                .any(|op| op_calls_collection_slot_summary(op, collection_slot_summaries))
+                || else_ops
+                    .iter()
+                    .any(|op| op_calls_collection_slot_summary(op, collection_slot_summaries))
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            body_ops,
+            ..
+        } => {
+            condition_ops
+                .iter()
+                .any(|op| op_calls_collection_slot_summary(op, collection_slot_summaries))
+                || body_ops
+                    .iter()
+                    .any(|op| op_calls_collection_slot_summary(op, collection_slot_summaries))
+        }
+        ResourceOp::Match { arms, .. } => arms.iter().any(|arm| {
+            arm.ops
+                .iter()
+                .any(|op| op_calls_collection_slot_summary(op, collection_slot_summaries))
+        }),
+        _ => false,
+    }
+}
+
+fn collection_slot_lifecycle_summary_has_facts(
+    summary: &CollectionSlotLifecycleFunctionSummary,
+) -> bool {
+    !summary.ops.is_empty()
+        || !summary.return_transfers.is_empty()
+        || !summary.return_slots.is_empty()
+        || !summary.return_ranges.is_empty()
+        || !summary.return_paths.is_empty()
 }
 
 fn collection_return_path_carries_replay_facts(path: &CollectionSlotLifecycleReturnPath) -> bool {

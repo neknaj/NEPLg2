@@ -824,10 +824,7 @@ mod tests {
         pending.record_concrete_variant(&field0(&source), "VecStorage::Empty");
         pending.copy_result(&source, &target);
 
-        assert_eq!(
-            pending.concrete_variant(&field0(&target)),
-            Some("Empty")
-        );
+        assert_eq!(pending.concrete_variant(&field0(&target)), Some("Empty"));
     }
 
     #[test]

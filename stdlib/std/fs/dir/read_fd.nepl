@@ -90,20 +90,20 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                             Result::Err 12
                         Result::Ok used_region:
                             let mut cookie %i64 %i64 cast 0
-                            let mut err %i32 0
+                            let mut read_dir_error %i32 0
                             let mut done %bool false
                             let buf_ptr %MemPtr u8 region_ptr &buf_region
                             let used_ptr %MemPtr u8 region_ptr &used_region
                             let buf_raw %i32 mem_ptr_addr buf_ptr
                             let used_raw %i32 mem_ptr_addr used_ptr
-                            while and not done eq err 0:
+                            while and not done eq read_dir_error 0:
                                 do:
                                     store_i32 used_raw 0
                                     let errno %i32 wasi_fd_readdir fd buf_raw buf_len cookie used_raw
                                     if:
                                         ne errno 0
                                         then:
-                                            set err errno
+                                            set read_dir_error errno
                                         else:
                                             let used %i32 load_i32 used_raw
                                             if:
@@ -112,13 +112,13 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                                     set done true
                                                 else:
                                                     let mut off %i32 0
-                                                    while and eq err 0 and ge off 0 lt off used:
+                                                    while and eq read_dir_error 0 and ge off 0 lt off used:
                                                         do:
                                                             let header_end %i32 add off fs_dirent_header_size
                                                             if:
                                                                 gt header_end used
                                                                 then:
-                                                                    set err fs_errno_inval
+                                                                    set read_dir_error fs_errno_inval
                                                                 else:
                                                                     let rec %i32 add buf_raw off
                                                                     let next_cookie_low %i32 load_i32 rec
@@ -127,12 +127,12 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                                                     if:
                                                                         or lt name_len 0 or lt name_off header_end gt name_off used
                                                                         then:
-                                                                            set err fs_errno_inval
+                                                                            set read_dir_error fs_errno_inval
                                                                         else:
                                                                             let name_ptr %MemPtr u8 mem_ptr_add buf_ptr add off fs_dirent_header_size
                                                                             match fs_dirent_name_to_string name_ptr name_len:
                                                                                 Result::Err e:
-                                                                                    set err e
+                                                                                    set read_dir_error e
                                                                                 Result::Ok name:
                                                                                     if:
                                                                                         fs_dir_name_is_dot name
@@ -144,7 +144,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                                                                                     set entries next_entries
                                                                                                 Result::Err e:
                                                                                                     set entries v::vec_push_error_vec e
-                                                                                                    set err 12
+                                                                                                    set read_dir_error 12
                                                                             set cookie %i64 cast next_cookie_low
                                                                             set off name_off
                                                     if:
@@ -164,7 +164,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                 Result::Err _:
                                     unit
                             if:
-                                eq err 0
+                                eq read_dir_error 0
                                 then:
                                     match fs_sort_strings &entries:
                                         Result::Ok _:
@@ -174,4 +174,4 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                             Result::Err e
                                 else:
                                     v::free entries
-                                    Result::Err err
+                                    Result::Err read_dir_error

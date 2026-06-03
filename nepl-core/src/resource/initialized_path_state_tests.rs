@@ -41,7 +41,11 @@ fn resource_check_state_with_function_alias(index: usize) -> ResourceCheckState 
 
 fn resource_check_state_with_result_variant(index: usize, result: &Place) -> ResourceCheckState {
     let mut state = empty_resource_check_state();
-    let variant = if index % 2 == 0 { "Result::Ok" } else { "Result::Err" };
+    let variant = if index % 2 == 0 {
+        "Result::Ok"
+    } else {
+        "Result::Err"
+    };
     state
         .variant_initializations
         .record_concrete_variant(result, variant);
@@ -77,18 +81,12 @@ fn path_alternatives_preserve_call_result_variants_when_budgeting() {
     };
 
     assert_eq!(states.len(), 2);
-    assert!(states.iter().any(|state| {
-        state
-            .variant_initializations
-            .concrete_variant(&result)
-            == Some("Ok")
-    }));
-    assert!(states.iter().any(|state| {
-        state
-            .variant_initializations
-            .concrete_variant(&result)
-            == Some("Err")
-    }));
+    assert!(states
+        .iter()
+        .any(|state| { state.variant_initializations.concrete_variant(&result) == Some("Ok") }));
+    assert!(states
+        .iter()
+        .any(|state| { state.variant_initializations.concrete_variant(&result) == Some("Err") }));
 }
 
 #[test]

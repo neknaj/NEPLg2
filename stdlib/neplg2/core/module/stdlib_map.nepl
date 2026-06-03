@@ -402,4 +402,5 @@ pub fn selfhost_module_path_resolve_import %impure fn &SelfhostModulePathMap imp
 //: - `SelfhostImportSpec` は `str` owner を持たないため、元 lexeme から import path を切り出して resolver に渡します。
 pub fn selfhost_module_path_resolve_import_spec %impure fn &SelfhostModulePathMap impure fn str impure fn str impure fn SelfhostImportSpec Result SelfhostResolvedModulePath SelfhostDiagnostic \map\current_path\lexeme\spec:
     let path %str selfhost_import_spec_path lexeme spec
-    selfhost_module_path_resolve_import map current_path selfhost_import_spec_span spec path
+    let import_span %SelfhostSourceSpan selfhost_import_spec_span spec
+    selfhost_module_path_resolve_import map current_path import_span path

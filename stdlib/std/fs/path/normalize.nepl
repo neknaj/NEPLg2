@@ -58,8 +58,8 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                             let mut stack %Vec i32 stack0
                             let mut cursor %i32 0
                             let mut done %i32 0
-                            let mut err %i32 0
-                            while and eq err 0 eq done 0:
+                            let mut normalize_error %i32 0
+                            while and eq normalize_error 0 eq done 0:
                                 do:
                                     let step %StrSplitStep str_split_next path "/" cursor
                                     match get step "kind":
@@ -80,7 +80,7 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                                                             if:
                                                                 eq stack_len 0
                                                                 then:
-                                                                    set err fs_errno_notcapable
+                                                                    set normalize_error fs_errno_notcapable
                                                                 else:
                                                                     set stack normalize_range_stack::fs_normalize_range_pop stack
                                                         else:
@@ -90,14 +90,14 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                                                                 Result::Err e:
                                                                     let empty_stack %Vec i32 v::vec_empty
                                                                     set stack empty_stack
-                                                                    set err e
+                                                                    set normalize_error e
                                             set cursor get step "next"
                             let result %Result StringBuilder i32 if:
-                                eq err 0
+                                eq normalize_error 0
                                 then:
                                     normalize_build::fs_normalize_build_ranges_builder path &stack
                                 else:
-                                    Result::Err err
+                                    Result::Err normalize_error
                             v::free stack
                             result
 

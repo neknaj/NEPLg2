@@ -16215,7 +16215,9 @@ fn main %impure fn void i32 \void:
         .diagnostics
         .iter()
         .filter(|diagnostic| match diagnostic {
-            ResourceCheckDiagnostic::CellUnavailable { function, .. } => function.starts_with("main__"),
+            ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
+                function.starts_with("main__")
+            }
             ResourceCheckDiagnostic::CollectionSlotRefuted { function, .. } => {
                 function.starts_with("main__")
                     || function.starts_with("vec_buffer_current_storage_invariant__")
@@ -16230,8 +16232,9 @@ fn main %impure fn void i32 \void:
         diagnostics,
         resource.dump_text()
     );
-    compile_resource_source_with_target(source, CompileTarget::Wasi)
-        .expect("VecStorageInvariant with Drop payload capacity must compile through full pipeline");
+    compile_resource_source_with_target(source, CompileTarget::Wasi).expect(
+        "VecStorageInvariant with Drop payload capacity must compile through full pipeline",
+    );
     assert!(
         resource
             .functions

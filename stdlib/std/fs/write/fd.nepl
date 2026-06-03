@@ -109,7 +109,7 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                         Result::Ok nwritten_region:
                             let mut off %i32 0
                             let mut done %i32 0
-                            let mut err %i32 0
+                            let mut write_error %i32 0
                             while eq done 0:
                                 do:
                                     if:
@@ -122,12 +122,12 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                                                     if:
                                                         le n 0
                                                         then:
-                                                            set err 5
+                                                            set write_error 5
                                                             set done 1
                                                         else:
                                                             set off add off n
                                                 Result::Err e:
-                                                    set err e
+                                                    set write_error e
                                                     set done 1
                             match dealloc_region<u8> nwritten_region:
                                 Result::Ok _:
@@ -140,11 +140,11 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                                 Result::Err _:
                                     unit
                             if:
-                                eq err 0
+                                eq write_error 0
                                 then:
                                     Result::Ok unit
                                 else:
-                                    Result::Err err
+                                    Result::Err write_error
 
 //: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
 //:

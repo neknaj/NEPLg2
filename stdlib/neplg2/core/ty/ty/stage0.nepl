@@ -13,9 +13,9 @@ pub fn selfhost_ty_stage0 %impure fn void i32 \void:
                 Result::Ok allocated:
                     let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
-                    let ok %bool and eq selfhost_type_id_index unit_id 0 eq selfhost_type_arena_len &arena1 1
+                    let arena_shape_valid %bool and eq selfhost_type_id_index unit_id 0 eq selfhost_type_arena_len &arena1 1
                     selfhost_type_arena_free arena1
-                    if ok 0 1
+                    if arena_shape_valid 0 1
                 Result::Err _e:
                     1
         Result::Err _e:

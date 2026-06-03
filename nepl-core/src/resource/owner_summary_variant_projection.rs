@@ -57,7 +57,10 @@ pub(super) fn remove_non_parameter_variant_projection_return_sources(
             .iter()
             .filter(|entry| entry.suffix == projection.suffix && entry.ty == projection.ty)
         {
-            if matches!(variant_return.owner, OwnerProjectionReturnOwner::Parameter { .. }) {
+            if matches!(
+                variant_return.owner,
+                OwnerProjectionReturnOwner::Parameter { .. }
+            ) {
                 continue;
             }
             remove_projection_return_sources(returned_sources, projection);

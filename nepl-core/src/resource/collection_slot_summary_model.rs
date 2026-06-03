@@ -161,7 +161,10 @@ pub(super) enum CollectionSlotLifecycleSummaryI32Operand {
         offset: i64,
         ty: TypeId,
     },
-    KnownI32 { value: i32, ty: TypeId },
+    KnownI32 {
+        value: i32,
+        ty: TypeId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

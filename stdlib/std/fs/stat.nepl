@@ -20,6 +20,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/storage" as *
 #import "core/math" as *
 #import "core/mem" as *
 #import "core/mem/internal" as *
@@ -30,14 +31,49 @@
 #import "std/fs/path" as *
 #import "std/fs/raw" as *
 #import "core/field" as *
+
+//: fs_path_filetype_normalized: 正規化済み path から WASI filetype を取得する内部 helper
+//:
+//: 目的:
+//: - `fs_normalize_relative_builder` と `sb_build_result` が作った owned `str` を受け取り、既存の `string_data_ptr` 境界で syscall に渡します。
+//: - match arm の一時 binding から raw pointer を直接作らず、関数 parameter として owner 境界を明確にします。
+fn fs_path_filetype_normalized %impure fn str Result i32 i32 \stat_path:
+    match alloc_region<u8> 64:
+        Result::Err _e:
+            Result::Err 12
+        Result::Ok stat_region:
+            let stat_buf %MemPtr u8 region_ptr &stat_region
+            let path_ptr %i32 mem_ptr_addr string_data_ptr stat_path
+            let path_len %i32 len stat_path
+            let stat_raw %i32 mem_ptr_addr stat_buf
+            store_u8 add stat_raw 16 0;
+            let errno %i32 if:
+                le path_ptr 0
+                then:
+                    fs_errno_inval
+                else:
+                    wasi_path_filestat_get 3 0 path_ptr path_len stat_raw
+            let res %Result i32 i32 if:
+                eq errno 0
+                then:
+                    Result::Ok load_u8 add stat_raw 16
+                else:
+                    Result::Err errno
+            match dealloc_region<u8> stat_region:
+                Result::Ok _:
+                    unit
+                Result::Err _:
+                    unit
+            res
+
 //: fs_path_filetype: path の WASI filetype を取得する
 //:
 //: 目的:
 //: - existence check と file/dir 判定を、read 失敗の副作用に頼らず取得します。
 //:
 //: 実装(アルゴリズム):
-//: - path を `fs_normalize_relative_builder` で正規化し、WASI `path_filestat_get` の filestat.filetype byte を読みます。
-//: - 正規化後 path は `StringBuilder` owner のまま syscall へ渡し、呼び出し後に `string_builder_free` で閉じます。
+//: - path を `fs_normalize_relative_builder` で正規化し、`str` owner として確定してから WASI `path_filestat_get` の filestat.filetype byte を読みます。
+//: - syscall へ渡す path pointer は `string_data_ptr` 由来に限定し、builder 内部 storage の raw view を外へ直接出しません。
 //: - syscall 成功時に読む filetype byte は呼び出し前に初期化し、外部 out-buffer 境界を Resource IR が追跡できる形にします。
 //: - filestat scratch の free obligation は `RegionToken u8` が持ち、raw address view には移しません。
 //:
@@ -51,39 +87,11 @@ pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
         Result::Err e:
             Result::Err e
         Result::Ok normalized:
-            match alloc_region<u8> 64:
+            match sb_build_result normalized:
                 Result::Err _e:
-                    string_builder_free normalized
                     Result::Err 12
-                Result::Ok stat_region:
-                    let stat_buf %MemPtr u8 region_ptr &stat_region
-                    let path_len %i32 string_builder_len_ref &normalized
-                    let path_ptr %i32 match string_builder_ptr_ref &normalized:
-                        Option::None:
-                            0
-                        Option::Some data:
-                            mem_ptr_addr data
-                    let stat_raw %i32 mem_ptr_addr stat_buf
-                    store_u8 add stat_raw 16 0;
-                    let errno %i32 if:
-                        le path_ptr 0
-                        then:
-                            fs_errno_inval
-                        else:
-                            wasi_path_filestat_get 3 0 path_ptr path_len stat_raw
-                    let res %Result i32 i32 if:
-                        eq errno 0
-                        then:
-                            Result::Ok load_u8 add stat_raw 16
-                        else:
-                            Result::Err errno
-                    string_builder_free normalized
-                    match dealloc_region<u8> stat_region:
-                        Result::Ok _:
-                            unit
-                        Result::Err _:
-                            unit
-                    res
+                Result::Ok stat_path:
+                    fs_path_filetype_normalized stat_path
 
 //: fs_exists: path が preopen root 内に存在するかを返す
 //:

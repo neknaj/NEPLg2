@@ -4,11 +4,11 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
+use super::collection_slot_summary_i32_operand::summary_i32_operand_for_params_with_aliases;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
     CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
 };
-use super::collection_slot_summary_i32_operand::summary_i32_operand_for_params_with_aliases;
 use super::collection_slot_summary_target::{
     instantiate_summary_target_with_aliases, summary_place_for_params_with_aliases_and_types,
     translate_summary_target_for_params_with_aliases,
@@ -65,11 +65,12 @@ fn translate_i32_operand(
         }
         CollectionSlotLifecycleSummaryI32Operand::Place(place) => {
             let actual = instantiate_summary_target_with_aliases(engine, args, raw_aliases, place)?;
-            summary_i32_operand_for_params_with_aliases(params, raw_aliases, &actual)
-                .or_else(|| {
+            summary_i32_operand_for_params_with_aliases(params, raw_aliases, &actual).or_else(
+                || {
                     translate_summary_place(engine, args, params, raw_aliases, place)
                         .map(CollectionSlotLifecycleSummaryI32Operand::Place)
-                })
+                },
+            )
         }
         CollectionSlotLifecycleSummaryI32Operand::Offset { base, offset, ty } => {
             let actual_base =

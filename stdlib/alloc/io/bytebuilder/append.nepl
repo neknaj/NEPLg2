@@ -129,12 +129,12 @@ pub fn byte_builder_push_utf8_tail %fn ByteBuilder fn char fn i32 Result ByteBui
 //: [計算量/けいさんりょう]:
 //: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
 pub fn byte_builder_push_char_utf8 %fn ByteBuilder fn char Result ByteBuilder ByteBuilderError \builder\c:
-    let count %i32 char_utf8_len c
+    let utf8_len %i32 char_utf8_len c
     match byte_builder_push_u8 builder char_utf8_byte0 c:
         Result::Err e:
             Result::Err e
         Result::Ok b0:
-            byte_builder_push_utf8_tail b0 c count
+            byte_builder_push_utf8_tail b0 c utf8_len
 
 //: byte_builder_push_bytes_ref: 参照 byte [列/れつ]を[末尾/まつび]へ[複製/ふくせい]する内部 helper
 //:

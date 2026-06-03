@@ -18,11 +18,11 @@ use super::initialized_scalar_flow::{I32ScalarReturnSummary, I32ScalarReturnSumm
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
 };
+#[cfg(test)]
+use super::initialized_summary_build_relevance::raw_cell_initialization_summary_relevance_with_graph;
 use super::initialized_summary_build_relevance::{
     raw_cell_initialization_call_boundary_summary_relevance_with_graph, reference_target_type,
 };
-#[cfg(test)]
-use super::initialized_summary_build_relevance::raw_cell_initialization_summary_relevance_with_graph;
 use super::initialized_summary_build_update::update_raw_cell_initialization_summary;
 use super::initialized_summary_build_value_cache::{
     preseed_raw_cell_initialization_summaries_from_value_cache,

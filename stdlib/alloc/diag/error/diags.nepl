@@ -65,8 +65,8 @@ pub fn diags_one %impure fn Diag Diags \d:
     match created:
         Result::Ok items0:
             match vec_push::push items0 d:
-                Result::Ok items:
-                    Diags items
+                Result::Ok pushed_items:
+                    Diags pushed_items
                 Result::Err e:
                     vec_cleanup::free vec_push::vec_push_error_vec e
                     Diags diag_empty_diag_vec
@@ -75,10 +75,10 @@ pub fn diags_one %impure fn Diag Diags \d:
 
 //: diags_push: `Diags` に `Diag` を 1 [件/けん][追加/ついか]する
 pub fn diags_push %impure fn Diags impure fn Diag Diags \ds\d:
-    let items %Vec Diag field::get ds "items";
-    match vec_push::push items d:
-        Result::Ok items:
-            Diags items
+    let diag_items %Vec Diag field::get ds "items";
+    match vec_push::push diag_items d:
+        Result::Ok updated_items:
+            Diags updated_items
         Result::Err e:
             vec_cleanup::free vec_push::vec_push_error_vec e
             Diags diag_empty_diag_vec
@@ -100,9 +100,9 @@ pub fn diags_has_errors %fn &Diags bool \ds:
     diags_has_errors_loop items items_len 0
 
 pub fn diags_has_errors %fn Diags bool \ds:
-    let ok %bool diags_has_errors &ds
+    let has_error %bool diags_has_errors &ds
     diags_free ds
-    ok
+    has_error
 
 pub fn diags_has_errors_loop %fn &Vec Diag fn i32 fn i32 bool \items\n\i:
     if:

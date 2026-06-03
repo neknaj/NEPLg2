@@ -15,11 +15,11 @@ use super::initialized_path_state_merge::{
 use super::initialized_summary_engine::summary_check_engine;
 use super::model::{Place, ResourceOp};
 use super::raw_realloc::PendingRawReallocs;
-use crate::types::{TypeCtx, TypeKind};
 use super::{
     drop_point_path::ResourceDropPointPath,
     initialized_variant::PendingVariantRawCellInitializations,
 };
+use crate::types::{TypeCtx, TypeKind};
 
 const MAX_PATH_SENSITIVE_ALTERNATIVES: usize = 4;
 

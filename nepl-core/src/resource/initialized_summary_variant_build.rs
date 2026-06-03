@@ -491,9 +491,7 @@ fn construct_variant_for_value(ops: &[ResourceOp], value: &Place) -> Option<Stri
     None
 }
 
-fn clone_variant_summary_engine<'a>(
-    engine: &ResourceCheckEngine<'a>,
-) -> ResourceCheckEngine<'a> {
+fn clone_variant_summary_engine<'a>(engine: &ResourceCheckEngine<'a>) -> ResourceCheckEngine<'a> {
     ResourceCheckEngine {
         function: engine.function,
         types: engine.types,

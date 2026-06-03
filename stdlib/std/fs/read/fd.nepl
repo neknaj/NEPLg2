@@ -101,9 +101,9 @@ fn fs_discard_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf
 //: 計算量:
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
 fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf i32 \region\data_len:
-    let cap %i32 region_size &region
+    let region_capacity %i32 region_size &region
     if:
-        or or lt cap 0 lt data_len 0 gt data_len cap
+        or or lt region_capacity 0 lt data_len 0 gt data_len region_capacity
         then:
             match dealloc_region<u8> region:
                 Result::Ok _:
@@ -123,7 +123,7 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
                     Result::Ok io_bytebuf_empty
                 else:
                     if:
-                        eq data_len cap
+                        eq data_len region_capacity
                         then:
                             Result::Ok io_bytebuf_finish_region region data_len
                         else:
@@ -183,8 +183,8 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
 //:             1
 //: ```
 pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
-    let mut cap %i32 65536;
-    match alloc_region<u8> cap:
+    let mut buffer_capacity %i32 65536;
+    match alloc_region<u8> buffer_capacity:
         Result::Err _e:
             Result::Err 12
         Result::Ok buf0_region:
@@ -206,17 +206,17 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                             let nread_buf %MemPtr u8 region_ptr &nread_region
                             let mut read_len %i32 0;
                             let mut done %i32 0;
-                            let mut err %i32 0;
+                            let mut read_error %i32 0;
                             let mut alloc_failed %i32 0;
 
                             while eq done 0:
                                 do:
                                     if:
-                                        eq read_len cap
+                                        eq read_len buffer_capacity
                                         then:
-                                            let new_cap %i32 mul cap 2;
+                                            let new_cap %i32 mul buffer_capacity 2;
                                             if:
-                                                or le new_cap cap not alloc_payload_fits new_cap
+                                                or le new_cap buffer_capacity not alloc_payload_fits new_cap
                                                 then:
                                                     set alloc_failed 1;
                                                     set done 1;
@@ -224,7 +224,7 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                                                     match realloc_region_bytes_keep<u8> buf_region new_cap:
                                                         Result::Ok new_region:
                                                             set buf_region new_region;
-                                                            set cap new_cap;
+                                                            set buffer_capacity new_cap;
                                                         Result::Err e:
                                                             let old_region %RegionToken u8 region_realloc_error_region<u8> e
                                                             set buf_region old_region;
@@ -237,7 +237,7 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                                         then:
                                             let data_base %MemPtr u8 region_ptr &buf_region
                                             let data_ptr %MemPtr u8 mem_ptr_add data_base read_len
-                                            match fs_fd_read_into_result fd iov_buf nread_buf data_ptr sub cap read_len:
+                                            match fs_fd_read_into_result fd iov_buf nread_buf data_ptr sub buffer_capacity read_len:
                                                 Result::Ok n:
                                                     if:
                                                         eq n 0
@@ -246,7 +246,7 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                                                         else:
                                                             set read_len add read_len n
                                                 Result::Err e:
-                                                    set err e;
+                                                    set read_error e;
                                                     set done 1
                                         else:
                                             unit
@@ -267,8 +267,8 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                                     fs_discard_read_buffer buf_region 12
                                 else:
                                     if:
-                                        eq err 0
+                                        eq read_error 0
                                         then:
                                             fs_finish_read_buffer buf_region read_len
                                         else:
-                                            fs_discard_read_buffer buf_region err
+                                            fs_discard_read_buffer buf_region read_error

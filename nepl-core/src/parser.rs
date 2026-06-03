@@ -3717,7 +3717,10 @@ impl Parser {
                 Some(TypeExpr::Unit)
             }
             TokenKind::Ident(name) => {
-                let name_span = self.next().map(|token| token.span).unwrap_or_else(Span::dummy);
+                let name_span = self
+                    .next()
+                    .map(|token| token.span)
+                    .unwrap_or_else(Span::dummy);
                 let mut ty = match name.as_str() {
                     "i32" => TypeExpr::I32,
                     "u8" => TypeExpr::U8,

@@ -262,11 +262,7 @@ fn apply_local_raw_memory_initialization(
     }
 }
 
-fn raw_store_cell_type(
-    types: &TypeCtx,
-    operation: &RawMemoryOp,
-    args: &[Place],
-) -> Option<TypeId> {
+fn raw_store_cell_type(types: &TypeCtx, operation: &RawMemoryOp, args: &[Place]) -> Option<TypeId> {
     match operation {
         RawMemoryOp::Store => args.get(1).map(|value| value.ty),
         RawMemoryOp::StoreU8 => Some(types.u8()),

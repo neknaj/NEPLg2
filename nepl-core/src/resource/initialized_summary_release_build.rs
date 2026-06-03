@@ -10,8 +10,7 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_control::{
     initialize_control_output_path_states, invalidate_control_output_path_states,
-    invalidate_control_output_state,
-    path_alternatives_or_single,
+    invalidate_control_output_state, path_alternatives_or_single,
 };
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
 use super::initialized_path_state::{

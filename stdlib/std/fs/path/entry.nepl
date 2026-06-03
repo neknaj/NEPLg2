@@ -76,21 +76,21 @@ pub fn fs_str_lt %fn str fn str bool \a\b:
 pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
     let n %i32 v::len entries
     let mut i %i32 1
-    let mut err %i32 0
-    while and eq err 0 lt i n:
+    let mut sort_error %i32 0
+    while and eq sort_error 0 lt i n:
         do:
             match v::get entries i:
                 Option::None:
-                    set err fs_errno_inval
+                    set sort_error fs_errno_inval
                 Option::Some key:
                     let mut j %i32 i
                     let mut moving %bool true
-                    while and and eq err 0 moving gt j 0:
+                    while and and eq sort_error 0 moving gt j 0:
                         do:
                             let prev_idx %i32 sub j 1
                             match v::get entries prev_idx:
                                 Option::None:
-                                    set err fs_errno_inval
+                                    set sort_error fs_errno_inval
                                 Option::Some prev:
                                     if:
                                         fs_str_lt key prev
@@ -100,16 +100,16 @@ pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
                                         else:
                                             set moving false
                     if:
-                        eq err 0
+                        eq sort_error 0
                         then:
                             v::replace entries j key
                         else:
                             unit
             set i add i 1
     if:
-        eq err 0
+        eq sort_error 0
         then Result::Ok unit
-        else Result::Err err
+        else Result::Err sort_error
 
 pub fn fs_dir_name_is_dot %fn str bool \name:
     or str_eq name "." str_eq name ".."

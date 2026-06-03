@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -15,14 +16,14 @@ use super::super::collection_slot_summary_model::{
 };
 use super::super::i32_scalar_return_facts::I32ScalarReturnFacts;
 use super::super::model::{
-    Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceModule,
-    ResourceTerminator,
+    Place, PlaceProjection, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal,
+    ResourceModule, ResourceOffset, ResourceOp, ResourceTerminator,
 };
 use super::super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 use super::super::summary_dependency::build_function_summary_dependencies;
-use super::super::summary_projection::SummaryPlace;
+use super::super::summary_projection::{SummaryOffset, SummaryPlace, SummaryProjection};
 use super::*;
 
 fn identity_storage_function(storage_ty: TypeId) -> ResourceFunction {
@@ -84,6 +85,118 @@ fn collection_storage_marker_function(storage_ty: TypeId, value_ty: TypeId) -> R
                     span,
                 },
             ],
+            terminator: ResourceTerminator::Return { value: None, span },
+            span,
+        }],
+        span,
+    }
+}
+
+fn borrowed_collection_slot_marker_function(
+    storage_ty: TypeId,
+    storage_ref_ty: TypeId,
+    value_ty: TypeId,
+    offset_ty: TypeId,
+) -> ResourceFunction {
+    let span = test_span();
+    let storage_ref = Place::local("storage".to_string(), storage_ref_ty);
+    let byte_off = Place::local("byte_off".to_string(), offset_ty);
+    let storage = storage_ref
+        .clone()
+        .with_projection(PlaceProjection::Deref, storage_ty);
+    let raw_storage = storage.with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        offset_ty,
+    );
+    let slot = raw_storage
+        .with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
+                place: Box::new(byte_off.clone()),
+            }),
+            offset_ty,
+        )
+        .with_projection(PlaceProjection::Deref, value_ty);
+    ResourceFunction {
+        name: "borrowed_slot_marker".to_string(),
+        origin_name: "borrowed_slot_marker".to_string(),
+        type_params: Vec::new(),
+        params: vec![
+            ResourceLocal {
+                name: "storage".to_string(),
+                ty: storage_ref_ty,
+                mutable: false,
+                place: storage_ref,
+            },
+            ResourceLocal {
+                name: "byte_off".to_string(),
+                ty: offset_ty,
+                mutable: false,
+                place: byte_off,
+            },
+        ],
+        result: value_ty,
+        effect: crate::ast::Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![ResourceOp::CollectionSlotLifecycle {
+                target: slot,
+                event: CollectionSlotLifecycleEvent::BorrowRead {
+                    expected_ty: value_ty,
+                },
+                span,
+            }],
+            terminator: ResourceTerminator::Return { value: None, span },
+            span,
+        }],
+        span,
+    }
+}
+
+fn borrowed_collection_slot_wrapper_function(
+    storage_ref_ty: TypeId,
+    offset_ty: TypeId,
+) -> ResourceFunction {
+    let span = test_span();
+    let storage_ref = Place::local("storage".to_string(), storage_ref_ty);
+    let byte_off = Place::local("byte_off".to_string(), offset_ty);
+    let output = Place::local("ignored".to_string(), offset_ty);
+    ResourceFunction {
+        name: "borrowed_slot_wrapper".to_string(),
+        origin_name: "borrowed_slot_wrapper".to_string(),
+        type_params: Vec::new(),
+        params: vec![
+            ResourceLocal {
+                name: "storage".to_string(),
+                ty: storage_ref_ty,
+                mutable: false,
+                place: storage_ref.clone(),
+            },
+            ResourceLocal {
+                name: "byte_off".to_string(),
+                ty: offset_ty,
+                mutable: false,
+                place: byte_off.clone(),
+            },
+        ],
+        result: offset_ty,
+        effect: crate::ast::Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![ResourceOp::Call {
+                output,
+                target: super::super::model::ResourceCallTarget::User {
+                    name: "borrowed_slot_marker".to_string(),
+                    type_args: Vec::new(),
+                },
+                args: vec![storage_ref, byte_off],
+                effect: super::super::model::EffectOp::Pure,
+                span,
+            }],
             terminator: ResourceTerminator::Return { value: None, span },
             span,
         }],
@@ -641,4 +754,109 @@ fn collection_slot_summary_keeps_identity_transfer_for_non_copy_owner_token_stor
         .find(|summary| summary.function == "identity_storage")
         .expect("identity_storage should keep its return transfer summary");
     assert_eq!(identity_summary.return_transfers.len(), 1, "{summaries:#?}");
+}
+
+#[test]
+fn collection_slot_summary_builds_direct_borrowed_storage_lifecycle_precondition() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let payload_ty = register_empty_struct(&mut types, "BorrowedPayload");
+    let region_token = register_region_token(&mut types);
+    let storage_ty = types.apply(region_token, vec![payload_ty]);
+    let storage_ref_ty = types.reference(storage_ty, false);
+    let module = ResourceModule {
+        functions: vec![borrowed_collection_slot_marker_function(
+            storage_ty,
+            storage_ref_ty,
+            payload_ty,
+            types.i32(),
+        )],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let summaries = compute_collection_slot_lifecycle_function_summaries(
+        &module,
+        &types,
+        &[],
+        &[],
+        &[],
+        None,
+        None,
+    );
+
+    let summary = summaries
+        .iter()
+        .find(|summary| summary.function == "borrowed_slot_marker")
+        .expect("borrowed direct lifecycle helper must publish its slot precondition summary");
+    let Some(CollectionSlotLifecycleSummaryOp::Event { target, event, .. }) = summary.ops.first()
+    else {
+        panic!(
+            "expected direct lifecycle event summary, got {:#?}",
+            summary.ops
+        );
+    };
+    assert!(matches!(
+        event,
+        CollectionSlotLifecycleEvent::BorrowRead { expected_ty } if *expected_ty == payload_ty
+    ));
+    assert_eq!(target.parameter_index, 0);
+    assert!(
+        target.suffix.iter().any(|projection| matches!(
+            projection,
+            SummaryProjection::StorageOffset(SummaryOffset::Symbolic { place })
+                if place.parameter_index == 1
+        )),
+        "borrowed storage summary must keep the byte offset parameter in the slot identity"
+    );
+}
+
+#[test]
+fn collection_slot_summary_builds_call_wrapper_without_owner_signature() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let payload_ty = register_empty_struct(&mut types, "BorrowedWrapperPayload");
+    let region_token = register_region_token(&mut types);
+    let storage_ty = types.apply(region_token, vec![payload_ty]);
+    let storage_ref_ty = types.reference(storage_ty, false);
+    let module = ResourceModule {
+        functions: vec![
+            borrowed_collection_slot_marker_function(
+                storage_ty,
+                storage_ref_ty,
+                payload_ty,
+                types.i32(),
+            ),
+            borrowed_collection_slot_wrapper_function(storage_ref_ty, types.i32()),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let summaries = compute_collection_slot_lifecycle_function_summaries(
+        &module,
+        &types,
+        &[],
+        &[],
+        &[],
+        None,
+        None,
+    );
+
+    let summary = summaries
+        .iter()
+        .find(|summary| summary.function == "borrowed_slot_wrapper")
+        .expect("call wrapper must publish callee slot preconditions even without owner signature");
+    assert!(
+        summary
+            .ops
+            .iter()
+            .any(|op| matches!(op, CollectionSlotLifecycleSummaryOp::Event { .. })),
+        "wrapper summary must translate the callee lifecycle event, got {:#?}",
+        summary.ops
+    );
 }
