@@ -47,6 +47,10 @@ fn check_i32_kind %fn Result SelfhostTypeKind SelfhostProofRefutation Result uni
                     Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::Function:
                     Result::Err "expected i32 kind proof"
+                SelfhostTypeKind::Named:
+                    Result::Err "expected i32 kind proof"
+                SelfhostTypeKind::Parameter:
+                    Result::Err "expected i32 kind proof"
         Result::Err _refutation:
             Result::Err "expected type kind proof"
 
@@ -82,6 +86,10 @@ fn check_bool_i32_mismatch %fn Result SelfhostTypeKind SelfhostProofRefutation R
                                     Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::Function:
                                     Result::Err "expected bool actual kind"
+                                SelfhostTypeKind::Named:
+                                    Result::Err "expected bool actual kind"
+                                SelfhostTypeKind::Parameter:
+                                    Result::Err "expected bool actual kind"
                         SelfhostTypeKind::Error:
                             Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Unit:
@@ -103,6 +111,10 @@ fn check_bool_i32_mismatch %fn Result SelfhostTypeKind SelfhostProofRefutation R
                         SelfhostTypeKind::Never:
                             Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Function:
+                            Result::Err "expected i32 expected kind"
+                        SelfhostTypeKind::Named:
+                            Result::Err "expected i32 expected kind"
+                        SelfhostTypeKind::Parameter:
                             Result::Err "expected i32 expected kind"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
                     Result::Err "expected type kind mismatch"

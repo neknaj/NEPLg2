@@ -9,6 +9,10 @@
 #import "./record" as *
 
 //: SelfhostTypeArena: self-host type stage の型 table
+//:
+//: [目的/もくてき]:
+//: - primitive、named、generic type parameter、applied named、function type の record を arena-local `SelfhostTypeId` で参照できるようにします。
+//: - type parameter は resolver-local id ではなく、binder depth と binder 内 index からなる `SelfhostTypeParameterBinding` として保存します。
 pub struct SelfhostTypeArena:
     records %Vec SelfhostTypeRecord
     function_args %Vec SelfhostTypeId
@@ -110,6 +114,27 @@ pub fn selfhost_type_arena_add_primitive %impure fn SelfhostTypeArena impure fn 
 //: - source name 文字列は constructor table 側の責務であり、arena には定義 identity だけを置きます。
 pub fn selfhost_type_arena_add_named %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id:
     selfhost_type_arena_push_record arena selfhost_type_record_named nominal_id
+
+//: selfhost_type_arena_add_type_parameter: generic type parameter を arena に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `T` / `E` のような binder 由来の型を named type へ丸めず、parameter record として保存します。
+//: - binding は source name や span を含まず、同じ binder slot を指す型 parameter だけが構造的に等しくなります。
+//:
+//: [契約/けいやく]:
+//: - `binding` は `binder_depth >= 0` かつ `parameter_index >= 0` でなければなりません。
+//: - invalid binding は壊れた型 identity を arena に残さないため、入力 arena を解放して `InvalidOperation` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 通常は record table への `Vec::push` の償却 `O(1)` です。再確保時は record 数に比例します。
+pub fn selfhost_type_arena_add_type_parameter %impure fn SelfhostTypeArena impure fn SelfhostTypeParameterBinding Result SelfhostTypeArenaAlloc StdErrorKind \arena\binding:
+    if:
+        not selfhost_type_parameter_binding_is_valid binding
+        then:
+            selfhost_type_arena_free arena
+            Result::Err StdErrorKind::InvalidOperation
+        else:
+            selfhost_type_arena_push_record arena selfhost_type_record_parameter binding
 
 //: selfhost_type_arena_copy_type_args: applied type argument TypeId を arena argument table に[複製/ふくせい]する
 pub fn selfhost_type_arena_copy_type_args %impure fn Vec SelfhostTypeId impure fn &Vec SelfhostTypeId impure fn i32 impure fn i32 Result Vec SelfhostTypeId StdErrorKind \out\params\n\idx:
@@ -223,6 +248,8 @@ pub fn selfhost_type_arena_get_kind %fn &SelfhostTypeArena fn SelfhostTypeId Opt
                     some selfhost_primitive_type_kind_to_type_kind kind
                 SelfhostTypeRecord::Named _named:
                     some SelfhostTypeKind::Named
+                SelfhostTypeRecord::Parameter _parameter:
+                    some SelfhostTypeKind::Parameter
                 SelfhostTypeRecord::Applied _applied:
                     some SelfhostTypeKind::Named
                 SelfhostTypeRecord::Function _function:
@@ -239,6 +266,33 @@ pub fn selfhost_type_arena_named_id %fn &SelfhostTypeArena fn SelfhostTypeId Opt
                     none
                 SelfhostTypeRecord::Named named:
                     some selfhost_named_type_record_id named
+                SelfhostTypeRecord::Parameter _parameter:
+                    none
+                SelfhostTypeRecord::Applied _applied:
+                    none
+                SelfhostTypeRecord::Function _function:
+                    none
+        Option::None:
+            none
+
+//: selfhost_type_arena_type_parameter_binding: type parameter record の binder-indexed identity を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - TypeArena 内の型が generic type parameter である場合だけ、その binder slot を取得します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `some(binding)`: `type_id` が有効で、record が `Parameter` variant です。
+//: - `none`: `type_id` が範囲外、または record が type parameter 以外です。
+pub fn selfhost_type_arena_type_parameter_binding %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostTypeParameterBinding \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Parameter parameter:
+                    some selfhost_type_parameter_record_binding parameter
                 SelfhostTypeRecord::Applied _applied:
                     none
                 SelfhostTypeRecord::Function _function:
@@ -254,6 +308,8 @@ pub fn selfhost_type_arena_applied_constructor_id %fn &SelfhostTypeArena fn Self
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Parameter _parameter:
                     none
                 SelfhostTypeRecord::Applied applied:
                     some selfhost_applied_type_record_id applied
@@ -271,6 +327,8 @@ pub fn selfhost_type_arena_applied_arg_count %fn &SelfhostTypeArena fn SelfhostT
                     none
                 SelfhostTypeRecord::Named _named:
                     none
+                SelfhostTypeRecord::Parameter _parameter:
+                    none
                 SelfhostTypeRecord::Applied applied:
                     some selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied
                 SelfhostTypeRecord::Function _function:
@@ -286,6 +344,8 @@ pub fn selfhost_type_arena_applied_arg %fn &SelfhostTypeArena fn SelfhostTypeId 
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Parameter _parameter:
                     none
                 SelfhostTypeRecord::Applied applied:
                     let args %SelfhostAppliedTypeArgRange selfhost_applied_type_record_args applied
@@ -312,6 +372,8 @@ pub fn selfhost_type_arena_function_arg_count %fn &SelfhostTypeArena fn Selfhost
                     none
                 SelfhostTypeRecord::Named _named:
                     none
+                SelfhostTypeRecord::Parameter _parameter:
+                    none
                 SelfhostTypeRecord::Applied _applied:
                     none
                 SelfhostTypeRecord::Function function:
@@ -327,6 +389,8 @@ pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Parameter _parameter:
                     none
                 SelfhostTypeRecord::Applied _applied:
                     none
@@ -353,6 +417,8 @@ pub fn selfhost_type_arena_function_result %fn &SelfhostTypeArena fn SelfhostTyp
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Parameter _parameter:
                     none
                 SelfhostTypeRecord::Applied _applied:
                     none

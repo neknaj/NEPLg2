@@ -706,22 +706,22 @@ Performance acceptance:
 - `project.nepl` の lookup 付き API は arity 0 の named constructor を `SelfhostTypeRecord::Named` へ投影する。unknown named type と bare generic constructor は typed error として fail-closed にし、既存の constructor table なし API は named を拒否し続ける。
 - constructor-aware reducer は `SelfhostTypeConstructorTable.arity` に従って `Box i32` / `Result i32 str` のような type argument list を再帰的に消費し、`SelfhostResolvedTypeNode::Applied` として保持する。型引数不足は projection まで送らず `GenericTypeArgumentMissing` として reducer で拒否する。
 - constructor-aware projection は `Applied` node の constructor identity と projected type argument `SelfhostTypeId` list を `SelfhostTypeRecord::Applied` として arena へ保存する。arena は source spelling ではなく identity と structural argument list だけを保持する。
-- `ty/key.nepl` は `SelfhostTypeArena` の root `SelfhostTypeId` を `SelfhostCanonicalTypeKeyArena` へ投影する。canonical key node は `SelfhostTypeId` を持たず、primitive / named / applied / function の構造と key argument range だけを保持する。projection は型 record と argument edge の数に対して O(n) であり、同じ key arena 内の structural equality を提供する。
+- `ty/key.nepl` は `SelfhostTypeArena` の root `SelfhostTypeId` を `SelfhostCanonicalTypeKeyArena` へ投影する。canonical key node は `SelfhostTypeId` を持たず、primitive / named / type parameter / applied / function の構造と key argument range だけを保持する。projection は型 record と argument edge の数に対して O(n) であり、同じ key arena 内の structural equality を提供する。
 - type-parameter-aware reducer は generic binder から作った `SelfhostTypeParameterEnv` を参照し、`T` / `E` のような名前を `Named` ではなく `SelfhostResolvedTypeNode::Parameter` として保持する。constructor table と parameter environment の両方に同じ名前がある場合は `TypeParameterConstructorNameConflict` として fail-closed にする。
-- 現 checkpoint では type parameter は resolved tree まで保持できるが、`SelfhostTypeArena` と canonical key には binder-indexed parameter record がまだない。そのため projection は `UnsupportedTypeParameter` として fail-closed にする。
+- `SelfhostTypeArena` は type parameter を `SelfhostTypeRecord::Parameter` として保存する。payload は source name / span / resolver-local node id ではなく、`SelfhostTypeParameterBinding { binder_depth, parameter_index }` だけである。
+- 現 checkpoint の projection は、1 つの generic binder environment から得た `SelfhostTypeParameterId` を `binder_depth = 0` の `SelfhostTypeParameterBinding` へ正規化する。nested binder depth と永続 artifact 用の stable binder identity は signature / interface artifact 実装時に追加する。
 
 Issue slice:
 
 - imported / local type constructor table construction
 - imported type arity hint integration
-- binder-indexed generic type parameter projection into TypeArena / canonical key
 - user-defined generic type constructor declaration kind validation
 - type resolver diagnostic parity
 
 Performance acceptance:
 
 - type constructor lookup は module surface から構築した table を使い、prefix type ごとに import graph を再探索しない。
-- canonical type key を生成し、artifact / cache key へ `TypeId` を入れない。現 checkpoint では structural key tree と equality までを実装済みであり、cross-arena serialized key / fingerprint は interface artifact 接続時に追加する。
+- canonical type key を生成し、artifact / cache key へ `TypeId` を入れない。現 checkpoint では type parameter binding を含む structural key tree と equality までを実装済みであり、cross-arena serialized key / fingerprint は interface artifact 接続時に追加する。
 
 ### Phase 6: Type checker and higher-order functions
 

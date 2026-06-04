@@ -42,6 +42,7 @@ pub enum SelfhostTypeKind:
     Never
     Function
     Named
+    Parameter
 
 impl Clone for SelfhostTypeKind:
     fn clone %fn &SelfhostTypeKind SelfhostTypeKind \self:

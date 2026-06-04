@@ -6,6 +6,9 @@
 //: [目的/もくてき]:
 //: - TypeKind を i32 tag に落とさず、enum variant を直接 match して比較します。
 //: - 新しい型分類を追加した場合、比較関数も明示的に更新する必要があります。
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。variant 追加時にこの関数の更新漏れが source policy と compiler の網羅性検査で見つかるようにします。
 pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
     match a:
         SelfhostTypeKind::Error:
@@ -36,6 +39,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Named:
                     false
+                SelfhostTypeKind::Parameter:
+                    false
         SelfhostTypeKind::Unit:
             match b:
                 SelfhostTypeKind::Error:
@@ -63,6 +68,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Function:
                     false
                 SelfhostTypeKind::Named:
+                    false
+                SelfhostTypeKind::Parameter:
                     false
         SelfhostTypeKind::Bool:
             match b:
@@ -92,6 +99,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Named:
                     false
+                SelfhostTypeKind::Parameter:
+                    false
         SelfhostTypeKind::I32:
             match b:
                 SelfhostTypeKind::Error:
@@ -119,6 +128,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Function:
                     false
                 SelfhostTypeKind::Named:
+                    false
+                SelfhostTypeKind::Parameter:
                     false
         SelfhostTypeKind::I64:
             match b:
@@ -148,6 +159,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Named:
                     false
+                SelfhostTypeKind::Parameter:
+                    false
         SelfhostTypeKind::U8:
             match b:
                 SelfhostTypeKind::Error:
@@ -175,6 +188,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Function:
                     false
                 SelfhostTypeKind::Named:
+                    false
+                SelfhostTypeKind::Parameter:
                     false
         SelfhostTypeKind::Char:
             match b:
@@ -204,6 +219,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Named:
                     false
+                SelfhostTypeKind::Parameter:
+                    false
         SelfhostTypeKind::Str:
             match b:
                 SelfhostTypeKind::Error:
@@ -231,6 +248,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Function:
                     false
                 SelfhostTypeKind::Named:
+                    false
+                SelfhostTypeKind::Parameter:
                     false
         SelfhostTypeKind::F32:
             match b:
@@ -260,6 +279,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Named:
                     false
+                SelfhostTypeKind::Parameter:
+                    false
         SelfhostTypeKind::F64:
             match b:
                 SelfhostTypeKind::Error:
@@ -287,6 +308,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Function:
                     false
                 SelfhostTypeKind::Named:
+                    false
+                SelfhostTypeKind::Parameter:
                     false
         SelfhostTypeKind::Never:
             match b:
@@ -316,6 +339,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Named:
                     false
+                SelfhostTypeKind::Parameter:
+                    false
         SelfhostTypeKind::Function:
             match b:
                 SelfhostTypeKind::Error:
@@ -343,6 +368,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Function:
                     true
                 SelfhostTypeKind::Named:
+                    false
+                SelfhostTypeKind::Parameter:
                     false
         SelfhostTypeKind::Named:
             match b:
@@ -372,4 +399,35 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Named:
                     true
-
+                SelfhostTypeKind::Parameter:
+                    false
+        SelfhostTypeKind::Parameter:
+            match b:
+                SelfhostTypeKind::Error:
+                    false
+                SelfhostTypeKind::Unit:
+                    false
+                SelfhostTypeKind::Bool:
+                    false
+                SelfhostTypeKind::I32:
+                    false
+                SelfhostTypeKind::I64:
+                    false
+                SelfhostTypeKind::U8:
+                    false
+                SelfhostTypeKind::Char:
+                    false
+                SelfhostTypeKind::Str:
+                    false
+                SelfhostTypeKind::F32:
+                    false
+                SelfhostTypeKind::F64:
+                    false
+                SelfhostTypeKind::Never:
+                    false
+                SelfhostTypeKind::Function:
+                    false
+                SelfhostTypeKind::Named:
+                    false
+                SelfhostTypeKind::Parameter:
+                    true

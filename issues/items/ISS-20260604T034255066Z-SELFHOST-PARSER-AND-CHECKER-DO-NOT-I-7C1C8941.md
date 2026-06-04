@@ -47,8 +47,9 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `core/ty/ty` に `SelfhostNamedTypeId` と `SelfhostTypeRecord::Named` を追加し、`resolve/type_resolver/constructor.nepl` の constructor table から arity 0 named type を `SelfhostTypeArena` へ投影できるようにした。constructor table なし API は引き続き named type を拒否し、unknown named type / bare generic constructor は typed error で fail-closed にした。
 - 2026-06-05: constructor-aware reducer が `SelfhostTypeConstructorTable.arity` に従って generic type argument list を再帰消費し、`SelfhostResolvedTypeNode::Applied` へ縮約するようにした。constructor-aware projection は `SelfhostTypeRecord::Applied` と arena type argument table へ投影し、constructor table なし projection は Applied node を `UnsupportedNamedType` として fail-closed にする。
 - 2026-06-05: `core/ty/ty/key.nepl` を追加し、arena-local `SelfhostTypeId` を payload に入れない `SelfhostCanonicalTypeKeyArena` へ type record tree を投影できるようにした。primitive / named / applied / function key node と key argument table を持ち、projection は型 record / argument edge 数に対して O(n) である。同じ key arena 内の structural equality も追加した。
-- 2026-06-05: `resolve/type_resolver/typeparam` を追加し、generic binder から作る `SelfhostTypeParameterEnv` と `SelfhostTypeParameterId` を named constructor identity から分離した。`selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters` は `T` / `E` を `SelfhostResolvedTypeNode::Parameter` へ縮約し、constructor と parameter が同名の場合は `TypeParameterConstructorNameConflict` として fail-closed にする。現 checkpoint では `SelfhostTypeArena` / canonical key への binder-indexed projection はまだなく、projection は `UnsupportedTypeParameter` で拒否する。
-- 残件: prefix expression AST、binder-indexed type parameter arena/key projection、user-defined generic type constructor kind validation、expected type / overload / generic / no partial application を含む call reduction、cross-arena serialized canonical key / fingerprint は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `resolve/type_resolver/typeparam` を追加し、generic binder から作る `SelfhostTypeParameterEnv` と `SelfhostTypeParameterId` を named constructor identity から分離した。`selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters` は `T` / `E` を `SelfhostResolvedTypeNode::Parameter` へ縮約し、constructor と parameter が同名の場合は `TypeParameterConstructorNameConflict` として fail-closed にする。
+- 2026-06-05: `core/ty/ty` に `SelfhostTypeParameterBinding`、`SelfhostTypeRecord::Parameter`、`SelfhostCanonicalTypeKeyNode::Parameter` を追加した。type resolver projection は `SelfhostTypeParameterId` を現在 binder の `binder_depth = 0` と `parameter_index` へ正規化して TypeArena に保存し、canonical key equality は source spelling / span / arena-local `TypeId` ではなく binder identity で比較する。
+- 残件: prefix expression AST、user-defined generic type constructor kind validation、expected type / overload / generic / no partial application を含む call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -134,3 +135,16 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/tests.js -i stdlib\neplg2\core\resolve\type_resolver\typeparam.nepl -o tmp\selfhost-typeparam-doctest.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i stdlib\neplg2\core\resolve\type_resolver.nepl -o tmp\selfhost-type-resolver-facade-smoke.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_resolver_type_parameters.n.md -o tmp\selfhost-type-resolver-type-parameters.json --no-tree -j 1 --assert-io --dist web\dist`
+
+2026-06-05 binder-indexed type parameter arena/key checkpoint:
+
+- `node nodesrc/test_selfhost_type_record_payload.js`
+- `node nodesrc/test_selfhost_type_key_contract.js`
+- `node nodesrc/test_selfhost_type_resolver_type_parameters.js`
+- `node nodesrc/test_selfhost_type_arena_report_contract.js`
+- `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`
+- `node nodesrc/test_selfhost_ty_split_contract.js`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_arena.n.md -o tmp\selfhost-type-arena-parameter.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_key.n.md -o tmp\selfhost-type-key-parameter.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_resolver_type_parameters.n.md -o tmp\selfhost-type-resolver-type-parameters-projection.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_proof.n.md -o tmp\selfhost-type-proof-parameter-kind.json --no-tree -j 1 --assert-io --dist web\dist`

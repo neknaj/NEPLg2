@@ -254,3 +254,99 @@ fn main %impure fn void i32 \void:
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
+
+## projects_type_parameters_by_binder_identity
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            let t_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+            let e_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 1
+            match selfhost_type_arena_add_type_parameter arena0 t_binding:
+                Result::Ok alloc1:
+                    let t_first %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_type_parameter selfhost_type_arena_alloc_into_arena alloc1 t_binding:
+                        Result::Ok alloc2:
+                            let t_second %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc2
+                            match selfhost_type_arena_add_type_parameter selfhost_type_arena_alloc_into_arena alloc2 e_binding:
+                                Result::Ok alloc3:
+                                    let e_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc3
+                                    let type_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc3
+                                    match selfhost_canonical_type_key_arena_new:
+                                        Result::Ok key_arena0:
+                                            match selfhost_canonical_type_key_project_into_arena &type_arena key_arena0 t_first:
+                                                Result::Ok key_alloc1:
+                                                    let key_t_first %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &key_alloc1
+                                                    let key_arena1 %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena key_alloc1
+                                                    match selfhost_canonical_type_key_project_into_arena &type_arena key_arena1 t_second:
+                                                        Result::Ok key_alloc2:
+                                                            let key_t_second %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &key_alloc2
+                                                            let key_arena2 %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena key_alloc2
+                                                            match selfhost_canonical_type_key_project_into_arena &type_arena key_arena2 e_type:
+                                                                Result::Ok key_alloc3:
+                                                                    let key_e %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &key_alloc3
+                                                                    let key_arena3 %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena key_alloc3
+                                                                    let checks1 checks_push checks0 check selfhost_canonical_type_key_equal &key_arena3 key_t_first key_t_second
+                                                                    let checks2 checks_push checks1 check not selfhost_canonical_type_key_equal &key_arena3 key_t_first key_e
+                                                                    let checks3 checks_push checks2 check_eq_i32 3 selfhost_canonical_type_key_arena_node_len &key_arena3
+                                                                    let checks4 checks_push checks3 check_eq_i32 0 selfhost_canonical_type_key_arena_arg_len &key_arena3
+                                                                    selfhost_canonical_type_key_arena_free key_arena3
+                                                                    selfhost_type_arena_free type_arena
+                                                                    let shown checks_print_report checks4
+                                                                    checks_exit_code shown
+                                                                Result::Err _e:
+                                                                    selfhost_type_arena_free type_arena
+                                                                    let checks1 checks_push checks0 Result::Err "E parameter canonical key projection failed"
+                                                                    let shown checks_print_report checks1
+                                                                    checks_exit_code shown
+                                                        Result::Err _e:
+                                                            selfhost_type_arena_free type_arena
+                                                            let checks1 checks_push checks0 Result::Err "second T parameter canonical key projection failed"
+                                                            let shown checks_print_report checks1
+                                                            checks_exit_code shown
+                                                Result::Err _e:
+                                                    selfhost_type_arena_free type_arena
+                                                    let checks1 checks_push checks0 Result::Err "first T parameter canonical key projection failed"
+                                                    let shown checks_print_report checks1
+                                                    checks_exit_code shown
+                                        Result::Err _e:
+                                            selfhost_type_arena_free type_arena
+                                            let checks1 checks_push checks0 Result::Err "canonical key arena allocation failed"
+                                            let shown checks_print_report checks1
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    let checks1 checks_push checks0 Result::Err "E parameter allocation failed"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            let checks1 checks_push checks0 Result::Err "second T parameter allocation failed"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 checks_push checks0 Result::Err "first T parameter allocation failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 checks_push checks0 Result::Err "type arena allocation failed"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```

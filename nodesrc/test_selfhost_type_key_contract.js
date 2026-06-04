@@ -45,8 +45,8 @@ assert.match(ty, /SelfhostCanonicalTypeKeyArena/, "selfhost ty source aggregate 
 
 assert.deepEqual(
     enumVariants(key, "SelfhostCanonicalTypeKeyNode"),
-    ["Primitive", "Named", "Applied", "Function"],
-    "canonical type key node must cover primitive, named, applied, and function payloads",
+    ["Primitive", "Named", "Parameter", "Applied", "Function"],
+    "canonical type key node must cover primitive, named, type parameter, applied, and function payloads",
 );
 assert.deepEqual(
     enumVariants(key, "SelfhostCanonicalTypeKeyProjectErrorKind"),
@@ -64,6 +64,8 @@ assert.deepEqual(
 
 const nodeBlock = topLevelBlock(key, "enum", "SelfhostCanonicalTypeKeyNode:");
 assert.doesNotMatch(nodeBlock, /\bSelfhostTypeId\b/, "canonical key nodes must not contain arena-local SelfhostTypeId");
+assert.doesNotMatch(nodeBlock, /\bSelfhostSourceSpan\b|\bSelfhostResolvedTypeNodeId\b|\bstr\b/, "canonical key nodes must not contain source spelling, spans, or resolved-tree-local ids");
+assert.match(nodeBlock, /\bParameter\s+%SelfhostTypeParameterBinding\b/, "canonical type parameter keys must use binder-indexed parameter identity");
 assert.match(
     key,
     /pub struct SelfhostCanonicalTypeKeyArena:[\s\S]*?\bnodes\s+%Vec SelfhostCanonicalTypeKeyNode[\s\S]*?\bargs\s+%Vec SelfhostCanonicalTypeKeyId/,
@@ -76,7 +78,7 @@ assert.match(
 );
 
 const projectNode = topLevelBlock(key, "fn", "selfhost_canonical_type_key_project_node");
-for (const variant of ["Primitive", "Named", "Applied", "Function"]) {
+for (const variant of ["Primitive", "Named", "Parameter", "Applied", "Function"]) {
     assert.match(
         projectNode,
         new RegExp(`^\\s*SelfhostTypeRecord::${variant}\\b`, "m"),
@@ -84,9 +86,12 @@ for (const variant of ["Primitive", "Named", "Applied", "Function"]) {
     );
 }
 assert.match(projectNode, /\bselfhost_canonical_type_key_push_node\b/, "projection must push canonical key nodes through the arena helper");
+assert.match(projectNode, /\bSelfhostCanonicalTypeKeyNode::Parameter\b/, "projection must emit canonical parameter key nodes instead of failing closed");
 
 const equalityBlock = topLevelBlock(key, "fn", "selfhost_canonical_type_key_equal");
 assert.doesNotMatch(equalityBlock, /\bselfhost_type_id_eq\b/, "canonical key equality must not use arena-local TypeId equality");
+const nodeEqualityBlock = topLevelBlock(key, "fn", "selfhost_canonical_type_key_nodes_equal");
+assert.match(nodeEqualityBlock, /\bSelfhostCanonicalTypeKeyNode::Parameter\b[\s\S]*\bselfhost_type_parameter_binding_eq\b/, "canonical key equality must compare parameter keys by binder identity");
 assert.match(
     key,
     /\bselfhost_canonical_type_key_project_applied\b[\s\S]*selfhost_applied_type_arg_range_is_valid/,

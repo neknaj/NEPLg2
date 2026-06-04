@@ -58,8 +58,18 @@ assert.match(
 );
 assert.match(
     source,
+    /SelfhostResolvedTypeNode::Parameter parameter:[\s\S]*selfhost_type_project_parameter arena parameter/,
+    "projection must lower resolved type parameters into a dedicated TypeArena parameter record",
+);
+assert.doesNotMatch(
+    source,
     /SelfhostTypeProjectErrorKind::UnsupportedTypeParameter/,
-    "projection must fail closed until type parameters have a binder-indexed arena record",
+    "type parameter projection must no longer fail closed after the binder-indexed arena record is available",
+);
+assert.match(
+    source,
+    /selfhost_type_project_parameter_binding_for_current_binder[\s\S]*selfhost_type_parameter_binding_new_unchecked 0 selfhost_type_parameter_id_index parameter\.parameter_id/,
+    "resolver-local type parameter ids must be normalized into binder-depth-zero parameter bindings at projection",
 );
 
 const validateNamed = topLevelBlock(

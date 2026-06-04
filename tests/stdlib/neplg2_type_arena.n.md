@@ -539,6 +539,103 @@ fn main %impure fn void i32 \void:
             checks_exit_code shown
 ```
 
+## stores_type_parameter_binding_and_compares_by_binder_slot
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn check_type_kind_option %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostTypeKind Result unit str \arena\type_id\expected:
+    match selfhost_type_arena_get_kind arena type_id:
+        Option::Some actual:
+            if selfhost_type_kind_eq actual expected Result::Ok unit Result::Err "type kind mismatch"
+        Option::None:
+            Result::Err "type kind missing"
+
+fn check_binding_option %fn Option SelfhostTypeParameterBinding fn SelfhostTypeParameterBinding Result unit str \actual\expected:
+    match actual:
+        Option::Some binding:
+            if selfhost_type_parameter_binding_eq binding expected Result::Ok unit Result::Err "parameter binding mismatch"
+        Option::None:
+            Result::Err "parameter binding missing"
+
+fn check_invalid_parameter_rejected %impure fn TestReport TestReport \checks:
+    match selfhost_type_arena_new:
+        Result::Ok arena:
+            let invalid_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 -1
+            match selfhost_type_arena_add_type_parameter arena invalid_binding:
+                Result::Ok allocated:
+                    selfhost_type_arena_free selfhost_type_arena_alloc_into_arena allocated
+                    checks_push checks Result::Err "invalid parameter binding was accepted"
+                Result::Err _e:
+                    checks_push checks Result::Ok unit
+        Result::Err _e:
+            checks_push checks Result::Err "invalid arena allocation failed"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            let t_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+            let e_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 1
+            match selfhost_type_arena_add_type_parameter arena0 t_binding:
+                Result::Ok alloc1:
+                    let t_first %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_type_parameter selfhost_type_arena_alloc_into_arena alloc1 t_binding:
+                        Result::Ok alloc2:
+                            let t_second %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc2
+                            match selfhost_type_arena_add_type_parameter selfhost_type_arena_alloc_into_arena alloc2 e_binding:
+                                Result::Ok alloc3:
+                                    let e_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc3
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc3
+                                    let checks1 checks_push checks0 check_type_kind_option &arena3 t_first SelfhostTypeKind::Parameter
+                                    let checks2 checks_push checks1 check_binding_option (selfhost_type_arena_type_parameter_binding &arena3 t_first) t_binding
+                                    let checks3 checks_push checks2 check selfhost_type_arena_types_equal &arena3 t_first t_second
+                                    let checks4 checks_push checks3 check not selfhost_type_arena_types_equal &arena3 t_first e_type
+                                    let checks5 checks_push checks4 check is_none selfhost_type_arena_named_id &arena3 t_first
+                                    let checks6 checks_push checks5 check is_none selfhost_type_arena_function_arg_count &arena3 t_first
+                                    let checks7 checks_push checks6 check_eq_i32 3 selfhost_type_arena_len &arena3
+                                    selfhost_type_arena_free arena3
+                                    let checks8 check_invalid_parameter_rejected checks7
+                                    let shown checks_print_report checks8
+                                    checks_exit_code shown
+                                Result::Err _e:
+                                    let checks1 checks_push checks0 Result::Err "E parameter allocation failed"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            let checks1 checks_push checks0 Result::Err "second T parameter allocation failed"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 checks_push checks0 Result::Err "first T parameter allocation failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 checks_push checks0 Result::Err "type arena allocation failed"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## rejects_mismatched_function_type_shapes
 
 neplg2:test[stdio, normalize_newlines]

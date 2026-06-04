@@ -71,6 +71,19 @@ pub struct SelfhostFunctionTypeRecord:
 pub struct SelfhostNamedTypeRecord:
     nominal_id %SelfhostNamedTypeId
 
+//: SelfhostTypeParameterRecord: generic type parameter record の payload
+//:
+//: [目的/もくてき]:
+//: - source 上の `T` / `E` のような generic type parameter を、named type constructor と別 variant として保存します。
+//: - payload は binder depth と binder 内 index だけであり、source name や diagnostic span を arena record に入れません。
+//:
+//: [契約/けいやく]:
+//: - `binding` は resolver / checker が保持する binder environment から作ったものだけを渡します。
+//: - invalid binding は structural equality と canonical key equality で一致しません。
+//: - この record は型パラメータ「参照」を表します。type parameter の bound や kind constraint は binder environment / signature model 側の責務です。
+pub struct SelfhostTypeParameterRecord:
+    binding %SelfhostTypeParameterBinding
+
 //: SelfhostAppliedTypeArgRange: applied named type の型引数 table 範囲
 //:
 //: [目的/もくてき]:
@@ -113,6 +126,14 @@ impl Copy for SelfhostNamedTypeRecord:
     fn copy_mark %fn SelfhostNamedTypeRecord SelfhostNamedTypeRecord \self:
         self
 
+impl Clone for SelfhostTypeParameterRecord:
+    fn clone %fn &SelfhostTypeParameterRecord SelfhostTypeParameterRecord \self:
+        *self
+
+impl Copy for SelfhostTypeParameterRecord:
+    fn copy_mark %fn SelfhostTypeParameterRecord SelfhostTypeParameterRecord \self:
+        self
+
 impl Clone for SelfhostAppliedTypeRecord:
     fn clone %fn &SelfhostAppliedTypeRecord SelfhostAppliedTypeRecord \self:
         *self
@@ -124,13 +145,15 @@ impl Copy for SelfhostAppliedTypeRecord:
 //: SelfhostTypeRecord: arena に保存する型 record
 //:
 //: [目的/もくてき]:
-//: - primitive type、named type、applied named type、function type を enum payload で分け、存在しない field を record に持たせません。
+//: - primitive type、named type、generic type parameter、applied named type、function type を enum payload で分け、存在しない field を record に持たせません。
 //: - named payload は type constructor table の定義 identity だけを保持し、source span や display name を arena record に混ぜません。
+//: - parameter payload は binder-indexed identity だけを保持し、source spelling や resolver tree node id を arena record に混ぜません。
 //: - applied payload は constructor identity と型引数範囲だけを保持し、generic application の spelling を後続 stage へ漏らしません。
 //: - function payload は `SelfhostFunctionTypeRecord` に集約し、accessor は record variant を match してから読む構造にします。
 pub enum SelfhostTypeRecord:
     Primitive %SelfhostPrimitiveTypeKind
     Named %SelfhostNamedTypeRecord
+    Parameter %SelfhostTypeParameterRecord
     Applied %SelfhostAppliedTypeRecord
     Function %SelfhostFunctionTypeRecord
 
@@ -151,9 +174,24 @@ pub fn selfhost_type_record_primitive %fn SelfhostPrimitiveTypeKind SelfhostType
 pub fn selfhost_type_record_named %fn SelfhostNamedTypeId SelfhostTypeRecord \nominal_id:
     SelfhostTypeRecord::Named SelfhostNamedTypeRecord nominal_id
 
+//: selfhost_type_record_parameter: generic type parameter record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - resolver が `T` / `E` を named type に丸めず、TypeArena 内でも型 parameter として保持できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `binding` は source spelling ではなく binder-indexed identity です。
+//: - invalid binding を拒否するかどうかは追加 API の責務です。この constructor は小さな payload を作るだけです。
+pub fn selfhost_type_record_parameter %fn SelfhostTypeParameterBinding SelfhostTypeRecord \binding:
+    SelfhostTypeRecord::Parameter SelfhostTypeParameterRecord binding
+
 //: selfhost_named_type_record_id: named type record の identity を[返/かえ]す
 pub fn selfhost_named_type_record_id %fn SelfhostNamedTypeRecord SelfhostNamedTypeId \record:
     record.nominal_id
+
+//: selfhost_type_parameter_record_binding: type parameter record の binding を[返/かえ]す
+pub fn selfhost_type_parameter_record_binding %fn SelfhostTypeParameterRecord SelfhostTypeParameterBinding \record:
+    record.binding
 
 //: selfhost_applied_type_arg_range_new_unchecked: 証明済みの applied type argument range を直接[作/つく]る
 //:
