@@ -34,6 +34,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "std/gui/window" as *
 
 #extern "nepl_gui_web" "poll_action_id" fn gui_web_poll_action_id_raw %impure fn void i32
 #extern "nepl_gui_web" "wait_action_id" fn gui_web_wait_action_id_raw %impure fn i32 i32
@@ -63,7 +64,7 @@
 //: [現状/げんじょう]:
 //: - point は milli-unit の整数です。formal host ABI では logical / physical unit の契約へ移します。
 pub struct GuiWebEvent:
-    window_id %i32
+    window_id %WindowId
     point_milli %GuiPoint
     event %GuiEvent
 
@@ -76,7 +77,7 @@ impl Copy for GuiWebEvent:
         event
 
 //: gui_web_event_window_id: Web event の window id を[読/よ]む
-pub fn gui_web_event_window_id %fn &GuiWebEvent i32 \event:
+pub fn gui_web_event_window_id %fn &GuiWebEvent WindowId \event:
     *field::get_ref event "window_id"
 
 //: gui_web_event_point_milli: Web event の pointer position milli-unit を[読/よ]む
@@ -240,10 +241,14 @@ fn gui_web_web_event_from_gui_event %impure fn GuiEvent Result Option GuiWebEven
     let x_milli %i32 gui_web_last_event_point_x_milli_raw
     let y_milli %i32 gui_web_last_event_point_y_milli_raw
     let point %GuiPoint gui_point_new x_milli y_milli
-    let window_id %i32 gui_web_last_event_window_id_raw
-    let web_event %GuiWebEvent GuiWebEvent window_id point gui_event
-    let some %Option GuiWebEvent Option::Some web_event
-    Result::Ok some
+    let raw_window %i32 gui_web_last_event_window_id_raw
+    match window_id_result raw_window:
+        Result::Ok window_id:
+            let web_event %GuiWebEvent GuiWebEvent window_id point gui_event
+            let some %Option GuiWebEvent Option::Some web_event
+            Result::Ok some
+        Result::Err _:
+            Result::Err GuiError::InvalidCommand
 
 fn gui_web_action_event_result_from_last %impure fn void Result Option GuiWebEvent GuiError \void:
     let action_raw %i32 gui_web_last_event_action_id_raw

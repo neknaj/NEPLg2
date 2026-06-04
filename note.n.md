@@ -50586,3 +50586,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - valid な empty / singleton は成功 no-op として `Result::Ok` を返し、invalid metadata / invalid data view は `StdErrorKind::InvalidOperation`、merge scratch allocation failure は `StdErrorKind::OutOfMemory` として返す。
 - source policy は sort signature、owner recovery surface、old generic postfix cleanup、silent no-op branch の再導入検査を更新した。issue `ISS-20260604T034125199Z-VEC-SORT-VARIANTS-HANDLE-INVALID-MET-1475F2ED` は resolved に更新した。
 - focused verification は sort / collection source policy 群、NEPLg2.1 postfix / prose policy、`tests/stdlib/sort.n.md`、`tests/stdlib/sort_simple.n.md`、`tests/stdlib/traits_order.n.md`、`tests/stdlib/collection_cleanup_contract.n.md` の 81/81 を通した。
+
+## 2026-06-05 Agent2 GUI opaque id checkpoint
+
+- `agent2/gui-opaque-id-validation` branch で、Zenn 記事の invalid state を `Result` / `Option` と型で明示する方針に沿って GUI host id contract を修正した。`plan.md` は変更していない。
+- subagent review で、`window_id` / `surface_id` / `frame_id` が unchecked raw `i32` constructor になっており、0 や負数が application model へ普通の id として流れ得ることを確認した。
+- `WindowId` / `SurfaceId` / `FrameId` に module-private proof field を追加し、public constructor は `window_id_result` / `surface_id_result` / `frame_id_result` と互換 helper の `window_id` / `surface_id` / `frame_id` を通して `Result` を返す形にした。
+- `GuiHost.default_window` は `Option WindowId` にし、headless host は `Option::None` を保持するようにした。Web input bridge は raw host id を `window_id_result` で検証してから `GuiWebEvent` に格納する。
+- runtime の `RequestRedraw` / `SetTitle` effect は target raw id を再検証し、無効 id を `GuiError::InvalidCommand` として返す。
+- source policy `test_stdlib_gui_opaque_id_contract.js` と doctest を追加し、private proof、checked constructor、headless host、Web input boundary、runtime validation を固定した。issue `ISS-20260604T033842647Z-GUI-OPAQUE-IDS-ARE-CONSTRUCTIBLE-FRO-42B59D4F` は resolved に更新した。
+- focused verification は GUI opaque id policy、GUI layering policy、Web GUI shared queue / input bridge policy、`tests/stdlib/gui_std.n.md` と `tests/stdlib/gui_web_input.n.md` の focused doctest 14/14 を通した。
