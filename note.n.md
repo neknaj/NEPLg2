@@ -50540,3 +50540,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - build 層は validation 済みであっても unsupported item を named atom として扱わず、plan の dispatch error へ fail-closed する。これは validation と build の境界が同じ分類規則を持つための防御である。
 - 残件は resolved type tree から `SelfhostTypeId` への allocation、canonical type key projection、user-defined generic type constructor の kind / arity reduction、prefix expression AST、call reduction である。issue `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` は引き続き open。
 - focused verification は type resolver doctest 5/5、split / prefix input policy、facade doctest、`stdlib/neplg2` 全体 50/50 を通した。
+
+## 2026-06-05 Agent selfhost type resolver TypeId projection checkpoint
+
+- `selfhost/type-id-allocation-20260605` branch で、self-host compiler Phase 5 の resolved tree から type arena への projection 境界を追加した。`plan.md` は確認のみで変更していない。
+- `type_resolver/project.nepl` を追加し、`SelfhostResolvedTypeTreeRoot` と `SelfhostTypeArena` から primitive / function type を arena-local `SelfhostTypeId` へ投影するようにした。
+- named type は現段階の `SelfhostTypeArena` には保存先がないため、primitive へ丸めず `SelfhostTypeProjectErrorKind::UnsupportedNamedType` として fail-closed にした。これは user-defined type constructor table / generic kind resolver を入れる次 slice の境界である。
+- `v::push` 失敗時は移動済みの旧 params owner ではなく、`vec_push_error_vec` から返る owner を解放するようにした。Resource IR の `resource.cell.moved` 失敗を根本原因の所有権契約に沿って修正した。
+- subagent review では、projection 境界を `type_resolver` 側に置き、`ty` 側へ `SelfhostResolvedTypeTree` 依存を逆流させない方針が妥当と確認した。
+- focused verification は type resolver doctest 7/7、split / prefix input policy、facade doctest、`stdlib/neplg2` 全体 50/50 を通した。

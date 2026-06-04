@@ -27,4 +27,5 @@ pub #import "./type_resolver/reduce/model" as *
 pub #import "./type_resolver/reduce/plan" as *
 pub #import "./type_resolver/reduce/build" as *
 pub #import "./type_resolver/reduce" as *
+pub #import "./type_resolver/project" as *
 pub #import "./type_resolver/stage0" as *

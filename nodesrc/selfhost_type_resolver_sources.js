@@ -12,6 +12,7 @@ const TYPE_RESOLVER_SPLIT_FILES = [
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/stage0.nepl",
 ];
 
