@@ -36,6 +36,7 @@ stdout: mlstr:
 #import "alloc/collections/vec" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/parser/module_parser" as *
 #import "std/test" as *
@@ -53,6 +54,38 @@ fn check_item %impure fn TestReport impure fn &SelfhostModuleAst impure fn i32 i
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
+fn check_type_annotation_range %fn SelfhostSyntaxRange Result unit str \syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Range range:
+            if:
+                and:
+                    eq range.first_token 4
+                    and:
+                        eq range.token_count 6
+                        and and eq range.span.start 15 eq range.span.end 33 source_span_is_valid range.span
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err "expected function type annotation token range"
+        SelfhostSyntaxRange::Empty:
+            Result::Err "expected function type annotation range"
+
+fn check_lambda_header_range %fn SelfhostSyntaxRange Result unit str \syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Range range:
+            if:
+                and:
+                    eq range.first_token 10
+                    and:
+                        eq range.token_count 4
+                        and and eq range.span.start 34 eq range.span.end 38 source_span_is_valid range.span
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err "expected function lambda header token range"
+        SelfhostSyntaxRange::Empty:
+            Result::Err "expected function lambda header range"
+
 fn check_function_declaration_header %fn SelfhostModuleItem Result unit str \item:
     match item.declaration:
         Option::Some header:
@@ -67,7 +100,11 @@ fn check_function_declaration_header %fn SelfhostModuleItem Result unit str \ite
                                             if:
                                                 and eq header.header_span.start 8 eq header.header_span.end 39
                                                 then:
-                                                    Result::Ok unit
+                                                    match check_type_annotation_range header.type_annotation:
+                                                        Result::Ok _unit:
+                                                            check_lambda_header_range header.lambda_header
+                                                        Result::Err e:
+                                                            Result::Err e
                                                 else:
                                                     Result::Err "expected current function declaration header span"
                                         SelfhostModuleDeclarationHeadKind::TypeLabel:

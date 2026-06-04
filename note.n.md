@@ -50510,3 +50510,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - type equality は invalid argument range を空列一致として扱わないよう、range validity を先に確認する defensive wrapper を追加した。
 - 新規 doctest `tests/stdlib/neplg2_hir_ranges.n.md` と `tests/stdlib/neplg2_type_ranges.n.md` で negative count、non-canonical empty、end overflow、out-of-bounds、invalid equality を固定した。
 - resolved issue: `ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E`。
+
+## 2026-06-05 Agent selfhost prefix range boundary checkpoint
+
+- `selfhost/prefix-range-boundary-20260605` branch で、self-host compiler Phase 3/6 の prefix expression / type range contract issue を進めた。`plan.md` は確認のみで変更していない。
+- `SelfhostSyntaxRange` / `SelfhostSyntaxRangeItems` を追加し、空範囲を sentinel pair ではなく `Empty` variant として扱うようにした。declaration header は `%` type annotation range と lambda header range を typed evidence として保持する。
+- `module_parser/prefix_range.nepl` を追加し、header token stream から `%...` と `\...` の flat token range を抽出するようにした。ここでは型木・式木・call boundary は確定せず、resolver / checker に渡す範囲 evidence だけを作る。
+- module checker / proof solver は function 宣言に type annotation range と lambda header range が nonempty かつ header span 内にあることを要求するようにした。非 function 宣言では type/lambda range が混入しないことを proof で検査する。
+- `tests/stdlib/neplg2_parser.n.md` は `fn add %fn i32 fn i32 i32 \a\b:` の header span に加え、type annotation range と lambda header range の span / token count を確認するようにした。`tests/stdlib/neplg2_proof.n.md` と checker smoke AST も新しい header evidence contract へ更新した。
+- `nodesrc/test_selfhost_proof_entry_contract.js` は NEPLg2.0 の `<Type>` 形を監視していたため、現行 NEPLg2.1 の `%Type` 形へ更新した。proof model 自体は変更せず、policy test の構文前提だけを正した。
+- issue `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` は checkpoint を追記したが、full prefix expression/type AST、kind-directed type application resolver、expected type / overload / generic / no partial application を含む call reduction が未実装のため open のまま維持する。
+- focused verification は parser/checker/proof の source policy、parser/proof/checker doctest、`stdlib/neplg2` 全体 49/49、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は既存 5 warning のみで、今回触った selfhost parser/checker/proof 系は通過した。

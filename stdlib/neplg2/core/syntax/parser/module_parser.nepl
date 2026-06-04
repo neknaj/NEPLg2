@@ -6,6 +6,7 @@
 //: [目的/もくてき]:
 //: - lexer token stream から `SelfhostModuleAst` を作る parser 群の入口にします。
 //: - S1 の初期段階では、宣言開始 token、compiler directive、doc comment、raw backend block を失わない item stream を作ります。
+//: - 宣言 header では `%` type annotation と lambda header の flat token range を typed evidence として保持し、後続の resolver / checker が同じ範囲を使って境界解決できるようにします。
 //:
 //: [実装/じっそう]:
 //: - offside token の `Indent` / `Dedent` で通常 code block depth を追跡します。
@@ -13,7 +14,7 @@
 //: - raw block の dedent で raw mode を終了し、関数本体など外側の通常 block depth は維持します。
 //:
 //: [注意/ちゅうい]:
-//: - これは full expression parser ではありません。式 token はまだ item 化せず、後続の item / expr parser へ責務を残します。
+//: - この module は最終的な式木・型木をまだ作りません。かわりに、parser が決めるべき token 範囲だけを typed evidence として保存し、呼び出し境界や型適用境界の確定は後続の resolver / checker に渡します。
 //: - raw text token が raw mode の外へ現れた場合は parser diagnostic にします。lexer と parser の状態ずれを早期に検出するためです。
 //: - EOF 時に pending / active raw mode が残った場合や、対応する indent のない `Dedent` が現れた場合も parser diagnostic にします。不正な offside 状態を正常 AST として後段へ渡さないためです。
 //:
@@ -46,6 +47,7 @@ pub #import "./module_parser/action" as *
 pub #import "./module_parser/diagnostic" as *
 pub #import "./module_parser/header_boundary" as *
 pub #import "./module_parser/item_kind" as *
+pub #import "./module_parser/prefix_range" as *
 pub #import "./module_parser/declaration" as *
 pub #import "./module_parser/loop" as *
 pub #import "./module_parser/entry" as *

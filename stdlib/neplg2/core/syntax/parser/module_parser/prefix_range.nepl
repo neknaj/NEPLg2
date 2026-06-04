@@ -1,0 +1,327 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+
+//: SelfhostParserPrefixRangeTokenRole: declaration header 内の prefix range 抽出に必要な token [役割/やくわり]
+//:
+//: [目的/もくてき]:
+//: - module item role とは別に、`%` type annotation と lambda header の範囲抽出に必要な最小分類を持ちます。
+//: - parser はこの role で token stream を 1 回走査し、文字列再解析ではなく token index と span から typed evidence を作ります。
+pub enum SelfhostParserPrefixRangeTokenRole:
+    TypeAnnotationMarker
+    LambdaMarker
+    HeaderTerminator
+    Regular
+
+impl Clone for SelfhostParserPrefixRangeTokenRole:
+    fn clone %fn &SelfhostParserPrefixRangeTokenRole SelfhostParserPrefixRangeTokenRole \self:
+        *self
+
+impl Copy for SelfhostParserPrefixRangeTokenRole:
+    fn copy_mark %fn SelfhostParserPrefixRangeTokenRole SelfhostParserPrefixRangeTokenRole \self:
+        self
+
+//: selfhost_parser_prefix_range_token_role: token kind を prefix range 抽出 role へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `Percent` は type annotation range の開始です。
+//: - `Backslash` は lambda header range の開始であり、type annotation range の終了境界にもなります。
+//: - newline / offside / colon / legacy grouping token は declaration header 内 range の終端として扱います。
+fn selfhost_parser_prefix_range_token_role %fn TokenKind SelfhostParserPrefixRangeTokenRole \kind:
+    match kind:
+        TokenKind::Indent:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Dedent:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Newline:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Eof:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Colon:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Semicolon:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::Pipe:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::LParen:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::RParen:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Comma:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::LAngle:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::RAngle:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Percent:
+            SelfhostParserPrefixRangeTokenRole::TypeAnnotationMarker
+        TokenKind::Backslash:
+            SelfhostParserPrefixRangeTokenRole::LambdaMarker
+        TokenKind::Arrow:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::PathSep:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::At:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::Dot:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::Ampersand:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::Star:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::Minus:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::Equals:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::Ident:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::IntLiteral:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::FloatLiteral:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::BoolLiteral:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::CharLiteral:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::StringLiteral:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::UnitLiteral:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::VoidMarker:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwFn:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwLet:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwMut:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwNoShadow:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwSet:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwIf:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwWhile:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwCond:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwThen:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwElse:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwDo:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwStruct:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwEnum:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwMatch:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwTrait:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwImpl:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwFor:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwPub:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwBlock:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwTuple:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::KwMlstr:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirEntry:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirTarget:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirImport:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirUse:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirTest:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirIfTarget:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirIfProfile:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirCapability:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirWasm:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirLlvmIr:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirIndentWidth:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirInclude:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirExtern:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirIntrinsic:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirPrelude:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::DirNoPrelude:
+            SelfhostParserPrefixRangeTokenRole::Regular
+        TokenKind::WasmText:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::LlvmIrText:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::MlstrLine:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::DocComment:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::UnterminatedChar:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::UnterminatedString:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+        TokenKind::Unknown:
+            SelfhostParserPrefixRangeTokenRole::HeaderTerminator
+
+//: selfhost_parser_syntax_range_from_indices: token index 区間を `SelfhostSyntaxRange` に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `[first_token, after_token)` の token span を結合し、後段 checker に渡す range evidence を作ります。
+//: - token buffer 境界から外れた場合は invalid payload を作らず `Empty` に落とし、function 宣言の必須 range 検査で拒否されるようにします。
+fn selfhost_parser_syntax_range_from_indices %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
+    if:
+        or le after_token first_token or lt first_token 0 gt after_token n
+        then:
+            selfhost_syntax_range_empty
+        else:
+            match v::get tokens first_token:
+                Option::Some first:
+                    match v::get tokens sub after_token 1:
+                        Option::Some last:
+                            let first_span %SelfhostSourceSpan first.span
+                            let last_span %SelfhostSourceSpan last.span
+                            let span %SelfhostSourceSpan source_span_new_unchecked first_span.file_id first_span.start last_span.end
+                            selfhost_syntax_range_new_unchecked first_token sub after_token first_token span
+                        Option::None:
+                            selfhost_syntax_range_empty
+                Option::None:
+                    selfhost_syntax_range_empty
+
+//: selfhost_parser_type_annotation_end_loop: `%` type annotation range の終端 token index を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - type annotation は lambda marker または header terminator の直前で終わります。
+//: - この段階では type arity を解かず、flat token range の終端だけを O(k) で求めます。
+fn selfhost_parser_type_annotation_end_loop %fn &Vec SelfhostToken fn i32 fn i32 i32 \tokens\n\idx:
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match selfhost_parser_prefix_range_token_role token.kind:
+                        SelfhostParserPrefixRangeTokenRole::HeaderTerminator:
+                            idx
+                        SelfhostParserPrefixRangeTokenRole::LambdaMarker:
+                            idx
+                        SelfhostParserPrefixRangeTokenRole::TypeAnnotationMarker:
+                            selfhost_parser_type_annotation_end_loop tokens n add idx 1
+                        SelfhostParserPrefixRangeTokenRole::Regular:
+                            selfhost_parser_type_annotation_end_loop tokens n add idx 1
+                Option::None:
+                    idx
+
+//: selfhost_parser_lambda_header_end_loop: lambda header range の終端 token index を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - `\a\b` や `\void` の token 列を header terminator の直前まで集めます。
+//: - `:` は block marker なので range に含めず、後段の parameter parser が lambda marker と parameter token だけを読む境界にします。
+fn selfhost_parser_lambda_header_end_loop %fn &Vec SelfhostToken fn i32 fn i32 i32 \tokens\n\idx:
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match selfhost_parser_prefix_range_token_role token.kind:
+                        SelfhostParserPrefixRangeTokenRole::HeaderTerminator:
+                            idx
+                        SelfhostParserPrefixRangeTokenRole::LambdaMarker:
+                            selfhost_parser_lambda_header_end_loop tokens n add idx 1
+                        SelfhostParserPrefixRangeTokenRole::TypeAnnotationMarker:
+                            selfhost_parser_lambda_header_end_loop tokens n add idx 1
+                        SelfhostParserPrefixRangeTokenRole::Regular:
+                            selfhost_parser_lambda_header_end_loop tokens n add idx 1
+                Option::None:
+                    idx
+
+//: selfhost_parser_type_annotation_range_loop: declaration header 内の `%` marker を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - declaration keyword / head / modifiers を読み飛ばし、最初の `%` から type annotation range を作ります。
+//: - lambda marker や header terminator まで `%` がなければ、type annotation は存在しないものとして `Empty` を返します。
+fn selfhost_parser_type_annotation_range_loop %fn &Vec SelfhostToken fn i32 fn i32 SelfhostSyntaxRange \tokens\n\idx:
+    if:
+        ge idx n
+        then:
+            selfhost_syntax_range_empty
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match selfhost_parser_prefix_range_token_role token.kind:
+                        SelfhostParserPrefixRangeTokenRole::TypeAnnotationMarker:
+                            let after %i32 selfhost_parser_type_annotation_end_loop tokens n add idx 1
+                            selfhost_parser_syntax_range_from_indices tokens n idx after
+                        SelfhostParserPrefixRangeTokenRole::LambdaMarker:
+                            selfhost_syntax_range_empty
+                        SelfhostParserPrefixRangeTokenRole::HeaderTerminator:
+                            selfhost_syntax_range_empty
+                        SelfhostParserPrefixRangeTokenRole::Regular:
+                            selfhost_parser_type_annotation_range_loop tokens n add idx 1
+                Option::None:
+                    selfhost_syntax_range_empty
+
+//: selfhost_parser_lambda_header_range_loop: declaration header 内の lambda marker を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - `%` type annotation の有無に関係なく、同じ header 内の最初の `\` から lambda header range を作ります。
+//: - header terminator まで `\` がなければ、lambda header は存在しないものとして `Empty` を返します。
+fn selfhost_parser_lambda_header_range_loop %fn &Vec SelfhostToken fn i32 fn i32 SelfhostSyntaxRange \tokens\n\idx:
+    if:
+        ge idx n
+        then:
+            selfhost_syntax_range_empty
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match selfhost_parser_prefix_range_token_role token.kind:
+                        SelfhostParserPrefixRangeTokenRole::LambdaMarker:
+                            let after %i32 selfhost_parser_lambda_header_end_loop tokens n add idx 1
+                            selfhost_parser_syntax_range_from_indices tokens n idx after
+                        SelfhostParserPrefixRangeTokenRole::HeaderTerminator:
+                            selfhost_syntax_range_empty
+                        SelfhostParserPrefixRangeTokenRole::TypeAnnotationMarker:
+                            selfhost_parser_lambda_header_range_loop tokens n add idx 1
+                        SelfhostParserPrefixRangeTokenRole::Regular:
+                            selfhost_parser_lambda_header_range_loop tokens n add idx 1
+                Option::None:
+                    selfhost_syntax_range_empty
+
+//: selfhost_parser_header_type_annotation_range: declaration header 内の `%` type annotation token 範囲を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - declaration keyword から同じ header 行の中を走査し、`%` から lambda marker または header 終端の直前までを範囲 evidence として切り出します。
+//: - parser は型式の木構造をここで決めません。後段 resolver がこの flat range を入力にして kind / arity に基づく type application reduction を行います。
+pub fn selfhost_parser_header_type_annotation_range %fn &Vec SelfhostToken fn i32 fn i32 SelfhostSyntaxRange \tokens\n\decl_idx:
+    selfhost_parser_type_annotation_range_loop tokens n add decl_idx 1
+
+//: selfhost_parser_header_lambda_range: declaration header 内の lambda header token 範囲を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `\a\b` や `\void` を、最終 HIR parameter list へ落とす前の flat token range として保持します。
+//: - `:` は header の block marker であり、lambda range には含めません。
+pub fn selfhost_parser_header_lambda_range %fn &Vec SelfhostToken fn i32 fn i32 SelfhostSyntaxRange \tokens\n\decl_idx:
+    selfhost_parser_lambda_header_range_loop tokens n add decl_idx 1

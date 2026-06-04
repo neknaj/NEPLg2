@@ -9,11 +9,13 @@
 //:
 //: [実装/じっそう]:
 //: - `SelfhostModuleAst` は `Vec SelfhostModuleItem` を所有します。
-//: - `SelfhostModuleItem` は kind / span / lexeme に加えて、宣言 item だけが typed declaration header evidence を持ちます。raw block の本文は `WasmText` / `LlvmIrText` item として行ごとに保持します。
+//: - `SelfhostModuleItem` は kind / span / lexeme に加えて、宣言 item だけが typed declaration header evidence を持ちます。
+//: - declaration header evidence は keyword/head だけでなく、`%` type annotation と lambda header の token range も保持します。raw block の本文は `WasmText` / `LlvmIrText` item として行ごとに保持します。
 //:
 //: [注意/ちゅうい]:
 //: - ここでは名前解決済みの構造や式木は持ちません。後続の item / expr parser が、同じ item stream をより細かい AST に展開します。
 //: - raw block の indent 検証は `module_parser` が行い、この module は構造体と所有 buffer 操作だけを担当します。
+//: - prefix range はまだ式木や型木ではありません。parser が観測した token 範囲を保持し、後続の type resolver / checker が同じ範囲を再利用して境界解決を行います。
 //:
 //: [計算量/けいさんりょう]:
 //: - item 追加は Vec の償却 O(1)、再確保時 O(n) です。
@@ -158,10 +160,45 @@ impl Copy for SelfhostModuleDeclarationHead:
     fn copy_mark %fn SelfhostModuleDeclarationHead SelfhostModuleDeclarationHead \self:
         self
 
+//: SelfhostSyntaxRangeItems: token stream 上の nonempty syntax range payload
+//:
+//: [目的/もくてき]:
+//: - parser が観測した連続 token 範囲を、開始 token index、token 数、source span として保持します。
+//: - `-1` sentinel を使わず、空範囲は `SelfhostSyntaxRange::Empty` として表します。
+pub struct SelfhostSyntaxRangeItems:
+    first_token %i32
+    token_count %i32
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostSyntaxRangeItems:
+    fn clone %fn &SelfhostSyntaxRangeItems SelfhostSyntaxRangeItems \self:
+        *self
+
+impl Copy for SelfhostSyntaxRangeItems:
+    fn copy_mark %fn SelfhostSyntaxRangeItems SelfhostSyntaxRangeItems \self:
+        self
+
+//: SelfhostSyntaxRange: parser が保持する token stream 範囲
+//:
+//: [目的/もくてき]:
+//: - `%` type annotation、lambda header、prefix expression など、後段で構造化される構文単位の入力範囲を保持します。
+//: - 空範囲を enum variant に分けることで、checker が payload の存在を match で確認できます。
+pub enum SelfhostSyntaxRange:
+    Empty
+    Range %SelfhostSyntaxRangeItems
+
+impl Clone for SelfhostSyntaxRange:
+    fn clone %fn &SelfhostSyntaxRange SelfhostSyntaxRange \self:
+        *self
+
+impl Copy for SelfhostSyntaxRange:
+    fn copy_mark %fn SelfhostSyntaxRange SelfhostSyntaxRange \self:
+        self
+
 //: SelfhostModuleDeclarationHeader: parser が観測した declaration header evidence
 //:
 //: [目的/もくてき]:
-//: - keyword token だけでなく、visibility、header 全体の span、keyword span、head token を保持します。
+//: - keyword token だけでなく、visibility、header 全体の span、keyword span、head token、type annotation range、lambda header range を保持します。
 //: - 後続 stage は宣言 header を文字列再走査せず、typed fact として proof solver へ渡します。
 pub struct SelfhostModuleDeclarationHeader:
     kind %SelfhostModuleDeclarationKind
@@ -169,6 +206,8 @@ pub struct SelfhostModuleDeclarationHeader:
     header_span %SelfhostSourceSpan
     keyword_span %SelfhostSourceSpan
     head %Option SelfhostModuleDeclarationHead
+    type_annotation %SelfhostSyntaxRange
+    lambda_header %SelfhostSyntaxRange
 
 impl Clone for SelfhostModuleDeclarationHeader:
     fn clone %fn &SelfhostModuleDeclarationHeader SelfhostModuleDeclarationHeader \self:
@@ -216,13 +255,55 @@ pub fn selfhost_module_item_new %fn SelfhostModuleItemKind fn SelfhostSourceSpan
 pub fn selfhost_module_declaration_head_new %fn SelfhostModuleDeclarationHeadKind fn SelfhostSourceSpan SelfhostModuleDeclarationHead \kind\span:
     SelfhostModuleDeclarationHead kind span
 
+//: selfhost_syntax_range_empty: syntax range が存在しないことを[返/かえ]す
+pub fn selfhost_syntax_range_empty %fn void SelfhostSyntaxRange \void:
+    SelfhostSyntaxRange::Empty
+
+//: selfhost_syntax_range_new_unchecked: parser 内で証明済みの nonempty syntax range を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `first_token >= 0`、`token_count > 0`、span が有効であることを検査しません。
+//: - 同じ token stream 走査内で開始・終了 token を確認済みの parser helper だけが使います。
+pub fn selfhost_syntax_range_new_unchecked %fn i32 fn i32 fn SelfhostSourceSpan SelfhostSyntaxRange \first_token\token_count\span:
+    SelfhostSyntaxRange::Range SelfhostSyntaxRangeItems first_token token_count span
+
+//: selfhost_syntax_range_is_nonempty: range payload が存在するか[返/かえ]す
+pub fn selfhost_syntax_range_is_nonempty %fn SelfhostSyntaxRange bool \syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            false
+        SelfhostSyntaxRange::Range _items:
+            true
+
+//: selfhost_syntax_range_is_valid: range payload が内部不変条件を満たすか[返/かえ]す
+pub fn selfhost_syntax_range_is_valid %fn SelfhostSyntaxRange bool \syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            true
+        SelfhostSyntaxRange::Range items:
+            and:
+                ge items.first_token 0
+                and gt items.token_count 0 and le items.token_count sub 2147483647 items.first_token source_span_is_valid items.span
+
+//: selfhost_syntax_range_span_is_inside: nonempty range の span が outer に含まれるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - checker が declaration header の中に parser-provided range evidence が閉じていることを確認するための純粋 helper です。
+//: - `Empty` は「存在しない範囲」なので、containment 検査では true として扱います。存在必須かどうかは別の obligation が判断します。
+pub fn selfhost_syntax_range_span_is_inside %fn SelfhostSyntaxRange fn SelfhostSourceSpan bool \syntax_range\outer:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            true
+        SelfhostSyntaxRange::Range items:
+            and and eq outer.file_id items.span.file_id le outer.start items.span.start le items.span.end outer.end
+
 //: selfhost_module_declaration_header_new: declaration header evidence を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - declaration keyword、visibility、header 全体の span、head token を 1 つの証拠として保持します。
+//: - declaration keyword、visibility、header 全体の span、head token、type/lambda range を 1 つの証拠として保持します。
 //: - checker はこの値を直接解釈せず、proof solver の obligation と照合します。
-pub fn selfhost_module_declaration_header_new %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn SelfhostSourceSpan fn SelfhostSourceSpan fn Option SelfhostModuleDeclarationHead SelfhostModuleDeclarationHeader \kind\visibility\header_span\keyword_span\head:
-    SelfhostModuleDeclarationHeader kind visibility header_span keyword_span head
+pub fn selfhost_module_declaration_header_new %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn SelfhostSourceSpan fn SelfhostSourceSpan fn Option SelfhostModuleDeclarationHead fn SelfhostSyntaxRange fn SelfhostSyntaxRange SelfhostModuleDeclarationHeader \kind\visibility\header_span\keyword_span\head\type_annotation\lambda_header:
+    SelfhostModuleDeclarationHeader kind visibility header_span keyword_span head type_annotation lambda_header
 
 //: selfhost_module_item_new_with_declaration: declaration header を持つ module item を[構築/こうちく]する
 //:

@@ -12,6 +12,7 @@
 #import "./action" as *
 #import "./diagnostic" as *
 #import "./header_boundary" as *
+#import "./prefix_range" as *
 #import "./token_role" as *
 
 fn selfhost_parser_declaration_head_kind %fn TokenKind Option SelfhostModuleDeclarationHeadKind \kind:
@@ -74,7 +75,9 @@ fn selfhost_parser_declaration_header %fn &Vec SelfhostToken fn i32 fn i32 fn Se
     let file_id %i32 field::get token_span "file_id"
     let header_span %SelfhostSourceSpan source_span_new_unchecked file_id header_start header_end
     let head %Option SelfhostModuleDeclarationHead selfhost_parser_declaration_head tokens n idx
-    selfhost_module_declaration_header_new decl_kind visibility header_span token_span head
+    let type_annotation %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range tokens n idx
+    let lambda_header %SelfhostSyntaxRange selfhost_parser_header_lambda_range tokens n idx
+    selfhost_module_declaration_header_new decl_kind visibility header_span token_span head type_annotation lambda_header
 
 fn selfhost_parser_declaration_item %impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn SelfhostModuleAst impure fn SelfhostToken impure fn SelfhostModuleItemKind impure fn SelfhostModuleDeclarationKind Result SelfhostModuleAst SelfhostDiagnostic \source\tokens\n\idx\ast\token\item_kind\decl_kind:
     let header %SelfhostModuleDeclarationHeader selfhost_parser_declaration_header tokens n idx token decl_kind

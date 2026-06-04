@@ -136,112 +136,112 @@ assert.match(proofQuery, /pub enum SelfhostProofEvidence:/, "proof success must 
 assert.match(proofQuery, /pub enum SelfhostProofEvidenceKind:/, "proof evidence kinds must be typed for API projection checks");
 assert.match(proofQuery, /pub enum SelfhostProofRefutation:/, "proof failure must return typed refutation");
 assert.match(proofQuery, /pub enum SelfhostProofResult:/, "proof results must be an evidence/refutation enum");
-assert.match(proofQuery, /fact <SelfhostProofFact>/, "proof query must carry a typed fact");
-assert.match(proofQuery, /obligation <SelfhostProofObligation>/, "proof query must carry a typed obligation");
-assert.match(proofFact, /RawBackendItemObserved <SelfhostRawBackendItemFact>/, "raw backend facts must enter proof as typed facts");
+assert.match(proofQuery, /fact %SelfhostProofFact/, "proof query must carry a typed fact");
+assert.match(proofQuery, /obligation %SelfhostProofObligation/, "proof query must carry a typed obligation");
+assert.match(proofFact, /RawBackendItemObserved %SelfhostRawBackendItemFact/, "raw backend facts must enter proof as typed facts");
 assert.match(
     proofObligation,
-    /RawBackendTransition <SelfhostRawBackendState>/,
+    /RawBackendTransition %SelfhostRawBackendState/,
     "raw backend transitions must enter proof as typed obligations",
 );
 assert.match(
     proofQuery,
-    /RawBackendTransition <SelfhostRawBackendState>/,
+    /RawBackendTransition %SelfhostRawBackendState/,
     "raw backend transition evidence must carry the next typed state",
 );
 assert.match(
     proofQuery,
-    /RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>/,
+    /RawBackendBlockEmpty %SelfhostRawBackendOpenBlock/,
     "raw backend empty-block failures must be typed refutations",
 );
 assert.match(
     proofFact,
-    /ModuleDirectiveObserved <SelfhostModuleDirectiveFact>/,
+    /ModuleDirectiveObserved %SelfhostModuleDirectiveFact/,
     "module directive facts must enter proof as typed facts",
 );
 assert.match(
     proofObligation,
-    /ModuleDirectiveTransition <SelfhostModuleDirectiveState>/,
+    /ModuleDirectiveTransition %SelfhostModuleDirectiveState/,
     "module directive multiplicity must enter proof as a typed obligation",
 );
 assert.match(
     proofQuery,
-    /ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>/,
+    /ModuleDirectiveDuplicate %SelfhostModuleDirectiveDuplicate/,
     "module directive duplicate failures must be typed refutations",
 );
 assert.match(
     proofFact,
-    /ModuleDeclarationObserved <SelfhostModuleDeclarationFact>/,
+    /ModuleDeclarationObserved %SelfhostModuleDeclarationFact/,
     "module declaration facts must enter proof as typed facts",
 );
 assert.match(
     proofFact,
-    /ResourceCellEventObserved <SelfhostResourceCellEventFact>/,
+    /ResourceCellEventObserved %SelfhostResourceCellEventFact/,
     "resource cell events must enter proof as typed facts",
 );
 assert.match(
     proofFact,
-    /OwnerEventObserved <SelfhostOwnerEventFact>/,
+    /OwnerEventObserved %SelfhostOwnerEventFact/,
     "owner obligation events must enter proof as typed facts",
 );
 assert.match(
     proofFact,
-    /BorrowAccessObserved <SelfhostBorrowAccessFact>/,
+    /BorrowAccessObserved %SelfhostBorrowAccessFact/,
     "borrow access requests must enter proof as typed facts",
 );
 assert.match(
     proofFact,
-    /LifetimeOutlivesObserved <SelfhostLifetimeOutlivesFact>/,
+    /LifetimeOutlivesObserved %SelfhostLifetimeOutlivesFact/,
     "lifetime outlives observations must enter proof as typed facts",
 );
 assert.match(
     proofFact,
-    /EffectObserved <SelfhostEffectObservationFact>/,
+    /EffectObserved %SelfhostEffectObservationFact/,
     "effect observations must enter proof as typed facts",
 );
 assert.match(
     proofFact,
-    /TypeKindObserved <SelfhostTypeKindFact>/,
+    /TypeKindObserved %SelfhostTypeKindFact/,
     "type kind observations must enter proof as typed facts",
 );
 assert.match(
     proofFact,
-    /TraitImplPairObserved <SelfhostTraitImplPairFact>/,
+    /TraitImplPairObserved %SelfhostTraitImplPairFact/,
     "trait impl coherence facts must enter proof as typed facts",
 );
 assert.match(
     proofObligation,
-    /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>/,
+    /ModuleDeclarationHeaderAvailable %SelfhostModuleDeclarationKind/,
     "declaration header availability must enter proof as a typed obligation",
 );
 assert.match(
     proofObligation,
-    /ResourceCellTransition <SelfhostResourceCellState>/,
+    /ResourceCellTransition %SelfhostResourceCellState/,
     "resource cell transitions must enter proof as typed obligations",
 );
 assert.match(
     proofObligation,
-    /OwnerTransition <SelfhostOwnerState>/,
+    /OwnerTransition %SelfhostOwnerState/,
     "owner obligation transitions must enter proof as typed obligations",
 );
 assert.match(
     proofObligation,
-    /ResourceBorrowAccess <SelfhostBorrowState>/,
+    /ResourceBorrowAccess %SelfhostBorrowState/,
     "borrow access checks must enter proof as typed obligations",
 );
 assert.match(
     proofObligation,
-    /LifetimeOutlives <SelfhostLifetimeId>/,
+    /LifetimeOutlives %SelfhostLifetimeId/,
     "lifetime outlives checks must enter proof as typed obligations",
 );
 assert.match(
     proofObligation,
-    /EffectAllowedInContext <SelfhostEffectContext>/,
+    /EffectAllowedInContext %SelfhostEffectContext/,
     "effect boundary checks must enter proof as typed obligations",
 );
 assert.match(
     proofObligation,
-    /TypeKindCompatible <SelfhostTypeKind>/,
+    /TypeKindCompatible %SelfhostTypeKind/,
     "type kind compatibility must enter proof as a typed obligation",
 );
 assert.match(
@@ -251,97 +251,97 @@ assert.match(
 );
 assert.match(
     proofQuery,
-    /ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>/,
+    /ModuleDeclarationHeaderAvailable %SelfhostModuleDeclarationHeader/,
     "declaration header proof evidence must carry the typed header",
 );
 assert.match(
     proofQuery,
-    /ResourceCellTransition <SelfhostResourceCellState>/,
+    /ResourceCellTransition %SelfhostResourceCellState/,
     "resource cell transition proof evidence must carry the next typed state",
 );
 assert.match(
     proofQuery,
-    /OwnerTransition <SelfhostOwnerState>/,
+    /OwnerTransition %SelfhostOwnerState/,
     "owner transition proof evidence must carry the next typed owner state",
 );
 assert.match(
     proofQuery,
-    /ResourceBorrowAccess <SelfhostBorrowState>/,
+    /ResourceBorrowAccess %SelfhostBorrowState/,
     "borrow access proof evidence must carry the next typed state",
 );
 assert.match(
     proofQuery,
-    /LifetimeOutlives <SelfhostLifetimeRelation>/,
+    /LifetimeOutlives %SelfhostLifetimeRelation/,
     "lifetime outlives proof evidence must carry the source-derived relation",
 );
 assert.match(
     proofQuery,
-    /EffectAllowed <SelfhostEffectContext>/,
+    /EffectAllowed %SelfhostEffectContext/,
     "effect boundary proof evidence must carry the proven context",
 );
 assert.match(
     proofQuery,
-    /TypeKindCompatible <SelfhostTypeKind>/,
+    /TypeKindCompatible %SelfhostTypeKind/,
     "type kind compatibility proof evidence must carry the proven kind",
 );
 assert.match(
     proofQuery,
-    /TraitImplNonOverlapping <SelfhostTraitImplRelation>/,
+    /TraitImplNonOverlapping %SelfhostTraitImplRelation/,
     "trait impl coherence proof evidence must carry the typed relation",
 );
 assert.match(
     proofQuery,
-    /ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>/,
+    /ModuleDeclarationHeaderMissing %SelfhostModuleDeclarationHeaderIssue/,
     "declaration header missing failures must be typed refutations",
 );
 assert.match(
     proofQuery,
-    /pub struct SelfhostProofMismatch:[\s\S]*fact_domain <SelfhostProofDomain>[\s\S]*obligation_domain <SelfhostProofDomain>/,
+    /pub struct SelfhostProofMismatch:[\s\S]*fact_domain %SelfhostProofDomain[\s\S]*obligation_domain %SelfhostProofDomain/,
     "fact/obligation mismatch failures must retain typed proof domains",
 );
 assert.match(
     proofQuery,
-    /FactObligationMismatch <SelfhostProofMismatch>/,
+    /FactObligationMismatch %SelfhostProofMismatch/,
     "fact/obligation mismatch refutation must carry a typed payload",
 );
 assert.match(
     proofQuery,
-    /UnexpectedEvidence <SelfhostProofUnexpectedEvidence>/,
+    /UnexpectedEvidence %SelfhostProofUnexpectedEvidence/,
     "unexpected solver evidence must be separate from fact/obligation mismatch",
 );
 assert.match(
     proofQuery,
-    /ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>/,
+    /ResourceCellTransitionInvalid %SelfhostResourceCellTransitionIssue/,
     "invalid resource cell transitions must return typed refutations",
 );
 assert.match(
     proofQuery,
-    /OwnerTransitionInvalid <SelfhostOwnerTransitionIssue>/,
+    /OwnerTransitionInvalid %SelfhostOwnerTransitionIssue/,
     "invalid owner transitions must return typed refutations",
 );
 assert.match(
     proofQuery,
-    /BorrowAccessInvalid <SelfhostBorrowAccessIssue>/,
+    /BorrowAccessInvalid %SelfhostBorrowAccessIssue/,
     "invalid borrow access must return typed refutations",
 );
 assert.match(
     proofQuery,
-    /LifetimeOutlivesInvalid <SelfhostLifetimeOutlivesIssue>/,
+    /LifetimeOutlivesInvalid %SelfhostLifetimeOutlivesIssue/,
     "invalid lifetime outlives checks must return typed refutations",
 );
 assert.match(
     proofQuery,
-    /EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>/,
+    /EffectBoundaryInvalid %SelfhostEffectBoundaryIssue/,
     "invalid effect boundary checks must return typed refutations",
 );
 assert.match(
     proofQuery,
-    /TypeKindMismatch <SelfhostTypeKindMismatch>/,
+    /TypeKindMismatch %SelfhostTypeKindMismatch/,
     "type kind mismatches must return typed refutations",
 );
 assert.match(
     proofQuery,
-    /TraitImplCoherenceInvalid <SelfhostTraitImplCoherenceIssue>/,
+    /TraitImplCoherenceInvalid %SelfhostTraitImplCoherenceIssue/,
     "invalid trait impl coherence must return typed refutations",
 );
 assert.doesNotMatch(
@@ -573,7 +573,7 @@ assert.match(
 );
 assert.match(
     proofApi,
-    /^pub fn\s+selfhost_proof_source_span_valid\b[^\n]*Result<\(\),SelfhostProofRefutation>/m,
+    /^pub fn\s+selfhost_proof_source_span_valid\b[^\n]*Result unit SelfhostProofRefutation/m,
     "source span validity must preserve typed refutations instead of returning bool",
 );
 assert.match(

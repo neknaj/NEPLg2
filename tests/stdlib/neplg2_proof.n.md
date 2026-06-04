@@ -555,11 +555,16 @@ fn main %impure fn void i32 \void:
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
 stdout: mlstr:
-    ##: Checked [ok,ok,ok,ok]
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
     ##: [0] ok
     ##: [1] ok
     ##: [2] ok
     ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
 ```neplg2
 #entry main
 #target std
@@ -668,22 +673,42 @@ fn main %impure fn void i32 \void:
     let keyword_span %SelfhostSourceSpan source_span_new_unchecked 0 0 2
     let head_span %SelfhostSourceSpan source_span_new_unchecked 0 3 7
     let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name head_span
-    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head
+    let type_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 4 source_span_new_unchecked 0 8 20
+    let lambda_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 6 2 source_span_new_unchecked 0 21 24
+    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head type_range lambda_range
     let valid_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some header header_span
     let missing_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl none header_span
-    let invalid_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head
+    let invalid_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head type_range lambda_range
     let invalid_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some invalid_header header_span
+    let missing_type_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head selfhost_syntax_range_empty lambda_range
+    let missing_type_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some missing_type_header header_span
+    let missing_lambda_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head type_range selfhost_syntax_range_empty
+    let missing_lambda_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some missing_lambda_header header_span
+    let outside_type_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 20 1 source_span_new_unchecked 0 25 28
+    let outside_type_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head outside_type_range lambda_range
+    let outside_type_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some outside_type_header header_span
+    let struct_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head type_range lambda_range
+    let struct_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::StructDecl some struct_header header_span
     let impl_header_span %SelfhostSourceSpan source_span_new_unchecked 0 0 22
     let impl_keyword_span %SelfhostSourceSpan source_span_new_unchecked 0 4 8
     let impl_head_span %SelfhostSourceSpan source_span_new_unchecked 0 9 13
     let impl_head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name impl_head_span
-    let public_impl_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public impl_header_span impl_keyword_span some impl_head
+    let public_impl_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public impl_header_span impl_keyword_span some impl_head selfhost_syntax_range_empty selfhost_syntax_range_empty
     let public_impl_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::ImplDecl some public_impl_header impl_header_span
+    let impl_type_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 3 2 source_span_new_unchecked 0 14 19
+    let impl_lambda_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 5 1 source_span_new_unchecked 0 20 22
+    let impl_range_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Private impl_header_span impl_keyword_span some impl_head impl_type_range impl_lambda_range
+    let impl_range_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::ImplDecl some impl_range_header impl_header_span
     let checks0 checks_new
     let checks1 checks_push checks0 check_header_proven selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function valid_fact
     let checks2 checks_push checks1 check_header_missing selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function missing_fact
     let checks3 checks_push checks2 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function invalid_fact
     let checks4 checks_push checks3 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Impl public_impl_fact
-    let shown checks_print_report checks4
+    let checks5 checks_push checks4 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function missing_type_fact
+    let checks6 checks_push checks5 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function missing_lambda_fact
+    let checks7 checks_push checks6 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function outside_type_fact
+    let checks8 checks_push checks7 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Struct struct_fact
+    let checks9 checks_push checks8 check_header_invalid selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Impl impl_range_fact
+    let shown checks_print_report checks9
     checks_exit_code shown
 ```

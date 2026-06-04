@@ -1,7 +1,7 @@
 #indent 4
 
 //: # checker
-//: NEPLg2.0 self-host compiler の checker orchestration を置くモジュールです。
+//: NEPLg2.1 self-host compiler の checker orchestration を置くモジュールです。
 //:
 //: [目的/もくてき]:
 //: - module item validation、declaration check、expression reduction、overload、trait、effect、pattern check の依存方向を束ねます。
@@ -39,8 +39,10 @@ pub fn selfhost_checker_stage0 %impure fn void i32 \void:
             match selfhost_module_ast_push ast0 entry:
                 Result::Ok ast1:
                     let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name source_span_new_unchecked 0 15 19
-                    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private source_span_new_unchecked 0 12 19 source_span_new_unchecked 0 12 14 some head
-                    let decl %SelfhostModuleItem selfhost_module_item_new_with_declaration SelfhostModuleItemKind::FunctionDecl "fn main" header
+                    let type_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 4 source_span_new_unchecked 0 20 32
+                    let lambda_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 6 2 source_span_new_unchecked 0 33 38
+                    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private source_span_new_unchecked 0 12 39 source_span_new_unchecked 0 12 14 some head type_range lambda_range
+                    let decl %SelfhostModuleItem selfhost_module_item_new_with_declaration SelfhostModuleItemKind::FunctionDecl "fn main %fn void i32 \\void:" header
                     match selfhost_module_ast_push ast1 decl:
                         Result::Ok ast2:
                             match selfhost_check_module_ast &ast2:

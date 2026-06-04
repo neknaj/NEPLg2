@@ -650,6 +650,7 @@ Performance acceptance:
 
 - expression と type は flat prefix list として保持し、parser で call boundary を決めない。
 - `%T expr`、`\a\b:`、`\void:`、`fn void T`、`fn unit T` を正規に扱う。
+- module declaration header では、`%` type annotation と lambda header を `SelfhostSyntaxRange` として保持する。これは最終的な型木・式木ではなく、後続 resolver / checker が kind / arity / expected type に基づいて境界を解くための flat token range evidence である。
 - 旧 `()` grouping、angle type、generic postfix は正規 grammar から外し、必要なら migration diagnostic に限定する。
 
 Issue slice:
@@ -858,7 +859,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 6 | flat prefix parser と call reduction の分離として反映 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。残件は full prefix expression/type AST、type resolver、call reduction。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |

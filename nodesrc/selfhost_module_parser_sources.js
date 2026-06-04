@@ -12,6 +12,7 @@ const MODULE_PARSER_SPLIT_FILES = [
     "stdlib/neplg2/core/syntax/parser/module_parser/diagnostic.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/header_boundary.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/item_kind.nepl",
+    "stdlib/neplg2/core/syntax/parser/module_parser/prefix_range.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/entry.nepl",

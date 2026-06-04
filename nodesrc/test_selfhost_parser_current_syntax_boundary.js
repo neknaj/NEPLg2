@@ -76,6 +76,31 @@ assert.doesNotMatch(
     "module declaration head evidence must not keep legacy angle-bracket generic parameters",
 );
 assert.match(
+    ast,
+    /pub enum SelfhostSyntaxRange:[\s\S]*Empty[\s\S]*Range %SelfhostSyntaxRangeItems/,
+    "module AST must model parser-provided prefix/type ranges without raw sentinel pairs",
+);
+assert.match(
+    ast,
+    /pub struct SelfhostModuleDeclarationHeader:[\s\S]*type_annotation %SelfhostSyntaxRange[\s\S]*lambda_header %SelfhostSyntaxRange/,
+    "declaration header evidence must keep % type annotation and lambda header ranges",
+);
+assert.match(
+    parser,
+    /pub enum SelfhostParserPrefixRangeTokenRole:[\s\S]*TypeAnnotationMarker[\s\S]*LambdaMarker[\s\S]*HeaderTerminator/,
+    "module parser must classify tokens for prefix range extraction with a typed role enum",
+);
+assert.match(
+    functionBlock(parser, "selfhost_parser_header_type_annotation_range"),
+    /selfhost_parser_type_annotation_range_loop\s+tokens\s+n\s+add\s+decl_idx\s+1/,
+    "module parser must expose a dedicated % type annotation range boundary",
+);
+assert.match(
+    functionBlock(parser, "selfhost_parser_header_lambda_range"),
+    /selfhost_parser_lambda_header_range_loop\s+tokens\s+n\s+add\s+decl_idx\s+1/,
+    "module parser must expose a dedicated lambda header range boundary",
+);
+assert.match(
     functionBlock(parser, "selfhost_parser_token_role_declaration_head_kind"),
     /SelfhostParserTokenRole::LegacySyntaxToken:\s*\n\s*none/,
     "declaration head projection must not promote legacy angle syntax to typed evidence",

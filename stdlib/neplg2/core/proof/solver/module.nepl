@@ -338,6 +338,38 @@ fn selfhost_proof_module_declaration_header_head_valid %fn SelfhostModuleDeclara
         Option::None:
             false
 
+//: selfhost_proof_module_declaration_header_ranges_valid: parser-provided syntax range の基本不変条件を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `%` type annotation range と lambda header range が、内部 payload として有効で header span 内に閉じていることを確認します。
+//: - range が存在すべきかどうかは declaration kind に依存するため、この関数では `Empty` を許容します。
+fn selfhost_proof_module_declaration_header_ranges_valid %fn SelfhostModuleDeclarationHeader bool \header:
+    and:
+        selfhost_syntax_range_is_valid header.type_annotation
+        and:
+            selfhost_syntax_range_span_is_inside header.type_annotation header.header_span
+            and:
+                selfhost_syntax_range_is_valid header.lambda_header
+                selfhost_syntax_range_span_is_inside header.lambda_header header.header_span
+
+//: selfhost_proof_module_declaration_header_ranges_allowed: declaration kind ごとの range 必須条件を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - function 宣言は NEPLg2.1 の `%fn ...` annotation と lambda header を必ず持つため、両 range を nonempty として要求します。
+//: - struct / enum / trait / impl はこの段階の module declaration header では function lambda を持たないため、range 混入を拒否します。
+fn selfhost_proof_module_declaration_header_ranges_allowed %fn SelfhostModuleDeclarationHeader bool \header:
+    match header.kind:
+        SelfhostModuleDeclarationKind::Function:
+            and selfhost_syntax_range_is_nonempty header.type_annotation selfhost_syntax_range_is_nonempty header.lambda_header
+        SelfhostModuleDeclarationKind::Struct:
+            and not selfhost_syntax_range_is_nonempty header.type_annotation not selfhost_syntax_range_is_nonempty header.lambda_header
+        SelfhostModuleDeclarationKind::Enum:
+            and not selfhost_syntax_range_is_nonempty header.type_annotation not selfhost_syntax_range_is_nonempty header.lambda_header
+        SelfhostModuleDeclarationKind::Trait:
+            and not selfhost_syntax_range_is_nonempty header.type_annotation not selfhost_syntax_range_is_nonempty header.lambda_header
+        SelfhostModuleDeclarationKind::Impl:
+            and not selfhost_syntax_range_is_nonempty header.type_annotation not selfhost_syntax_range_is_nonempty header.lambda_header
+
 fn selfhost_proof_module_declaration_item_kind_supports %fn SelfhostModuleDeclarationFact fn SelfhostModuleDeclarationKind bool \fact\kind:
     match selfhost_module_item_kind_declaration fact.item_kind:
         Option::Some item_kind:
@@ -346,7 +378,15 @@ fn selfhost_proof_module_declaration_item_kind_supports %fn SelfhostModuleDeclar
             false
 
 fn selfhost_proof_module_declaration_header_supports %fn SelfhostModuleDeclarationHeader fn SelfhostModuleDeclarationKind bool \header\kind:
-    and and and selfhost_proof_module_declaration_kind_eq header.kind kind selfhost_proof_module_declaration_header_spans_valid header selfhost_proof_module_declaration_header_head_valid header selfhost_proof_module_declaration_visibility_allowed header.kind header.visibility
+    and:
+        selfhost_proof_module_declaration_kind_eq header.kind kind
+        and:
+            selfhost_proof_module_declaration_header_spans_valid header
+            and:
+                selfhost_proof_module_declaration_header_head_valid header
+                and:
+                    selfhost_proof_module_declaration_header_ranges_valid header
+                    and selfhost_proof_module_declaration_header_ranges_allowed header selfhost_proof_module_declaration_visibility_allowed header.kind header.visibility
 
 fn selfhost_proof_module_declaration_header_missing %fn SelfhostModuleDeclarationKind fn SelfhostSourceSpan SelfhostProofResult \kind\span:
     selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDeclarationHeaderMissing selfhost_module_declaration_header_issue_new kind span
