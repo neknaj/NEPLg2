@@ -87,6 +87,14 @@ pub fn selfhost_type_arena_push_record %impure fn SelfhostTypeArena impure fn Se
 pub fn selfhost_type_arena_add_primitive %impure fn SelfhostTypeArena impure fn SelfhostPrimitiveTypeKind Result SelfhostTypeArenaAlloc StdErrorKind \arena\kind:
     selfhost_type_arena_push_record arena selfhost_type_record_primitive kind
 
+//: selfhost_type_arena_add_named: named type を arena に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - named type constructor lookup 後の identity を type arena record として保存します。
+//: - source name 文字列は constructor table 側の責務であり、arena には定義 identity だけを置きます。
+pub fn selfhost_type_arena_add_named %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id:
+    selfhost_type_arena_push_record arena selfhost_type_record_named nominal_id
+
 //: selfhost_type_arena_copy_function_args: function 引数 TypeId を arena argument table に[複製/ふくせい]する
 pub fn selfhost_type_arena_copy_function_args %impure fn Vec SelfhostTypeId impure fn &Vec SelfhostTypeId impure fn i32 impure fn i32 Result Vec SelfhostTypeId StdErrorKind \out\params\n\idx:
     if:
@@ -145,8 +153,24 @@ pub fn selfhost_type_arena_get_kind %fn &SelfhostTypeArena fn SelfhostTypeId Opt
             match record:
                 SelfhostTypeRecord::Primitive kind:
                     some selfhost_primitive_type_kind_to_type_kind kind
+                SelfhostTypeRecord::Named _named:
+                    some SelfhostTypeKind::Named
                 SelfhostTypeRecord::Function _function:
                     some SelfhostTypeKind::Function
+        Option::None:
+            none
+
+//: selfhost_type_arena_named_id: named type record の定義 identity を[返/かえ]す
+pub fn selfhost_type_arena_named_id %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostNamedTypeId \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named named:
+                    some selfhost_named_type_record_id named
+                SelfhostTypeRecord::Function _function:
+                    none
         Option::None:
             none
 
@@ -156,6 +180,8 @@ pub fn selfhost_type_arena_function_arg_count %fn &SelfhostTypeArena fn Selfhost
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named _named:
                     none
                 SelfhostTypeRecord::Function function:
                     some selfhost_function_type_arg_range_count function.args
@@ -168,6 +194,8 @@ pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named _named:
                     none
                 SelfhostTypeRecord::Function function:
                     match function.args:
@@ -190,6 +218,8 @@ pub fn selfhost_type_arena_function_result %fn &SelfhostTypeArena fn SelfhostTyp
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named _named:
                     none
                 SelfhostTypeRecord::Function function:
                     some function.result

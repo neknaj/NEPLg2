@@ -8,7 +8,8 @@
 //: - この facade は公開 API の入口だけを re-export し、実装は `type_resolver/*` に分けます。
 //:
 //: [注意/ちゅうい]:
-//: - この stage はまだ `TypeId` を生成しません。flat prefix item と TypeId 割当前の resolved type tree までを扱います。
+//: - parser / reducer の primary boundary は flat prefix item と TypeId 割当前の resolved type tree です。
+//: - projection API は resolved type tree を `SelfhostTypeArena` へ投影します。named type は constructor table を渡す API でだけ受理します。
 //: - `void` は 0 引数 function marker として扱い、type arena の primitive には追加しません。
 //:
 //: neplg2:test
@@ -22,6 +23,7 @@
 
 pub #import "./type_resolver/model" as *
 pub #import "./type_resolver/input" as *
+pub #import "./type_resolver/constructor" as *
 pub #import "./type_resolver/resolved" as *
 pub #import "./type_resolver/reduce/model" as *
 pub #import "./type_resolver/reduce/plan" as *

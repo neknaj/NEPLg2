@@ -8,6 +8,7 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/ty/ty" as *
+#import "./constructor" as *
 #import "./resolved" as *
 
 //: SelfhostTypeProjectErrorKind: resolved type tree から TypeArena への投影失敗分類
@@ -18,6 +19,8 @@
 pub enum SelfhostTypeProjectErrorKind:
     MissingResolvedNode
     UnsupportedNamedType
+    UnknownNamedType
+    GenericConstructorNeedsArguments
     OutOfMemory
     InternalInvariant
 
@@ -63,6 +66,18 @@ pub fn selfhost_type_project_error_kind_eq %fn SelfhostTypeProjectErrorKind fn S
         SelfhostTypeProjectErrorKind::UnsupportedNamedType:
             match b:
                 SelfhostTypeProjectErrorKind::UnsupportedNamedType:
+                    true
+                _:
+                    false
+        SelfhostTypeProjectErrorKind::UnknownNamedType:
+            match b:
+                SelfhostTypeProjectErrorKind::UnknownNamedType:
+                    true
+                _:
+                    false
+        SelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments:
+            match b:
+                SelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments:
                     true
                 _:
                     false
@@ -194,6 +209,90 @@ fn selfhost_type_project_node %impure fn SelfhostTypeArena impure fn &SelfhostRe
         Option::None:
             selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::MissingResolvedNode selfhost_type_project_empty_span
 
+fn selfhost_type_project_named_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn SelfhostResolvedNamedTypeRef Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\named:
+    match selfhost_type_constructor_table_find_span constructors source named.span:
+        Option::Some constructor:
+            if:
+                eq constructor.arity 0
+                then:
+                    match selfhost_type_arena_add_named arena constructor.nominal_id:
+                        Result::Ok allocated:
+                            Result::Ok allocated
+                        Result::Err e:
+                            Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) named.span
+                else:
+                    selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments named.span
+        Option::None:
+            selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnknownNamedType named.span
+
+fn selfhost_type_project_function_args_loop_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 impure fn Vec SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\fn_node_id\idx\n\params\span:
+    if:
+        ge idx n
+        then:
+            Result::Ok selfhost_type_project_arg_build_new arena params
+        else:
+            match selfhost_resolved_type_tree_function_arg tree fn_node_id idx:
+                Option::Some arg_node_id:
+                    match selfhost_type_project_node_with_constructors arena source constructors tree arg_node_id:
+                        Result::Ok arg_alloc:
+                            let arg_type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &arg_alloc
+                            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena arg_alloc
+                            match selfhost_type_project_push_arg_id next_arena params arg_type_id span:
+                                Result::Ok next_build:
+                                    let loop_arena %SelfhostTypeArena field::get next_build "arena"
+                                    let loop_params %Vec SelfhostTypeId field::get next_build "params"
+                                    selfhost_type_project_function_args_loop_with_constructors loop_arena source constructors tree fn_node_id add idx 1 n loop_params span
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            v::free params
+                            Result::Err e
+                Option::None:
+                    selfhost_type_project_fail_with_params arena params SelfhostTypeProjectErrorKind::InternalInvariant span
+
+fn selfhost_type_project_function_args_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\fn_node_id\n\span:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params:
+            selfhost_type_project_function_args_loop_with_constructors arena source constructors tree fn_node_id 0 n params span
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) span
+
+fn selfhost_type_project_function_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedFunctionType impure fn SelfhostSourceSpan Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\tree\fn_node_id\function\span:
+    let arg_count %i32 selfhost_resolved_function_arg_range_count function.args
+    match selfhost_type_project_function_args_with_constructors arena source constructors tree fn_node_id arg_count span:
+        Result::Ok arg_build:
+            let arg_arena %SelfhostTypeArena field::get arg_build "arena"
+            let params %Vec SelfhostTypeId field::get arg_build "params"
+            match selfhost_type_project_node_with_constructors arg_arena source constructors tree function.result:
+                Result::Ok result_alloc:
+                    let result_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &result_alloc
+                    let result_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena result_alloc
+                    selfhost_type_project_alloc_function_type result_arena params result_id span
+                Result::Err e:
+                    v::free params
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\tree\node_id:
+    match selfhost_resolved_type_tree_get_node tree node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Primitive kind:
+                    match selfhost_type_arena_add_primitive arena kind:
+                        Result::Ok allocated:
+                            Result::Ok allocated
+                        Result::Err e:
+                            Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) selfhost_type_project_empty_span
+                SelfhostResolvedTypeNode::Named named:
+                    selfhost_type_project_named_with_constructors arena source constructors named
+                SelfhostResolvedTypeNode::Function function:
+                    selfhost_type_project_function_with_constructors arena source constructors tree node_id function selfhost_type_project_empty_span
+        Option::None:
+            selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::MissingResolvedNode selfhost_type_project_empty_span
+
 //: selfhost_type_project_root_into_arena: resolved type tree root を TypeArena へ[投影/とうえい]する
 //:
 //: [目的/もくてき]:
@@ -208,3 +307,18 @@ pub fn selfhost_type_project_root_into_arena %impure fn SelfhostTypeArena impure
     let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root
     let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id root
     selfhost_type_project_node arena tree root_id
+
+//: selfhost_type_project_root_with_constructors_into_arena: constructor table を使って resolved type tree root を TypeArena へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_project_root_into_arena` と違い、named type node を `SelfhostTypeConstructorTable` で lookup して `SelfhostTypeRecord::Named` に変換します。
+//: - constructor table は事前構築済みの module surface / local type header であり、この関数は import graph を探索しません。
+//:
+//: [契約/けいやく]:
+//: - primitive / function type は既存 projection と同じ形で arena record へ投影します。
+//: - named type は arity 0 の constructor だけを bare named type として受理します。generic application は後続 slice で `Apply` 相当の record を追加して扱います。
+//: - unknown named type と generic constructor の裸使用は typed error として fail-closed にします。
+pub fn selfhost_type_project_root_with_constructors_into_arena %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTreeRoot Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\root:
+    let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root
+    let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id root
+    selfhost_type_project_node_with_constructors arena source constructors tree root_id

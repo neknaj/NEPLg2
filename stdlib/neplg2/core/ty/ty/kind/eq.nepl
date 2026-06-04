@@ -34,6 +34,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Function:
                     false
+                SelfhostTypeKind::Named:
+                    false
         SelfhostTypeKind::Unit:
             match b:
                 SelfhostTypeKind::Error:
@@ -59,6 +61,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Never:
                     false
                 SelfhostTypeKind::Function:
+                    false
+                SelfhostTypeKind::Named:
                     false
         SelfhostTypeKind::Bool:
             match b:
@@ -86,6 +90,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Function:
                     false
+                SelfhostTypeKind::Named:
+                    false
         SelfhostTypeKind::I32:
             match b:
                 SelfhostTypeKind::Error:
@@ -111,6 +117,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Never:
                     false
                 SelfhostTypeKind::Function:
+                    false
+                SelfhostTypeKind::Named:
                     false
         SelfhostTypeKind::I64:
             match b:
@@ -138,6 +146,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Function:
                     false
+                SelfhostTypeKind::Named:
+                    false
         SelfhostTypeKind::U8:
             match b:
                 SelfhostTypeKind::Error:
@@ -163,6 +173,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Never:
                     false
                 SelfhostTypeKind::Function:
+                    false
+                SelfhostTypeKind::Named:
                     false
         SelfhostTypeKind::Char:
             match b:
@@ -190,6 +202,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Function:
                     false
+                SelfhostTypeKind::Named:
+                    false
         SelfhostTypeKind::Str:
             match b:
                 SelfhostTypeKind::Error:
@@ -215,6 +229,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Never:
                     false
                 SelfhostTypeKind::Function:
+                    false
+                SelfhostTypeKind::Named:
                     false
         SelfhostTypeKind::F32:
             match b:
@@ -242,6 +258,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     false
                 SelfhostTypeKind::Function:
                     false
+                SelfhostTypeKind::Named:
+                    false
         SelfhostTypeKind::F64:
             match b:
                 SelfhostTypeKind::Error:
@@ -267,6 +285,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Never:
                     false
                 SelfhostTypeKind::Function:
+                    false
+                SelfhostTypeKind::Named:
                     false
         SelfhostTypeKind::Never:
             match b:
@@ -294,6 +314,8 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                     true
                 SelfhostTypeKind::Function:
                     false
+                SelfhostTypeKind::Named:
+                    false
         SelfhostTypeKind::Function:
             match b:
                 SelfhostTypeKind::Error:
@@ -319,5 +341,35 @@ pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
                 SelfhostTypeKind::Never:
                     false
                 SelfhostTypeKind::Function:
+                    true
+                SelfhostTypeKind::Named:
+                    false
+        SelfhostTypeKind::Named:
+            match b:
+                SelfhostTypeKind::Error:
+                    false
+                SelfhostTypeKind::Unit:
+                    false
+                SelfhostTypeKind::Bool:
+                    false
+                SelfhostTypeKind::I32:
+                    false
+                SelfhostTypeKind::I64:
+                    false
+                SelfhostTypeKind::U8:
+                    false
+                SelfhostTypeKind::Char:
+                    false
+                SelfhostTypeKind::Str:
+                    false
+                SelfhostTypeKind::F32:
+                    false
+                SelfhostTypeKind::F64:
+                    false
+                SelfhostTypeKind::Never:
+                    false
+                SelfhostTypeKind::Function:
+                    false
+                SelfhostTypeKind::Named:
                     true
 

@@ -44,7 +44,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `resolve/type_resolver` を追加し、parser の `%` annotation range から `%` marker を除いた flat type prefix item list を作る resolver input 境界を実装した。`void` は専用 marker item、`unit` は通常の named type item として分類し、まだ `TypeId` は生成しない。
 - 2026-06-05: `resolve/type_resolver` の flat type prefix item list を TypeId 割当前の `resolved` tree へ縮約する reducer を追加した。`fn i32 fn i32 i32` は nonempty function type として flatten し、`fn void fn unit unit` は 0 引数 function が function を返す nested type として保持する。plan / validation / build は別 module に分割し、build 層が source string を再読しない境界にした。
 - 2026-06-05: `resolved` tree root を `SelfhostTypeArena` へ投影する `project.nepl` を追加した。primitive / function type は arena-local `SelfhostTypeId` を得られるようになり、named type は type constructor table 未接続のため `UnsupportedNamedType` として fail-closed にした。
-- 残件: prefix expression AST、named / generic type constructor lookup、canonical type key projection、expected type / overload / generic / no partial application を含む call reduction は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `core/ty/ty` に `SelfhostNamedTypeId` と `SelfhostTypeRecord::Named` を追加し、`resolve/type_resolver/constructor.nepl` の constructor table から arity 0 named type を `SelfhostTypeArena` へ投影できるようにした。constructor table なし API は引き続き named type を拒否し、unknown named type / bare generic constructor は typed error で fail-closed にした。
+- 残件: prefix expression AST、generic type constructor application、canonical type key projection、expected type / overload / generic / no partial application を含む call reduction は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -87,3 +88,10 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_selfhost_type_resolver_prefix_input.js`
 - `node nodesrc/tests.js -i stdlib\neplg2\core\resolve\type_resolver.nepl -o tmp\selfhost-type-resolver-project-facade2.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i stdlib\neplg2 -o tmp\selfhost-type-resolver-project-stdlib-neplg2.json --no-tree -j 2 --assert-io --dist web\dist`
+
+2026-06-05 type constructor lookup checkpoint:
+
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_arena.n.md -o tmp\selfhost-type-arena-named-tests2.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_resolver.n.md -o tmp\selfhost-type-resolver-constructor-tests.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/test_selfhost_ty_split_contract.js`
+- `node nodesrc/test_selfhost_type_resolver_split_contract.js`

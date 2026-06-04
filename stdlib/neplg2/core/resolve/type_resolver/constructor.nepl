@@ -1,0 +1,137 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostTypeConstructor: type resolver が参照する named type constructor header
+//:
+//: [目的/もくてき]:
+//: - module surface / local declaration header から得た named type の最小 public header を保持します。
+//: - `name` は lookup 用の spelling、`nominal_id` は arena record に保存する安定した定義 identity、`arity` は generic 引数数です。
+//:
+//: [契約/けいやく]:
+//: - `nominal_id` は table 内の位置から割り当てるため、同じ table の中でのみ意味を持ちます。
+//: - source span は diagnostic 用であり、arena record へは入れません。
+pub struct SelfhostTypeConstructor:
+    name %str
+    nominal_id %SelfhostNamedTypeId
+    arity %i32
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTypeConstructor:
+    fn clone %fn &SelfhostTypeConstructor SelfhostTypeConstructor \self:
+        *self
+
+impl Copy for SelfhostTypeConstructor:
+    fn copy_mark %fn SelfhostTypeConstructor SelfhostTypeConstructor \self:
+        self
+
+//: SelfhostTypeConstructorTable: named type constructor header table
+//:
+//: [目的/もくてき]:
+//: - type prefix を 1 件ずつ解くたびに import graph を再探索せず、事前構築済み table を borrow して lookup します。
+//: - insertion order を保持し、同名がある場合は後から追加された header を優先します。
+pub struct SelfhostTypeConstructorTable:
+    entries %Vec SelfhostTypeConstructor
+
+//: SelfhostTypeConstructorAddResult: constructor 追加後の table と割り当て identity
+pub struct SelfhostTypeConstructorAddResult:
+    table %SelfhostTypeConstructorTable
+    nominal_id %SelfhostNamedTypeId
+
+//: selfhost_type_constructor_new: constructor header を[作/つく]る
+pub fn selfhost_type_constructor_new %fn str fn SelfhostNamedTypeId fn i32 fn SelfhostSourceSpan SelfhostTypeConstructor \name\nominal_id\arity\span:
+    SelfhostTypeConstructor name nominal_id arity span
+
+//: selfhost_type_constructor_table_new: [空/から]の constructor table を[作/つく]る
+pub fn selfhost_type_constructor_table_new %impure fn void Result SelfhostTypeConstructorTable StdErrorKind \void:
+    let entries_result %Result Vec SelfhostTypeConstructor StdErrorKind v::new
+    match entries_result:
+        Result::Ok entries:
+            Result::Ok SelfhostTypeConstructorTable entries
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_constructor_table_free: constructor table の buffer を[解放/かいほう]する
+pub fn selfhost_type_constructor_table_free %impure fn SelfhostTypeConstructorTable unit \table:
+    v::free field::get table "entries"
+
+//: selfhost_type_constructor_table_len: constructor header 数を[返/かえ]す
+pub fn selfhost_type_constructor_table_len %fn &SelfhostTypeConstructorTable i32 \table:
+    let entries %&Vec SelfhostTypeConstructor field::get_ref table "entries"
+    v::len entries
+
+//: selfhost_type_constructor_add_result_nominal_id: 追加で割り当てた named identity を[読/よ]む
+pub fn selfhost_type_constructor_add_result_nominal_id %fn &SelfhostTypeConstructorAddResult SelfhostNamedTypeId \added:
+    *field::get_ref added "nominal_id"
+
+//: selfhost_type_constructor_add_result_into_table: 追加後 table owner を[取/と]り[出/だ]す
+pub fn selfhost_type_constructor_add_result_into_table %impure fn SelfhostTypeConstructorAddResult SelfhostTypeConstructorTable \added:
+    field::get added "table"
+
+//: selfhost_type_constructor_table_add: constructor header を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - arity の semantic validation は projection / kind resolver 側で行います。
+//: - 失敗時は `Vec::push` から返された owner を閉じ、入力 table owner はこの関数が消費します。
+pub fn selfhost_type_constructor_table_add %impure fn SelfhostTypeConstructorTable impure fn str impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeConstructorAddResult StdErrorKind \table\name\arity\span:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new selfhost_type_constructor_table_len &table
+    let entries %Vec SelfhostTypeConstructor field::get table "entries"
+    let item %SelfhostTypeConstructor selfhost_type_constructor_new name nominal_id arity span
+    match v::push entries item:
+        Result::Ok next_entries:
+            Result::Ok SelfhostTypeConstructorAddResult (SelfhostTypeConstructorTable next_entries) nominal_id
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_type_constructor_table_get: constructor header を index で[返/かえ]す
+pub fn selfhost_type_constructor_table_get %fn &SelfhostTypeConstructorTable fn SelfhostNamedTypeId Option SelfhostTypeConstructor \table\nominal_id:
+    if:
+        lt nominal_id.index 0
+        then:
+            none
+        else:
+            let entries %&Vec SelfhostTypeConstructor field::get_ref table "entries"
+            v::get entries nominal_id.index
+
+fn selfhost_type_constructor_table_find_loop %fn &SelfhostTypeConstructorTable fn str fn i32 Option SelfhostTypeConstructor \table\name\idx:
+    if:
+        lt idx 0
+        then:
+            none
+        else:
+            match selfhost_type_constructor_table_get table selfhost_named_type_id_new idx:
+                Option::Some constructor:
+                    if:
+                        string_search::str_eq constructor.name name
+                        then:
+                            some constructor
+                        else:
+                            selfhost_type_constructor_table_find_loop table name sub idx 1
+                Option::None:
+                    none
+
+//: selfhost_type_constructor_table_find: 名前に対応する最新 constructor header を[返/かえ]す
+pub fn selfhost_type_constructor_table_find %fn &SelfhostTypeConstructorTable fn str Option SelfhostTypeConstructor \table\name:
+    selfhost_type_constructor_table_find_loop table name sub selfhost_type_constructor_table_len table 1
+
+//: selfhost_type_constructor_table_find_span: source span の名前に対応する constructor header を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - resolved tree は named type の token span だけを持つため、projection 境界で source text から lookup key を切り出します。
+//: - 切り出した文字列は arena に保存せず、constructor table lookup の一時 key としてだけ使います。
+pub fn selfhost_type_constructor_table_find_span %fn &SelfhostTypeConstructorTable fn &str fn SelfhostSourceSpan Option SelfhostTypeConstructor \table\source\span:
+    let source_view %str Clone::clone source
+    let name %str string_slice::str_slice source_view span.start span.end
+    selfhost_type_constructor_table_find table name
+

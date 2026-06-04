@@ -50549,3 +50549,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `v::push` 失敗時は移動済みの旧 params owner ではなく、`vec_push_error_vec` から返る owner を解放するようにした。Resource IR の `resource.cell.moved` 失敗を根本原因の所有権契約に沿って修正した。
 - subagent review では、projection 境界を `type_resolver` 側に置き、`ty` 側へ `SelfhostResolvedTypeTree` 依存を逆流させない方針が妥当と確認した。
 - focused verification は type resolver doctest 7/7、split / prefix input policy、facade doctest、`stdlib/neplg2` 全体 50/50 を通した。
+
+## 2026-06-05 Agent selfhost type constructor lookup checkpoint
+
+- `selfhost/type-constructor-lookup-20260605` branch で、self-host compiler Phase 5 の named type constructor lookup 境界を追加した。`plan.md` は確認のみで変更していない。
+- `core/ty/ty` に `SelfhostNamedTypeId`、`SelfhostTypeRecord::Named`、`selfhost_type_arena_add_named`、`selfhost_type_arena_named_id` を追加した。arena には source spelling ではなく constructor table の named identity だけを保存する。
+- `resolve/type_resolver/constructor.nepl` を追加し、module surface / local declaration header から構築する named type constructor table の最小形を作った。lookup は table borrow と `source + span` の一時 key だけを使い、prefix type ごとに import graph を再探索しない境界にした。
+- `selfhost_type_project_root_into_arena` は既存の fail-closed API として残し、named type を `UnsupportedNamedType` で拒否し続ける。新しい `selfhost_type_project_root_with_constructors_into_arena` は arity 0 constructor だけを `SelfhostTypeRecord::Named` へ投影し、unknown named type と bare generic constructor を typed error で拒否する。
+- subagent review では、`ty` から `resolve/type_resolver` へ依存を逆流させないこと、arena に source string を入れないこと、constructor logic を `constructor.nepl` に分けること、既存 negative doctest を残すことが妥当と確認した。
+- focused verification は type arena doctest 6/6、type resolver doctest 10/10、ty / type resolver split contract を通した。残件は generic type constructor application、canonical type key projection、user-defined generic kind / arity reduction、prefix expression AST、call reduction である。

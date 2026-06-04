@@ -12,7 +12,7 @@ const file = path.join(repoRoot, relPath);
 const parsed = parseFile(file);
 const source = fs.readFileSync(file, "utf8");
 
-const expectedCheckCounts = [11, 6, 4, 2, 4];
+const expectedCheckCounts = [11, 6, 4, 2, 6, 4];
 
 assert.equal(parsed.doctests.length, expectedCheckCounts.length, "selfhost type arena doctest count changed");
 assert.doesNotMatch(

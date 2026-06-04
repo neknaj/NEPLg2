@@ -326,6 +326,86 @@ fn main %impure fn void i32 \void:
             checks_exit_code shown
 ```
 
+## stores_named_type_identity_and_compares_by_identity
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn check_type_kind_option %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostTypeKind Result unit str \arena\type_id\expected:
+    match selfhost_type_arena_get_kind arena type_id:
+        Option::Some actual:
+            if selfhost_type_kind_eq actual expected Result::Ok unit Result::Err "type kind mismatch"
+        Option::None:
+            Result::Err "type kind missing"
+
+fn check_named_id %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostNamedTypeId Result unit str \arena\type_id\expected:
+    match selfhost_type_arena_named_id arena type_id:
+        Option::Some actual:
+            if selfhost_named_type_id_eq actual expected Result::Ok unit Result::Err "named id mismatch"
+        Option::None:
+            Result::Err "named id missing"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            let foo_id %SelfhostNamedTypeId selfhost_named_type_id_new 0
+            let bar_id %SelfhostNamedTypeId selfhost_named_type_id_new 1
+            match selfhost_type_arena_add_named arena0 foo_id:
+                Result::Ok alloc1:
+                    let first_foo %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_named selfhost_type_arena_alloc_into_arena alloc1 foo_id:
+                        Result::Ok alloc2:
+                            let second_foo %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc2
+                            match selfhost_type_arena_add_named selfhost_type_arena_alloc_into_arena alloc2 bar_id:
+                                Result::Ok alloc3:
+                                    let bar %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc3
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc3
+                                    let checks1 checks_push checks0 check_type_kind_option &arena3 first_foo SelfhostTypeKind::Named
+                                    let checks2 checks_push checks1 check_named_id &arena3 first_foo foo_id
+                                    let checks3 checks_push checks2 check selfhost_type_arena_types_equal &arena3 first_foo second_foo
+                                    let checks4 checks_push checks3 check not selfhost_type_arena_types_equal &arena3 first_foo bar
+                                    let checks5 checks_push checks4 check is_none selfhost_type_arena_function_arg_count &arena3 first_foo
+                                    let checks6 checks_push checks5 check_eq_i32 3 selfhost_type_arena_len &arena3
+                                    selfhost_type_arena_free arena3
+                                    let shown checks_print_report checks6
+                                    checks_exit_code shown
+                                Result::Err _e:
+                                    let checks1 checks_push checks0 Result::Err "bar allocation failed"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            let checks1 checks_push checks0 Result::Err "second Foo allocation failed"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 checks_push checks0 Result::Err "first Foo allocation failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 checks_push checks0 Result::Err "type arena allocation failed"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## rejects_mismatched_function_type_shapes
 
 neplg2:test[stdio, normalize_newlines]

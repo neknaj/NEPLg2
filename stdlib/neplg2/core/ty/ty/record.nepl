@@ -63,6 +63,14 @@ pub struct SelfhostFunctionTypeRecord:
     args %SelfhostFunctionTypeArgRange
     result %SelfhostTypeId
 
+//: SelfhostNamedTypeRecord: named type record の payload
+//:
+//: [目的/もくてき]:
+//: - source 上の `Foo` のような named type を、primitive に丸めず type constructor table の identity として保持します。
+//: - field layout や generic application はこの record に入れず、後続 stage が constructor table / canonical type key から取得します。
+pub struct SelfhostNamedTypeRecord:
+    nominal_id %SelfhostNamedTypeId
+
 impl Clone for SelfhostFunctionTypeRecord:
     fn clone %fn &SelfhostFunctionTypeRecord SelfhostFunctionTypeRecord \self:
         *self
@@ -71,13 +79,23 @@ impl Copy for SelfhostFunctionTypeRecord:
     fn copy_mark %fn SelfhostFunctionTypeRecord SelfhostFunctionTypeRecord \self:
         self
 
+impl Clone for SelfhostNamedTypeRecord:
+    fn clone %fn &SelfhostNamedTypeRecord SelfhostNamedTypeRecord \self:
+        *self
+
+impl Copy for SelfhostNamedTypeRecord:
+    fn copy_mark %fn SelfhostNamedTypeRecord SelfhostNamedTypeRecord \self:
+        self
+
 //: SelfhostTypeRecord: arena に保存する型 record
 //:
 //: [目的/もくてき]:
-//: - primitive type と function type を enum payload で分け、存在しない field を record に持たせません。
+//: - primitive type、named type、function type を enum payload で分け、存在しない field を record に持たせません。
+//: - named payload は type constructor table の定義 identity だけを保持し、source span や display name を arena record に混ぜません。
 //: - function payload は `SelfhostFunctionTypeRecord` に集約し、accessor は record variant を match してから読む構造にします。
 pub enum SelfhostTypeRecord:
     Primitive %SelfhostPrimitiveTypeKind
+    Named %SelfhostNamedTypeRecord
     Function %SelfhostFunctionTypeRecord
 
 impl Clone for SelfhostTypeRecord:
@@ -92,6 +110,14 @@ impl Copy for SelfhostTypeRecord:
 //: selfhost_type_record_primitive: primitive type record を[作/つく]る
 pub fn selfhost_type_record_primitive %fn SelfhostPrimitiveTypeKind SelfhostTypeRecord \kind:
     SelfhostTypeRecord::Primitive kind
+
+//: selfhost_type_record_named: named type record を[作/つく]る
+pub fn selfhost_type_record_named %fn SelfhostNamedTypeId SelfhostTypeRecord \nominal_id:
+    SelfhostTypeRecord::Named SelfhostNamedTypeRecord nominal_id
+
+//: selfhost_named_type_record_id: named type record の identity を[返/かえ]す
+pub fn selfhost_named_type_record_id %fn SelfhostNamedTypeRecord SelfhostNamedTypeId \record:
+    record.nominal_id
 
 //: selfhost_function_type_arg_range_new_unchecked: 証明済みの nonempty function argument range を直接[作/つく]る
 //:

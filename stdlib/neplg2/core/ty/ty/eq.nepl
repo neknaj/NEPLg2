@@ -75,6 +75,7 @@ pub fn selfhost_type_arena_function_arg_ranges_equal %fn &SelfhostTypeArena fn S
 //:
 //: [実装/じっそう]:
 //: - primitive type は `SelfhostTypeKind` が一致すれば同形とします。
+//: - named type は source spelling ではなく type constructor table の identity が一致すれば同形とします。
 //: - function type は arity、各引数 TypeId の構造、戻り値 TypeId の構造を比較します。
 pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeRecord fn SelfhostTypeRecord bool \arena\a\b:
     match a:
@@ -84,11 +85,23 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                     let a_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind a_kind
                     let b_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind b_kind
                     selfhost_type_kind_eq a_general b_general
+                SelfhostTypeRecord::Named _b_named:
+                    false
+                SelfhostTypeRecord::Function _b_function:
+                    false
+        SelfhostTypeRecord::Named a_named:
+            match b:
+                SelfhostTypeRecord::Primitive _b_kind:
+                    false
+                SelfhostTypeRecord::Named b_named:
+                    selfhost_named_type_id_eq (selfhost_named_type_record_id a_named) (selfhost_named_type_record_id b_named)
                 SelfhostTypeRecord::Function _b_function:
                     false
         SelfhostTypeRecord::Function a_function:
             match b:
                 SelfhostTypeRecord::Primitive _b_kind:
+                    false
+                SelfhostTypeRecord::Named _b_named:
                     false
                 SelfhostTypeRecord::Function b_function:
                     and:

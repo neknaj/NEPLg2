@@ -530,6 +530,303 @@ fn main %impure fn void i32 \void:
             checks_exit_code shown
 ```
 
+## projects_named_type_with_constructor_table
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn reduce_header %impure fn str Result SelfhostResolvedTypeTreeRoot str \source:
+    match lex_all source:
+        Result::Ok tokens:
+            let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+            match selfhost_type_prefix_list_from_syntax_range &tokens range:
+                Result::Ok list:
+                    match selfhost_type_prefix_list_reduce source &list:
+                        Result::Ok root:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Ok root
+                        Result::Err _e:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Err "reduce failed"
+                Result::Err _e:
+                    v::free tokens
+                    Result::Err "prefix list build failed"
+        Result::Err _diag:
+            Result::Err "lex failed"
+
+fn check_type_kind_option %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostTypeKind Result unit str \arena\type_id\expected:
+    match selfhost_type_arena_get_kind arena type_id:
+        Option::Some actual:
+            if selfhost_type_kind_eq actual expected Result::Ok unit Result::Err "type kind mismatch"
+        Option::None:
+            Result::Err "type kind missing"
+
+fn check_named_id %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostNamedTypeId Result unit str \arena\type_id\expected:
+    match selfhost_type_arena_named_id arena type_id:
+        Option::Some actual:
+            if selfhost_named_type_id_eq actual expected Result::Ok unit Result::Err "named id mismatch"
+        Option::None:
+            Result::Err "named id missing"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let source %str "fn use_named %Foo \\x:\n    x\n"
+    match reduce_header source:
+        Result::Ok root:
+            match selfhost_type_constructor_table_new:
+                Result::Ok constructors0:
+                    match selfhost_type_constructor_table_add constructors0 "Foo" 0 source_span_empty_unchecked 0 0:
+                        Result::Ok added:
+                            let foo_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &added
+                            let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+                            match selfhost_type_arena_new:
+                                Result::Ok arena0:
+                                    match selfhost_type_project_root_with_constructors_into_arena arena0 &source &constructors &root:
+                                        Result::Ok alloc:
+                                            let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc
+                                            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc
+                                            let checks1 checks_push checks0 check_type_kind_option &arena1 type_id SelfhostTypeKind::Named
+                                            let checks2 checks_push checks1 check_named_id &arena1 type_id foo_id
+                                            let checks3 checks_push checks2 check_eq_i32 1 selfhost_type_arena_len &arena1
+                                            selfhost_type_arena_free arena1
+                                            selfhost_type_constructor_table_free constructors
+                                            selfhost_resolved_type_tree_root_free root
+                                            let shown checks_print_report checks3
+                                            checks_exit_code shown
+                                        Result::Err _e:
+                                            selfhost_type_constructor_table_free constructors
+                                            selfhost_resolved_type_tree_root_free root
+                                            let checks1 checks_push checks0 Result::Err "named projection failed"
+                                            let shown checks_print_report checks1
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    selfhost_type_constructor_table_free constructors
+                                    selfhost_resolved_type_tree_root_free root
+                                    let checks1 checks_push checks0 Result::Err "arena allocation failed"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            selfhost_resolved_type_tree_root_free root
+                            let checks1 checks_push checks0 Result::Err "constructor add failed"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    selfhost_resolved_type_tree_root_free root
+                    let checks1 checks_push checks0 Result::Err "constructor table allocation failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err e:
+            let checks1 checks_push checks0 Result::Err e
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
+## rejects_unknown_named_type_with_constructor_projection
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn reduce_header %impure fn str Result SelfhostResolvedTypeTreeRoot str \source:
+    match lex_all source:
+        Result::Ok tokens:
+            let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+            match selfhost_type_prefix_list_from_syntax_range &tokens range:
+                Result::Ok list:
+                    match selfhost_type_prefix_list_reduce source &list:
+                        Result::Ok root:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Ok root
+                        Result::Err _e:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Err "reduce failed"
+                Result::Err _e:
+                    v::free tokens
+                    Result::Err "prefix list build failed"
+        Result::Err _diag:
+            Result::Err "lex failed"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let source %str "fn use_named %Foo \\x:\n    x\n"
+    match reduce_header source:
+        Result::Ok root:
+            match selfhost_type_constructor_table_new:
+                Result::Ok constructors:
+                    match selfhost_type_arena_new:
+                        Result::Ok arena0:
+                            match selfhost_type_project_root_with_constructors_into_arena arena0 &source &constructors &root:
+                                Result::Ok alloc:
+                                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc
+                                    selfhost_type_arena_free arena1
+                                    selfhost_type_constructor_table_free constructors
+                                    selfhost_resolved_type_tree_root_free root
+                                    let checks1 checks_push checks0 Result::Err "unknown named projection unexpectedly succeeded"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                                Result::Err e:
+                                    selfhost_type_constructor_table_free constructors
+                                    selfhost_resolved_type_tree_root_free root
+                                    let checks1 checks_push checks0:
+                                        if:
+                                            selfhost_type_project_error_kind_eq e.kind SelfhostTypeProjectErrorKind::UnknownNamedType
+                                            then:
+                                                Result::Ok unit
+                                            else:
+                                                Result::Err "unexpected project error kind"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            selfhost_type_constructor_table_free constructors
+                            selfhost_resolved_type_tree_root_free root
+                            let checks1 checks_push checks0 Result::Err "arena allocation failed"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    selfhost_resolved_type_tree_root_free root
+                    let checks1 checks_push checks0 Result::Err "constructor table allocation failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err e:
+            let checks1 checks_push checks0 Result::Err e
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
+## rejects_bare_generic_constructor_projection
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn reduce_header %impure fn str Result SelfhostResolvedTypeTreeRoot str \source:
+    match lex_all source:
+        Result::Ok tokens:
+            let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+            match selfhost_type_prefix_list_from_syntax_range &tokens range:
+                Result::Ok list:
+                    match selfhost_type_prefix_list_reduce source &list:
+                        Result::Ok root:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Ok root
+                        Result::Err _e:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Err "reduce failed"
+                Result::Err _e:
+                    v::free tokens
+                    Result::Err "prefix list build failed"
+        Result::Err _diag:
+            Result::Err "lex failed"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let source %str "fn use_box %Box \\x:\n    x\n"
+    match reduce_header source:
+        Result::Ok root:
+            match selfhost_type_constructor_table_new:
+                Result::Ok constructors0:
+                    match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+                        Result::Ok added:
+                            let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+                            match selfhost_type_arena_new:
+                                Result::Ok arena0:
+                                    match selfhost_type_project_root_with_constructors_into_arena arena0 &source &constructors &root:
+                                        Result::Ok alloc:
+                                            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc
+                                            selfhost_type_arena_free arena1
+                                            selfhost_type_constructor_table_free constructors
+                                            selfhost_resolved_type_tree_root_free root
+                                            let checks1 checks_push checks0 Result::Err "bare generic constructor unexpectedly succeeded"
+                                            let shown checks_print_report checks1
+                                            checks_exit_code shown
+                                        Result::Err e:
+                                            selfhost_type_constructor_table_free constructors
+                                            selfhost_resolved_type_tree_root_free root
+                                            let checks1 checks_push checks0:
+                                                if:
+                                                    selfhost_type_project_error_kind_eq e.kind SelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments
+                                                    then:
+                                                        Result::Ok unit
+                                                    else:
+                                                        Result::Err "unexpected project error kind"
+                                            let shown checks_print_report checks1
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    selfhost_type_constructor_table_free constructors
+                                    selfhost_resolved_type_tree_root_free root
+                                    let checks1 checks_push checks0 Result::Err "arena allocation failed"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            selfhost_resolved_type_tree_root_free root
+                            let checks1 checks_push checks0 Result::Err "constructor add failed"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    selfhost_resolved_type_tree_root_free root
+                    let checks1 checks_push checks0 Result::Err "constructor table allocation failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err e:
+            let checks1 checks_push checks0 Result::Err e
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## distinguishes_void_marker_from_unit_type
 
 neplg2:test[stdio, normalize_newlines]

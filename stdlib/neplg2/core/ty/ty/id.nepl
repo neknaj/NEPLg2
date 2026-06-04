@@ -6,6 +6,14 @@
 pub struct SelfhostTypeId:
     index %i32
 
+//: SelfhostNamedTypeId: named / nominal type table 内の stable index
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeId` は type arena local な record index ですが、named type identity は type constructor table 側の定義 identity です。
+//: - 両者を同じ `i32` として扱わず、別 newtype にすることで arena record と constructor definition を混同しないようにします。
+pub struct SelfhostNamedTypeId:
+    index %i32
+
 impl Clone for SelfhostTypeId:
     fn clone %fn &SelfhostTypeId SelfhostTypeId \self:
         *self
@@ -14,16 +22,34 @@ impl Copy for SelfhostTypeId:
     fn copy_mark %fn SelfhostTypeId SelfhostTypeId \self:
         self
 
+impl Clone for SelfhostNamedTypeId:
+    fn clone %fn &SelfhostNamedTypeId SelfhostNamedTypeId \self:
+        *self
+
+impl Copy for SelfhostNamedTypeId:
+    fn copy_mark %fn SelfhostNamedTypeId SelfhostNamedTypeId \self:
+        self
 
 //: selfhost_type_id_new: TypeId を[作/つく]る
 pub fn selfhost_type_id_new %fn i32 SelfhostTypeId \index:
     SelfhostTypeId index
 
+//: selfhost_named_type_id_new: named type identity を[作/つく]る
+pub fn selfhost_named_type_id_new %fn i32 SelfhostNamedTypeId \index:
+    SelfhostNamedTypeId index
+
 //: selfhost_type_id_index: TypeId の arena index を[返/かえ]す
 pub fn selfhost_type_id_index %fn SelfhostTypeId i32 \type_id:
     type_id.index
+
+//: selfhost_named_type_id_index: named type identity の index を[返/かえ]す
+pub fn selfhost_named_type_id_index %fn SelfhostNamedTypeId i32 \named_id:
+    named_id.index
 
 //: selfhost_type_id_eq: TypeId が同じ arena index か[返/かえ]す
 pub fn selfhost_type_id_eq %fn SelfhostTypeId fn SelfhostTypeId bool \a\b:
     eq a.index b.index
 
+//: selfhost_named_type_id_eq: named type identity が同じ定義を指すか[返/かえ]す
+pub fn selfhost_named_type_id_eq %fn SelfhostNamedTypeId fn SelfhostNamedTypeId bool \a\b:
+    eq a.index b.index

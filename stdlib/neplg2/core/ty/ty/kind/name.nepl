@@ -10,7 +10,7 @@
 //: - Rust parser が named type として扱う `i64` / `f64` も、self-host の primitive registry ではこの canonical name で扱います。
 //:
 //: [注意/ちゅうい]:
-//: - `Error` と `Function` は primitive name を持たないため `None` を返します。
+//: - `Error`、`Function`、`Named` は primitive name を持たないため `None` を返します。
 pub fn selfhost_type_kind_canonical_name %fn SelfhostTypeKind Option str \kind:
     match kind:
         SelfhostTypeKind::Error:
@@ -36,4 +36,6 @@ pub fn selfhost_type_kind_canonical_name %fn SelfhostTypeKind Option str \kind:
         SelfhostTypeKind::Never:
             some "never"
         SelfhostTypeKind::Function:
+            none
+        SelfhostTypeKind::Named:
             none

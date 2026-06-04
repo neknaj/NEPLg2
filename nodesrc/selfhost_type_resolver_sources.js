@@ -7,6 +7,7 @@ const TYPE_RESOLVER_FACADE = "stdlib/neplg2/core/resolve/type_resolver.nepl";
 const TYPE_RESOLVER_SPLIT_FILES = [
     "stdlib/neplg2/core/resolve/type_resolver/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/input.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/constructor.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/resolved.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
