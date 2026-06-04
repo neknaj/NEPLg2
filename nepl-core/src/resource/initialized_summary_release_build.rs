@@ -13,9 +13,7 @@ use super::initialized_control::{
     invalidate_control_output_state, path_alternatives_or_single,
 };
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
-use super::initialized_path_state::{
-    merge_path_alternatives_into, path_states_need_replay, ResourcePathAlternatives,
-};
+use super::initialized_path_state::{merge_path_alternatives_into, ResourcePathAlternatives};
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
@@ -324,9 +322,10 @@ fn collect_match_release_requirements_and_step(
             pending_reallocs,
             variant_initializations,
         );
-        if path_states_need_replay(&match_paths) {
-            engine.path_alternatives = ResourcePathAlternatives::from_states(match_paths);
-        }
+        // Release requirement summaries are may-summaries. The merged raw-address table already
+        // contains every feasible release source, and the outer loop merges alternatives before
+        // scanning the next op anyway. Keeping branch-specific alternatives here only replays the
+        // remaining release scan without adding facts.
     }
     if scrutinee_available && arms_available {
         cells.set_state(output, CellState::Initialized(output.ty));
@@ -483,9 +482,9 @@ fn collect_branch_release_requirements_and_step(
             pending_reallocs,
             variant_initializations,
         );
-        if path_states_need_replay(&branch_paths) {
-            engine.path_alternatives = ResourcePathAlternatives::from_states(branch_paths);
-        }
+        // Release summaries collect possible parameter-backed raw-cell releases. A merged branch
+        // state is therefore sufficient and conservative: it may retain more aliases, but it does
+        // not miss a release requirement from any feasible branch.
     }
     if paths_available && has_branch_paths {
         cells.set_state(output, CellState::Initialized(output.ty));

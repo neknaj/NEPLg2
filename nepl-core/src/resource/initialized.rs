@@ -377,16 +377,30 @@ pub(super) fn op_can_run_on_merged_path_state(_types: &TypeCtx, op: &ResourceOp)
     matches!(op, ResourceOp::Branch { .. } | ResourceOp::Match { .. })
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PathPreservingFastOp {
+    NoStateChange,
+    FreshLiteralExpr,
+}
+
+impl PathPreservingFastOp {
+    fn changes_state(self) -> bool {
+        matches!(self, Self::FreshLiteralExpr)
+    }
+}
+
 pub(super) fn apply_path_preserving_fast_op(
     types: &TypeCtx,
     cells: &mut CellTable,
     raw_aliases: &mut RawCellAddressAliases,
     op: &ResourceOp,
 ) -> bool {
-    match op {
-        ResourceOp::Expr { kind, output, .. }
-            if expr_can_use_path_preserving_fast_op(*kind, output) =>
-        {
+    match path_preserving_fast_op(types, op) {
+        Some(PathPreservingFastOp::NoStateChange) => true,
+        Some(PathPreservingFastOp::FreshLiteralExpr) => {
+            let ResourceOp::Expr { kind, output, .. } = op else {
+                return false;
+            };
             match kind {
                 ResourceExprKind::LiteralI32(value) => {
                     cells.mark_initialized(output);
@@ -396,9 +410,21 @@ pub(super) fn apply_path_preserving_fast_op(
                     cells.mark_initialized(output);
                     raw_aliases.set_i32_type_size(output, *ty);
                 }
+                ResourceExprKind::Literal => {
+                    cells.mark_initialized(output);
+                }
                 _ => return false,
             }
             true
+        }
+        None => false,
+    }
+}
+
+fn path_preserving_fast_op(types: &TypeCtx, op: &ResourceOp) -> Option<PathPreservingFastOp> {
+    match op {
+        ResourceOp::CallEffect { .. } | ResourceOp::StorageOrigin { .. } => {
+            Some(PathPreservingFastOp::NoStateChange)
         }
         ResourceOp::EndScope { locals, .. }
             if locals.iter().all(|local| types.is_copy(local.ty)) =>
@@ -406,22 +432,29 @@ pub(super) fn apply_path_preserving_fast_op(
             // Copy local だけを含む scope 終了は auto drop を生成せず、path ごとの差分も
             // 変更しない。path alternatives を保持したまま処理済みとして扱うことで、
             // Result return path や collection slot proof を誤って畳まない。
-            true
+            Some(PathPreservingFastOp::NoStateChange)
         }
-        _ => false,
+        ResourceOp::Expr { kind, output, .. }
+            if expr_can_use_path_preserving_fast_op(*kind, output) =>
+        {
+            Some(PathPreservingFastOp::FreshLiteralExpr)
+        }
+        _ => None,
     }
 }
 
 fn expr_can_use_path_preserving_fast_op(kind: ResourceExprKind, output: &Place) -> bool {
     // path-sensitive alternatives を保持している最中に merged state だけを進めると、
     // その operation のあとで alternatives を破棄してしまう。ここで許可する式は、
-    // 既存 place を読まず、診断も生成せず、fresh temporary だけに確定値を置くものに
-    // 限定し、各 alternative に同じ小さな状態更新だけを反映する。local や projection
-    // 付き output を許すと、別 path の alias / scalar fact を上書きし、後続診断の精度を
-    // 落とす可能性がある。
+    // 既存 place を読まず、診断も生成せず、fresh temporary だけに確定値か単純な
+    // initialized fact を置くものに限定し、各 alternative に同じ小さな状態更新だけを
+    // 反映する。local や projection 付き output を許すと、別 path の alias / scalar fact
+    // を上書きし、後続診断の精度を落とす可能性がある。
     matches!(
         kind,
-        ResourceExprKind::LiteralI32(_) | ResourceExprKind::LayoutSizeOf(_)
+        ResourceExprKind::Literal
+            | ResourceExprKind::LiteralI32(_)
+            | ResourceExprKind::LayoutSizeOf(_)
     ) && matches!(output.root, PlaceRoot::Temporary(_))
         && output.projections.is_empty()
 }
@@ -814,24 +847,27 @@ impl ResourceCheckEngine<'_> {
                     if alternatives.is_empty() {
                         self.path_alternatives =
                             ResourcePathAlternatives::from_states(alternatives);
-                    } else if apply_path_preserving_fast_op(self.types, cells, raw_aliases, op) {
-                        for state in &mut alternatives {
-                            apply_path_preserving_fast_op(
-                                self.types,
-                                &mut state.cells,
-                                &mut state.raw_aliases,
-                                op,
+                    } else if let Some(fast_op) = path_preserving_fast_op(self.types, op) {
+                        if fast_op.changes_state() {
+                            apply_path_preserving_fast_op(self.types, cells, raw_aliases, op);
+                            for state in &mut alternatives {
+                                apply_path_preserving_fast_op(
+                                    self.types,
+                                    &mut state.cells,
+                                    &mut state.raw_aliases,
+                                    op,
+                                );
+                            }
+                            merge_path_alternatives_into(
+                                &alternatives,
+                                cells,
+                                collection_slots,
+                                raw_aliases,
+                                function_aliases,
+                                pending_reallocs,
+                                variant_initializations,
                             );
                         }
-                        merge_path_alternatives_into(
-                            &alternatives,
-                            cells,
-                            collection_slots,
-                            raw_aliases,
-                            function_aliases,
-                            pending_reallocs,
-                            variant_initializations,
-                        );
                         self.path_alternatives =
                             ResourcePathAlternatives::from_states(alternatives);
                     } else if op_can_run_on_merged_path_state(self.types, op) {
@@ -1090,22 +1126,28 @@ mod tests {
         }
     }
 
-    /// fresh temporary へ書く i32 scalar 生成は、path ごとの入力を読まず診断も
-    /// 生成しないため、path alternatives を保持したまま軽量に反映できることを確認する。
+    /// fresh temporary へ書く literal 生成は、path ごとの入力を読まず診断も生成しない。
+    /// path alternatives を保持したまま同じ小さな状態更新を全 path へ配れることを確認する。
     #[test]
-    fn path_preserving_fast_op_accepts_fresh_temporary_i32_scalar_exprs() {
+    fn path_preserving_fast_op_accepts_fresh_temporary_literal_exprs() {
         let types = TypeCtx::new();
         let mut cells = CellTable::default();
         let mut raw_aliases = RawCellAddressAliases::default();
-        let literal = ResourceOp::Expr {
-            kind: ResourceExprKind::LiteralI32(42),
+        let plain_literal = ResourceOp::Expr {
+            kind: ResourceExprKind::Literal,
             output: temporary(0),
+            ty: TypeId(1),
+            span: Span::dummy(),
+        };
+        let i32_literal = ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(42),
+            output: temporary(1),
             ty: TypeId(1),
             span: Span::dummy(),
         };
         let layout_size = ResourceOp::Expr {
             kind: ResourceExprKind::LayoutSizeOf(TypeId(1)),
-            output: temporary(1),
+            output: temporary(2),
             ty: TypeId(1),
             span: Span::dummy(),
         };
@@ -1114,7 +1156,13 @@ mod tests {
             &types,
             &mut cells,
             &mut raw_aliases,
-            &literal
+            &plain_literal
+        ));
+        assert!(apply_path_preserving_fast_op(
+            &types,
+            &mut cells,
+            &mut raw_aliases,
+            &i32_literal
         ));
         assert!(apply_path_preserving_fast_op(
             &types,
@@ -1122,7 +1170,8 @@ mod tests {
             &mut raw_aliases,
             &layout_size
         ));
-        assert!(!op_can_run_on_merged_path_state(&types, &literal));
+        assert!(!op_can_run_on_merged_path_state(&types, &plain_literal));
+        assert!(!op_can_run_on_merged_path_state(&types, &i32_literal));
         assert!(!op_can_run_on_merged_path_state(&types, &layout_size));
     }
 
@@ -1145,12 +1194,6 @@ mod tests {
             ty: TypeId(1),
             span: Span::dummy(),
         };
-        let non_scalar_literal = ResourceOp::Expr {
-            kind: ResourceExprKind::Literal,
-            output: temporary(1),
-            ty: TypeId(0),
-            span: Span::dummy(),
-        };
 
         assert!(!apply_path_preserving_fast_op(
             &types,
@@ -1164,26 +1207,33 @@ mod tests {
             &mut raw_aliases,
             &projected_temporary
         ));
-        assert!(!apply_path_preserving_fast_op(
-            &types,
-            &mut cells,
-            &mut raw_aliases,
-            &non_scalar_literal
-        ));
     }
 
     /// `CallEffect` は initialized-state を直接変更しないが、call の直前に置かれる。
     /// Result return path などの path-sensitive fact を次の `Call` へ渡す必要があるため、
-    /// merged state だけで処理して path alternatives を畳んではならない。
+    /// merged state だけで処理して path alternatives を畳んではならない。一方で no-op
+    /// として alternatives を保持する fast path には載せられる。
     #[test]
-    fn merged_path_state_rejects_call_effect_path_collapse() {
+    fn call_effect_is_path_preserving_noop_not_merged_path_collapse() {
         let types = TypeCtx::new();
+        let mut cells = CellTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
         let call_effect = ResourceOp::CallEffect {
             effect: EffectOp::Pure,
             span: Span::dummy(),
         };
 
         assert!(!op_can_run_on_merged_path_state(&types, &call_effect));
+        assert!(matches!(
+            path_preserving_fast_op(&types, &call_effect),
+            Some(PathPreservingFastOp::NoStateChange)
+        ));
+        assert!(apply_path_preserving_fast_op(
+            &types,
+            &mut cells,
+            &mut raw_aliases,
+            &call_effect
+        ));
     }
 
     fn literal_op(output: &str) -> ResourceOp {
