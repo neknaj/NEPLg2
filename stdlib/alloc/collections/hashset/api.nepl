@@ -132,23 +132,24 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H im
             let tombstones0 %i32 *field::get_ref &ready "tombstones"
             let hasher %.H *field::get_ref &ready "hasher"
             let storage %HashSetStorage .T field::get ready "storage"
-            let existing %i32 hashset_find_present<.T,.H> &storage cap0 hasher key
-            if:
-                not lt existing 0
-                then:
+            match hashset_find_present<.T,.H> &storage cap0 hasher key:
+                Option::Some _existing:
                     Result::Ok HashSet<.T,.H> count0 cap0 tombstones0 storage hasher
-                else:
-                    let slot %HashSetInsertSlot hashset_find_insert_slot<.T,.H> &storage cap0 hasher key
-                    let slot_idx %i32 field::get slot "index"
-                    let slot_state %HashSetInsertSlotState field::get slot "state"
-                    hashset_store_full<.T> &storage slot_idx key
-                    let next_tombstones %i32:
-                        match slot_state:
-                            HashSetInsertSlotState::EmptySlot:
-                                tombstones0
-                            HashSetInsertSlotState::TombstoneSlot:
-                                sub tombstones0 1
-                    Result::Ok HashSet<.T,.H> add count0 1 cap0 next_tombstones storage hasher
+                Option::None:
+                    match hashset_find_insert_slot<.T,.H> &storage cap0 hasher key:
+                        Option::Some slot:
+                            let slot_idx %i32 field::get slot "index"
+                            let slot_state %HashSetInsertSlotState field::get slot "state"
+                            hashset_store_full<.T> &storage slot_idx key
+                            let next_tombstones %i32:
+                                match slot_state:
+                                    HashSetInsertSlotState::EmptySlot:
+                                        tombstones0
+                                    HashSetInsertSlotState::TombstoneSlot:
+                                        sub tombstones0 1
+                            Result::Ok HashSet<.T,.H> add count0 1 cap0 next_tombstones storage hasher
+                        Option::None:
+                            Result::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 cap0 tombstones0 storage hasher) diag_capacity_exceeded
 
 //: ## contains
 //: [要素/ようそ]の[存在/そんざい]を[確/たし]かめる
@@ -180,7 +181,11 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &HashSet .T .H fn .T 
     let cap0 %i32 *field::get_ref hs "cap"
     let hasher %.H *field::get_ref hs "hasher"
     let storage %&HashSetStorage .T field::get_ref hs "storage"
-    not lt hashset_find_present<.T,.H> storage cap0 hasher key 0
+    match hashset_find_present<.T,.H> storage cap0 hasher key:
+        Option::Some _idx:
+            true
+        Option::None:
+            false
 
 //: ## remove
 //: [要素/ようそ]を[削除/さくじょ]する
@@ -217,12 +222,10 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H im
     let tombstones0 %i32 *field::get_ref &hs "tombstones"
     let hasher %.H *field::get_ref &hs "hasher"
     let storage %HashSetStorage .T field::get hs "storage"
-    let idx %i32 hashset_find_present<.T,.H> &storage cap0 hasher key
-    if:
-        lt idx 0
-        then:
+    match hashset_find_present<.T,.H> &storage cap0 hasher key:
+        Option::None:
             Result::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 cap0 tombstones0 storage hasher) diag_key_not_found
-        else:
+        Option::Some idx:
             hashset_store_tombstone<.T> &storage idx
             Result::Ok HashSet<.T,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
 

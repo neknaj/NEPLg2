@@ -42,7 +42,8 @@ pub fn hashmap_rehash_to <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure
             let keys hashmap_storage_keys &old_storage
             let values hashmap_storage_values &old_storage
             let mut i %i32 0
-            while lt i old_cap:
+            let mut failed %bool false
+            while and lt i old_cap not failed:
                 do:
                     match hashmap_state_at states i:
                         HashMapBucketState::Full:
@@ -54,14 +55,24 @@ pub fn hashmap_rehash_to <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure
                                         Option::None:
                                             unit
                                         Option::Some value:
-                                            hashmap_insert_entry_into_storage<.K,.V,.H> &new_storage new_cap hasher key value
+                                            match hashmap_insert_entry_into_storage<.K,.V,.H> &new_storage new_cap hasher key value:
+                                                Result::Ok _unit:
+                                                    unit
+                                                Result::Err _d:
+                                                    set failed true
                         HashMapBucketState::Empty:
                             unit
                         HashMapBucketState::Tombstone:
                             unit
                     set i add i 1
-            hashmap_free_storage<.K,.V> old_storage
-            Result::Ok HashMap<.K,.V,.H> count0 new_cap 0 new_storage hasher
+            if:
+                failed
+                then:
+                    hashmap_free_storage<.K,.V> new_storage
+                    Result::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 old_cap tombstones0 old_storage hasher) diag_capacity_exceeded
+                else:
+                    hashmap_free_storage<.K,.V> old_storage
+                    Result::Ok HashMap<.K,.V,.H> count0 new_cap 0 new_storage hasher
 
 //: hashmap_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
 //:
@@ -73,12 +84,10 @@ pub fn hashmap_prepare_insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %i
     let tombstones0 %i32 *field::get_ref &hm "tombstones"
     let hasher %.H *field::get_ref &hm "hasher"
     let storage %&HashMapStorage .K .V field::get_ref &hm "storage"
-    let idx %i32 hashmap_find_present<.K,.V,.H> storage cap0 hasher key
-    if:
-        not lt idx 0
-        then:
+    match hashmap_find_present<.K,.V,.H> storage cap0 hasher key:
+        Option::Some _idx:
             Result::Ok hm
-        else:
+        Option::None:
             let limit %i32 hashmap_load_limit cap0
             let occupied_after_insert %i32 add add count0 tombstones0 1
             if:

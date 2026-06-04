@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T05:18:25.392Z",
+  "generated_at": "2026-06-04T06:01:33.749Z",
   "counts": {
     "total": 1339,
-    "open": 58,
-    "resolved": 1281,
+    "open": 57,
+    "resolved": 1282,
     "by_area": {
       "stdlib": {
         "total": 349,
-        "open": 17,
-        "resolved": 332
+        "open": 16,
+        "resolved": 333
       },
       "core": {
         "total": 664,
@@ -713,21 +713,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034124436Z-RAW-MEMORY-ALLOCATOR-AND-COLLECTION--C8833FBA.md"
-    },
-    {
-      "id": "ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4",
-      "title": "HashMap and HashSet probe paths use -1 sentinel instead of typed absence",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/alloc/collections/hashmap/probe.nepl, stdlib/alloc/collections/hashmap/api.nepl, stdlib/alloc/collections/hashset/api.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4.md"
     },
     {
       "id": "ISS-20260604T034125199Z-VEC-SORT-VARIANTS-HANDLE-INVALID-MET-1475F2ED",
@@ -16073,6 +16058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA.md"
+    },
+    {
+      "id": "ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4",
+      "title": "HashMap and HashSet probe paths use -1 sentinel instead of typed absence",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/alloc/collections/hashmap/probe.nepl, stdlib/alloc/collections/hashmap/api.nepl, stdlib/alloc/collections/hashmap/rehash.nepl, stdlib/alloc/collections/hashset/probe.nepl, stdlib/alloc/collections/hashset/api.nepl, stdlib/alloc/collections/hashset/rehash.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4.md"
     },
     {
       "id": "ISS-20260604T042500000Z-GUI-TUI-DOCTEST-REPORT-CONTRACT-GAPS-4D6B9A0E",

@@ -149,9 +149,39 @@ assert.match(
 );
 
 assert.match(
+    findPresentSection,
+    /fn\s+hashmap_find_present[\s\S]*->Option<i32>/,
+    'HashMap lookup absence must be represented by Option<i32> instead of a numeric sentinel',
+);
+
+assert.doesNotMatch(
+    findPresentSection,
+    /\b-1\b|\b(?:not\s+)?lt\s+\w+\s+0\b/,
+    'HashMap lookup must not encode absence or presence with -1 / index < 0 checks',
+);
+
+assert.match(
     findInsertSlotSection,
     /match\s+hashmap_state_at\s+states\s+cur:[\s\S]*HashMapBucketState::Empty:[\s\S]*HashMapBucketState::Tombstone:[\s\S]*HashMapBucketState::Full:/,
     'HashMap insertion slot search must branch on bucket state with exhaustive enum match',
+);
+
+assert.match(
+    findInsertSlotSection,
+    /fn\s+hashmap_find_insert_slot[\s\S]*->Option<HashMapInsertSlot>/,
+    'HashMap insertion slot search must expose full-table or invariant failure as Option<HashMapInsertSlot>',
+);
+
+assert.doesNotMatch(
+    findInsertSlotSection,
+    /\b-1\b|\b(?:not\s+)?lt\s+\w+\s+0\b/,
+    'HashMap insertion slot search must not use -1 or index < 0 as a hidden search state',
+);
+
+assert.doesNotMatch(
+    `${rehashSection}\n${insertSection}\n${getSection}\n${containsSection}\n${removeSection}`,
+    /\b(?:not\s+)?lt\s+[^:\n]*hashmap_find_present|\blet\s+\w+\s+<i32>\s+hashmap_find_present|\b(?:not\s+)?lt\s+\w+\s+0\b/,
+    'HashMap API and rehash callers must match on lookup Option instead of comparing probe results as integers',
 );
 
 assert.match(
