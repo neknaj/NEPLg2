@@ -1,3 +1,12 @@
+# 2026-06-04 Agent2 stdlib documentation report contract checkpoint
+
+- `main` から `agent2/fix-stdlib-doc-report-contracts` branch を作成し、`ISS-20260604T033642997Z-STDLIB-DOCUMENTATION-AND-DOCTEST-REP-E892BD11` を修正した。
+- `stdlib/alloc/string/integer/parse.nepl` の module doc に canonical `std/test` report doctest `string_integer_parse_module_doc` を追加した。追加 doctest は括弧付き nested call を避け、parse 結果を中間 `let` に分けて report に渡す。既存の `string_integer_parse_doc` は既に 6 assertions へ増えていたため、`nodesrc/test_alloc_string_doc_report_contract.js` の expected count を 4 から 6 へ更新した。
+- `nodesrc/test_stdlib_documentation_contract.js` は module doctest gap を解消した後、古い declaration baseline が露出した。current stats は `files=452`, `declarationNoDoc=800`, `declarationNoDoctest=1708`, `publicDeclarationNoDoctest=1549`, `privateDeclarationNoDoctest=159` である。
+- baseline 更新だけで doc debt を隠さないよう、残る declaration doc / doctest gap は `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` として分離した。GUI/TUI の ret-only / stale report contract は別軸なので `ISS-20260604T042500000Z-GUI-TUI-DOCTEST-REPORT-CONTRACT-GAPS-4D6B9A0E` として分離した。
+- 対象 issue は `fixed` / `resolved: true` に更新した。
+- 検証: `node nodesrc/test_alloc_string_doc_report_contract.js`、`node nodesrc/tests.js -i stdlib/alloc/string/integer/parse.nepl --no-tree -o tmp/agent2-string-integer-parse-doc-after-review.json -j 1 --dist web/dist --assert-io`、`node nodesrc/test_stdlib_documentation_contract.js` は通過した。`node nodesrc/run_source_policy_regressions.js --warn-only` は documentation / alloc string report warnings が消え、既存 warning は 7 件から 5 件に減った。`node nodesrc/issues.js index --dir issues && node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-doc-report-playground-editor-after-review.json` も通過し、CLI JSON は 13/13 pass を確認した。
+
 # 2026-06-04 Agent2 raw IO boundary source policy checkpoint
 
 - `main` から `agent2/fix-raw-io-boundary-policies` branch を作成し、`ISS-20260604T033642641Z-STDLIB-RAW-IO-BOUNDARIES-DRIFT-FROM--6CE98C14` を修正した。

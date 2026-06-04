@@ -12,14 +12,14 @@ const STDLIB_ROOTS = [
 ];
 
 const BASELINE = {
-    files: 402,
+    files: 452,
     moduleNoDoc: 0,
     moduleNoDoctest: 305,
-    declarations: 1908,
-    declarationNoDoc: 530,
-    declarationNoDoctest: 1062,
-    publicDeclarationNoDoctest: 988,
-    privateDeclarationNoDoctest: 74,
+    declarations: 2848,
+    declarationNoDoc: 800,
+    declarationNoDoctest: 1708,
+    publicDeclarationNoDoctest: 1549,
+    privateDeclarationNoDoctest: 159,
 };
 
 function assert(condition, message) {
