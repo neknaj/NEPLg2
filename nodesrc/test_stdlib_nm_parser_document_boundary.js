@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -52,8 +51,5 @@ for (const importLine of [
 ]) {
     assert.equal(documentSrc.includes(importLine), true, `${documentPath} must keep ${importLine}`);
 }
-
-assert.ok(implementationLineCount(facadeSrc) <= 60, `${facadePath} must stay within the public facade boundary`);
-assert.ok(implementationLineCount(documentSrc) <= 240, `${documentPath} must stay within the document serializer boundary`);
 
 console.log('stdlib nm parser document boundary regression passed');

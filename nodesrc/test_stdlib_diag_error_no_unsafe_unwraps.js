@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -101,20 +100,6 @@ assert.doesNotMatch(code.renderer, /#import\s+"core\/mem(?:\/(?:internal|raw))?"
 assert.doesNotMatch(code.renderer, /\b(?:mem_ptr_addr|data_mem_(?:ptr|view)|load<Diag>|size_of<Diag>)\b/, 'diagnostic renderer must not scan Diags through raw Vec storage');
 assert.match(code.renderer, /fn\s+diags_to_string\s+<\(&Diags\)->str>[\s\S]*v::len\s+items[\s\S]*diags_to_string_loop\s+items\s+items_len\s+0\s+""/, 'diagnostic renderer must observe Diags through the borrowed Vec boundary');
 assert.match(code.renderer, /fn\s+diags_to_string_loop\s+<\(&Vec<Diag>,i32,i32,str\)->str>[\s\S]*match\s+v::get\s+items\s+i:/, 'diagnostic renderer traversal must use Vec.get rather than raw loads');
-
-const lineLimits = {
-    root: 80,
-    types: 230,
-    diag: 220,
-    diags: 190,
-    outcome: 340,
-    renderer: 190,
-};
-
-for (const [name, limit] of Object.entries(lineLimits)) {
-    const lines = implementationLineCount(src[name]);
-    assert.ok(lines <= limit, `${relPaths[name]} has ${lines} lines; split modules must stay below ${limit}`);
-}
 
 assert.match(code.types, /enum\s+DiagLevel:[\s\S]*DiagLevel::Error:[\s\S]*"error"/, 'DiagLevel must remain enum-backed and stringified through exhaustive match arms');
 assert.match(code.types, /struct\s+Diag:[\s\S]*notes\s+<str>[\s\S]*help\s+<str>/, 'Diag notes/help must use string fields in the current compact diagnostic layout');

@@ -4,7 +4,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -100,7 +99,6 @@ for (const [key, limit] of [
     ["merge", 80],
     ["mergeApi", 230],
 ]) {
-    assert.ok(implementationLineCount(sources[key]) <= limit, `${files[key]} must stay below ${limit} implementation lines`);
 }
 
 for (const name of [

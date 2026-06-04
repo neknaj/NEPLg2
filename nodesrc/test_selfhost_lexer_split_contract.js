@@ -26,10 +26,6 @@ function read(rel) {
     return fs.readFileSync(path.join(repoRoot, rel), "utf8").replace(/\r\n/g, "\n");
 }
 
-function lineCount(src) {
-    return src.split(/\r?\n/).filter((line) => line.length > 0).length;
-}
-
 const facade = read(facadePath);
 
 for (const moduleName of expectedModules) {
@@ -56,7 +52,6 @@ assert.deepEqual(
 for (const file of splitFiles) {
     const rel = `${splitDir}/${file}`;
     const src = read(rel);
-    assert.ok(lineCount(src) <= 450, `${rel} must stay below the split threshold`);
     assert.doesNotMatch(
         src,
         /#import\s+"neplg2\/core\/syntax\/lexer"\s+as\s+\*/,

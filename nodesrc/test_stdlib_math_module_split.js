@@ -4,7 +4,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
@@ -109,16 +108,6 @@ for (const [moduleName, pattern] of [
     assert.match(convertFloatModule, pattern, `core/math/convert/float.nepl must re-export the ${moduleName} conversion submodule`);
 }
 assert.doesNotMatch(convertFloatModule, /^fn\s+/m, "core/math/convert/float.nepl must remain a facade without function bodies");
-for (const [relPath, src, maxLines] of [
-    ["stdlib/core/math/convert/float.nepl", convertFloatModule, 80],
-    ["stdlib/core/math/convert/float/int_to_float.nepl", convertFloatIntToFloatModule, 260],
-    ["stdlib/core/math/convert/float/float_to_i32.nepl", convertFloatToI32Module, 260],
-    ["stdlib/core/math/convert/float/float_to_i64.nepl", convertFloatToI64Module, 260],
-    ["stdlib/core/math/convert/float/float_width.nepl", convertFloatWidthModule, 120],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 for (const [moduleName, pattern] of [
     ["types", /pub\s+#import\s+"\.\/int128\/types"\s+as\s+@merge/],
     ["u128", /pub\s+#import\s+"\.\/int128\/u128"\s+as\s+@merge/],
@@ -139,15 +128,6 @@ for (const [moduleName, moduleSrc, pattern] of [
 ]) {
     assert.match(moduleSrc, pattern, `core/math/int128 submodule must import ${moduleName} directly`);
 }
-for (const [relPath, src, maxLines] of [
-    ["stdlib/core/math/int128.nepl", int128Module, 80],
-    ["stdlib/core/math/int128/types.nepl", int128TypesModule, 80],
-    ["stdlib/core/math/int128/u128.nepl", int128U128Module, 180],
-    ["stdlib/core/math/int128/i128.nepl", int128I128Module, 180],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 
 for (const [moduleName, pattern] of [
     ["arith", /pub\s+#import\s+"\.\/i32\/arith"\s+as\s+@merge/],
@@ -157,18 +137,6 @@ for (const [moduleName, pattern] of [
     assert.match(i32Module, pattern, `core/math/i32.nepl must re-export the ${moduleName} i32 submodule`);
 }
 assert.doesNotMatch(i32Module, /^fn\s+/m, "core/math/i32.nepl must remain a facade without function bodies");
-for (const [relPath, src, maxLines] of [
-    ["stdlib/core/math/i32.nepl", i32Module, 80],
-    ["stdlib/core/math/i32/arith.nepl", i32ArithModule, 340],
-    ["stdlib/core/math/i32/bitwise.nepl", i32BitwiseModule, 80],
-    ["stdlib/core/math/i32/bitwise/binary.nepl", i32BitwiseBinaryModule, 140],
-    ["stdlib/core/math/i32/bitwise/shift.nepl", i32BitwiseShiftModule, 220],
-    ["stdlib/core/math/i32/bitwise/count.nepl", i32BitwiseCountModule, 160],
-    ["stdlib/core/math/i32/compare.nepl", i32CompareModule, 360],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 for (const [moduleName, pattern] of [
     ["binary", /pub\s+#import\s+"\.\/bitwise\/binary"\s+as\s+@merge/],
     ["shift", /pub\s+#import\s+"\.\/bitwise\/shift"\s+as\s+@merge/],
@@ -185,18 +153,6 @@ for (const [moduleName, pattern] of [
     assert.match(i64Module, pattern, `core/math/i64.nepl must re-export the ${moduleName} i64 submodule`);
 }
 assert.doesNotMatch(i64Module, /^fn\s+/m, "core/math/i64.nepl must remain a facade without function bodies");
-for (const [relPath, src, maxLines] of [
-    ["stdlib/core/math/i64.nepl", i64Module, 80],
-    ["stdlib/core/math/i64/arith.nepl", i64ArithModule, 360],
-    ["stdlib/core/math/i64/bitwise.nepl", i64BitwiseModule, 80],
-    ["stdlib/core/math/i64/bitwise/binary.nepl", i64BitwiseBinaryModule, 140],
-    ["stdlib/core/math/i64/bitwise/shift.nepl", i64BitwiseShiftModule, 220],
-    ["stdlib/core/math/i64/bitwise/count.nepl", i64BitwiseCountModule, 160],
-    ["stdlib/core/math/i64/compare.nepl", i64CompareModule, 360],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 for (const [moduleName, pattern] of [
     ["binary", /pub\s+#import\s+"\.\/bitwise\/binary"\s+as\s+@merge/],
     ["shift", /pub\s+#import\s+"\.\/bitwise\/shift"\s+as\s+@merge/],
@@ -213,15 +169,6 @@ for (const [moduleName, pattern] of [
     assert.match(f32Module, pattern, `core/math/f32.nepl must re-export the ${moduleName} f32 submodule`);
 }
 assert.doesNotMatch(f32Module, /^fn\s+/m, "core/math/f32.nepl must remain a facade without function bodies");
-for (const [relPath, src, maxLines] of [
-    ["stdlib/core/math/f32.nepl", f32Module, 80],
-    ["stdlib/core/math/f32/binary.nepl", f32BinaryModule, 280],
-    ["stdlib/core/math/f32/unary.nepl", f32UnaryModule, 260],
-    ["stdlib/core/math/f32/compare.nepl", f32CompareModule, 240],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 for (const [moduleName, pattern] of [
     ["binary", /pub\s+#import\s+"\.\/f64\/binary"\s+as\s+@merge/],
     ["unary", /pub\s+#import\s+"\.\/f64\/unary"\s+as\s+@merge/],
@@ -230,15 +177,6 @@ for (const [moduleName, pattern] of [
     assert.match(f64Module, pattern, `core/math/f64.nepl must re-export the ${moduleName} f64 submodule`);
 }
 assert.doesNotMatch(f64Module, /^fn\s+/m, "core/math/f64.nepl must remain a facade without function bodies");
-for (const [relPath, src, maxLines] of [
-    ["stdlib/core/math/f64.nepl", f64Module, 80],
-    ["stdlib/core/math/f64/binary.nepl", f64BinaryModule, 280],
-    ["stdlib/core/math/f64/unary.nepl", f64UnaryModule, 260],
-    ["stdlib/core/math/f64/compare.nepl", f64CompareModule, 240],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 
 for (const [moduleName, pattern] of [
     ["arith", /pub\s+#import\s+"\.\/u8\/arith"\s+as\s+@merge/],
@@ -247,14 +185,6 @@ for (const [moduleName, pattern] of [
     assert.match(u8Module, pattern, `core/math/u8.nepl must re-export the ${moduleName} u8 submodule`);
 }
 assert.doesNotMatch(u8Module, /^fn\s+/m, "core/math/u8.nepl must remain a facade without function bodies");
-for (const [relPath, src, maxLines] of [
-    ["stdlib/core/math/u8.nepl", u8Module, 80],
-    ["stdlib/core/math/u8/arith.nepl", u8ArithModule, 240],
-    ["stdlib/core/math/u8/compare.nepl", u8CompareModule, 260],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 
 for (const fnName of [
     "add_u8",

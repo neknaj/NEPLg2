@@ -32,8 +32,6 @@ for (const relPath of PRELUDE_SPLIT_FILES) {
     );
 
     const source = readRepoFile(repoRoot, relPath);
-    const lineCount = source.trimEnd().split("\n").length;
-    assert.ok(lineCount <= 450, `${relPath} must stay below the prelude split line budget, got ${lineCount}`);
     assert.doesNotMatch(
         source,
         /#import "\.\.\/prelude" as \*|#import "neplg2\/core\/builtins\/prelude" as \*/,

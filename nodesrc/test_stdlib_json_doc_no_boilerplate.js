@@ -3,8 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
-
 const repoRoot = path.resolve(__dirname, '..');
 const files = {
     facade: 'stdlib/alloc/encoding/json.nepl',
@@ -56,16 +54,6 @@ assert.match(
     `${files.facade} must stay a public facade over the responsibility modules`
 );
 assert.doesNotMatch(srcByFile.facade, /^(?:fn|enum|struct)\s/m, `${files.facade} must not reintroduce implementation bodies`);
-
-for (const [key, src] of Object.entries(srcByFile)) {
-    const relPath = files[key];
-    const lineCount = implementationLineCount(src);
-    if (key === 'facade') {
-        assert.ok(lineCount <= 80, `${relPath} facade must stay small`);
-    } else {
-        assert.ok(lineCount <= 240, `${relPath} must stay below the stdlib split review limit`);
-    }
-}
 
 for (const key of ['facade', 'types', 'builders', 'access', 'escape', 'serialize']) {
     assert.doesNotMatch(

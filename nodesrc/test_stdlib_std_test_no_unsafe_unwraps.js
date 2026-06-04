@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -32,18 +31,6 @@ const typesCode = stripComments(typesSrc);
 const assertionCode = stripComments(assertionSrc);
 const reportCode = stripComments(reportSrc);
 const code = [rootCode, typesCode, assertionCode, reportCode].join('\n');
-
-const lineLimits = [
-    [modulePaths.root, rootSrc, 80],
-    [modulePaths.types, typesSrc, 220],
-    [modulePaths.assertion, assertionSrc, 320],
-    [modulePaths.report, reportSrc, 300],
-];
-
-for (const [relPath, src, maxLines] of lineLimits) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 
 const forbidden = [
     /\bunwrap\b/,

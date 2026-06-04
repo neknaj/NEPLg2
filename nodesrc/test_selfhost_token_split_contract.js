@@ -32,8 +32,6 @@ for (const relPath of TOKEN_SPLIT_FILES) {
     );
 
     const source = readRepoFile(repoRoot, relPath);
-    const lineCount = source.trimEnd().split("\n").length;
-    assert.ok(lineCount <= 450, `${relPath} must stay below the token split line budget, got ${lineCount}`);
     assert.doesNotMatch(source, /#import "\.\.\/token" as \*|#import "neplg2\/core\/syntax\/token" as \*/, `${relPath} must not import the facade`);
 }
 

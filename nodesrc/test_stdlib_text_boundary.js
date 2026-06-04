@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -110,14 +109,5 @@ assert.match(
     'std/text/convert must validate bytes before io_bytebuf_to_str_result',
 );
 
-for (const [relPath, src, limit] of [
-    [rootRelPath, read(rootRelPath), 80],
-    [validateRelPath, read(validateRelPath), 240],
-    [decodeRelPath, read(decodeRelPath), 200],
-    [convertRelPath, read(convertRelPath), 100],
-]) {
-    const lines = implementationLineCount(src);
-    assert(lines <= limit, `${relPath} has ${lines} lines; split limit is ${limit}`);
-}
 
 console.log('stdlib text boundary regression passed');

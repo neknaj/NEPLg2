@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const {
     stripNeplComments,
-    implementationLineCount,
 } = require('./nepl_source_view');
 
 function assertByteBuilderOwnerBoundary(code) {
@@ -291,7 +290,6 @@ function assertStringBuilderOwnerBoundary(code) {
 
 module.exports = {
     stripNeplComments,
-    implementationLineCount,
     assertByteBuilderOwnerBoundary,
     assertStringBuilderOwnerBoundary,
 };

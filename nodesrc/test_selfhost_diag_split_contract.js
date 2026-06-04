@@ -32,8 +32,6 @@ for (const relPath of DIAG_SPLIT_FILES) {
     );
 
     const source = readRepoFile(repoRoot, relPath);
-    const lineCount = source.trimEnd().split("\n").length;
-    assert.ok(lineCount <= 450, `${relPath} must stay below the diag split line budget, got ${lineCount}`);
     assert.doesNotMatch(
         source,
         /#import "\.\.\/diag" as \*|#import "neplg2\/core\/infra\/diag" as \*/,

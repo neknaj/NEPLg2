@@ -2,7 +2,6 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/rust_source_lines');
 
 const ROOT = path.resolve(__dirname, '..');
 const CORE_SRC = path.join(ROOT, 'nepl-core', 'src');
@@ -219,10 +218,6 @@ function assertNotMatches(text, pattern, label) {
     assert(!pattern.test(text), `${label} must not match ${pattern}`);
 }
 
-function assertLineLimit(filePath, label, limit) {
-    const lines = implementationLineCount(assertFile(filePath, label));
-    assert(lines <= limit, `${label} has ${lines} implementation lines; responsibility split limit is ${limit}`);
-}
 
 function toPosixPath(filePath) {
     return path.relative(ROOT, filePath).split(path.sep).join('/');
@@ -480,7 +475,6 @@ const resourceLowerAggregate = assertFile(
     'resource/lower_aggregate.rs',
 );
 
-assertLineLimit(TYPECHECK_ROOT, 'typecheck.rs', 90);
 
 for (const moduleName of [
     'ascription',
@@ -525,7 +519,6 @@ for (const moduleName of [
     assertContains(typecheckRoot, `mod ${moduleName};`, 'typecheck.rs');
 }
 
-assertLineLimit(path.join(TYPECHECK_DIR, 'control_special.rs'), 'typecheck/control_special.rs', 80);
 assertContains(
     typecheckControlSpecial,
     'pub(super) enum ControlSpecialFunction',
@@ -577,7 +570,6 @@ assertContains(
     'typecheck/prefix_check.rs must construct while special vars through ControlSpecialFunction',
 );
 
-assertLineLimit(path.join(TYPECHECK_DIR, 'extern_import.rs'), 'typecheck/extern_import.rs', 90);
 assertContains(
     typecheckExternImport,
     'pub(super) enum ExternImportModule',
@@ -604,7 +596,6 @@ assertNotContains(
     'typecheck/driver.rs must not hardcode the WASI module spelling in target gates',
 );
 
-assertLineLimit(path.join(TYPECHECK_DIR, 'struct_shape.rs'), 'typecheck/struct_shape.rs', 140);
 assertContains(
     typecheckStructShape,
     'pub(super) enum StructConstructorShape',
@@ -646,7 +637,11 @@ assertNotContains(
     'typecheck/constructor_apply.rs must not reclassify unit-like structs with direct tag indexing',
 );
 
-assertContains(typecheckRoot, 'pub use driver::{typecheck, TypeCheckResult};', 'typecheck.rs');
+assertMatches(
+    typecheckRoot,
+    /pub use driver::\{[\s\S]*\btypecheck\b[\s\S]*\bTypeCheckResult\b[\s\S]*\};/,
+    'typecheck.rs must re-export the public driver entry and result type',
+);
 assertContains(
     intrinsicKinds,
     'fn from_intrinsic_name',
@@ -688,7 +683,6 @@ assertContains(
     'ScalarIntrinsicKind must own backend lowering semantics',
 );
 assertContains(coreLib, 'mod scalar_primitives;', 'lib.rs');
-assertLineLimit(SCALAR_PRIMITIVES, 'scalar_primitives.rs', 200);
 assertContains(
     scalarPrimitives,
     'pub(crate) enum I32ArithmeticPrimitive',
@@ -932,7 +926,6 @@ for (const [label, source] of [
     );
 }
 assertContains(coreLib, 'mod backend_scalar_type;', 'lib.rs');
-assertLineLimit(BACKEND_SCALAR_TYPE, 'backend_scalar_type.rs', 160);
 assertContains(
     backendScalarType,
     'pub(crate) enum BackendScalarType',
@@ -1589,7 +1582,6 @@ assertNotContains(
     'intrinsic_is_raw_memory_effect',
     'typecheck/effect_check.rs must not combine marker-list intrinsic checks with operation reclassification',
 );
-assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
 assertContains(
     sourceCapability,
     'mod import_path;',
@@ -1610,7 +1602,6 @@ assertContains(
     'mod raw_operation_compat;',
     'source_capability.rs must keep raw operation compatibility rules in a separate module',
 );
-assertLineLimit(SOURCE_CAPABILITY_IMPORT_PATH, 'source_capability/import_path.rs', 100);
 assertContains(
     sourceCapabilityImportPath,
     'pub(in crate::source_capability) enum SourceCapabilityImportModule',
@@ -1626,91 +1617,6 @@ assertContains(
     'strip_supported_source_extension',
     'source_capability/import_path.rs must normalize supported source file extensions',
 );
-assertLineLimit(
-    SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
-    'source_capability/memory_type_definition.rs',
-    100,
-);
-assertLineLimit(SOURCE_CAPABILITY_BINDING, 'source_capability/binding.rs', 60);
-assertLineLimit(
-    SOURCE_CAPABILITY_CONSTRUCTOR_POSITION,
-    'source_capability/constructor_position.rs',
-    80,
-);
-assertLineLimit(SOURCE_CAPABILITY_FIELD_SELECTOR, 'source_capability/field_selector.rs', 60);
-assertLineLimit(SOURCE_CAPABILITY_PREFIX_CALL, 'source_capability/prefix_call.rs', 80);
-assertLineLimit(
-    SOURCE_CAPABILITY_RAW_EVIDENCE_GATE,
-    'source_capability/raw_evidence_gate.rs',
-    60,
-);
-assertLineLimit(
-    SOURCE_CAPABILITY_RAW_OPERATION_PROOF,
-    'source_capability/raw_operation_proof.rs',
-    80,
-);
-assertLineLimit(
-    SOURCE_CAPABILITY_RAW_BODY_OPERATION_COMPAT,
-    'source_capability/raw_body_operation_compat.rs',
-    90,
-);
-assertLineLimit(
-    SOURCE_CAPABILITY_RAW_OPERATION_COMPAT,
-    'source_capability/raw_operation_compat.rs',
-    70,
-);
-assertLineLimit(SOURCE_CAPABILITY_RULE, 'source_capability/rule.rs', 240);
-assertLineLimit(
-    SOURCE_CAPABILITY_COLLECTION_SLOT,
-    'source_capability/collection_slot.rs',
-    80,
-);
-assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 276);
-assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 554);
-assertLineLimit(SOURCE_CAPABILITY_PROOF_BUILDER, 'source_capability/proof_builder.rs', 121);
-assertLineLimit(
-    SOURCE_CAPABILITY_TOP_LEVEL_RAW_CALLS,
-    'source_capability/top_level_raw_calls.rs',
-    120,
-);
-assertLineLimit(RESOURCE_PRIMITIVES, 'resource_primitives.rs', 40);
-assertLineLimit(
-    RESOURCE_PRIMITIVES_COMPILER_MEMORY,
-    'resource_primitives/compiler_memory.rs',
-    130,
-);
-assertLineLimit(
-    RESOURCE_PRIMITIVES_MEMORY_HELPER,
-    'resource_primitives/memory_helper.rs',
-    90,
-);
-assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 40);
-assertLineLimit(
-    SOURCE_CAPABILITY_RAW_MEMORY_EVIDENCE,
-    'source_capability/raw_memory/evidence.rs',
-    120,
-);
-assertLineLimit(
-    SOURCE_CAPABILITY_OWNER_AGGREGATE,
-    'source_capability/owner_aggregate.rs',
-    60,
-);
-assertLineLimit(
-    SOURCE_CAPABILITY_OWNER_AGGREGATE_CONTEXT,
-    'source_capability/owner_aggregate/context.rs',
-    110,
-);
-assertLineLimit(
-    SOURCE_CAPABILITY_OWNER_AGGREGATE_EVIDENCE,
-    'source_capability/owner_aggregate/evidence.rs',
-    130,
-);
-assertLineLimit(
-    SOURCE_CAPABILITY_OWNER_AGGREGATE_FIELD_IMPORTS,
-    'source_capability/owner_aggregate/field_imports.rs',
-    110,
-);
-assertLineLimit(SOURCE_CAPABILITY_SCOPE, 'source_capability/scope.rs', 100);
 assertNotContains(
     sourceMap,
     'pub enum SourceCapability {',
@@ -2228,7 +2134,6 @@ assertContains(
     'mod fact;',
     'source_capability.rs must keep evidence-to-fact conversion in a separate module',
 );
-assertLineLimit(SOURCE_CAPABILITY_FACT, 'source_capability/fact.rs', 80);
 assertContains(
     sourceCapabilityRule,
     'owner_aggregate_symbol_evidence',
@@ -3109,17 +3014,6 @@ for (const filePath of walkRustFiles(CORE_SRC)) {
     assertNotContains(text, 'splitn(2, "::")', rel);
 }
 
-for (const [moduleName, limit] of [
-    ['driver.rs', 1704],
-    ['compiler_memory_type.rs', 90],
-    ['prefix_check.rs', 2266],
-    ['call_resolution.rs', 760],
-    ['block_check.rs', 700],
-    ['overload_selection.rs', 460],
-    ['selected_call_apply.rs', 420],
-]) {
-    assertLineLimit(path.join(TYPECHECK_DIR, moduleName), `typecheck/${moduleName}`, limit);
-}
 
 assertMissing(MOVE_CHECK_ROOT, 'legacy passes/move_check.rs');
 assertMissing(MOVE_CHECK_DIR, 'legacy passes/move_check directory');

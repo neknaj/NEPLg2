@@ -108,27 +108,6 @@ for (const [name, src] of [
 ]) {
     assert.doesNotMatch(src, /^(?:pub\s+)?(?:fn|struct|enum)\s+/m, `${name} must stay an implementation-free facade`);
 }
-for (const [name, src] of [
-    ["proof/domain.nepl", proofDomain],
-    ["proof/fact/model.nepl", proofFactModel],
-    ["proof/evidence.nepl", proofEvidence],
-    ["proof/refutation.nepl", proofRefutation],
-    ["proof/query/model.nepl", proofQueryModel],
-    ["proof/solver/dispatch.nepl", proofSolverDispatch],
-    ["proof/solver/source.nepl", proofSolverSource],
-    ["proof/solver/module.nepl", proofSolverModule],
-    ["proof/solver/resource.nepl", proofSolverResource],
-    ["proof/solver/type.nepl", proofSolverType],
-    ["proof/solver/effect.nepl", proofSolverEffect],
-    ["proof/api/source.nepl", proofApiSource],
-    ["proof/api/module.nepl", proofApiModule],
-    ["proof/api/resource.nepl", proofApiResource],
-    ["proof/api/type.nepl", proofApiType],
-    ["proof/api/effect.nepl", proofApiEffect],
-]) {
-    assert.ok(src.split("\n").length <= 450, `${name} must remain below the proof split threshold`);
-}
-
 assert.match(proofFact, /pub enum SelfhostProofDomain:/, "proof domain must be a typed enum");
 assert.match(proofFact, /pub enum SelfhostProofFact:/, "proof facts must be typed enum payloads");
 assert.match(proofObligation, /pub enum SelfhostProofObligation:/, "proof obligations must be typed enum payloads");

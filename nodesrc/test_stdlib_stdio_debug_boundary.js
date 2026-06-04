@@ -5,7 +5,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
     stripNeplComments,
-    implementationLineCount,
     fnSignaturePattern,
 } = require('./source_policy/nepl_source_view');
 
@@ -73,9 +72,5 @@ assert.match(
     new RegExp(`#if\\[profile=release\\][\\s\\S]*${fnSignaturePattern('debug', ['str'], 'unit', { effect: 'impure' })}\\s+\\\\_s:[\\s\\S]*\\bunit\\b`),
     'release profile debug must stay no-op',
 );
-
-assert.ok(implementationLineCount(debugSrc) <= 60, `${debugRelPath} must stay within the facade boundary`);
-assert.ok(implementationLineCount(enabledSrc) <= 190, `${enabledRelPath} must stay within the debug profile boundary`);
-assert.ok(implementationLineCount(disabledSrc) <= 210, `${disabledRelPath} must stay within the release profile boundary`);
 
 console.log('stdlib stdio debug boundary regression passed');

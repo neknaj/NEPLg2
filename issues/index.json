@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T20:51:59.075Z",
+  "generated_at": "2026-06-04T21:08:42.622Z",
   "counts": {
-    "total": 1341,
+    "total": 1342,
     "open": 51,
-    "resolved": 1290,
+    "resolved": 1291,
     "by_area": {
       "stdlib": {
         "total": 349,
@@ -87,9 +87,9 @@
         "resolved": 8
       },
       "nodesrc": {
-        "total": 15,
+        "total": 16,
         "open": 0,
-        "resolved": 15
+        "resolved": 16
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -11033,6 +11033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T231155242Z-VEC-POP-POLICY-AND-DOCS-STILL-DESCRI-54A525A5.md"
+    },
+    {
+      "id": "ISS-20260604T205909858Z-SOURCE-POLICY-SHOULD-NOT-ENFORCE-LIN-0E40D072",
+      "title": "source policy should not enforce line count limits",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "nodesrc/test_* nodesrc/source_policy",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T205909858Z-SOURCE-POLICY-SHOULD-NOT-ENFORCE-LIN-0E40D072.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",

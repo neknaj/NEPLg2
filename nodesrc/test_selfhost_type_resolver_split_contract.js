@@ -32,8 +32,6 @@ for (const relPath of TYPE_RESOLVER_SPLIT_FILES) {
     );
 
     const source = readRepoFile(repoRoot, relPath);
-    const lineCount = source.trimEnd().split("\n").length;
-    assert.ok(lineCount <= 450, `${relPath} must stay below the type resolver split line budget, got ${lineCount}`);
     assert.doesNotMatch(
         source,
         /#import "\.\.\/type_resolver" as \*|#import "neplg2\/core\/resolve\/type_resolver" as \*/,

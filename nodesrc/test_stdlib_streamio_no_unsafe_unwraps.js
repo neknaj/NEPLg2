@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -69,26 +68,6 @@ const scannerNumberCode = legacyTypeSyntaxView(scannerNumberSrc);
 const scannerNumberIntCode = legacyTypeSyntaxView(scannerNumberIntSrc);
 const scannerNumberFloatCode = legacyTypeSyntaxView(scannerNumberFloatSrc);
 const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${outputTypesCode}\n${outputStdoutCode}\n${outputStderrCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${writerAppendTextCode}\n${writerAppendByteBufCode}\n${writerAppendIntegerCode}\n${writerAppendFloatCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
-
-for (const [modulePath, srcText, maxLines] of [
-    [relPath, src, 90],
-    [inputRelPath, inputSrc, 220],
-    [outputRelPath, outputSrc, 80],
-    [outputTypesRelPath, outputTypesSrc, 90],
-    [outputStdoutRelPath, outputStdoutSrc, 180],
-    [outputStderrRelPath, outputStderrSrc, 180],
-    [writerAppendRelPath, writerAppendSrc, 80],
-    [writerAppendTextRelPath, writerAppendTextSrc, 80],
-    [writerAppendByteBufRelPath, writerAppendByteBufSrc, 110],
-    [writerAppendIntegerRelPath, writerAppendIntegerSrc, 180],
-    [writerAppendFloatRelPath, writerAppendFloatSrc, 130],
-    [scannerNumberRelPath, scannerNumberSrc, 80],
-    [scannerNumberIntRelPath, scannerNumberIntSrc, 240],
-    [scannerNumberFloatRelPath, scannerNumberFloatSrc, 220],
-]) {
-    const lineCount = implementationLineCount(srcText);
-    assert.ok(lineCount <= maxLines, `${modulePath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 
 assert.match(
     facadeCode,

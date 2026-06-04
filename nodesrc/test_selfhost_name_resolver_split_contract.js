@@ -32,8 +32,6 @@ for (const relPath of NAME_RESOLVER_SPLIT_FILES) {
     );
 
     const source = readRepoFile(repoRoot, relPath);
-    const lineCount = source.trimEnd().split("\n").length;
-    assert.ok(lineCount <= 450, `${relPath} must stay below the name resolver split line budget, got ${lineCount}`);
     assert.doesNotMatch(
         source,
         /#import "\.\.\/name_resolver" as \*|#import "neplg2\/core\/resolve\/name_resolver" as \*/,

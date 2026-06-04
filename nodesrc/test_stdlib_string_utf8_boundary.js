@@ -4,7 +4,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
@@ -43,7 +42,5 @@ assert.match(utf8Code, /fn\s+string_utf8_byte_at_checked\b[\s\S]*or\s+lt\s+idx\s
 assert.doesNotMatch(utf8Code, /\bload_u8\s+mem_ptr_add\s+data\s+idx\b/, "private UTF-8 byte reader must not hide mem_ptr_add in argument position");
 assert.match(utf8Code, /\bstring_utf8_byte_at_checked\s+data\s+byte_len\s+i\b/, "full validation must use the checked byte reader for the leading byte");
 assert.match(utf8Code, /fn\s+string_utf8_validate_mem\b[\s\S]*match\s+string_utf8_lead_kind\s+b0:[\s\S]*StringUtf8LeadKind::Ascii:[\s\S]*StringUtf8LeadKind::Two:[\s\S]*StringUtf8LeadKind::Three:[\s\S]*StringUtf8LeadKind::Four:[\s\S]*StringUtf8LeadKind::Invalid:/, "alloc/string/utf8 validation must branch with exhaustive enum match");
-
-assert.ok(implementationLineCount(utf8) <= 260, `${utf8RelPath} must stay below 260 implementation lines`);
 
 console.log("alloc/string utf8 boundary regression passed");

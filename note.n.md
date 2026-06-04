@@ -50586,3 +50586,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - valid な empty / singleton は成功 no-op として `Result::Ok` を返し、invalid metadata / invalid data view は `StdErrorKind::InvalidOperation`、merge scratch allocation failure は `StdErrorKind::OutOfMemory` として返す。
 - source policy は sort signature、owner recovery surface、old generic postfix cleanup、silent no-op branch の再導入検査を更新した。issue `ISS-20260604T034125199Z-VEC-SORT-VARIANTS-HANDLE-INVALID-MET-1475F2ED` は resolved に更新した。
 - focused verification は sort / collection source policy 群、NEPLg2.1 postfix / prose policy、`tests/stdlib/sort.n.md`、`tests/stdlib/sort_simple.n.md`、`tests/stdlib/traits_order.n.md`、`tests/stdlib/collection_cleanup_contract.n.md` の 81/81 を通した。
+
+## 2026-06-05 Agent source policy line-count limit removal checkpoint
+
+- Zenn の開発方針と stdlib/selfhost の doc comment 方針を再確認し、丁寧なコメント、contract、計算量、制約、doctest を行数上限で抑制する検査は不適切と判断した。
+- `nodesrc/test_selfhost_*_split_contract.js`、Rust compiler responsibility policy、stdlib boundary policy から、file lines / implementation lines / split threshold / line budget による上限検査を削除した。
+- facade が implementation body を持たないこと、split module が facade へ逆依存しないこと、必要な re-export が残ること、raw memory / unsafe unwrap / owner boundary が正しい module に残ることなど、構造的な責務検査は維持した。
+- `implementationLineCount` helper と `nodesrc/source_policy/rust_source_lines.js` を削除し、source policy 側に行数測定 API を残さないようにした。
+- `nodesrc/test_source_policy_no_line_count_limits.js` を追加し、`nodesrc/test_*.js` と `nodesrc/source_policy` に行数上限検査が再導入されないことを検査する。
+- `doc/stdlib_doc_comment_policy.md` と `doc/neplg2/parser_backend_responsibility_split_plan.md` は、行数しきい値ではなく構造的責務境界を監視する方針へ更新した。
+- issue `ISS-20260604T205909858Z-SOURCE-POLICY-SHOULD-NOT-ENFORCE-LIN-0E40D072` を作成し、対応内容を fixed として記録した。
+- focused verification は changed JS の `node --check`、変更済み `nodesrc/test_*.js` 実行、`node nodesrc/test_source_policy_no_line_count_limits.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、未コミットの別 selfhost type resolver 差分と既存 policy gap に由来する warning が 4 件残っている。

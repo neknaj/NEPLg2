@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -83,9 +82,6 @@ assert.match(
     /fn\s+to_f64[\s\S]*let\s+mut\s+has_digit\s+<i32>\s+0[\s\S]*eq\s+has_digit\s+0[\s\S]*set\s+parse_ok\s+0/,
     'to_f64 must reject strings without any digit',
 );
-assert.ok(implementationLineCount(floatSrc) <= 80, `${floatRelPath} should stay within the float facade boundary`);
-assert.ok(implementationLineCount(formatSrc) <= 330, `${formatRelPath} should stay within the float format boundary`);
-assert.ok(implementationLineCount(parseSrc) <= 300, `${parseRelPath} should stay within the float parse boundary`);
 assert.match(formatCode, /\b(?:mem_ptr_addr|store_u8|mem_copy|RegionToken)\b/, 'string/float/format must carry source-level raw memory evidence');
 assert.doesNotMatch(floatCode, /\b(?:mem_ptr_addr|store_u8|load_u8|mem_copy|RegionToken)\b/, 'string/float facade must not carry direct raw memory evidence');
 

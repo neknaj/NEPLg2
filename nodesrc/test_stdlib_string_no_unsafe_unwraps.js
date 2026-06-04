@@ -5,7 +5,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
     stripNeplComments,
-    implementationLineCount,
     assertStringBuilderOwnerBoundary,
 } = require('./source_policy/stdlib_builder_owner');
 
@@ -155,10 +154,6 @@ assert.match(searchCompareCode, /fn\s+str_starts_with_at\s+/, 'alloc/string/sear
 assert.match(searchCompareCode, /fn\s+str_range_eq\s+/, 'alloc/string/search/compare must own range equality');
 assert.match(searchBoundaryCode, /fn\s+str_utf8_is_boundary\s+/, 'alloc/string/search/boundary must validate UTF-8 slice boundaries');
 assert.match(searchByteFindCode, /fn\s+str_find\s+/, 'alloc/string/search/byte_find must own byte find loops');
-assert.ok(implementationLineCount(searchSrc) <= 35, 'alloc/string/search facade should stay small');
-assert.ok(implementationLineCount(searchCompareSrc) <= 270, 'alloc/string/search/compare should stay narrowly scoped');
-assert.ok(implementationLineCount(searchBoundarySrc) <= 75, 'alloc/string/search/boundary should stay narrowly scoped');
-assert.ok(implementationLineCount(searchByteFindSrc) <= 125, 'alloc/string/search/byte_find should stay narrowly scoped');
 assert.match(code, /pub\s+#import\s+"\.\/string\/concat"\s+as\s+\*/, 'alloc/string must re-export concat APIs');
 assert.match(code, /pub\s+#import\s+"\.\/string\/builder_ext"\s+as\s+\*/, 'alloc/string must re-export StringBuilder extension APIs');
 assert.match(code, /pub\s+#import\s+"\.\/string\/find"\s+as\s+\*/, 'alloc/string must re-export Option-returning find API');

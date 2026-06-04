@@ -5,7 +5,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
     stripNeplComments,
-    implementationLineCount,
     fnSignaturePattern,
     structFieldPattern,
 } = require('./source_policy/nepl_source_view');
@@ -38,18 +37,6 @@ const appendFloatCode = stripNeplComments(appendFloatSrc);
 const code = [rootCode, stateCode, appendCode, appendTextCode, appendByteBufCode, appendIntegerCode, appendFloatCode].join('\n');
 const facadeCode = stripNeplComments(facade);
 
-for (const [relPath, src, maxLines] of [
-    [writerRelPath, rootSrc, 180],
-    [stateRelPath, stateSrc, 240],
-    [appendRelPath, appendSrc, 80],
-    [appendTextRelPath, appendTextSrc, 80],
-    [appendByteBufRelPath, appendByteBufSrc, 110],
-    [appendIntegerRelPath, appendIntegerSrc, 180],
-    [appendFloatRelPath, appendFloatSrc, 130],
-]) {
-    const lineCount = implementationLineCount(src);
-    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
-}
 
 assert.match(
     facadeCode,

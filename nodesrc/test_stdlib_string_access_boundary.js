@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
 const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -104,7 +103,5 @@ assert.match(
     /fn\s+string_bytes_cmp[\s\S]*Option<i32>[\s\S]*match\s+checked_string_byte_at\s+a\s+a_idx:[\s\S]*match\s+checked_string_byte_at\s+b\s+b_idx:[\s\S]*some\s+-1[\s\S]*some\s+1[\s\S]*some\s+0/,
     'string_bytes_cmp must expose byte ordering only after checked evidence for both strings',
 );
-assert.ok(implementationLineCount(accessSrc) <= 130, `${accessRelPath} should stay narrowly scoped`);
-assert.ok(implementationLineCount(byteIndexSrc) <= 180, `${byteIndexRelPath} should stay narrowly scoped`);
 
 console.log('alloc/string access boundary regression passed');

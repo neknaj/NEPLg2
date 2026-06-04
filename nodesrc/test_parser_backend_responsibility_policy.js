@@ -3,7 +3,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const { implementationLineCount } = require("./source_policy/rust_source_lines");
 
 const ROOT = path.resolve(__dirname, "..");
 const CORE_SRC = path.join(ROOT, "nepl-core", "src");
@@ -22,12 +21,6 @@ function assert(condition, message) {
 
 function assertContains(text, needle, label) {
     assert(text.includes(needle), `${label} must contain ${needle}`);
-}
-
-function assertLineLimit(relativePath, limit) {
-    const filePath = path.join(ROOT, relativePath);
-    const lines = implementationLineCount(read(filePath));
-    assert(lines <= limit, `${relativePath} has ${lines} implementation lines; responsibility freeze limit is ${limit}`);
 }
 
 const plan = read(PLAN);
@@ -57,20 +50,6 @@ assertContains(
     "parser root",
 );
 assertContains(parser, "use type_expr::parse_type_expr_str;", "parser root");
-
-assertLineLimit("nepl-core/src/parser.rs", 4170);
-assertLineLimit("nepl-core/src/parser/type_expr.rs", 100);
-assertLineLimit("nepl-core/src/codegen_wasm.rs", 2525);
-assertLineLimit("nepl-core/src/codegen_wasm/local_map.rs", 120);
-assertLineLimit("nepl-core/src/codegen_wasm/string_data.rs", 80);
-assertLineLimit("nepl-core/src/codegen_wasm/aggregate.rs", 40);
-assertLineLimit("nepl-core/src/codegen_wasm/enum_helpers.rs", 80);
-assertLineLimit("nepl-core/src/codegen_llvm.rs", 4188);
-assertLineLimit("nepl-core/src/codegen_llvm/type_map.rs", 40);
-assertLineLimit("nepl-core/src/codegen_llvm/aggregate.rs", 40);
-assertLineLimit("nepl-core/src/monomorphize.rs", 1425);
-assertLineLimit("nepl-core/src/monomorphize/trait_identity.rs", 45);
-assertLineLimit("nepl-core/src/monomorphize/trait_lookup.rs", 90);
 
 const wasmRoot = read(path.join(CORE_SRC, "codegen_wasm.rs"));
 assertContains(wasmRoot, "mod local_map;", "wasm backend root");

@@ -12,13 +12,6 @@ function stripNeplComments(src) {
         .join("\n");
 }
 
-function implementationLineCount(src) {
-    return stripNeplComments(src)
-        .split(/\r?\n/)
-        .filter((line) => line.trim().length > 0)
-        .length;
-}
-
 function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -272,7 +265,6 @@ function parseLegacyFnType(tokens, index, effect) {
 
 module.exports = {
     stripNeplComments,
-    implementationLineCount,
     legacyTypeSyntaxView,
     typeExprPattern,
     typeAnnotationPattern,

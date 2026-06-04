@@ -11,10 +11,6 @@ function read(rel) {
     return fs.readFileSync(path.join(repoRoot, rel), "utf8").replace(/\r\n/g, "\n");
 }
 
-function lineCount(src) {
-    return src.trimEnd().split("\n").length;
-}
-
 const moveStateFacadePath = "stdlib/neplg2/core/resource/move_state.nepl";
 const initCellPath = "stdlib/neplg2/core/resource/init/cell.nepl";
 const proofFactModel = read("stdlib/neplg2/core/proof/fact/model.nepl");
@@ -51,7 +47,6 @@ assert.doesNotMatch(
     /"[A-Za-z0-9_.:-]+"/,
     "Resource cell model must not depend on string codes or module names",
 );
-assert.ok(lineCount(initCell) <= 220, `${initCellPath} must stay below the resource init split threshold`);
 assert.doesNotMatch(
     initCell,
     /#import "neplg2\/core\/proof"/,

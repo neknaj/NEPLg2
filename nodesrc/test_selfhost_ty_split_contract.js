@@ -50,8 +50,6 @@ for (const importPath of ["./kind/model", "./kind/eq", "./kind/name"]) {
 
 for (const relPath of TY_SPLIT_FILES) {
     const source = readRepoFile(repoRoot, relPath);
-    const lineCount = source.trimEnd().split("\n").length;
-    assert.ok(lineCount <= 450, `${relPath} must stay below the type split line budget, got ${lineCount}`);
     assert.doesNotMatch(
         source,
         /#import "\.\.\/ty" as \*|#import "\.\.\/\.\.\/ty" as \*|#import "neplg2\/core\/ty\/ty" as \*/,

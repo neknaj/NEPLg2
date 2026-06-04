@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { stripNeplComments } = require('./source_policy/stdlib_builder_owner');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -54,6 +54,5 @@ assert.doesNotMatch(
     /Result<Vec<str>|Result<Vec<i32>/,
     'string/split must not reintroduce allocation-bearing split result vectors',
 );
-assert.ok(implementationLineCount(splitSrc) <= 180, `${splitRelPath} should stay narrowly scoped`);
 
 console.log('alloc/string split boundary regression passed');

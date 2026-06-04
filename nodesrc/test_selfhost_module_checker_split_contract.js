@@ -121,17 +121,6 @@ const expectedPublicSurface = [
 ];
 assert.deepEqual(Array.from(publicSurface).sort(), expectedPublicSurface.sort());
 
-for (const [name, src] of [
-    ["module/summary.nepl", summary],
-    ["module/summary_update.nepl", summaryUpdate],
-    ["module/diagnostic.nepl", diagnostic],
-    ["module/raw_backend_adapter.nepl", rawAdapter],
-    ["module/declaration_adapter.nepl", declarationAdapter],
-    ["module/orchestrate.nepl", orchestrate],
-]) {
-    assert.ok(src.split("\n").length <= 220, `${name} must remain below the module checker split threshold`);
-}
-
 assert.doesNotMatch(
     implementation,
     /if:\s*\n\s+gt\s+summary\.(?:entry_count|target_count)\s+1/,

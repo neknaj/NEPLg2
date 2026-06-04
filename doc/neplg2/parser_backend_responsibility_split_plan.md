@@ -28,7 +28,7 @@
 | `nepl-core/src/codegen_llvm.rs` | 4184 | LLVM IR text lowering、raw LLVM body handling、entry / target preparation が残る。HIR type mapping と aggregate field selector は分離済み。 |
 | `nepl-core/src/monomorphize.rs` | 1454 | trait impl indexing、call specialization、runtime helper selection、unresolved trait call reporting が集中している。 |
 
-これらの line limit は完成形ではなく、これ以上の責務増加を防ぐ凍結線である。新規機能や大きな修正が必要な場合は、まず下記の分割 stage に従って責務を切り出してから実装する。
+これらの数値は、2026-05時点で parser / backend / monomorphize が巨大 file として残っていた事実を示す参考 baseline である。2026-06-05 以降の source policy は、丁寧な doc comment を妨げないため、行数上限を責務境界として使わない。新規機能や大きな修正が必要な場合は、実際に混在している責務を読み、下記の分割 stage に従って意味単位を切り出してから実装する。
 
 ## 分割原則
 
@@ -43,7 +43,7 @@
 ### P0: policy freeze
 
 - `parser.rs` の重複 module doc を除去する。
-- `nodesrc/test_parser_backend_responsibility_policy.js` で baseline line limit、重複 doc 禁止、責務分割計画の存在を監視する。
+- `nodesrc/test_parser_backend_responsibility_policy.js` で重複 doc 禁止、責務分割計画の存在、分割済み module の構造境界を監視する。
 
 ### P1: token stream / recovery
 
@@ -153,17 +153,16 @@
 
 - この計画 document が存在し、P/B/M stage と関連 issue を含む。
 - `parser.rs` の重複 module doc が戻らない。
-- parser/backend/monomorphize の baseline line count を超えて責務を追加しない。
 - `parser/type_expr.rs` が存在し、`#extern` signature 用の type expression parsing が root `parser.rs` へ戻らない。
 - `monomorphize/trait_identity.rs` が存在し、trait / method identity newtype が lookup key module へ戻らない。
 - `monomorphize/trait_lookup.rs` が存在し、trait lookup model が root `monomorphize.rs` へ戻らない。
 - `run_source_policy_regressions.js` から policy が実行される。
 
-今後、実際の分割で module が追加されたら、line limit は新 module へ移し、root file の limit を段階的に下げる。limit を上げて問題を隠すことは禁止する。
+今後、実際の分割で module が追加されたら、行数しきい値ではなく、facade に実装本体が戻らないこと、root module が orchestration に留まること、分割 module が担当する型・helper・lowering entry を構造的に保持することを検査する。
 
 ## 完了条件
 
 1. parser / backend / monomorphize の責務境界が source policy で監視される。
 2. 新規の大きな修正が monolith へ直接積み増されない。
-3. 各 split stage の module 化が進むたびに、root file の line limit が下がる。
+3. 各 split stage の module 化が進むたびに、root file へ分離済み責務が戻らないことを source policy で確認できる。
 4. diagnostic / Resource IR / type safety の責務が parser/backend 側へ逆流しない。

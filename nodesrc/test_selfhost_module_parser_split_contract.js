@@ -32,8 +32,6 @@ for (const relPath of MODULE_PARSER_SPLIT_FILES) {
     );
 
     const source = readRepoFile(repoRoot, relPath);
-    const lineCount = source.trimEnd().split("\n").length;
-    assert.ok(lineCount <= 450, `${relPath} must stay below the module parser split line budget, got ${lineCount}`);
     assert.doesNotMatch(
         source,
         /#import "\.\.\/module_parser" as \*|#import "neplg2\/core\/syntax\/parser\/module_parser" as \*/,

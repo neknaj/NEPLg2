@@ -3,7 +3,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
 const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
@@ -134,23 +133,6 @@ for (const [label, text] of [
         /\b(?:mem_ptr_wrap|mem_ptr_addr|RegionToken|#intrinsic\s+"(?:load|store)"|alloc_raw|dealloc_raw|realloc_raw|mem_copy|load_i32|store_i32|load_u8|store_u8)\b/,
         `${label} must carry source-level raw memory boundary evidence`,
     );
-}
-
-for (const [label, text, limit] of [
-    ["stdlib/core/mem.nepl", root, 120],
-    ["stdlib/core/mem/types.nepl", types, 120],
-    ["stdlib/core/mem/layout.nepl", layout, 180],
-    ["stdlib/core/mem/internal.nepl", internal, 120],
-    ["stdlib/core/mem/raw.nepl", raw, 520],
-    ["stdlib/core/mem/allocator.nepl", allocator, 420],
-    ["stdlib/core/mem/pointer.nepl", pointer, 120],
-    ["stdlib/core/mem/pointer/view.nepl", pointerView, 120],
-    ["stdlib/core/mem/pointer/region.nepl", pointerRegion, 400],
-    ["stdlib/core/mem/pointer/bulk.nepl", pointerBulk, 260],
-    ["stdlib/core/mem/pointer/scalar.nepl", pointerScalar, 160],
-]) {
-    const lines = implementationLineCount(text);
-    assert(lines <= limit, `${label} has ${lines} lines; split boundary limit is ${limit}`);
 }
 
 console.log("stdlib core/mem boundary split policy ok");
