@@ -66,7 +66,8 @@ impl Copy for SelfhostResolvedFunctionType:
 //: - `Applied` は constructor identity と type argument range を保持し、bare named type と generic application を同じ payload に丸めません。
 //:
 //: [現状/げんじょう]:
-//: - generic type parameter は resolved tree では保持できますが、`SelfhostTypeArena` への一般投影はまだ未実装です。projection stage は `UnsupportedTypeParameter` で fail-closed にします。
+//: - generic type parameter は resolved tree で保持した後、projection stage が現在の binder を `binder_depth = 0` とする TypeArena parameter record へ投影します。
+//: - nested generic binder の depth 計算と stable binder identity への永続化は、signature / interface artifact 実装時に追加します。
 pub enum SelfhostResolvedTypeNode:
     Primitive %SelfhostPrimitiveTypeKind
     Named %SelfhostResolvedNamedTypeRef

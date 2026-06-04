@@ -16,8 +16,9 @@
 //:
 //: [目的/もくてき]:
 //: - `SelfhostTypeId` は 1 回の type arena に閉じた index なので、中間ファイルや cache key に直接入れません。
-//: - canonical key は primitive / named / applied / function の構造を key node table と argument table に投影します。
+//: - canonical key は primitive / named / type parameter / applied / function の構造を key node table と argument table に投影します。
 //: - named type は現段階では constructor table の `SelfhostNamedTypeId` を使います。module path と surface hash を含む永続 nominal key は、interface artifact 実装時にこの境界へ追加します。
+//: - type parameter は binder depth と binder 内 index で投影し、source spelling や diagnostic span を key に混ぜません。
 //:
 //: [計算量/けいさんりょう]:
 //: - projection は root から到達する型 record と型引数 edge の数に比例する O(n) です。
@@ -40,6 +41,7 @@ pub struct SelfhostCanonicalFunctionTypeKey:
 pub enum SelfhostCanonicalTypeKeyNode:
     Primitive %SelfhostPrimitiveTypeKind
     Named %SelfhostNamedTypeId
+    Parameter %SelfhostTypeParameterBinding
     Applied %SelfhostCanonicalAppliedTypeKey
     Function %SelfhostCanonicalFunctionTypeKey
 
@@ -337,6 +339,10 @@ fn selfhost_canonical_type_key_project_node %impure fn &SelfhostTypeArena impure
                     let nominal_id %SelfhostNamedTypeId selfhost_named_type_record_id named
                     let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Named nominal_id
                     selfhost_canonical_type_key_push_node key_arena node type_id
+                SelfhostTypeRecord::Parameter parameter:
+                    let binding %SelfhostTypeParameterBinding selfhost_type_parameter_record_binding parameter
+                    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Parameter binding
+                    selfhost_canonical_type_key_push_node key_arena node type_id
                 SelfhostTypeRecord::Applied applied:
                     selfhost_canonical_type_key_project_applied types key_arena type_id applied
                 SelfhostTypeRecord::Function function:
@@ -411,6 +417,12 @@ fn selfhost_canonical_type_key_nodes_equal %fn &SelfhostCanonicalTypeKeyArena fn
             match b:
                 SelfhostCanonicalTypeKeyNode::Named b_named:
                     selfhost_named_type_id_eq a_named b_named
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Parameter a_parameter:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Parameter b_parameter:
+                    selfhost_type_parameter_binding_eq a_parameter b_parameter
                 _:
                     false
         SelfhostCanonicalTypeKeyNode::Applied a_applied:

@@ -122,6 +122,7 @@ pub fn selfhost_type_arena_applied_arg_ranges_equal %fn &SelfhostTypeArena fn Se
 //: [実装/じっそう]:
 //: - primitive type は `SelfhostTypeKind` が一致すれば同形とします。
 //: - named type は source spelling ではなく type constructor table の identity が一致すれば同形とします。
+//: - type parameter は source spelling ではなく binder depth と binder 内 index が一致すれば同形とします。
 //: - applied named type は constructor identity と型引数列の構造が一致すれば同形とします。
 //: - function type は arity、各引数 TypeId の構造、戻り値 TypeId の構造を比較します。
 pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeRecord fn SelfhostTypeRecord bool \arena\a\b:
@@ -134,6 +135,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                     selfhost_type_kind_eq a_general b_general
                 SelfhostTypeRecord::Named _b_named:
                     false
+                SelfhostTypeRecord::Parameter _b_parameter:
+                    false
                 SelfhostTypeRecord::Applied _b_applied:
                     false
                 SelfhostTypeRecord::Function _b_function:
@@ -144,6 +147,20 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                     false
                 SelfhostTypeRecord::Named b_named:
                     selfhost_named_type_id_eq (selfhost_named_type_record_id a_named) (selfhost_named_type_record_id b_named)
+                SelfhostTypeRecord::Parameter _b_parameter:
+                    false
+                SelfhostTypeRecord::Applied _b_applied:
+                    false
+                SelfhostTypeRecord::Function _b_function:
+                    false
+        SelfhostTypeRecord::Parameter a_parameter:
+            match b:
+                SelfhostTypeRecord::Primitive _b_kind:
+                    false
+                SelfhostTypeRecord::Named _b_named:
+                    false
+                SelfhostTypeRecord::Parameter b_parameter:
+                    selfhost_type_parameter_binding_eq (selfhost_type_parameter_record_binding a_parameter) (selfhost_type_parameter_record_binding b_parameter)
                 SelfhostTypeRecord::Applied _b_applied:
                     false
                 SelfhostTypeRecord::Function _b_function:
@@ -153,6 +170,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                 SelfhostTypeRecord::Primitive _b_kind:
                     false
                 SelfhostTypeRecord::Named _b_named:
+                    false
+                SelfhostTypeRecord::Parameter _b_parameter:
                     false
                 SelfhostTypeRecord::Applied b_applied:
                     and:
@@ -165,6 +184,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                 SelfhostTypeRecord::Primitive _b_kind:
                     false
                 SelfhostTypeRecord::Named _b_named:
+                    false
+                SelfhostTypeRecord::Parameter _b_parameter:
                     false
                 SelfhostTypeRecord::Applied _b_applied:
                     false

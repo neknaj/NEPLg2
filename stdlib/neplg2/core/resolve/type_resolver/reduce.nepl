@@ -689,7 +689,7 @@ pub fn selfhost_type_prefix_list_reduce_with_constructors %impure fn str impure 
 //:
 //: [現状/げんじょう]:
 //: - `SelfhostTypeParameterId` は resolver-local identity です。後続の永続 artifact では binder path と signature hash に正規化する必要があります。
-//: - type parameter を `SelfhostTypeArena` へ直接投影する処理はまだ一般化していないため、projection は `UnsupportedTypeParameter` で fail-closed にします。
+//: - type parameter は resolved tree で named constructor と区別して保持し、projection stage が現在 binder の `SelfhostTypeParameterBinding` へ正規化します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 各 named item ごとに constructor lookup と parameter lookup を行うため、`O(m * (c + p))` です。`m` は prefix item 数、`c` は constructor 数、`p` は type parameter 数です。

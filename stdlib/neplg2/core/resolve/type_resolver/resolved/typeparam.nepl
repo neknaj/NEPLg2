@@ -15,7 +15,8 @@
 //: - `span` は diagnostic 表示用であり、canonical key や永続 artifact key へそのまま使いません。
 //:
 //: [現状/げんじょう]:
-//: - resolved tree 上の参照 payload だけを定義します。`SelfhostTypeArena` へ保存する binder-indexed type record は後続 stage で追加します。
+//: - resolved tree 上では resolver-local `SelfhostTypeParameterId` を保持します。
+//: - TypeArena projection では、この id を現在 binder の `SelfhostTypeParameterBinding` へ正規化して保存します。
 pub struct SelfhostResolvedTypeParameterRef:
     parameter_id %SelfhostTypeParameterId
     span %SelfhostSourceSpan

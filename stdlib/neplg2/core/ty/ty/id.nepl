@@ -14,6 +14,24 @@ pub struct SelfhostTypeId:
 pub struct SelfhostNamedTypeId:
     index %i32
 
+//: SelfhostTypeParameterBinding: generic binder 内の type parameter 参照
+//:
+//: [目的/もくてき]:
+//: - `T` / `E` のような generic type parameter を、named type constructor とは別の identity として TypeArena に保存します。
+//: - `binder_depth` は現在の binder を 0 とし、外側 binder へ向かうほど大きくなる index です。
+//: - `parameter_index` は同じ binder 内での宣言順 index です。
+//:
+//: [契約/けいやく]:
+//: - source 上の名前、span、resolver-local node id はこの binding に入れません。
+//: - 同じ binder depth と parameter index の組だけが同じ generic parameter を表します。
+//: - 永続 artifact へ出すときは、この binding を関数や型定義の stable binder identity と組み合わせます。この struct 単体は「どの binder の中か」という文脈なしでは module-global identity ではありません。
+//:
+//: [現状/げんじょう]:
+//: - 現在の type resolver projection は単一 binder environment を深さ 0 として投影します。nested generic binder が入った段階で、呼び出し側が適切な `binder_depth` を渡す境界へ拡張します。
+pub struct SelfhostTypeParameterBinding:
+    binder_depth %i32
+    parameter_index %i32
+
 impl Clone for SelfhostTypeId:
     fn clone %fn &SelfhostTypeId SelfhostTypeId \self:
         *self
@@ -30,6 +48,14 @@ impl Copy for SelfhostNamedTypeId:
     fn copy_mark %fn SelfhostNamedTypeId SelfhostNamedTypeId \self:
         self
 
+impl Clone for SelfhostTypeParameterBinding:
+    fn clone %fn &SelfhostTypeParameterBinding SelfhostTypeParameterBinding \self:
+        *self
+
+impl Copy for SelfhostTypeParameterBinding:
+    fn copy_mark %fn SelfhostTypeParameterBinding SelfhostTypeParameterBinding \self:
+        self
+
 //: selfhost_type_id_new: TypeId を[作/つく]る
 pub fn selfhost_type_id_new %fn i32 SelfhostTypeId \index:
     SelfhostTypeId index
@@ -37,6 +63,17 @@ pub fn selfhost_type_id_new %fn i32 SelfhostTypeId \index:
 //: selfhost_named_type_id_new: named type identity を[作/つく]る
 pub fn selfhost_named_type_id_new %fn i32 SelfhostNamedTypeId \index:
     SelfhostNamedTypeId index
+
+//: selfhost_type_parameter_binding_new_unchecked: type parameter binding を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この関数は unchecked constructor です。通常の caller は resolver / checker が持つ binder environment から得た index を渡します。
+//: - `binder_depth < 0` または `parameter_index < 0` の値は `selfhost_type_parameter_binding_is_valid` が false として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_parameter_binding_new_unchecked %fn i32 fn i32 SelfhostTypeParameterBinding \binder_depth\parameter_index:
+    SelfhostTypeParameterBinding binder_depth parameter_index
 
 //: selfhost_type_id_index: TypeId の arena index を[返/かえ]す
 pub fn selfhost_type_id_index %fn SelfhostTypeId i32 \type_id:
@@ -46,6 +83,25 @@ pub fn selfhost_type_id_index %fn SelfhostTypeId i32 \type_id:
 pub fn selfhost_named_type_id_index %fn SelfhostNamedTypeId i32 \named_id:
     named_id.index
 
+//: selfhost_type_parameter_binding_binder_depth: type parameter binding の binder depth を[返/かえ]す
+pub fn selfhost_type_parameter_binding_binder_depth %fn SelfhostTypeParameterBinding i32 \binding:
+    binding.binder_depth
+
+//: selfhost_type_parameter_binding_parameter_index: type parameter binding の binder 内 index を[返/かえ]す
+pub fn selfhost_type_parameter_binding_parameter_index %fn SelfhostTypeParameterBinding i32 \binding:
+    binding.parameter_index
+
+//: selfhost_type_parameter_binding_is_valid: binding が最小不変条件を満たすか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - TypeArena や canonical key の比較で、負 index を有効な parameter と同一視しないようにします。
+//:
+//: [契約/けいやく]:
+//: - この関数は「整数として壊れていない」ことだけを確認します。
+//: - `parameter_index` が実際の binder 宣言数の範囲内かどうかは、binder environment を持つ resolver / checker 側が確認します。
+pub fn selfhost_type_parameter_binding_is_valid %fn SelfhostTypeParameterBinding bool \binding:
+    and ge binding.binder_depth 0 ge binding.parameter_index 0
+
 //: selfhost_type_id_eq: TypeId が同じ arena index か[返/かえ]す
 pub fn selfhost_type_id_eq %fn SelfhostTypeId fn SelfhostTypeId bool \a\b:
     eq a.index b.index
@@ -53,3 +109,16 @@ pub fn selfhost_type_id_eq %fn SelfhostTypeId fn SelfhostTypeId bool \a\b:
 //: selfhost_named_type_id_eq: named type identity が同じ定義を指すか[返/かえ]す
 pub fn selfhost_named_type_id_eq %fn SelfhostNamedTypeId fn SelfhostNamedTypeId bool \a\b:
     eq a.index b.index
+
+//: selfhost_type_parameter_binding_eq: type parameter binding が同じ binder slot を指すか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - 両方の binding が valid で、binder depth と parameter index が一致した場合だけ true です。
+//: - invalid binding 同士を同じ値として扱うと壊れた arena record が canonical key equality をすり抜けるため、invalid は常に false です。
+pub fn selfhost_type_parameter_binding_eq %fn SelfhostTypeParameterBinding fn SelfhostTypeParameterBinding bool \a\b:
+    if:
+        not and selfhost_type_parameter_binding_is_valid a selfhost_type_parameter_binding_is_valid b
+        then:
+            false
+        else:
+            and eq a.binder_depth b.binder_depth eq a.parameter_index b.parameter_index
