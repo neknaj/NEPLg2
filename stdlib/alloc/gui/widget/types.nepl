@@ -9,13 +9,15 @@
 //: - disabled widget は action event を[返/かえ]しません。
 //: - semantic node は draw command から[逆算/ぎゃくさん]せず、widget data から[生成/せいせい]します。
 //:
-//: neplg2:test
-//: ret: 9
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_widget_types_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"9\" actual=\"9\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let id %WidgetId widget_id 9
 //:     let action %ActionId action_id 4
 //:     let config %ButtonConfig button_config id "Run" action
@@ -23,6 +25,14 @@
 //:     let descriptor %WidgetDescriptor widget_button config hint
 //:     let descriptor_id %WidgetId widget_descriptor_id &descriptor
 //:     widget_id_value descriptor_id
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_widget_types_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 9 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

@@ -8,8 +8,9 @@
 //: ### [現状/げんじょう]
 //: - 初期 checkpoint では scheme、palette、metrics、任意の font id、RGBA へ[読/よ]み[出/だ]す fallible helper を[提供/ていきょう]します。
 //:
-//: neplg2:test
-//: ret: 70
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_theme_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"70\" actual=\"70\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -17,6 +18,7 @@
 //:| #import "core/cast" as *
 //:| #import "core/gui" as *
 //:| #import "core/result" as *
+//:| #import "std/test" as *
 //: fn rgba_color %fn i32 fn i32 fn i32 GuiColor \r\g\b:
 //:     let rr %u8 cast r
 //:     let gg %u8 cast g
@@ -25,7 +27,7 @@
 //:     let rgba %Rgba8888 rgba8888_new rr gg bb aa
 //:     gui_color_rgba8888 rgba
 //:
-//: fn main %fn void i32 \void:
+//: fn run_case %fn void i32 \void:
 //:     let palette %ThemePalette theme_palette:
 //:         rgba_color 10 20 30
 //:         rgba_color 20 30 40
@@ -41,6 +43,14 @@
 //:             cast rgba8888_b &rgba
 //:         Result::Err _error:
 //:             0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_theme_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 70 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

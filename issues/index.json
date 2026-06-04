@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T04:20:18.781Z",
+  "generated_at": "2026-06-04T05:18:25.392Z",
   "counts": {
-    "total": 1336,
-    "open": 57,
-    "resolved": 1279,
+    "total": 1339,
+    "open": 58,
+    "resolved": 1281,
     "by_area": {
       "stdlib": {
-        "total": 347,
+        "total": 349,
         "open": 17,
-        "resolved": 330
+        "resolved": 332
       },
       "core": {
-        "total": 663,
-        "open": 26,
+        "total": 664,
+        "open": 27,
         "resolved": 637
       },
       "examples": {
@@ -505,6 +505,21 @@
       "file": "items/ISS-20260602T134118244Z-NATIVE-CHECK-SHOULD-USE-PRE-TYPECHEC-31F9C9CD.md"
     },
     {
+      "id": "ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST",
+      "title": "Add #test directive for doctest and nepl-cli test",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "nepl-core/src/lexer.rs; nepl-core/src/parser.rs; nepl-core/src/target_gate.rs; nepl-core/src/target_precheck.rs; nepl-core/src/typecheck; nepl-cli/src/main.rs; nepl-web/src/lib.rs; nodesrc/run_test.js; nodesrc/tests.js; stdlib/neplg2/core/syntax; doc/neplg2/test_mode_directive_design.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
+    },
+    {
       "id": "ISS-20260604T034206002Z-MANDELBROT-GUI-EXAMPLE-CANNOT-MEET-H-86DB03F0",
       "title": "Mandelbrot GUI example cannot meet HD rendering without formal bitmap or tile transport",
       "area": "examples",
@@ -655,21 +670,6 @@
       "file": "items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md"
     },
     {
-      "id": "ISS-20260604T033642997Z-STDLIB-DOCUMENTATION-AND-DOCTEST-REP-E892BD11",
-      "title": "stdlib documentation and doctest report contracts still have ret-only and stale baseline gaps",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "doc",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/core/gui, stdlib/alloc/gui, stdlib/std/gui, stdlib/platforms/gui, tests/stdlib/gui_*.n.md, stdlib/alloc/string/integer/parse.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T033642997Z-STDLIB-DOCUMENTATION-AND-DOCTEST-REP-E892BD11.md"
-    },
-    {
       "id": "ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF",
       "title": "std fs and io APIs still flatten typed failures into errno and empty string",
       "area": "stdlib",
@@ -743,6 +743,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034125199Z-VEC-SORT-VARIANTS-HANDLE-INVALID-MET-1475F2ED.md"
+    },
+    {
+      "id": "ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3",
+      "title": "stdlib declaration documentation gaps remain high after baseline refresh",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/core, stdlib/alloc, stdlib/std",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3.md"
     },
     {
       "id": "ISS-20260524T204705172Z-OWNER-CHECKER-DOES-NOT-REFINE-REALLO-C974639A",
@@ -16015,6 +16030,21 @@
       "file": "items/ISS-20260604T033642641Z-STDLIB-RAW-IO-BOUNDARIES-DRIFT-FROM--6CE98C14.md"
     },
     {
+      "id": "ISS-20260604T033642997Z-STDLIB-DOCUMENTATION-AND-DOCTEST-REP-E892BD11",
+      "title": "stdlib documentation and doctest report contracts still have ret-only and stale baseline gaps",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/alloc/string/integer/parse.nepl, nodesrc/test_stdlib_documentation_contract.js, nodesrc/test_alloc_string_doc_report_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T033642997Z-STDLIB-DOCUMENTATION-AND-DOCTEST-REP-E892BD11.md"
+    },
+    {
       "id": "ISS-20260604T033643338Z-VEC-CONSTRUCTOR-CAPABILITY-REJECTION-463D3E88",
       "title": "Vec constructor capability rejection doctests lost PlainPayload coverage",
       "area": "stdlib",
@@ -16043,6 +16073,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA.md"
+    },
+    {
+      "id": "ISS-20260604T042500000Z-GUI-TUI-DOCTEST-REPORT-CONTRACT-GAPS-4D6B9A0E",
+      "title": "GUI and TUI doctests still use ret-only or stale report contracts",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/core/gui, stdlib/alloc/gui, stdlib/std/gui, tests/stdlib/gui_*.n.md, tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T042500000Z-GUI-TUI-DOCTEST-REPORT-CONTRACT-GAPS-4D6B9A0E.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -9,7 +9,7 @@
 - `GuiColor` から `Rgba8888` への[読/よ]み[出/だ]しが `Result` で明示されることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"theme_palette_color_roles_are_typed\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"50\" actual=\"50\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"31\" actual=\"31\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -55,10 +55,10 @@ fn main %impure fn void i32 \void:
             assert_eq_i32 31 cast rgba8888_g &rgba
         Result::Err _error:
             assert false
-    let checks1 checks_push checks_new accent_check
-    let checks checks_push checks1 text_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "theme_palette_color_roles_are_typed" accent_check
+    let checks test_report_push checks1 text_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## theme_metrics_validation_is_result
@@ -68,7 +68,7 @@ fn main %impure fn void i32 \void:
 - `Rgba8888` でない `GuiColor` を text cell style へ暗黙変換しないことを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"theme_metrics_validation_is_result\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -102,10 +102,10 @@ fn main %impure fn void i32 \void:
                     assert true
                 _:
                     assert false
-    let checks1 checks_push checks_new invalid_check
-    let checks checks_push checks1 color_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "theme_metrics_validation_is_result" invalid_check
+    let checks test_report_push checks1 color_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_theme_preserves_optional_font_and_text_cell_style
@@ -115,7 +115,7 @@ fn main %impure fn void i32 \void:
 - palette role から `TextCellStyle` を作るとき、foreground と background が role 通りに取り出されることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+stdout: "test_report name=\"gui_theme_preserves_optional_font_and_text_cell_style\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"10\" actual=\"10\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -171,9 +171,9 @@ fn main %impure fn void i32 \void:
                 else assert false
         Result::Err _error:
             assert false
-    let checks1 checks_push checks_new font_check
-    let checks2 checks_push checks1 metric_check
-    let checks checks_push checks2 style_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "gui_theme_preserves_optional_font_and_text_cell_style" font_check
+    let checks2 test_report_push checks1 metric_check
+    let checks test_report_push checks2 style_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

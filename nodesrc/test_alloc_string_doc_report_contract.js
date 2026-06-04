@@ -41,7 +41,7 @@ const contracts = [
         rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
         index: 0,
         name: 'string_integer_parse_doc',
-        count: 4,
+        count: 6,
     },
     {
         rel: ['stdlib', 'alloc', 'string', 'float', 'parse.nepl'],

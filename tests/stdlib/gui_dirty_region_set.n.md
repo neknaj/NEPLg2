@@ -8,12 +8,13 @@
 - 2 つまでの rect を allocator なしで[保持/ほじ]することを確認します。
 - x/y の[負/ふ]は[相対/そうたい][座標/ざひょう]として[許容/きょよう]し、slot query で[読/よ]めることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_dirty_region_set_dirty_region_set_keeps_two_rects\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/gui/dirty_region_set" as *
 #import "core/gui/geometry" as *
@@ -21,8 +22,9 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 #import "core/test" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let regions0 %DirtyRegionSet dirty_regions_empty
     let first_x %i32 sub 0 3
     let second_y %i32 sub 0 8
@@ -54,6 +56,14 @@ fn main %fn void i32 \void:
                     4
         Result::Err _error1:
             5
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_dirty_region_set_dirty_region_set_keeps_two_rects"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## dirty_region_set_overflow_becomes_full
@@ -62,20 +72,22 @@ fn main %fn void i32 \void:
 - 3 つ[目/め]の rect を silent no-op にせず、Full [状態/じょうたい]へ[昇格/しょうかく]することを確認します。
 - Full [状態/じょうたい]では個別 rect query が `None` になることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_dirty_region_set_dirty_region_set_overflow_becomes_full\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/gui/dirty_region_set" as *
 #import "core/gui/geometry" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/test" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let regions0 %DirtyRegionSet dirty_regions_empty
     let rect0 %GuiRect gui_rect_new 0 0 1 1
     let rect1 %GuiRect gui_rect_new 1 1 2 2
@@ -98,6 +110,14 @@ fn main %fn void i32 \void:
                     3
         Result::Err _error1:
             4
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_dirty_region_set_dirty_region_set_overflow_becomes_full"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## dirty_region_set_rejects_negative_size
@@ -106,20 +126,22 @@ fn main %fn void i32 \void:
 - width/height が[負/ふ]の rect を `GuiError::InvalidGeometry` として[拒否/きょひ]することを確認します。
 - invalid rect を push しても panic や silent no-op ではなく `Result::Err` で[返/かえ]すことを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_dirty_region_set_dirty_region_set_rejects_negative_size\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
-#target core
+#target std
 
 #import "core/gui/dirty_region_set" as *
 #import "core/gui/error" as *
 #import "core/gui/geometry" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let regions %DirtyRegionSet dirty_regions_empty
     let negative_width %i32 sub 0 1
     let negative_height %i32 sub 0 1
@@ -142,4 +164,12 @@ fn main %fn void i32 \void:
                                     3
                 _:
                     4
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_dirty_region_set_dirty_region_set_rejects_negative_size"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```

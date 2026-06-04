@@ -9,7 +9,7 @@
 - focus target は callback ではなく `WidgetId` として返ることを固定します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"view_tree_tracks_focusable_widget_order\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -38,10 +38,10 @@ fn main %impure fn void i32 \void:
             assert_eq_i32 7 widget_id_value id
         Option::None:
             assert false
-    let checks0 checks_push checks_new count_check
-    let checks checks_push checks0 first_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks0 test_report_push test_report_new "view_tree_tracks_focusable_widget_order" count_check
+    let checks test_report_push checks0 first_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## view_tree_capacity_overflow_is_result_error
@@ -49,8 +49,9 @@ fn main %impure fn void i32 \void:
 [目的/もくてき]:
 - bounded tree の capacity overflow が panic や silent no-op ではなく `GuiError::ResourceExhausted` になることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"view_tree_capacity_overflow_is_result_error\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -58,8 +59,9 @@ ret: 0
 
 #import "alloc/gui" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -90,6 +92,14 @@ fn main %fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "view_tree_capacity_overflow_is_result_error"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_tree_tracks_layout_node_children
@@ -97,8 +107,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - `LayoutTree` が placement result を `Option` child として保持できることを確認します。
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_tree_tracks_layout_node_children\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"1\" actual=\"1\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -106,8 +117,9 @@ ret: 1
 
 #import "alloc/gui" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 2
     let root %LayoutNode layout_node root_id root_bounds
@@ -120,6 +132,14 @@ fn main %fn void i32 \void:
             layout_tree_child_count &tree
         Result::Err _error:
             9
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_tree_tracks_layout_node_children"
+        |> test_report_push assert_eq_i32 "return value" 1 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## view_tree_arena_allows_nested_focus_order
@@ -127,8 +147,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - allocator-backed `ViewTreeArena` が root + child + grandchild の depth を保持し、focus target を tree insertion order で数えられることを確認します。
 
-neplg2:test
-ret: 2
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"view_tree_arena_allows_nested_focus_order\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"2\" actual=\"2\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -138,8 +159,9 @@ ret: 2
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -178,6 +200,14 @@ fn main %fn void i32 \void:
     if arena_ok:
         then 2
         else 9
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "view_tree_arena_allows_nested_focus_order"
+        |> test_report_push assert_eq_i32 "return value" 2 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## view_tree_arena_invalid_parent_is_result_error
@@ -186,8 +216,9 @@ fn main %fn void i32 \void:
 - allocator-backed `ViewTreeArena` の不正 parent index が panic や silent no-op ではなく `GuiError::InvalidCommand` になることを確認します。
 - Err path では API が消費した tree owner を error payload に戻すため、呼び出し側が cleanup できます。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"view_tree_arena_invalid_parent_is_result_error\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -196,8 +227,9 @@ ret: 0
 #import "alloc/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -227,6 +259,14 @@ fn main %fn void i32 \void:
                         else 3
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "view_tree_arena_invalid_parent_is_result_error"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_tree_arena_tracks_nested_layout_depth
@@ -234,8 +274,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - allocator-backed `LayoutTreeArena` が nested layout node を parent index と depth で保持できることを確認します。
 
-neplg2:test
-ret: 3
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_tree_arena_tracks_nested_layout_depth\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"3\" actual=\"3\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -245,8 +286,9 @@ ret: 3
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 4
     let root %LayoutNode layout_node root_id root_bounds
@@ -273,6 +315,14 @@ fn main %fn void i32 \void:
     if arena_ok:
         then 3
         else 9
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_tree_arena_tracks_nested_layout_depth"
+        |> test_report_push assert_eq_i32 "return value" 3 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_tree_arena_invalid_parent_returns_owner
@@ -280,8 +330,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - allocator-backed `LayoutTreeArena` の不正 parent index が owner-recovery error を返すことを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_tree_arena_invalid_parent_returns_owner\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -290,8 +341,9 @@ ret: 0
 #import "alloc/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 4
     let root %LayoutNode layout_node root_id root_bounds
@@ -320,4 +372,12 @@ fn main %fn void i32 \void:
                         else 3
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_tree_arena_invalid_parent_returns_owner"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

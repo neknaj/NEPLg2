@@ -11,7 +11,7 @@ DOM、OS、ANSI escape、TTY raw mode には触れず、GUI substrate の backen
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n"
+stdout: "test_report name=\"gui_terminal_text_grid_capability_surface\" count=8 failed=0\nassertion index=0 status=ok kind=bool label=\"surface is TextGrid\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"cols\" expected=\"80\" actual=\"80\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"rows\" expected=\"24\" actual=\"24\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"keyboard capability\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"text input capability\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"non-negative size\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"rejects non-TextGrid profile\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"rejects negative size\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -50,17 +50,17 @@ fn main %impure fn void i32 \void:
             Result::Ok _cap:
                 false
     let checks:
-        checks_new
-        |> checks_push assert "surface is TextGrid" surface_ok
-        |> checks_push assert_eq_i32 "cols" 80 cols
-        |> checks_push assert_eq_i32 "rows" 24 rows
-        |> checks_push assert "keyboard capability" keyboard_ok
-        |> checks_push assert "text input capability" text_input_ok
-        |> checks_push assert "non-negative size" size_ok
-        |> checks_push assert "rejects non-TextGrid profile" rejected
-        |> checks_push assert "rejects negative size" invalid_size_rejected
-    let shown checks_print_report checks
-    checks_exit_code shown
+        test_report_new "gui_terminal_text_grid_capability_surface"
+        |> test_report_push assert "surface is TextGrid" surface_ok
+        |> test_report_push assert_eq_i32 "cols" 80 cols
+        |> test_report_push assert_eq_i32 "rows" 24 rows
+        |> test_report_push assert "keyboard capability" keyboard_ok
+        |> test_report_push assert "text input capability" text_input_ok
+        |> test_report_push assert "non-negative size" size_ok
+        |> test_report_push assert "rejects non-TextGrid profile" rejected
+        |> test_report_push assert "rejects negative size" invalid_size_rejected
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_terminal_text_cell_run_and_frame_helpers
@@ -71,7 +71,7 @@ fn main %impure fn void i32 \void:
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "Checked [ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n"
+stdout: "test_report name=\"gui_terminal_text_cell_run_and_frame_helpers\" count=7 failed=0\nassertion index=0 status=ok kind=bool label=\"frame surface\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"frame cols\" expected=\"40\" actual=\"40\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"frame rows\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"run col\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"run row\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"cell count\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"run id\" expected=\"9\" actual=\"9\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -99,14 +99,14 @@ fn main %impure fn void i32 \void:
     let cell_count %i32 text_cell_run_cell_count &frame_run
     let run_raw %i32 text_run_id_raw &frame_run_id
     let checks:
-        checks_new
-        |> checks_push assert "frame surface" surface_ok
-        |> checks_push assert_eq_i32 "frame cols" 40 frame_cols
-        |> checks_push assert_eq_i32 "frame rows" 10 frame_rows
-        |> checks_push assert_eq_i32 "run col" 7 run_col
-        |> checks_push assert_eq_i32 "run row" 10 run_row
-        |> checks_push assert_eq_i32 "cell count" 5 cell_count
-        |> checks_push assert_eq_i32 "run id" 9 run_raw
-    let shown checks_print_report checks
-    checks_exit_code shown
+        test_report_new "gui_terminal_text_cell_run_and_frame_helpers"
+        |> test_report_push assert "frame surface" surface_ok
+        |> test_report_push assert_eq_i32 "frame cols" 40 frame_cols
+        |> test_report_push assert_eq_i32 "frame rows" 10 frame_rows
+        |> test_report_push assert_eq_i32 "run col" 7 run_col
+        |> test_report_push assert_eq_i32 "run row" 10 run_row
+        |> test_report_push assert_eq_i32 "cell count" 5 cell_count
+        |> test_report_push assert_eq_i32 "run id" 9 run_raw
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

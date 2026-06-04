@@ -9,7 +9,7 @@
 - application は raw platform event ではなく action identifier を `update` で扱う前提にします。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"gui_app_action_identifier_button_has_no_callback\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"42\" actual=\"42\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -31,15 +31,15 @@ fn main %impure fn void i32 \void:
         ViewNode::Button cfg:
             let got_id %WidgetId get cfg "id"
             let got_action %ActionId get cfg "action"
-            checks_new
-            |> checks_push assert_eq_i32 7 widget_id_value got_id
-            |> checks_push assert_eq_i32 42 action_id_value got_action
+            test_report_new "gui_app_action_identifier_button_has_no_callback"
+            |> test_report_push assert_eq_i32 7 widget_id_value got_id
+            |> test_report_push assert_eq_i32 42 action_id_value got_action
         ViewNode::Label _text:
-            checks_push checks_new assert false
+            test_report_push test_report_new "gui_app_action_identifier_button_has_no_callback" assert false
         ViewNode::Empty:
-            checks_push checks_new assert false
-    let shown checks_print_report checks
-    checks_exit_code shown
+            test_report_push test_report_new "gui_app_action_identifier_button_has_no_callback" assert false
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_app_update_can_batch_multiple_effects
@@ -49,7 +49,7 @@ fn main %impure fn void i32 \void:
 - 現 checkpoint の bounded batch が capacity overflow を `GuiError::ResourceExhausted` として返すことを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+stdout: "test_report name=\"gui_app_update_can_batch_multiple_effects\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -95,11 +95,11 @@ fn main %impure fn void i32 \void:
                     assert true
                 _:
                     assert false
-    let checks1 checks_push checks_new first_check
-    let checks2 checks_push checks1 second_check
-    let checks checks_push checks2 overflow_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "gui_app_update_can_batch_multiple_effects" first_check
+    let checks2 test_report_push checks1 second_check
+    let checks test_report_push checks2 overflow_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_app_update_returns_model_and_effect
@@ -109,7 +109,7 @@ fn main %impure fn void i32 \void:
 - redraw request が data として保持されることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok]\n[0] ok\n"
+stdout: "test_report name=\"gui_app_update_returns_model_and_effect\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"3\" actual=\"3\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -125,11 +125,11 @@ fn main %impure fn void i32 \void:
     let effect %GuiEffect update_effect upd
     let checks match effect:
         GuiEffect::RequestRedraw payload:
-            checks_push checks_new assert_eq_i32 3 get payload "target"
+            test_report_push test_report_new "gui_app_update_returns_model_and_effect" assert_eq_i32 3 get payload "target"
         GuiEffect::None:
-            checks_push checks_new assert false
+            test_report_push test_report_new "gui_app_update_returns_model_and_effect" assert false
         GuiEffect::SetTitle _payload:
-            checks_push checks_new assert false
-    let shown checks_print_report checks
-    checks_exit_code shown
+            test_report_push test_report_new "gui_app_update_returns_model_and_effect" assert false
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

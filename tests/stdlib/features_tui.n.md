@@ -34,8 +34,9 @@ fn main %impure fn void unit \void:
 - `get_terminal_size` の戻り値が `.Pair` ではなく、named field を持つ struct として扱えることを[確/たし]かめます。
 - TTY が取れない環境でも `0,0` を返して壊れず、`"cols"` / `"rows"` access が成立することを固定します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"features_tui_terminal_size_uses_named_fields\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -44,8 +45,9 @@ ret: 0
 #import "features/tui" as tui
 #import "core/math" as *
 #import "core/field" as *
+#import "std/test" as *
 
-fn main %impure fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let size tui::get_terminal_size;
     let cols %i32 get size "cols";
     let rows %i32 get size "rows";
@@ -55,6 +57,14 @@ fn main %impure fn void i32 \void:
             1
         else:
             0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "features_tui_terminal_size_uses_named_fields"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## features_tui_buffer_new_initializes_string_lines
@@ -63,20 +73,30 @@ fn main %impure fn void i32 \void:
 - 行バッファが `str` 行スロットを型付き store で初期化し、facade 経由の import だけで compile fail しないことを固定します。
 - `buffer_new` / `buffer_set_line` / `buffer_free` の最小経路を通し、空行初期化と後続の `str` 書き込みが同じ型で扱われることを確かめます。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"features_tui_buffer_new_initializes_string_lines\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
 #target wasix
 
 #import "features/tui" as tui
+#import "std/test" as *
 
-fn main %impure fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let b %i32 tui::buffer_new 8 2;
     tui::buffer_set_line b 1 "ready";
     tui::buffer_free b;
     0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "features_tui_buffer_new_initializes_string_lines"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## features_tui_box_helpers_clamp_narrow_widths
@@ -86,23 +106,7 @@ fn main %impure fn void i32 \void:
 - 本文が内側幅より長いときも、呼び出し側が事前に clip しなくてよいことを確かめます。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: mlstr:
-##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
-##: [0] ok
-##: [1] ok
-##: [2] ok
-##: [3] ok
-##: [4] ok
-##: [5] ok
-##: [6] ok
-##: [7] ok
-##: [8] ok
-##: [9] ok
-##: [10] ok
-##: [11] ok
-##: [12] ok
-##: [13] ok
-##: [14] ok
+stdout: "test_report name=\"features_tui_box_helpers_clamp_narrow_widths\" count=15 failed=0\nassertion index=0 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=3 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=4 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=5 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=6 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=7 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=8 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=9 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=10 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=11 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"a\" actual=\"a\" message=\"\"\nassertion index=12 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"ab\" actual=\"ab\" message=\"\"\nassertion index=13 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"\nassertion index=14 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\u001b[31m\u001b[44ma\u001b[0m\" actual=\"\u001b[31m\u001b[44ma\u001b[0m\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -116,24 +120,24 @@ exit_code: 0
 fn main %impure fn void i32 \void:
     let box_style %AnsiTextStyle ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
     let checks:
-        checks_new
-        |> checks_push assert_str_eq "" tui::line_top 0
-        |> checks_push assert_str_eq "┌" tui::line_top 1
-        |> checks_push assert_str_eq "┌┐" tui::line_top 2
-        |> checks_push assert_str_eq "┌─┐" tui::line_top 3
-        |> checks_push assert_str_eq "" tui::line_bottom 0
-        |> checks_push assert_str_eq "└" tui::line_bottom 1
-        |> checks_push assert_str_eq "└┘" tui::line_bottom 2
-        |> checks_push assert_str_eq "└─┘" tui::line_bottom 3
-        |> checks_push assert_str_eq "" tui::line_box "abc" 0
-        |> checks_push assert_str_eq "│" tui::line_box "abc" 1
-        |> checks_push assert_str_eq "││" tui::line_box "abc" 2
-        |> checks_push assert_str_eq "│a│" tui::line_box "abc" 3
-        |> checks_push assert_str_eq "│ab│" tui::line_box "abcd" 4
-        |> checks_push assert_str_eq "││" tui::line_box_styled box_style "abc" 2
-        |> checks_push assert_str_eq "│\x1b[31m\x1b[44ma\x1b[0m│" tui::line_box_styled box_style "abc" 3
-    let shown checks_print_report checks;
-    checks_exit_code shown
+        test_report_new "features_tui_box_helpers_clamp_narrow_widths"
+        |> test_report_push assert_str_eq "" tui::line_top 0
+        |> test_report_push assert_str_eq "┌" tui::line_top 1
+        |> test_report_push assert_str_eq "┌┐" tui::line_top 2
+        |> test_report_push assert_str_eq "┌─┐" tui::line_top 3
+        |> test_report_push assert_str_eq "" tui::line_bottom 0
+        |> test_report_push assert_str_eq "└" tui::line_bottom 1
+        |> test_report_push assert_str_eq "└┘" tui::line_bottom 2
+        |> test_report_push assert_str_eq "└─┘" tui::line_bottom 3
+        |> test_report_push assert_str_eq "" tui::line_box "abc" 0
+        |> test_report_push assert_str_eq "│" tui::line_box "abc" 1
+        |> test_report_push assert_str_eq "││" tui::line_box "abc" 2
+        |> test_report_push assert_str_eq "│a│" tui::line_box "abc" 3
+        |> test_report_push assert_str_eq "│ab│" tui::line_box "abcd" 4
+        |> test_report_push assert_str_eq "││" tui::line_box_styled box_style "abc" 2
+        |> test_report_push assert_str_eq "│\x1b[31m\x1b[44ma\x1b[0m│" tui::line_box_styled box_style "abc" 3
+    let shown test_report_print_stdout checks;
+    test_report_exit_code shown
 ```
 
 ## features_tui_color_helpers_use_typed_ansi_style

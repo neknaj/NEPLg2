@@ -16,16 +16,26 @@
 //: ### [計算量/けいさんりょう]
 //: - `MockDrawTarget` の helper は O(1) です。実 backend の fill / clear は backend に[依存/いぞん]します。
 //:
-//: neplg2:test
-//: ret: 1
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_draw_target_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
-//:| #target core
+//:| #target std
 //:| #import "core/gui/draw_target" as *
-//: fn main %impure fn void i32 \void:
+//: #import "std/test" as *
+//: fn run_case %impure fn void i32 \void:
 //:     let target %MockDrawTarget mock_draw_target_new 1 1
 //:     mock_draw_target_width &target
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "core_gui_draw_target_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 1 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

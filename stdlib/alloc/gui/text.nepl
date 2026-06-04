@@ -5,14 +5,16 @@
 //: - platform handle や `TextMeasurer` に[依存/いぞん]しない text storage を alloc [層/そう]で[提供/ていきょう]します。
 //: - text buffer の[編集/へんしゅう]は `Result` で[境界/きょうかい]を[返/かえ]し、panic や sentinel value に[頼/たよ]りません。
 //:
-//: neplg2:test
-//: ret: 3
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_text_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"3\" actual=\"3\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui/text" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let buffer_id %TextBufferId text_buffer_id_new 1
 //:     let buffer %TextBuffer text_buffer_new buffer_id "ac"
 //:     match text_buffer_insert buffer 1 "b":
@@ -20,6 +22,14 @@
 //:             text_buffer_len &next
 //:         Result::Err _error:
 //:             0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_text_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 3 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

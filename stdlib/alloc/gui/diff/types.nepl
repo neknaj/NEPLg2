@@ -11,14 +11,16 @@
 //: - allocator-backed arena では node 数、parent index、depth、slot の `WidgetId` が[変/か]わる場合は tree shape / order の[変化/へんか]として `GuiInvalidation::Tree` を[返/かえ]します。
 //: - allocator-backed arena で内容変更が複数ある場合、最小 enum では複数 widget を表せないため `GuiInvalidation::Tree` を[返/かえ]します。
 //:
-//: neplg2:test
-//: ret: 2
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_diff_types_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let child_id %WidgetId widget_id 2
 //:     let child_action %ActionId action_id 3
@@ -34,6 +36,14 @@
 //:             2
 //:         _:
 //:             9
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_diff_types_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 2 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

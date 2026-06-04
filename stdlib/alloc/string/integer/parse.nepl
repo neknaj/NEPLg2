@@ -8,6 +8,41 @@
 //: [注意/ちゅうい]:
 //: - 接頭辞 0x / 0b / 0o は扱いません。入力文字列本体だけを解析します。
 //: - 範囲外、無効 digit、空入力はいずれも Result::Err 1 を返します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_integer_parse_module_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parse decimal i32\" expected=\"-17\" actual=\"-17\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"reject empty decimal i32\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string/integer/parse" as *
+//:| #import "alloc/string/integer/format" as *
+//: fn assert_i32_ok %fn str fn Result i32 i32 fn i32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             assert_eq_i32 label expected actual
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "integer parse failed unexpectedly"
+//:
+//: fn assert_i32_err_i32 %fn str fn Result i32 i32 fn i32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected from_i32 actual "integer parse succeeded unexpectedly"
+//:         Result::Err e:
+//:             assert_eq_i32 label expected e
+//:
+//: fn main %impure fn void i32 \void:
+//:     let parsed_decimal to_i32 "-17"
+//:     let rejected_empty to_i32 ""
+//:     let report:
+//:         test_report_new "string_integer_parse_module_doc"
+//:         |> test_report_push assert_i32_ok "parse decimal i32" parsed_decimal -17
+//:         |> test_report_push assert_i32_err_i32 "reject empty decimal i32" rejected_empty 1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 

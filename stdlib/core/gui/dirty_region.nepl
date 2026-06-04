@@ -13,18 +13,20 @@
 //: ### [計算量/けいさんりょう]
 //: - constructor、query、merge はすべて O(1) です。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_dirty_region_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //: #entry main
-//: #target core
+//: #target std
 //: #indent 4
 //:
 //: #import "core/gui/dirty_region" as *
 //: #import "core/gui/geometry" as *
 //: #import "core/result" as *
+//: #import "std/test" as *
 //:
-//: fn main %fn void i32 \void:
+//: fn run_case %fn void i32 \void:
 //:     let rect %GuiRect gui_rect_new 0 0 1 1
 //:     match dirty_region_rect_checked rect:
 //:         Result::Ok region:
@@ -36,6 +38,14 @@
 //:                     1
 //:         Result::Err _error:
 //:             2
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "core_gui_dirty_region_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 0 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

@@ -9,7 +9,7 @@
 - current が `none` の場合でも traversal の開始点として扱われることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+stdout: "test_report name=\"route_focus_command_moves_next_and_previous\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -57,11 +57,11 @@ fn main %impure fn void i32 \void:
             assert_eq_i32 7 widget_id_value id
         _:
             assert false
-    let checks1 checks_push checks_new start_next_check
-    let checks2 checks_push checks1 step_next_check
-    let checks checks_push checks2 step_previous_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "route_focus_command_moves_next_and_previous" start_next_check
+    let checks2 test_report_push checks1 step_next_check
+    let checks test_report_push checks2 step_previous_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## route_focus_command_emits_action_for_current_focus
@@ -71,7 +71,7 @@ fn main %impure fn void i32 \void:
 - focus movement と action emission が別 variant で表されることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok]\n[0] ok\n"
+stdout: "test_report name=\"route_focus_command_emits_action_for_current_focus\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"42\" actual=\"42\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -107,9 +107,9 @@ fn main %impure fn void i32 \void:
                     assert false
         _:
             assert false
-    let checks checks_push checks_new action_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks test_report_push test_report_new "route_focus_command_emits_action_for_current_focus" action_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## route_focus_command_ignores_invalid_activation
@@ -119,7 +119,7 @@ fn main %impure fn void i32 \void:
 - traversal で移動先がない場合も `Ignored` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
+stdout: "test_report name=\"route_focus_command_ignores_invalid_activation\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -161,10 +161,10 @@ fn main %impure fn void i32 \void:
     let label_check assert is_ignored route_focus_command &tree label_current FocusRouteCommand::Activate
     let stale_check assert is_ignored route_focus_command &tree stale_current FocusRouteCommand::Activate
     let edge_check assert is_ignored route_focus_command &tree button_current FocusRouteCommand::Next
-    let checks1 checks_push checks_new disabled_check
-    let checks2 checks_push checks1 label_check
-    let checks3 checks_push checks2 stale_check
-    let checks checks_push checks3 edge_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "route_focus_command_ignores_invalid_activation" disabled_check
+    let checks2 test_report_push checks1 label_check
+    let checks3 test_report_push checks2 stale_check
+    let checks test_report_push checks3 edge_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
