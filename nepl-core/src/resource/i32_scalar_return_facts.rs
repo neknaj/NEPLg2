@@ -7,7 +7,7 @@ use crate::types::{TypeCtx, TypeId};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_i32_condition_context::I32ConditionQueryContext;
 use super::model::{
-    I32ValueCondition, Place, PlaceProjection, ResourceI32RelationOp, ResourceLocal,
+    I32ValueCondition, Place, PlaceProjection, PlaceRoot, ResourceI32RelationOp, ResourceLocal,
 };
 use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::owner_summary_leaf::OwnerLeafPlace;
@@ -666,7 +666,9 @@ fn i32_scalar_leaf_relation_query_may_succeed(
             .i32_relations
             .has_relation_touching_aliases(right_aliases)
         || raw_aliases.i32_offsets.has_offset_for_aliases(left_aliases)
-            && raw_aliases.i32_offsets.has_offset_for_aliases(right_aliases)
+            && raw_aliases
+                .i32_offsets
+                .has_offset_for_aliases(right_aliases)
         || raw_aliases
             .i32_scales
             .has_scaled_source_for_aliases(left_aliases)
@@ -738,6 +740,11 @@ fn collect_i32_scalar_return_conditions(
     condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
+    if !matches!(source.root, PlaceRoot::I32Constant(_))
+        && !raw_aliases.can_prove_i32_value_condition()
+    {
+        return;
+    }
     if !raw_aliases.can_prove_i32_value_condition_for_value_with_context(source, condition_context)
     {
         return;

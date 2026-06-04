@@ -5,7 +5,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
-use super::model::{ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp};
+use super::model::{EffectOp, ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp};
 use super::summary_worklist_order::summary_order_from_dependencies;
 
 /// Resource summary の固定点計算で共有する関数依存グラフ。
@@ -335,10 +335,13 @@ fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInven
     match op {
         ResourceOp::Call {
             target: ResourceCallTarget::User { name, .. },
+            effect,
             ..
         } => {
             inventory.summary_dependency_names.insert(name.clone());
-            inventory.direct_call_dependency_names.insert(name.clone());
+            if direct_call_reads_i32_scalar_summary(effect) {
+                inventory.direct_call_dependency_names.insert(name.clone());
+            }
         }
         ResourceOp::FunctionValue { identity, .. } => {
             let symbol = identity.symbol().to_string();
@@ -392,6 +395,16 @@ fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInven
     }
 }
 
+fn direct_call_reads_i32_scalar_summary(effect: &EffectOp) -> bool {
+    // The i32 scalar summary propagator intentionally does not replay callee scalar facts across
+    // raw-memory helper calls. Keeping those calls in the i32 dependency graph makes the fixed
+    // point walk functions whose summaries can never be consumed at that call boundary.
+    !matches!(
+        effect,
+        EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::string::ToString;
@@ -404,7 +417,7 @@ mod tests {
 
     use super::*;
     use crate::resource::model::{
-        Place, PlaceRoot, ResourceBlock, ResourceBlockId, ResourceTerminator,
+        Place, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceTerminator,
     };
 
     #[test]
@@ -477,6 +490,31 @@ mod tests {
 
         assert_eq!(graph.direct_call_dependencies(), &[vec![1], vec![]]);
         assert_eq!(graph.direct_call_dependents(), &[vec![], vec![0]]);
+    }
+
+    #[test]
+    fn direct_call_dependency_graph_ignores_calls_that_cannot_read_i32_scalar_summaries() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops(
+                    "caller",
+                    vec![call_with_effect(
+                        "alloc_raw",
+                        EffectOp::InternalAlloc {
+                            operation: RawMemoryOp::Alloc,
+                        },
+                    )],
+                ),
+                function_with_ops("alloc_raw", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.direct_call_dependencies(), &[vec![], vec![]]);
     }
 
     #[test]
@@ -661,6 +699,10 @@ mod tests {
     }
 
     fn call(name: &str) -> ResourceOp {
+        call_with_effect(name, super::super::model::EffectOp::Pure)
+    }
+
+    fn call_with_effect(name: &str, effect: EffectOp) -> ResourceOp {
         ResourceOp::Call {
             output: place("call_out"),
             target: ResourceCallTarget::User {
@@ -668,7 +710,7 @@ mod tests {
                 type_args: vec![],
             },
             args: vec![],
-            effect: super::super::model::EffectOp::Pure,
+            effect,
             span: Span::dummy(),
         }
     }
