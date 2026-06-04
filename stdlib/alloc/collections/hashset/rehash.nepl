@@ -41,7 +41,8 @@ pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashS
             let states hashset_storage_states &old_storage
             let keys hashset_storage_keys &old_storage
             let mut i %i32 0
-            while lt i old_cap:
+            let mut failed %bool false
+            while and lt i old_cap not failed:
                 do:
                     match hashset_state_at states i:
                         HashSetBucketState::Full:
@@ -49,14 +50,24 @@ pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashS
                                 Option::None:
                                     unit
                                 Option::Some key:
-                                    hashset_insert_entry_into_storage<.T,.H> &new_storage new_cap hasher key
+                                    match hashset_insert_entry_into_storage<.T,.H> &new_storage new_cap hasher key:
+                                        Result::Ok _unit:
+                                            unit
+                                        Result::Err _d:
+                                            set failed true
                         HashSetBucketState::Empty:
                             unit
                         HashSetBucketState::Tombstone:
                             unit
                     set i add i 1
-            hashset_free_storage<.T> old_storage
-            Result::Ok HashSet<.T,.H> count0 new_cap 0 new_storage hasher
+            if:
+                failed
+                then:
+                    hashset_free_storage<.T> new_storage
+                    Result::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 old_cap tombstones0 old_storage hasher) diag_capacity_exceeded
+                else:
+                    hashset_free_storage<.T> old_storage
+                    Result::Ok HashSet<.T,.H> count0 new_cap 0 new_storage hasher
 
 //: hashset_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
 //:
@@ -68,12 +79,10 @@ pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn 
     let tombstones0 %i32 *field::get_ref &hs "tombstones"
     let hasher %.H *field::get_ref &hs "hasher"
     let storage %&HashSetStorage .T field::get_ref &hs "storage"
-    let idx %i32 hashset_find_present<.T,.H> storage cap0 hasher key
-    if:
-        not lt idx 0
-        then:
+    match hashset_find_present<.T,.H> storage cap0 hasher key:
+        Option::Some _idx:
             Result::Ok hs
-        else:
+        Option::None:
             let limit %i32 hashset_load_limit cap0
             let occupied_after_insert %i32 add add count0 tombstones0 1
             if:

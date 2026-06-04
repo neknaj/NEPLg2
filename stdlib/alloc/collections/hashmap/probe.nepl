@@ -9,10 +9,12 @@
 
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "core/field" as field
 #import "core/traits/hash_key" as *
 #import "core/traits/hash" as *
 #import "core/traits/copy" as *
+#import "alloc/diag/error" as *
 #import "alloc/collections/hashmap/types" as *
 #import "alloc/collections/hashmap/storage" as *
 #import "core/field" as *
@@ -49,15 +51,16 @@ pub fn hashmap_next_slot %fn i32 fn i32 i32 \idx\cap:
 //:
 //: ### [実装/じっそう]
 //: - hash index から linear probing し、`Empty` で chain 終端、`Tombstone` は[通過/つうか]、`Full` は key equality で[判定/はんてい]します。
-//: - [見/み]つからなければ -1 を[返/かえ]します。
-pub fn hashmap_find_present <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMapStorage .K .V fn i32 fn .H fn .K i32 \storage\cap\hasher\key:
+//: - [見/み]つかった slot は `Some index`、[未登録/みとうろく]または不変条件上 chain が閉じない場合は `None` で[返/かえ]します。
+pub fn hashmap_find_present <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMapStorage .K .V fn i32 fn .H fn .K Option i32 \storage\cap\hasher\key:
     let states hashmap_storage_states storage
     let keys hashmap_storage_keys storage
     let start %i32 hashmap_bucket_index<.K,.H> cap hasher key
     let mut cur %i32 start
-    let mut found %i32 -1
+    let mut found %Option i32 none
     let mut done %bool false
-    while not done:
+    let mut probes %i32 0
+    while and lt probes cap not done:
         do:
             match hashmap_state_at states cur:
                 HashMapBucketState::Empty:
@@ -72,50 +75,65 @@ pub fn hashmap_find_present <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn 
                             if:
                                 hashkey_eq<.K> existing key
                                 then:
-                                    set found cur
+                                    set found some cur
                                     set done true
                                 else:
                                     set cur hashmap_next_slot cur cap
+            set probes add probes 1
     found
 
 //: hashmap_find_insert_slot: 新規 key の[挿入/そうにゅう]先 slot を[探/さが]す
 //:
 //: ### [実装/じっそう]
-//: - 最初の tombstone を[覚/おぼ]えつつ probe し、empty に[到達/とうたつ]したら tombstone 優先で[返/かえ]します。
-pub fn hashmap_find_insert_slot <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMapStorage .K .V fn i32 fn .H fn .K HashMapInsertSlot \storage\cap\hasher\key:
+//: - 最初の tombstone を[覚/おぼ]えつつ probe し、empty に[到達/とうたつ]したら tombstone 優先で `Some slot` を[返/かえ]します。
+//: - capacity 周回で empty に[到達/とうたつ]できない場合は、slot 0 などの仮値を書かず `None` を[返/かえ]します。
+pub fn hashmap_find_insert_slot <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMapStorage .K .V fn i32 fn .H fn .K Option HashMapInsertSlot \storage\cap\hasher\key:
     let states hashmap_storage_states storage
     let start %i32 hashmap_bucket_index<.K,.H> cap hasher key
     let mut cur %i32 start
-    let mut first_tomb %i32 -1
-    let mut result_idx %i32 -1
+    let mut first_tomb %Option i32 none
+    let mut result_idx %Option i32 none
     let mut result_state %HashMapInsertSlotState HashMapInsertSlotState::EmptySlot
-    while lt result_idx 0:
+    let mut done %bool false
+    let mut probes %i32 0
+    while and lt probes cap not done:
         do:
             match hashmap_state_at states cur:
                 HashMapBucketState::Empty:
-                    if:
-                        lt first_tomb 0
-                        then:
-                            set result_idx cur
+                    match first_tomb:
+                        Option::None:
+                            set result_idx some cur
                             set result_state HashMapInsertSlotState::EmptySlot
-                        else:
-                            set result_idx first_tomb
+                        Option::Some tomb:
+                            set result_idx some tomb
                             set result_state HashMapInsertSlotState::TombstoneSlot
+                    set done true
                 HashMapBucketState::Tombstone:
-                    if:
-                        lt first_tomb 0
-                        then set first_tomb cur
-                        else unit
+                    match first_tomb:
+                        Option::None:
+                            set first_tomb some cur
+                        Option::Some _tomb:
+                            unit
                     set cur hashmap_next_slot cur cap
                 HashMapBucketState::Full:
                     set cur hashmap_next_slot cur cap
-    HashMapInsertSlot result_idx result_state
+            set probes add probes 1
+    match result_idx:
+        Option::Some idx:
+            some HashMapInsertSlot idx result_state
+        Option::None:
+            none
 
 //: hashmap_insert_entry_into_storage: rehash [中/ちゅう]の新 table へ key/value を[移/うつ]す
 //:
 //: ### [目的/もくてき]
 //: - 既存 entry を新しい empty storage へ[再配置/さいはいち]します。
-pub fn hashmap_insert_entry_into_storage <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .H impure fn .K impure fn .V unit \storage\cap\hasher\key\value:
-    let slot %HashMapInsertSlot hashmap_find_insert_slot<.K,.V,.H> storage cap hasher key
-    let idx %i32 field::get slot "index"
-    hashmap_store_full<.K,.V> storage idx key value
+//: - insert slot が得られない場合は table 不変条件の破れとして `Diag` を[返/かえ]し、呼び出し側が owner を保った error に変換します。
+pub fn hashmap_insert_entry_into_storage <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .H impure fn .K impure fn .V Result unit Diag \storage\cap\hasher\key\value:
+    match hashmap_find_insert_slot<.K,.V,.H> storage cap hasher key:
+        Option::Some slot:
+            let idx %i32 field::get slot "index"
+            hashmap_store_full<.K,.V> storage idx key value
+            Result::Ok unit
+        Option::None:
+            Result::Err diag_capacity_exceeded

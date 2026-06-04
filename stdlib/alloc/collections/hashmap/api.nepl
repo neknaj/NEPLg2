@@ -139,24 +139,25 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
             let tombstones0 %i32 *field::get_ref &ready "tombstones"
             let hasher %.H *field::get_ref &ready "hasher"
             let storage %HashMapStorage .K .V field::get ready "storage"
-            let existing %i32 hashmap_find_present<.K,.V,.H> &storage cap0 hasher key
-            if:
-                not lt existing 0
-                then:
+            match hashmap_find_present<.K,.V,.H> &storage cap0 hasher key:
+                Option::Some existing:
                     hashmap_store_full<.K,.V> &storage existing key value
                     Result::Ok HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher
-                else:
-                    let slot %HashMapInsertSlot hashmap_find_insert_slot<.K,.V,.H> &storage cap0 hasher key
-                    let slot_idx %i32 field::get slot "index"
-                    let slot_state %HashMapInsertSlotState field::get slot "state"
-                    hashmap_store_full<.K,.V> &storage slot_idx key value
-                    let next_tombstones %i32:
-                        match slot_state:
-                            HashMapInsertSlotState::EmptySlot:
-                                tombstones0
-                            HashMapInsertSlotState::TombstoneSlot:
-                                sub tombstones0 1
-                    Result::Ok HashMap<.K,.V,.H> add count0 1 cap0 next_tombstones storage hasher
+                Option::None:
+                    match hashmap_find_insert_slot<.K,.V,.H> &storage cap0 hasher key:
+                        Option::Some slot:
+                            let slot_idx %i32 field::get slot "index"
+                            let slot_state %HashMapInsertSlotState field::get slot "state"
+                            hashmap_store_full<.K,.V> &storage slot_idx key value
+                            let next_tombstones %i32:
+                                match slot_state:
+                                    HashMapInsertSlotState::EmptySlot:
+                                        tombstones0
+                                    HashMapInsertSlotState::TombstoneSlot:
+                                        sub tombstones0 1
+                            Result::Ok HashMap<.K,.V,.H> add count0 1 cap0 next_tombstones storage hasher
+                        Option::None:
+                            Result::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher) diag_capacity_exceeded
 
 //: ## get
 //: key に[対応/たいおう]する value を[探/さが]す
@@ -191,11 +192,11 @@ pub fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K .V .H
     let hasher %.H *field::get_ref hm "hasher"
     let storage %&HashMapStorage .K .V field::get_ref hm "storage"
     let values hashmap_storage_values storage
-    let idx %i32 hashmap_find_present<.K,.V,.H> storage cap0 hasher key
-    if:
-        lt idx 0
-        then none
-        else hashmap_value_at<.V> values idx
+    match hashmap_find_present<.K,.V,.H> storage cap0 hasher key:
+        Option::Some idx:
+            hashmap_value_at<.V> values idx
+        Option::None:
+            none
 
 //: ## contains
 //: key の[存在/そんざい]を[確/たし]かめる
@@ -223,7 +224,11 @@ pub fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K 
     let cap0 %i32 *field::get_ref hm "cap"
     let hasher %.H *field::get_ref hm "hasher"
     let storage %&HashMapStorage .K .V field::get_ref hm "storage"
-    not lt hashmap_find_present<.K,.V,.H> storage cap0 hasher key 0
+    match hashmap_find_present<.K,.V,.H> storage cap0 hasher key:
+        Option::Some _idx:
+            true
+        Option::None:
+            false
 
 //: ## remove
 //: key を[削除/さくじょ]する
@@ -257,12 +262,10 @@ pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
     let tombstones0 %i32 *field::get_ref &hm "tombstones"
     let hasher %.H *field::get_ref &hm "hasher"
     let storage %HashMapStorage .K .V field::get hm "storage"
-    let idx %i32 hashmap_find_present<.K,.V,.H> &storage cap0 hasher key
-    if:
-        lt idx 0
-        then:
+    match hashmap_find_present<.K,.V,.H> &storage cap0 hasher key:
+        Option::None:
             Result::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher) diag_key_not_found
-        else:
+        Option::Some idx:
             hashmap_store_tombstone<.K,.V> &storage idx
             Result::Ok HashMap<.K,.V,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
 

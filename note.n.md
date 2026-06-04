@@ -1,3 +1,14 @@
+# 2026-06-04 Agent2 HashMap/HashSet probe sentinel removal checkpoint
+
+- `origin/main` 同期済みの `agent2/fix-hash-probe-option` branch で `ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4` を修正した。
+- `hashmap_find_present` / `hashset_find_present` は `i32` と `-1` sentinel ではなく `Option i32` を返すようにした。API と rehash caller は `lt idx 0` ではなく `match Option::Some` / `Option::None` で分岐する。
+- `hashmap_find_insert_slot` / `hashset_find_insert_slot` も `Option HashMapInsertSlot` / `Option HashSetInsertSlot` を返すようにし、capacity 周回で insert slot が見つからない場合に仮 index を返さないようにした。
+- rehash 中の新 storage 移送で insert slot が得られない場合は、新 storage を解放して旧 owner を `HashMapUpdateError` / `HashSetUpdateError` で返す。これにより、storage invariant 破れの経路でも owner を失わない。
+- `nodesrc/test_stdlib_hashmap_storage_contract.js` と `nodesrc/test_stdlib_hashset_storage_contract.js` に、`Option` 戻り型と `-1` / `lt ... 0` sentinel 禁止の source policy を追加した。
+- HashMap / HashSet の `.n.md` テストは monolithic doctest だと compile timeout に寄るため、小さい regular doctest に分割した。coverage は empty observer、insert / contains / get / update、remove / missing error、free smoke に分けて維持した。
+- subagent の事前レビューでは、`find_present` の Option 化、API / rehash caller の全移行、source policy 追加が blocker と確認された。実装後レビューでは code-level merge blocker なし、owner-preserving error 経路と source policy の妥当性も確認された。レビュー時点では issue status が未更新と指摘されたが、その後 `fixed` / `resolved: true` に更新済みである。
+- 検証: `node nodesrc/test_stdlib_hashmap_storage_contract.js`、`node nodesrc/test_stdlib_hashset_storage_contract.js`、`node nodesrc/tests.js -i stdlib/alloc/collections/hashmap -i stdlib/alloc/collections/hashset -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent2-hash-probe-option-focused-after-split.json -j 1 --dist web/dist --assert-io` は 61/61 pass。`node nodesrc/test_stdlib_documentation_contract.js` は baseline ok。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象の hash policy は pass し、既存 warning は static/resource/parser/backend/diagnostic 系の 5 件。`trunk build` と `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-hash-probe-option-playground-editor.json` も通過し、playground editor は 13/13 pass。
+
 # 2026-06-04 Agent2 stdlib documentation report contract checkpoint
 
 - `main` から `agent2/fix-stdlib-doc-report-contracts` branch を作成し、`ISS-20260604T033642997Z-STDLIB-DOCUMENTATION-AND-DOCTEST-REP-E892BD11` を修正した。
