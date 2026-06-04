@@ -50577,3 +50577,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - canonical key arena は nodes と args を所有し、Applied / Function の argument edge を再帰的に投影する。projection は型 record と argument edge 数に対して O(n) である。
 - `selfhost_canonical_type_key_equal` は同じ key arena 内の structural equality を提供する。cross-arena serialized key / fingerprint は `.neplmeta` interface artifact の stable nominal identity と一緒に次段階で追加する。
 - focused verification は `node nodesrc/test_selfhost_type_key_contract.js`、`node nodesrc/tests.js -i tests\stdlib\neplg2_type_key.n.md -o tmp\selfhost-type-key-tests.json --no-tree -j 1 --assert-io --dist web\dist`、`node nodesrc/tests.js -i stdlib\neplg2\core\ty\ty.nepl -o tmp\selfhost-ty-key-smoke.json --no-tree -j 1 --assert-io --dist web\dist`、`node nodesrc/tests.js -i stdlib\neplg2 -o tmp\selfhost-canonical-type-key-stdlib-neplg2.json --no-tree -j 2 --assert-io --dist web\dist` を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は既存 5 warning のみで、今回追加した canonical key policy は通過した。残件は generic type parameter environment / kind validation、prefix expression AST、call reduction である。
+
+## 2026-06-05 Agent2 Vec sort Result contract checkpoint
+
+- `agent2/fix-vec-sort-invalid-result` branch で、Zenn 記事の `Option` / `Result`、enum、`match`、silent no-op 禁止方針に沿って `Vec` sort family の invalid metadata 契約を修正した。`plan.md` は変更していない。
+- subagent review で、quick / heap / simple sort が `VecCopyInvariant::Invalid` と `VecDataView::Invalid` を `unit` または元の `Vec` に潰していること、merge だけが Result-shaped error を持っていたことを確認した。
+- borrowed sort API は `Result unit StdErrorKind`、owner-consuming `*_ret` API は `Result Vec .T VecSortError .T` に統一した。`VecSortError` は `vec/types.nepl` に置き、owner と `StdErrorKind` を同じ payload に保持し、`vec_sort_error_with` で callback recovery できるようにした。
+- valid な empty / singleton は成功 no-op として `Result::Ok` を返し、invalid metadata / invalid data view は `StdErrorKind::InvalidOperation`、merge scratch allocation failure は `StdErrorKind::OutOfMemory` として返す。
+- source policy は sort signature、owner recovery surface、old generic postfix cleanup、silent no-op branch の再導入検査を更新した。issue `ISS-20260604T034125199Z-VEC-SORT-VARIANTS-HANDLE-INVALID-MET-1475F2ED` は resolved に更新した。
+- focused verification は sort / collection source policy 群、NEPLg2.1 postfix / prose policy、`tests/stdlib/sort.n.md`、`tests/stdlib/sort_simple.n.md`、`tests/stdlib/traits_order.n.md`、`tests/stdlib/collection_cleanup_contract.n.md` の 81/81 を通した。

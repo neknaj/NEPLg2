@@ -10,6 +10,7 @@
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/invariant" as *
@@ -87,24 +88,25 @@ fn sort_heap_sift_down_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn i32 im
 //:
 //: [注意/ちゅうい]:
 //: - stable ではありません。
+//: - metadata invariant が壊れている `Vec` は silent no-op にせず、`StdErrorKind::InvalidOperation` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n log n)、追加領域 O(1)
-pub fn sort_heap <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort_heap <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then unit
+                then Result::Ok unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Data data_ptr:
                             let n_minus_two %i32 sub n 2;
                             let mut start %i32 div_s n_minus_two 2;
@@ -124,7 +126,7 @@ pub fn sort_heap <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                     sort_heap_swap_data<.T> data_ptr 0 end;
                                     sort_heap_sift_down_data<.T> data_ptr 0 end;
                                     set end sub end 1;
-                            unit
+                            Result::Ok unit
 
 //: sort_heap_ret: heap sort 後の Vec を返す
 //:
@@ -136,24 +138,25 @@ pub fn sort_heap <.T: Ord&Copy> %impure fn &Vec .T unit \v:
 //:
 //: [注意/ちゅうい]:
 //: - ソート自体は in-place です。
+//: - `Err` の場合も `VecSortError.vec` に入力 `Vec` owner を返します。caller は `vec_sort_error_vec` または `vec_sort_error_with` で[回収/かいしゅう]します。
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_heap` と同じです。
-pub fn sort_heap_ret <.T: Ord&Copy> %impure fn Vec .T Vec .T \v:
+pub fn sort_heap_ret <.T: Ord&Copy> %impure fn Vec .T Result Vec .T VecSortError .T \v:
     match vec_current_copy_invariant<.T> &v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> &v
             if:
                 le n 1
-                then unit
+                then Result::Ok v
                 else:
                     match data_mem_view<.T> &v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Data data_ptr:
                             let n_minus_two %i32 sub n 2;
                             let mut start %i32 div_s n_minus_two 2;
@@ -168,5 +171,4 @@ pub fn sort_heap_ret <.T: Ord&Copy> %impure fn Vec .T Vec .T \v:
                                     sort_heap_swap_data<.T> data_ptr 0 end;
                                     sort_heap_sift_down_data<.T> data_ptr 0 end;
                                     set end sub end 1;
-                            unit
-    v
+                            Result::Ok v

@@ -356,11 +356,15 @@ assert.ok(
     ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/types.nepl:vec_transform_error_with'),
     'collection owner accessor policy must allow Vec transform error elimination only when Vec owner and error kind are passed to the same callback',
 );
+assert.ok(
+    ownerPreservingErrorRecoveryInspected.includes('stdlib/alloc/collections/vec/types.nepl:vec_sort_error_with'),
+    'collection owner accessor policy must allow Vec sort error elimination only when Vec owner and error kind are passed to the same callback',
+);
 
 for (const expected of [
     'stdlib/alloc/collections/vec/mutation/push.nepl:vec_push_error_vec',
     'stdlib/alloc/collections/vec/types.nepl:vec_transform_error_vec',
-    'stdlib/alloc/collections/vec/sort/merge/api.nepl:vec_sort_merge_error_vec',
+    'stdlib/alloc/collections/vec/types.nepl:vec_sort_error_vec',
     'stdlib/alloc/collections/stack/types.nepl:stack_push_error_stack',
     'stdlib/alloc/collections/queue/types.nepl:queue_push_error_queue',
     'stdlib/alloc/collections/deque/types.nepl:deque_push_error_deque',
@@ -693,6 +697,9 @@ function classifyOwnerPreservingErrorRecovery(name, typeSignature) {
     if (name === 'vec_transform_error_with') {
         return classifyOwnerPreservingVecTransformErrorEliminator(typeSignature);
     }
+    if (name === 'vec_sort_error_with') {
+        return classifyOwnerPreservingVecSortErrorEliminator(typeSignature);
+    }
     if (/_rejected_with$/.test(name)) {
         return classifyOwnerPreservingRejectedEliminator(typeSignature);
     }
@@ -762,6 +769,28 @@ function classifyOwnerPreservingVecTransformErrorEliminator(typeSignature) {
     }
 
     return { kind: 'owner-preserving-transform-error-eliminator' };
+}
+
+function classifyOwnerPreservingVecSortErrorEliminator(typeSignature) {
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const errorPayload = functionType.parameters[0].trim();
+    const errorMatch = errorPayload.match(/^VecSortError<\.(\w+)>$/);
+    if (!errorMatch) {
+        return null;
+    }
+
+    const genericName = errorMatch[1];
+    const callback = functionType.parameters[1].replace(/\s+/g, '');
+    const returnType = functionType.returnType.replace(/\s+/g, '');
+    if (callback !== `(Vec<.${genericName}>,StdErrorKind)*>${returnType}`) {
+        return null;
+    }
+
+    return { kind: 'owner-preserving-sort-error-eliminator' };
 }
 
 function classifyOwnerPreservingPopRecovery(name, typeSignature) {

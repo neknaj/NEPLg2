@@ -10,6 +10,7 @@
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/invariant" as *
@@ -25,24 +26,25 @@
 //:
 //: [注意/ちゅうい]:
 //: - equal element は交換しないため stable です。
+//: - metadata invariant が壊れている `Vec` は silent no-op にせず、`StdErrorKind::InvalidOperation` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n^2)
-pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then unit
+                then Result::Ok unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Data data:
                             let mut end %i32 sub n 1;
                             while lt 0 end:
@@ -61,7 +63,7 @@ pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                                 else unit
                                             set i add i 1;
                                     set end sub end 1;
-                            unit
+                            Result::Ok unit
 
 //: sort_cocktail: cocktail shaker sort で in-place 整列する
 //:
@@ -74,24 +76,25 @@ pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T unit \v:
 //:
 //: [注意/ちゅうい]:
 //: - equal element は交換しないため stable です。
+//: - metadata invariant が壊れている `Vec` は silent no-op にせず、`StdErrorKind::InvalidOperation` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)
-pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then unit
+                then Result::Ok unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Data data:
                             let mut start %i32 0;
                             let mut end %i32 sub n 1;
@@ -142,4 +145,4 @@ pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                             set j sub j 1;
 
                                     set start add start 1;
-                            unit
+                            Result::Ok unit

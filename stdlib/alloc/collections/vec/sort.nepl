@@ -7,6 +7,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - 現行 sort family は raw `load` / `store` による swap と scratch buffer copy を使うため、`.T: Ord&Copy` に限定します。non-Copy payload の sort は `OwnedBuffer .T` と move/drop-aware algorithm が入るまで提供しません。
+//: - borrowed in-place sort は `Result unit StdErrorKind`、owner-consuming `*_ret` sort は `Result Vec .T VecSortError .T` を返します。invalid metadata を silent no-op として扱いません。
 //: - stable sort が必要なら `sort_merge` を使います。
 //: - heap sort は O(n log n)、追加領域 O(1) です。
 //:
@@ -26,10 +27,10 @@
 //:         |> push 3 |> uwok
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let sorted %Vec i32 sort_quick_ret unsorted
+//:     let sorted %Vec i32 unwrap_ok sort_quick_ret unsorted
 //:     let ok %bool sort_is_sorted &sorted
 //:     free sorted
-//:     if ok 1 0
+//:     if ok 0 1
 //: ```
 //:
 //: neplg2:test
@@ -52,7 +53,7 @@
 //:     let sorted %Vec i32 unwrap_ok sort_merge_ret unsorted
 //:     let ok %bool sort_is_sorted &sorted
 //:     free sorted
-//:     if ok 1 0
+//:     if ok 0 1
 //: ```
 //:
 //: neplg2:test[compile_fail]

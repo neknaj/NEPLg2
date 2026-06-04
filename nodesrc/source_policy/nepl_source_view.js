@@ -86,7 +86,7 @@ const TYPE_ARITY = new Map([
     ["VecReplaceRejected", 1],
     ["VecReplaceError", 1],
     ["VecTransformError", 1],
-    ["VecSortMergeError", 1],
+    ["VecSortError", 1],
     ["VecReallocRegionError", 1],
     ["RegionReallocError", 1],
     ["BTreeMap", 2],

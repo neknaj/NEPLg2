@@ -23,9 +23,13 @@ fn make_vec4 %fn void Vec i32 \void:
 
 fn main %impure fn void i32 \void:
     let v %Vec i32 make_vec4;
-    sort_quick &v;
-    free v;
-    1234
+    match sort_quick &v:
+        Result::Ok _:
+            free v
+            1234
+        Result::Err _:
+            free v
+            0
 ```
 
 ## sort_in_place_requires_impure_context
@@ -38,8 +42,9 @@ diag_code: effect.pure.calls_impure
 #target core
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
+#import "core/result" as *
 
-fn pure_sort %fn &Vec i32 unit \v:
+fn pure_sort %fn &Vec i32 Result unit StdErrorKind \v:
     sort v
 
 fn main %fn void i32 \void:
@@ -103,7 +108,7 @@ fn make_vec4 %fn void Vec i32 \void:
     v
 
 fn main %impure fn void i32 \void:
-    let v sort_quick_ret make_vec4;
+    let v %Vec i32 unwrap_ok sort_quick_ret make_vec4;
     let n %i32 len &v;
     let bn %bool eq n 4;
     let b0 %bool match get &v 0:
@@ -146,7 +151,7 @@ ret: 0
 
 fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
-    let v1 sort_quick_ret v0;
+    let v1 %Vec i32 unwrap_ok sort_quick_ret v0;
     let n %i32 len &v1;
     free v1;
     n
@@ -168,7 +173,7 @@ ret: 1
 fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 42;
-    let v2 sort_quick_ret v1;
+    let v2 %Vec i32 unwrap_ok sort_quick_ret v1;
     let n %i32 len &v2;
     free v2;
     n
@@ -191,7 +196,7 @@ fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 4;
     let v2 %Vec i32 unwrap_ok push v1 1;
-    let v3 sort_quick_ret v2;
+    let v3 %Vec i32 unwrap_ok sort_quick_ret v2;
     let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;
@@ -221,9 +226,13 @@ fn make_vec4 %fn void Vec i32 \void:
 
 fn main %impure fn void i32 \void:
     let v %Vec i32 make_vec4;
-    sort_heap &v;
-    free v;
-    1234
+    match sort_heap &v:
+        Result::Ok _:
+            free v
+            1234
+        Result::Err _:
+            free v
+            0
 ```
 
 ## sort_heap_ret_i32_sorted_values
@@ -251,7 +260,7 @@ fn make_vec4 %fn void Vec i32 \void:
     v
 
 fn main %impure fn void i32 \void:
-    let v sort_heap_ret make_vec4;
+    let v %Vec i32 unwrap_ok sort_heap_ret make_vec4;
     let n %i32 len &v;
     let bn %bool eq n 4;
     let b0 %bool match get &v 0:
@@ -294,7 +303,7 @@ ret: 0
 
 fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
-    let v1 sort_heap_ret v0;
+    let v1 %Vec i32 unwrap_ok sort_heap_ret v0;
     let n %i32 len &v1;
     free v1;
     n
@@ -316,7 +325,7 @@ ret: 1
 fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 42;
-    let v2 sort_heap_ret v1;
+    let v2 %Vec i32 unwrap_ok sort_heap_ret v1;
     let n %i32 len &v2;
     free v2;
     n
@@ -339,7 +348,7 @@ fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 4;
     let v2 %Vec i32 unwrap_ok push v1 1;
-    let v3 sort_heap_ret v2;
+    let v3 %Vec i32 unwrap_ok sort_heap_ret v2;
     let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;
@@ -466,7 +475,7 @@ fn main %impure fn void i32 \void:
     n
 ```
 
-## sort_merge_error_payload_direct_constructor_is_restricted
+## sort_error_payload_direct_constructor_is_restricted
 
 neplg2:test[compile_fail]
 diag_codes: type.owner_aggregate.constructor_restricted
@@ -482,9 +491,9 @@ diag_codes: type.owner_aggregate.constructor_restricted
 fn main %impure fn void i32 \void:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 7;
-    // VecSortMergeError は sort_merge_ret が失敗時に返す owner payload であり、
+    // VecSortError は owner-consuming sort が失敗時に返す owner payload であり、
     // ordinary source が直接構築して Vec owner を捏造してはいけない。
-    let err %VecSortMergeError i32 VecSortMergeError v1 StdErrorKind::OutOfMemory;
+    let err %VecSortError i32 VecSortError v1 StdErrorKind::OutOfMemory;
     0
 ```
 
@@ -511,9 +520,13 @@ fn make_vec4 %fn void Vec i32 \void:
 
 fn main %impure fn void i32 \void:
     let v %Vec i32 make_vec4;
-    sort &v;
-    free v;
-    1234
+    match sort &v:
+        Result::Ok _:
+            free v
+            1234
+        Result::Err _:
+            free v
+            0
 ```
 
 ## sort_is_sorted_transition

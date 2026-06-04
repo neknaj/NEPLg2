@@ -12,7 +12,7 @@ const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
 
 const oldPostfixCalls = [
     ["Vec cleanup operation", /\b(?:clear|free|new|with_capacity|push|get)<CleanupPayload>/],
-    ["Vec proof or owner accessor", /\b(?:vec_current_copy_invariant|vec_pop_vec|vec_push_error_vec|vec_transform_error_vec|vec_sort_merge_error_vec)<CleanupPayload>/],
+    ["Vec proof or owner accessor", /\b(?:vec_current_copy_invariant|vec_pop_vec|vec_push_error_vec|vec_transform_error_vec|vec_sort_error_vec)<CleanupPayload>/],
     ["binary heap owner accessor", /\bbinary_heap_pop_heap<CleanupPayload>/],
     ["linear collection cleanup", /\bfree<CleanupPayload>/],
     ["map/set cleanup", /\bfree<(?:CleanupPayload,\s*i32|i32,\s*CleanupPayload|i32,\s*CleanupPayload,\s*DefaultHash32|NonCopyHashKey,\s*DefaultHash32|i32,\s*StatefulHasher|NonCopyHashKey,\s*i32,\s*DefaultHash32|i32,\s*i32,\s*StatefulHasher)>/],

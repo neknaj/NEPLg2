@@ -17,9 +17,6 @@
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/invariant" as *
-#import "core/field" as field
-#import "core/field" as *
-
 //: sort_merge_buffer_get: merge sort private buffer から 1 要素を読む
 //:
 //: `buf` は `sort_merge` / `sort_merge_ret` が確保した scratch buffer の non-owning view です。
@@ -135,30 +132,6 @@ fn sort_merge_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn MemPtr .T
 
             unit
 
-//: ## VecSortMergeError
-//: `sort_merge_ret` の[失敗/しっぱい]時に `Vec` owner を[返/かえ]す error payload
-//:
-//: ### [目的/もくてき]
-//: - `sort_merge_ret` は `Vec` owner を[消費/しょうひ]する fallible update なので、[失敗/しっぱい]時も caller が cleanup できるように owner を error payload に[含/ふく]めます。
-//: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner の[回収/かいしゅう]と error [確認/かくにん]を別操作にします。
-//:
-//: ### [注意/ちゅうい]
-//: - この payload は `sort_merge_ret` の失敗 branch が返すものです。ordinary source が constructor を直接呼んで owner を捏造する使い方は、owner-backed aggregate constructor restriction により拒否されます。
-pub struct VecSortMergeError<.T>:
-    vec %Vec .T
-    error %StdErrorKind
-
-//: vec_sort_merge_error_kind: `sort_merge_ret` [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
-pub fn vec_sort_merge_error_kind <.T> %fn &VecSortMergeError .T StdErrorKind \e:
-    *field::get_ref e "error"
-
-//: vec_sort_merge_error_vec: `sort_merge_ret` [失敗/しっぱい]で[戻/もど]された `Vec` owner を[取/と]り[出/だ]す
-//:
-//: ### [注意/ちゅうい]
-//: - 現行 merge sort は raw swap / scratch copy を使うため `.T: Ord&Copy` 専用です。error payload から owner を[取/と]り[戻/もど]す面も `.T: Copy` に[揃/そろ]えます。
-pub fn vec_sort_merge_error_vec <.T: Copy> %fn VecSortMergeError .T Vec .T \e:
-    field::get e "vec"
-
 //: ## sort_merge
 //: `Vec .T` を merge sort で破壊的に整列する
 //:
@@ -230,14 +203,14 @@ pub fn sort_merge <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
 //:
 //: [注意/ちゅうい]:
 //: - ソート自体は in-place です。
-//: - `Err` の場合も `VecSortMergeError.vec` に入力 `Vec` owner を返します。caller は `vec_sort_merge_error_vec` で[回収/かいしゅう]し、不要なら `free` してください。
+//: - `Err` の場合も `VecSortError.vec` に入力 `Vec` owner を返します。caller は `vec_sort_error_vec` または `vec_sort_error_with` で[回収/かいしゅう]し、不要なら `free` してください。
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_merge` と同じです。
-pub fn sort_merge_ret <.T: Ord&Copy> %impure fn Vec .T Result Vec .T VecSortMergeError .T \v:
+pub fn sort_merge_ret <.T: Ord&Copy> %impure fn Vec .T Result Vec .T VecSortError .T \v:
     match vec_current_copy_invariant<.T> &v:
         VecCopyInvariant::Invalid _reason:
-            Result::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
+            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> &v
             if:
@@ -246,13 +219,13 @@ pub fn sort_merge_ret <.T: Ord&Copy> %impure fn Vec .T Result Vec .T VecSortMerg
                 else:
                     match data_mem_view<.T> &v:
                         VecDataView::Empty:
-                            Result::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
+                            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            Result::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
+                            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Data data_ptr:
                             match alloc_region<.T> n:
                                 Result::Err _e:
-                                    Result::Err VecSortMergeError<.T> v StdErrorKind::OutOfMemory
+                                    Result::Err VecSortError<.T> v StdErrorKind::OutOfMemory
                                 Result::Ok buf_region:
                                     let buf %MemPtr .T region_ptr &buf_region
                                     sort_merge_range_data<.T> data_ptr buf 0 n;
@@ -260,4 +233,4 @@ pub fn sort_merge_ret <.T: Ord&Copy> %impure fn Vec .T Result Vec .T VecSortMerg
                                         Result::Ok _:
                                             Result::Ok v
                                         Result::Err _:
-                                            Result::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
+                                            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation

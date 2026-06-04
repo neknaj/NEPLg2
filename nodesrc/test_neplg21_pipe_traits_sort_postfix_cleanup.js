@@ -25,7 +25,7 @@ const fixtures = [
     {
         relPath: 'tests/stdlib/sort.n.md',
         forbiddenPatterns: [
-            ['VecSortMergeError constructor postfix', /\bVecSortMergeError<i32>/],
+            ['VecSortError constructor postfix', /\bVecSortError<i32>/],
         ],
     },
     {
