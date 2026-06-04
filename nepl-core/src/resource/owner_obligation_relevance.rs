@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
 
-use super::model::{EffectOp, Place, ResourceFunction, ResourceModule, ResourceOp};
+use super::model::{Place, ResourceFunction, ResourceModule, ResourceOp};
 use super::owner_summary_leaf::owner_leaf_places;
 use super::summary_dependency::ResourceSummaryDependencyGraph;
 
@@ -95,7 +95,7 @@ fn op_has_owner_obligation_relevance(types: &TypeCtx, op: &ResourceOp) -> bool {
             effect,
             ..
         } => {
-            !matches!(effect, EffectOp::Pure)
+            !effect.is_proof_pure()
                 || place_has_owner_obligation_leaf(types, output)
                 || args
                     .iter()
@@ -178,8 +178,8 @@ mod tests {
 
     use super::*;
     use crate::resource::model::{
-        RawAddressAliasKind, ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceLocal,
-        ResourceTerminator,
+        EffectOp, RawAddressAliasKind, ResourceBlock, ResourceBlockId, ResourceCallTarget,
+        ResourceLocal, ResourceTerminator,
     };
 
     #[test]
@@ -298,6 +298,7 @@ mod tests {
     fn owner_obligation_relevance_distinguishes_pure_builtin_and_pure_user_calls() {
         let types = TypeCtx::new();
         let i32_ty = types.i32();
+        let str_ty = types.str();
         let module = ResourceModule {
             functions: vec![
                 function(
@@ -340,6 +341,28 @@ mod tests {
                     },
                     i32_ty,
                 ),
+                function(
+                    "pure_user_owner_call",
+                    Vec::new(),
+                    vec![ResourceOp::Call {
+                        output: place("out", str_ty),
+                        target: ResourceCallTarget::User {
+                            name: "callee".into(),
+                            type_args: Vec::new(),
+                        },
+                        args: Vec::new(),
+                        effect: EffectOp::UserCall {
+                            name: "callee".into(),
+                            effect: Effect::Pure,
+                        },
+                        span: Span::dummy(),
+                    }],
+                    ResourceTerminator::Return {
+                        value: None,
+                        span: Span::dummy(),
+                    },
+                    i32_ty,
+                ),
             ],
             entry: None,
             string_literals: Vec::new(),
@@ -348,7 +371,7 @@ mod tests {
 
         assert_eq!(
             owner_obligation_relevant_functions(&module, &types, &graph),
-            vec![false, true]
+            vec![false, false, true]
         );
     }
 

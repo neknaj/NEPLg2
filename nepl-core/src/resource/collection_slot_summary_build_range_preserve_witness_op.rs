@@ -1,5 +1,3 @@
-use crate::ast::Effect;
-
 use super::collection_slot_summary_build_range_preserve_op::effect_call_preserves_place;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -114,14 +112,7 @@ pub(super) fn op_preserves_place_during_drop_witness(
 }
 
 fn call_effect_is_pure(effect: &EffectOp) -> bool {
-    matches!(
-        effect,
-        EffectOp::Pure
-            | EffectOp::UserCall {
-                effect: Effect::Pure,
-                ..
-            }
-    )
+    effect.is_proof_pure()
 }
 
 pub(super) fn op_loads_from_place(

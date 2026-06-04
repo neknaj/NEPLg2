@@ -127,6 +127,28 @@ fn owner_summary_relevance_reuses_nested_dependency_inventory() {
                 },
                 i32_ty,
             ),
+            function(
+                "scalar_pure_user_call",
+                vec![],
+                vec![ResourceOp::Call {
+                    output: place("out", i32_ty),
+                    target: ResourceCallTarget::User {
+                        name: "callee".into(),
+                        type_args: vec![],
+                    },
+                    args: vec![],
+                    effect: EffectOp::UserCall {
+                        name: "callee".into(),
+                        effect: Effect::Pure,
+                    },
+                    span: Span::dummy(),
+                }],
+                ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                i32_ty,
+            ),
         ],
         entry: None,
         string_literals: vec![],
@@ -135,7 +157,7 @@ fn owner_summary_relevance_reuses_nested_dependency_inventory() {
     let graph = ResourceSummaryDependencyGraph::build(&module);
     let relevant = owner_summary_relevant_functions(&module, &types, &graph);
 
-    assert_eq!(relevant, vec![true, true, false]);
+    assert_eq!(relevant, vec![true, true, false, false]);
 }
 
 fn identity_function(name: &str, ty: crate::types::TypeId) -> ResourceFunction {

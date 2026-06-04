@@ -517,6 +517,26 @@ pub enum EffectOp {
     },
 }
 
+impl EffectOp {
+    /// Resource proof 上で外部観測可能な effect を持たない operation かを返す。
+    ///
+    /// `EffectOp::Pure` は builtin や構文上の純粋 operation を表し、
+    /// `EffectOp::UserCall { effect: Effect::Pure, .. }` は型検査で pure と確定した
+    /// ユーザー定義関数呼び出しを表す。variant が分かれていても、Resource checker の
+    /// 探索範囲を決めるときにはどちらも「この operation 自身は external effect を
+    /// 作らない」と扱える。
+    pub(crate) fn is_proof_pure(&self) -> bool {
+        matches!(
+            self,
+            Self::Pure
+                | Self::UserCall {
+                    effect: Effect::Pure,
+                    ..
+                }
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnknownEffectReason {
     FunctionValueWithoutKnownEffect,

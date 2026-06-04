@@ -1,0 +1,249 @@
+//: # string/integer/format/i32_decimal
+//: i32 の 10 進表示を byte 単位で読むための小さな formatting submodule
+//:
+//: [目的/もくてき]:
+//: - `i32` の 10 進表記に必要な桁数と、指定位置の表示 byte を返します。
+//: - stdout などの sink が文字列 object を確保せずに整数を出力できるようにします。
+//:
+//: [設計/せっけい]:
+//: - この module は `alloc/string/integer` 配下に置き、整数 formatting の責務を stdio 側へ漏らしません。
+//: - 一方で、builder、raw memory、collection storage を import しないため、単純な整数出力が文字列確保経路全体を静的検査対象へ広げません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"i32_decimal_module_doc\" count=5 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"zero length\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"negative min length\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"minus sign byte\" expected=\"45\" actual=\"45\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"negative first digit\" expected=\"52\" actual=\"52\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"positive last digit\" expected=\"51\" actual=\"51\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/string/integer/format/i32_decimal" as dec
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "i32_decimal_module_doc"
+//:         |> test_report_push assert_eq_i32 "zero length" 1 dec::i32_decimal_len 0
+//:         |> test_report_push assert_eq_i32 "negative min length" 11 dec::i32_decimal_len -2147483648
+//:         |> test_report_push assert_eq_i32 "minus sign byte" 45 dec::i32_decimal_byte_at -42 0
+//:         |> test_report_push assert_eq_i32 "negative first digit" 52 dec::i32_decimal_byte_at -42 1
+//:         |> test_report_push assert_eq_i32 "positive last digit" 51 dec::i32_decimal_byte_at 123 2
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値の byte は ASCII digit または負号です。
+//: - 範囲外 index は `0` を返します。caller は通常 `i32_decimal_len` で得た長さ未満だけを読むため、範囲外値は防御的 fallback です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `i32_decimal_len` は O(1)、`i32_decimal_byte_at` も O(1) です。どちらも i32 の最大 10 桁に対する固定回数の処理です。
+
+#indent 4
+
+#import "core/math/i32/arith" as *
+#import "core/math/i32/compare" as *
+
+//: i32_decimal_len: i32 の 10 進表示に必要な byte 数を返す
+//:
+//: [目的/もくてき]:
+//: - `v` を 10 進表記したときに出力する byte 数を返します。
+//: - 負数では先頭の `-` も長さに含めます。
+//:
+//: [実装/じっそう]:
+//: - `0` は 1 byte として扱います。
+//: - 正数は 10 で割りながら digit 数を数えます。
+//: - 負数は値を負のまま 10 で割り、`i32` 最小値の符号反転 overflow を避けます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasm
+//:| #import "core/test" as *
+//:| #import "alloc/string/integer/format/i32_decimal" as dec
+//: fn main %fn void unit \void:
+//:     assert_eq_i32 11 dec::i32_decimal_len -2147483648
+//: ```
+pub fn i32_decimal_len %fn i32 i32 \v:
+    if:
+        eq v 0
+        then:
+            1
+        else:
+            if:
+                lt v 0
+                then:
+                    add 1 i32_negative_decimal_digit_len v
+                else:
+                    i32_positive_decimal_digit_len v
+
+//: i32_decimal_byte_at: i32 の 10 進表示の idx 番目の byte を返す
+//:
+//: [目的/もくてき]:
+//: - `v` の表示文字列を確保せず、指定位置の ASCII byte だけを計算します。
+//: - `std/stdio/print_i32` は `0 <= idx < i32_decimal_len v` の範囲でこの関数を呼ぶことで、共通の digit 規則を使えます。
+//:
+//: [注意/ちゅうい]:
+//: - 範囲外 index は `0` を返します。これは表示用の通常経路では使われない防御的値です。
+//: - 負数の idx 0 は `-` です。digit 本体は負の値のまま割り算し、最小値でも overflow しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasm
+//:| #import "core/test" as *
+//:| #import "alloc/string/integer/format/i32_decimal" as dec
+//: fn main %fn void unit \void:
+//:     assert_eq_i32 51 dec::i32_decimal_byte_at 123 2
+//: ```
+pub fn i32_decimal_byte_at %fn i32 fn i32 i32 \v\idx:
+    if:
+        lt idx 0
+        then:
+            0
+        else:
+            if:
+                eq v 0
+                then:
+                    if eq idx 0 '0' 0
+                else:
+                    if:
+                        lt v 0
+                        then:
+                            if:
+                                eq idx 0
+                                then:
+                                    '-'
+                                else:
+                                    i32_negative_decimal_digit_at v sub idx 1
+                        else:
+                            i32_positive_decimal_digit_at v idx
+
+//: i32_positive_decimal_digit_len: 正の i32 の digit 数を返す
+//:
+//: [目的/もくてき]:
+//: - 正数側の digit 数計算だけを切り出し、`i32_decimal_len` と digit 取得で同じ規則を共有します。
+//:
+//: [注意/ちゅうい]:
+//: - caller は `v > 0` を満たしてから呼びます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasm
+//:| #import "core/test" as *
+//:| #import "alloc/string/integer/format/i32_decimal" as dec
+//: fn main %fn void unit \void:
+//:     assert_eq_i32 3 dec::i32_decimal_len 123
+//: ```
+fn i32_positive_decimal_digit_len %fn i32 i32 \v:
+    let mut value %i32 v;
+    let mut digit_count %i32 0;
+    while gt value 0:
+        do:
+            set digit_count add digit_count 1;
+            set value div_s value 10
+    digit_count
+
+//: i32_negative_decimal_digit_len: 負の i32 の digit 数を返す
+//:
+//: [目的/もくてき]:
+//: - 負数側の digit 数計算だけを切り出し、`i32` 最小値を正数化せずに扱います。
+//:
+//: [注意/ちゅうい]:
+//: - caller は `v < 0` を満たしてから呼びます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasm
+//:| #import "core/test" as *
+//:| #import "alloc/string/integer/format/i32_decimal" as dec
+//: fn main %fn void unit \void:
+//:     assert_eq_i32 3 dec::i32_decimal_len -42
+//: ```
+fn i32_negative_decimal_digit_len %fn i32 i32 \v:
+    let mut value %i32 v;
+    let mut digit_count %i32 0;
+    while lt value 0:
+        do:
+            set digit_count add digit_count 1;
+            set value div_s value 10
+    digit_count
+
+//: i32_positive_decimal_digit_at: 正の i32 の digit byte を返す
+//:
+//: [目的/もくてき]:
+//: - 正数 `v` の 10 進 digit を上位から数え、`idx` 番目を ASCII byte として返します。
+//:
+//: [注意/ちゅうい]:
+//: - 範囲外 index は `0` を返します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasm
+//:| #import "core/test" as *
+//:| #import "alloc/string/integer/format/i32_decimal" as dec
+//: fn main %fn void unit \void:
+//:     assert_eq_i32 50 dec::i32_decimal_byte_at 123 1
+//: ```
+fn i32_positive_decimal_digit_at %fn i32 fn i32 i32 \v\idx:
+    let digit_len %i32 i32_positive_decimal_digit_len v;
+    if:
+        lt idx 0
+        then:
+            0
+        else:
+            if:
+                le digit_len idx
+                then:
+                    0
+                else:
+                    let mut divisor %i32 1;
+                    let mut shift %i32 sub sub digit_len idx 1;
+                    while gt shift 0:
+                        do:
+                            set divisor mul divisor 10;
+                            set shift sub shift 1
+                    let next_divisor %i32 mul divisor 10;
+                    let tail %i32 rem_s v next_divisor;
+                    add '0' div_s tail divisor
+
+//: i32_negative_decimal_digit_at: 負の i32 の digit byte を返す
+//:
+//: [目的/もくてき]:
+//: - 負数 `v` の 10 進 digit を上位から数え、`idx` 番目を ASCII byte として返します。
+//: - 符号 `-` は含めず、digit 部分だけを扱います。
+//:
+//: [注意/ちゅうい]:
+//: - 範囲外 index は `0` を返します。
+//: - divisor を負数として保つことで、`-2147483648` を正数化せずに digit を取り出します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasm
+//:| #import "core/test" as *
+//:| #import "alloc/string/integer/format/i32_decimal" as dec
+//: fn main %fn void unit \void:
+//:     assert_eq_i32 50 dec::i32_decimal_byte_at -123 2
+//: ```
+fn i32_negative_decimal_digit_at %fn i32 fn i32 i32 \v\idx:
+    let digit_len %i32 i32_negative_decimal_digit_len v;
+    if:
+        lt idx 0
+        then:
+            0
+        else:
+            if:
+                le digit_len idx
+                then:
+                    0
+                else:
+                    let mut divisor %i32 -1;
+                    let mut shift %i32 sub sub digit_len idx 1;
+                    while gt shift 0:
+                        do:
+                            set divisor mul divisor 10;
+                            set shift sub shift 1
+                    let next_divisor %i32 mul divisor 10;
+                    let tail %i32 rem_s v next_divisor;
+                    add '0' div_s tail divisor

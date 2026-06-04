@@ -1,5 +1,3 @@
-use crate::ast::Effect;
-
 use super::model::{EffectOp, Place, ResourceExprKind};
 use super::place_utils::place_suffix_after_prefix;
 
@@ -36,14 +34,7 @@ pub(super) fn loop_step_expr_effect<'a>(
 }
 
 pub(super) fn effect_is_proof_pure(effect: &EffectOp) -> bool {
-    matches!(
-        effect,
-        EffectOp::Pure
-            | EffectOp::UserCall {
-                effect: Effect::Pure,
-                ..
-            }
-    )
+    effect.is_proof_pure()
 }
 
 fn place_touches(left: &Place, right: &Place) -> bool {

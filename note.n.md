@@ -1,3 +1,16 @@
+# 2026-06-04 RPN function-value reachability / print_i32 narrow formatter checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針、特に探索範囲削減、依存関係のDAG化、静的検査の正確性維持を前提にした。
+- RPN cold base の高速化を、cache hit 前提ではなく、未使用 stdlib graph と未知 indirect call による探索範囲拡大として扱った。
+- HIR 到達性解析は、直接 `FnValue` / `MemoizedFunctionValue`、immutable `let` に束縛された関数値、非 mutable parameter へ直接渡された既知関数値を context-sensitive に追跡するようにした。未知の indirect callee は引き続き conservative-all に倒す。
+- `CallIndirect` の unknown 理由細分化、branch / match 後の function-value 候補集合合流、mutable escape の局所化は `ISS-20260604T102900000Z-HIR-FUNCTION-VALUE-REACHABILITY-SHOUL-6C0E9B12` として分離した。
+- `print_i32` は integer formatting の責務を stdio 側へ複製せず、`alloc/string/integer/format/i32_decimal.nepl` の allocation-free decimal byte helper を使う形にした。これにより stdout へ byte を流すだけの RPN 経路から builder / raw memory / collection storage graph を外した。
+- `examples/rpn.nepl` は `core/math/i32` facade ではなく、実際に使う `core/math/i32/arith` と `core/math/i32/compare` へ import を狭めた。
+- RPN native release 5 run 中央値は、`execute_inner=1772.017ms`、`loader_load=307.892ms`、`check_pipeline=1461.799ms`、`resource_static_check=1341ms`、`resource_initialized_moves=943ms`、`resource_initialized_function_checks=481ms`、`resource_initialized_raw_init_summaries=288ms`、`resource_owner_obligations=312ms`、`resource_initialized_collection_slot_summaries=1ms` だった。
+- `resource_initialized_collection_slot_summaries` は callback formatter 試行時の約 `2480ms` から `1ms` へ戻せたが、0.5秒未満目標にはまだ届いていない。次の根本対応は `resource_initialized_moves`、final function check、raw-init、owner summary / owner obligation の seed と dependency closure をさらに絞ることである。
+- 検証済み: `cargo fmt --check`、`cargo check -p nepl-core`、`cargo test -p nepl-core resource_reachability --lib -- --nocapture`、`cargo test -p nepl-core summary_dependency --lib -- --nocapture`、`cargo test -p nepl-core owner_summary_relevance --lib -- --nocapture`、`cargo test -p nepl-core owner_obligation_relevance --lib -- --nocapture`、`cargo build --release -p nepl-cli`、`node nodesrc/test_stdlib_stdio_print_i32_boundary.js`、`node nodesrc/tests.js -i tests\stdlib\stdout.n.md -o tmp\stdout-print-i32-i32-decimal-narrow-verify-20260604.json -j 1 --assert-io --dist web\dist`、`node nodesrc/tests.js -i stdlib\alloc\string\integer\format\i32_decimal.nepl --no-tree -o tmp\i32-decimal-doctest-20260604-3.json -j 1 --dist web\dist --assert-io`、`node nodesrc/test_stdlib_documentation_contract.js`、`trunk build`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\rpn-algorithmic-pruning-playground-editor-20260604.json`、`node nodesrc/issues.js index --dir issues && node nodesrc/issues.js check --dir issues`、`git diff --check`。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は今回追加した stdlib documentation gap が解消されたことを確認し、既存の static/resource/parser/backend/diagnostic 系 5 件だけを warning として報告した。
+
 # 2026-06-04 Agent2 char UTF-8 byte Option contract checkpoint
 
 - `origin/main` 同期済みの `agent2/fix-char-utf8-byte-option` branch で `ISS-20260604T034125917Z-CHAR-UTF-8-BYTE-ACCESSORS-RELY-ON-CA-AC31C3D4` を修正した。

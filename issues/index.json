@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T06:25:11.018Z",
+  "generated_at": "2026-06-04T10:33:33.265Z",
   "counts": {
-    "total": 1339,
-    "open": 56,
+    "total": 1340,
+    "open": 57,
     "resolved": 1283,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 334
       },
       "core": {
-        "total": 664,
-        "open": 27,
+        "total": 665,
+        "open": 28,
         "resolved": 637
       },
       "examples": {
@@ -788,6 +788,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260528T073034861Z-RESOURCE-CHECKER-RESIDUAL-LARGE-MODU-55E5FDF0.md"
+    },
+    {
+      "id": "ISS-20260604T102900000Z-HIR-FUNCTION-VALUE-REACHABILITY-SHOUL-6C0E9B12",
+      "title": "HIR function-value reachability should report precise unknown causes and merge branch candidates",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "nepl-core/src/compiler.rs; nepl-core/src/hir.rs; nepl-core/src/typecheck/indirect_apply.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T102900000Z-HIR-FUNCTION-VALUE-REACHABILITY-SHOUL-6C0E9B12.md"
     },
     {
       "id": "ISS-20260604T034207429Z-GUI-EXAMPLES-DUPLICATE-FRAME-BUTTON--57AC9031",

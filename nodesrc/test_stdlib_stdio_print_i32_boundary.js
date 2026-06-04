@@ -31,13 +31,23 @@ assert.ok(match, 'stdio print_i32 body must be found');
 const body = match[1];
 assert.match(
     body,
-    /\bprint\s+string_integer::from_i32\s+v\b/,
-    'print_i32 must delegate integer formatting to alloc/string/integer/format::from_i32',
+    /\bi32_decimal::i32_decimal_len\s+v\b/,
+    'print_i32 must read decimal output length from alloc/string/integer/format/i32_decimal',
+);
+assert.match(
+    body,
+    /\bprint_byte\s+i32_decimal::i32_decimal_byte_at\s+v\s+idx\b/,
+    'print_i32 must delegate digit byte generation to alloc/string/integer/format/i32_decimal',
 );
 assert.match(
     printCode,
-    /#import\s+"alloc\/string\/integer\/format"\s+as\s+string_integer/,
-    'stdio print_i32 must import the integer formatting module directly',
+    /#import\s+"alloc\/string\/integer\/format\/i32_decimal"\s+as\s+i32_decimal/,
+    'stdio print_i32 must import the allocation-free integer decimal formatting submodule directly',
+);
+assert.match(
+    printCode,
+    /#import\s+"std\/stdio\/write\/byte"\s+as\s+\*/,
+    'stdio print_i32 must obtain byte output through the stdio byte writer boundary',
 );
 
 const forbidden = [
@@ -47,14 +57,16 @@ const forbidden = [
     /\bstore_u8\b/,
     /\bstore_i32\b/,
     /\bload_u8\b/,
-    /\bwhile\b/,
+    /\bdiv_s\b/,
+    /\brem_s\b/,
+    /\bstring_integer::from_i32\b/,
 ];
 
 for (const pattern of forbidden) {
     assert.doesNotMatch(
         body,
         pattern,
-        'print_i32 must not reintroduce a local raw-memory scratch formatter',
+        'print_i32 must not reintroduce a local digit formatter or raw-memory scratch formatter',
     );
 }
 

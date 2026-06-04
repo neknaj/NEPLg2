@@ -31,6 +31,8 @@ pub(super) struct ResourceSummaryDependencyGraph {
     raw_init_dependencies: Vec<Vec<usize>>,
     raw_init_dependents: Vec<Vec<usize>>,
     raw_init_initial_order: Vec<usize>,
+    owner_dependents: Vec<Vec<usize>>,
+    owner_initial_order: Vec<usize>,
     direct_raw_initialization_summary_ops: Vec<bool>,
     direct_owner_summary_ops: Vec<bool>,
 }
@@ -86,6 +88,11 @@ impl ResourceSummaryDependencyGraph {
             invert_function_summary_dependencies(module.functions.len(), &raw_init_dependencies);
         let raw_init_initial_order =
             summary_order_from_dependencies(module.functions.len(), &raw_init_dependencies);
+        let owner_dependencies = raw_init_dependencies.clone();
+        let owner_dependents =
+            invert_function_summary_dependencies(module.functions.len(), &owner_dependencies);
+        let owner_initial_order =
+            summary_order_from_dependencies(module.functions.len(), &owner_dependencies);
         let direct_raw_initialization_summary_ops = inventories
             .iter()
             .map(|inventory| inventory.has_direct_raw_initialization_summary_op)
@@ -107,6 +114,8 @@ impl ResourceSummaryDependencyGraph {
             raw_init_dependencies,
             raw_init_dependents,
             raw_init_initial_order,
+            owner_dependents,
+            owner_initial_order,
             direct_raw_initialization_summary_ops,
             direct_owner_summary_ops,
         }
@@ -187,6 +196,21 @@ impl ResourceSummaryDependencyGraph {
     /// raw initialization summary 専用依存辺から作った初期評価順序を返す。
     pub(super) fn raw_init_initial_order(&self) -> &[usize] {
         &self.raw_init_initial_order
+    }
+
+    /// owner return summary 専用依存辺の逆辺を返す。
+    ///
+    /// owner summary は direct call と、同じ関数内で indirect call に流れ得る
+    /// function value からだけ callee summary を読む。単に function value を作るだけの
+    /// facade は owner summary の固定点探索には不要なので、raw-init / raw-alias と
+    /// 同じ依存辺 view から作った逆辺で full summary dependency より探索範囲を狭める。
+    pub(super) fn owner_dependents(&self) -> &[Vec<usize>] {
+        &self.owner_dependents
+    }
+
+    /// owner return summary 専用依存辺から作った初期評価順序を返す。
+    pub(super) fn owner_initial_order(&self) -> &[usize] {
+        &self.owner_initial_order
     }
 
     /// 関数内に raw initialization summary の起点になる operation があるかを返す。
@@ -437,7 +461,7 @@ fn direct_call_reads_i32_scalar_summary(effect: &EffectOp) -> bool {
 }
 
 fn call_directly_affects_owner_summary(effect: &EffectOp) -> bool {
-    !matches!(effect, EffectOp::Pure)
+    !effect.is_proof_pure()
 }
 
 #[cfg(test)]
@@ -553,6 +577,43 @@ mod tests {
     }
 
     #[test]
+    fn owner_summary_inventory_treats_pure_user_calls_as_proof_pure() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops(
+                    "pure_caller",
+                    vec![call_with_effect(
+                        "callee",
+                        EffectOp::UserCall {
+                            name: "callee".into(),
+                            effect: Effect::Pure,
+                        },
+                    )],
+                ),
+                function_with_ops(
+                    "impure_caller",
+                    vec![call_with_effect(
+                        "callee",
+                        EffectOp::UserCall {
+                            name: "callee".into(),
+                            effect: Effect::Impure,
+                        },
+                    )],
+                ),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert!(!graph.has_direct_owner_summary_op(0));
+        assert!(graph.has_direct_owner_summary_op(1));
+        assert!(!graph.has_direct_owner_summary_op(2));
+    }
+
+    #[test]
     fn raw_init_dependency_graph_keeps_direct_calls() {
         let module = ResourceModule {
             functions: vec![
@@ -567,6 +628,7 @@ mod tests {
 
         assert_eq!(graph.raw_init_dependencies(), &[vec![1], vec![]]);
         assert_eq!(graph.raw_init_dependents(), &[vec![], vec![0]]);
+        assert_eq!(graph.owner_dependents(), &[vec![], vec![0]]);
     }
 
     #[test]
@@ -601,6 +663,7 @@ mod tests {
 
         assert_eq!(graph.dependencies(), &[vec![1], vec![]]);
         assert_eq!(graph.raw_init_dependencies(), &[vec![], vec![]]);
+        assert_eq!(graph.owner_dependents(), &[vec![], vec![]]);
     }
 
     #[test]
@@ -654,6 +717,7 @@ mod tests {
         let graph = ResourceSummaryDependencyGraph::build(&module);
 
         assert_eq!(graph.raw_init_dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.owner_dependents(), &[vec![], vec![0]]);
     }
 
     #[test]

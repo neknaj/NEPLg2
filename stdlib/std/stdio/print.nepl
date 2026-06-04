@@ -11,8 +11,11 @@
 
 #indent 4
 
-#import "alloc/string/integer/format" as string_integer
+#import "alloc/string/integer/format/i32_decimal" as i32_decimal
+#import "core/math/i32/arith" as *
+#import "core/math/i32/compare" as *
 #import "core/result" as *
+#import "std/stdio/write/byte" as *
 #import "std/stdio/write/text" as *
 
 //: print: 文字列を標準出力へ出す
@@ -99,15 +102,15 @@ pub fn noshadow println %impure fn str unit \s:
 //: - v を 10 進表記で stdout へ出力します。
 //:
 //: 実装(アルゴリズム):
-//: - 整数から文字列への変換は `alloc/string/integer/format::from_i32` に委譲します。
-//: - この module は stdout への出力だけを担当し、整数 formatting の規則を重複実装しません。
+//: - 10 進 digit の生成規則は `alloc/string/integer/format/i32_decimal` に委譲します。
+//: - この module は必要な byte 数だけを順に読み、stdout への effect だけを担当します。
 //:
 //: 注意(重要):
 //: - write error は互換性のため無視します。
-//: - 文字列化の allocation failure は `from_i32` の契約に従い `"0"` fallback になります。
+//: - `str` 値が必要な場合は `alloc/string/integer/format::from_i32` を使います。この関数は stdout へ直接出力するため、文字列 object を確保しません。
 //:
 //: 計算量:
-//: - O(d)。d は 10 進桁数です。
+//: - O(1)。i32 の 10 進桁数上限 10 に固定されます。
 //: print_i32: 使い方の最小例
 //:
 //: [目的/もくてき]:
@@ -148,7 +151,12 @@ pub fn noshadow println %impure fn str unit \s:
 //:     print_i32 2147483647;
 //: ```
 pub fn noshadow print_i32 %impure fn i32 unit \v:
-    print string_integer::from_i32 v
+    let output_len %i32 i32_decimal::i32_decimal_len v;
+    let mut idx %i32 0;
+    while lt idx output_len:
+        do:
+            print_byte i32_decimal::i32_decimal_byte_at v idx;
+            set idx add idx 1
 
 //: println_i32: i32 を改行付きで出力
 //:

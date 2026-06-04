@@ -3151,7 +3151,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_reachability_is_conservative_for_indirect_call() {
+    fn resource_reachability_resolves_known_function_value_indirect_call() {
         let mut types = crate::types::TypeCtx::new();
         let i32_ty = types.i32();
         let fn_ty = types.function(Vec::new(), Vec::new(), i32_ty, ast::Effect::Pure);
@@ -3192,8 +3192,133 @@ mod tests {
 
         let reachable = collect_reachable_function_set(&module, &[String::from("main")]);
 
+        assert!(!reachable.is_conservative_all);
+        assert!(reachable.names.contains("main"));
+        assert!(reachable.names.contains("used"));
+    }
+
+    #[test]
+    fn resource_reachability_is_conservative_for_unknown_indirect_var() {
+        let mut types = crate::types::TypeCtx::new();
+        let i32_ty = types.i32();
+        let fn_ty = types.function(Vec::new(), Vec::new(), i32_ty, ast::Effect::Pure);
+        let main_body = crate::hir::HirBody::Block(crate::hir::HirBlock {
+            lines: vec![crate::hir::HirLine {
+                expr: crate::hir::HirExpr {
+                    ty: i32_ty,
+                    kind: crate::hir::HirExprKind::CallIndirect {
+                        callee: Box::new(crate::hir::HirExpr {
+                            ty: fn_ty,
+                            kind: crate::hir::HirExprKind::Var(String::from("f")),
+                            span: Span::dummy(),
+                        }),
+                        params: Vec::new(),
+                        result: i32_ty,
+                        effect: ast::Effect::Pure,
+                        args: Vec::new(),
+                    },
+                    span: Span::dummy(),
+                },
+                drop_result: false,
+            }],
+            ty: i32_ty,
+            span: Span::dummy(),
+        });
+        let main = test_hir_function(&mut types, "main", main_body);
+        let unused_body = test_literal_body(&mut types, 1);
+        let unused = test_hir_function(&mut types, "unused", unused_body);
+        let module = test_module(vec![main, unused]);
+
+        let reachable = collect_reachable_function_set(&module, &[String::from("main")]);
+
         assert!(reachable.is_conservative_all);
         assert_eq!(reachable.names.len(), 2);
+    }
+
+    #[test]
+    fn resource_reachability_propagates_known_function_value_arguments() {
+        let mut types = crate::types::TypeCtx::new();
+        let i32_ty = types.i32();
+        let callback_ty = types.function(Vec::new(), Vec::new(), i32_ty, ast::Effect::Pure);
+        let hof_ty = types.function(Vec::new(), vec![callback_ty], i32_ty, ast::Effect::Pure);
+        let main_body = crate::hir::HirBody::Block(crate::hir::HirBlock {
+            lines: vec![crate::hir::HirLine {
+                expr: crate::hir::HirExpr {
+                    ty: i32_ty,
+                    kind: crate::hir::HirExprKind::Call {
+                        callee: crate::hir::FuncRef::User(String::from("hof"), Vec::new(), None),
+                        args: vec![crate::hir::HirExpr {
+                            ty: callback_ty,
+                            kind: crate::hir::HirExprKind::FnValue(
+                                crate::function_identity::FunctionValueIdentity::new(
+                                    String::from("used"),
+                                    None,
+                                    callback_ty,
+                                    ast::Effect::Pure,
+                                    Vec::new(),
+                                ),
+                            ),
+                            span: Span::dummy(),
+                        }],
+                    },
+                    span: Span::dummy(),
+                },
+                drop_result: false,
+            }],
+            ty: i32_ty,
+            span: Span::dummy(),
+        });
+        let main = test_hir_function(&mut types, "main", main_body);
+        let hof_body = crate::hir::HirBody::Block(crate::hir::HirBlock {
+            lines: vec![crate::hir::HirLine {
+                expr: crate::hir::HirExpr {
+                    ty: i32_ty,
+                    kind: crate::hir::HirExprKind::CallIndirect {
+                        callee: Box::new(crate::hir::HirExpr {
+                            ty: callback_ty,
+                            kind: crate::hir::HirExprKind::Var(String::from("callback")),
+                            span: Span::dummy(),
+                        }),
+                        params: Vec::new(),
+                        result: i32_ty,
+                        effect: ast::Effect::Pure,
+                        args: Vec::new(),
+                    },
+                    span: Span::dummy(),
+                },
+                drop_result: false,
+            }],
+            ty: i32_ty,
+            span: Span::dummy(),
+        });
+        let hof = crate::hir::HirFunction {
+            doc: None,
+            name: String::from("hof"),
+            origin_name: String::from("hof"),
+            func_ty: hof_ty,
+            params: vec![crate::hir::HirParam {
+                name: String::from("callback"),
+                ty: callback_ty,
+                mutable: false,
+            }],
+            result: i32_ty,
+            effect: ast::Effect::Pure,
+            body: hof_body,
+            span: Span::dummy(),
+        };
+        let used_body = test_literal_body(&mut types, 1);
+        let used = test_hir_function(&mut types, "used", used_body);
+        let unused_body = test_literal_body(&mut types, 2);
+        let unused = test_hir_function(&mut types, "unused", unused_body);
+        let module = test_module(vec![main, hof, used, unused]);
+
+        let reachable = collect_reachable_function_set(&module, &[String::from("main")]);
+
+        assert!(!reachable.is_conservative_all);
+        assert!(reachable.names.contains("main"));
+        assert!(reachable.names.contains("hof"));
+        assert!(reachable.names.contains("used"));
+        assert!(!reachable.names.contains("unused"));
     }
 
     #[test]
@@ -4949,6 +5074,35 @@ struct ReachableFunctionSet {
     is_conservative_all: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+struct KnownFunctionValueBindings {
+    values: BTreeMap<String, BTreeSet<String>>,
+}
+
+impl KnownFunctionValueBindings {
+    fn insert(&mut self, name: String, targets: BTreeSet<String>) {
+        if targets.is_empty() {
+            self.values.remove(&name);
+        } else {
+            self.values.insert(name, targets);
+        }
+    }
+
+    fn remove(&mut self, name: &str) {
+        self.values.remove(name);
+    }
+
+    fn get(&self, name: &str) -> Option<&BTreeSet<String>> {
+        self.values.get(name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct ReachableFunctionContext {
+    name: String,
+    known_function_values: KnownFunctionValueBindings,
+}
+
 fn collect_reachable_functions(module: &crate::hir::HirModule, entry: &str) -> Vec<String> {
     collect_reachable_function_set(module, &[String::from(entry)])
         .names
@@ -4966,14 +5120,18 @@ fn collect_reachable_function_set(
         function_map.insert(f.name.clone(), f);
         all_names.insert(f.name.clone());
     }
+    let mut visited_contexts: BTreeSet<ReachableFunctionContext> = BTreeSet::new();
     let mut visited: BTreeSet<String> = BTreeSet::new();
     let mut stack = Vec::new();
     let mut requires_conservative_all = false;
     for root in roots {
-        stack.push(root.clone());
+        stack.push(ReachableFunctionContext {
+            name: root.clone(),
+            known_function_values: KnownFunctionValueBindings::default(),
+        });
     }
-    while let Some(name) = stack.pop() {
-        let resolved_name = match resolve_hir_function_ref_name(&all_names, name.as_str()) {
+    while let Some(context) = stack.pop() {
+        let resolved_name = match resolve_hir_function_ref_name(&all_names, context.name.as_str()) {
             HirFunctionRefResolution::Resolved(name) => name,
             HirFunctionRefResolution::Missing => continue,
             HirFunctionRefResolution::Ambiguous => {
@@ -4981,13 +5139,26 @@ fn collect_reachable_function_set(
                 continue;
             }
         };
-        if !visited.insert(resolved_name.clone()) {
+        let resolved_context = ReachableFunctionContext {
+            name: resolved_name.clone(),
+            known_function_values: context.known_function_values,
+        };
+        if !visited_contexts.insert(resolved_context.clone()) {
             continue;
         }
+        visited.insert(resolved_name.clone());
         let Some(func) = function_map.get(resolved_name.as_str()) else {
             continue;
         };
-        collect_called_functions_from_body(&func.body, &mut stack, &mut requires_conservative_all);
+        let mut function_values = resolved_context.known_function_values;
+        collect_called_functions_from_body(
+            &func.body,
+            &function_map,
+            &all_names,
+            &mut function_values,
+            &mut stack,
+            &mut requires_conservative_all,
+        );
     }
     if requires_conservative_all {
         return ReachableFunctionSet {
@@ -5032,13 +5203,21 @@ fn resolve_hir_function_ref_name(
 
 fn collect_called_functions_from_body(
     body: &crate::hir::HirBody,
-    stack: &mut Vec<String>,
+    function_map: &BTreeMap<String, &crate::hir::HirFunction>,
+    all_names: &BTreeSet<String>,
+    known_function_values: &mut KnownFunctionValueBindings,
+    stack: &mut Vec<ReachableFunctionContext>,
     requires_conservative_all: &mut bool,
 ) {
     match body {
-        crate::hir::HirBody::Block(block) => {
-            collect_called_functions_from_block(block, stack, requires_conservative_all)
-        }
+        crate::hir::HirBody::Block(block) => collect_called_functions_from_block(
+            block,
+            function_map,
+            all_names,
+            known_function_values,
+            stack,
+            requires_conservative_all,
+        ),
         crate::hir::HirBody::Wasm(block) => {
             for line in &block.lines {
                 if wasm_raw_body_line_contains_direct_call(line) {
@@ -5067,33 +5246,92 @@ fn wasm_raw_body_line_contains_direct_call(line: &str) -> bool {
 
 fn collect_called_functions_from_block(
     block: &crate::hir::HirBlock,
-    stack: &mut Vec<String>,
+    function_map: &BTreeMap<String, &crate::hir::HirFunction>,
+    all_names: &BTreeSet<String>,
+    known_function_values: &mut KnownFunctionValueBindings,
+    stack: &mut Vec<ReachableFunctionContext>,
     requires_conservative_all: &mut bool,
 ) {
     for line in &block.lines {
-        collect_called_functions_from_expr(&line.expr, stack, requires_conservative_all);
+        collect_called_functions_from_expr(
+            &line.expr,
+            function_map,
+            all_names,
+            known_function_values,
+            stack,
+            requires_conservative_all,
+        );
     }
 }
 
 fn collect_called_functions_from_expr(
     expr: &crate::hir::HirExpr,
-    stack: &mut Vec<String>,
+    function_map: &BTreeMap<String, &crate::hir::HirFunction>,
+    all_names: &BTreeSet<String>,
+    known_function_values: &mut KnownFunctionValueBindings,
+    stack: &mut Vec<ReachableFunctionContext>,
     requires_conservative_all: &mut bool,
 ) {
     match &expr.kind {
         crate::hir::HirExprKind::Call { callee, args } => {
             if let crate::hir::FuncRef::User(name, _, _) = callee {
-                stack.push(name.clone());
+                push_reachable_function_context(
+                    name,
+                    args,
+                    function_map,
+                    all_names,
+                    known_function_values,
+                    stack,
+                    requires_conservative_all,
+                );
             }
             for arg in args {
-                collect_called_functions_from_expr(arg, stack, requires_conservative_all);
+                let mut arg_function_values = known_function_values.clone();
+                collect_called_functions_from_expr(
+                    arg,
+                    function_map,
+                    all_names,
+                    &mut arg_function_values,
+                    stack,
+                    requires_conservative_all,
+                );
             }
         }
         crate::hir::HirExprKind::CallIndirect { callee, args, .. } => {
-            *requires_conservative_all = true;
-            collect_called_functions_from_expr(callee, stack, requires_conservative_all);
+            if let Some(targets) = known_function_targets_for_expr(callee, known_function_values) {
+                for target in targets {
+                    push_reachable_function_context(
+                        target.as_str(),
+                        args,
+                        function_map,
+                        all_names,
+                        known_function_values,
+                        stack,
+                        requires_conservative_all,
+                    );
+                }
+            } else {
+                *requires_conservative_all = true;
+            }
+            let mut callee_function_values = known_function_values.clone();
+            collect_called_functions_from_expr(
+                callee,
+                function_map,
+                all_names,
+                &mut callee_function_values,
+                stack,
+                requires_conservative_all,
+            );
             for arg in args {
-                collect_called_functions_from_expr(arg, stack, requires_conservative_all);
+                let mut arg_function_values = known_function_values.clone();
+                collect_called_functions_from_expr(
+                    arg,
+                    function_map,
+                    all_names,
+                    &mut arg_function_values,
+                    stack,
+                    requires_conservative_all,
+                );
             }
         }
         crate::hir::HirExprKind::If {
@@ -5101,40 +5339,149 @@ fn collect_called_functions_from_expr(
             then_branch,
             else_branch,
         } => {
-            collect_called_functions_from_expr(cond, stack, requires_conservative_all);
-            collect_called_functions_from_expr(then_branch, stack, requires_conservative_all);
-            collect_called_functions_from_expr(else_branch, stack, requires_conservative_all);
+            collect_child_expr_with_known_function_values(
+                cond,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
+            collect_child_expr_with_known_function_values(
+                then_branch,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
+            collect_child_expr_with_known_function_values(
+                else_branch,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
         }
         crate::hir::HirExprKind::While { cond, body } => {
-            collect_called_functions_from_expr(cond, stack, requires_conservative_all);
-            collect_called_functions_from_expr(body, stack, requires_conservative_all);
+            collect_child_expr_with_known_function_values(
+                cond,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
+            collect_child_expr_with_known_function_values(
+                body,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
         }
         crate::hir::HirExprKind::Match { scrutinee, arms } => {
-            collect_called_functions_from_expr(scrutinee, stack, requires_conservative_all);
+            collect_child_expr_with_known_function_values(
+                scrutinee,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
             for arm in arms {
-                collect_called_functions_from_expr(&arm.body, stack, requires_conservative_all);
+                collect_child_expr_with_known_function_values(
+                    &arm.body,
+                    function_map,
+                    all_names,
+                    known_function_values,
+                    stack,
+                    requires_conservative_all,
+                );
             }
         }
         crate::hir::HirExprKind::EnumConstruct { payload, .. } => {
             if let Some(payload) = payload {
-                collect_called_functions_from_expr(payload, stack, requires_conservative_all);
+                collect_child_expr_with_known_function_values(
+                    payload,
+                    function_map,
+                    all_names,
+                    known_function_values,
+                    stack,
+                    requires_conservative_all,
+                );
             }
         }
         crate::hir::HirExprKind::StructConstruct { fields, .. }
         | crate::hir::HirExprKind::TupleConstruct { items: fields }
         | crate::hir::HirExprKind::Intrinsic { args: fields, .. } => {
             for field in fields {
-                collect_called_functions_from_expr(field, stack, requires_conservative_all);
+                collect_child_expr_with_known_function_values(
+                    field,
+                    function_map,
+                    all_names,
+                    known_function_values,
+                    stack,
+                    requires_conservative_all,
+                );
             }
         }
         crate::hir::HirExprKind::Block(block) => {
-            collect_called_functions_from_block(block, stack, requires_conservative_all);
+            let mut block_function_values = known_function_values.clone();
+            collect_called_functions_from_block(
+                block,
+                function_map,
+                all_names,
+                &mut block_function_values,
+                stack,
+                requires_conservative_all,
+            );
         }
-        crate::hir::HirExprKind::Let { value, .. }
-        | crate::hir::HirExprKind::Set { value, .. }
-        | crate::hir::HirExprKind::AddrOf(value)
-        | crate::hir::HirExprKind::Deref(value) => {
-            collect_called_functions_from_expr(value, stack, requires_conservative_all);
+        crate::hir::HirExprKind::Let {
+            name,
+            mutable,
+            value,
+        } => {
+            collect_child_expr_with_known_function_values(
+                value,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
+            if *mutable {
+                known_function_values.remove(name);
+            } else if let Some(targets) =
+                known_function_targets_for_expr(value, known_function_values)
+            {
+                known_function_values.insert(name.clone(), targets);
+            } else {
+                known_function_values.remove(name);
+            }
+        }
+        crate::hir::HirExprKind::Set { name, value } => {
+            collect_child_expr_with_known_function_values(
+                value,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
+            known_function_values.remove(name);
+        }
+        crate::hir::HirExprKind::AddrOf(value) | crate::hir::HirExprKind::Deref(value) => {
+            collect_child_expr_with_known_function_values(
+                value,
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            );
         }
         crate::hir::HirExprKind::LiteralI32(_)
         | crate::hir::HirExprKind::LiteralF32(_)
@@ -5145,9 +5492,98 @@ fn collect_called_functions_from_expr(
         | crate::hir::HirExprKind::Drop { .. } => {}
         crate::hir::HirExprKind::FnValue(identity)
         | crate::hir::HirExprKind::MemoizedFunctionValue(identity) => {
-            stack.push(identity.symbol.clone())
+            push_reachable_function_context(
+                identity.symbol.as_str(),
+                &[],
+                function_map,
+                all_names,
+                known_function_values,
+                stack,
+                requires_conservative_all,
+            )
         }
     }
+}
+
+fn collect_child_expr_with_known_function_values(
+    expr: &crate::hir::HirExpr,
+    function_map: &BTreeMap<String, &crate::hir::HirFunction>,
+    all_names: &BTreeSet<String>,
+    known_function_values: &KnownFunctionValueBindings,
+    stack: &mut Vec<ReachableFunctionContext>,
+    requires_conservative_all: &mut bool,
+) {
+    let mut child_function_values = known_function_values.clone();
+    collect_called_functions_from_expr(
+        expr,
+        function_map,
+        all_names,
+        &mut child_function_values,
+        stack,
+        requires_conservative_all,
+    );
+}
+
+fn known_function_targets_for_expr(
+    expr: &crate::hir::HirExpr,
+    known_function_values: &KnownFunctionValueBindings,
+) -> Option<BTreeSet<String>> {
+    match &expr.kind {
+        crate::hir::HirExprKind::FnValue(identity)
+        | crate::hir::HirExprKind::MemoizedFunctionValue(identity) => {
+            let mut targets = BTreeSet::new();
+            targets.insert(identity.symbol.clone());
+            Some(targets)
+        }
+        crate::hir::HirExprKind::Var(name) => known_function_values.get(name).cloned(),
+        _ => None,
+    }
+}
+
+fn push_reachable_function_context(
+    name: &str,
+    args: &[crate::hir::HirExpr],
+    function_map: &BTreeMap<String, &crate::hir::HirFunction>,
+    all_names: &BTreeSet<String>,
+    caller_known_function_values: &KnownFunctionValueBindings,
+    stack: &mut Vec<ReachableFunctionContext>,
+    requires_conservative_all: &mut bool,
+) {
+    match resolve_hir_function_ref_name(all_names, name) {
+        HirFunctionRefResolution::Resolved(resolved_name) => {
+            let known_function_values = function_map
+                .get(resolved_name.as_str())
+                .map(|function| {
+                    known_function_bindings_for_call(function, args, caller_known_function_values)
+                })
+                .unwrap_or_default();
+            stack.push(ReachableFunctionContext {
+                name: resolved_name,
+                known_function_values,
+            });
+        }
+        HirFunctionRefResolution::Missing => {}
+        HirFunctionRefResolution::Ambiguous => {
+            *requires_conservative_all = true;
+        }
+    }
+}
+
+fn known_function_bindings_for_call(
+    function: &crate::hir::HirFunction,
+    args: &[crate::hir::HirExpr],
+    caller_known_function_values: &KnownFunctionValueBindings,
+) -> KnownFunctionValueBindings {
+    let mut known_function_values = KnownFunctionValueBindings::default();
+    for (param, arg) in function.params.iter().zip(args.iter()) {
+        if param.mutable {
+            continue;
+        }
+        if let Some(targets) = known_function_targets_for_expr(arg, caller_known_function_values) {
+            known_function_values.insert(param.name.clone(), targets);
+        }
+    }
+    known_function_values
 }
 
 fn emit_wasm(

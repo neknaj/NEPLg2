@@ -84,10 +84,65 @@ signature-only relevance を fact-producing seed と dependency closure へ縮�
 raw-init summary の cell collection を return / param alias から到達可能な cell へ限定すること、
 owner / effect summary の kind-specific dependency view を安全条件付きで導入することである。
 
+### 2026-06-04 RPN function-value reachability / print_i32 formatter boundary checkpoint
+
+`examples/rpn.nepl` の cold base は、cache artifact の有無だけでなく、未使用 stdlib 関数を
+Resource IR 静的検査へ入れてしまう探索範囲の広さにも強く影響される。今回の測定では、
+`print_i32` を共通 formatter へ委譲する変更を試したことで、HIR 到達性解析と stdlib
+formatter 境界の2つの問題が分離して見えた。
+
+1つ目の問題は、HIR の `CallIndirect` が一律 `unknown_call_graph` へ落ちることだった。
+`@print_byte` のように直接渡された関数値であっても、formatter 側では parameter 変数経由の
+indirect call として現れるため、旧実装では `resource_reachable_prune_functions=219 kept=219
+reason=unknown_call_graph` となり、到達性 pruning が無効になっていた。
+
+対策として、HIR 到達性解析に function-value environment を追加した。`FnValue` /
+`MemoizedFunctionValue`、immutable `let` に束縛された関数値、非 mutable parameter へ直接渡された
+既知関数値は、entry から context-sensitive に追跡する。未知の indirect callee は引き続き
+conservative-all に倒すため、検査漏れは増やさない。branch / match の候補集合合流や unknown
+reason の細分化は、`ISS-20260604T102900000Z-HIR-FUNCTION-VALUE-REACHABILITY-SHOUL-6C0E9B12`
+として分離した。
+
+2つ目の問題は、`print_i32` が allocation つきの `alloc/string/integer/format` root を import
+すると、stdout に byte を流すだけの経路でも builder / raw memory / collection storage の
+Resource summary が検査対象へ入ることだった。callback 版では `resource_initialized_collection_slot_summaries`
+が約 `2480ms` まで増えた。
+
+対策として、責務は `alloc/string/integer/format` 配下に保ったまま、allocation-free な
+`alloc/string/integer/format/i32_decimal.nepl` を追加した。`std/stdio/print_i32` はこの小 module
+から `i32_decimal_len` と `i32_decimal_byte_at` だけを使い、stdio 側は stdout effect と byte
+出力 loop だけを持つ。これにより integer formatting の責務を stdio へ複製せず、RPN 経路から
+文字列確保 graph を外せる。
+
+同 checkpoint の native release RPN 5 run 中央値は次である。`NEPL_DISABLE_CHECK_CACHE=1` を付け、
+exact check cache による短絡は除外している。
+
+| stage | median |
+|---|---:|
+| `execute_inner` | `1772.017ms` |
+| `loader_load` | `307.892ms` |
+| `check_pipeline` | `1461.799ms` |
+| `resource_typecheck` | `104ms` |
+| `resource_static_check` | `1341ms` |
+| `resource_initialized_moves` | `943ms` |
+| `resource_initialized_function_checks` | `481ms` |
+| `resource_initialized_raw_init_summaries` | `288ms` |
+| `resource_initialized_i32_scalar_summaries` | `152ms` |
+| `resource_owner_obligations` | `312ms` |
+| `resource_owner_summaries` | `245ms` |
+| `resource_initialized_collection_slot_summaries` | `1ms` |
+
+この結果は、collection slot summary の過大化をほぼ解消した一方で、0.5 秒未満目標にはまだ届かない。
+残る支配項目は `resource_initialized_moves`、final function check、raw-init、owner summary /
+owner obligation である。次の root task は、summary fixed-point の seed と dependency closure を
+summary kind ごとにさらに絞り、未使用の branch / return / owner state を最初から探索しない構造へ
+寄せることである。
+
 ## 実装済みの境界
 
 - Resource IR 前の entry reachability pruning。
 - unknown call graph では pruning を行わない conservative-all fallback。
+- HIR 到達性解析で、直接関数値、immutable `let` の関数値、非 mutable parameter へ渡された既知関数値を追跡する。
 - `Copy` / `Clone` primitive module と `core/traits/copy` facade の責務分離。
 - `core/mem/types` の軽量化と `region_in_bounds` の pointer region module への移動。
 - WASM wrapper の bundled stdlib lookup を `&'static str` source table + overlay source に分離。
@@ -108,6 +163,7 @@ owner / effect summary の kind-specific dependency view を安全条件付き�
 - `CompilerSession` は同一 source / VFS / profile / WAT comment mode の compiled output を小さな LRU 風 cache に保持する。これは同一 session の再compileでResource IR全体を再実行しないための応急的な出力cacheであり、typed public surface / Resource IR summary の semantic incremental cache を置き換えるものではない。
 - `PreparedProgram` は `ResourceSummaryCacheNamespaceKey` を保持する。これは target / profile / typed public signature hash / dependency public surface hash option から決定的に作る module-level namespace key であり、Resource IR summary value の再利用はまだ行わない。
 - `stdlib/alloc/string/integer/parse.nepl` の signed integer parse は、`str_slice` で一時 signed body を構築してから `to_u128_radix` の `Result` を再度 match する形をやめ、private digit parser を開始 index 指定で共有する。これは stdlib 実装を軽くするだけでなく、Resource IR の branch / match / owner-state exploration を減らす。
+- `stdlib/alloc/string/integer/format/i32_decimal.nepl` は、文字列確保を伴わない i32 decimal byte helper として `alloc/string/integer/format` 配下に置く。`std/stdio/print_i32` はこの helper を使い、stdout effect 以外の builder / raw memory graph を RPN print 経路へ持ち込まない。
 - Resource path-state replay では、branch / match 後に保持する alternatives と replay 対象 alternatives を所有権移動で渡し、丸ごと clone を避ける。重複排除を常時行う案は equality cost が高く、budget 超過時のみに留める。
 
 ## RPN signed integer parse checkpoint

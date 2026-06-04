@@ -54,10 +54,11 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
         &owned_dependency_graph
     };
     let relevant_functions = owner_summary_relevant_functions(module, types, &dependency_graph);
-    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_edges(
         module,
         relevant_functions.clone(),
-        dependency_graph,
+        dependency_graph.owner_dependents(),
+        dependency_graph.owner_initial_order(),
     );
     let mut summaries = Vec::new();
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
