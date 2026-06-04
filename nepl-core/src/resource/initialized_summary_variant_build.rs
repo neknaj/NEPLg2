@@ -195,6 +195,11 @@ fn collect_variant_param_initialized_raw_cells_from_nested_return(
                     else_ops,
                     else_value,
                 );
+                // return value を作る control op から variant-param facts を抽出した後は、
+                // 同じ branch を通常の ResourceCheckEngine で再生しても collector の
+                // 出力は増えない。後続 op は現行仕様でも variant facts の抽出対象ではないため、
+                // ここで探索を閉じて branch path の二重解析を避ける。
+                return;
             }
             ResourceOp::Match {
                 output,
@@ -222,6 +227,10 @@ fn collect_variant_param_initialized_raw_cells_from_nested_return(
                         *span,
                     );
                 }
+                // Branch と同様に、return value を作る Match の arm facts を集めた時点で
+                // variant-param collector の責務は完了している。Match 全体をさらに
+                // replay すると、arm 数に比例した重複探索だけが残る。
+                return;
             }
             _ => {}
         }

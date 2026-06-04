@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -47,7 +48,7 @@ fn raw_cell_initialization_summary_relevance_with_dependencies(
     dependency_graph: &ResourceSummaryDependencyGraph,
     consumer_edges: Option<&[Vec<usize>]>,
 ) -> Vec<bool> {
-    let dependencies = dependency_graph.raw_init_dependencies();
+    let dependents = dependency_graph.raw_init_dependents();
     let signature_relevant = module
         .functions
         .iter()
@@ -64,23 +65,26 @@ fn raw_cell_initialization_summary_relevance_with_dependencies(
                     || dependency_graph.has_direct_raw_initialization_summary_op(index))
         })
         .collect::<Vec<_>>();
-    let mut changed = true;
-    while changed {
-        changed = false;
-        for (index, function_dependencies) in dependencies.iter().enumerate() {
-            if relevant[index]
-                || !signature_relevant[index]
-                || !function_has_raw_cell_initialization_summary_consumer(consumer_edges, index)
+    let mut queue = relevant
+        .iter()
+        .enumerate()
+        .filter_map(|(index, is_relevant)| is_relevant.then_some(index))
+        .collect::<VecDeque<_>>();
+    // raw-init summary は callee の facts が caller summary に現れるときだけ caller へ
+    // 伝播する。旧実装の全辺反復と同じ閉包を、既存の逆辺 view から到達分だけ辿って求める。
+    while let Some(function_index) = queue.pop_front() {
+        for dependent in &dependents[function_index] {
+            if relevant[*dependent]
+                || !signature_relevant[*dependent]
+                || !function_has_raw_cell_initialization_summary_consumer(
+                    consumer_edges,
+                    *dependent,
+                )
             {
                 continue;
             }
-            if function_dependencies
-                .iter()
-                .any(|dependency| relevant[*dependency])
-            {
-                relevant[index] = true;
-                changed = true;
-            }
+            relevant[*dependent] = true;
+            queue.push_back(*dependent);
         }
     }
     relevant

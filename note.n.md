@@ -1,3 +1,16 @@
+# 2026-06-04 RPN raw-init summary duplicate replay pruning checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、cache hit 前提ではなく、RPN cold base で毎回発生する Resource IR summary の探索範囲と計算量を測定して削った。
+- subagent 調査では、`raw_cell_initialization_summary_relevance_with_dependencies` が relevance closure を `while changed` で全 `raw_init_dependencies` に反復しており、最悪 `O(functions * edges)` になることを確認した。既存の逆辺 view `raw_init_dependents` を使い、seed から caller 側へ queue 伝播する形へ変更した。
+- relevance queue 化は seed 条件、signature relevance、call-boundary consumer gate を変えない。`raw_init_call_boundary_relevance_propagates_from_seed_to_callers_only` と `raw_init_call_boundary_relevance_preserves_recursive_closure` を追加し、root caller を final initialized check に任せる境界と、再帰 SCC の closure を固定した。
+- RPN の raw-init 支配点は `stdio_fd_write_from_result` の `variant_param_cells` だった。変更前は同関数の `variant_param_cells` が約 `104ms` で、return value を作る Branch から facts を抽出した後に同じ Branch を `ResourceCheckEngine` で再度 replay していた。
+- `collect_variant_param_initialized_raw_cells_from_nested_return` は、return value を作る Branch / Match の path facts を抽出した時点で終了するようにした。後続 op は現行仕様でも variant facts の抽出対象ではなく、同じ control op の通常 replay は出力を増やさないため、二重探索だけを削っている。
+- RPN release CLI の `NEPL_DISABLE_CHECK_CACHE=1` / `NEPL_DISABLE_PROOF_CACHE=1` / `NEPL_COMPILE_STAGE_TIMING=1` 5 run では、`resource_initialized_raw_init_summaries=442ms / 388ms / 404ms / 433ms / 433ms`、`resource_initialized_moves=1300ms / 1149ms / 1224ms / 1283ms / 1248ms`、`resource_static_check=1748ms / 1557ms / 1678ms / 1736ms / 1652ms` だった。
+- 同条件の直前測定では raw-init summary が約 `678-776ms`、initialized moves が約 `1435-1641ms`、static check が約 `1881-2101ms` だったため、今回の主改善は raw-init summary の branch/match duplicate replay pruning である。
+- 支配関数の追加確認では、`stdio_fd_write_from_result` の `variant_param_cells` が約 `104ms` から `24ms` へ下がった。`resource_raw_init_summary_recomputations=122`、`summaries=78`、`resource_raw_init_summary_relevant_functions=122`、`dependency_edges=598` は変えていないため、summary 証明範囲の削減ではなく同じ範囲内の重複探索削減である。
+- 残件は、raw-init dependency edge 598 と relevant 122 を use-site aware / fact-kind aware にさらに狭めること、`release_requirements` collector の状態 replay plan 化、RPN base wall-clock の loader / typecheck / stdlib interface artifact 化である。
+- 検証: `cargo test -p nepl-core initialized_summary_build -- --nocapture`、`cargo test -p nepl-core initialized_summary_variant -- --nocapture`、`cargo build -p nepl-cli --release`、RPN release CLI stage timing 5 run を通した。commit 前に `cargo test -p nepl-core --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を再実行する。
+
 # 2026-06-03 CI stdlib timeout / RPN cold-base follow-up checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、cache hit 前提の短絡ではなく、GitHub Actions の stdlib timeout と RPN cold base を同じ Resource IR 探索範囲の問題として扱った。
