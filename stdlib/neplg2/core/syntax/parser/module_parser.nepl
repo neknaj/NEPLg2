@@ -1,7 +1,7 @@
 #indent 4
 
 //: # module_parser
-//: NEPLg2.0 のファイル単位 parser を置くモジュールです。
+//: NEPLg2.1 のファイル単位 parser を置くモジュールです。
 //:
 //: [目的/もくてき]:
 //: - lexer token stream から `SelfhostModuleAst` を作る parser 群の入口にします。
@@ -15,6 +15,7 @@
 //: [注意/ちゅうい]:
 //: - これは full expression parser ではありません。式 token はまだ item 化せず、後続の item / expr parser へ責務を残します。
 //: - raw text token が raw mode の外へ現れた場合は parser diagnostic にします。lexer と parser の状態ずれを早期に検出するためです。
+//: - EOF 時に pending / active raw mode が残った場合や、対応する indent のない `Dedent` が現れた場合も parser diagnostic にします。不正な offside 状態を正常 AST として後段へ渡さないためです。
 //:
 //: [計算量/けいさんりょう]:
 //: - token 数を n とすると、[時間/じかん] O(n)、[空間/くうかん] O(m) です。m は保持する module item 数です。

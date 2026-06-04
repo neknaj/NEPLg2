@@ -31,9 +31,32 @@ pub fn selfhost_parser_pending_error %impure fn &SelfhostToken impure fn Selfhos
     selfhost_module_ast_free ast
     Result::Err diag
 
+//: selfhost_parser_pending_end_error: token stream が raw block indent を待ったまま終わったことを報告する
+pub fn selfhost_parser_pending_end_error %impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \ast:
+    let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::RawBlockExpectedIndent "raw backend directive reached end of token stream before its raw block"
+    selfhost_module_ast_free ast
+    Result::Err diag
+
 //: selfhost_parser_raw_text_error: raw text token の出現位置が不正なことを報告する
 pub fn selfhost_parser_raw_text_error %impure fn &SelfhostToken impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \token\ast:
     let diag %SelfhostDiagnostic selfhost_parser_diag_at token SelfhostParserDiagnosticCode::RawTextOutsideBlock "raw backend text appeared outside its matching raw block" "raw text must be inside #wasm: or #llvmir:"
     selfhost_module_ast_free ast
     Result::Err diag
 
+//: selfhost_parser_unclosed_raw_block_error: EOF で閉じていない raw backend block を報告する
+pub fn selfhost_parser_unclosed_raw_block_error %impure fn &SelfhostToken impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \token\ast:
+    let diag %SelfhostDiagnostic selfhost_parser_diag_at token SelfhostParserDiagnosticCode::RawBlockUnclosed "raw backend block reached EOF before a matching dedent" "dedent must close this raw backend block before EOF"
+    selfhost_module_ast_free ast
+    Result::Err diag
+
+//: selfhost_parser_unclosed_raw_block_end_error: EOF token なしで閉じていない raw backend block を報告する
+pub fn selfhost_parser_unclosed_raw_block_end_error %impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \ast:
+    let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::RawBlockUnclosed "raw backend block reached end of token stream before a matching dedent"
+    selfhost_module_ast_free ast
+    Result::Err diag
+
+//: selfhost_parser_invalid_dedent_error: top-level の余分な Dedent を報告する
+pub fn selfhost_parser_invalid_dedent_error %impure fn &SelfhostToken impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \token\ast:
+    let diag %SelfhostDiagnostic selfhost_parser_diag_at token SelfhostParserDiagnosticCode::InvalidDedent "dedent appeared when no parser block was open" "this dedent has no matching indent"
+    selfhost_module_ast_free ast
+    Result::Err diag

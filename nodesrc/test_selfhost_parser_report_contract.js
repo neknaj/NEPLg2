@@ -9,7 +9,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const file = path.join(repoRoot, "tests", "stdlib", "neplg2_parser.n.md");
 const parsed = parseFile(file);
 
-const expectedCheckCounts = [22];
+const expectedCheckCounts = [22, 3];
 
 assert.equal(parsed.doctests.length, expectedCheckCounts.length, "selfhost parser doctest count changed");
 

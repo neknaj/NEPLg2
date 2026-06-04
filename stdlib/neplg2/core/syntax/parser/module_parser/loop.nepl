@@ -74,7 +74,11 @@ pub fn selfhost_parse_dedent %impure fn str impure fn &Vec SelfhostToken impure 
         SelfhostParserRawMode::PendingLlvmIr:
             selfhost_parser_pending_error &token ast
         SelfhostParserRawMode::Normal:
-            selfhost_parse_module_loop source tokens n add idx 1 selfhost_parser_depth_dec depth mode ast
+            match selfhost_parser_depth_after_dedent depth:
+                Option::Some next_depth:
+                    selfhost_parse_module_loop source tokens n add idx 1 next_depth mode ast
+                Option::None:
+                    selfhost_parser_invalid_dedent_error &token ast
 
 //: selfhost_parse_dir_wasm: `#wasm:` directive を item 化して raw mode へ入る
 pub fn selfhost_parse_dir_wasm %impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostParserRawMode impure fn SelfhostModuleAst impure fn SelfhostToken Result SelfhostModuleAst SelfhostDiagnostic \source\tokens\n\idx\depth\mode\ast\token:
@@ -112,7 +116,17 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
     if:
         ge idx n
         then:
-            Result::Ok ast
+            if:
+                selfhost_parser_raw_mode_is_pending mode
+                then:
+                    selfhost_parser_pending_end_error ast
+                else:
+                    if:
+                        selfhost_parser_raw_mode_is_active mode
+                        then:
+                            selfhost_parser_unclosed_raw_block_end_error ast
+                        else:
+                            Result::Ok ast
         else:
             match v::get tokens idx:
                 Option::Some token:
@@ -124,7 +138,12 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
                                 then:
                                     selfhost_parser_pending_error &token ast
                                 else:
-                                    Result::Ok ast
+                                    if:
+                                        selfhost_parser_raw_mode_is_active mode
+                                        then:
+                                            selfhost_parser_unclosed_raw_block_error &token ast
+                                        else:
+                                            Result::Ok ast
                         SelfhostParserTokenAction::Skip:
                             selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
                         SelfhostParserTokenAction::Indent:

@@ -72,6 +72,8 @@ impl Copy for SelfhostLexerDiagnosticCode:
 pub enum SelfhostParserDiagnosticCode:
     RawBlockExpectedIndent
     RawTextOutsideBlock
+    RawBlockUnclosed
+    InvalidDedent
     TokenIndex
     OutOfMemory
     ImportAliasExpected
@@ -182,6 +184,10 @@ pub fn selfhost_parser_diag_code_name %fn SelfhostParserDiagnosticCode str \code
             "parser.raw_block.expected_indent"
         SelfhostParserDiagnosticCode::RawTextOutsideBlock:
             "parser.raw_text.outside_block"
+        SelfhostParserDiagnosticCode::RawBlockUnclosed:
+            "parser.raw_block.unclosed"
+        SelfhostParserDiagnosticCode::InvalidDedent:
+            "parser.indent.invalid_dedent"
         SelfhostParserDiagnosticCode::TokenIndex:
             "parser.token.index_unavailable"
         SelfhostParserDiagnosticCode::OutOfMemory:

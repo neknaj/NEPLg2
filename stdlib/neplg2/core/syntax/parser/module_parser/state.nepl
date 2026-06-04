@@ -1,5 +1,6 @@
 #indent 4
 #import "core/math" as *
+#import "core/option" as *
 #import "core/traits/copy" as *
 
 //: SelfhostParserRawMode: raw backend block の parser 状態
@@ -60,12 +61,28 @@ pub fn selfhost_parser_raw_mode_is_pending %fn SelfhostParserRawMode bool \mode:
         SelfhostParserRawMode::LlvmIr:
             false
 
-//: selfhost_parser_depth_dec: 通常 block depth を 0 未満にしないで 1 [戻/もど]す
-pub fn selfhost_parser_depth_dec %fn i32 i32 \depth:
+//: selfhost_parser_raw_mode_is_active: raw backend block [内/ない]か[返/かえ]す
+pub fn selfhost_parser_raw_mode_is_active %fn SelfhostParserRawMode bool \mode:
+    match mode:
+        SelfhostParserRawMode::Wasm:
+            true
+        SelfhostParserRawMode::LlvmIr:
+            true
+        SelfhostParserRawMode::Normal:
+            false
+        SelfhostParserRawMode::PendingWasm:
+            false
+        SelfhostParserRawMode::PendingLlvmIr:
+            false
+
+//: selfhost_parser_depth_after_dedent: 通常 block depth を 1 [戻/もど]せる場合だけ[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - top-level の余分な `Dedent` を 0 へ丸めず、parser loop が typed diagnostic を返せるようにします。
+pub fn selfhost_parser_depth_after_dedent %fn i32 Option i32 \depth:
     if:
         gt depth 0
         then:
-            sub depth 1
+            some sub depth 1
         else:
-            0
-
+            none

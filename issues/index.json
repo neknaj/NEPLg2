@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T13:32:30.941Z",
+  "generated_at": "2026-06-04T13:46:22.147Z",
   "counts": {
     "total": 1340,
-    "open": 56,
-    "resolved": 1284,
+    "open": 55,
+    "resolved": 1285,
     "by_area": {
       "stdlib": {
         "total": 349,
@@ -23,8 +23,8 @@
       },
       "selfhost": {
         "total": 117,
-        "open": 7,
-        "resolved": 110
+        "open": 6,
+        "resolved": 111
       },
       "neplg21": {
         "total": 2,
@@ -608,21 +608,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md"
-    },
-    {
-      "id": "ISS-20260604T034256176Z-SELFHOST-PARSER-CAN-ACCEPT-UNCLOSED--C0703412",
-      "title": "selfhost parser can accept unclosed raw blocks and excess dedent as Ok",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl, stdlib/neplg2/core/syntax/parser/module_parser/state.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034256176Z-SELFHOST-PARSER-CAN-ACCEPT-UNCLOSED--C0703412.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
@@ -12188,6 +12173,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md"
+    },
+    {
+      "id": "ISS-20260604T034256176Z-SELFHOST-PARSER-CAN-ACCEPT-UNCLOSED--C0703412",
+      "title": "selfhost parser can accept unclosed raw blocks and excess dedent as Ok",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl, stdlib/neplg2/core/syntax/parser/module_parser/state.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034256176Z-SELFHOST-PARSER-CAN-ACCEPT-UNCLOSED--C0703412.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

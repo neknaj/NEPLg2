@@ -1,3 +1,15 @@
+# 2026-06-04 self-host parser invalid raw/offside state checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、selfhost parser の不正 raw / offside 状態を正常 AST へ丸めず、typed diagnostic と `Option` 状態遷移で扱うようにした。
+- `ISS-20260604T034256176Z-SELFHOST-PARSER-CAN-ACCEPT-UNCLOSED--C0703412` は `fixed` / `resolved: true` に更新した。
+- `SelfhostParserDiagnosticCode::RawBlockUnclosed` と `SelfhostParserDiagnosticCode::InvalidDedent` を追加し、stable string は `selfhost_parser_diag_code_name` の網羅 match で生成するようにした。
+- `selfhost_parser_depth_dec` の 0 saturating helper を廃止し、`selfhost_parser_depth_after_dedent -> Option i32` で余分な `Dedent` を `None` として返す契約にした。
+- parser loop の EOF / token stream end 処理は、pending raw mode を `RawBlockExpectedIndent`、active raw mode を `RawBlockUnclosed` として返す。これにより raw backend block が閉じていない token stream を `Ok ast` として後段へ渡さない。
+- `tests/stdlib/neplg2_parser.n.md` に、source 経由の pending raw EOF、手組み token stream の active raw EOF、top-level excess dedent の 3 件を追加した。
+- `nodesrc/test_selfhost_parser_invalid_state_contract.js` を追加し、saturating dedent helper の復帰、raw EOF の Ok 受理、typed diagnostic mapping の抜けを source policy で検出する。
+- 検証済み: `node nodesrc\test_selfhost_parser_invalid_state_contract.js`、`node nodesrc\test_selfhost_diag_code_enum.js`、`node nodesrc\test_selfhost_module_parser_split_contract.js`、`node nodesrc\test_selfhost_parser_report_contract.js`、`node nodesrc\tests.js -i tests\stdlib\neplg2_parser.n.md --no-tree -o tmp\selfhost-parser-invalid-state-focused.json -j 1 --assert-io --dist web\dist`、`node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-parser-invalid-state-tree.json -j 2 --assert-io --dist web\dist`、`node nodesrc\run_source_policy_regressions.js --warn-only`、`node nodesrc\issues.js index --dir issues; node nodesrc\issues.js check --dir issues`。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` の warning は既存の static/resource/parser-backend/resource-gate/diagnostic-code-first 系 5 件だけで、今回追加した parser contract は通過した。
+
 # 2026-06-04 self-host compiler Phase 1 SourceSpan validation checkpoint
 
 - `plan.md` は変更していない。セルフホストコンパイラの新設計を `main` へ fast-forward した後、`selfhost/phase1-source-span-validation-20260604` branch で Phase 1 実装を開始した。

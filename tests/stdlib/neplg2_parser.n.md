@@ -111,3 +111,66 @@ fn main %impure fn void i32 \void:
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
+
+## rejects_invalid_raw_and_dedent_states
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/syntax/token" as *
+#import "std/test" as *
+
+fn parser_test_token %fn TokenKind fn i32 fn i32 SelfhostToken \kind\start\end:
+    selfhost_token_new kind source_span_new_unchecked 0 start end
+
+fn expect_parse_err_code %impure fn Result SelfhostModuleAst SelfhostDiagnostic impure fn str Result unit str \r\expected:
+    match r:
+        Result::Err diag:
+            check_str_eq expected selfhost_diag_code_name diag.code
+        Result::Ok ast:
+            selfhost_module_ast_free ast
+            Result::Err "expected parser diagnostic"
+
+fn raw_unclosed_tokens %impure fn void Vec SelfhostToken \void:
+    let tokens0 %Vec SelfhostToken unwrap_ok v::new
+    let tokens1 %Vec SelfhostToken unwrap_ok v::push tokens0 parser_test_token TokenKind::DirWasm 0 6
+    let tokens2 %Vec SelfhostToken unwrap_ok v::push tokens1 parser_test_token TokenKind::Indent 7 7
+    let tokens3 %Vec SelfhostToken unwrap_ok v::push tokens2 parser_test_token TokenKind::WasmText 8 19
+    unwrap_ok v::push tokens3 parser_test_token TokenKind::Eof 19 19
+
+fn extra_dedent_tokens %impure fn void Vec SelfhostToken \void:
+    let tokens0 %Vec SelfhostToken unwrap_ok v::new
+    let tokens1 %Vec SelfhostToken unwrap_ok v::push tokens0 parser_test_token TokenKind::Dedent 0 0
+    unwrap_ok v::push tokens1 parser_test_token TokenKind::Eof 0 0
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let pending_result %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "#wasm:\n"
+    let checks1 checks_push checks0 expect_parse_err_code pending_result "parser.raw_block.expected_indent"
+    let raw_source %str "#wasm:\n    local.get 0"
+    let raw_tokens %Vec SelfhostToken raw_unclosed_tokens
+    let raw_result %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_tokens raw_source &raw_tokens
+    v::free raw_tokens
+    let checks2 checks_push checks1 expect_parse_err_code raw_result "parser.raw_block.unclosed"
+    let dedent_tokens %Vec SelfhostToken extra_dedent_tokens
+    let dedent_result %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_tokens "" &dedent_tokens
+    v::free dedent_tokens
+    let checks3 checks_push checks2 expect_parse_err_code dedent_result "parser.indent.invalid_dedent"
+    let shown checks_print_report checks3
+    checks_exit_code shown
+```
