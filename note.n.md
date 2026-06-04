@@ -1,3 +1,11 @@
+# 2026-06-04 Agent2 stdio print_i32 formatter boundary checkpoint
+
+- `origin/main` を確認し、`agent2/fix-stdio-print-i32-formatter` branch で `ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401` を修正した。
+- `stdlib/std/stdio/print.nepl` の `print_i32` は、stdio module 内で digit 生成を行うのではなく、`alloc/string/integer/format::from_i32` へ委譲する形に戻した。これにより、stdio は stdout effect の facade、integer formatting は alloc/string/integer の責務という境界へ戻った。
+- `print_i32_negative_digits` と、重複 formatting のためだけに必要だった import を削除した。doc comment も「確保なし」ではなく shared formatter 境界と allocation fallback を説明する内容に更新した。
+- 対象 issue は `fixed` / `resolved: true` に更新した。
+- 検証: `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`、`node nodesrc/tests.js -i stdlib/std/stdio/print.nepl -i tests/stdlib/stdout.n.md --no-tree -o tmp/agent2-stdio-print-i32-tests.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i stdlib/alloc/string/integer.nepl --no-tree -o tmp/agent2-string-integer-format.json -j 1 --dist web/dist --assert-io` は通過した。`node nodesrc/run_source_policy_regressions.js --warn-only` は `test_stdlib_stdio_print_i32_boundary.js` が pass し、既存 warning は 14 件から 13 件に減った。`trunk build` と `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-stdio-print-i32-playground-editor.json` も通過し、CLI JSON は `caseCount=13`、`passedCount=13`、`failedCount=0` を確認した。
+
 # 2026-06-04 Agent2 stdlib/examples Zenn audit checkpoint
 
 - `plan.md` は確認したが変更していない。前置記法、式指向、オフサイドルール、括弧排除を stdlib / examples 監査の前提にした。

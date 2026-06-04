@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T03:43:12.539Z",
+  "generated_at": "2026-06-04T03:55:39.133Z",
   "counts": {
     "total": 1336,
-    "open": 61,
-    "resolved": 1275,
+    "open": 60,
+    "resolved": 1276,
     "by_area": {
       "stdlib": {
         "total": 347,
-        "open": 21,
-        "resolved": 326
+        "open": 20,
+        "resolved": 327
       },
       "core": {
         "total": 663,
@@ -938,21 +938,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90.md"
-    },
-    {
-      "id": "ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401",
-      "title": "stdio print_i32 duplicates integer formatting instead of using shared formatter boundary",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/std/stdio/print.nepl, stdlib/alloc/string/integer/format.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401.md"
     },
     {
       "id": "ISS-20260604T033842647Z-GUI-OPAQUE-IDS-ARE-CONSTRUCTIBLE-FRO-42B59D4F",
@@ -19928,6 +19913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260522T235408876Z-VEC-PARTITION-POSITIVE-DOCTESTS-ARE--DE623D78.md"
+    },
+    {
+      "id": "ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401",
+      "title": "stdio print_i32 duplicates integer formatting instead of using shared formatter boundary",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/std/stdio/print.nepl, stdlib/alloc/string/integer/format.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",
