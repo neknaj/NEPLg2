@@ -13,6 +13,7 @@
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/invariant" as *
@@ -85,27 +86,28 @@ fn sort_quick_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn i32 impur
 //: [注意/ちゅうい]:
 //: - stable ではありません。
 //: - 最悪 O(n^2) と recursion depth の偏りがあるため、入力分布が悪い場合は `sort_heap` や `sort_merge` を検討します。
+//: - metadata invariant が壊れている `Vec` は silent no-op にせず、`StdErrorKind::InvalidOperation` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n)、最悪 O(n^2)、追加領域は recursion stack です。
-pub fn sort_quick <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort_quick <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then unit
+                then Result::Ok unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Data data_ptr:
                             sort_quick_range_data<.T> data_ptr 0 sub n 1;
-                            unit
+                            Result::Ok unit
 //: sort_quick_ret: quick sort 後の Vec を返す
 //:
 //: [目的/もくてき]:
@@ -116,28 +118,28 @@ pub fn sort_quick <.T: Ord&Copy> %impure fn &Vec .T unit \v:
 //:
 //: [注意/ちゅうい]:
 //: - ソート自体は in-place です。
+//: - `Err` の場合も `VecSortError.vec` に入力 `Vec` owner を返します。caller は `vec_sort_error_vec` または `vec_sort_error_with` で[回収/かいしゅう]します。
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
-pub fn sort_quick_ret <.T: Ord&Copy> %impure fn Vec .T Vec .T \v:
+pub fn sort_quick_ret <.T: Ord&Copy> %impure fn Vec .T Result Vec .T VecSortError .T \v:
     match vec_current_copy_invariant<.T> &v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> &v
             if:
                 le n 1
-                then unit
+                then Result::Ok v
                 else:
                     match data_mem_view<.T> &v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err VecSortError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Data data_ptr:
                             sort_quick_range_data<.T> data_ptr 0 sub n 1;
-                            unit
-    v
+                            Result::Ok v
 
 //: sort: default sort として quick sort を実行する
 //:
@@ -151,8 +153,9 @@ pub fn sort_quick_ret <.T: Ord&Copy> %impure fn Vec .T Vec .T \v:
 //: [注意/ちゅうい]:
 //: - stable sort が必要なら `sort_merge` を使います。
 //: - worst-case O(n log n) を優先するなら `sort_heap` を使います。
+//: - invalid metadata は `sort_quick` と同じく `Result::Err StdErrorKind::InvalidOperation` として返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
-pub fn sort <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     sort_quick<.T> v

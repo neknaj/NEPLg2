@@ -39,38 +39,38 @@ fn check_sorted4 %fn &Vec i32 bool \v:
 
 fn main %impure fn void i32 \void:
     let v0 %Vec i32 make_vec4;
-    sort_insertion &v0;
-    let ok0 %bool check_sorted4 &v0;
+    let ok_sort0 %bool is_ok sort_insertion &v0;
+    let ok0 %bool and ok_sort0 check_sorted4 &v0;
     free v0;
 
     let v1 %Vec i32 make_vec4;
-    sort_gnome &v1;
-    let ok1 %bool check_sorted4 &v1;
+    let ok_sort1 %bool is_ok sort_gnome &v1;
+    let ok1 %bool and ok_sort1 check_sorted4 &v1;
     free v1;
 
     let v2 %Vec i32 make_vec4;
-    sort_selection &v2;
-    let ok2 %bool check_sorted4 &v2;
+    let ok_sort2 %bool is_ok sort_selection &v2;
+    let ok2 %bool and ok_sort2 check_sorted4 &v2;
     free v2;
 
     let v3 %Vec i32 make_vec4;
-    sort_bubble &v3;
-    let ok3 %bool check_sorted4 &v3;
+    let ok_sort3 %bool is_ok sort_bubble &v3;
+    let ok3 %bool and ok_sort3 check_sorted4 &v3;
     free v3;
 
     let v4 %Vec i32 make_vec4;
-    sort_cocktail &v4;
-    let ok4 %bool check_sorted4 &v4;
+    let ok_sort4 %bool is_ok sort_cocktail &v4;
+    let ok4 %bool and ok_sort4 check_sorted4 &v4;
     free v4;
 
     let v5 %Vec i32 make_vec4;
-    sort_shell &v5;
-    let ok5 %bool check_sorted4 &v5;
+    let ok_sort5 %bool is_ok sort_shell &v5;
+    let ok5 %bool and ok_sort5 check_sorted4 &v5;
     free v5;
 
     let v6 %Vec i32 make_vec4;
-    sort_comb &v6;
-    let ok6 %bool check_sorted4 &v6;
+    let ok_sort6 %bool is_ok sort_comb &v6;
+    let ok6 %bool and ok_sort6 check_sorted4 &v6;
     free v6;
 
     let ok %bool and ok0 and ok1 and ok2 and ok3 and ok4 and ok5 ok6;

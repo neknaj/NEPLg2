@@ -218,6 +218,45 @@ pub fn vec_transform_error_with <.T,.R> %impure fn VecTransformError .T impure f
 pub fn vec_transform_error_vec <.T: Copy> %fn VecTransformError .T Vec .T \e:
     field::get e "vec"
 
+//: ## VecSortError
+//: `Vec` の owner-consuming sort が[失敗/しっぱい]したときに、入力 owner を[返/かえ]す error payload
+//:
+//: ### [目的/もくてき]
+//: - `sort_quick_ret` / `sort_heap_ret` / `sort_merge_ret` は入力 `Vec .T` owner を[消費/しょうひ]して in-place sort した owner を[返/かえ]します。
+//: - metadata invariant failure や merge scratch buffer [確保/かくほ][失敗/しっぱい]でも、入力 owner の[行方/ゆくえ]が API 型から[消/き]えないようにします。
+//: - error kind は Copy な `StdErrorKind` とし、owner recovery と診断分類を[分離/ぶんり]します。
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 sort family は raw load/store による Copy element traversal を使うため `.T: Copy` に[限定/げんてい]します。
+//: - `Vec` owner だけを[取/と]り[出/だ]す accessor は Copy payload の便宜 API です。将来 non-Copy sort を追加するときは `vec_sort_error_with` の callback 境界で owner と error kind を同時に[扱/あつか]います。
+pub struct VecSortError<.T>:
+    vec %Vec .T
+    error %StdErrorKind
+
+//: ## vec_sort_error_kind
+//: sort [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
+pub fn vec_sort_error_kind <.T> %fn &VecSortError .T StdErrorKind \e:
+    *field::get_ref e "error"
+
+//: ## vec_sort_error_with
+//: sort [失敗/しっぱい] payload の入力 `Vec` owner と error kind を同じ callback に[渡/わた]す
+//:
+//: ### [目的/もくてき]
+//: - owner-backed aggregate を field accessor で[分解/ぶんかい]する caller が error kind を[捨/す]てる形になるのを[避/さ]けます。
+//: - cleanup、再試行、診断変換を 1 つの control-flow に[集約/しゅうやく]できます。
+pub fn vec_sort_error_with <.T,.R> %impure fn VecSortError .T impure fn impure fn Vec .T impure fn StdErrorKind .R .R \e\callback:
+    let vec %Vec .T field::get e "vec"
+    let error %StdErrorKind field::get e "error"
+    callback vec error
+
+//: ## vec_sort_error_vec
+//: sort [失敗/しっぱい]で[戻/もど]された入力 `Vec` owner を[取/と]り[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - この accessor は error kind を返さず入力 `Vec` owner だけを[取/と]り[出/だ]すため、Copy payload の便宜 API に[限定/げんてい]します。
+pub fn vec_sort_error_vec <.T: Copy> %fn VecSortError .T Vec .T \e:
+    field::get e "vec"
+
 //: ## VecPop
 //: `pop` の結果を名前付き field で返す構造です。
 //:

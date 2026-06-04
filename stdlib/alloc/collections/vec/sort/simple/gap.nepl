@@ -10,6 +10,7 @@
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/invariant" as *
@@ -26,24 +27,25 @@
 //:
 //: [注意/ちゅうい]:
 //: - gap 越しの移動で equal element の相対順が崩れるため stable ではありません。
+//: - metadata invariant が壊れている `Vec` は silent no-op にせず、`StdErrorKind::InvalidOperation` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
-pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then unit
+                then Result::Ok unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Data data:
                             let mut gap %i32 div_s n 2;
 
@@ -70,7 +72,7 @@ pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                             store<.T> add mem_ptr_addr data mul j size_of %.T temp;
                                             set i add i 1;
                                     set gap div_s gap 2;
-                            unit
+                            Result::Ok unit
 
 //: sort_comb: comb sort で in-place 整列する
 //:
@@ -82,24 +84,25 @@ pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T unit \v:
 //:
 //: [注意/ちゅうい]:
 //: - gap 越しに交換するため stable ではありません。
+//: - metadata invariant が壊れている `Vec` は silent no-op にせず、`StdErrorKind::InvalidOperation` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
-pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then unit
+                then Result::Ok unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Data data:
                             let mut gap %i32 n;
                             let mut sorted %i32 0;
@@ -140,4 +143,4 @@ pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                                     set i add i 1;
                                                     unit
                                                 else set done_scan 1
-                            unit
+                            Result::Ok unit

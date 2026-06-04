@@ -10,6 +10,7 @@
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/invariant" as *
@@ -25,24 +26,25 @@
 //:
 //: [注意/ちゅうい]:
 //: - 交換で equal element の相対順が崩れるため stable ではありません。
+//: - metadata invariant が壊れている `Vec` は silent no-op にせず、`StdErrorKind::InvalidOperation` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 比較 O(n^2)、追加領域 O(1)
-pub fn sort_selection <.T: Ord&Copy> %impure fn &Vec .T unit \v:
+pub fn sort_selection <.T: Ord&Copy> %impure fn &Vec .T Result unit StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            unit
+            Result::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then unit
+                then Result::Ok unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
-                            unit
+                            Result::Err StdErrorKind::InvalidOperation
                         VecDataView::Data data:
                             let mut i %i32 0
                             while lt i n:
@@ -63,4 +65,4 @@ pub fn sort_selection <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                     store<.T> add mem_ptr_addr data mul i size_of %.T right;
                                     store<.T> add mem_ptr_addr data mul min_idx size_of %.T left;
                                     set i add i 1;
-                            unit
+                            Result::Ok unit

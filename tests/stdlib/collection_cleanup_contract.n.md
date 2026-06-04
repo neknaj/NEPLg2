@@ -355,7 +355,7 @@ fn main %fn void i32 \void:
     0
 ```
 
-## vec_sort_merge_error_vec_rejects_non_copy_payload
+## vec_sort_error_vec_rejects_non_copy_payload
 
 neplg2:test[compile_fail]
 diag_code: type.trait_bound.unsatisfied
@@ -370,8 +370,8 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn recover_vec_from_sort_merge_error %fn VecSortMergeError CleanupPayload Vec CleanupPayload \e:
-    vec_sort_merge_error_vec e
+fn recover_vec_from_sort_error %fn VecSortError CleanupPayload Vec CleanupPayload \e:
+    vec_sort_error_vec e
 
 fn main %fn void i32 \void:
     0

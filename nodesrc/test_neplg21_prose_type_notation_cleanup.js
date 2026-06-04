@@ -23,7 +23,7 @@ const targetFiles = [
 ];
 
 const typeLikeOldApplication =
-    /\b(?:Vec|Result|Option|MemPtr|RegionToken|OwnedBuffer|VecStorage|VecPushRejected|VecPushError|VecReplaceRejected|VecReplaceError|VecTransformError|VecPop|VecPartition|BinaryHeap|BinaryHeapPushError|BinaryHeapPop|Deque|DequePushError|DequePop|Queue|QueuePushError|QueuePop|RingBuffer|RingBufferPushError|RingBufferPop|Stack|StackPushError|StackPop|List|ListPushError|ListTransformError|HashMap|HashMapStorage|HashMapUpdateError|HashSet|HashSetStorage|HashSetUpdateError|BTreeMap|BTreeMapStorage|BTreeMapInsertError|BTreeSet|BTreeSetStorage|BTreeSetInsertError|BloomFilter|CountingBloomFilter|ByteBufStorage|ByteBuilderStorage|Diags|Diag|Outcome)<[^>]+>/;
+    /\b(?:Vec|Result|Option|MemPtr|RegionToken|OwnedBuffer|VecStorage|VecPushRejected|VecPushError|VecReplaceRejected|VecReplaceError|VecTransformError|VecSortError|VecPop|VecPartition|BinaryHeap|BinaryHeapPushError|BinaryHeapPop|Deque|DequePushError|DequePop|Queue|QueuePushError|QueuePop|RingBuffer|RingBufferPushError|RingBufferPop|Stack|StackPushError|StackPop|List|ListPushError|ListTransformError|HashMap|HashMapStorage|HashMapUpdateError|HashSet|HashSetStorage|HashSetUpdateError|BTreeMap|BTreeMapStorage|BTreeMapInsertError|BTreeSet|BTreeSetStorage|BTreeSetInsertError|BloomFilter|CountingBloomFilter|ByteBufStorage|ByteBuilderStorage|Diags|Diag|Outcome)<[^>]+>/;
 
 function walk(dir, out) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

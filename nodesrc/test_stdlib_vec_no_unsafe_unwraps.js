@@ -255,7 +255,7 @@ for (const name of ['types', 'storage', 'access', 'mutation', 'query', 'transfor
 assert.doesNotMatch(vecRootCode, /pub\s+#import\s+"\.\/vec\/raw"\s+as\s+@merge/, 'Vec root must not merge re-export unchecked vec/raw.nepl');
 assert.doesNotMatch(vecRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'Vec root must be a pure facade without implementation bodies');
 assert.doesNotMatch(vecRootCode, /\bas\s+vec_/, 'Vec root must not keep private delegation aliases after becoming a merge facade');
-for (const name of ['VecStorage', 'OwnedBuffer', 'Vec', 'VecPushRejected', 'VecPushError', 'VecReplaceRejected', 'VecReplaceError', 'VecTransformError', 'VecPop', 'VecPartition']) {
+for (const name of ['VecStorage', 'OwnedBuffer', 'Vec', 'VecPushRejected', 'VecPushError', 'VecReplaceRejected', 'VecReplaceError', 'VecTransformError', 'VecSortError', 'VecPop', 'VecPartition']) {
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
 }
@@ -521,6 +521,7 @@ assert.match(vecMutationPushCode, /(?:^|\n)\s*struct\s+VecReallocRegionError<\.T
 assert.doesNotMatch(vecMutationPushCode, /\bpub\s+(?:struct\s+VecReallocRegionError|fn\s+vec_realloc_region_(?:or_keep|error_kind|error_region))\b/, 'Vec grow RegionToken recovery helpers must not become public collection owner recovery surface');
 assert.doesNotMatch(vecMutationPushCode, /\bfn\s+vec_realloc_region_error_region\b/, 'Vec grow must not expose a standalone owner-moving error-region accessor; recovery stays inside the private grow/push boundary');
 assert.match(vecCode, /struct\s+VecTransformError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>[\s\S]*fn\s+vec_transform_error_with\s+<\.T,\.R>\s+<\(VecTransformError<\.T>,\(Vec<\.T>,StdErrorKind\)\*>\.R\)\*>\.R>[\s\S]*let\s+vec\s+<Vec<\.T>>\s+field::get\s+e\s+"vec"[\s\S]*let\s+error\s+<StdErrorKind>\s+field::get\s+e\s+"error"[\s\S]*callback\s+vec\s+error[\s\S]*fn\s+vec_transform_error_vec\s+<\.T:\s*Copy>\s+<\(VecTransformError<\.T>\)->Vec<\.T>>/, 'Vec transform failure payload must carry the consumed input Vec owner, provide an owner-preserving callback eliminator, and keep the Vec-only accessor Copy-only');
+assert.match(vecCode, /struct\s+VecSortError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>[\s\S]*fn\s+vec_sort_error_with\s+<\.T,\.R>\s+<\(VecSortError<\.T>,\(Vec<\.T>,StdErrorKind\)\*>\.R\)\*>\.R>[\s\S]*let\s+vec\s+<Vec<\.T>>\s+field::get\s+e\s+"vec"[\s\S]*let\s+error\s+<StdErrorKind>\s+field::get\s+e\s+"error"[\s\S]*callback\s+vec\s+error[\s\S]*fn\s+vec_sort_error_vec\s+<\.T:\s*Copy>\s+<\(VecSortError<\.T>\)->Vec<\.T>>/, 'Vec sort failure payload must carry the consumed input Vec owner, provide an owner-preserving callback eliminator, and keep the Vec-only accessor Copy-only');
 assert.match(vecCode, /fn\s+vec_realloc_region_or_keep\s+<\.T>\s+<\(RegionToken<\.T>,i32\)->Result<RegionToken<\.T>,\s*VecReallocRegionError<\.T>>>[\s\S]*le\s+new_cap\s+0[\s\S]*max_alloc_payload_bytes[\s\S]*gt\s+new_cap\s+max_count[\s\S]*match\s+realloc_region_bytes_keep<\.T>\s+region\s+new_bytes:[\s\S]*Result::Ok\s+grown_region:[\s\S]*(?:Result::Ok<RegionToken<\.T>,\s*VecReallocRegionError<\.T>>|Result::Ok)\s+grown_region[\s\S]*Result::Err\s+e:[\s\S]*VecReallocRegionError<\.T>\s+\(region_realloc_error_region<\.T>\s+e\)\s+StdErrorKind::OutOfMemory/, 'Vec.push grow helper must prove capacity bounds and return the old RegionToken owner through core/mem realloc failure payload without requiring payload Copy');
 assert.doesNotMatch(vecMutationPushCode, /fn\s+vec_realloc_region_or_keep\s+<\.T:\s*Copy>/, 'Vec storage-only grow helper must not require Copy because it never reads payload slots');
 assert.match(vecQueryGetCode, /match\s+vec_current_copy_invariant<\.T>\s+v:[\s\S]*VecCopyInvariant::Invalid\s+_reason:[\s\S]*none(?:<\.T>)?[\s\S]*VecCopyInvariant::Valid:[\s\S]*load<\.T>/, 'Vec.get must match current Copy-only invariant proof before raw load');
@@ -647,31 +648,33 @@ for (const [name, signature] of [
     ['sort_quick_swap_data', /<\(MemPtr<\.T>,i32,i32\)\*>unit>/],
     ['sort_quick_partition_data', /<\(MemPtr<\.T>,i32,i32\)\*>i32>/],
     ['sort_quick_range_data', /<\(MemPtr<\.T>,i32,i32\)\*>unit>/],
-    ['sort_quick', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_quick_ret', /<\(Vec<\.T>\)\*>Vec<\.T>>/],
-    ['sort', /<\(&Vec<\.T>\)\*>unit>/],
+    ['sort_quick', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_quick_ret', /<\(Vec<\.T>\)\*>Result<Vec<\.T>,\s*VecSortError<\.T>>/],
+    ['sort', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
     ['sort_heap_set_data', /<\(MemPtr<\.T>,i32,\.T\)\*>unit>/],
     ['sort_heap_swap_data', /<\(MemPtr<\.T>,i32,i32\)\*>unit>/],
     ['sort_heap_sift_down_data', /<\(MemPtr<\.T>,i32,i32\)\*>unit>/],
-    ['sort_heap', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_heap_ret', /<\(Vec<\.T>\)\*>Vec<\.T>>/],
+    ['sort_heap', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_heap_ret', /<\(Vec<\.T>\)\*>Result<Vec<\.T>,\s*VecSortError<\.T>>/],
     ['sort_merge_buffer_set', /<\(MemPtr<\.T>,i32,\.T\)\*>unit>/],
     ['sort_merge_range_data', /<\(MemPtr<\.T>,MemPtr<\.T>,i32,i32\)\*>unit>/],
-    ['sort_bubble', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_cocktail', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_shell', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_comb', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_insertion', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_gnome', /<\(&Vec<\.T>\)\*>unit>/],
-    ['sort_selection', /<\(&Vec<\.T>\)\*>unit>/],
+    ['sort_bubble', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_cocktail', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_shell', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_comb', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_insertion', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_gnome', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
+    ['sort_selection', /<\(&Vec<\.T>\)\*>Result<unit,\s*StdErrorKind>/],
 ]) {
     assert.match(sortFamilyCode, new RegExp(`fn\\s+${name}\\s+[^\\n]*${signature.source}`), `${name} mutates Vec/raw storage and must carry an impure effect signature`);
 }
 assert.match(sortMergeApiCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord&Copy>\s+<\(MemPtr<\.T>,MemPtr<\.T>,i32,i32\)\*>unit>[\s\S]*sort_merge_buffer_set<\.T>[\s\S]*sort_merge_buffer_get<\.T>/, 'sort/merge/api.nepl must own private Copy-only impure range traversal and delegate scratch access');
-assert.match(sortMergeApiCode, /pub\s+struct\s+VecSortMergeError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>/, 'sort_merge_ret failure payload must carry the consumed Vec owner and a copyable error kind');
-assert.match(sortMergeApiCode, /fn\s+vec_sort_merge_error_vec\s+<\.T:\s*Copy>\s+<\(VecSortMergeError<\.T>\)->Vec<\.T>>/, 'sort_merge_ret error owner accessor must remain Copy-only until non-Copy sort/drop traversal exists');
 assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord&Copy>[\s\S]*match\s+alloc_region<\.T>\s+n:[\s\S]*let\s+buf\s+<MemPtr<\.T>>\s+region_ptr\s+&buf_region[\s\S]*match\s+dealloc_region<\.T>\s+buf_region:[\s\S]*Result::Ok\s+_:[\s\S]*Result::Ok\s+unit[\s\S]*Result::Err\s+_:[\s\S]*Result::Err\s+StdErrorKind::InvalidOperation/, 'sort_merge must keep scratch ownership in RegionToken and report cleanup failure without unreachable');
-assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord&Copy>\s+<\(Vec<\.T>\)\*>Result<Vec<\.T>,\s*VecSortMergeError<\.T>>>[\s\S]*let\s+n\s+<i32>\s+len<\.T>\s+&v[\s\S]*match\s+alloc_region<\.T>\s+n:[\s\S]*Result::Err\s+VecSortMergeError<\.T>\s+v\s+StdErrorKind::OutOfMemory[\s\S]*let\s+buf\s+<MemPtr<\.T>>\s+region_ptr\s+&buf_region[\s\S]*match\s+dealloc_region<\.T>\s+buf_region:[\s\S]*Result::Ok\s+v[\s\S]*Result::Err\s+VecSortMergeError<\.T>\s+v\s+StdErrorKind::InvalidOperation/, 'sort_merge_ret must return the consumed Vec owner on all error paths');
+assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord&Copy>\s+<\(Vec<\.T>\)\*>Result<Vec<\.T>,\s*VecSortError<\.T>>>[\s\S]*let\s+n\s+<i32>\s+len<\.T>\s+&v[\s\S]*match\s+alloc_region<\.T>\s+n:[\s\S]*Result::Err\s+VecSortError<\.T>\s+v\s+StdErrorKind::OutOfMemory[\s\S]*let\s+buf\s+<MemPtr<\.T>>\s+region_ptr\s+&buf_region[\s\S]*match\s+dealloc_region<\.T>\s+buf_region:[\s\S]*Result::Ok\s+v[\s\S]*Result::Err\s+VecSortError<\.T>\s+v\s+StdErrorKind::InvalidOperation/, 'sort_merge_ret must return the consumed Vec owner on all error paths');
+assert.match(sortFamilyCode, /VecCopyInvariant::Invalid\s+_reason:\s+Result::Err\s+StdErrorKind::InvalidOperation/, 'borrowed Vec sort APIs must report malformed metadata instead of silently returning unit');
+assert.match(sortFamilyCode, /VecDataView::Invalid\s+_reason:\s+Result::Err\s+StdErrorKind::InvalidOperation/, 'borrowed Vec sort APIs must report invalid data views instead of silently returning unit');
+assert.match(sortFamilyCode, /VecCopyInvariant::Invalid\s+_reason:\s+Result::Err\s+VecSortError<\.T>\s+v\s+StdErrorKind::InvalidOperation/, 'owner-consuming Vec sort APIs must return the consumed Vec owner on malformed metadata');
+assert.match(sortFamilyCode, /VecDataView::Invalid\s+_reason:\s+Result::Err\s+VecSortError<\.T>\s+v\s+StdErrorKind::InvalidOperation/, 'owner-consuming Vec sort APIs must return the consumed Vec owner on invalid data views');
 assert.doesNotMatch(sortMergeApiCode, /#intrinsic\s+"unreachable"/, 'sort/merge/api.nepl must not use unreachable for scratch cleanup');
 
 console.log('vec unsafe unwrap regression passed');
