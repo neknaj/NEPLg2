@@ -159,11 +159,53 @@ function publicFunctionSection(code, name) {
     return code.slice(startIdx, startIdx + match[0].length + nextMatch.index);
 }
 
+function docTestBlocks(source, marker) {
+    const lines = source.split(/\r?\n/);
+    const blocks = [];
+
+    for (let i = 0; i < lines.length; i += 1) {
+        if (!new RegExp(`//:\\s*neplg2:test\\[${marker}\\]`).test(lines[i])) {
+            continue;
+        }
+
+        const blockLines = [];
+        let sawOpeningFence = false;
+        for (let j = i; j < lines.length; j += 1) {
+            const line = lines[j];
+            blockLines.push(line);
+
+            if (/\/\/:\s*```neplg2/.test(line)) {
+                sawOpeningFence = true;
+                continue;
+            }
+            if (sawOpeningFence && /\/\/:\s*```/.test(line)) {
+                break;
+            }
+        }
+        blocks.push(blockLines.join('\n'));
+    }
+
+    return blocks;
+}
+
+function assertVecConstructorRejectsPlainPayload(callee) {
+    const callPattern = new RegExp(`\\b${callee}<PlainPayload>`);
+    assert.ok(
+        vecStorageApiCompileFailBlocks.some((block) =>
+            /diag_codes:\s*type\.trait_bound\.unsatisfied/.test(block)
+            && /struct\s+PlainPayload:/.test(block)
+            && callPattern.test(block),
+        ),
+        `Vec ${callee} docs must reject PlainPayload with a trait-bound compile_fail block`,
+    );
+}
+
 const pushSection = vecMutationPushCode.slice(vecMutationPushCode.indexOf('pub fn push '));
 const privatePushSection = between(vecCode, 'fn vec_push_storage_checked ', 'pub fn push ');
 const withCapacitySection = between(vecCode, 'fn with_capacity ', 'fn filled ');
 const vecStorageViewSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/view.nepl'), 'utf8');
 const vecStorageApiSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/api.nepl'), 'utf8');
+const vecStorageApiCompileFailBlocks = docTestBlocks(vecStorageApiSource, 'compile_fail');
 const popSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/mutation/pop.nepl'), 'utf8');
 const popCode = legacyTypeSyntaxView(popSource);
 const popSection = popCode.slice(popCode.indexOf('fn vec_pop_move_out_initialized_slot '));
@@ -405,7 +447,8 @@ assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T:\s*Copy>\s+<\(i32\)->Result<V
 assert.match(vecCode, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*vec_alloc_empty<\.T>\s+8/, 'Vec.new Copy overload must delegate through vec_alloc_empty');
 assert.match(vecCode, /fn\s+new\s+<\.T:\s*Drop>\s+<\(\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*vec_alloc_empty<\.T>\s+8/, 'Vec.new Drop overload must exist only through the same allocation helper');
 assert.match(vecStorageApiSource, /struct\s+DropPayload:[\s\S]*impl\s+Drop\s+for\s+DropPayload:[\s\S]*\bnew\b[\s\S]*\bwith_capacity\b/, 'Vec allocation constructor docs must cover Drop payload storage allocation through public API');
-assert.match(vecStorageApiSource, /diag_codes:\s*type\.overload\.no_match[\s\S]*new<PlainPayload>[\s\S]*diag_codes:\s*type\.overload\.no_match[\s\S]*with_capacity<PlainPayload>/, 'Vec allocation constructors must still reject payloads with neither Copy nor Drop capability in doctests');
+assertVecConstructorRejectsPlainPayload('new');
+assertVecConstructorRejectsPlainPayload('with_capacity');
 assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>[\s\S]*\(storage\):[\s\S]*match\s+storage:[\s\S]*VecStorage::Empty:[\s\S]*unit[\s\S]*VecStorage::Owned\s+region:[\s\S]*dealloc_region<\.T>\s+region/, 'Vec.free must consume the RegionToken owner only through the Owned storage variant');
 assert.match(vecStorageCleanupSource, /VecStorage::Owned[\s\S]*Empty[\s\S]*RegionToken/, 'Vec.storage cleanup docs must explain that the owner token is structurally tied to the Owned variant');
 assert.match(withCapacitySection, /alloc::vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must delegate empty storage allocation to vec_alloc_empty');

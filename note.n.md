@@ -1,3 +1,12 @@
+# 2026-06-04 Agent2 Vec constructor capability policy checkpoint
+
+- `origin/main` 反映後の `main` から `agent2/fix-vec-constructor-capability-doc` branch を作成し、`ISS-20260604T033643338Z-VEC-CONSTRUCTOR-CAPABILITY-REJECTION-463D3E88` を修正した。
+- `stdlib/alloc/collections/vec/storage/api.nepl` には `PlainPayload` を用いた `new` / `with_capacity` の compile_fail doctest が既に存在し、focused doctest も 9/9 pass だった。失敗の根本原因は `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` が旧い `type.overload.no_match` を期待していたことである。
+- `PlainPayload` には `Copy` / `Drop` のどちらの trait bound もないため、現行 compiler の正しい診断契約は `type.trait_bound.unsatisfied` である。source policy は compile_fail block 単位で `PlainPayload`、constructor 呼び出し、`type.trait_bound.unsatisfied` が揃うことを確認する形へ変更した。
+- subagent review でも、stdlib docs を `type.overload.no_match` に戻すべきではなく、source policy を current diagnostic contract に合わせるべきと確認した。
+- 対象 issue は `fixed` / `resolved: true` に更新した。
+- 検証: `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`、`node nodesrc/tests.js -i stdlib/alloc/collections/vec/storage/api.nepl --no-tree -o tmp/agent2-vec-storage-api-after2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/test_stdlib_collection_cleanup_contract.js`、`node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent2-vec-collection-cleanup-contract.json -j 1 --dist web/dist --assert-io` は通過した。`node nodesrc/run_source_policy_regressions.js --warn-only` は `test_stdlib_vec_no_unsafe_unwraps.js` が pass し、既存 warning は 12 件から 11 件に減った。`node nodesrc/issues.js index --dir issues && node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-vec-constructor-playground-editor.json` も通過し、CLI JSON は 13/13 pass を確認した。
+
 # 2026-06-04 Agent2 Diags has_errors owner policy checkpoint
 
 - `origin/main` を確認し、`agent2/fix-diags-has-errors-owner` branch で `ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA` を修正した。
