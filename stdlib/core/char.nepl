@@ -10,13 +10,21 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
-//: stdout: "test_report name=\"core_char_basic\" count=9 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"ascii codepoint\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"ascii alpha\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"ascii digit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"ascii whitespace\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"ascii utf8 len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"hiragana utf8 len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"valid scalar accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"surrogate rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"too large rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: stdout: "test_report name=\"core_char_basic\" count=13 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"ascii codepoint\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"ascii alpha\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"ascii digit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"ascii whitespace\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"ascii utf8 len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"hiragana utf8 len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"ascii byte 0\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"ascii byte 1 none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=eq_i32 label=\"hiragana byte 2\" expected=\"130\" actual=\"130\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"negative byte none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"valid scalar accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"surrogate rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"too large rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/char" as *
+//:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
+//: fn expect_utf8_byte %fn str fn Option i32 fn i32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Option::Some byte:
+//:             assert_eq_i32 label expected byte
+//:         Option::None:
+//:             assert label false
+//:
 //: fn main %impure fn void i32 \void:
 //:     let a %char 'A'
 //:     let hira %char '\u{3042}'
@@ -31,6 +39,10 @@
 //:         |> test_report_push assert "ascii whitespace" char_is_ascii_whitespace '\n'
 //:         |> test_report_push assert_eq_i32 "ascii utf8 len" 1 char_utf8_len a
 //:         |> test_report_push assert_eq_i32 "hiragana utf8 len" 3 char_utf8_len hira
+//:         |> test_report_push expect_utf8_byte "ascii byte 0" char_utf8_byte_at a 0 65
+//:         |> test_report_push assert "ascii byte 1 none" is_none char_utf8_byte_at a 1
+//:         |> test_report_push expect_utf8_byte "hiragana byte 2" char_utf8_byte_at hira 2 130
+//:         |> test_report_push assert "negative byte none" is_none char_utf8_byte_at hira -1
 //:         |> test_report_push assert "valid scalar accepted" is_ok valid
 //:         |> test_report_push assert "surrogate rejected" is_err surrogate
 //:         |> test_report_push assert "too large rejected" is_err too_large
@@ -43,6 +55,7 @@
 #import "core/cast" as *
 #import "core/math/i32" as *
 #import "core/math/bool" as *
+#import "core/option" as *
 #import "core/result" as *
 
 //: CharUtf8Step: UTF-8 decode の 1 step を表す
@@ -228,7 +241,31 @@ pub fn char_utf8_byte0 %fn char i32 \c:
                             or 0xF0 shr_u code 18
 
 //: char_utf8_byte1: UTF-8 encode 後の 2 byte 目を返す
-pub fn char_utf8_byte1 %fn char i32 \c:
+//:
+//: [注意/ちゅうい]:
+//: - public caller は `char_utf8_byte_at` を使い、存在しない byte を `Option::None` として扱ってください。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/char" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn main %fn void i32 \void:
+//:     match char_utf8_byte_at '\u{00A2}' 1:
+//:         Option::Some byte:
+//:             if:
+//:                 eq byte 162
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Option::None:
+//:             1
+//: ```
+fn char_utf8_byte1 %fn char i32 \c:
     let code %i32 char_to_i32 c
     if:
         le code 0x7FF
@@ -243,7 +280,31 @@ pub fn char_utf8_byte1 %fn char i32 \c:
                     char_utf8_cont_byte shr_u code 12
 
 //: char_utf8_byte2: UTF-8 encode 後の 3 byte 目を返す
-pub fn char_utf8_byte2 %fn char i32 \c:
+//:
+//: [注意/ちゅうい]:
+//: - public caller は `char_utf8_byte_at` を使い、存在しない byte を `Option::None` として扱ってください。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/char" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn main %fn void i32 \void:
+//:     match char_utf8_byte_at '\u{3042}' 2:
+//:         Option::Some byte:
+//:             if:
+//:                 eq byte 130
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Option::None:
+//:             1
+//: ```
+fn char_utf8_byte2 %fn char i32 \c:
     let code %i32 char_to_i32 c
     if:
         le code 0xFFFF
@@ -253,5 +314,97 @@ pub fn char_utf8_byte2 %fn char i32 \c:
             char_utf8_cont_byte shr_u code 6
 
 //: char_utf8_byte3: UTF-8 encode 後の 4 byte 目を返す
-pub fn char_utf8_byte3 %fn char i32 \c:
+//:
+//: [注意/ちゅうい]:
+//: - public caller は `char_utf8_byte_at` を使い、存在しない byte を `Option::None` として扱ってください。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/char" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn main %fn void i32 \void:
+//:     match char_utf8_byte_at '\u{1F4AF}' 3:
+//:         Option::Some byte:
+//:             if:
+//:                 eq byte 175
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Option::None:
+//:             1
+//: ```
+fn char_utf8_byte3 %fn char i32 \c:
     char_utf8_cont_byte char_to_i32 c
+
+//: char_utf8_byte_at: UTF-8 encode 後の byte を index で取り出す
+//:
+//: [目的/もくてき]:
+//: - `char` を UTF-8 encode したとき、指定 index の byte が存在する場合だけ `Some(byte)` を返します。
+//: - ASCII の index 1、3 byte 文字の index 3、負数 index など、存在しない位置は `None` として表します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は 0-based byte index です。
+//: - 戻り値の byte は `0..=255` の i32 です。
+//: - 欠如は sentinel 整数ではなく `Option::None` で返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"char_utf8_byte_at_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"ascii first byte\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"hiragana third byte\" expected=\"130\" actual=\"130\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"ascii missing second byte\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/char" as *
+//:| #import "core/option" as *
+//:| #import "std/test" as *
+//: fn expect_utf8_byte %fn str fn Option i32 fn i32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Option::Some byte:
+//:             assert_eq_i32 label expected byte
+//:         Option::None:
+//:             assert label false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "char_utf8_byte_at_doc"
+//:         |> test_report_push expect_utf8_byte "ascii first byte" char_utf8_byte_at 'A' 0 65
+//:         |> test_report_push expect_utf8_byte "hiragana third byte" char_utf8_byte_at '\u{3042}' 2 130
+//:         |> test_report_push assert "ascii missing second byte" is_none char_utf8_byte_at 'A' 1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+pub fn char_utf8_byte_at %fn char fn i32 Option i32 \c\idx:
+    let n %i32 char_utf8_len c
+    match idx:
+        0:
+            some char_utf8_byte0 c
+        1:
+            if:
+                lt 1 n
+                then:
+                    some char_utf8_byte1 c
+                else:
+                    none
+        2:
+            if:
+                lt 2 n
+                then:
+                    some char_utf8_byte2 c
+                else:
+                    none
+        3:
+            if:
+                lt 3 n
+                then:
+                    some char_utf8_byte3 c
+                else:
+                    none
+        _:
+            none
