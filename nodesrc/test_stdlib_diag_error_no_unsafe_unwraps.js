@@ -33,6 +33,38 @@ const code = Object.fromEntries(
 const implementationCode = [code.types, code.diag, code.diags, code.outcome, code.renderer].join('\n');
 const allCode = [code.root, implementationCode].join('\n');
 
+function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertDiagsByValueObserverClosesOwner(name, valueType) {
+    const escapedName = escapeRegExp(name);
+    const escapedValueType = escapeRegExp(valueType);
+    const ident = '([A-Za-z_][A-Za-z0-9_]*)';
+    const pattern = new RegExp(
+        String.raw`fn\s+${escapedName}\s+<\(Diags\)->${escapedValueType}>\s+\(ds\):[\s\S]*?let\s+${ident}\s+<${escapedValueType}>\s+${escapedName}\s+&ds[\s\S]*?diags_free\s+ds[\s\S]*?\b\1\b`,
+    );
+
+    assert.match(
+        code.diags,
+        pattern,
+        `by-value ${name} must close the Diags owner after observation and return the observed value`,
+    );
+}
+
+function assertDiagsPushClosesRecoveredVecOwner() {
+    const ident = '([A-Za-z_][A-Za-z0-9_]*)';
+    const pattern = new RegExp(
+        String.raw`fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*?let\s+${ident}\s+<Vec<Diag>>\s+field::get\s+ds\s+"items"[\s\S]*?match\s+vec_push::push\s+\1\s+d:[\s\S]*?Result::Err\s+e:[\s\S]*?vec_cleanup::free\s+vec_push::vec_push_error_vec\s+e[\s\S]*?Diags\s+diag_empty_diag_vec`,
+    );
+
+    assert.match(
+        code.diags,
+        pattern,
+        'diags_push must close the recovered Vec owner before converting grow failure to an empty Diags sentinel',
+    );
+}
+
 const forbidden = [
     /\bunwrap\b/,
     /\bunwrap_ok\b/,
@@ -102,11 +134,11 @@ assert.match(code.diag, /fn\s+diag_key_not_found\s+<\(\)\*>Diag>\s+\(\):\s+diag_
 
 assert.match(code.diags, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+vec_view::vec_empty\b/, 'Diags allocation fallback must use typed empty Vec storage');
 assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->unit>\s+\(ds\):\s+vec_cleanup::free\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
-assert.match(code.diags, /fn\s+diags_len\s+<\(Diags\)->i32>\s+\(ds\):[\s\S]*let\s+n\s+<i32>\s+diags_len\s+&ds[\s\S]*diags_free\s+ds[\s\S]*n/, 'by-value diags_len must close the Diags owner after observation');
-assert.match(code.diags, /fn\s+diags_has_errors\s+<\(Diags\)->bool>\s+\(ds\):[\s\S]*let\s+ok\s+<bool>\s+diags_has_errors\s+&ds[\s\S]*diags_free\s+ds[\s\S]*ok/, 'by-value diags_has_errors must close the Diags owner after observation');
+assertDiagsByValueObserverClosesOwner('diags_len', 'i32');
+assertDiagsByValueObserverClosesOwner('diags_has_errors', 'bool');
 assert.match(code.diags, /match\s+level:[\s\S]*DiagLevel::Error:[\s\S]*DiagLevel::Log:[\s\S]*DiagLevel::Info:[\s\S]*DiagLevel::Warn:/, 'diags_has_errors_loop must branch by exhaustive DiagLevel match arms');
 assert.match(code.diags, /fn\s+diags_one\s+<\(Diag\)\*>Diags>\s+\(d\):[\s\S]*match\s+vec_push::push\s+items0\s+d:[\s\S]*Result::Err\s+e:[\s\S]*vec_cleanup::free\s+vec_push::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_one must close the recovered Vec owner before converting push failure to an empty Diags sentinel');
-assert.match(code.diags, /fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*let\s+items\s+<Vec<Diag>>\s+field::get\s+ds\s+"items"[\s\S]*match\s+vec_push::push\s+items\s+d:[\s\S]*Result::Err\s+e:[\s\S]*vec_cleanup::free\s+vec_push::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_push must close the recovered Vec owner before converting grow failure to an empty Diags sentinel');
+assertDiagsPushClosesRecoveredVecOwner();
 
 assert.match(code.outcome, /struct\s+Outcome<\.T,\s*\.E>:[\s\S]*result\s+<Result<\.T,\s*\.E>>[\s\S]*diags\s+<Option<Diags>>/, 'Outcome must keep result and Diags as separate axes');
 assert.match(code.outcome, /fn\s+outcome_with_diags[\s\S]*Option::Some\s+old_ds:[\s\S]*diags_free\s+old_ds/, 'outcome_with_diags must close any replaced Diags owner');
