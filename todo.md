@@ -1,3 +1,11 @@
+2026-06-04 stdlib / examples Zenn audit
+
+- subagent の `stdlib/core` + `stdlib/alloc/collections` 監査結果を統合し、既存 issue と重複しない root cause を追加する
+- subagent の `stdlib/std` + `stdlib/platforms` 監査結果を統合し、raw boundary / host effect / platform detail 漏れを issue 化する
+- subagent の `stdlib/neplg2` + `stdlib/neplg3` + `stdlib/nm` + `stdlib/kp` 監査結果を統合し、prefix range / diagnostic / doc parser 由来の問題を issue 化する
+- subagent の `examples` + `features` + `tests` + GUI/TUI 監査結果を統合し、旧文法、ret-only test、TS/Rust simulation、GUI/TUI substrate 逸脱を issue 化する
+- `remote/main` を定期的に取り込み、別 agent の cfg-test 相当通常テスト基盤が入った時点で監査 checklist と各 issue の検証方針を更新する
+
 2026-06-01 GUI/TUI standard library
 
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する

@@ -1,3 +1,14 @@
+# 2026-06-04 Agent2 stdlib/examples Zenn audit checkpoint
+
+- `plan.md` は確認したが変更していない。前置記法、式指向、オフサイドルール、括弧排除を stdlib / examples 監査の前提にした。
+- `origin/main` を fast-forward で取り込み、`agent2/zenn-stdlib-examples-audit` branch を作成して作業を開始した。別 agent が Rust の `cfg test` 相当の通常テスト機構を追加しているため、監査 issue では doc test とは別の通常テスト要求として記録する。
+- subagent 枠は既に埋まっていたため、既存 subagent 4 体へ範囲を分けて監査を依頼した。担当は `stdlib/core` + `stdlib/alloc/collections`、`stdlib/std` + `stdlib/platforms`、`stdlib/neplg2` + `stdlib/neplg3` + `stdlib/nm` + `stdlib/kp`、`examples` + `features` + `tests` + GUI/TUI 関連である。編集はさせず、root cause 候補の報告だけを依頼している。
+- `doc/stdlib_examples_zenn_audit_checklist.md` を追加し、Zenn 記事の UTF-8、依存抽象化、静的検査、Option / Result、enum / match、純粋性、不変性、式指向、ネスト深さ、doc comment、doc test、通常テスト、ゼロコスト抽象化、DAG、ディレクトリ階層、暫定設計禁止、性能方針を module 別 checklist に落とした。
+- 現行 `node nodesrc/run_source_policy_regressions.js --warn-only` は 14 件の既存 warning を出す。stdlib / examples 監査に直接関係するものから、source-policy で再現できる root cause を先に issue 化した。
+- subagent の範囲別監査結果も統合し、初回監査では合計 28 件の issue を追加した。内訳は stdlib raw / host / stream boundary 6 件、stdlib collection / value modeling 6 件、GUI / TUI / examples 7 件、selfhost / parser / nm 8 件、documentation / doctest report contract 1 件である。
+- まだ全ファイルの実読みによる監査は完了していない。次は `remote/main` を再確認し、通常テスト基盤の追加有無を見ながら、未検査 module の実ファイル単位監査へ進む。
+- 検証: `node nodesrc/run_source_policy_regressions.js --warn-only` で 14 件の既存 warning を確認し、監査 issue の入力にした。`node nodesrc/issues.js index --dir issues`、`node nodesrc/issues.js check --dir issues`、`git diff --cached --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-zenn-audit-playground-editor.json` は通過した。CLI JSON は `caseCount=13`、`passedCount=13`、`failedCount=0` を確認した。
+
 # 2026-06-04 RPN raw-init summary duplicate replay pruning checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に従い、cache hit 前提ではなく、RPN cold base で毎回発生する Resource IR summary の探索範囲と計算量を測定して削った。
