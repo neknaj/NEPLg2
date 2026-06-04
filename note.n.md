@@ -1,3 +1,15 @@
+# 2026-06-04 Agent2 raw IO boundary source policy checkpoint
+
+- `main` から `agent2/fix-raw-io-boundary-policies` branch を作成し、`ISS-20260604T033642641Z-STDLIB-RAW-IO-BOUNDARIES-DRIFT-FROM--6CE98C14` を修正した。
+- `stdlib` 実装は既に raw/platform effect を private boundary に閉じ、`RegionToken` owner を local helper で保持していた。失敗の根本原因は source policy が旧 helper 配置、`cap` / `ok` / `len` / `err` などの局所名、旧 scratch `MemPtr` helper 署名に過剰適合していたことだった。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は `fs_path_filetype_normalized`、borrowed `&RegionToken` fd write scratch、`fs_read_fd_bytes` の capacity 変数 capture、path normalize / directory read の error state capture を確認する形に変更した。
+- `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` は `pointer_valid` のような bounded-loop state を capture し、`cstr_to_str_bounded_result` が同じ measured length を UTF-8 検証へ渡すことを確認する形に変更した。
+- `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` は `fs_read_fd_bytes` の growable buffer owner と `fs_finish_read_buffer` への owner normalization を変数名に依存せず確認する形に変更した。
+- `nodesrc/test_stdlib_stdio_read_boundary.js` は `stdio_fd_write_from_result` が private helper として `&RegionToken u8` scratch を借用する契約を確認する形に変更した。
+- subagent review では、stdlib source を変更せず current `RegionToken` / borrowed scratch contract に policy を合わせる方針が merge approved と確認された。
+- 対象 issue は `fixed` / `resolved: true` に更新した。
+- 検証: `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`、`node nodesrc/test_stdlib_stdio_read_boundary.js` は通過した。`node nodesrc/tests.js -i stdlib/std/fs/stat.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/write/fd.nepl -i stdlib/std/env/cliarg/cstr.nepl -i stdlib/alloc/io/bytebuf.nepl --no-tree -o tmp/agent2-raw-io-boundary-focused.json -j 1 --dist web/dist --assert-io` は total=5, passed=5, failed=0。`node nodesrc/run_source_policy_regressions.js --warn-only` は raw IO warnings が消え、既存 warning は 11 件から 7 件に減った。`node nodesrc/issues.js index --dir issues && node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-raw-io-boundary-playground-editor.json` も通過し、CLI JSON は 13/13 pass を確認した。
+
 # 2026-06-04 Agent2 Vec constructor capability policy checkpoint
 
 - `origin/main` 反映後の `main` から `agent2/fix-vec-constructor-capability-doc` branch を作成し、`ISS-20260604T033643338Z-VEC-CONSTRUCTOR-CAPABILITY-REJECTION-463D3E88` を修正した。
