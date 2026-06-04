@@ -234,7 +234,7 @@ fn main %impure fn void i32 \void:
         Result::Ok path:
             set checks checks_push checks check_str_eq "__expected_parent_escape_error__" path
         Result::Err e:
-            set checks checks_push checks check_eq_i32 76 e;
+            set checks checks_push checks check_str_eq "NotCapable" fs_error_kind_name fs_error_kind &e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -269,7 +269,7 @@ fn main %impure fn void i32 \void:
     let mut checks checks_new;
     match fs_read_dir "tests/fixtures/fs/dirlist":
         Result::Err e:
-            set checks checks_push checks Result::Err concat "fs_read_dir failed errno=" from_i32 e
+            set checks checks_push checks Result::Err concat "fs_read_dir failed kind=" fs_error_kind_name fs_error_kind &e
         Result::Ok entries:
             set checks checks_push checks check_eq_i32 3 v::len &entries;
             match v::get &entries 0:

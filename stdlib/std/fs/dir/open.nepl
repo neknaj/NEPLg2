@@ -11,10 +11,11 @@
 
 #import "core/result" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 #import "std/fs/fd" as *
 #import "std/fs/path" as *
 
-//: fs_open_dir: directory を fd_readdir 用に開く
+//: fs_open_dir_raw_errno: directory を fd_readdir 用に開き、失敗を raw errno で返す
 //:
 //: 目的:
 //: - `fs_read_dir` と将来の directory iterator が同じ権限指定で fd を取得できるようにします。
@@ -27,9 +28,30 @@
 //:
 //: 計算量:
 //: - path 正規化 O(n) と host open 1 回
-pub fn fs_open_dir %impure fn str Result i32 i32 \path:
-    match fs_normalize_relative path:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/dir/open" as *
+//: ```
+pub fn fs_open_dir_raw_errno %impure fn str Result i32 i32 \path:
+    match fs_normalize_relative_raw_errno path:
         Result::Err e:
             Result::Err e
         Result::Ok normalized:
-            fs_open_with_flags normalized fs_oflags_directory fs_right_fd_readdir
+            fs_open_with_flags_raw_errno normalized fs_oflags_directory fs_right_fd_readdir
+
+//: fs_open_dir: directory を fd_readdir 用に開く
+//:
+//: [目的/もくてき]:
+//: - directory open failure を `FsError` として[返/かえ]し、通常 public API で raw integer を primary error にしないようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/dir/open" as *
+//: ```
+pub fn fs_open_dir %impure fn str Result i32 FsError \path:
+    match fs_open_dir_raw_errno path:
+        Result::Ok fd:
+            Result::Ok fd
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::OpenDir e

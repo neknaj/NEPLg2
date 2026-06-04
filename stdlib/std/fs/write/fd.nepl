@@ -20,6 +20,7 @@
 #import "core/result" as *
 #import "std/fs/bytes" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 #import "std/fs/raw" as *
 #import "core/field" as *
 
@@ -146,7 +147,7 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                                 else:
                                     Result::Err write_error
 
-//: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
+//: fs_write_fd_bytes_raw_errno: fd へ `ByteBuf` をすべて書き込み、失敗を raw errno で返す
 //:
 //: 目的:
 //: - 既に開いている fd に所有 byte buffer の内容を最後まで書き込みます。
@@ -160,7 +161,7 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-pub fn fs_write_fd_bytes %impure fn i32 impure fn ByteBuf Result unit i32 \fd\bytes:
+pub fn fs_write_fd_bytes_raw_errno %impure fn i32 impure fn ByteBuf Result unit i32 \fd\bytes:
     let data_len %i32 io_bytebuf_len_ref &bytes
     if:
         le data_len 0
@@ -172,3 +173,22 @@ pub fn fs_write_fd_bytes %impure fn i32 impure fn ByteBuf Result unit i32 \fd\by
             let result %Result unit i32 fs_write_fd_mem_result fd data data_len
             io_bytebuf_free bytes
             result
+
+//: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
+//:
+//: [目的/もくてき]:
+//: - fd write loop の errno を `FsError` へ[包/つつ]み、通常 public API で raw integer を primary error にしないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - 入力 `ByteBuf` は成功時も失敗時もこの関数が解放します。raw errno が必要な互換境界では `fs_write_fd_bytes_raw_errno` を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/write/fd" as *
+//: ```
+pub fn fs_write_fd_bytes %impure fn i32 impure fn ByteBuf Result unit FsError \fd\bytes:
+    match fs_write_fd_bytes_raw_errno fd bytes:
+        Result::Ok _:
+            Result::Ok unit
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::WriteFd e

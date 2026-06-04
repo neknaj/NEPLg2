@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T22:01:56.103Z",
+  "generated_at": "2026-06-04T22:26:51.618Z",
   "counts": {
     "total": 1343,
-    "open": 50,
-    "resolved": 1293,
+    "open": 49,
+    "resolved": 1294,
     "by_area": {
       "stdlib": {
         "total": 350,
-        "open": 13,
-        "resolved": 337
+        "open": 12,
+        "resolved": 338
       },
       "core": {
         "total": 665,
@@ -668,21 +668,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3.md"
-    },
-    {
-      "id": "ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167",
-      "title": "std fs raw fd dir stat helpers still expose host errno as primary errors",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-05",
-      "target": "stdlib/std/fs/fd.nepl, stdlib/std/fs/read/fd.nepl, stdlib/std/fs/write/fd.nepl, stdlib/std/fs/dir/**, stdlib/std/fs/stat.nepl, stdlib/std/fs/path/normalize.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167.md"
     },
     {
       "id": "ISS-20260524T204705172Z-OWNER-CHECKER-DOES-NOT-REFINE-REALLO-C974639A",
@@ -16073,6 +16058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T042500000Z-GUI-TUI-DOCTEST-REPORT-CONTRACT-GAPS-4D6B9A0E.md"
+    },
+    {
+      "id": "ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167",
+      "title": "std fs raw fd dir stat helpers still expose host errno as primary errors",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "stdlib/std/fs/fd.nepl, stdlib/std/fs/read/fd.nepl, stdlib/std/fs/write/fd.nepl, stdlib/std/fs/dir/**, stdlib/std/fs/stat.nepl, stdlib/std/fs/path/normalize.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -31,12 +31,12 @@
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//:| #import "std/fs/constants" as *
+//:| #import "std/fs/error" as *
 //:| #import "std/fs/path" as *
 //: fn main %fn void i32 \void:
 //:     match fs_normalize_relative "../outside":
 //:         Result::Err e:
-//:             if eq e fs_errno_notcapable then 0 else 2
+//:             if eq fs_error_to_errno e 76 then 0 else 2
 //:         Result::Ok normalized:
 //:             if str_eq normalized "../outside" then 1 else 1
 //: ```

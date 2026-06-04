@@ -21,6 +21,7 @@
 #import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 #import "std/fs/path" as *
 #import "std/fs/raw" as *
 
@@ -50,7 +51,7 @@ fn fs_dirent_name_to_string %fn MemPtr u8 fn i32 Result str i32 \src_ptr\byte_le
                 Result::Ok text:
                     Result::Ok text
 
-//: fs_read_dir_fd: directory fd から entry 名を読み出す
+//: fs_read_dir_fd_raw_errno: directory fd から entry 名を読み出し、失敗を raw errno で返す
 //:
 //: 目的:
 //: - `fd_readdir` の raw dirent 配列を `Vec str` に変換し、`fs_read_dir` の本体処理を分離します。
@@ -66,7 +67,7 @@ fn fs_dirent_name_to_string %fn MemPtr u8 fn i32 Result str i32 \src_ptr\byte_le
 //:
 //: 計算量:
 //: - entry 総 byte 数 n と sort の O(k^2)
-pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
+pub fn fs_read_dir_fd_raw_errno %impure fn i32 Result Vec str i32 \fd:
     let entries_result %Result Vec str StdErrorKind v::new
     match entries_result:
         Result::Err _e:
@@ -166,7 +167,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                             if:
                                 eq read_dir_error 0
                                 then:
-                                    match fs_sort_strings &entries:
+                                    match fs_sort_strings_raw_errno &entries:
                                         Result::Ok _:
                                             Result::Ok entries
                                         Result::Err e:
@@ -175,3 +176,22 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                 else:
                                     v::free entries
                                     Result::Err read_dir_error
+
+//: fs_read_dir_fd: directory fd から entry 名を読み出す
+//:
+//: [目的/もくてき]:
+//: - fd_readdir loop の errno を `FsError` へ[包/つつ]み、通常 public API で raw integer を primary error にしないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - fd の open/close は caller の責務です。raw errno が必要な互換境界では `fs_read_dir_fd_raw_errno` を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/dir/read_fd" as *
+//: ```
+pub fn fs_read_dir_fd %impure fn i32 Result Vec str FsError \fd:
+    match fs_read_dir_fd_raw_errno fd:
+        Result::Ok entries:
+            Result::Ok entries
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::ReadDirFd e

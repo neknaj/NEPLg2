@@ -11,7 +11,7 @@
 //: - 表示用の[文章/ぶんしょう]は持たず、`kind` と `operation` を enum として[保持/ほじ]します。
 //:
 //: ### [現状/げんじょう]の[実装/じっそう]
-//: - lower fd / raw syscall [境界/きょうかい]にはまだ `Result .T i32` の helper があり、path-based API が `FsError` へ[包/つつ]みます。
+//: - lower fd / raw syscall [境界/きょうかい]の errno helper は `*_raw_errno` / `*_errno` 名へ[隔離/かくり]し、通常名の public API は `FsError` を[返/かえ]します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
@@ -58,13 +58,23 @@
 pub enum FsOperation:
     OpenRead
     OpenWrite
+    OpenWithFlags
+    OpenDir
     ReadFd
     WriteFd
+    ReadDirFd
     CloseAfterRead
     CloseAfterWrite
+    CloseAfterReadDir
+    CloseFd
     BytesToString
     BytesToUtf8String
     BuildWriteBuffer
+    PathFileType
+    NormalizePathBuilder
+    NormalizePath
+    NormalizePathRanges
+    SortEntries
 
 impl Clone for FsOperation:
     fn clone %fn &FsOperation FsOperation \operation:
@@ -299,20 +309,40 @@ pub fn fs_operation_name %fn FsOperation str \operation:
             "OpenRead"
         FsOperation::OpenWrite:
             "OpenWrite"
+        FsOperation::OpenWithFlags:
+            "OpenWithFlags"
+        FsOperation::OpenDir:
+            "OpenDir"
         FsOperation::ReadFd:
             "ReadFd"
         FsOperation::WriteFd:
             "WriteFd"
+        FsOperation::ReadDirFd:
+            "ReadDirFd"
         FsOperation::CloseAfterRead:
             "CloseAfterRead"
         FsOperation::CloseAfterWrite:
             "CloseAfterWrite"
+        FsOperation::CloseAfterReadDir:
+            "CloseAfterReadDir"
+        FsOperation::CloseFd:
+            "CloseFd"
         FsOperation::BytesToString:
             "BytesToString"
         FsOperation::BytesToUtf8String:
             "BytesToUtf8String"
         FsOperation::BuildWriteBuffer:
             "BuildWriteBuffer"
+        FsOperation::PathFileType:
+            "PathFileType"
+        FsOperation::NormalizePathBuilder:
+            "NormalizePathBuilder"
+        FsOperation::NormalizePath:
+            "NormalizePath"
+        FsOperation::NormalizePathRanges:
+            "NormalizePathRanges"
+        FsOperation::SortEntries:
+            "SortEntries"
 
 //: fs_error_kind_name: kind enum の stable [識別子/しきべつし]を[返/かえ]す
 //:

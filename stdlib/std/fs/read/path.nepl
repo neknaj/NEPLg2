@@ -24,7 +24,7 @@
 //: - path を開き、内容をバイト列として返します。
 //:
 //: 実装(アルゴリズム):
-//: - fs_open_read → fs_read_fd_bytes → fd_close の順に処理します。
+//: - fs_open_read → fs_read_fd_bytes → fs_close_raw_errno の順に処理します。
 //:
 //: 注意(重要):
 //: - 失敗時は `Err(FsError)` を返します。
@@ -68,21 +68,21 @@ pub fn fs_read_to_bytes %impure fn str Result ByteBuf FsError \path:
         Result::Ok fd:
             match fs_read_fd_bytes fd:
                 Result::Ok bytes:
-                    match fs_close fd:
+                    match fs_close_raw_errno fd:
                         Result::Ok _:
                             Result::Ok bytes
                         Result::Err close_errno:
                             io_bytebuf_free bytes
                             Result::Err fs_error_from_errno FsOperation::CloseAfterRead close_errno
-                Result::Err read_errno:
-                    match fs_close fd:
+                Result::Err read_error:
+                    match fs_close_raw_errno fd:
                         Result::Ok _:
                             unit
                         Result::Err _close_errno:
                             unit
-                    Result::Err fs_error_from_errno FsOperation::ReadFd read_errno
+                    Result::Err read_error
         Result::Err e:
-            Result::Err fs_error_from_errno FsOperation::OpenRead e
+            Result::Err e
 
 //: fs_read_to_bytes_errno: file read error を errno 互換値へ[写/うつ]す legacy wrapper
 //:
