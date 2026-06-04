@@ -14,6 +14,7 @@
 #import "alloc/string" as *
 #import "core/result" as *
 #import "std/fs/bytes" as *
+#import "std/fs/error" as *
 #import "std/fs/fd" as *
 #import "std/fs/read/fd" as *
 
@@ -26,7 +27,8 @@
 //: - fs_open_read → fs_read_fd_bytes → fd_close の順に処理します。
 //:
 //: 注意(重要):
-//: - 失敗時は Err(errno) を返します。
+//: - 失敗時は `Err(FsError)` を返します。
+//: - read 成功後の close 失敗は `FsOperation::CloseAfterRead` として扱い、返さない `ByteBuf` は解放します。
 //:
 //: 計算量:
 //: - O(n)
@@ -61,18 +63,42 @@
 //:         Result::Err _e:
 //:             2
 //: ```
-pub fn fs_read_to_bytes %impure fn str Result ByteBuf i32 \path:
+pub fn fs_read_to_bytes %impure fn str Result ByteBuf FsError \path:
     match fs_open_read path:
         Result::Ok fd:
-            let res %Result ByteBuf i32 fs_read_fd_bytes fd;
-            match fs_close fd:
-                Result::Ok _:
-                    unit
-                Result::Err _:
-                    unit
-            res
+            match fs_read_fd_bytes fd:
+                Result::Ok bytes:
+                    match fs_close fd:
+                        Result::Ok _:
+                            Result::Ok bytes
+                        Result::Err close_errno:
+                            io_bytebuf_free bytes
+                            Result::Err fs_error_from_errno FsOperation::CloseAfterRead close_errno
+                Result::Err read_errno:
+                    match fs_close fd:
+                        Result::Ok _:
+                            unit
+                        Result::Err _close_errno:
+                            unit
+                    Result::Err fs_error_from_errno FsOperation::ReadFd read_errno
         Result::Err e:
-            Result::Err e
+            Result::Err fs_error_from_errno FsOperation::OpenRead e
+
+//: fs_read_to_bytes_errno: file read error を errno 互換値へ[写/うつ]す legacy wrapper
+//:
+//: [注意/ちゅうい]:
+//: - 新規実装は `fs_read_to_bytes` の `FsError` を match してください。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/read" as *
+//: ```
+pub fn fs_read_to_bytes_errno %impure fn str Result ByteBuf i32 \path:
+    match fs_read_to_bytes path:
+        Result::Ok bytes:
+            Result::Ok bytes
+        Result::Err e:
+            Result::Err fs_error_to_errno e
 
 //: fs_read_to_string: ファイルを読み込んで str を返す
 //:
@@ -83,8 +109,8 @@ pub fn fs_read_to_bytes %impure fn str Result ByteBuf i32 \path:
 //: - fs_read_to_bytes で読み込み、fs_bytes_to_string_result で UTF-8 検証つき変換を行います。
 //:
 //: 注意(重要):
-//: - invalid UTF-8 は errno 84 (ILSEQ 相当) として返します。
-//: - 失敗時は Err(errno) を返します。
+//: - invalid UTF-8 は `FsErrorKind::InvalidUtf8` として返します。
+//: - 失敗時は `Err(FsError)` を返します。
 //:
 //: 計算量:
 //: - O(n)
@@ -117,12 +143,28 @@ pub fn fs_read_to_bytes %impure fn str Result ByteBuf i32 \path:
 //:         Result::Err _e:
 //:             2
 //: ```
-pub fn fs_read_to_string %impure fn str Result str i32 \path:
+pub fn fs_read_to_string %impure fn str Result str FsError \path:
     match fs_read_to_bytes path:
         Result::Ok bytes:
             fs_bytes_to_string_result bytes
         Result::Err e:
             Result::Err e
+
+//: fs_read_to_string_errno: text read error を errno 互換値へ[写/うつ]す legacy wrapper
+//:
+//: [注意/ちゅうい]:
+//: - 新規実装は `fs_read_to_string` の `FsError` を match してください。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/read" as *
+//: ```
+pub fn fs_read_to_string_errno %impure fn str Result str i32 \path:
+    match fs_read_to_string path:
+        Result::Ok text:
+            Result::Ok text
+        Result::Err e:
+            Result::Err fs_error_to_errno e
 
 //: fs_read_to_string_checked: ファイルを UTF-8 [検証/けんしょう]して str として[読/よ]み[込/こ]む
 //:
@@ -134,13 +176,29 @@ pub fn fs_read_to_string %impure fn str Result str i32 \path:
 //:
 //: [注意/ちゅうい]:
 //: - binary file を text として[読/よ]む API ではありません。binary artifact は `fs_read_to_bytes` を[使/つか]ってください。
-//: - invalid UTF-8 は errno 84 (ILSEQ 相当) として[返/かえ]します。
+//: - invalid UTF-8 は `FsErrorKind::InvalidUtf8` として[返/かえ]します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn fs_read_to_string_checked %impure fn str Result str i32 \path:
+pub fn fs_read_to_string_checked %impure fn str Result str FsError \path:
     match fs_read_to_bytes path:
         Result::Ok bytes:
             fs_bytes_to_utf8_string_result bytes
         Result::Err e:
             Result::Err e
+
+//: fs_read_to_string_checked_errno: checked text read error を errno 互換値へ[写/うつ]す legacy wrapper
+//:
+//: [注意/ちゅうい]:
+//: - 新規実装は `fs_read_to_string_checked` の `FsError` を match してください。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/read" as *
+//: ```
+pub fn fs_read_to_string_checked_errno %impure fn str Result str i32 \path:
+    match fs_read_to_string_checked path:
+        Result::Ok text:
+            Result::Ok text
+        Result::Err e:
+            Result::Err fs_error_to_errno e

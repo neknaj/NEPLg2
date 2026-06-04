@@ -23,6 +23,7 @@
 #indent 4
 
 pub #import "./fs/constants" as *
+pub #import "./fs/error" as *
 pub #import "./fs/path" as *
 pub #import "./fs/fd" as *
 pub #import "./fs/stat" as *

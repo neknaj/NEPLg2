@@ -32,5 +32,6 @@
 
 #indent 4
 
+pub #import "std/fs/error" as *
 pub #import "std/fs/write/fd" as *
 pub #import "std/fs/write/path" as *

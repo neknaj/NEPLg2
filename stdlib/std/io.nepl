@@ -9,7 +9,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]は stdin/stdout/stderr と `fs` と in-memory text の[最小/さいしょう]構成だけを[実装/じっそう]しています。`network` / `event` は[将来/しょうらい]の variant [追加/ついか]を[想定/そうてい]した[設計/せっけい]です。
-//: - file read [失敗/しっぱい]の[詳細/しょうさい] errno は[現状/げんじょう] `StdErrorKind::IoError` へ[丸/まる]めます。
+//: - file read [失敗/しっぱい]は `std/fs` の `FsError` を受け取り、この facade の error 型である `StdErrorKind` へ[明示的/めいじてき]に[写/うつ]します。
 //: - `ReadStream::Text "..."` を[使/つか]うと、文字列リテラルや in-memory text を stdin / fs と[同/おな]じ read target [面/めん]で[扱/あつか]えます。
 //: - raw binary は `ReadStream::Bytes bytes` で[渡/わた]します。[型付/かたづ]き binary（`u8` / `u32` など）は[暗黙/あんもく]再解釈せず、[明示的/めいじてき]に byte buffer へ[符号化/ふごうか]してから[渡/わた]す[方針/ほうしん]です。
 //:
@@ -64,11 +64,11 @@ trait TargetReadable:
 //:
 //: ### [実装/じっそう]
 //: - `stdio` は[内部/ないぶ]で `StdinStream` / `StdoutStream` / `StderrStream` を[直接/ちょくせつ][使/つか]い、category facade [側/がわ]へ low-level handle を[漏/も]らしません。
-//: - `fs` は `fs_read_to_bytes` を[呼/よ]び、error は `StdErrorKind::IoError` へ[正規化/せいきか]します。
-//: - `ReadStream::Text` は `str` を `ByteBuf` へ[複製/ふくせい]して[返/かえ]します。
+//: - `fs` は `fs_read_to_bytes` を[呼/よ]び、error は `fs_error_to_std_error_kind` で[正規化/せいきか]します。
+//: - `ReadStream::Text` / `ReadStream::Bytes` は `std/streamio/input` の adapter に[委譲/いじょう]し、in-memory target の owner boundary を[共通化/きょうつうか]します。
 //:
 //: ### [注意/ちゅうい]
-//: - file read の[詳細/しょうさい] errno は[保持/ほじ]しません。
+//: - file read の[詳細/しょうさい]は `std/fs` の typed boundary で[保持/ほじ]され、この facade では `StdErrorKind` へ[射影/しゃえい]されます。
 //: - [型引数/かたひきすう]または[受/う]け[側/がわ]の[型注釈/かたちゅうしゃく]で[返/かえ]す[型/かた]を[決/き]めます。
 //:
 //: ### [計算量/けいさんりょう]
@@ -82,12 +82,12 @@ impl TargetReadable for ByteBuf:
                 match fs_read_to_bytes path:
                     Result::Ok bytes:
                         Result::Ok bytes
-                    Result::Err _e:
-                        Result::Err StdErrorKind::IoError
+                    Result::Err e:
+                        Result::Err fs_error_to_std_error_kind e
             ReadStream::Text text:
-                io_bytebuf_from_str_result text
+                io_read_all_bytes TextInputStream text
             ReadStream::Bytes bytes:
-                Result::Ok bytes
+                io_read_all_bytes ByteInputStream bytes
 
 impl TargetReadable for str:
     fn read_target %impure fn ReadStream Result str StdErrorKind \target:
@@ -98,12 +98,12 @@ impl TargetReadable for str:
                 match fs_read_to_string_checked path:
                     Result::Ok text:
                         Result::Ok text
-                    Result::Err _e:
-                        Result::Err StdErrorKind::IoError
+                    Result::Err e:
+                        Result::Err fs_error_to_std_error_kind e
             ReadStream::Text text:
-                Result::Ok text
+                io_read_all_text TextInputStream text
             ReadStream::Bytes bytes:
-                text_bytebuf_to_utf8_str_result bytes
+                io_read_all_text ByteInputStream bytes
 
 //: ## read
 //: category target から byte [列/れつ]や text を[読/よ]む facade

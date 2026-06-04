@@ -14,6 +14,7 @@ function implementation(relPath) {
 const ioRootCode = implementation('stdlib/alloc/io.nepl');
 const ioCode = implementation('stdlib/alloc/io/bytebuf.nepl');
 const fsCode = implementation('stdlib/std/fs.nepl');
+const fsErrorCode = implementation('stdlib/std/fs/error.nepl');
 const fsBytesCode = implementation('stdlib/std/fs/bytes.nepl');
 const fsReadCode = implementation('stdlib/std/fs/read/path.nepl');
 const fsPathCode = implementation('stdlib/std/fs/path.nepl');
@@ -26,8 +27,11 @@ assert.match(ioCode, /fn\s+io_bytebuf_to_str_result\s+<\(ByteBuf\)->Result<str,\
 assert.match(ioCode, /Result::Err\s+_e:[\s\S]*io_bytebuf_free\s+buf[\s\S]*Result::Err\s+StdErrorKind::InvalidUtf8/, 'io_bytebuf_to_str_result must reject invalid UTF-8 as InvalidUtf8 and consume the buffer');
 assert.match(ioCode, /Result::Ok\s+_:[\s\S]*string_from_mem_unchecked_result\s+data\s+byte_len/, 'io_bytebuf_to_str_result may only call unchecked construction after validation succeeds');
 
-assert.match(fsBytesCode, /fn\s+fs_bytes_to_string_result\s+<\(ByteBuf\)\*>Result<str,i32>>\s+\(buf\):[\s\S]*io_bytebuf_to_str_result\s+buf/, 'fs_bytes_to_string_result must use the checked ByteBuf-to-str boundary');
-assert.match(fsReadCode, /fn\s+fs_read_to_string\s+<\(str\)\*>Result<str,i32>>\s+\(path\):[\s\S]*fs_bytes_to_string_result\s+bytes/, 'fs_read_to_string must use checked ByteBuf-to-str conversion');
+assert.match(fsCode, /pub\s+#import\s+"\.\/fs\/error"\s+as\s+\*/, 'std/fs root must re-export typed fs errors');
+assert.match(fsErrorCode, /pub\s+enum\s+FsErrorKind:[\s\S]*InvalidUtf8[\s\S]*pub\s+struct\s+FsError:/, 'std/fs/error must expose typed error kind and payload');
+assert.match(fsBytesCode, /fn\s+fs_bytes_to_string_result\s+<\(ByteBuf\)\*>Result<str,\s*FsError>>\s+\(buf\):[\s\S]*io_bytebuf_to_str_result\s+buf[\s\S]*fs_error_from_std_error\s+FsOperation::BytesToString\s+e/, 'fs_bytes_to_string_result must return FsError from the checked ByteBuf-to-str boundary');
+assert.match(fsBytesCode, /fn\s+fs_bytes_to_string_errno_result\s+<\(ByteBuf\)\*>Result<str,i32>>\s+\(buf\):[\s\S]*fs_bytes_to_string_result\s+buf[\s\S]*fs_error_to_errno\s+e/, 'errno compatibility must be an explicit wrapper over typed fs text conversion');
+assert.match(fsReadCode, /fn\s+fs_read_to_string\s+<\(str\)\*>Result<str,\s*FsError>>\s+\(path\):[\s\S]*fs_bytes_to_string_result\s+bytes/, 'fs_read_to_string must use checked ByteBuf-to-str conversion and preserve FsError');
 assert.doesNotMatch(fsPathCode, /fn\s+fs_string_from_bytes\b/, 'std/fs/path root must not own directory entry UTF-8 conversion');
 assert.doesNotMatch(fsPathEntryCode, /\bfs_string_from_bytes\b/, 'std/fs/path/entry must not expose raw directory byte conversion through the safe path facade');
 assert.doesNotMatch(fsPathEntryCode, /\b(?:mem_ptr_wrap|mem_ptr_addr|string_utf8_validate_mem|string_from_mem_unchecked_result)\b/, 'std/fs/path/entry must stay out of the raw directory byte conversion boundary');

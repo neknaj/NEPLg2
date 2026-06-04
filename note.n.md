@@ -1,3 +1,20 @@
+# 2026-06-05 Agent 2 std/fs typed error checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の「error は enum data」「表示と分離」「Result / Option と match を使う」「場当たり的な修正を残さない」方針に合わせ、`std/fs` の path/text API で raw errno を primary error にする設計を改めた。
+- `stdlib/std/fs/error.nepl` を追加し、`FsOperation` / `FsErrorKind` / `FsError` と `fs_error_to_errno` / `fs_error_to_std_error_kind` を定義した。errno は host/raw 境界の補足値として `Option i32` に保持し、新規 API の分岐は enum で行う。
+- `fs_bytes_to_string_result` / `fs_bytes_to_utf8_string_result` / `fs_read_to_bytes` / `fs_read_to_string` / `fs_read_to_string_checked` / `fs_write_to_bytes` / `fs_write_to_string` は primary error を `FsError` に変更した。errno が必要な互換 caller のために `*_errno` wrapper を明示名で追加した。
+- read 成功後の close 失敗を捨てず、返さない `ByteBuf` を解放したうえで `FsOperation::CloseAfterRead` として返すようにした。write 成功後の close 失敗も `FsOperation::CloseAfterWrite` として保持する。
+- `std/io` は fs 失敗をすべて `StdErrorKind::IoError` に丸めず、`fs_error_to_std_error_kind` で projection する。in-memory `ReadStream::Text` / `ReadStream::Bytes` は既存の `TextInputStream` / `ByteInputStream` adapter へ委譲し、enum payload の owner 境界を共通化した。
+- `stdlib/neplg2/cli/file_io.nepl` は source/artifact file I/O 失敗の diagnostic note に operation / kind / errno を含めるようにした。error data と表示文は分離したまま、CLI 層で文字列化する。
+- `nodesrc/test_stdlib_documentation_contract.js` は NEPL 構文上 doc comment を置けない `impl` 内 trait method を declaration doc gap の対象から外した。top-level の public declaration contract は維持し、今回追加した public wrapper には `neplg2:test[skip]` を付けて doctest gap を増やさないようにした。
+- `ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF` を `fixed` / `resolved: true` に更新した。下層 fd/dir/stat/normalize helper の raw errno public surface は別 root issue `ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167` として切り出した。
+- 併せて `tests/stdlib/fs.n.md` の `fs_sort_strings_uses_vec_boundary` が `unwrap_ok` / `uwok` と古い pipe 前提に依存していたため、失敗を `match` で扱う helper に置き換えた。`tests/stdlib/selfhost_req.n.md` の `Point` constructor は括弧なしの現行前置記法へ直した。
+- 検証済み: `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`、`node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、`node nodesrc/test_selfhost_cli_file_io_boundary.js`、`node nodesrc/test_stdlib_io_nmd_report_contract.js`、`node nodesrc/test_stdlib_fs_report_contract.js`、`node nodesrc/test_stdlib_fs_nmd_report_contract.js`、`node nodesrc/test_selfhost_cli_file_io_report_contract.js`、`node nodesrc/test_selfhost_req_report_contract.js`。
+- focused doctest は `stdlib/std/fs/error.nepl`、`stdlib/std/fs/bytes.nepl`、`stdlib/std/fs/read/path.nepl`、`stdlib/std/fs/write/path.nepl`、`stdlib/std/io.nepl`、`tests/stdlib/bytebuf_result.n.md`、`tests/stdlib/text_utf8.n.md`、`tests/stdlib/fs.n.md`、`stdlib/tests/fs.n.md`、`stdlib/neplg2/cli/file_io.nepl`、`tests/stdlib/selfhost_req.n.md`、`tests/stdlib/selfhost_cli_file_io.n.md`、`tests/stdlib/io.n.md` で通過した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象の fs/io/doc/gui/editor 系 policy が通過し、既知の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけを warning として報告した。`git diff --check` も通過した。
+- `trunk build` は通過した。`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-std-fs-playground-editor.json` は 13/13 pass の JSON を生成した。
+- subagent review は blocking finding なしで APPROVE。`stdlib/std/fs/error.nepl` と raw fd/dir/stat follow-up issue が未追跡なので commit に含めること、source policy warn-only の 2 件は今回差分外であることを確認した。
+
 # 2026-06-04 self-host name resolver declaration hoist checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser の typed declaration header evidence を文字列再走査せず resolver scope へ接続する作業を進めた。

@@ -9,6 +9,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const relPaths = [
     'stdlib/std/fs.nepl',
     'stdlib/std/fs/constants.nepl',
+    'stdlib/std/fs/error.nepl',
     'stdlib/std/fs/path.nepl',
     'stdlib/std/fs/path/entry.nepl',
     'stdlib/std/fs/path/normalize.nepl',
@@ -40,6 +41,7 @@ function implementation(relPath) {
 const codeByPath = new Map(relPaths.map((relPath) => [relPath, implementation(relPath)]));
 const combinedCode = [...codeByPath.values()].join('\n');
 const facadeCode = codeByPath.get('stdlib/std/fs.nepl');
+const errorCode = codeByPath.get('stdlib/std/fs/error.nepl');
 const pathCode = codeByPath.get('stdlib/std/fs/path.nepl');
 const pathEntryCode = codeByPath.get('stdlib/std/fs/path/entry.nepl');
 const pathNormalizeCode = codeByPath.get('stdlib/std/fs/path/normalize.nepl');
@@ -92,6 +94,7 @@ for (const [relPath, code] of codeByPath) {
 }
 
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/constants"\s+as\s+\*/, 'std/fs facade must re-export constants submodule');
+assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/error"\s+as\s+\*/, 'std/fs facade must re-export typed error submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/path"\s+as\s+\*/, 'std/fs facade must re-export path submodule');
 assert.doesNotMatch(facadeCode, /pub\s+#import\s+"\.\/fs\/raw"\s+as\s+\*/, 'std/fs safe facade must not re-export raw syscall submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/fd"\s+as\s+\*/, 'std/fs facade must re-export fd submodule');
@@ -116,6 +119,11 @@ assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_fd_bytes\b/, 'std/fs facade must
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_to_bytes\b/, 'std/fs facade must not inline path read helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_fd_bytes\b/, 'std/fs facade must not inline fd write helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_to_bytes\b/, 'std/fs facade must not inline path write helpers');
+assert.match(errorCode, /\bpub\s+enum\s+FsOperation\b[\s\S]*\bCloseAfterRead\b[\s\S]*\bCloseAfterWrite\b/, 'std/fs/error must identify close-after-operation failures as typed operations');
+assert.match(errorCode, /\bpub\s+enum\s+FsErrorKind\b[\s\S]*\bInvalidUtf8\b[\s\S]*\bOutOfMemory\b[\s\S]*\bNotCapable\b/, 'std/fs/error must expose typed filesystem error kinds');
+assert.match(errorCode, /\bpub\s+struct\s+FsError\b[\s\S]*\boperation\s+<FsOperation>[\s\S]*\bkind\s+<FsErrorKind>[\s\S]*\berrno\s+<Option<i32>>/, 'std/fs/error must store operation, kind, and optional errno as structured payload');
+assert.match(errorCode, /\bfn\s+fs_error_to_errno\b[\s\S]*\bmatch\s+fs_error_errno\s+&err\b[\s\S]*\bfs_errno_ilseq\b/, 'errno projection must be an explicit compatibility function on FsError');
+assert.doesNotMatch(combinedCode, /\bfs_std_error_to_errno\b/, 'std/fs must not keep the old StdErrorKind-to-errno flattening helper');
 for (const helper of ['wasi_path_open', 'wasi_path_filestat_get', 'wasi_fd_read', 'wasi_fd_write', 'wasi_fd_readdir', '__linux_syscall_openat_path', '__linux_syscall_rw', 'fs_fd_read_into_result', 'fs_fd_write_from_result']) {
     assert.doesNotMatch(facadeCode, new RegExp(`\\b${helper}\\b`), `std/fs safe facade must not expose raw helper ${helper}`);
 }
@@ -145,8 +153,9 @@ assert.match(readFdCode, /\bfn\s+fs_discard_read_buffer\s+<\(RegionToken<u8>,i32
 assert.match(readFdCode, /\bfn\s+fs_finish_read_buffer\s+<\(RegionToken<u8>,i32\)\*>[\s\S]*\brealloc_region_bytes_keep<u8>[\s\S]*\bio_bytebuf_finish_region\b/, 'ByteBuf finish ownership normalization must stay on the RegionToken owner boundary in std/fs/read/fd');
 assert.doesNotMatch(readFdCode, /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/, 'std/fs/read/fd must not import low-level MemPtr owner allocation wrappers');
 assert.doesNotMatch(readFdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/read/fd must not use MemPtr as a read buffer or scratch free-obligation owner');
-assert.match(readPathCode, /\bfn\s+fs_read_to_bytes\b[\s\S]*\bfs_open_read\s+path[\s\S]*\bfs_read_fd_bytes\s+fd[\s\S]*\bfs_close\s+fd/, 'path read API must stay in std/fs/read/path');
-assert.match(readPathCode, /\bfn\s+fs_read_to_string\b[\s\S]*\bfs_bytes_to_string_result\s+bytes/, 'path text read API must use checked ByteBuf conversion in std/fs/read/path');
+assert.match(readPathCode, /\bfn\s+fs_read_to_bytes\b[\s\S]*\bResult<ByteBuf,\s*FsError>[\s\S]*\bfs_open_read\s+path[\s\S]*\bfs_read_fd_bytes\s+fd[\s\S]*\bfs_close\s+fd/, 'path read API must stay typed in std/fs/read/path');
+assert.match(readPathCode, /\bfn\s+fs_read_to_string\b[\s\S]*\bResult<str,\s*FsError>[\s\S]*\bfs_bytes_to_string_result\s+bytes/, 'path text read API must use checked ByteBuf conversion and preserve FsError in std/fs/read/path');
+assert.match(readPathCode, /\bfn\s+fs_read_to_string_errno\b[\s\S]*\bfs_read_to_string\s+path[\s\S]*\bfs_error_to_errno\s+e/, 'path text read errno compatibility must be an explicit wrapper over typed read');
 assert.doesNotMatch(readPathCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_raw|fs_fd_read_into_result)\b/, 'std/fs/read/path must not own fd scratch raw read loop');
 assert.match(writeCode, /pub\s+#import\s+"std\/fs\/write\/fd"\s+as\s+\*/, 'std/fs/write facade must re-export fd write helper submodule');
 assert.match(writeCode, /pub\s+#import\s+"std\/fs\/write\/path"\s+as\s+\*/, 'std/fs/write facade must re-export path write helper submodule');
@@ -157,8 +166,9 @@ assert.doesNotMatch(writeFdCode, /\bpub\s+fn\s+fs_fd_write_from_result\b/, 'raw 
 assert.match(writeFdCode, /\bfn\s+fs_fd_write_from_result\b[\s\S]*\bstore_i32\s+iov_raw\s+data_raw[\s\S]*\bwasi_fd_write\s+fd\s+iov_raw\s+1\s+nwritten_raw[\s\S]*\bload_i32\s+nwritten_raw/, 'fd write scratch initialization must stay inside the std/fs/write/fd owner boundary');
 assert.doesNotMatch(writeFdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/write/fd must not use MemPtr as a scratch free-obligation owner');
 assert.match(writeFdCode, /\bfn\s+fs_write_fd_bytes\b[\s\S]*\bfs_write_fd_mem_result\s+fd\s+data\s+data_len[\s\S]*\bio_bytebuf_free\s+bytes/, 'ByteBuf-consuming fd write API must stay in std/fs/write/fd and close storage through the ByteBuf owner boundary');
-assert.match(writePathCode, /\bfn\s+fs_write_to_bytes\b[\s\S]*\bfs_open_write\s+path[\s\S]*\bfs_write_fd_bytes\s+fd\s+bytes[\s\S]*\bfs_close\s+fd/, 'path write API must stay in std/fs/write/path');
-assert.match(writePathCode, /\bfn\s+fs_write_to_string\b[\s\S]*\bio_bytebuf_from_str_result\s+text[\s\S]*\bfs_write_to_bytes\s+path\s+bytes/, 'string write API must build ByteBuf then delegate in std/fs/write/path');
+assert.match(writePathCode, /\bfn\s+fs_write_to_bytes\b[\s\S]*\bResult<unit,\s*FsError>[\s\S]*\bfs_open_write\s+path[\s\S]*\bfs_write_fd_bytes\s+fd\s+bytes[\s\S]*\bfs_close\s+fd/, 'path write API must stay typed in std/fs/write/path');
+assert.match(writePathCode, /\bfn\s+fs_write_to_string\b[\s\S]*\bResult<unit,\s*FsError>[\s\S]*\bio_bytebuf_from_str_result\s+text[\s\S]*\bfs_write_to_bytes\s+path\s+bytes/, 'string write API must build ByteBuf then delegate with FsError in std/fs/write/path');
+assert.match(writePathCode, /\bfn\s+fs_write_to_string_errno\b[\s\S]*\bfs_write_to_string\s+path\s+text[\s\S]*\bfs_error_to_errno\s+e/, 'path text write errno compatibility must be an explicit wrapper over typed write');
 assert.doesNotMatch(writePathCode, /\b(?:alloc_ptr|realloc_ptr|fs_fd_write_from_result)\b/, 'std/fs/write/path must not own fd scratch raw write loop');
 
 assert.match(pathCode, /pub\s+#import\s+"std\/fs\/path\/entry"\s+as\s+\*/, 'std/fs/path facade must re-export entry helper submodule');

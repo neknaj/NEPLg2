@@ -28,7 +28,7 @@ fn consume_str %fn str unit \s:
 fn main %impure fn void i32 \void:
     // 要件: ファイル I/O の失敗が Result で扱えること
     let path "__definitely_missing_selfhost_req_file__.txt";
-    let res %Result str i32 fs_read_to_string path;
+    let res %Result str FsError fs_read_to_string path;
 
     let ok %bool match res:
         Result::Ok content:
@@ -302,8 +302,10 @@ fn must_hmp %impure fn Result HashMap Point str DefaultHash32 HashMapUpdateError
 
 fn main %impure fn void i32 \void:
     let map0 %HashMap Point str DefaultHash32 must_hmp new DefaultHash32;
-    let map1 %HashMap Point str DefaultHash32 must_hmp insert map0 (Point 10 20) "Start";
-    let got %i32 match get &map1 \Point 10 20:
+    let key0 %Point Point 10 20;
+    let map1 %HashMap Point str DefaultHash32 must_hmp insert map0 key0 "Start";
+    let key1 %Point Point 10 20;
+    let got %i32 match get &map1 key1:
         Option::Some name:
             len name
         Option::None:

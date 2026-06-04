@@ -89,6 +89,15 @@ function declarationAt(line) {
     return line.match(/^\s*(?:pub\s+)?(fn|struct|enum|trait)\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
 }
 
+function indentOf(line) {
+    const match = line.match(/^(\s*)/);
+    return match ? match[1].length : 0;
+}
+
+function implHeaderAt(line) {
+    return line.match(/^\s*impl(?:\b|<)/);
+}
+
 const stats = {
     files: 0,
     moduleNoDoc: 0,
@@ -119,8 +128,29 @@ for (const filePath of STDLIB_ROOTS.flatMap(walkNeplFiles).sort()) {
         stats.moduleNoDoctest += 1;
     }
 
+    let implBlockIndent = null;
     for (let index = 0; index < lines.length; index += 1) {
-        const declaration = declarationAt(lines[index]);
+        const line = lines[index];
+        const trimmed = line.trim();
+        const indentation = indentOf(line);
+        const startsImpl = implHeaderAt(line);
+        if (
+            implBlockIndent !== null
+            && trimmed !== ""
+            && !trimmed.startsWith("//:")
+            && indentation <= implBlockIndent
+            && !startsImpl
+        ) {
+            implBlockIndent = null;
+        }
+        if (startsImpl) {
+            implBlockIndent = indentation;
+            continue;
+        }
+        if (implBlockIndent !== null) {
+            continue;
+        }
+        const declaration = declarationAt(line);
         if (!declaration) {
             continue;
         }
@@ -133,7 +163,7 @@ for (const filePath of STDLIB_ROOTS.flatMap(walkNeplFiles).sort()) {
             );
         } else if (!hasDoctest(doc)) {
             stats.declarationNoDoctest += 1;
-            if (lines[index].trimStart().startsWith("pub ")) {
+            if (line.trimStart().startsWith("pub ")) {
                 stats.publicDeclarationNoDoctest += 1;
             } else {
                 stats.privateDeclarationNoDoctest += 1;

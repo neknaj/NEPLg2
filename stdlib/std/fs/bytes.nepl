@@ -1,9 +1,9 @@
 //: # std/fs/bytes
-//: `std/fs` の ByteBuf / text 変換 helper と errno 変換を提供する submodule
+//: `std/fs` の ByteBuf / text 変換 helper と typed error 変換を提供する submodule
 //:
 //: ### 目的
 //: - file read/write 本体から、ByteBuf と str の変換責務を分離します。
-//: - `StdErrorKind` を既存 fs API の errno へ写す境界を 1 箇所に集約します。
+//: - `StdErrorKind` を `FsError` へ写し、errno 互換は明示 wrapper だけに閉じます。
 //:
 //: ### 注意
 //: - `fs_bytes_to_string_result` と `fs_bytes_to_utf8_string_result` は入力 `ByteBuf` を成功時も失敗時も消費します。
@@ -15,67 +15,46 @@
 #import "alloc/string" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 #import "std/text" as *
-
-//: fs_std_error_to_errno: stdlib 共通 error kind を fs errno へ写す
-//:
-//: 目的:
-//: - `alloc/io` の `StdErrorKind` を、`std/fs` の既存 API が使う i32 errno へ変換します。
-//:
-//: 実装(アルゴリズム):
-//: - OutOfMemory は WASI errno の 12、InvalidUtf8 は ILSEQ 相当の 84 に対応させ、それ以外は I/O error 相当の 5 に丸めます。
-//:
-//: 注意(重要):
-//: - fs API の error 型が `StdErrorKind` へ移行するまでの境界変換です。
-//:
-//: 計算量:
-//: - O(1)
-pub fn fs_std_error_to_errno %fn StdErrorKind i32 \kind:
-    match kind:
-        StdErrorKind::Failure:
-            5
-        StdErrorKind::OutOfMemory:
-            12
-        StdErrorKind::EmptyCollection:
-            5
-        StdErrorKind::IndexOutOfBounds:
-            5
-        StdErrorKind::KeyNotFound:
-            5
-        StdErrorKind::CapacityExceeded:
-            5
-        StdErrorKind::InvalidOperation:
-            5
-        StdErrorKind::InvalidUtf8:
-            fs_errno_ilseq
-        StdErrorKind::ParseError:
-            5
-        StdErrorKind::IoError:
-            5
-        StdErrorKind::Other:
-            5
 
 //: fs_bytes_to_string_result: `ByteBuf` を UTF-8 検証して str に変換する
 //:
 //: 目的:
-//: - バイト列が UTF-8 として妥当な場合だけ str 形式に詰め直し、invalid UTF-8 と確保失敗を errno として返します。
+//: - バイト列が UTF-8 として妥当な場合だけ str 形式に詰め直し、invalid UTF-8 と確保失敗を `FsError` として返します。
 //:
 //: 実装(アルゴリズム):
 //: - `io_bytebuf_to_str_result` を使い、所有 buffer を UTF-8 検証つきで str 形式へ詰め替えます。
-//: - `StdErrorKind` は fs API の errno へ写します。
+//: - `StdErrorKind` は `FsError` へ写します。
 //:
 //: 注意(重要):
 //: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
-//: - invalid UTF-8 は errno 84 (ILSEQ 相当) として返します。
+//: - invalid UTF-8 は `FsErrorKind::InvalidUtf8` として返します。
 //:
 //: 計算量:
 //: - O(n)
-pub fn fs_bytes_to_string_result %impure fn ByteBuf Result str i32 \buf:
+pub fn fs_bytes_to_string_result %impure fn ByteBuf Result str FsError \buf:
     match io_bytebuf_to_str_result buf:
         Result::Ok text:
             Result::Ok text
         Result::Err e:
-            Result::Err fs_std_error_to_errno e
+            Result::Err fs_error_from_std_error FsOperation::BytesToString e
+
+//: fs_bytes_to_string_errno_result: `ByteBuf` を str に[変換/へんかん]し error を errno 互換値へ[写/うつ]す
+//:
+//: [注意/ちゅうい]:
+//: - legacy caller のための wrapper です。新規実装は `fs_bytes_to_string_result` を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/bytes" as *
+//: ```
+pub fn fs_bytes_to_string_errno_result %impure fn ByteBuf Result str i32 \buf:
+    match fs_bytes_to_string_result buf:
+        Result::Ok text:
+            Result::Ok text
+        Result::Err e:
+            Result::Err fs_error_to_errno e
 
 //: fs_bytes_to_string: `ByteBuf` を str に変換する互換 facade
 //:
@@ -87,6 +66,7 @@ pub fn fs_bytes_to_string_result %impure fn ByteBuf Result str i32 \buf:
 //:
 //: 注意(重要):
 //: - 空 buffer と確保失敗や invalid UTF-8 を区別する必要がある場合は `fs_bytes_to_string_result` を使ってください。
+//: - この関数は legacy compatibility 用です。新しい処理では `Result str FsError` を返す入口を使ってください。
 //: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
 //:
 //: 計算量:
@@ -127,7 +107,7 @@ pub fn fs_bytes_to_string %impure fn ByteBuf str \buf:
 //: - source file など text として[扱/あつか]う byte [列/れつ]を、invalid UTF-8 を[拒否/きょひ]してから `str` へ[変換/へんかん]します。
 //:
 //: [実装/じっそう]:
-//: - `std/text` の checked conversion に[委譲/いじょう]し、`StdErrorKind` を fs API の errno に[写/うつ]します。
+//: - `std/text` の checked conversion に[委譲/いじょう]し、`StdErrorKind` を `FsError` に[写/うつ]します。
 //:
 //: [注意/ちゅうい]:
 //: - 入力 `ByteBuf` は成功時も失敗時も[消費/しょうひ]されます。
@@ -135,9 +115,25 @@ pub fn fs_bytes_to_string %impure fn ByteBuf str \buf:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn fs_bytes_to_utf8_string_result %impure fn ByteBuf Result str i32 \buf:
+pub fn fs_bytes_to_utf8_string_result %impure fn ByteBuf Result str FsError \buf:
     match text_bytebuf_to_utf8_str_result buf:
         Result::Ok text:
             Result::Ok text
         Result::Err e:
-            Result::Err fs_std_error_to_errno e
+            Result::Err fs_error_from_std_error FsOperation::BytesToUtf8String e
+
+//: fs_bytes_to_utf8_string_errno_result: UTF-8 checked conversion error を errno 互換値へ[写/うつ]す
+//:
+//: [注意/ちゅうい]:
+//: - legacy caller のための wrapper です。新規実装は `fs_bytes_to_utf8_string_result` を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/bytes" as *
+//: ```
+pub fn fs_bytes_to_utf8_string_errno_result %impure fn ByteBuf Result str i32 \buf:
+    match fs_bytes_to_utf8_string_result buf:
+        Result::Ok text:
+            Result::Ok text
+        Result::Err e:
+            Result::Err fs_error_to_errno e

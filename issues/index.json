@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T21:08:42.622Z",
+  "generated_at": "2026-06-04T22:01:56.103Z",
   "counts": {
-    "total": 1342,
-    "open": 51,
-    "resolved": 1291,
+    "total": 1343,
+    "open": 50,
+    "resolved": 1293,
     "by_area": {
       "stdlib": {
-        "total": 349,
-        "open": 14,
-        "resolved": 335
+        "total": 350,
+        "open": 13,
+        "resolved": 337
       },
       "core": {
         "total": 665,
@@ -625,21 +625,6 @@
       "file": "items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md"
     },
     {
-      "id": "ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF",
-      "title": "std fs and io APIs still flatten typed failures into errno and empty string",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/std/fs/bytes.nepl, stdlib/std/fs/read/path.nepl, stdlib/std/io.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF.md"
-    },
-    {
       "id": "ISS-20260604T033842259Z-STREAMIO-SCANNER-AND-WRITER-APIS-STI-EFC1568E",
       "title": "streamio scanner and writer APIs still mix string errors sentinel fallbacks and non-Result effects",
       "area": "stdlib",
@@ -683,6 +668,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3.md"
+    },
+    {
+      "id": "ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167",
+      "title": "std fs raw fd dir stat helpers still expose host errno as primary errors",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "stdlib/std/fs/fd.nepl, stdlib/std/fs/read/fd.nepl, stdlib/std/fs/write/fd.nepl, stdlib/std/fs/dir/**, stdlib/std/fs/stat.nepl, stdlib/std/fs/path/normalize.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167.md"
     },
     {
       "id": "ISS-20260524T204705172Z-OWNER-CHECKER-DOES-NOT-REFINE-REALLO-C974639A",
@@ -818,21 +818,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90.md"
-    },
-    {
-      "id": "ISS-20260604T033842647Z-GUI-OPAQUE-IDS-ARE-CONSTRUCTIBLE-FRO-42B59D4F",
-      "title": "GUI opaque ids are constructible from invalid raw integers without typed validation",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/std/gui/window.nepl, stdlib/std/gui/host.nepl, stdlib/platforms/gui/web/input.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T033842647Z-GUI-OPAQUE-IDS-ARE-CONSTRUCTIBLE-FRO-42B59D4F.md"
     },
     {
       "id": "ISS-20260604T034125561Z-BTREEMAP-AND-BTREESET-NAMES-DESCRIBE-4608BFC5",
@@ -16030,6 +16015,21 @@
       "file": "items/ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA.md"
     },
     {
+      "id": "ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF",
+      "title": "std fs and io APIs still flatten typed failures into errno and empty string",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "stdlib/std/fs/error.nepl, stdlib/std/fs/bytes.nepl, stdlib/std/fs/read/path.nepl, stdlib/std/fs/write/path.nepl, stdlib/std/io.nepl, stdlib/neplg2/cli/file_io.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF.md"
+    },
+    {
       "id": "ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4",
       "title": "HashMap and HashSet probe paths use -1 sentinel instead of typed absence",
       "area": "stdlib",
@@ -20003,6 +20003,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401.md"
+    },
+    {
+      "id": "ISS-20260604T033842647Z-GUI-OPAQUE-IDS-ARE-CONSTRUCTIBLE-FRO-42B59D4F",
+      "title": "GUI opaque ids are constructible from invalid raw integers without typed validation",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "stdlib/std/gui/window.nepl, stdlib/std/gui/host.nepl, stdlib/platforms/gui/web/input.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T033842647Z-GUI-OPAQUE-IDS-ARE-CONSTRUCTIBLE-FRO-42B59D4F.md"
     },
     {
       "id": "ISS-20260604T034125917Z-CHAR-UTF-8-BYTE-ACCESSORS-RELY-ON-CA-AC31C3D4",

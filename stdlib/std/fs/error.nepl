@@ -1,0 +1,334 @@
+//: # std/fs/error
+//: filesystem API の[構造化/こうぞうか] error [値/あたい]を[定義/ていぎ]する submodule
+//:
+//: ### [目的/もくてき]
+//: - host syscall の errno、stdlib [共通/きょうつう] error、UTF-8 [変換/へんかん] error を `FsError` として[保持/ほじ]します。
+//: - filesystem [処理/しょり]の[失敗/しっぱい]を raw integer や[空文字列/からもじれつ]へ[丸/まる]める[境界/きょうかい]を、この module に[集約/しゅうやく]します。
+//:
+//: ### [契約/けいやく]
+//: - public な typed fs API は `Result .T FsError` を[返/かえ]します。
+//: - errno 互換 API は `fs_error_to_errno` を[通/とお]して[明示的/めいじてき]に raw integer へ[写/うつ]します。
+//: - 表示用の[文章/ぶんしょう]は持たず、`kind` と `operation` を enum として[保持/ほじ]します。
+//:
+//: ### [現状/げんじょう]の[実装/じっそう]
+//: - lower fd / raw syscall [境界/きょうかい]にはまだ `Result .T i32` の helper があり、path-based API が `FsError` へ[包/つつ]みます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"std_fs_error_contract\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"kind name\" expected=\"InvalidUtf8\" actual=\"InvalidUtf8\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"errno projection\" expected=\"84\" actual=\"84\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "std/fs/error" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let source_kind %StdErrorKind StdErrorKind::InvalidUtf8
+//:     let fs_err %FsError fs_error_from_std_error FsOperation::BytesToString source_kind
+//:     let kind %FsErrorKind fs_error_kind &fs_err
+//:     let name %str fs_error_kind_name kind
+//:     let errno %i32 fs_error_to_errno fs_err
+//:     let report:
+//:         test_report_new "std_fs_error_contract"
+//:         |> test_report_push assert_str_eq "kind name" "InvalidUtf8" name
+//:         |> test_report_push assert_eq_i32 "errno projection" 84 errno
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+
+#indent 4
+
+#import "alloc/diag/error" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/fs/constants" as *
+
+//: FsOperation: filesystem error が[発生/はっせい]した API [段階/だんかい]
+//:
+//: [目的/もくてき]:
+//: - open / read / write / close / text conversion を enum として[分/わ]け、diagnostic [生成/せいせい]や test で[分岐/ぶんき]できるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub enum FsOperation:
+    OpenRead
+    OpenWrite
+    ReadFd
+    WriteFd
+    CloseAfterRead
+    CloseAfterWrite
+    BytesToString
+    BytesToUtf8String
+    BuildWriteBuffer
+
+impl Clone for FsOperation:
+    fn clone %fn &FsOperation FsOperation \operation:
+        *operation
+
+impl Copy for FsOperation:
+    fn copy_mark %fn FsOperation FsOperation \operation:
+        operation
+
+//: FsErrorKind: filesystem error の[分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - host errno をそのまま caller に[渡/わた]すだけでなく、stdlib [境界/きょうかい]で[意味/いみ]が[分/わ]かる error を enum にします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub enum FsErrorKind:
+    HostErrno
+    InvalidUtf8
+    OutOfMemory
+    InvalidOperation
+    NotCapable
+
+impl Clone for FsErrorKind:
+    fn clone %fn &FsErrorKind FsErrorKind \kind:
+        *kind
+
+impl Copy for FsErrorKind:
+    fn copy_mark %fn FsErrorKind FsErrorKind \kind:
+        kind
+
+//: FsError: filesystem error の[構造化/こうぞうか] payload
+//:
+//: [目的/もくてき]:
+//: - [失敗/しっぱい]した[操作/そうさ]、typed kind、host errno、stdlib [共通/きょうつう] error を 1 [値/あたい]に[集約/しゅうやく]します。
+//:
+//: [注意/ちゅうい]:
+//: - `errno` は host/raw [境界/きょうかい]の[補足/ほそく]です。primary [分岐/ぶんき]には `kind` と `operation` を[使/つか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub struct FsError:
+    operation %FsOperation
+    kind %FsErrorKind
+    errno %Option i32
+    std_error %Option StdErrorKind
+
+impl Clone for FsError:
+    fn clone %fn &FsError FsError \err:
+        *err
+
+impl Copy for FsError:
+    fn copy_mark %fn FsError FsError \err:
+        err
+
+//: fs_error_kind_from_errno: raw errno を typed kind へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - UTF-8 / invalid operation / capability / allocation failure として stdlib が[知/し]っている errno は typed kind へ[写/うつ]します。
+//: - host [固有/こゆう]の errno は `HostErrno` として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_kind_from_errno %fn i32 FsErrorKind \errno:
+    if:
+        eq errno fs_errno_ilseq
+        then:
+            FsErrorKind::InvalidUtf8
+        else:
+            if:
+                eq errno fs_errno_notcapable
+                then:
+                    FsErrorKind::NotCapable
+                else:
+                    if:
+                        eq errno fs_errno_inval
+                        then:
+                            FsErrorKind::InvalidOperation
+                        else:
+                            if:
+                                eq errno 12
+                                then:
+                                    FsErrorKind::OutOfMemory
+                                else:
+                                    FsErrorKind::HostErrno
+
+//: fs_error_kind_from_std_error: stdlib [共通/きょうつう] error を fs kind へ[写/うつ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_kind_from_std_error %fn StdErrorKind FsErrorKind \kind:
+    match kind:
+        StdErrorKind::Failure:
+            FsErrorKind::HostErrno
+        StdErrorKind::OutOfMemory:
+            FsErrorKind::OutOfMemory
+        StdErrorKind::EmptyCollection:
+            FsErrorKind::InvalidOperation
+        StdErrorKind::IndexOutOfBounds:
+            FsErrorKind::InvalidOperation
+        StdErrorKind::KeyNotFound:
+            FsErrorKind::InvalidOperation
+        StdErrorKind::CapacityExceeded:
+            FsErrorKind::OutOfMemory
+        StdErrorKind::InvalidOperation:
+            FsErrorKind::InvalidOperation
+        StdErrorKind::InvalidUtf8:
+            FsErrorKind::InvalidUtf8
+        StdErrorKind::ParseError:
+            FsErrorKind::InvalidOperation
+        StdErrorKind::IoError:
+            FsErrorKind::HostErrno
+        StdErrorKind::Other:
+            FsErrorKind::HostErrno
+
+//: fs_error_from_errno: host errno を `FsError` へ[包/つつ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_from_errno %fn FsOperation fn i32 FsError \operation\errno:
+    FsError operation fs_error_kind_from_errno errno Option::Some errno Option::None
+
+//: fs_error_from_std_error: `StdErrorKind` を `FsError` へ[包/つつ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_from_std_error %fn FsOperation fn StdErrorKind FsError \operation\kind:
+    FsError operation fs_error_kind_from_std_error kind Option::None Option::Some kind
+
+//: fs_error_operation: error の[操作/そうさ]を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_operation %fn &FsError FsOperation \err:
+    *field::get_ref err "operation"
+
+//: fs_error_kind: error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_kind %fn &FsError FsErrorKind \err:
+    *field::get_ref err "kind"
+
+//: fs_error_errno: raw errno [補足/ほそく]を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_errno %fn &FsError Option i32 \err:
+    *field::get_ref err "errno"
+
+//: fs_error_std_error: stdlib [共通/きょうつう] error [補足/ほそく]を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_std_error %fn &FsError Option StdErrorKind \err:
+    *field::get_ref err "std_error"
+
+//: fs_error_to_errno: typed fs error を errno 互換値へ[写/うつ]す
+//:
+//: [注意/ちゅうい]:
+//: - 新規 API では primary error として使わず、legacy errno facade の[境界/きょうかい]だけで[使/つか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_to_errno %fn FsError i32 \err:
+    match fs_error_errno &err:
+        Option::Some errno:
+            errno
+        Option::None:
+            match fs_error_kind &err:
+                FsErrorKind::HostErrno:
+                    5
+                FsErrorKind::InvalidUtf8:
+                    fs_errno_ilseq
+                FsErrorKind::OutOfMemory:
+                    12
+                FsErrorKind::InvalidOperation:
+                    fs_errno_inval
+                FsErrorKind::NotCapable:
+                    fs_errno_notcapable
+
+//: fs_error_to_std_error_kind: typed fs error を `std/io` facade 用の common kind へ[写/うつ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_to_std_error_kind %fn FsError StdErrorKind \err:
+    match fs_error_kind &err:
+        FsErrorKind::HostErrno:
+            StdErrorKind::IoError
+        FsErrorKind::InvalidUtf8:
+            StdErrorKind::InvalidUtf8
+        FsErrorKind::OutOfMemory:
+            StdErrorKind::OutOfMemory
+        FsErrorKind::InvalidOperation:
+            StdErrorKind::InvalidOperation
+        FsErrorKind::NotCapable:
+            StdErrorKind::InvalidOperation
+
+//: fs_operation_name: operation enum の stable [識別子/しきべつし]を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_operation_name %fn FsOperation str \operation:
+    match operation:
+        FsOperation::OpenRead:
+            "OpenRead"
+        FsOperation::OpenWrite:
+            "OpenWrite"
+        FsOperation::ReadFd:
+            "ReadFd"
+        FsOperation::WriteFd:
+            "WriteFd"
+        FsOperation::CloseAfterRead:
+            "CloseAfterRead"
+        FsOperation::CloseAfterWrite:
+            "CloseAfterWrite"
+        FsOperation::BytesToString:
+            "BytesToString"
+        FsOperation::BytesToUtf8String:
+            "BytesToUtf8String"
+        FsOperation::BuildWriteBuffer:
+            "BuildWriteBuffer"
+
+//: fs_error_kind_name: kind enum の stable [識別子/しきべつし]を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/error" as *
+//: ```
+pub fn fs_error_kind_name %fn FsErrorKind str \kind:
+    match kind:
+        FsErrorKind::HostErrno:
+            "HostErrno"
+        FsErrorKind::InvalidUtf8:
+            "InvalidUtf8"
+        FsErrorKind::OutOfMemory:
+            "OutOfMemory"
+        FsErrorKind::InvalidOperation:
+            "InvalidOperation"
+        FsErrorKind::NotCapable:
+            "NotCapable"
