@@ -635,12 +635,44 @@ fn i32_scalar_leaf_places_are_known_equal(
         right_aliases
             .iter()
             .any(|right_alias| right_alias == left_alias)
-    }) || raw_aliases.i32_relation_truth_with_context(
-        left,
-        ResourceI32RelationOp::Eq,
-        right,
-        condition_context,
-    ) == Some(true)
+    }) || i32_scalar_leaf_relation_query_may_succeed(raw_aliases, &left_aliases, &right_aliases)
+        && raw_aliases.i32_relation_truth_with_context(
+            left,
+            ResourceI32RelationOp::Eq,
+            right,
+            condition_context,
+        ) == Some(true)
+}
+
+fn i32_scalar_leaf_relation_query_may_succeed(
+    raw_aliases: &RawCellAddressAliases,
+    left_aliases: &[Place],
+    right_aliases: &[Place],
+) -> bool {
+    // `i32_relation_truth_with_context` は direct value、parameter condition、明示 relation、
+    // offset graph、scale fact のどれからでも等価性を証明できる汎用問い合わせである。
+    // return summary は戻り値 i32 leaf の全組にこの問い合わせを行うため、どちらの leaf も
+    // scalar proof source に触れていない組だけは、到達不能な relation 探索へ入る前に外す。
+    raw_aliases
+        .i32_facts
+        .has_condition_sources_for_aliases(left_aliases)
+        || raw_aliases
+            .i32_facts
+            .has_condition_sources_for_aliases(right_aliases)
+        || raw_aliases
+            .i32_relations
+            .has_relation_touching_aliases(left_aliases)
+        || raw_aliases
+            .i32_relations
+            .has_relation_touching_aliases(right_aliases)
+        || raw_aliases.i32_offsets.has_offset_for_aliases(left_aliases)
+            && raw_aliases.i32_offsets.has_offset_for_aliases(right_aliases)
+        || raw_aliases
+            .i32_scales
+            .has_scaled_source_for_aliases(left_aliases)
+        || raw_aliases
+            .i32_scales
+            .has_scaled_source_for_aliases(right_aliases)
 }
 
 fn collect_i32_scalar_return_leaf_facts(
