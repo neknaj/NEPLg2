@@ -176,6 +176,7 @@ const checks = [
     "nodesrc/test_selfhost_prelude_split_contract.js",
     "nodesrc/test_selfhost_ty_split_contract.js",
     "nodesrc/test_selfhost_type_record_payload.js",
+    "nodesrc/test_selfhost_type_key_contract.js",
     "nodesrc/test_selfhost_type_arena_report_contract.js",
     "nodesrc/test_selfhost_hir_split_contract.js",
     "nodesrc/test_selfhost_hir_range_payload.js",

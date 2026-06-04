@@ -1,16 +1,18 @@
 #indent 4
 
 //: # ty
-//: NEPLg2.0 の TypeId と TypeKind を置くモジュールです。
+//: NEPLg2.1 self-host compiler の TypeId、TypeKind、canonical type key を置くモジュールです。
 //:
 //: [目的/もくてき]:
 //: - 型 arena、unify、subst、effect、layout が共有する型表現の入口にします。
-//: - TypeId を安定した arena index として扱い、primitive type、named type、function type を同じ table に保持します。
+//: - TypeId を arena-local index として扱い、primitive type、named type、applied named type、function type を同じ table に保持します。
 //: - 同じ arena 内で、別 index に割り当てられた同形の型を構造比較できます。
+//: - artifact や compiler cache へ渡す型 identity は arena-local `SelfhostTypeId` ではなく、canonical type key へ投影します。
 //:
 //: [実装/じっそう]:
 //: - `SelfhostTypeArena` は type record table と function argument table を所有します。
 //: - named type record は type constructor table の identity だけを保持し、source spelling や diagnostic span を arena に混ぜません。
+//: - applied type record は type argument table の範囲を持ち、generic application の引数列を O(n) で辿れる形にします。
 //: - function type record は引数列を直接所有せず、argument table の開始 index と長さ、戻り値 TypeId だけを持ちます。
 //: - record を Copy 可能な小さい値に保つことで、lookup と後続の unify/subst が arena の所有権を奪わずに進められます。
 //:
@@ -22,8 +24,10 @@
 //: [計算量/けいさんりょう]:
 //: - primitive type の追加は `Vec` push の償却 O(1) です。
 //: - function type の追加は引数数 n に対して O(n) です。
+//: - applied named type の追加は型引数数 n に対して O(n) です。
 //: - TypeId lookup は O(1) です。
 //: - 構造比較は比較する function type の引数数と戻り値の深さに比例します。
+//: - canonical type key projection は、root から到達する型 record と argument edge の数に比例します。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -41,4 +45,5 @@ pub #import "./ty/kind" as *
 pub #import "./ty/record" as *
 pub #import "./ty/arena" as *
 pub #import "./ty/eq" as *
+pub #import "./ty/key" as *
 pub #import "./ty/stage0" as *

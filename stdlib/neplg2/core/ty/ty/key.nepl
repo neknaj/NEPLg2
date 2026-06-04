@@ -1,0 +1,447 @@
+#indent 4
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./id" as *
+#import "./kind/eq" as *
+#import "./kind/model" as *
+#import "./record" as *
+#import "./arena" as *
+
+//: # canonical type key
+//: type arena local な `SelfhostTypeId` から、artifact key に使える構造 key を[作/つく]る module です。
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeId` は 1 回の type arena に閉じた index なので、中間ファイルや cache key に直接入れません。
+//: - canonical key は primitive / named / applied / function の構造を key node table と argument table に投影します。
+//: - named type は現段階では constructor table の `SelfhostNamedTypeId` を使います。module path と surface hash を含む永続 nominal key は、interface artifact 実装時にこの境界へ追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - projection は root から到達する型 record と型引数 edge の数に比例する O(n) です。
+//: - equality は比較する canonical key tree の大きさに比例します。
+pub struct SelfhostCanonicalTypeKeyId:
+    index %i32
+
+pub struct SelfhostCanonicalTypeKeyArgRange:
+    first_arg %i32
+    arg_count %i32
+
+pub struct SelfhostCanonicalAppliedTypeKey:
+    nominal_id %SelfhostNamedTypeId
+    args %SelfhostCanonicalTypeKeyArgRange
+
+pub struct SelfhostCanonicalFunctionTypeKey:
+    args %SelfhostCanonicalTypeKeyArgRange
+    result %SelfhostCanonicalTypeKeyId
+
+pub enum SelfhostCanonicalTypeKeyNode:
+    Primitive %SelfhostPrimitiveTypeKind
+    Named %SelfhostNamedTypeId
+    Applied %SelfhostCanonicalAppliedTypeKey
+    Function %SelfhostCanonicalFunctionTypeKey
+
+pub struct SelfhostCanonicalTypeKeyArena:
+    nodes %Vec SelfhostCanonicalTypeKeyNode
+    args %Vec SelfhostCanonicalTypeKeyId
+
+pub struct SelfhostCanonicalTypeKeyArenaAlloc:
+    arena %SelfhostCanonicalTypeKeyArena
+    key_id %SelfhostCanonicalTypeKeyId
+
+pub enum SelfhostCanonicalTypeKeyProjectErrorKind:
+    MissingTypeRecord
+    MissingTypeArgument
+    MissingFunctionArgument
+    InvalidAppliedArgumentRange
+    InvalidFunctionArgumentRange
+    OutOfMemory
+    InternalInvariant
+
+pub struct SelfhostCanonicalTypeKeyProjectError:
+    kind %SelfhostCanonicalTypeKeyProjectErrorKind
+    type_id %SelfhostTypeId
+
+struct SelfhostCanonicalTypeKeyArgBuild:
+    arena %SelfhostCanonicalTypeKeyArena
+    args %SelfhostCanonicalTypeKeyArgRange
+
+impl Clone for SelfhostCanonicalTypeKeyId:
+    fn clone %fn &SelfhostCanonicalTypeKeyId SelfhostCanonicalTypeKeyId \self:
+        *self
+
+impl Copy for SelfhostCanonicalTypeKeyId:
+    fn copy_mark %fn SelfhostCanonicalTypeKeyId SelfhostCanonicalTypeKeyId \self:
+        self
+
+impl Clone for SelfhostCanonicalTypeKeyArgRange:
+    fn clone %fn &SelfhostCanonicalTypeKeyArgRange SelfhostCanonicalTypeKeyArgRange \self:
+        *self
+
+impl Copy for SelfhostCanonicalTypeKeyArgRange:
+    fn copy_mark %fn SelfhostCanonicalTypeKeyArgRange SelfhostCanonicalTypeKeyArgRange \self:
+        self
+
+impl Clone for SelfhostCanonicalAppliedTypeKey:
+    fn clone %fn &SelfhostCanonicalAppliedTypeKey SelfhostCanonicalAppliedTypeKey \self:
+        *self
+
+impl Copy for SelfhostCanonicalAppliedTypeKey:
+    fn copy_mark %fn SelfhostCanonicalAppliedTypeKey SelfhostCanonicalAppliedTypeKey \self:
+        self
+
+impl Clone for SelfhostCanonicalFunctionTypeKey:
+    fn clone %fn &SelfhostCanonicalFunctionTypeKey SelfhostCanonicalFunctionTypeKey \self:
+        *self
+
+impl Copy for SelfhostCanonicalFunctionTypeKey:
+    fn copy_mark %fn SelfhostCanonicalFunctionTypeKey SelfhostCanonicalFunctionTypeKey \self:
+        self
+
+impl Clone for SelfhostCanonicalTypeKeyNode:
+    fn clone %fn &SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode \self:
+        *self
+
+impl Copy for SelfhostCanonicalTypeKeyNode:
+    fn copy_mark %fn SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode \self:
+        self
+
+impl Clone for SelfhostCanonicalTypeKeyProjectErrorKind:
+    fn clone %fn &SelfhostCanonicalTypeKeyProjectErrorKind SelfhostCanonicalTypeKeyProjectErrorKind \self:
+        *self
+
+impl Copy for SelfhostCanonicalTypeKeyProjectErrorKind:
+    fn copy_mark %fn SelfhostCanonicalTypeKeyProjectErrorKind SelfhostCanonicalTypeKeyProjectErrorKind \self:
+        self
+
+impl Clone for SelfhostCanonicalTypeKeyProjectError:
+    fn clone %fn &SelfhostCanonicalTypeKeyProjectError SelfhostCanonicalTypeKeyProjectError \self:
+        *self
+
+impl Copy for SelfhostCanonicalTypeKeyProjectError:
+    fn copy_mark %fn SelfhostCanonicalTypeKeyProjectError SelfhostCanonicalTypeKeyProjectError \self:
+        self
+
+pub fn selfhost_canonical_type_key_id_new %fn i32 SelfhostCanonicalTypeKeyId \index:
+    SelfhostCanonicalTypeKeyId index
+
+pub fn selfhost_canonical_type_key_id_index %fn SelfhostCanonicalTypeKeyId i32 \key_id:
+    key_id.index
+
+pub fn selfhost_canonical_type_key_id_eq %fn SelfhostCanonicalTypeKeyId fn SelfhostCanonicalTypeKeyId bool \a\b:
+    eq a.index b.index
+
+pub fn selfhost_canonical_type_key_arg_range_new_unchecked %fn i32 fn i32 SelfhostCanonicalTypeKeyArgRange \first_arg\arg_count:
+    SelfhostCanonicalTypeKeyArgRange first_arg arg_count
+
+pub fn selfhost_canonical_type_key_arg_range_is_valid %fn SelfhostCanonicalTypeKeyArgRange bool \args:
+    and:
+        ge args.first_arg 0
+        and ge args.arg_count 0 le args.arg_count sub 2147483647 args.first_arg
+
+pub fn selfhost_canonical_type_key_arg_range_is_nonempty_valid %fn SelfhostCanonicalTypeKeyArgRange bool \args:
+    and:
+        gt args.arg_count 0
+        selfhost_canonical_type_key_arg_range_is_valid args
+
+pub fn selfhost_canonical_type_key_arena_new %impure fn void Result SelfhostCanonicalTypeKeyArena StdErrorKind \void:
+    let nodes_result %Result Vec SelfhostCanonicalTypeKeyNode StdErrorKind v::new
+    match nodes_result:
+        Result::Ok nodes:
+            let args_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+            match args_result:
+                Result::Ok args:
+                    Result::Ok SelfhostCanonicalTypeKeyArena nodes args
+                Result::Err e:
+                    v::free nodes
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+pub fn selfhost_canonical_type_key_arena_free %impure fn SelfhostCanonicalTypeKeyArena unit \arena:
+    v::free field::get arena "nodes"
+    v::free field::get arena "args"
+
+pub fn selfhost_canonical_type_key_arena_node_len %fn &SelfhostCanonicalTypeKeyArena i32 \arena:
+    let nodes %&Vec SelfhostCanonicalTypeKeyNode field::get_ref arena "nodes"
+    v::len nodes
+
+pub fn selfhost_canonical_type_key_arena_arg_len %fn &SelfhostCanonicalTypeKeyArena i32 \arena:
+    let args %&Vec SelfhostCanonicalTypeKeyId field::get_ref arena "args"
+    v::len args
+
+pub fn selfhost_canonical_type_key_arena_alloc_key_id %fn &SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyId \allocated:
+    *field::get_ref allocated "key_id"
+
+pub fn selfhost_canonical_type_key_arena_alloc_into_arena %impure fn SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyArena \allocated:
+    field::get allocated "arena"
+
+pub fn selfhost_canonical_type_key_arena_get_node %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId Option SelfhostCanonicalTypeKeyNode \arena\key_id:
+    if:
+        lt key_id.index 0
+        then:
+            none
+        else:
+            let nodes %&Vec SelfhostCanonicalTypeKeyNode field::get_ref arena "nodes"
+            v::get nodes key_id.index
+
+fn selfhost_canonical_type_key_arena_alloc_new %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId SelfhostCanonicalTypeKeyArenaAlloc \arena\key_id:
+    SelfhostCanonicalTypeKeyArenaAlloc arena key_id
+
+fn selfhost_canonical_type_key_project_error_new %fn SelfhostCanonicalTypeKeyProjectErrorKind fn SelfhostTypeId SelfhostCanonicalTypeKeyProjectError \kind\type_id:
+    SelfhostCanonicalTypeKeyProjectError kind type_id
+
+fn selfhost_canonical_type_key_project_error_from_std %fn StdErrorKind fn SelfhostTypeId SelfhostCanonicalTypeKeyProjectError \kind\type_id:
+    match kind:
+        StdErrorKind::OutOfMemory:
+            selfhost_canonical_type_key_project_error_new SelfhostCanonicalTypeKeyProjectErrorKind::OutOfMemory type_id
+        _:
+            selfhost_canonical_type_key_project_error_new SelfhostCanonicalTypeKeyProjectErrorKind::InternalInvariant type_id
+
+fn selfhost_canonical_type_key_project_fail %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyProjectErrorKind impure fn SelfhostTypeId Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyProjectError \arena\kind\type_id:
+    selfhost_canonical_type_key_arena_free arena
+    Result::Err selfhost_canonical_type_key_project_error_new kind type_id
+
+fn selfhost_canonical_type_key_project_arg_fail %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyProjectErrorKind impure fn SelfhostTypeId Result SelfhostCanonicalTypeKeyArgBuild SelfhostCanonicalTypeKeyProjectError \arena\kind\type_id:
+    selfhost_canonical_type_key_arena_free arena
+    Result::Err selfhost_canonical_type_key_project_error_new kind type_id
+
+fn selfhost_canonical_type_key_push_node %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyNode impure fn SelfhostTypeId Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyProjectError \arena\node\source_type_id:
+    let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_id_new selfhost_canonical_type_key_arena_node_len &arena
+    let nodes %Vec SelfhostCanonicalTypeKeyNode field::get arena "nodes"
+    let args %Vec SelfhostCanonicalTypeKeyId field::get arena "args"
+    match v::push nodes node:
+        Result::Ok next_nodes:
+            let next_arena %SelfhostCanonicalTypeKeyArena SelfhostCanonicalTypeKeyArena next_nodes args
+            Result::Ok selfhost_canonical_type_key_arena_alloc_new next_arena key_id
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free args
+            Result::Err selfhost_canonical_type_key_project_error_from_std error source_type_id
+
+fn selfhost_canonical_type_key_push_arg_id %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn SelfhostTypeId Result SelfhostCanonicalTypeKeyArena SelfhostCanonicalTypeKeyProjectError \arena\arg\source_type_id:
+    let nodes %Vec SelfhostCanonicalTypeKeyNode field::get arena "nodes"
+    let args %Vec SelfhostCanonicalTypeKeyId field::get arena "args"
+    match v::push args arg:
+        Result::Ok next_args:
+            Result::Ok SelfhostCanonicalTypeKeyArena nodes next_args
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free nodes
+            Result::Err selfhost_canonical_type_key_project_error_from_std error source_type_id
+
+fn selfhost_canonical_type_key_arg_build_new %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArgRange SelfhostCanonicalTypeKeyArgBuild \arena\args:
+    SelfhostCanonicalTypeKeyArgBuild arena args
+
+fn selfhost_canonical_type_key_project_type_args_loop %impure fn &SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn i32 Result SelfhostCanonicalTypeKeyArgBuild SelfhostCanonicalTypeKeyProjectError \types\key_arena\type_id\first_arg\idx\n:
+    if:
+        ge idx n
+        then:
+            let args %SelfhostCanonicalTypeKeyArgRange selfhost_canonical_type_key_arg_range_new_unchecked first_arg n
+            Result::Ok selfhost_canonical_type_key_arg_build_new key_arena args
+        else:
+            match selfhost_type_arena_applied_arg types type_id idx:
+                Option::Some arg_type_id:
+                    match selfhost_canonical_type_key_project_node types key_arena arg_type_id:
+                        Result::Ok arg_alloc:
+                            let arg_key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &arg_alloc
+                            let next_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena arg_alloc
+                            match selfhost_canonical_type_key_push_arg_id next_arena arg_key_id type_id:
+                                Result::Ok pushed_arena:
+                                    selfhost_canonical_type_key_project_type_args_loop types pushed_arena type_id first_arg add idx 1 n
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_canonical_type_key_project_arg_fail key_arena SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeArgument type_id
+
+fn selfhost_canonical_type_key_project_function_args_loop %impure fn &SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn i32 Result SelfhostCanonicalTypeKeyArgBuild SelfhostCanonicalTypeKeyProjectError \types\key_arena\type_id\first_arg\idx\n:
+    if:
+        ge idx n
+        then:
+            let args %SelfhostCanonicalTypeKeyArgRange selfhost_canonical_type_key_arg_range_new_unchecked first_arg n
+            Result::Ok selfhost_canonical_type_key_arg_build_new key_arena args
+        else:
+            match selfhost_type_arena_function_arg types type_id idx:
+                Option::Some arg_type_id:
+                    match selfhost_canonical_type_key_project_node types key_arena arg_type_id:
+                        Result::Ok arg_alloc:
+                            let arg_key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &arg_alloc
+                            let next_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena arg_alloc
+                            match selfhost_canonical_type_key_push_arg_id next_arena arg_key_id type_id:
+                                Result::Ok pushed_arena:
+                                    selfhost_canonical_type_key_project_function_args_loop types pushed_arena type_id first_arg add idx 1 n
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_canonical_type_key_project_arg_fail key_arena SelfhostCanonicalTypeKeyProjectErrorKind::MissingFunctionArgument type_id
+
+fn selfhost_canonical_type_key_project_applied %impure fn &SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostTypeId impure fn SelfhostAppliedTypeRecord Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyProjectError \types\key_arena\type_id\applied:
+    let source_args %SelfhostAppliedTypeArgRange selfhost_applied_type_record_args applied
+    if:
+        not selfhost_applied_type_arg_range_is_valid source_args
+        then:
+            selfhost_canonical_type_key_project_fail key_arena SelfhostCanonicalTypeKeyProjectErrorKind::InvalidAppliedArgumentRange type_id
+        else:
+            let first_arg %i32 selfhost_canonical_type_key_arena_arg_len &key_arena
+            let n %i32 selfhost_applied_type_arg_range_count source_args
+            match selfhost_canonical_type_key_project_type_args_loop types key_arena type_id first_arg 0 n:
+                Result::Ok build:
+                    let next_arena %SelfhostCanonicalTypeKeyArena field::get build "arena"
+                    let args %SelfhostCanonicalTypeKeyArgRange field::get build "args"
+                    let nominal_id %SelfhostNamedTypeId selfhost_applied_type_record_id applied
+                    let applied_key %SelfhostCanonicalAppliedTypeKey SelfhostCanonicalAppliedTypeKey nominal_id args
+                    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Applied applied_key
+                    selfhost_canonical_type_key_push_node next_arena node type_id
+                Result::Err e:
+                    Result::Err e
+
+fn selfhost_canonical_type_key_project_function %impure fn &SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostTypeId impure fn SelfhostFunctionTypeRecord Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyProjectError \types\key_arena\type_id\function:
+    if:
+        not selfhost_function_type_arg_range_is_valid function.args
+        then:
+            selfhost_canonical_type_key_project_fail key_arena SelfhostCanonicalTypeKeyProjectErrorKind::InvalidFunctionArgumentRange type_id
+        else:
+            let first_arg %i32 selfhost_canonical_type_key_arena_arg_len &key_arena
+            let n %i32 selfhost_function_type_arg_range_count function.args
+            match selfhost_canonical_type_key_project_function_args_loop types key_arena type_id first_arg 0 n:
+                Result::Ok build:
+                    let arg_arena %SelfhostCanonicalTypeKeyArena field::get build "arena"
+                    let args %SelfhostCanonicalTypeKeyArgRange field::get build "args"
+                    match selfhost_canonical_type_key_project_node types arg_arena function.result:
+                        Result::Ok result_alloc:
+                            let result_key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &result_alloc
+                            let next_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena result_alloc
+                            let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Function SelfhostCanonicalFunctionTypeKey args result_key_id
+                            selfhost_canonical_type_key_push_node next_arena node type_id
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+fn selfhost_canonical_type_key_project_node %impure fn &SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostTypeId Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyProjectError \types\key_arena\type_id:
+    match selfhost_type_arena_get_record types type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive kind:
+                    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Primitive kind
+                    selfhost_canonical_type_key_push_node key_arena node type_id
+                SelfhostTypeRecord::Named named:
+                    let nominal_id %SelfhostNamedTypeId selfhost_named_type_record_id named
+                    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Named nominal_id
+                    selfhost_canonical_type_key_push_node key_arena node type_id
+                SelfhostTypeRecord::Applied applied:
+                    selfhost_canonical_type_key_project_applied types key_arena type_id applied
+                SelfhostTypeRecord::Function function:
+                    selfhost_canonical_type_key_project_function types key_arena type_id function
+        Option::None:
+            selfhost_canonical_type_key_project_fail key_arena SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeRecord type_id
+
+pub fn selfhost_canonical_type_key_project_into_arena %impure fn &SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostTypeId Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyProjectError \types\key_arena\type_id:
+    selfhost_canonical_type_key_project_node types key_arena type_id
+
+pub fn selfhost_canonical_type_key_project_from_arena %impure fn &SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyProjectError \types\type_id:
+    match selfhost_canonical_type_key_arena_new:
+        Result::Ok key_arena:
+            selfhost_canonical_type_key_project_into_arena types key_arena type_id
+        Result::Err e:
+            Result::Err selfhost_canonical_type_key_project_error_from_std e type_id
+
+pub fn selfhost_canonical_type_key_arena_arg %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn i32 Option SelfhostCanonicalTypeKeyId \arena\args\idx:
+    if:
+        or lt idx 0 ge idx args.arg_count
+        then:
+            none
+        else:
+            let table %&Vec SelfhostCanonicalTypeKeyId field::get_ref arena "args"
+            v::get table add args.first_arg idx
+
+fn selfhost_canonical_type_key_arg_ranges_equal_raw %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn SelfhostCanonicalTypeKeyArgRange fn i32 bool \arena\a\b\idx:
+    if:
+        ge idx a.arg_count
+        then:
+            true
+        else:
+            match selfhost_canonical_type_key_arena_arg arena a idx:
+                Option::Some arg_a:
+                    match selfhost_canonical_type_key_arena_arg arena b idx:
+                        Option::Some arg_b:
+                            if:
+                                selfhost_canonical_type_key_equal arena arg_a arg_b
+                                then:
+                                    selfhost_canonical_type_key_arg_ranges_equal_raw arena a b add idx 1
+                                else:
+                                    false
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+fn selfhost_canonical_type_key_arg_ranges_equal %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn SelfhostCanonicalTypeKeyArgRange bool \arena\a\b:
+    if:
+        not and selfhost_canonical_type_key_arg_range_is_valid a selfhost_canonical_type_key_arg_range_is_valid b
+        then:
+            false
+        else:
+            if:
+                ne a.arg_count b.arg_count
+                then:
+                    false
+                else:
+                    selfhost_canonical_type_key_arg_ranges_equal_raw arena a b 0
+
+fn selfhost_canonical_type_key_nodes_equal %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyNode fn SelfhostCanonicalTypeKeyNode bool \arena\a\b:
+    match a:
+        SelfhostCanonicalTypeKeyNode::Primitive a_kind:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Primitive b_kind:
+                    let a_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind a_kind
+                    let b_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind b_kind
+                    selfhost_type_kind_eq a_general b_general
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Named a_named:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Named b_named:
+                    selfhost_named_type_id_eq a_named b_named
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Applied a_applied:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Applied b_applied:
+                    and:
+                        selfhost_named_type_id_eq a_applied.nominal_id b_applied.nominal_id
+                        selfhost_canonical_type_key_arg_ranges_equal arena a_applied.args b_applied.args
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Function a_function:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Function b_function:
+                    and:
+                        selfhost_canonical_type_key_arg_ranges_equal arena a_function.args b_function.args
+                        selfhost_canonical_type_key_equal arena a_function.result b_function.result
+                _:
+                    false
+
+pub fn selfhost_canonical_type_key_equal %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostCanonicalTypeKeyId bool \arena\a\b:
+    match selfhost_canonical_type_key_arena_get_node arena a:
+        Option::Some node_a:
+            match selfhost_canonical_type_key_arena_get_node arena b:
+                Option::Some node_b:
+                    if:
+                        selfhost_canonical_type_key_id_eq a b
+                        then:
+                            true
+                        else:
+                            selfhost_canonical_type_key_nodes_equal arena node_a node_b
+                Option::None:
+                    false
+        Option::None:
+            false

@@ -248,6 +248,10 @@ type resolver は type constructor table と kind / arity 情報を使い、flat
 
 resolver は `TypeId` を永続 key にしない。arena-local な `SelfhostTypeId` は session 内の高速参照であり、artifact や cache key には stable canonical type text / structural key を使う。
 
+現行 self-host 実装では、まず structural canonical key を `SelfhostCanonicalTypeKeyArena` として作る。key arena は primitive / named / applied / function の key node table と key argument table を所有し、key node payload には arena-local `SelfhostTypeId` を入れない。projection diagnostic だけは、失敗位置を説明するために入力側の `SelfhostTypeId` を保持してよい。
+
+named type の key は当面 `SelfhostNamedTypeId` を使う。これは constructor table snapshot 内の identity であり、永続 artifact の完全な nominal identity ではない。`.neplmeta` interface artifact が module path、surface hash、type constructor stable identity を提供した段階で、canonical named key payload をその stable identity へ拡張する。
+
 generic postfix は type resolver の正規入力にしない。旧 `f<T>` は migration diagnostic と source-to-source migration の対象であり、通常 compile の成功経路では `%T expr`、expected type、receiver type、argument type、trait bound から型証拠を集める。
 
 layout query は postfix-free API として扱う。
@@ -702,6 +706,7 @@ Performance acceptance:
 - `project.nepl` の lookup 付き API は arity 0 の named constructor を `SelfhostTypeRecord::Named` へ投影する。unknown named type と bare generic constructor は typed error として fail-closed にし、既存の constructor table なし API は named を拒否し続ける。
 - constructor-aware reducer は `SelfhostTypeConstructorTable.arity` に従って `Box i32` / `Result i32 str` のような type argument list を再帰的に消費し、`SelfhostResolvedTypeNode::Applied` として保持する。型引数不足は projection まで送らず `GenericTypeArgumentMissing` として reducer で拒否する。
 - constructor-aware projection は `Applied` node の constructor identity と projected type argument `SelfhostTypeId` list を `SelfhostTypeRecord::Applied` として arena へ保存する。arena は source spelling ではなく identity と structural argument list だけを保持する。
+- `ty/key.nepl` は `SelfhostTypeArena` の root `SelfhostTypeId` を `SelfhostCanonicalTypeKeyArena` へ投影する。canonical key node は `SelfhostTypeId` を持たず、primitive / named / applied / function の構造と key argument range だけを保持する。projection は型 record と argument edge の数に対して O(n) であり、同じ key arena 内の structural equality を提供する。
 
 Issue slice:
 
@@ -710,13 +715,12 @@ Issue slice:
 - generic type parameter environment
 - user-defined generic type parameter environment
 - user-defined generic type constructor declaration kind validation
-- canonical type key projection
 - type resolver diagnostic parity
 
 Performance acceptance:
 
 - type constructor lookup は module surface から構築した table を使い、prefix type ごとに import graph を再探索しない。
-- canonical type key を生成し、artifact / cache key へ `TypeId` を入れない。
+- canonical type key を生成し、artifact / cache key へ `TypeId` を入れない。現 checkpoint では structural key tree と equality までを実装済みであり、cross-arena serialized key / fingerprint は interface artifact 接続時に追加する。
 
 ### Phase 6: Type checker and higher-order functions
 
@@ -869,7 +873,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor arity に基づく generic type application reduction / projection を追加した。残件は prefix expression AST、canonical type key projection、call reduction。 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor arity に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection を追加した。残件は prefix expression AST、generic parameter environment / kind validation、call reduction。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |

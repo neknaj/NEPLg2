@@ -50568,3 +50568,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - constructor table なし projection は named / applied named type を `UnsupportedNamedType` として fail-closed に保ち、constructor-aware projection だけが `SelfhostTypeRecord::Named` / `SelfhostTypeRecord::Applied` を arena に追加する。
 - subagent review では、次の slice は canonical type key projection が妥当と確認した。generic type application は構造比較できるが、同じ型の allocation canonical 化と artifact/proof/cache key への安定投影は未実装である。
 - focused verification は type record / arena / resolver source policy、arena doctest 7/7、type resolver doctest shard 1/2 と 2/2、type resolver facade smoke を通した。残件は canonical type key projection、generic type parameter environment / kind validation、prefix expression AST、call reductionである。
+
+## 2026-06-05 Agent selfhost canonical type key checkpoint
+
+- `selfhost/canonical-type-key-20260605` branch で、self-host compiler Phase 5 の canonical type key projection を進めた。`plan.md` は確認のみで変更していない。
+- `core/ty/ty/key.nepl` を追加し、arena-local `SelfhostTypeId` から `SelfhostCanonicalTypeKeyArena` へ型構造を投影する境界を作った。key node は primitive / named / applied / function の enum payload で、`SelfhostTypeId` を保持しない。
+- projection diagnostic は入力側の説明のために source `SelfhostTypeId` を持つが、key payload と equality には使わない。これにより artifact / cache key へ arena-local id を混ぜない設計境界を source policy で検査できる。
+- canonical key arena は nodes と args を所有し、Applied / Function の argument edge を再帰的に投影する。projection は型 record と argument edge 数に対して O(n) である。
+- `selfhost_canonical_type_key_equal` は同じ key arena 内の structural equality を提供する。cross-arena serialized key / fingerprint は `.neplmeta` interface artifact の stable nominal identity と一緒に次段階で追加する。
+- focused verification は `node nodesrc/test_selfhost_type_key_contract.js`、`node nodesrc/tests.js -i tests\stdlib\neplg2_type_key.n.md -o tmp\selfhost-type-key-tests.json --no-tree -j 1 --assert-io --dist web\dist`、`node nodesrc/tests.js -i stdlib\neplg2\core\ty\ty.nepl -o tmp\selfhost-ty-key-smoke.json --no-tree -j 1 --assert-io --dist web\dist`、`node nodesrc/tests.js -i stdlib\neplg2 -o tmp\selfhost-canonical-type-key-stdlib-neplg2.json --no-tree -j 2 --assert-io --dist web\dist` を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は既存 5 warning のみで、今回追加した canonical key policy は通過した。残件は generic type parameter environment / kind validation、prefix expression AST、call reduction である。
