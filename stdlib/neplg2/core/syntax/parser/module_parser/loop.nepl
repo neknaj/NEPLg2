@@ -9,6 +9,7 @@
 #import "./action" as *
 #import "./declaration" as *
 #import "./diagnostic" as *
+#import "./header_boundary" as *
 #import "./item_kind" as *
 #import "./state" as *
 
@@ -107,7 +108,16 @@ pub fn selfhost_parse_regular_token %impure fn str impure fn &Vec SelfhostToken 
         else:
             match selfhost_parser_item_kind_from_token kind depth:
                 Option::Some item_kind:
-                    selfhost_parse_push_and_continue source tokens n idx depth mode ast token item_kind
+                    match selfhost_module_item_kind_declaration item_kind:
+                        Option::Some _decl_kind:
+                            if:
+                                selfhost_parser_declaration_keyword_is_header_start tokens idx
+                                then:
+                                    selfhost_parse_push_and_continue source tokens n idx depth mode ast token item_kind
+                                else:
+                                    selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
+                        Option::None:
+                            selfhost_parse_push_and_continue source tokens n idx depth mode ast token item_kind
                 Option::None:
                     selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
 
@@ -158,6 +168,8 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
                             selfhost_parse_dir_wasm source tokens n idx depth mode ast token
                         SelfhostParserTokenAction::DirLlvmIr:
                             selfhost_parse_dir_llvmir source tokens n idx depth mode ast token
+                        SelfhostParserTokenAction::LegacySyntax:
+                            selfhost_parser_legacy_syntax_token_error &token ast
                         SelfhostParserTokenAction::Regular:
                             selfhost_parse_regular_token source tokens n idx depth mode ast token kind
                 Option::None:

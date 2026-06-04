@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T13:46:22.147Z",
+  "generated_at": "2026-06-04T14:10:39.743Z",
   "counts": {
     "total": 1340,
-    "open": 55,
-    "resolved": 1285,
+    "open": 54,
+    "resolved": 1286,
     "by_area": {
       "stdlib": {
         "total": 349,
@@ -23,8 +23,8 @@
       },
       "selfhost": {
         "total": 117,
-        "open": 6,
-        "resolved": 111
+        "open": 5,
+        "resolved": 112
       },
       "neplg21": {
         "total": 2,
@@ -818,21 +818,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103",
-      "title": "selfhost parser mixes current percent type syntax with legacy paren and angle syntax boundaries",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/neplg2/core/syntax/token/predicate/expr_start.nepl, stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md"
     },
     {
       "id": "ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123",
@@ -18968,6 +18953,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T192459057Z-SELF-HOST-MONO-CACHE-INTERN-ACCEPTS--D424CF2E.md"
+    },
+    {
+      "id": "ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103",
+      "title": "selfhost parser mixes current percent type syntax with legacy paren and angle syntax boundaries",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/neplg2/core/syntax/token/predicate/expr_start.nepl, stdlib/neplg2/core/syntax/parser/module_parser/action.nepl, stdlib/neplg2/core/syntax/parser/module_parser/header_boundary.nepl, stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl, stdlib/neplg2/core/proof/solver/module.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

@@ -42,6 +42,7 @@
 pub #import "./module_parser/state" as *
 pub #import "./module_parser/action" as *
 pub #import "./module_parser/diagnostic" as *
+pub #import "./module_parser/header_boundary" as *
 pub #import "./module_parser/item_kind" as *
 pub #import "./module_parser/declaration" as *
 pub #import "./module_parser/loop" as *

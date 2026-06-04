@@ -159,6 +159,7 @@ const checks = [
     "nodesrc/test_selfhost_token_split_contract.js",
     "nodesrc/test_selfhost_module_parser_split_contract.js",
     "nodesrc/test_selfhost_parser_invalid_state_contract.js",
+    "nodesrc/test_selfhost_parser_current_syntax_boundary.js",
     "nodesrc/test_selfhost_parser_report_contract.js",
     "nodesrc/test_selfhost_checker_report_contract.js",
     "nodesrc/test_selfhost_module_checker_split_contract.js",

@@ -74,6 +74,7 @@ pub enum SelfhostParserDiagnosticCode:
     RawTextOutsideBlock
     RawBlockUnclosed
     InvalidDedent
+    LegacySyntaxToken
     TokenIndex
     OutOfMemory
     ImportAliasExpected
@@ -188,6 +189,8 @@ pub fn selfhost_parser_diag_code_name %fn SelfhostParserDiagnosticCode str \code
             "parser.raw_block.unclosed"
         SelfhostParserDiagnosticCode::InvalidDedent:
             "parser.indent.invalid_dedent"
+        SelfhostParserDiagnosticCode::LegacySyntaxToken:
+            "parser.syntax.legacy_token"
         SelfhostParserDiagnosticCode::TokenIndex:
             "parser.token.index_unavailable"
         SelfhostParserDiagnosticCode::OutOfMemory:

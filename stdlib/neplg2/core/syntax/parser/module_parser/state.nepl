@@ -37,6 +37,7 @@ pub enum SelfhostParserTokenAction:
     LlvmIrText
     DirWasm
     DirLlvmIr
+    LegacySyntax
     Regular
 
 impl Clone for SelfhostParserTokenAction:

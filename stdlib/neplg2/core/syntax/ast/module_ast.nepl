@@ -1,7 +1,7 @@
 #indent 4
 
 //: # module_ast
-//: NEPLg2.0 のファイル単位 AST を置くモジュールです。
+//: NEPLg2.1 のファイル単位 AST を置くモジュールです。
 //:
 //: [目的/もくてき]:
 //: - lexer token stream から parser が最初に作る、module item [列/れつ]の安定した受け皿を提供します。
@@ -126,12 +126,12 @@ impl Copy for SelfhostModuleDeclarationVisibility:
 //: SelfhostModuleDeclarationHeadKind: declaration keyword の直後に来る head token [分類/ぶんるい]
 //:
 //: [目的/もくてき]:
-//: - `fn` / `struct` / `enum` / `trait` は名前 token、`impl` は名前・型変数・generic parameter list から始まり得ることを enum で表します。
+//: - `fn` / `struct` / `enum` / `trait` は名前 token、`impl` は名前または型変数 token から始まり得ることを enum で表します。
+//: - 旧 `<...>` generic parameter list は NEPLg2.1 の正規宣言 head ではないため保持しません。
 //: - 不正 token は `Option::None` として保持し、checker が proof solver 経由で拒否します。
 pub enum SelfhostModuleDeclarationHeadKind:
     Name
     TypeLabel
-    GenericParams
 
 impl Clone for SelfhostModuleDeclarationHeadKind:
     fn clone %fn &SelfhostModuleDeclarationHeadKind SelfhostModuleDeclarationHeadKind \self:

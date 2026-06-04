@@ -20,15 +20,15 @@ pub fn selfhost_parser_token_action %fn TokenKind SelfhostParserTokenAction \kin
         TokenKind::Pipe:
             SelfhostParserTokenAction::Regular
         TokenKind::LParen:
-            SelfhostParserTokenAction::Regular
+            SelfhostParserTokenAction::LegacySyntax
         TokenKind::RParen:
-            SelfhostParserTokenAction::Regular
+            SelfhostParserTokenAction::LegacySyntax
         TokenKind::Comma:
             SelfhostParserTokenAction::Regular
         TokenKind::LAngle:
-            SelfhostParserTokenAction::Regular
+            SelfhostParserTokenAction::LegacySyntax
         TokenKind::RAngle:
-            SelfhostParserTokenAction::Regular
+            SelfhostParserTokenAction::LegacySyntax
         TokenKind::Percent:
             SelfhostParserTokenAction::Regular
         TokenKind::Backslash:

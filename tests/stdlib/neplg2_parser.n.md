@@ -64,10 +64,13 @@ fn check_function_declaration_header %fn SelfhostModuleItem Result unit str \ite
                                 Option::Some head:
                                     match head.kind:
                                         SelfhostModuleDeclarationHeadKind::Name:
-                                            Result::Ok unit
+                                            if:
+                                                and eq header.header_span.start 8 eq header.header_span.end 39
+                                                then:
+                                                    Result::Ok unit
+                                                else:
+                                                    Result::Err "expected current function declaration header span"
                                         SelfhostModuleDeclarationHeadKind::TypeLabel:
-                                            Result::Err "expected function name head"
-                                        SelfhostModuleDeclarationHeadKind::GenericParams:
                                             Result::Err "expected function name head"
                                 Option::None:
                                     Result::Err "expected declaration head"
@@ -85,14 +88,14 @@ fn check_function_declaration_header %fn SelfhostModuleItem Result unit str \ite
             Result::Err "expected parser declaration header evidence"
 
 fn main %impure fn void i32 \void:
-    let source %str "//: doc\nfn add <(i32,i32)->i32> (a,b):\n    #if[target=wasm]\n    #wasm:\n        local.get 0\n        local.get 1\n    #if[target=llvm]\n    #llvmir:\n        %0 = add i32 %a, %b\n        ret i32 %0\n"
+    let source %str "//: doc\nfn add %fn i32 fn i32 i32 \\a\\b:\n    #if[target=wasm]\n    #wasm:\n        local.get 0\n        local.get 1\n    #if[target=llvm]\n    #llvmir:\n        %0 = add i32 %a, %b\n        ret i32 %0\n"
     let checks0 checks_new
     match selfhost_parse_module_source source:
         Result::Ok ast:
             let item_len %i32 selfhost_module_ast_len &ast
             let checks1 checks_push checks0 check_eq_i32 10 item_len
             let checks2 check_item checks1 &ast 0 "DocComment" "//: doc"
-            let checks3 check_item checks2 &ast 1 "FunctionDecl" "fn add <(i32,i32)->i32> (a,b):"
+            let checks3 check_item checks2 &ast 1 "FunctionDecl" "fn add %fn i32 fn i32 i32 \\a\\b:"
             let checks4 check_item checks3 &ast 2 "IfTargetDirective" "#if[target=wasm]"
             let checks5 check_item checks4 &ast 3 "WasmBlock" "#wasm:"
             let checks6 check_item checks5 &ast 4 "WasmText" "local.get 0"
@@ -110,6 +113,61 @@ fn main %impure fn void i32 \void:
             let checks1 checks_push checks0 Result::Err "parser returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
+```
+
+## rejects_legacy_grouping_and_angle_syntax
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "std/test" as *
+
+fn expect_parse_err_code_span %impure fn Result SelfhostModuleAst SelfhostDiagnostic impure fn str impure fn i32 impure fn i32 Result unit str \r\expected\span_start\span_end:
+    match r:
+        Result::Err diag:
+            match check_str_eq expected selfhost_diag_code_name diag.code:
+                Result::Ok _unit:
+                    match diag.primary_label:
+                        Option::Some label:
+                            let span %SelfhostSourceSpan label.span
+                            let start_ok %bool eq span.start span_start
+                            let end_ok %bool eq span.end span_end
+                            if:
+                                and start_ok end_ok
+                                then:
+                                    Result::Ok unit
+                                else:
+                                    Result::Err "legacy diagnostic primary label span mismatch"
+                        Option::None:
+                            Result::Err "expected legacy diagnostic primary label"
+                Result::Err e:
+                    Result::Err e
+        Result::Ok ast:
+            selfhost_module_ast_free ast
+            Result::Err "expected parser diagnostic"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let legacy_angle %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn add <(i32,i32)->i32> (a,b):\n    add a b\n"
+    let checks1 checks_push checks0 expect_parse_err_code_span legacy_angle "parser.syntax.legacy_token" 7 8
+    let legacy_grouping %Result SelfhostModuleAst SelfhostDiagnostic selfhost_parse_module_source "fn main %fn void i32 \\void:\n    (add 1 2)\n"
+    let checks2 checks_push checks1 expect_parse_err_code_span legacy_grouping "parser.syntax.legacy_token" 32 33
+    let shown checks_print_report checks2
+    checks_exit_code shown
 ```
 
 ## rejects_invalid_raw_and_dedent_states

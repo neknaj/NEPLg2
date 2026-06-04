@@ -60,3 +60,13 @@ pub fn selfhost_parser_invalid_dedent_error %impure fn &SelfhostToken impure fn 
     let diag %SelfhostDiagnostic selfhost_parser_diag_at token SelfhostParserDiagnosticCode::InvalidDedent "dedent appeared when no parser block was open" "this dedent has no matching indent"
     selfhost_module_ast_free ast
     Result::Err diag
+
+//: selfhost_parser_legacy_syntax_token_error: 現行 NEPLg2.1 source では使わない旧構文 token を報告する
+//:
+//: [目的/もくてき]:
+//: - lexer は移行診断や raw 境界のために括弧・角括弧 token を保持します。
+//: - module parser は通常 source の authority なので、旧 grouping / angle type syntax を AST item stream へ渡さず typed diagnostic として停止します。
+pub fn selfhost_parser_legacy_syntax_token_error %impure fn &SelfhostToken impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \token\ast:
+    let diag %SelfhostDiagnostic selfhost_parser_diag_at token SelfhostParserDiagnosticCode::LegacySyntaxToken "legacy parenthesis or angle-bracket syntax is not part of current NEPLg2.1 source" "use % prefix type syntax and backslash lambda parameters"
+    selfhost_module_ast_free ast
+    Result::Err diag

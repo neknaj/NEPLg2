@@ -281,15 +281,11 @@ fn selfhost_proof_module_declaration_head_allowed %fn SelfhostModuleDeclarationK
                     true
                 SelfhostModuleDeclarationHeadKind::TypeLabel:
                     false
-                SelfhostModuleDeclarationHeadKind::GenericParams:
-                    false
         SelfhostModuleDeclarationKind::Struct:
             match head_kind:
                 SelfhostModuleDeclarationHeadKind::Name:
                     true
                 SelfhostModuleDeclarationHeadKind::TypeLabel:
-                    false
-                SelfhostModuleDeclarationHeadKind::GenericParams:
                     false
         SelfhostModuleDeclarationKind::Enum:
             match head_kind:
@@ -297,23 +293,17 @@ fn selfhost_proof_module_declaration_head_allowed %fn SelfhostModuleDeclarationK
                     true
                 SelfhostModuleDeclarationHeadKind::TypeLabel:
                     false
-                SelfhostModuleDeclarationHeadKind::GenericParams:
-                    false
         SelfhostModuleDeclarationKind::Trait:
             match head_kind:
                 SelfhostModuleDeclarationHeadKind::Name:
                     true
                 SelfhostModuleDeclarationHeadKind::TypeLabel:
                     false
-                SelfhostModuleDeclarationHeadKind::GenericParams:
-                    false
         SelfhostModuleDeclarationKind::Impl:
             match head_kind:
                 SelfhostModuleDeclarationHeadKind::Name:
                     true
                 SelfhostModuleDeclarationHeadKind::TypeLabel:
-                    true
-                SelfhostModuleDeclarationHeadKind::GenericParams:
                     true
 
 //: selfhost_proof_module_declaration_visibility_allowed: declaration kind ごとの visibility 規則を[検査/けんさ]する

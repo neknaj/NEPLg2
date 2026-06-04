@@ -1,3 +1,17 @@
+# 2026-06-04 self-host parser current NEPLg2.1 syntax boundary checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、selfhost parser の旧括弧 / angle syntax を正常 AST へ流さず、typed diagnostic と current syntax boundary として扱うようにした。
+- `ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103` は `fixed` / `resolved: true` に更新した。
+- `SelfhostParserDiagnosticCode::LegacySyntaxToken` と stable code `parser.syntax.legacy_token` を追加し、表示用 string は `selfhost_parser_diag_code_name` の網羅 match だけで生成する。
+- `SelfhostParserTokenAction::LegacySyntax` を追加し、`LParen` / `RParen` / `LAngle` / `RAngle` は module parser loop で typed diagnostic にする。lexer token は移行診断や raw boundary 用に残すが、NEPLg2.1 の通常 source authority にはしない。
+- `selfhost_token_is_expr_start` は `LParen=false`、`Percent=true` とし、current `%` type annotation / expression ascription と旧 grouping を区別した。
+- `SelfhostModuleDeclarationHeadKind::GenericParams` を削除し、旧 `<...>` generic parameter list を declaration head evidence として proof solver へ渡さないようにした。
+- `%fn i32 fn i32 i32` の内部 `fn` を top-level declaration と誤分類しないよう、statement boundary / `pub` modifier boundary 判定を `module_parser/header_boundary.nepl` に分離した。
+- `tests/stdlib/neplg2_parser.n.md` は successful fixture を `fn add %fn i32 fn i32 i32 \a\b:` に更新し、旧 angle syntax / parenthesized grouping の拒否、primary label span、current function declaration header span を固定した。
+- `nodesrc/test_selfhost_parser_current_syntax_boundary.js` を追加し、legacy syntax diagnostic、parser action、`LParen=false` / `Percent=true`、`GenericParams` absence、positive fixture drift を検出する。
+- 検証済み: `node nodesrc\test_selfhost_module_parser_split_contract.js`、`node nodesrc\test_selfhost_parser_current_syntax_boundary.js`、`node nodesrc\test_selfhost_parser_tokenkind_match.js`、`node nodesrc\test_selfhost_parser_invalid_state_contract.js`、`node nodesrc\test_selfhost_parser_report_contract.js`、`node nodesrc\test_selfhost_diag_code_enum.js`、`node nodesrc\tests.js -i tests\stdlib\neplg2_parser.n.md --no-tree -o tmp\selfhost-parser-current-syntax-focused.json -j 1 --assert-io --dist web\dist`、`node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-parser-current-syntax-tree.json -j 2 --assert-io --dist web\dist`。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は今回追加した parser current syntax boundary contract が pass し、既存の static/resource/parser-backend/resource-gate/diagnostic-code-first 系 5 件だけを warning として報告した。
+
 # 2026-06-04 self-host parser invalid raw/offside state checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、selfhost parser の不正 raw / offside 状態を正常 AST へ丸めず、typed diagnostic と `Option` 状態遷移で扱うようにした。
