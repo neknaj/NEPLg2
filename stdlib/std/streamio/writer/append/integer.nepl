@@ -3,122 +3,264 @@
 //:
 //: ### [目的/もくてき]
 //: - 整数 format と digit 出力を text / ByteBuf append から分離します。
-//: - 各 digit は必ず `push_u8_impl` を通し、buffer flush 境界と length 更新の整合性を保ちます。
+//: - primary API は `Result` を返し、各 digit append の失敗を `StreamWriterError` として呼び出し側へ戻します。
 
 #indent 4
 
-#import "core/cast" as *
 #import "core/math" as *
+#import "core/math/convert/width" as *
+#import "core/result" as *
+#import "std/streamio/convert" as *
 #import "std/streamio/writer/append/text" as *
 #import "std/streamio/writer/state" as *
 
-//: ## append_i32_digits_impl
+//: ## append_i32_digits_result
 //: 正の `i32` を 10 [進/しん] digit として[追記/ついき]する
 //:
-//: ### [実装/じっそう]
-//: - 上位 digit を再帰で先に出し、各 digit は `push_u8_impl` に通します。
-//: - 直接 length field を進めず `push_u8_impl` に通すため、checked store 失敗時も writer の長さだけが先に進むことを避けます。
-pub fn append_i32_digits_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\x:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_i32_digits_result w 123;
+//:| close next;
+//: ```
+pub fn append_i32_digits_result %impure fn StreamWriter impure fn i32 Result StreamWriter StreamWriterError \w\x:
     if:
         ge x 10
         then:
-            let w1 %StreamWriter append_i32_digits_impl w div_s x 10;
-            let digit %i32 mod_s x 10;
-            push_u8_impl w1 add '0' digit
+            match append_i32_digits_result w div_s x 10:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok w1:
+                    let digit %i32 mod_s x 10;
+                    push_u8_result w1 add '0' digit
         else:
-            push_u8_impl w add '0' x
+            push_u8_result w add '0' x
 
-//: ## append_u32_digits_impl
+//: ## append_i32_digits_impl
+//: `append_i32_digits_result` の互換 facade
+pub fn append_i32_digits_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\x:
+    match append_i32_digits_result w x:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_u32_digits_result
 //: `u32` 表現の `i32` を符号なし 10 [進/しん] digit として[追記/ついき]する
-pub fn append_u32_digits_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\x:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_u32_digits_result w 123;
+//:| close next;
+//: ```
+pub fn append_u32_digits_result %impure fn StreamWriter impure fn i32 Result StreamWriter StreamWriterError \w\x:
     if:
         ge_u x 10
         then:
-            let w1 %StreamWriter append_u32_digits_impl w div_u x 10;
-            let digit %i32 rem_u x 10;
-            push_u8_impl w1 add '0' digit
+            match append_u32_digits_result w div_u x 10:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok w1:
+                    let digit %i32 rem_u x 10;
+                    push_u8_result w1 add '0' digit
         else:
-            push_u8_impl w add '0' x
+            push_u8_result w add '0' x
 
-//: ## append_u64_digits_impl
+//: ## append_u32_digits_impl
+//: `append_u32_digits_result` の互換 facade
+pub fn append_u32_digits_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\x:
+    match append_u32_digits_result w x:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_u64_digits_result
 //: `u64` 表現の `i64` を符号なし 10 [進/しん] digit として[追記/ついき]する
-pub fn append_u64_digits_impl %impure fn StreamWriter impure fn i64 StreamWriter \w\x:
-    let ten %i64 cast 10;
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/width" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_u64_digits_result w extend_s_i32_to_i64 123;
+//:| close next;
+//: ```
+pub fn append_u64_digits_result %impure fn StreamWriter impure fn i64 Result StreamWriter StreamWriterError \w\x:
+    let ten %i64 extend_s_i32_to_i64 10;
     if:
         ge_u x ten
         then:
-            let w1 %StreamWriter append_u64_digits_impl w div_u x ten;
-            let rem %i32 cast rem_u x ten;
-            push_u8_impl w1 add '0' rem
+            match append_u64_digits_result w div_u x ten:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok w1:
+                    let rem %i32 wrap_i64_to_i32 rem_u x ten;
+                    push_u8_result w1 add '0' rem
         else:
-            let digit %i32 cast x;
-            push_u8_impl w add '0' digit
+            let digit %i32 wrap_i64_to_i32 x;
+            push_u8_result w add '0' digit
 
-//: ## append_i32_impl
+//: ## append_u64_digits_impl
+//: `append_u64_digits_result` の互換 facade
+pub fn append_u64_digits_impl %impure fn StreamWriter impure fn i64 StreamWriter \w\x:
+    match append_u64_digits_result w x:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_i32_result
 //: `i32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
 //:
-//: ### [実装/じっそう]
+//: ### [契約/けいやく]
 //: - `INT_MIN` は[絶対値/ぜったいち]が overflow するため[定数/ていすう][文字列/もじれつ]で[処理/しょり]します。
-//: - それ[以外/いがい]は digit helper で上位桁から `push_u8_impl` へ通します。
-pub fn append_i32_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\v:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_i32_result w -123;
+//:| close next;
+//: ```
+pub fn append_i32_result %impure fn StreamWriter impure fn i32 Result StreamWriter StreamWriterError \w\v:
     if:
         eq v -2147483648
         then:
-            append_str_impl w "-2147483648"
+            append_str_result w "-2147483648"
         else:
             if:
                 eq v 0
                 then:
-                    push_u8_impl w 48
+                    push_u8_result w 48
                 else:
-                    let mut ww %StreamWriter w;
                     let mut x %i32 v;
-
                     if:
                         lt x 0
                         then:
-                            set ww push_u8_impl ww 45;
-                            set x sub 0 x;
-                            unit
+                            match push_u8_result w 45:
+                                Result::Err e:
+                                    Result::Err e
+                                Result::Ok w1:
+                                    set x sub 0 x;
+                                    append_i32_digits_result w1 x
                         else:
-                            unit;
-                    append_i32_digits_impl ww x
+                            append_i32_digits_result w x
 
-//: ## append_u32_impl
+//: ## append_i32_impl
+//: `append_i32_result` の互換 facade
+pub fn append_i32_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\v:
+    match append_i32_result w v:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_u32_result
 //: `u32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
-pub fn append_u32_impl %impure fn StreamWriter impure fn u32 StreamWriter \w\v:
-    let vi %i32 cast v;
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/convert" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let n %u32 streamio_i32_to_u32_bits 123;
+//:| let next %StreamWriter unwrap_ok append_u32_result w n;
+//:| close next;
+//: ```
+pub fn append_u32_result %impure fn StreamWriter impure fn u32 Result StreamWriter StreamWriterError \w\v:
+    let vi %i32 streamio_u32_to_i32_bits v;
     let zero %i32 0;
     if:
         eq vi zero
         then:
-            push_u8_impl w 48
+            push_u8_result w 48
         else:
-            append_u32_digits_impl w vi
+            append_u32_digits_result w vi
 
-//: ## append_u64_impl
+//: ## append_u32_impl
+//: `append_u32_result` の互換 facade
+pub fn append_u32_impl %impure fn StreamWriter impure fn u32 StreamWriter \w\v:
+    match append_u32_result w v:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_u64_result
 //: `u64` を 10 [進/しん]で[追記/ついき]する
-pub fn append_u64_impl %impure fn StreamWriter impure fn u64 StreamWriter \w\v:
-    let vi %i64 cast v;
-    let zero %i64 cast 0;
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/width" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/convert" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let n %u64 streamio_i64_to_u64_bits extend_s_i32_to_i64 123;
+//:| let next %StreamWriter unwrap_ok append_u64_result w n;
+//:| close next;
+//: ```
+pub fn append_u64_result %impure fn StreamWriter impure fn u64 Result StreamWriter StreamWriterError \w\v:
+    let vi %i64 streamio_u64_to_i64_bits v;
+    let zero %i64 extend_s_i32_to_i64 0;
     if:
         eq vi zero
         then:
-            push_u8_impl w 48
+            push_u8_result w 48
         else:
-            append_u64_digits_impl w vi
+            append_u64_digits_result w vi
 
-//: ## append_i64_impl
+//: ## append_u64_impl
+//: `append_u64_result` の互換 facade
+pub fn append_u64_impl %impure fn StreamWriter impure fn u64 StreamWriter \w\v:
+    match append_u64_result w v:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_i64_result
 //: `i64` を[符号付/ふごうつ]き 10 [進/しん]で[追記/ついき]する
-pub fn append_i64_impl %impure fn StreamWriter impure fn i64 StreamWriter \w\v:
-    let zero %i64 cast 0;
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/width" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_i64_result w extend_s_i32_to_i64 -123;
+//:| close next;
+//: ```
+pub fn append_i64_result %impure fn StreamWriter impure fn i64 Result StreamWriter StreamWriterError \w\v:
+    let zero %i64 extend_s_i32_to_i64 0;
     if:
         lt v zero
         then:
-            let w1 %StreamWriter push_u8_impl w 45;
-            let abs_i %i64 sub zero v;
-            let abs_u %u64 cast abs_i;
-            append_u64_impl w1 abs_u
+            match push_u8_result w 45:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok w1:
+                    let abs_i %i64 sub zero v;
+                    let abs_u %u64 streamio_i64_to_u64_bits abs_i;
+                    append_u64_result w1 abs_u
         else:
-            let as_u %u64 cast v;
-            append_u64_impl w as_u
+            let as_u %u64 streamio_i64_to_u64_bits v;
+            append_u64_result w as_u
+
+//: ## append_i64_impl
+//: `append_i64_result` の互換 facade
+pub fn append_i64_impl %impure fn StreamWriter impure fn i64 StreamWriter \w\v:
+    match append_i64_result w v:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e

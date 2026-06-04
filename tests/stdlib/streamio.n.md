@@ -330,10 +330,91 @@ fn main %impure fn void i32 \void:
                     set checks checks_push checks Result::Err e
                 Result::Ok _:
                     let sc %StreamScanner unwrap_ok open ReadStream::Bytes io_bytebuf_finish_region region 1
-                    let token %str read &sc
+                    let token %Result str StreamScannerError read_result &sc
+                    let invalid_utf8:
+                        match token:
+                            Result::Ok _text:
+                                assert "invalid utf8 is rejected" false
+                            Result::Err e:
+                                match e:
+                                    StreamScannerError::InvalidUtf8:
+                                        assert "invalid utf8 is rejected" true
+                                    _:
+                                        assert "invalid utf8 is rejected" false
                     close sc
-                    set checks checks_push checks assert_str_eq "" token
+                    set checks checks_push checks invalid_utf8
     let shown checks_print_report checks
+    checks_exit_code shown
+```
+
+## stream_scanner_reports_malformed_number
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/streamio" as *
+#import "std/iotarget" as *
+#import "std/test" as *
+#import "core/result" as *
+
+fn main %impure fn void i32 \void:
+    let sc %StreamScanner unwrap_ok open ReadStream::Text "-"
+    let parsed %Result i32 StreamScannerError read_result &sc
+    let check:
+        match parsed:
+            Result::Ok _value:
+                assert "sign-only integer is malformed" false
+            Result::Err e:
+                match e:
+                    StreamScannerError::MalformedToken:
+                        assert "sign-only integer is malformed" true
+                    _:
+                        assert "sign-only integer is malformed" false
+    close sc
+    let shown checks_print_report checks_push checks_new check
+    checks_exit_code shown
+```
+
+## stream_writer_reports_unsupported_target
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/streamio" as *
+#import "std/iotarget" as *
+#import "std/test" as *
+#import "core/result" as *
+
+fn main %impure fn void i32 \void:
+    let opened %Result StreamWriter StreamWriterError open WriteStream::Fs
+    let check:
+        match opened:
+            Result::Ok w:
+                close w
+                assert "unsupported write target is typed error" false
+            Result::Err e:
+                let kind %StreamWriterErrorKind stream_writer_error_kind &e
+                stream_writer_error_free e
+                match kind:
+                    StreamWriterErrorKind::UnsupportedTarget:
+                        assert "unsupported write target is typed error" true
+                    _:
+                        assert "unsupported write target is typed error" false
+    let shown checks_print_report checks_push checks_new check
     checks_exit_code shown
 ```
 

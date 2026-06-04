@@ -32,7 +32,7 @@
 #import "core/result" as *
 #import "std/iotarget" as *
 #import "std/streamio/writer/append" as *
-#import "std/streamio/writer/state" as *
+pub #import "std/streamio/writer/state" as *
 
 //: ## open
 //: write target へ[書/か]く buffered sink を[作/つく]る
@@ -45,8 +45,17 @@
 //: - `WriteStream::Stdio` と `WriteStream::Stderr` を[受/う]け[付/つ]け、writer field に target enum を[記録/きろく]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [未対応/みたいおう] target は `Result::Err` を[返/かえ]します。
-pub fn open %impure fn WriteStream Result StreamWriter str \target:
+//: - [未対応/みたいおう] target は `StreamWriterError` を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| close w;
+//: ```
+pub fn open %impure fn WriteStream Result StreamWriter StreamWriterError \target:
     match target:
         WriteStream::Stdio:
             match stream_writer_new StreamWriterTargetKind::Stdout:
@@ -61,7 +70,7 @@ pub fn open %impure fn WriteStream Result StreamWriter str \target:
                 Result::Err e:
                     Result::Err e
         WriteStream::Fs:
-            Result::Err "streamio.open invalid target"
+            Result::Err stream_writer_error_without_writer StreamWriterErrorKind::UnsupportedTarget
 
 //: ## StreamWritable
 //: `StreamWriter` へ[追記/ついき]できる[値/あたい]の[能力/のうりょく]
@@ -101,33 +110,152 @@ impl StreamWritable for f32:
     fn append %impure fn StreamWriter impure fn f32 StreamWriter \w\value:
         append_f32_impl w value
 
+//: ## StreamWritableResult
+//: `StreamWriter` へ[追記/ついき]できる[値/あたい]の typed failure 版
+//:
+//: ### [契約/けいやく]
+//: - append failure を `StreamWriterError` として返し、recover 可能な場合は error payload に writer owner を戻します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/writer" as *
+//: ```
+trait StreamWritableResult:
+    fn append_result %impure fn StreamWriter impure fn Self Result StreamWriter StreamWriterError \w\value:
+        Result::Err stream_writer_error_with_writer w StreamWriterErrorKind::InvalidInput
+
+impl StreamWritableResult for str:
+    fn append_result %impure fn StreamWriter impure fn str Result StreamWriter StreamWriterError \w\value:
+        append_str_result w value
+
+impl StreamWritableResult for ByteBuf:
+    fn append_result %impure fn StreamWriter impure fn ByteBuf Result StreamWriter StreamWriterError \w\value:
+        append_bytebuf_result w value
+
+impl StreamWritableResult for i32:
+    fn append_result %impure fn StreamWriter impure fn i32 Result StreamWriter StreamWriterError \w\value:
+        append_i32_result w value
+
+impl StreamWritableResult for i64:
+    fn append_result %impure fn StreamWriter impure fn i64 Result StreamWriter StreamWriterError \w\value:
+        append_i64_result w value
+
+impl StreamWritableResult for u32:
+    fn append_result %impure fn StreamWriter impure fn u32 Result StreamWriter StreamWriterError \w\value:
+        append_u32_result w value
+
+impl StreamWritableResult for u64:
+    fn append_result %impure fn StreamWriter impure fn u64 Result StreamWriter StreamWriterError \w\value:
+        append_u64_result w value
+
+impl StreamWritableResult for f64:
+    fn append_result %impure fn StreamWriter impure fn f64 Result StreamWriter StreamWriterError \w\value:
+        append_f64_result w value
+
+impl StreamWritableResult for f32:
+    fn append_result %impure fn StreamWriter impure fn f32 Result StreamWriter StreamWriterError \w\value:
+        append_f32_result w value
+
 //: ## write
 //: `StreamWriter` へ text を[追記/ついき]する[共通名/きょうつうめい] overload
 //:
 //: ### [目的/もくてき]
 //: - `StreamWriter` の text / [数値/すうち][出力/しゅつりょく]を trait dispatch で 1 [個/こ]の `write` へ[集約/しゅうやく]し、公開面に型 suffix を[残/のこ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| let next %StreamWriter unwrap_ok write_result w "x";
+//:| close next;
+//: ```
+pub fn write_result <.T: StreamWritableResult> %impure fn StreamWriter impure fn .T Result StreamWriter StreamWriterError \w\value:
+    StreamWritableResult::append_result w value
+
 pub fn write <.T: StreamWritable> %impure fn StreamWriter impure fn .T StreamWriter \w\value:
     StreamWritable::append w value
 
 //: ## write
 //: pipe [終端/しゅうたん]から `StreamWriter` へ[追記/ついき]する overload
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| let next %StreamWriter unwrap_ok write_result "x" w;
+//:| close next;
+//: ```
+pub fn write_result <.T: StreamWritableResult> %impure fn .T impure fn StreamWriter Result StreamWriter StreamWriterError \value\w:
+    StreamWritableResult::append_result w value
+
 pub fn write <.T: StreamWritable> %impure fn .T impure fn StreamWriter StreamWriter \value\w:
     StreamWritable::append w value
 
 //: ## writeln
 //: `StreamWriter` へ[追記/ついき]して[改行/かいぎょう]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| let next %StreamWriter unwrap_ok writeln_result w "x";
+//:| close next;
+//: ```
+pub fn writeln_result <.T: StreamWritableResult> %impure fn StreamWriter impure fn .T Result StreamWriter StreamWriterError \w\value:
+    match StreamWritableResult::append_result w value:
+        Result::Err e:
+            Result::Err e
+        Result::Ok w1:
+            push_newline_result w1
+
 pub fn writeln <.T: StreamWritable> %impure fn StreamWriter impure fn .T StreamWriter \w\value:
     let w1 %StreamWriter StreamWritable::append w value;
     push_newline_impl w1
 
 //: ## writeln
 //: pipe [終端/しゅうたん]から `StreamWriter` へ[追記/ついき]して[改行/かいぎょう]する overload
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| let next %StreamWriter unwrap_ok writeln_result "x" w;
+//:| close next;
+//: ```
+pub fn writeln_result <.T: StreamWritableResult> %impure fn .T impure fn StreamWriter Result StreamWriter StreamWriterError \value\w:
+    match StreamWritableResult::append_result w value:
+        Result::Err e:
+            Result::Err e
+        Result::Ok w1:
+            push_newline_result w1
+
 pub fn writeln <.T: StreamWritable> %impure fn .T impure fn StreamWriter StreamWriter \value\w:
     let w1 %StreamWriter StreamWritable::append w value;
     push_newline_impl w1
 
 //: ## flush
 //: `StreamWriter` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する[共通名/きょうつうめい] overload
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| let flushed %StreamWriter unwrap_ok flush_result w;
+//:| close flushed;
+//: ```
+pub fn flush_result %impure fn StreamWriter Result StreamWriter StreamWriterError \w:
+    drain_result w
+
 pub fn flush %impure fn StreamWriter StreamWriter \w:
     drain_impl w
 
@@ -135,6 +263,30 @@ pub fn flush %impure fn StreamWriter StreamWriter \w:
 //: `StreamWriter` を[閉/と]じて buffered sink の[確保領域/かくほりょういき]を[解放/かいほう]する[共通名/きょうつうめい] overload
 //:
 //: ### [注意/ちゅうい]
-//: - `close` は owner を[消費/しょうひ]します。未 flush の[内容/ないよう]は[捨/す]てられるため、[必要/ひつよう]なら[先/さき]に `flush` を[呼/よ]んでください。
+//: - `close_result` は owner を[消費/しょうひ]し、未 flush の[内容/ないよう]を先に flush します。
+//: - flush 失敗時は writer owner を error payload に戻すため、caller が retry または cleanup を選べます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| unwrap_ok close_result w;
+//: ```
+pub fn close_result %impure fn StreamWriter Result unit StreamWriterError \w:
+    match drain_result w:
+        Result::Err e:
+            Result::Err e
+        Result::Ok flushed:
+            stream_writer_close_impl flushed
+            Result::Ok unit
+
+//: ## close
+//: `close_result` の互換 facade
 pub fn close %impure fn StreamWriter unit \w:
-    stream_writer_close_impl w
+    match close_result w:
+        Result::Ok _:
+            unit
+        Result::Err e:
+            stream_writer_error_free e

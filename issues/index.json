@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T22:26:51.618Z",
+  "generated_at": "2026-06-04T23:54:32.933Z",
   "counts": {
     "total": 1343,
-    "open": 49,
-    "resolved": 1294,
+    "open": 48,
+    "resolved": 1295,
     "by_area": {
       "stdlib": {
         "total": 350,
-        "open": 12,
-        "resolved": 338
+        "open": 11,
+        "resolved": 339
       },
       "core": {
         "total": 665,
@@ -623,21 +623,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md"
-    },
-    {
-      "id": "ISS-20260604T033842259Z-STREAMIO-SCANNER-AND-WRITER-APIS-STI-EFC1568E",
-      "title": "streamio scanner and writer APIs still mix string errors sentinel fallbacks and non-Result effects",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/std/streamio/scanner, stdlib/std/streamio/writer.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T033842259Z-STREAMIO-SCANNER-AND-WRITER-APIS-STI-EFC1568E.md"
     },
     {
       "id": "ISS-20260604T034124436Z-RAW-MEMORY-ALLOCATOR-AND-COLLECTION--C8833FBA",
@@ -16013,6 +15998,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF.md"
+    },
+    {
+      "id": "ISS-20260604T033842259Z-STREAMIO-SCANNER-AND-WRITER-APIS-STI-EFC1568E",
+      "title": "streamio scanner and writer APIs still mix string errors sentinel fallbacks and non-Result effects",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "stdlib/std/streamio/scanner, stdlib/std/streamio/writer.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T033842259Z-STREAMIO-SCANNER-AND-WRITER-APIS-STI-EFC1568E.md"
     },
     {
       "id": "ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4",

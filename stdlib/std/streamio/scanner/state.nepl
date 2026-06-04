@@ -22,6 +22,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "core/field" as *
+#import "std/streamio/scanner/error" as *
 
 //: ## StreamScanner
 //: read target を token [単位/たんい]に[走査/そうさ]する scanner
@@ -38,17 +39,40 @@ pub struct StreamScanner:
     bytes %ByteBuf
     cursor %Vec i32
 
-//: ## stream_scanner_byte_at
+//: ## stream_scanner_byte_at_result
 //: scanner buffer の byte を安全な範囲内で読む
 //:
 //: ### [目的/もくてき]
 //: - scanner が所有する `ByteBuf` を borrowed view として読み、tokenizer が raw address を直接扱わないようにします。
-//: - 呼び出し側の境界確認漏れや低レベル load 失敗は byte `0` として扱い、scanner の sentinel と同じ意味に丸めます。
-pub fn stream_scanner_byte_at %fn &ByteBuf fn i32 i32 \bytes\pos:
+//: - 呼び出し側の境界確認漏れや低レベル load 失敗は `StreamScannerError::InvalidRange` として返します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "x";
+//:| let bytes %&ByteBuf get_ref &sc "bytes";
+//:| let x %i32 unwrap_ok stream_scanner_byte_at_result bytes 0;
+//:| close sc;
+//: ```
+pub fn stream_scanner_byte_at_result %fn &ByteBuf fn i32 Result i32 StreamScannerError \bytes\pos:
     match io_bytebuf_byte_at bytes pos:
         Option::Some byte:
-            byte
+            Result::Ok byte
         Option::None:
+            Result::Err StreamScannerError::InvalidRange
+
+//: ## stream_scanner_byte_at
+//: scanner buffer の byte を読む互換 facade
+//:
+//: ### [注意/ちゅうい]
+//: - `*_result` API へ移行していない古い parser 用に、失敗を byte `0` へ丸めます。
+pub fn stream_scanner_byte_at %fn &ByteBuf fn i32 i32 \bytes\pos:
+    match stream_scanner_byte_at_result bytes pos:
+        Result::Ok byte:
+            byte
+        Result::Err _e:
             0
 
 //: ## stream_scanner_load_pos_result
@@ -57,13 +81,23 @@ pub fn stream_scanner_byte_at %fn &ByteBuf fn i32 i32 \bytes\pos:
 //: ### [目的/もくてき]
 //: - borrowed scanner API から cursor だけを更新するため、position は dedicated typed cursor storage に保持します。
 //: - cursor storage の破損は `Result` として返し、public facade が必要に応じて sentinel へ丸めます。
-pub fn stream_scanner_load_pos_result %fn &StreamScanner Result i32 str \sc:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "x";
+//:| let pos %i32 unwrap_ok stream_scanner_load_pos_result &sc;
+//:| close sc;
+//: ```
+pub fn stream_scanner_load_pos_result %fn &StreamScanner Result i32 StreamScannerError \sc:
     let cursor %&Vec i32 get_ref sc "cursor";
     match vec::get cursor 0:
         Option::Some pos:
             Result::Ok pos
         Option::None:
-            Result::Err "streamio.stream_scanner_load_pos failed"
+            Result::Err StreamScannerError::CursorMissing
 
 //: ## stream_scanner_load_pos
 //: scanner cursor position を読む互換 facade
@@ -82,14 +116,24 @@ pub fn stream_scanner_load_pos %fn &StreamScanner i32 \sc:
 //:
 //: ### [目的/もくてき]
 //: - `read &sc` のような borrowed API で scanner owner を移動せず、typed cursor position だけを scanner state boundary として更新します。
-pub fn stream_scanner_store_pos_result %impure fn &StreamScanner impure fn i32 Result unit str \sc\pos:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "x";
+//:| unwrap_ok stream_scanner_store_pos_result &sc 0;
+//:| close sc;
+//: ```
+pub fn stream_scanner_store_pos_result %impure fn &StreamScanner impure fn i32 Result unit StreamScannerError \sc\pos:
     let cursor %&Vec i32 get_ref sc "cursor";
     match vec::get cursor 0:
         Option::Some _old:
             vec::replace cursor 0 pos
             Result::Ok unit
         Option::None:
-            Result::Err "streamio.stream_scanner_store_pos failed"
+            Result::Err StreamScannerError::CursorStoreFailed
 
 //: ## stream_scanner_store_pos
 //: scanner cursor position を書く互換 facade
@@ -113,14 +157,24 @@ pub fn stream_scanner_len %fn &StreamScanner i32 \sc:
 //: - token parser が `ByteBuf` の raw pointer を直接取り出さず、slice-to-string の raw boundary をこの module に閉じます。
 //: - `ByteBuf` owner は借用のまま保持し、返る `str` は新しい owned string です。
 //: - 入力は `ReadStream::Bytes` や file 由来の任意 byte 列でもあり得るため、`str` 化の直前に UTF-8 として検証します。
-pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i32 impure fn i32 Result str str \sc\start\tlen:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "abc";
+//:| let s %str unwrap_ok stream_scanner_slice_to_str_result &sc 0 3;
+//:| close sc;
+//: ```
+pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i32 impure fn i32 Result str StreamScannerError \sc\start\tlen:
     let bytes %&ByteBuf get_ref sc "bytes";
     let len %i32 io_bytebuf_len_ref bytes;
     let end %i32 add start tlen;
     if:
         or or or lt start 0 lt tlen 0 lt end start gt end len
         then:
-            Result::Err "streamio.stream_scanner_slice invalid range"
+            Result::Err StreamScannerError::InvalidRange
         else:
             if:
                 eq tlen 0
@@ -133,23 +187,47 @@ pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i3
                                 Result::Ok token:
                                     Result::Ok token
                                 Result::Err _e:
-                                    Result::Err "streamio.stream_scanner_slice invalid utf8"
+                                    Result::Err StreamScannerError::InvalidUtf8
                         Option::None:
-                            Result::Err "streamio.stream_scanner_slice missing buffer"
+                            Result::Err StreamScannerError::MissingBuffer
 
 //: ## stream_scanner_cursor_new
 //: cursor position storage を作る
 //:
 //: ### [目的/もくてき]
 //: - input buffer owner とは別に、borrowed scanner API が更新する 1 element の typed cursor storage を確保します。
-pub fn stream_scanner_cursor_new %fn void Result Vec i32 str \void:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/scanner/state" as *
+//:| let cursor %Vec i32 unwrap_ok stream_scanner_cursor_new;
+//:| vec::free cursor;
+//: ```
+pub fn stream_scanner_cursor_new %fn void Result Vec i32 StreamScannerError \void:
     match vec::filled 1 0:
         Result::Err _e:
-            Result::Err "streamio.scanner cursor alloc failed"
+            Result::Err StreamScannerError::CursorAllocFailed
         Result::Ok cursor:
             Result::Ok cursor
 
-pub fn scanner_from_bytes %impure fn ByteBuf Result StreamScanner str \bytes:
+//: ## scanner_from_bytes
+//: `ByteBuf` owner から scanner owner を構築する
+//:
+//: ### [契約/けいやく]
+//: - 成功時は input bytes と cursor storage を `StreamScanner` が所有します。
+//: - 失敗時は渡された `ByteBuf` をこの関数が解放し、caller へ owner を返しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "alloc/io" as *
+//:| #import "std/streamio/scanner" as *
+//:| let bytes %ByteBuf unwrap_ok io_bytebuf_from_str_result "abc";
+//:| let sc %StreamScanner unwrap_ok scanner_from_bytes bytes;
+//:| close sc;
+//: ```
+pub fn scanner_from_bytes %impure fn ByteBuf Result StreamScanner StreamScannerError \bytes:
     let len %i32 io_bytebuf_len_ref &bytes;
     match io_bytebuf_ptr_ref &bytes:
         Option::None:
@@ -164,7 +242,7 @@ pub fn scanner_from_bytes %impure fn ByteBuf Result StreamScanner str \bytes:
                             Result::Err e
                 else:
                     io_bytebuf_free bytes
-                    Result::Err "streamio.scanner invalid byte buffer"
+                    Result::Err StreamScannerError::InvalidByteBuffer
         Option::Some _buf:
             match stream_scanner_cursor_new:
                 Result::Ok cursor:

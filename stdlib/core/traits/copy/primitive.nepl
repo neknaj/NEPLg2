@@ -82,6 +82,15 @@ impl Copy for i32:
     fn copy_mark %fn i32 i32 \x:
         x
 
+//: u32 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
+impl Clone for u32:
+    fn clone %fn &u32 u32 \x:
+        *x
+
+impl Copy for u32:
+    fn copy_mark %fn u32 u32 \x:
+        x
+
 //: i64 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
 impl Clone for i64:
     fn clone %fn &i64 i64 \x:
@@ -89,6 +98,15 @@ impl Clone for i64:
 
 impl Copy for i64:
     fn copy_mark %fn i64 i64 \x:
+        x
+
+//: u64 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
+impl Clone for u64:
+    fn clone %fn &u64 u64 \x:
+        *x
+
+impl Copy for u64:
+    fn copy_mark %fn u64 u64 \x:
         x
 
 //: u8 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ

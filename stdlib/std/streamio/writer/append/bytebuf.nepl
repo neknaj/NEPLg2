@@ -8,7 +8,9 @@
 #indent 4
 
 #import "alloc/io" as *
+#import "alloc/io/bytebuilder" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "std/streamio/writer/state" as *
 #import "core/field" as *
 #import "core/math" as *
@@ -22,7 +24,7 @@
 pub fn stream_writer_bytebuf_byte_at %fn &ByteBuf fn i32 Option i32 \bytes\idx:
     io_bytebuf_byte_at bytes idx
 
-//: ## append_bytebuf_impl
+//: ## append_bytebuf_result
 //: `ByteBuf` を buffered sink へ[追記/ついき]する
 //:
 //: ### [目的/もくてき]
@@ -30,19 +32,36 @@ pub fn stream_writer_bytebuf_byte_at %fn &ByteBuf fn i32 Option i32 \bytes\idx:
 //:
 //: ### [注意/ちゅうい]
 //: - `ByteBuf` の[所有権/しょゆうけん]を[受/う]け[取/と]り、copy [後/ご]に[解放/かいほう]します。
-//: - writer の[内部/ないぶ] capacity を[超/こ]える入力でも、1 byte [単位/たんい]で必要に応じて flush するため overflow しません。
+//: - 失敗時は input `ByteBuf` を閉じ、writer owner は `StreamWriterError` に戻します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/io" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let bytes %ByteBuf unwrap_ok io_bytebuf_from_str_result "abc";
+//:| let next %StreamWriter unwrap_ok append_bytebuf_result w bytes;
+//:| close next;
+//: ```
+pub fn append_bytebuf_result %impure fn StreamWriter impure fn ByteBuf Result StreamWriter StreamWriterError \w\bytes:
+    let target %StreamWriterTargetKind *get_ref &w "target";
+    let builder %ByteBuilder get w "builder";
+    match byte_builder_push_bytebuf builder bytes:
+        Result::Ok next_builder:
+            Result::Ok StreamWriter next_builder target @stream_writer_noncopy_marker
+        Result::Err e:
+            let returned %ByteBuilder get e "builder";
+            let returned_bytes %ByteBuf get e "bytes";
+            io_bytebuf_free returned_bytes
+            let failed %StreamWriter StreamWriter returned target @stream_writer_noncopy_marker
+            Result::Err stream_writer_error_with_writer failed StreamWriterErrorKind::AppendFailed
+
+//: ## append_bytebuf_impl
+//: `append_bytebuf_result` の互換 facade
 pub fn append_bytebuf_impl %impure fn StreamWriter impure fn ByteBuf StreamWriter \w\bytes:
-    let n %i32 get bytes "len";
-    let mut ww %StreamWriter w;
-    let mut i %i32 0;
-    let mut done %i32 0;
-    while and eq done 0 lt i n:
-        do:
-            match stream_writer_bytebuf_byte_at &bytes i:
-                Option::Some ch:
-                    set ww push_u8_impl ww ch;
-                    set i add i 1;
-                Option::None:
-                    set done 1;
-    io_bytebuf_free bytes;
-    ww
+    match append_bytebuf_result w bytes:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
