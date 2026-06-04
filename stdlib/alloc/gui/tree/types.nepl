@@ -11,15 +11,17 @@
 //: - focus target は focusable かつ disabled ではない widget だけです。
 //: - `ViewTreeArena` / `LayoutTreeArena` の owner-consuming `*_add_child` は、失敗時に error payload へ tree owner と rejected child を[戻/もど]します。呼び出し側は owner を[回収/かいしゅう]して cleanup できます。
 //:
-//: neplg2:test
-//: ret: 7
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_tree_types_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 8 1
 //:     let root %WidgetDescriptor widget_label root_id "title" root_hint
@@ -38,6 +40,14 @@
 //:                     0
 //:         Result::Err _error:
 //:             1
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_tree_types_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 7 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

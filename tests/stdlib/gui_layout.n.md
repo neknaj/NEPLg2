@@ -8,8 +8,9 @@
 - layout が browser / terminal / OS font API を直接呼ばず、context に注入された `MockTextMeasurer` だけで測定することを確認します。
 - 測定 width が max width を超えないことを固定します。
 
-neplg2:test
-ret: 24
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_text_width_uses_injected_text_measurer_and_clamps\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"24\" actual=\"24\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -18,8 +19,9 @@ ret: 24
 #import "alloc/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let constraints %LayoutConstraints layout_constraints 0 0 24 10
     let scale %GuiScaleFactor gui_scale_factor_new 1 1
     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
@@ -31,6 +33,14 @@ fn main %fn void i32 \void:
             width
         Result::Err _width_error:
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_text_width_uses_injected_text_measurer_and_clamps"
+        |> test_report_push assert_eq_i32 "return value" 24 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_text_height_uses_injected_text_measurer_and_clamps
@@ -38,8 +48,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - 測定 height が max height を超えないことを固定します。
 
-neplg2:test
-ret: 10
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_text_height_uses_injected_text_measurer_and_clamps\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"10\" actual=\"10\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -47,8 +58,9 @@ ret: 10
 
 #import "alloc/gui" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let constraints %LayoutConstraints layout_constraints 0 0 24 10
     let scale %GuiScaleFactor gui_scale_factor_new 1 1
     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
@@ -60,6 +72,14 @@ fn main %fn void i32 \void:
             height
         Result::Err _height_error:
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_text_height_uses_injected_text_measurer_and_clamps"
+        |> test_report_push assert_eq_i32 "return value" 10 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_invalid_constraints_are_result_error
@@ -67,8 +87,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - invalid geometry が panic や silent no-op ではなく `GuiError::InvalidGeometry` として返ることを固定します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_invalid_constraints_are_result_error\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -77,8 +98,9 @@ ret: 0
 #import "alloc/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let negative_max_width %i32 sub 0 1
     let constraints %LayoutConstraints layout_constraints 0 0 negative_max_width 10
     let scale %GuiScaleFactor gui_scale_factor_new 1 1
@@ -95,6 +117,14 @@ fn main %fn void i32 \void:
                     0
                 _:
                     1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_invalid_constraints_are_result_error"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_linear_places_nested_nodes
@@ -103,8 +133,9 @@ fn main %fn void i32 \void:
 - allocator-backed `ViewTreeArena` を `LayoutTreeArena` へ変換し、parent index / depth を保ったまま layout phase に接続できることを確認します。
 - 初期 linear layout contract として、arena order で y 方向に積まれることを固定します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_linear_places_nested_nodes\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -114,8 +145,9 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -161,6 +193,14 @@ fn main %fn void i32 \void:
         Result::Err _error:
             view_tree_arena_free view
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_linear_places_nested_nodes"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_linear_invalid_constraints_are_result_error
@@ -168,8 +208,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - arena layout 中の測定失敗が panic や silent no-op ではなく `GuiError::InvalidGeometry` として返ることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_linear_invalid_constraints_are_result_error\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -178,8 +219,9 @@ ret: 0
 #import "alloc/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -203,6 +245,14 @@ fn main %fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_linear_invalid_constraints_are_result_error"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_stack_places_siblings_under_same_parent
@@ -211,8 +261,9 @@ fn main %fn void i32 \void:
 - stack layout が global arena order ではなく、同じ parent を持つ sibling だけを previous sibling の size と spacing で積むことを確認します。
 - `WidgetId` と arena index を混同しないよう、id は arena index と異なる値にします。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_stack_places_siblings_under_same_parent\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -222,8 +273,9 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -264,6 +316,14 @@ fn main %fn void i32 \void:
         Result::Err _error:
             view_tree_arena_free view
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_stack_places_siblings_under_same_parent"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_stack_resets_offset_for_nested_parent
@@ -271,8 +331,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - nested child が root sibling の cursor ではなく、自分の parent の local stack offset から配置されることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_stack_resets_offset_for_nested_parent\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -282,8 +343,9 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -328,6 +390,14 @@ fn main %fn void i32 \void:
         Result::Err _error:
             view_tree_arena_free view
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_stack_resets_offset_for_nested_parent"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_stack_invalid_policy_is_result_error
@@ -335,8 +405,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - negative spacing が panic や silent no-op ではなく `GuiError::InvalidGeometry` として返ることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_stack_invalid_policy_is_result_error\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -345,8 +416,9 @@ ret: 0
 #import "alloc/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -369,6 +441,14 @@ fn main %fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_stack_invalid_policy_is_result_error"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_stack_vertical_center_aligns_cross_axis
@@ -377,8 +457,9 @@ fn main %fn void i32 \void:
 - vertical stack の cross-axis alignment が parent width と child width から x を deterministic に計算することを確認します。
 - parent width 20、child width 4 の `Center` は x 8 になることを固定します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_stack_vertical_center_aligns_cross_axis\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -388,8 +469,9 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -423,6 +505,14 @@ fn main %fn void i32 \void:
         Result::Err _error:
             view_tree_arena_free view
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_stack_vertical_center_aligns_cross_axis"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_stack_vertical_stretch_uses_parent_cross_size
@@ -430,8 +520,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - `Stretch` alignment が vertical stack の child width を parent width にそろえることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_stack_vertical_stretch_uses_parent_cross_size\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -441,8 +532,9 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -476,6 +568,14 @@ fn main %fn void i32 \void:
         Result::Err _error:
             view_tree_arena_free view
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_stack_vertical_stretch_uses_parent_cross_size"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_stack_horizontal_end_aligns_cross_axis
@@ -484,8 +584,9 @@ fn main %fn void i32 \void:
 - horizontal stack の cross-axis alignment が y / height 側へ正しく適用されることを確認します。
 - parent height 10、child height 2 の `End` は y 8 になることを固定します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_stack_horizontal_end_aligns_cross_axis\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -495,8 +596,9 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 10
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -530,6 +632,14 @@ fn main %fn void i32 \void:
         Result::Err _error:
             view_tree_arena_free view
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_stack_horizontal_end_aligns_cross_axis"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## layout_view_tree_arena_stack_rejects_overflow_when_policy_requires_it
@@ -538,8 +648,9 @@ fn main %fn void i32 \void:
 - `StackOverflowPolicy::Reject` が parent bounds を超える child 配置を `GuiError::InvalidGeometry` として返すことを確認します。
 - layout 途中で失敗しても `LayoutTreeArena` owner は layout module 側で解放され、caller は borrowed `ViewTreeArena` だけを解放します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"layout_view_tree_arena_stack_rejects_overflow_when_policy_requires_it\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -548,8 +659,9 @@ ret: 0
 #import "alloc/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 100
     let root_hint %LayoutHint layout_hint_fixed 20 3
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -581,4 +693,12 @@ fn main %fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "layout_view_tree_arena_stack_rejects_overflow_when_policy_requires_it"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

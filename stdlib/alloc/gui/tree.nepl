@@ -8,18 +8,28 @@
 //: ### [現状/げんじょう]
 //: - 初期 checkpoint では root と最大 2 個の child を[持/も]つ fixed capacity tree です。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_tree_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let id %WidgetId widget_id 1
 //:     let hint %LayoutHint layout_hint_fixed 4 1
 //:     let root %WidgetDescriptor widget_label id "root" hint
 //:     let tree %ViewTree view_tree_single root
 //:     view_tree_child_count &tree
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_tree_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 0 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

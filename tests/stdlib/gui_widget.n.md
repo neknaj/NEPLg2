@@ -9,7 +9,7 @@
 - disabled widget は action event を返さないことを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"widget_button_activation_is_action_event\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"55\" actual=\"55\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -42,10 +42,10 @@ fn main %impure fn void i32 \void:
             assert false
         Option::None:
             assert true
-    let checks1 checks_push checks_new enabled_check
-    let checks checks_push checks1 disabled_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "widget_button_activation_is_action_event" enabled_check
+    let checks test_report_push checks1 disabled_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## widget_semantics_are_generated_from_widget_data
@@ -54,7 +54,7 @@ fn main %impure fn void i32 \void:
 - semantic role が draw command から逆算されず、widget snapshot から生成されることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok]\n[0] ok\n"
+stdout: "test_report name=\"widget_semantics_are_generated_from_widget_data\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -72,7 +72,7 @@ fn main %impure fn void i32 \void:
     let descriptor %WidgetDescriptor widget_button config hint
     let semantic %SemanticNode widget_semantic_node &descriptor
     let check assert semantic_node_is_button &semantic
-    let checks checks_push checks_new check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks test_report_push test_report_new "widget_semantics_are_generated_from_widget_data" check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

@@ -5,15 +5,17 @@
 //: - `core/gui` の `TextMeasureRequest` / `TextMeasureResult` / `TextMeasurer` を std layer の host contract として[使/つか]います。
 //: - browser、native font stack、terminal cell width などの実測定は platform module が[所有/しょゆう]し、この module は fallback 用の typed wrapper だけを[提供/ていきょう]します。
 //:
-//: neplg2:test
-//: ret: 24
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"std_gui_text_measure_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"24\" actual=\"24\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/gui/text_measure" as *
 //:| #import "core/gui" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let measurer %HostTextMeasurer host_text_measurer_fixed gui_capabilities_text_grid 8 16 12
 //:     let run_id %TextRunId text_run_id_new 1
 //:     let font_id %FontId font_id_new 1
@@ -23,6 +25,14 @@
 //:             text_measure_result_width &metrics
 //:         Result::Err _error:
 //:             0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "std_gui_text_measure_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 24 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

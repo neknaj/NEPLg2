@@ -4,17 +4,19 @@
 
 ## geometry arithmetic
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_geometry_arithmetic\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/gui" as *
 #import "core/test" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let p %GuiPoint gui_point_new 2 3
     let delta %GuiPoint gui_point_new 5 -1
     let moved %GuiPoint gui_point_add p delta
@@ -30,22 +32,32 @@ fn main %fn void i32 \void:
     assert_eq_i32 45 gui_rect_right &shifted
     assert gui_rect_contains_point &shifted gui_point_new 20 20
     0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_geometry_arithmetic"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## color constructor
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_color_constructor\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/cast" as *
 #import "core/gui" as *
 #import "core/test" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let r %u8 cast 12
     let g %u8 cast 34
     let b %u8 cast 56
@@ -57,19 +69,29 @@ fn main %fn void i32 \void:
     assert_eq_i32 56 cast rgba8888_b &rgba
     assert_eq_i32 200 cast rgba8888_a &rgba
     0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_color_constructor"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## text grid capability and lifecycle event smoke
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_text_grid_capability_and_lifecycle_event_smoke\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/gui" as *
 #import "core/test" as *
+#import "std/test" as test
 
 fn lifecycle_code %fn GuiEvent i32 \event:
     match event:
@@ -82,26 +104,36 @@ fn lifecycle_code %fn GuiEvent i32 \event:
         _:
             2
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let caps %GuiCapabilities gui_capabilities_text_grid
     assert surface_kind_is_text_grid gui_capabilities_surface_kind &caps
     assert gui_capabilities_requires_flush &caps
     let event %GuiEvent gui_event_lifecycle LifecycleEvent::Started
     assert_eq_i32 0 lifecycle_code event
     0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_text_grid_capability_and_lifecycle_event_smoke"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## event constructors keep platform data typed
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_event_constructors_keep_platform_data_typed\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/gui" as *
 #import "core/test" as *
+#import "std/test" as test
 
 fn pointer_code %fn GuiEvent i32 \event:
     match event:
@@ -114,7 +146,7 @@ fn pointer_code %fn GuiEvent i32 \event:
         _:
             2
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let point %GuiPoint gui_point_new 1200 3400
     let pointer %PointerEvent pointer_event_new PointerEventKind::Down 7 point PointerButton::Primary
     let position %GuiPoint pointer_event_position &pointer
@@ -127,22 +159,32 @@ fn main %fn void i32 \void:
             test_fail "unexpected pointer button"
     assert_eq_i32 7 pointer_code gui_event_pointer pointer
     0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_event_constructors_keep_platform_data_typed"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## text measurement mock
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_text_measurement_mock\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/gui" as *
 #import "core/result" as *
 #import "core/test" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
     let request %TextMeasureRequest text_measure_request_new text_run_id_new 4 font_id_new 1 200 5
     match measure_text &measurer request:
@@ -153,20 +195,30 @@ fn main %fn void i32 \void:
             0
         Result::Err _e:
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_text_measurement_mock"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## keyboard and text input constructors keep input typed
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_keyboard_and_text_input_constructors_keep_input_typed\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/char" as *
 #import "core/gui" as *
 #import "core/test" as *
+#import "std/test" as test
 
 fn keyboard_kind_code %fn GuiEvent i32 \event:
     match event:
@@ -179,7 +231,7 @@ fn keyboard_kind_code %fn GuiEvent i32 \event:
         _:
             12
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let modifiers %KeyModifiers key_modifiers_new 5
     let keyboard %KeyboardEvent keyboard_event_new KeyboardEventKind::KeyDown 1001 modifiers
     assert_eq_i32 5 key_modifiers_bits &modifiers
@@ -187,23 +239,33 @@ fn main %fn void i32 \void:
     let text %TextInputEvent text_input_event_new '\u{3042}'
     assert_eq_i32 0x3042 char_to_i32 text_input_event_value &text
     0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_keyboard_and_text_input_constructors_keep_input_typed"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## draw target mock and flush separation
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_draw_target_mock_and_flush_separation\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/cast" as *
 #import "core/gui" as *
 #import "core/result" as *
 #import "core/test" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let r %u8 cast 1
     let g %u8 cast 2
     let b %u8 cast 3
@@ -239,23 +301,33 @@ fn main %fn void i32 \void:
                     1
         Result::Err _e:
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_draw_target_mock_and_flush_separation"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```
 
 ## render target mock command stream
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_render_target_mock_command_stream\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
-#target core
+#target std
 #indent 4
 
 #import "core/cast" as *
 #import "core/gui" as *
 #import "core/result" as *
 #import "core/test" as *
+#import "std/test" as test
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let zero %u8 cast 0
     let full %u8 cast 255
     let fg %Rgba8888 rgba8888_new full full full full
@@ -272,4 +344,12 @@ fn main %fn void i32 \void:
             0
         Result::Err _e:
             1
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test::test_report_new "gui_core_render_target_mock_command_stream"
+        |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+    let shown test::test_report_print_stdout report
+    test::test_report_exit_code shown
 ```

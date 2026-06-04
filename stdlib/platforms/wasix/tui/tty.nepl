@@ -44,6 +44,8 @@ pub struct TerminalSize:
 //: - `enter_raw_mode` で得た値は必ず `restore_mode` に渡してください。
 pub struct TtyState:
     region %RegionToken u8
+    cols %i32
+    rows %i32
 
 //: tty_state_region_ref: TTY state の region owner を借用する
 //:
@@ -97,20 +99,31 @@ fn tty_copy_state %impure fn &TtyState impure fn &TtyState unit \dst\src:
 //:
 //: [目的/もくてき]:
 //: - 成功時の state owner と失敗時 errno を `Result` で分け、解放済み pointer と `0` sentinel を同じ `i32` へ混ぜないようにします。
+//: - ABI 呼び出し前に state buffer を 0 で初期化し、Resource IR 上も `cols` / `rows` の読み出しが初期化済み領域から行われることを明示します。
 //:
 //: [注意/ちゅうい]:
 //: - `Result::Ok state` の owner は呼び出し側が `restore_mode` または内部 cleanup で閉じます。
 fn get_tty_state_result %impure fn void Result TtyState i32 \void:
     match alloc_region_bytes<u8> 24:
         Result::Ok region:
-            let state %TtyState TtyState region
-            let errno %i32 wasix_tty_get tty_state_raw &state
+            let state_ptr %MemPtr u8 region_ptr &region
+            let state_raw %i32 mem_ptr_addr state_ptr
+            store_i32 state_raw 0
+            store_i32 add state_raw 4 0
+            store_i32 add state_raw 8 0
+            store_i32 add state_raw 12 0
+            store_i32 add state_raw 16 0
+            store_i32 add state_raw 20 0
+            let errno %i32 wasix_tty_get state_raw
             if:
                 eq errno 0
                 then:
+                    let cols %i32 load_i32 state_raw
+                    let rows %i32 load_i32 add state_raw 4
+                    let state %TtyState TtyState region cols rows
                     Result::Ok state
                 else:
-                    match tty_state_free state:
+                    match dealloc_region<u8> region:
                         Result::Ok _:
                             Result::Err errno
                         Result::Err _:
@@ -122,10 +135,10 @@ fn set_tty_state %impure fn &TtyState i32 \state:
     wasix_tty_set tty_state_raw state
 
 fn get_cols %impure fn &TtyState i32 \state:
-    load_i32 tty_state_raw state
+    *field::get_ref state "cols"
 
 fn get_rows %impure fn &TtyState i32 \state:
-    load_i32 add tty_state_raw state 4
+    *field::get_ref state "rows"
 
 fn set_echo %impure fn &TtyState impure fn bool unit \state\enable:
     let v %i32 if enable 1 0;
@@ -148,7 +161,9 @@ pub fn enter_raw_mode %impure fn void Result TtyState i32 \void:
         Result::Ok state:
             match alloc_region_bytes<u8> 24:
                 Result::Ok old_region:
-                    let old_state %TtyState TtyState old_region
+                    let old_cols %i32 get_cols &state
+                    let old_rows %i32 get_rows &state
+                    let old_state %TtyState TtyState old_region old_cols old_rows
                     // 復元用に WASIX TTY state の ABI layout をそのまま保存します。
                     tty_copy_state &old_state &state
                     set_echo &state false;

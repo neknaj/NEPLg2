@@ -8,13 +8,15 @@
 //: ### [現状/げんじょう]
 //: - bounded `ViewTree` の root + 2 child diff と、allocator-backed `ViewTreeArena` の summary diff / invalidation を[対象/たいしょう]にします。
 //:
-//: neplg2:test
-//: ret: 1
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_diff_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let id %WidgetId widget_id 1
 //:     let hint %LayoutHint layout_hint_fixed 4 1
 //:     let old_root %WidgetDescriptor widget_label id "old" hint
@@ -23,6 +25,14 @@
 //:     let new_tree %ViewTree view_tree_single new_root
 //:     let diff %ViewTreeDiff view_tree_diff &old_tree &new_tree
 //:     if view_tree_diff_root_changed &diff then 1 else 0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_diff_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 1 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

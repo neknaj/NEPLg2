@@ -10,8 +10,9 @@
 //: - callback、`std/platform`、host handle に[依存/いぞん]しません。
 //: - order は root、first child、second child の順で、同じ widget id が複数ある場合は最初に現れた位置を current として[扱/あつか]います。
 //:
-//: neplg2:test
-//: ret: 9
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_focus_types_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"9\" actual=\"9\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -21,7 +22,8 @@
 //:| #import "alloc/gui/app" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let first_id %WidgetId widget_id 7
 //:     let second_id %WidgetId widget_id 9
@@ -43,6 +45,14 @@
 //:             widget_id_value id
 //:         Option::None:
 //:             0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_focus_types_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 9 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4
@@ -334,8 +344,9 @@ fn focus_arena_last_loop %fn &ViewTreeArena fn i32 fn i32 fn Option WidgetId Opt
 //: - `WidgetId` は arena index ではありません。current の比較は raw `WidgetId` で行い、node storage index とは分けます。
 //: - 現在の実装は arena を先頭から一回走査するため、時間計算量は node 数に対して O n です。
 //:
-//: neplg2:test
-//: ret: 7
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_focus_types_doc2\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -345,7 +356,8 @@ fn focus_arena_last_loop %fn &ViewTreeArena fn i32 fn i32 fn Option WidgetId Opt
 //:| #import "alloc/gui/widget" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 8 1
 //:     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -363,6 +375,14 @@ fn focus_arena_last_loop %fn &ViewTreeArena fn i32 fn i32 fn Option WidgetId Opt
 //:             0
 //:     view_tree_arena_free arena1
 //:     result
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_focus_types_doc2"
+//:         |> test_report_push assert_eq_i32 "return value" 7 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn focus_next_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId \tree\current:
     let count %i32 view_tree_arena_len tree
@@ -382,8 +402,9 @@ pub fn focus_next_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId
 //: [注意/ちゅうい]:
 //: - 現在の実装は arena を先頭から一回走査するため、時間計算量は node 数に対して O n です。
 //:
-//: neplg2:test
-//: ret: 7
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_focus_types_doc3\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -393,7 +414,8 @@ pub fn focus_next_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId
 //:| #import "alloc/gui/widget" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 8 1
 //:     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -411,6 +433,14 @@ pub fn focus_next_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId
 //:             0
 //:     view_tree_arena_free arena1
 //:     result
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_focus_types_doc3"
+//:         |> test_report_push assert_eq_i32 "return value" 7 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn focus_previous_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId \tree\current:
     let count %i32 view_tree_arena_len tree

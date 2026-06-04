@@ -9,7 +9,7 @@
 - runtime helper は redraw request を `GuiRuntimeCommand` data に変換します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok]\n[0] ok\n"
+stdout: "test_report name=\"gui_runtime_interprets_effect_as_command\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"12\" actual=\"12\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -28,15 +28,15 @@ fn main %impure fn void i32 \void:
         Result::Ok command:
             match command:
                 GuiRuntimeCommand::RequestRedraw window:
-                    checks_push checks_new assert_eq_i32 12 window_id_raw &window
+                    test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert_eq_i32 12 window_id_raw &window
                 GuiRuntimeCommand::Noop:
-                    checks_push checks_new assert false
+                    test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert false
                 GuiRuntimeCommand::SetTitle _title:
-                    checks_push checks_new assert false
+                    test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert false
         Result::Err _error:
-            checks_push checks_new assert false
-    let shown checks_print_report checks
-    checks_exit_code shown
+            test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert false
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_std_contract_values_have_no_platform_handle
@@ -46,7 +46,7 @@ fn main %impure fn void i32 \void:
 - text metrics と accessibility snapshot は host update の data contract として扱います。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
+stdout: "test_report name=\"gui_std_contract_values_have_no_platform_handle\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"1000\" actual=\"1000\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"80\" actual=\"80\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -75,13 +75,13 @@ fn main %impure fn void i32 \void:
             assert true
         ImeState::Disabled:
             assert false
-    let checks0 checks_new
-    let checks1 checks_push checks0 check0
-    let checks2 checks_push checks1 check1
-    let checks3 checks_push checks2 check2
-    let checks checks_push checks3 check3
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks0 test_report_new "gui_std_contract_values_have_no_platform_handle"
+    let checks1 test_report_push checks0 check0
+    let checks2 test_report_push checks1 check1
+    let checks3 test_report_push checks2 check2
+    let checks test_report_push checks3 check3
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_runtime_interprets_update_effect_batch
@@ -90,7 +90,7 @@ fn main %impure fn void i32 \void:
 - `Update.effects` の 2 個目以降を runtime が落とさず、command batch として保持することを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"gui_runtime_interprets_update_effect_batch\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"2\" actual=\"2\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -120,10 +120,10 @@ fn main %impure fn void i32 \void:
                     assert false
         Option::None:
             assert false
-    let checks1 checks_push checks_new count_check
-    let checks checks_push checks1 second_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "gui_runtime_interprets_update_effect_batch" count_check
+    let checks test_report_push checks1 second_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_runtime_rejects_unsupported_capability
@@ -131,8 +131,9 @@ fn main %impure fn void i32 \void:
 [目的/もくてき]:
 - surface を持たない headless host に対する redraw request が silent no-op ではなく `GuiError::Unsupported` になることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_runtime_rejects_unsupported_capability\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -140,8 +141,9 @@ ret: 0
 
 #import "core/result" as *
 #import "std/gui" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let host %GuiHost gui_host_headless
     match gui_runtime_interpret_effect &host request_redraw 1:
         Result::Ok _command:
@@ -152,6 +154,14 @@ fn main %fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "gui_runtime_rejects_unsupported_capability"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## gui_error_display_keeps_typed_error
@@ -160,7 +170,7 @@ fn main %fn void i32 \void:
 - unsupported を silent no-op にせず `GuiError` value として扱い、display helper は表示 label だけを担当します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"gui_error_display_keeps_typed_error\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"unsupported\" actual=\"unsupported\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -173,9 +183,9 @@ exit_code: 0
 fn main %impure fn void i32 \void:
     let check0 assert gui_error_is_unsupported GuiError::Unsupported
     let check1 assert_str_eq "unsupported" gui_error_label GuiError::Unsupported
-    let checks0 checks_new
-    let checks1 checks_push checks0 check0
-    let checks checks_push checks1 check1
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks0 test_report_new "gui_error_display_keeps_typed_error"
+    let checks1 test_report_push checks0 check0
+    let checks test_report_push checks1 check1
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

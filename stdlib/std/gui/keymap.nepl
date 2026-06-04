@@ -11,15 +11,17 @@
 //: - navigation key code と modifier bit は platform raw value ではなく、この module の std contract として[扱/あつか]います。
 //: - `KeyDown` だけを command に[変換/へんかん]し、`KeyUp` は `Option::None` です。
 //:
-//: neplg2:test
-//: ret: 2
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"std_gui_keymap_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "std/gui/keymap" as *
 //:| #import "core/gui" as *
 //:| #import "core/option" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let event %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
 //:     match keyboard_event_to_focus_route_command &focus_key_map_default event:
 //:         Option::Some command:
@@ -30,6 +32,14 @@
 //:                     1
 //:         Option::None:
 //:             0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "std_gui_keymap_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 2 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

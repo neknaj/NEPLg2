@@ -9,7 +9,7 @@
 - current が `none` の場合、next は先頭、previous は末尾から開始できることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
+stdout: "test_report name=\"focus_order_moves_next_and_previous\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"9\" actual=\"9\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -58,12 +58,12 @@ fn main %impure fn void i32 \void:
             assert_eq_i32 9 widget_id_value id
         Option::None:
             assert false
-    let checks1 checks_push checks_new count_check
-    let checks2 checks_push checks1 start_next_check
-    let checks3 checks_push checks2 step_next_check
-    let checks checks_push checks3 start_previous_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "focus_order_moves_next_and_previous" count_check
+    let checks2 test_report_push checks1 start_next_check
+    let checks3 test_report_push checks2 step_next_check
+    let checks test_report_push checks3 start_previous_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## focus_tree_returns_none_for_edges_and_stale_current
@@ -73,7 +73,7 @@ fn main %impure fn void i32 \void:
 - 最後の target から next、先頭の target から previous、order に存在しない current id は `none` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
+stdout: "test_report name=\"focus_tree_returns_none_for_edges_and_stale_current\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -128,12 +128,12 @@ fn main %impure fn void i32 \void:
     let stale_current %Option WidgetId some stale_id
     let edge_next_check assert is_none_widget_id focus_next_in_tree &tree2 child_current
     let stale_check assert is_none_widget_id focus_previous_in_tree &tree2 stale_current
-    let checks1 checks_push checks_new first_check
-    let checks2 checks_push checks1 previous_check
-    let checks3 checks_push checks2 edge_next_check
-    let checks checks_push checks3 stale_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "focus_tree_returns_none_for_edges_and_stale_current" first_check
+    let checks2 test_report_push checks1 previous_check
+    let checks3 test_report_push checks2 edge_next_check
+    let checks test_report_push checks3 stale_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## focus_arena_moves_next_and_previous_across_nested_nodes
@@ -143,7 +143,7 @@ fn main %impure fn void i32 \void:
 - `WidgetId` と arena index を混同せず、insertion order で next / previous を返すことを固定します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n"
+stdout: "test_report name=\"focus_arena_moves_next_and_previous_across_nested_nodes\" count=6 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -216,17 +216,17 @@ fn main %impure fn void i32 \void:
     let edge_next_check assert is_none_widget_id focus_next_in_arena &arena3 sibling_current
     let stale_previous_check assert is_none_widget_id focus_previous_in_arena &arena3 stale_current
     view_tree_arena_free arena3
-    let checks checks_push:
-        checks_push:
-            checks_push:
-                checks_push:
-                    checks_push:
-                        checks_push checks_new start_next_check
+    let checks test_report_push:
+        test_report_push:
+            test_report_push:
+                test_report_push:
+                    test_report_push:
+                        test_report_push test_report_new "focus_arena_moves_next_and_previous_across_nested_nodes" start_next_check
                         nested_next_check
                     sibling_previous_check
                 start_previous_check
             edge_next_check
         stale_previous_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

@@ -9,14 +9,16 @@
 //: - constraints が[負/ふ]の max size を持つ場合、測定 helper は `GuiError::InvalidGeometry` を[返/かえ]します。
 //: - 測定値は max constraint を[超/こ]えないよう clamp します。
 //:
-//: neplg2:test
-//: ret: 16
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_layout_types_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"16\" actual=\"16\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui" as *
 //:| #import "core/result" as *
-//: fn main %impure fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %impure fn void i32 \void:
 //:     let constraints %LayoutConstraints layout_constraints 0 0 200 40
 //:     let scale %GuiScaleFactor gui_scale_factor_new 1 1
 //:     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
@@ -28,6 +30,14 @@
 //:             height
 //:         Result::Err _err:
 //:             1
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_layout_types_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 16 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

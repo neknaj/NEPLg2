@@ -9,7 +9,7 @@
 - invalidation は string や silent bool ではなく `GuiInvalidation::Widget id` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"view_tree_diff_detects_widget_content_change\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"1\" actual=\"1\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -35,10 +35,10 @@ fn main %impure fn void i32 \void:
             assert_eq_i32 1 widget_id_value id
         Option::None:
             assert false
-    let checks1 checks_push checks_new changed_check
-    let checks checks_push checks1 invalidation_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "view_tree_diff_detects_widget_content_change" changed_check
+    let checks test_report_push checks1 invalidation_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## view_tree_diff_shape_change_invalidates_tree
@@ -46,8 +46,9 @@ fn main %impure fn void i32 \void:
 [目的/もくてき]:
 - child 追加のような tree shape 変更は、個別 widget ではなく tree invalidation になることを確認します。
 
-neplg2:test
-ret: 2
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"view_tree_diff_shape_change_invalidates_tree\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"2\" actual=\"2\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -55,8 +56,9 @@ ret: 2
 
 #import "alloc/gui" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let child_id %WidgetId widget_id 2
     let child_action %ActionId action_id 3
@@ -71,6 +73,14 @@ fn main %fn void i32 \void:
             2
         _:
             9
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "view_tree_diff_shape_change_invalidates_tree"
+        |> test_report_push assert_eq_i32 "return value" 2 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## view_tree_diff_child_content_change_returns_child_id
@@ -78,8 +88,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - child slot の button action が[変/か]わった場合、child の `WidgetId` を invalidation 対象にすることを確認します。
 
-neplg2:test
-ret: 2
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"view_tree_diff_child_content_change_returns_child_id\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"2\" actual=\"2\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -88,8 +99,9 @@ ret: 2
 #import "alloc/gui" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let child_id %WidgetId widget_id 2
     let old_action %ActionId action_id 3
@@ -110,6 +122,14 @@ fn main %fn void i32 \void:
             widget_id_value id
         Option::None:
             9
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "view_tree_diff_child_content_change_returns_child_id"
+        |> test_report_push assert_eq_i32 "return value" 2 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## view_tree_arena_invalidation_returns_nested_widget_id
@@ -118,8 +138,9 @@ fn main %fn void i32 \void:
 - allocator-backed `ViewTreeArena` で nested widget の内容だけが変わった場合、tree 全体ではなくその `WidgetId` を invalidation 対象にすることを確認します。
 - arena owner を消費せず borrow-only で diff できることを確認します。
 
-neplg2:test
-ret: 3
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"view_tree_arena_invalidation_returns_nested_widget_id\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"3\" actual=\"3\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -129,8 +150,9 @@ ret: 3
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let parent_id %WidgetId widget_id 2
     let nested_id %WidgetId widget_id 3
@@ -179,6 +201,14 @@ fn main %fn void i32 \void:
     if all_ok:
         then 3
         else 9
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "view_tree_arena_invalidation_returns_nested_widget_id"
+        |> test_report_push assert_eq_i32 "return value" 3 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## view_tree_arena_invalidation_tree_for_shape_or_multiple_changes
@@ -188,7 +218,7 @@ fn main %fn void i32 \void:
 - content change が複数ある場合、単一 widget id では表せないため `GuiInvalidation::Tree` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"view_tree_arena_invalidation_tree_for_shape_or_multiple_changes\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -241,8 +271,8 @@ fn main %impure fn void i32 \void:
     view_tree_arena_free old2
     view_tree_arena_free reparent2
     view_tree_arena_free changed2
-    let checks1 checks_push checks_new shape_check
-    let checks checks_push checks1 multi_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "view_tree_arena_invalidation_tree_for_shape_or_multiple_changes" shape_check
+    let checks test_report_push checks1 multi_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

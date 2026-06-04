@@ -2,8 +2,8 @@
 id: ISS-20260604T042500000Z-GUI-TUI-DOCTEST-REPORT-CONTRACT-GAPS-4D6B9A0E
 title: "GUI and TUI doctests still use ret-only or stale report contracts"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: doc
 created: 2026-06-04
@@ -47,3 +47,10 @@ GUI/TUI 関連 doctest を module ごとに整理し、ret-only や `Checked` �
 - `rg -n "ret:|Checked|checks_exit_code" stdlib/core/gui stdlib/alloc/gui stdlib/std/gui tests/stdlib`
 - focused GUI/TUI doctests
 - `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+## 解決
+
+- `stdlib/core/gui`、`stdlib/alloc/gui`、`stdlib/std/gui` の GUI module doctest を canonical `std/test` `TestReport` stdout contract へ移行した。
+- `tests/stdlib/gui_*.n.md` と `tests/stdlib/features_tui.n.md` の旧 `ret:` / `Checked` / `checks_*` 契約を `test_report_new` / `test_report_push` / `test_report_print_stdout` / `test_report_exit_code` へ移行した。
+- `core/gui` 本体には `std/test` 依存を入れず、doc / integration test の実行 target だけを `std` にして report contract を固定した。
+- `features_tui` report contract policy を canonical `TestReport` stdout 監視へ更新した。
