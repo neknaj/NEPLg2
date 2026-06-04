@@ -126,7 +126,7 @@ assert.match(
 );
 assert.match(
     writeFdCode,
-    new RegExp(fnSignaturePattern('stdio_fd_write_from_result', ['i32', 'MemPtr u8', 'MemPtr u8', 'MemPtr u8', 'i32'], 'Result i32 StdErrorKind', { effect: 'impure' })),
+    new RegExp(fnSignaturePattern('stdio_fd_write_from_result', ['i32', '&RegionToken u8', '&RegionToken u8', 'MemPtr u8', 'i32'], 'Result i32 StdErrorKind', { effect: 'impure' })),
     'stdio fd_write raw layout helper must exist in stdio/write/fd where scratch RegionToken owners are allocated',
 );
 assert.doesNotMatch(

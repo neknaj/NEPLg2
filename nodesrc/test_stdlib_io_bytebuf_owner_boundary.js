@@ -253,7 +253,7 @@ const fsFinish = fsFinishMatch[1];
 
 assert.match(
     fsRead,
-    /\balloc_region<u8>\s+cap[\s\S]*\brealloc_region_bytes_keep<u8>\s+buf_region\s+new_cap[\s\S]*\bfs_finish_read_buffer\s+buf_region\s+read_len\b/,
+    new RegExp(String.raw`\blet\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+65536[\s\S]*\balloc_region<u8>\s+\1[\s\S]*\brealloc_region_bytes_keep<u8>\s+buf_region\s+new_cap[\s\S]*\bfs_finish_read_buffer\s+buf_region\s+read_len\b`),
     'fs_read_fd_bytes must finish through the ByteBuf ownership-normalizing helper',
 );
 
