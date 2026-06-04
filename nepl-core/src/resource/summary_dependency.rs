@@ -22,6 +22,9 @@ pub(super) struct ResourceSummaryDependencyGraph {
     dependencies: Vec<Vec<usize>>,
     dependents: Vec<Vec<usize>>,
     initial_order: Vec<usize>,
+    direct_call_dependencies: Vec<Vec<usize>>,
+    direct_call_dependents: Vec<Vec<usize>>,
+    direct_call_initial_order: Vec<usize>,
     raw_alias_dependencies: Vec<Vec<usize>>,
     raw_alias_dependents: Vec<Vec<usize>>,
     raw_alias_initial_order: Vec<usize>,
@@ -34,7 +37,7 @@ pub(super) struct ResourceSummaryDependencyGraph {
 #[derive(Default)]
 struct ResourceFunctionOpInventory {
     summary_dependency_names: BTreeSet<String>,
-    function_value_call_dependency_names: BTreeSet<String>,
+    direct_call_dependency_names: BTreeSet<String>,
     function_value_candidate_names: BTreeSet<String>,
     has_indirect_call: bool,
     has_direct_raw_initialization_summary_op: bool,
@@ -57,6 +60,15 @@ impl ResourceSummaryDependencyGraph {
         let dependents =
             invert_function_summary_dependencies(module.functions.len(), &dependencies);
         let initial_order = summary_order_from_dependencies(module.functions.len(), &dependencies);
+        let direct_call_dependencies = direct_call_dependency_names_to_indices(
+            module.functions.len(),
+            &function_indices,
+            &inventories,
+        );
+        let direct_call_dependents =
+            invert_function_summary_dependencies(module.functions.len(), &direct_call_dependencies);
+        let direct_call_initial_order =
+            summary_order_from_dependencies(module.functions.len(), &direct_call_dependencies);
         let function_value_call_dependencies = function_value_call_dependency_names_to_indices(
             module.functions.len(),
             &function_indices,
@@ -80,6 +92,9 @@ impl ResourceSummaryDependencyGraph {
             dependencies,
             dependents,
             initial_order,
+            direct_call_dependencies,
+            direct_call_dependents,
+            direct_call_initial_order,
             raw_alias_dependencies,
             raw_alias_dependents,
             raw_alias_initial_order,
@@ -106,6 +121,25 @@ impl ResourceSummaryDependencyGraph {
     /// 不要な再投入を減らすための性能上の入力である。
     pub(super) fn initial_order(&self) -> &[usize] {
         &self.initial_order
+    }
+
+    /// direct call だけで読まれる summary 用の依存辺を返す。
+    ///
+    /// i32 scalar summary は現在 direct call の output / arg 境界でだけ適用される。
+    /// function value を生成するだけの helper や indirect call の候補はこの summary を
+    /// 消費しないため、固定点探索と dependency closure hash へ入れない。
+    pub(super) fn direct_call_dependencies(&self) -> &[Vec<usize>] {
+        &self.direct_call_dependencies
+    }
+
+    /// direct-call summary 専用依存辺の逆辺を返す。
+    pub(super) fn direct_call_dependents(&self) -> &[Vec<usize>] {
+        &self.direct_call_dependents
+    }
+
+    /// direct-call summary 専用依存辺から作った初期評価順序を返す。
+    pub(super) fn direct_call_initial_order(&self) -> &[usize] {
+        &self.direct_call_initial_order
     }
 
     /// raw-address alias summary が実際に読む callee summary 用の依存辺を返す。
@@ -219,7 +253,7 @@ fn function_value_call_dependency_names_to_indices(
             &mut dependencies[caller_index],
             function_indices,
             inventory
-                .function_value_call_dependency_names
+                .direct_call_dependency_names
                 .iter()
                 .map(String::as_str),
         );
@@ -233,6 +267,25 @@ fn function_value_call_dependency_names_to_indices(
                     .map(String::as_str),
             );
         }
+    }
+    dependencies
+}
+
+fn direct_call_dependency_names_to_indices(
+    function_count: usize,
+    function_indices: &BTreeMap<&str, usize>,
+    inventories: &[ResourceFunctionOpInventory],
+) -> Vec<Vec<usize>> {
+    let mut dependencies = vec![Vec::new(); function_count];
+    for (caller_index, inventory) in inventories.iter().enumerate() {
+        push_dependency_indices(
+            &mut dependencies[caller_index],
+            function_indices,
+            inventory
+                .direct_call_dependency_names
+                .iter()
+                .map(String::as_str),
+        );
     }
     dependencies
 }
@@ -285,9 +338,7 @@ fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInven
             ..
         } => {
             inventory.summary_dependency_names.insert(name.clone());
-            inventory
-                .function_value_call_dependency_names
-                .insert(name.clone());
+            inventory.direct_call_dependency_names.insert(name.clone());
         }
         ResourceOp::FunctionValue { identity, .. } => {
             let symbol = identity.symbol().to_string();
@@ -412,6 +463,23 @@ mod tests {
     }
 
     #[test]
+    fn direct_call_dependency_graph_keeps_direct_calls() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops("caller", vec![call("callee")]),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.direct_call_dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.direct_call_dependents(), &[vec![], vec![0]]);
+    }
+
+    #[test]
     fn raw_init_dependency_graph_keeps_direct_calls() {
         let module = ResourceModule {
             functions: vec![
@@ -460,6 +528,23 @@ mod tests {
 
         assert_eq!(graph.dependencies(), &[vec![1], vec![]]);
         assert_eq!(graph.raw_init_dependencies(), &[vec![], vec![]]);
+    }
+
+    #[test]
+    fn direct_call_dependency_graph_ignores_function_value_without_call() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops("factory", vec![function_value("callee")]),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.direct_call_dependencies(), &[vec![], vec![]]);
     }
 
     #[test]
@@ -515,6 +600,26 @@ mod tests {
         let graph = ResourceSummaryDependencyGraph::build(&module);
 
         assert_eq!(graph.raw_alias_dependencies(), &[vec![1], vec![]]);
+    }
+
+    #[test]
+    fn direct_call_dependency_graph_ignores_indirect_function_value_candidates() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops(
+                    "caller",
+                    vec![function_value("callee"), indirect_call("callback")],
+                ),
+                function_with_ops("callee", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.raw_alias_dependencies(), &[vec![1], vec![]]);
+        assert_eq!(graph.direct_call_dependencies(), &[vec![], vec![]]);
     }
 
     #[test]

@@ -208,6 +208,49 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_proje
     leaf_cache: &mut I32LeafProjectionCache,
     projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
 ) -> I32ScalarReturnFacts {
+    collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter_inner(
+        params,
+        types,
+        raw_aliases,
+        value,
+        target_suffix,
+        leaf_cache,
+        projection_is_possible,
+        true,
+    )
+}
+
+pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_without_parameter_conditions(
+    params: &[ResourceLocal],
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    value: &Place,
+    target_suffix: &[PlaceProjection],
+    leaf_cache: &mut I32LeafProjectionCache,
+    projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
+) -> I32ScalarReturnFacts {
+    collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter_inner(
+        params,
+        types,
+        raw_aliases,
+        value,
+        target_suffix,
+        leaf_cache,
+        projection_is_possible,
+        false,
+    )
+}
+
+fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter_inner(
+    params: &[ResourceLocal],
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    value: &Place,
+    target_suffix: &[PlaceProjection],
+    leaf_cache: &mut I32LeafProjectionCache,
+    projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
+    collect_parameter_conditions_for_path: bool,
+) -> I32ScalarReturnFacts {
     let mut facts = I32ScalarReturnFacts::default();
     let mut condition_context = I32ConditionQueryContext::default();
     let leaves = leaf_cache
@@ -238,14 +281,16 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_proje
         &mut condition_context,
         &mut facts,
     );
-    collect_i32_scalar_parameter_conditions(
-        params,
-        types,
-        raw_aliases,
-        leaf_cache,
-        &mut condition_context,
-        &mut facts,
-    );
+    if collect_parameter_conditions_for_path {
+        collect_i32_scalar_parameter_conditions(
+            params,
+            types,
+            raw_aliases,
+            leaf_cache,
+            &mut condition_context,
+            &mut facts,
+        );
+    }
     facts
 }
 
@@ -624,14 +669,6 @@ fn collect_i32_scalar_return_offset_facts(
     condition_context: &mut I32ConditionQueryContext,
     facts: &mut I32ScalarReturnFacts,
 ) {
-    collect_i32_scalar_parameter_conditions_for_source(
-        params,
-        raw_aliases,
-        source,
-        scalar_ty,
-        condition_context,
-        facts,
-    );
     let source_aliases =
         raw_aliases.scalar_aliases_for_value_with_context(source, condition_context);
     for scalar_alias in source_aliases {
@@ -658,14 +695,6 @@ fn collect_i32_scalar_return_offset_facts(
         let Some(offset) = source_offset.checked_add(additional_offset) else {
             continue;
         };
-        collect_i32_scalar_parameter_conditions_for_source(
-            params,
-            raw_aliases,
-            &base,
-            scalar_ty,
-            condition_context,
-            facts,
-        );
         let base_aliases =
             raw_aliases.scalar_aliases_for_value_with_context(&base, condition_context);
         for scalar_alias in base_aliases {
@@ -686,37 +715,6 @@ fn collect_i32_scalar_return_offset_facts(
                     },
                 );
             }
-        }
-    }
-}
-
-fn collect_i32_scalar_parameter_conditions_for_source(
-    params: &[ResourceLocal],
-    raw_aliases: &RawCellAddressAliases,
-    source: &Place,
-    scalar_ty: TypeId,
-    condition_context: &mut I32ConditionQueryContext,
-    facts: &mut I32ScalarReturnFacts,
-) {
-    if !raw_aliases.can_prove_i32_value_condition_for_value_with_context(source, condition_context)
-    {
-        return;
-    }
-    for condition in I32_SCALAR_SUMMARY_CONDITIONS {
-        if raw_aliases.i32_condition_is_known_true_with_context(
-            source,
-            condition,
-            condition_context,
-        ) {
-            collect_i32_scalar_parameter_condition_fact(
-                params,
-                raw_aliases,
-                source,
-                scalar_ty,
-                condition,
-                condition_context,
-                facts,
-            );
         }
     }
 }

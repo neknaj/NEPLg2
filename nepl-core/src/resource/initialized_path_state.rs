@@ -120,12 +120,59 @@ pub(super) fn control_path_states_need_replay_with_merged(
     merged_state.cells.has_maybe_moved_non_copy_entries(types)
 }
 
+/// loop exit/body paths の replay が必要かを、必要なら既存の merged state で判定する。
+///
+/// loop は branch / match と違って value output を持たないため、copy / unit output の
+/// 追加判定は不要である。collection slot、function alias、pending realloc、
+/// variant payload のような resource proof payload に差分が残る場合は path ごとの
+/// 後続検査が必要である。一方で scalar facts や local copy cell の差分だけなら、
+/// merged state の conservative lattice で後続検査へ渡せるため、path alternatives を
+/// 残して後続 operation を重複実行する必要はない。
+pub(super) fn loop_path_states_need_replay_with_merged(
+    types: &TypeCtx,
+    states: &[ResourceCheckState],
+    merged_state: Option<&ResourceCheckState>,
+) -> bool {
+    if !path_states_need_replay(states) {
+        return false;
+    }
+    if loop_states_have_resource_replay_relevant_difference(states) {
+        return true;
+    }
+    let Some(merged_state) = merged_state else {
+        return merge_resource_check_states(states)
+            .cells
+            .has_maybe_moved_non_copy_entries(types);
+    };
+    merged_state.cells.has_maybe_moved_non_copy_entries(types)
+}
+
 fn states_have_resource_replay_relevant_difference(states: &[ResourceCheckState]) -> bool {
     let Some(first) = states.first() else {
         return false;
     };
     states.iter().skip(1).any(|state| {
         state.collection_slots != first.collection_slots
+            || !state
+                .raw_aliases
+                .raw_address_identity_equal(&first.raw_aliases)
+            || state.function_aliases != first.function_aliases
+            || state.pending_reallocs != first.pending_reallocs
+            || !state
+                .variant_initializations
+                .resource_payload_entries_equal(&first.variant_initializations)
+    })
+}
+
+fn loop_states_have_resource_replay_relevant_difference(states: &[ResourceCheckState]) -> bool {
+    let Some(first) = states.first() else {
+        return false;
+    };
+    states.iter().skip(1).any(|state| {
+        state.collection_slots != first.collection_slots
+            || !state
+                .raw_aliases
+                .raw_address_union_facts_equal(&first.raw_aliases)
             || state.function_aliases != first.function_aliases
             || state.pending_reallocs != first.pending_reallocs
             || !state

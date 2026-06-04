@@ -483,6 +483,29 @@ impl RawCellAddressAliases {
         out
     }
 
+    /// raw address として観測される identity proof が一致しているかを判定する。
+    ///
+    /// i32 の値・差分・大小関係などの scalar facts は、経路合流時に共通部分だけを
+    /// 保持すれば後続検査へ保守的に渡せる。一方で raw address alias group と
+    /// marked raw cell は経路合流で union されるため、片側の経路だけで成立した
+    /// raw identity を全経路の事実として扱わないよう、path replay の必要性を
+    /// 判定する側ではこの identity 部分を scalar facts から分けて比較する。
+    pub(super) fn raw_address_identity_equal(&self, other: &Self) -> bool {
+        self.groups == other.groups
+            && self.marked == other.marked
+            && self.raw_view_origins == other.raw_view_origins
+    }
+
+    /// 経路合流で union される raw-address proof が一致しているかを判定する。
+    ///
+    /// `raw_view_origins` は合流時に共通部分だけが残るため、loop の post-state では
+    /// 安全側へ精度を落とせる。一方で alias group と marked raw cell は union され、
+    /// 片側の経路だけで成立した raw-address proof が合流後の must fact に見えてしまう。
+    /// loop replay を省くかどうかの判定では、この union される部分だけを厳密に見る。
+    pub(super) fn raw_address_union_facts_equal(&self, other: &Self) -> bool {
+        self.groups == other.groups && self.marked == other.marked
+    }
+
     fn canonicalize_group_member(&self, place: &Place) -> Option<Place> {
         for group in &self.groups {
             for alias in group {

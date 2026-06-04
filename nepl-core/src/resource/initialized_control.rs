@@ -22,8 +22,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
 use super::initialized_path_state::{
     control_path_states_need_replay_with_merged, log_path_state_replay_reason,
-    merge_path_alternatives_into, path_states_need_replay, ResourceCheckState,
-    ResourcePathAlternatives,
+    loop_path_states_need_replay_with_merged, ResourceCheckState, ResourcePathAlternatives,
 };
 use super::initialized_path_state_merge::merge_resource_check_states;
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
@@ -309,15 +308,15 @@ impl ResourceCheckEngine<'_> {
         ));
         loop_paths.extend(body_states);
 
-        merge_path_alternatives_into(
-            &loop_paths,
-            cells,
-            collection_slots,
-            raw_aliases,
-            function_aliases,
-            pending_reallocs,
-            variant_initializations,
-        );
+        let merged_state = merge_resource_check_states(&loop_paths);
+        let replay_paths =
+            loop_path_states_need_replay_with_merged(self.types, &loop_paths, Some(&merged_state));
+        *cells = merged_state.cells;
+        *collection_slots = merged_state.collection_slots;
+        *raw_aliases = merged_state.raw_aliases;
+        *function_aliases = merged_state.function_aliases;
+        *pending_reallocs = merged_state.pending_reallocs;
+        *variant_initializations = merged_state.variant_initializations;
         for candidate in initialized_range_candidates {
             collection_slots.mark_initialized_range_with_aliases(
                 &candidate.storage,
@@ -327,7 +326,7 @@ impl ResourceCheckEngine<'_> {
                 raw_aliases,
             );
         }
-        if path_states_need_replay(&loop_paths) {
+        if replay_paths {
             log_path_state_replay_reason(self.function, "loop", &loop_paths);
             self.path_alternatives = ResourcePathAlternatives::from_states(loop_paths);
         }
