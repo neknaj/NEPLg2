@@ -8,7 +8,8 @@
 |---|---|
 | [neplg21_syntax_migration_plan.md](./neplg21_syntax_migration_plan.md) | NEPLg2.1 表層構文移行計画。`%` 型注釈、prefix 型式、`\` 関数リテラル、generic postfix 撤廃の境界 |
 | [zero_arg_void_marker_spec.md](./zero_arg_void_marker_spec.md) | NEPLg2.1 の 0 引数関数 marker を `void` に分離し、`unit` 型・値との多義性を解消する仕様と実装計画 |
-| [self_host_plan.md](./self_host_plan.md) | NEPLg2.0 self-host compiler の詳細実装計画 |
+| [self_host_neplg21_compiler_design.md](./self_host_neplg21_compiler_design.md) | `stdlib/neplg2/` に作成する NEPLg2.1 self-host compiler の正規設計。Rust 実装の pipeline、Resource IR、artifact、compile-time performance、memo_call を反映 |
+| [self_host_plan.md](./self_host_plan.md) | NEPLg2.0 時点の self-host compiler 詳細実装計画。現行設計ではなく historical plan として参照する |
 | [self_host_execution_plan.md](./self_host_execution_plan.md) | branch、commit、merge、Rust 側修正合流、Issue 提出規則 |
 | [pre_selfhost_audit_20260426.md](./pre_selfhost_audit_20260426.md) | self-host 開始前の Rust compiler / stdlib 監査と追加 Issue |
 | [pre_selfhost_performance_audit_20260426.md](./pre_selfhost_performance_audit_20260426.md) | self-host 開始前の計算量・メモリ監査と追加 Issue |

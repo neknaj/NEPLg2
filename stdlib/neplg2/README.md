@@ -1,8 +1,10 @@
 # NEPLg2 Self-Host Compiler
 
-`stdlib/neplg2/` は NEPLg2.0 の現行 Rust コンパイラを NEPLg2.0 自身で再実装するための正規ソースツリーです。
+`stdlib/neplg2/` は NEPLg2.1 の現行 Rust コンパイラを NEPLg2.1 自身で再実装するための正規ソースツリーです。
 
-このツリーは NEPLg3 の設計実験ではありません。`doc/neplg3/impl/compiler_structure.md` の分割方針を参考にしつつ、構文、型注釈、import、HIR、WASM/LLVM backend は現行 NEPLg2.0 を正とします。
+このツリーは NEPLg3 の設計実験ではありません。NEPLg2.1 の `%` 型注釈、prefix 型式、`\` 関数リテラル、`void` 0 引数 marker、`#test`、Resource IR 静的検査、compiler artifact、compile-time performance 改良を正とします。
+
+正規設計は [../../doc/neplg2/self_host_neplg21_compiler_design.md](../../doc/neplg2/self_host_neplg21_compiler_design.md) を参照します。旧 `doc/neplg2/self_host_plan.md` は NEPLg2.0 時点の historical plan です。
 
 ## 層
 

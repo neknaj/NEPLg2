@@ -1,6 +1,6 @@
 # NEPLg2 Self-Host Compiler Index
 
-NEPLg2.0 self-host compiler の入口です。Stage 0 では、NEPLg3 用 placeholder とは別の場所に NEPLg2.0 用の source tree と focused doctest 経路が存在することを固定します。
+NEPLg2.1 self-host compiler の入口です。Stage 0 では、NEPLg3 用 placeholder とは別の場所に NEPLg2.1 用の source tree と focused doctest 経路が存在することを固定します。
 
 neplg2:test
 ```neplg2

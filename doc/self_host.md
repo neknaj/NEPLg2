@@ -1,6 +1,6 @@
 # セルフホスト計画
 
-最終更新: 2026-04-26
+最終更新: 2026-06-04
 
 ---
 
@@ -10,10 +10,12 @@
 
 | 系統 | 目的 | 詳細 |
 |---|---|---|
-| NEPLg2.0 self-host | 現行 NEPLg2.0 コンパイラを NEPLg2.0 自身で再実装する | [neplg2/self_host_plan.md](./neplg2/self_host_plan.md) |
+| NEPLg2.1 self-host | 現行 NEPLg2.1 コンパイラを NEPLg2.1 自身で再実装する | [neplg2/self_host_neplg21_compiler_design.md](./neplg2/self_host_neplg21_compiler_design.md) |
 | NEPLg3 self-host | NEPLg3 コンパイラを NEPLg3 自身で再実装する | 本文の §1 以降 |
 
-`stdlib/neplg2/` と `stdlib/neplg3/` は別の目的を持つ。NEPLg2.0 self-host の作業を `stdlib/neplg3/` に混ぜない。
+`stdlib/neplg2/` と `stdlib/neplg3/` は別の目的を持つ。NEPLg2.1 self-host の作業を `stdlib/neplg3/` に混ぜない。
+
+旧 [neplg2/self_host_plan.md](./neplg2/self_host_plan.md) は NEPLg2.0 時点の historical plan として残す。現在の `stdlib/neplg2/` 実装は、NEPLg2.1 表層構文、`void` marker、`#test`、Resource IR 静的検査、compiler artifact、compile-time performance 改良を反映した [neplg2/self_host_neplg21_compiler_design.md](./neplg2/self_host_neplg21_compiler_design.md) を正規設計とする。
 
 ## 1. 目的
 

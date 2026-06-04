@@ -1,3 +1,16 @@
+# 2026-06-04 NEPLg2.1 self-host compiler redesign checkpoint
+
+- `plan.md` は変更していない。セルフホストコンパイラ設計を、旧 NEPLg2.0 設計ではなく現行 NEPLg2.1 と Rust 実装の実際の pipeline に基づいて再作成した。
+- 新規設計文書として `doc/neplg2/self_host_neplg21_compiler_design.md` を追加した。`stdlib/neplg2/` の正規設計入口をこの文書へ切り替え、旧 `doc/neplg2/self_host_plan.md` は historical plan として扱う。
+- Zenn 記事の試作段階方針に沿って、core / CLI 分離、静的検査、Option / Result と enum diagnostic、責務の DAG 化、cache だけに依存しない compile-time performance、根本修正優先を設計制約として明文化した。
+- Rust 実装調査では、loader、typecheck、`.neplmeta`、Resource IR static check、drop insertion、monomorphize、Wasm / LLVM backend、`.neplproof`、`.neplobj`、`memo_call`、RPN cold base profiling の知見を設計へ反映した。
+- subagent review では、phase 粒度が大きすぎる、core API に host path / filesystem 境界が混ざって見える、performance が後置されて見える、`memo_call` が現行 Rust 実装より完成済みに見える、artifact header が混ざっている、`#test` の作用単位が曖昧、generic postfix 撤廃の未解決点が不足、という指摘を受けた。
+- レビュー反映として、`SelfhostCoreCompileRequest` を pure value input に限定し、host path 正規化、filesystem、artifact persistence、cache directory 管理を `cli/` の責務に分けた。
+- `.neplmeta` / `.neplproof` / `.neplobj` の authority と key material を分離し、`.neplmeta` は dependency body authority ではなく、direct call が残る場合は `.neplobj` fragment または source fallback が必要と明記した。
+- `memo_call` は Phase 1 で `memo_call @function f` の typecheck / HIR 境界を固定する段階とし、backend private cache representation と private-cache mask proof は fail-closed の未完成領域として扱うようにした。
+- 実装フェーズは Phase 0-12 に再整理し、各 phase に issue slice と performance acceptance を追加した。performance は最後に追加するものではなく、lexer、parser、loader、type resolver、typecheck、Resource IR、artifact、backend の各段階に受入条件として埋め込む。
+- `doc/neplg2/README.md`、`doc/self_host.md`、`stdlib/neplg2/README.md`、`stdlib/neplg2/index.n.md` の NEPLg2.0 前提の案内を NEPLg2.1 設計へ更新した。
+
 # 2026-06-04 RPN owner-obligation relevance cache-path checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、cache artifact だけでなく、Resource IR 検査で不要な関数へ進む探索範囲を削る方針で確認した。
