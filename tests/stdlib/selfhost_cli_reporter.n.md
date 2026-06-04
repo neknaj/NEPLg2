@@ -20,7 +20,7 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn void i32 \void:
-    let span %SelfhostSourceSpan source_span_new 1 10 15
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 10 15
     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "token"
     let diag %SelfhostDiagnostic selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"
     let human %str selfhost_cli_render_diagnostic_human &diag
@@ -81,7 +81,7 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn void i32 \void:
-    let span %SelfhostSourceSpan source_span_new 1 10 15
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 10 15
     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "token"
     let diag0 %SelfhostDiagnostic selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "first"
     let diag1 %SelfhostDiagnostic selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"

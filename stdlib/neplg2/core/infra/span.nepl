@@ -1,15 +1,17 @@
 #indent 4
 
 //: # span
-//: NEPLg2.0 self-host compiler の source span [基盤/きばん]
+//: NEPLg2.1 self-host compiler の source span [基盤/きばん]
 //:
 //: [目的/もくてき]:
 //: - lexer / parser / diagnostic が[共有/きょうゆう]する source position を[定義/ていぎ]します。
 //: - byte offset [基準/きじゅん]の `[start, end)` range と `file_id` を 1 [個/こ]の値として[扱/あつか]います。
+//: - 通常の構築では、負の file id / offset や逆転 range を `Result` で拒否します。
 //:
 //: [注意/ちゅうい]:
 //: - offset は UTF-8 文字数ではなく byte index です。
 //: - 入力 byte 列が UTF-8 として[妥当/だとう]であることは CLI / source loading [境界/きょうかい]で[保証/ほしょう]します。
+//: - `source_span_new_unchecked` は parser / lexer の内部で range validity が別途証明済みの場合だけ使います。
 //:
 //: [計算量/けいさんりょう]:
 //: - span の[構築/こうちく]と[判定/はんてい]は O(1) です。
@@ -21,12 +23,21 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "core/math" as *
 //: fn main %fn void i32 \void:
-//:     let s %SelfhostSourceSpan source_span_new 0 2 5
-//:     if and source_span_is_valid s and source_span_contains s 3 eq source_span_len s 3 0 1
+//:     match source_span_new_result 0 2 5:
+//:         Result::Ok s:
+//:             match source_span_len s:
+//:                 Option::Some len:
+//:                     if and source_span_is_valid s and source_span_contains s 3 eq len 3 0 1
+//:                 Option::None:
+//:                     1
+//:         Result::Err _e:
+//:             1
 //: ```
 
 #import "core/field" as field
 #import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 #import "core/field" as *
 
@@ -47,51 +58,116 @@ impl Copy for SelfhostSourceSpan:
     fn copy_mark %fn SelfhostSourceSpan SelfhostSourceSpan \self:
         self
 
-//: source_span_new: source range を[作/つく]る
+//: SelfhostSourceSpanBuildError: source span 構築の失敗分類
+//:
+//: [目的/もくてき]:
+//: - invalid range を diagnostic 文字列ではなく enum として扱い、caller が原因を match できるようにします。
+pub enum SelfhostSourceSpanBuildError:
+    NegativeFileId
+    NegativeStart
+    EndBeforeStart
+    DifferentFile
+
+impl Clone for SelfhostSourceSpanBuildError:
+    fn clone %fn &SelfhostSourceSpanBuildError SelfhostSourceSpanBuildError \self:
+        *self
+
+impl Copy for SelfhostSourceSpanBuildError:
+    fn copy_mark %fn SelfhostSourceSpanBuildError SelfhostSourceSpanBuildError \self:
+        self
+
+//: source_span_new_unchecked: 証明済みの source range を直接[作/つく]る
 //:
 //: [注意/ちゅうい]:
-//: - `start <= end` の[検査/けんさ]は `source_span_is_valid` で[行/おこな]います。
-pub fn source_span_new %fn i32 fn i32 fn i32 SelfhostSourceSpan \file_id\start\end:
+//: - この関数は range validity を検査しません。
+//: - lexer / parser など、同じ処理内で `file_id >= 0`、`start >= 0`、`start <= end` を証明済みの場所だけで使います。
+//: - 通常の API 利用では `source_span_new_result` を使います。
+pub fn source_span_new_unchecked %fn i32 fn i32 fn i32 SelfhostSourceSpan \file_id\start\end:
     SelfhostSourceSpan file_id start end
 
-//: source_span_empty: 0 byte range を[作/つく]る
-pub fn source_span_empty %fn i32 fn i32 SelfhostSourceSpan \file_id\offset:
-    source_span_new file_id offset offset
+//: source_span_empty_unchecked: 証明済みの 0 byte range を直接[作/つく]る
+pub fn source_span_empty_unchecked %fn i32 fn i32 SelfhostSourceSpan \file_id\offset:
+    source_span_new_unchecked file_id offset offset
+
+//: source_span_new_result: source range を検査して[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - caller convention に頼らず、span の基本不変条件を構築時に固定します。
+//: - invalid span は typed error として返し、後続の diagnostic / editor range が不可能な値を受け取らないようにします。
+pub fn source_span_new_result %fn i32 fn i32 fn i32 Result SelfhostSourceSpan SelfhostSourceSpanBuildError \file_id\start\end:
+    if:
+        lt file_id 0
+        then:
+            Result::Err SelfhostSourceSpanBuildError::NegativeFileId
+        else:
+            if:
+                lt start 0
+                then:
+                    Result::Err SelfhostSourceSpanBuildError::NegativeStart
+                else:
+                    if:
+                        lt end start
+                        then:
+                            Result::Err SelfhostSourceSpanBuildError::EndBeforeStart
+                        else:
+                            Result::Ok source_span_new_unchecked file_id start end
+
+//: source_span_empty_result: 0 byte range を検査して[作/つく]る
+pub fn source_span_empty_result %fn i32 fn i32 Result SelfhostSourceSpan SelfhostSourceSpanBuildError \file_id\offset:
+    source_span_new_result file_id offset offset
 
 //: source_span_len: byte range の[長/なが]さを[返/かえ]す
-pub fn source_span_len %fn SelfhostSourceSpan i32 \span:
-    sub field::get span "end" field::get span "start"
+//:
+//: [目的/もくてき]:
+//: - invalid span から負の長さを返さず、欠如を `Option::None` として明示します。
+pub fn source_span_len %fn SelfhostSourceSpan Option i32 \span:
+    if:
+        source_span_is_valid span
+        then:
+            some sub field::get span "end" field::get span "start"
+        else:
+            none
 
 //: source_span_is_valid: range が[負/ふ]でなく[逆転/ぎゃくてん]していないか[返/かえ]す
 pub fn source_span_is_valid %fn SelfhostSourceSpan bool \span:
+    let file_id %i32 field::get span "file_id"
     let start %i32 field::get span "start"
     let end %i32 field::get span "end"
-    and ge start 0 ge end start
+    and and ge file_id 0 ge start 0 ge end start
 
 //: source_span_contains: byte offset が range [内/ない]か[返/かえ]す
 pub fn source_span_contains %fn SelfhostSourceSpan fn i32 bool \span\offset:
     let start %i32 field::get span "start"
     let end %i32 field::get span "end"
-    and le start offset lt offset end
+    and source_span_is_valid span and le start offset lt offset end
 
-//: source_span_join: 2 [個/こ]の span を[覆/おお]う span を[返/かえ]す
+//: source_span_join_result: 2 [個/こ]の span を[覆/おお]う span を検査して[返/かえ]す
 //:
 //: [注意/ちゅうい]:
 //: - `file_id` は左側の span を[採用/さいよう]します。異なる file の join は parser [側/がわ]で[避/さ]けます。
-pub fn source_span_join %fn SelfhostSourceSpan fn SelfhostSourceSpan SelfhostSourceSpan \left\right:
+pub fn source_span_join_result %fn SelfhostSourceSpan fn SelfhostSourceSpan Result SelfhostSourceSpan SelfhostSourceSpanBuildError \left\right:
     let file_id %i32 field::get left "file_id"
+    let right_file_id %i32 field::get right "file_id"
     let left_start %i32 field::get left "start"
     let left_end %i32 field::get left "end"
     let right_start %i32 field::get right "start"
     let right_end %i32 field::get right "end"
     let start %i32 if lt left_start right_start left_start right_start
     let end %i32 if lt left_end right_end right_end left_end
-    source_span_new file_id start end
+    if:
+        not eq file_id right_file_id
+        then:
+            Result::Err SelfhostSourceSpanBuildError::DifferentFile
+        else:
+            source_span_new_result file_id start end
 
 //: selfhost_span_stage0: Stage 0 marker 互換の smoke API
 //:
 //: [目的/もくてき]:
 //: - 既存の Stage 0 doctest import 経路を[保/たも]ちながら、実 span 実装が[動/うご]くことも[確認/かくにん]します。
 pub fn selfhost_span_stage0 %fn void i32 \void:
-    let s %SelfhostSourceSpan source_span_new 0 1 3
-    if source_span_is_valid s 0 1
+    match source_span_new_result 0 1 3:
+        Result::Ok s:
+            if source_span_is_valid s 0 1
+        Result::Err _e:
+            1

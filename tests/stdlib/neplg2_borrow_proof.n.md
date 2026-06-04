@@ -135,7 +135,7 @@ fn check_borrow_error %fn Result SelfhostBorrowState SelfhostProofRefutation fn 
             Result::Err "borrow conflict was accepted"
 
 fn main %impure fn void i32 \void:
-    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 4
     let start_shared %SelfhostBorrowAccessFact selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::StartShared span
     let start_mut %SelfhostBorrowAccessFact selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::StartMutable span
     let end_shared %SelfhostBorrowAccessFact selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::EndShared span

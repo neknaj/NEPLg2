@@ -14,7 +14,7 @@
 pub fn selfhost_name_resolver_stage0 %impure fn void i32 \void:
     match selfhost_name_scope_new:
         Result::Ok scope0:
-            let binding %SelfhostNameBinding selfhost_name_binding_pending "main" SelfhostDefKind::Function source_span_empty 0 0
+            let binding %SelfhostNameBinding selfhost_name_binding_pending "main" SelfhostDefKind::Function source_span_empty_unchecked 0 0
             match selfhost_name_scope_add_binding scope0 binding:
                 Result::Ok scope_add:
                     let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &scope_add

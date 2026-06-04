@@ -66,6 +66,6 @@ pub fn selfhost_module_check_item_raw_state %fn SelfhostRawBackendState fn Selfh
     selfhost_module_check_raw_backend_fact state selfhost_module_raw_backend_item_fact item
 
 pub fn selfhost_module_check_finish_raw_state %fn SelfhostRawBackendState Result SelfhostRawBackendState SelfhostProofRefutation \state:
-    let span %SelfhostSourceSpan source_span_empty 0 0
+    let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
     let item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
     selfhost_module_check_raw_backend_fact state item

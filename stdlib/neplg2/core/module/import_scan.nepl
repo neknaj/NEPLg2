@@ -158,7 +158,7 @@ pub fn selfhost_import_scan_is_import_line %fn str fn i32 fn i32 bool \source\li
 
 //: selfhost_import_record_from_line: top-level import directive 行から record を[作/つく]る
 pub fn selfhost_import_record_from_line %impure fn str impure fn i32 impure fn i32 impure fn i32 Result SelfhostImportRecord SelfhostDiagnostic \source\file_id\line_start\line_end:
-    let span %SelfhostSourceSpan source_span_new file_id line_start line_end
+    let span %SelfhostSourceSpan source_span_new_unchecked file_id line_start line_end
     let lexeme %str string_slice::str_slice source line_start line_end
     match selfhost_import_spec_parse_lexeme_with_item_index span lexeme 0:
         Result::Ok spec:
@@ -187,7 +187,7 @@ pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn 
                                     selfhost_scan_module_imports_loop source file_id n next_line next_out
                                 Result::Err e:
                                     v::free v::vec_push_error_vec e
-                                    Result::Err selfhost_import_scan_oom_diag source_span_new file_id line_start line_end
+                                    Result::Err selfhost_import_scan_oom_diag source_span_new_unchecked file_id line_start line_end
                         Result::Err diag:
                             v::free out
                             Result::Err diag
@@ -201,7 +201,7 @@ pub fn selfhost_scan_module_imports_with_file_id %impure fn str impure fn i32 Re
         Result::Ok out:
             selfhost_scan_module_imports_loop source file_id string_access::len source 0 out
         Result::Err _e:
-            Result::Err selfhost_import_scan_oom_diag source_span_empty 0 0
+            Result::Err selfhost_import_scan_oom_diag source_span_empty_unchecked 0 0
 
 //: selfhost_scan_module_imports: single-file 互換の import scanner
 pub fn selfhost_scan_module_imports %impure fn str Result Vec SelfhostImportRecord SelfhostDiagnostic \source:

@@ -29,11 +29,11 @@
 //: fn main %impure fn void i32 \void:
 //:     match selfhost_module_ast_new:
 //:         Result::Ok ast0:
-//:             let entry %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::EntryDirective source_span_new 0 0 11 "#entry main"
+//:             let entry %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::EntryDirective source_span_new_unchecked 0 0 11 "#entry main"
 //:             match selfhost_module_ast_push ast0 entry:
 //:                 Result::Ok ast1:
-//:                     let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name source_span_new 0 15 19
-//:                     let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private source_span_new 0 12 19 source_span_new 0 12 14 some head
+//:                     let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name source_span_new_unchecked 0 15 19
+//:                     let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private source_span_new_unchecked 0 12 19 source_span_new_unchecked 0 12 14 some head
 //:                     let decl %SelfhostModuleItem selfhost_module_item_new_with_declaration SelfhostModuleItemKind::FunctionDecl "fn main" header
 //:                     match selfhost_module_ast_push ast1 decl:
 //:                         Result::Ok ast2:

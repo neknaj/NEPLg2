@@ -7,8 +7,8 @@
 #import "neplg2/core/syntax/token" as *
 
 pub fn lex_token_slice %fn TokenKind fn str fn i32 fn i32 fn i32 SelfhostToken \kind\source\file_id\start\end:
-    selfhost_token_new kind source_span_new file_id start end
+    selfhost_token_new kind source_span_new_unchecked file_id start end
 
 //: lex_structural_token: offside rule の 0 byte token を[作/つく]る
 pub fn lex_structural_token %fn TokenKind fn i32 fn i32 SelfhostToken \kind\file_id\offset:
-    selfhost_token_new kind source_span_empty file_id offset
+    selfhost_token_new kind source_span_empty_unchecked file_id offset

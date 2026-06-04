@@ -42,7 +42,7 @@ fn check_path_result %impure fn TestReport impure fn Result SelfhostResolvedModu
 
 fn main %impure fn void i32 \void:
     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib"
-    let span %SelfhostSourceSpan source_span_empty 0 0
+    let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
     let checks0 checks_new
     let checks1 check_path_result checks0 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "core/result") "stdlib/core/result.nepl" true
     let checks2 check_path_result checks1 (selfhost_module_path_resolve_import &map "user/app/main.nepl" span "./util") "user/app/util.nepl" false
@@ -162,7 +162,7 @@ stdout: mlstr:
 fn main %impure fn void i32 \void:
     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib"
     let checks0 checks_new
-    match selfhost_module_path_resolve_import &map "user/main.nepl" source_span_empty 0 0 "../escape":
+    match selfhost_module_path_resolve_import &map "user/main.nepl" source_span_empty_unchecked 0 0 "../escape":
         Result::Ok _resolved:
             let checks1 checks_push checks0 Result::Err "escape above user root was accepted"
             let shown checks_print_report checks1

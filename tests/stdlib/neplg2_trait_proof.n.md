@@ -144,7 +144,7 @@ fn check_coherence_error %fn Result SelfhostTraitImplRelation SelfhostProofRefut
             Result::Err "trait impl coherence error was accepted"
 
 fn run_with_types %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId i32 \arena\i32_id\bool_id:
-    let span %SelfhostSourceSpan source_span_new 0 0 5
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 5
     let trait0 %SelfhostTraitId selfhost_trait_id_new 0
     let trait1 %SelfhostTraitId selfhost_trait_id_new 1
     let impl_trait0_i32 %SelfhostTraitImplKey selfhost_trait_impl_key_new trait0 i32_id

@@ -39,7 +39,7 @@
 //:     let checks0 checks_new
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:
-//:             let span %SelfhostSourceSpan source_span_new 0 1 2
+//:             let span %SelfhostSourceSpan source_span_new_unchecked 0 1 2
 //:             let first %SelfhostNameBinding selfhost_name_binding_pending "x" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 first:
 //:                 Result::Ok add1:
@@ -98,7 +98,7 @@
 //:     let checks0 checks_new
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:
-//:             let span %SelfhostSourceSpan source_span_new 0 10 14
+//:             let span %SelfhostSourceSpan source_span_new_unchecked 0 10 14
 //:             let local_binding %SelfhostNameBinding selfhost_name_binding_pending "Item" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 local_binding:
 //:                 Result::Ok add1:

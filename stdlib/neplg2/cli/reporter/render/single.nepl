@@ -24,7 +24,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "std/test" as *
 //: fn main %impure fn void i32 \void:
-//:     let span %SelfhostSourceSpan source_span_new 2 4 8
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 2 4 8
 //:     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "near `let`"
 //:     let diag0 %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "bad input"
 //:     let diag1 %SelfhostDiagnostic selfhost_diag_with_primary_label diag0 label

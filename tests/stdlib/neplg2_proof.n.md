@@ -63,8 +63,8 @@ fn check_span_invalid %fn Result unit SelfhostProofRefutation Result unit str \r
             Result::Err "invalid span was accepted"
 
 fn main %impure fn void i32 \void:
-    let valid %SelfhostSourceSpan source_span_new 0 0 4
-    let invalid %SelfhostSourceSpan source_span_new 0 5 2
+    let valid %SelfhostSourceSpan source_span_new_unchecked 0 0 4
+    let invalid %SelfhostSourceSpan source_span_new_unchecked 0 5 2
     let checks0 checks_new
     let checks1 checks_push checks0 check_span_proven selfhost_proof_source_span_valid valid
     let checks2 checks_push checks1 check_span_invalid selfhost_proof_source_span_valid invalid
@@ -155,7 +155,7 @@ fn check_domain_mismatch %fn SelfhostProofRefutation Result unit str \refutation
             Result::Err "expected fact/obligation mismatch"
 
 fn main %impure fn void i32 \void:
-    let span %SelfhostSourceSpan source_span_new 0 0 5
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 5
     let raw_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
     let fact %SelfhostProofFact SelfhostProofFact::RawBackendItemObserved raw_item
     let obligation %SelfhostProofObligation SelfhostProofObligation::SourceSpanValid span
@@ -263,7 +263,7 @@ fn check_drop_after_move %fn SelfhostProofRefutation Result unit str \refutation
             Result::Err "expected resource transition refutation"
 
 fn main %impure fn void i32 \void:
-    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 4
     let init_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Initialize span
     let move_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::MoveOut span
     let drop_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Drop span
@@ -386,8 +386,8 @@ fn check_duplicate_target %fn SelfhostProofRefutation Result unit str \refutatio
             Result::Err "expected duplicate target"
 
 fn main %impure fn void i32 \void:
-    let span1 %SelfhostSourceSpan source_span_new 0 0 7
-    let span2 %SelfhostSourceSpan source_span_new 0 8 15
+    let span1 %SelfhostSourceSpan source_span_new_unchecked 0 0 7
+    let span2 %SelfhostSourceSpan source_span_new_unchecked 0 8 15
     let checks0 checks_new
     let other_item %SelfhostModuleDirectiveFact selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Other span1
     match selfhost_proof_module_directive_transition SelfhostModuleDirectiveState::NoneSeen other_item:
@@ -513,7 +513,7 @@ fn check_raw_text_refutation %fn SelfhostProofRefutation Result unit str \refuta
             Result::Err "expected text-without-block refutation"
 
 fn main %impure fn void i32 \void:
-    let span %SelfhostSourceSpan source_span_new 0 0 5
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 5
     let checks0 checks_new
     let block_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
     match selfhost_proof_raw_backend_transition SelfhostRawBackendState::Normal block_item:
@@ -664,18 +664,18 @@ fn check_header_invalid %fn Result SelfhostModuleDeclarationHeader SelfhostProof
             Result::Err "invalid declaration header was accepted"
 
 fn main %impure fn void i32 \void:
-    let header_span %SelfhostSourceSpan source_span_new 0 0 24
-    let keyword_span %SelfhostSourceSpan source_span_new 0 0 2
-    let head_span %SelfhostSourceSpan source_span_new 0 3 7
+    let header_span %SelfhostSourceSpan source_span_new_unchecked 0 0 24
+    let keyword_span %SelfhostSourceSpan source_span_new_unchecked 0 0 2
+    let head_span %SelfhostSourceSpan source_span_new_unchecked 0 3 7
     let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name head_span
     let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head
     let valid_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some header header_span
     let missing_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl none header_span
     let invalid_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some head
     let invalid_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some invalid_header header_span
-    let impl_header_span %SelfhostSourceSpan source_span_new 0 0 22
-    let impl_keyword_span %SelfhostSourceSpan source_span_new 0 4 8
-    let impl_head_span %SelfhostSourceSpan source_span_new 0 9 13
+    let impl_header_span %SelfhostSourceSpan source_span_new_unchecked 0 0 22
+    let impl_keyword_span %SelfhostSourceSpan source_span_new_unchecked 0 4 8
+    let impl_head_span %SelfhostSourceSpan source_span_new_unchecked 0 9 13
     let impl_head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name impl_head_span
     let public_impl_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public impl_header_span impl_keyword_span some impl_head
     let public_impl_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::ImplDecl some public_impl_header impl_header_span

@@ -14,7 +14,7 @@ fn selfhost_module_check_raw_block_empty_diag %fn SelfhostSourceSpan SelfhostDia
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items" span "raw backend block starts here"
 
 fn selfhost_module_check_unexpected_proof_diag %fn void SelfhostDiagnostic \void:
-    let span %SelfhostSourceSpan source_span_empty 0 0
+    let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module checker received an unexpected proof result" span "unexpected proof result"
 
 fn selfhost_module_check_directive_duplicate_message %fn SelfhostModuleDirectiveKind str \kind:
@@ -48,7 +48,7 @@ fn selfhost_module_check_declaration_header_invalid_diag %fn SelfhostModuleDecla
     selfhost_diag_with_note diag "the parser must preserve a valid header span, keyword span, and declaration head before type/trait/effect checks run"
 
 pub fn selfhost_module_check_index_unavailable_diag %fn void SelfhostDiagnostic \void:
-    let span %SelfhostSourceSpan source_span_empty 0 0
+    let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module AST item index was unavailable" span "unavailable module item"
 
 pub fn selfhost_module_check_refutation_diag %fn SelfhostProofRefutation SelfhostDiagnostic \refutation:

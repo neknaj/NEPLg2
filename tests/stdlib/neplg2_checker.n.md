@@ -83,8 +83,8 @@ stdout: mlstr:
 fn check_duplicate_directive %impure fn SelfhostModuleItemKind Result unit str \kind:
     match selfhost_module_ast_new:
         Result::Ok ast0:
-            let span1 %SelfhostSourceSpan source_span_new 0 0 7
-            let span2 %SelfhostSourceSpan source_span_new 0 8 15
+            let span1 %SelfhostSourceSpan source_span_new_unchecked 0 0 7
+            let span2 %SelfhostSourceSpan source_span_new_unchecked 0 8 15
             let item1 %SelfhostModuleItem selfhost_module_item_new kind span1 "first"
             match selfhost_module_ast_push ast0 item1:
                 Result::Ok ast1:
@@ -137,7 +137,7 @@ fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
-            let span %SelfhostSourceSpan source_span_new 0 0 12
+            let span %SelfhostSourceSpan source_span_new_unchecked 0 0 12
             let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::WasmText span "i32.const 0"
             match selfhost_module_ast_push ast0 item:
                 Result::Ok ast:
@@ -185,7 +185,7 @@ fn main %impure fn void i32 \void:
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
-            let span %SelfhostSourceSpan source_span_new 0 0 24
+            let span %SelfhostSourceSpan source_span_new_unchecked 0 0 24
             let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl span "fn main %fn void i32 \\void:"
             match selfhost_module_ast_push ast0 item:
                 Result::Ok ast:

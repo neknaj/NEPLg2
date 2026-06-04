@@ -19,7 +19,7 @@ pub fn lex_next %fn str fn i32 fn i32 fn i32 SelfhostToken \source\n\file_id\idx
     if:
         ge start n
         then:
-            selfhost_token_new TokenKind::Eof source_span_empty file_id start
+            selfhost_token_new TokenKind::Eof source_span_empty_unchecked file_id start
         else:
             let ch %i32 lex_byte_or_end source start
             match ch:

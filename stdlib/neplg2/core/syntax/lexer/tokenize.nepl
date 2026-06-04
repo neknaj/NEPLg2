@@ -38,7 +38,7 @@ pub fn lex_push_structural %impure fn Vec SelfhostToken impure fn TokenKind impu
 pub fn lex_fail_indent %impure fn Vec SelfhostToken impure fn Vec i32 impure fn i32 impure fn i32 impure fn str Result Vec SelfhostToken LexDiagnostic \tokens\stack\file_id\offset\message:
     free tokens
     free stack
-    Result::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset message
+    Result::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty_unchecked file_id offset message
 
 
 //: lex_finish_eof: EOF 前に残った indent level を Dedent で[閉/と]じる
@@ -121,7 +121,7 @@ pub fn lex_line_start %impure fn str impure fn i32 impure fn i32 impure fn i32 i
                                             let returned_stack %Vec i32 vec_push_error_vec e
                                             free returned_stack
                                             free tokens
-                                            Result::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
+                                            Result::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty_unchecked file_id idx "lexer indent stack allocation failed"
                         else:
                             if:
                                 lex_raw_mode_is_active raw_mode
@@ -151,7 +151,7 @@ pub fn lex_line_start %impure fn str impure fn i32 impure fn i32 impure fn i32 i
                                                             let returned_stack %Vec i32 vec_push_error_vec e
                                                             free returned_stack
                                                             free tokens
-                                                            Result::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
+                                                            Result::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty_unchecked file_id idx "lexer indent stack allocation failed"
                                                 else:
                                                     lex_fail_indent tokens stack file_id idx "indentation is not aligned to #indent width"
                                         else:
@@ -230,14 +230,14 @@ pub fn lex_all_with_file_id %impure fn str impure fn i32 Result Vec SelfhostToke
                             let returned_stack %Vec i32 vec_push_error_vec e
                             free returned_stack
                             free tokens
-                            let span %SelfhostSourceSpan source_span_empty file_id 0
+                            let span %SelfhostSourceSpan source_span_empty_unchecked file_id 0
                             Result::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer indent stack allocation failed"
                 Result::Err _e:
                     free tokens
-                    let span %SelfhostSourceSpan source_span_empty file_id 0
+                    let span %SelfhostSourceSpan source_span_empty_unchecked file_id 0
                     Result::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer indent stack allocation failed"
         Result::Err _e:
-            let span %SelfhostSourceSpan source_span_empty file_id 0
+            let span %SelfhostSourceSpan source_span_empty_unchecked file_id 0
             Result::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer token buffer allocation failed"
 
 //: lex_all: source text 全体を token stream へ[変換/へんかん]する

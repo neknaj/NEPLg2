@@ -30,7 +30,7 @@
 //: fn main %impure fn void i32 \void:
 //:     match selfhost_module_ast_new:
 //:         Result::Ok ast0:
-//:             let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl source_span_new 0 0 2 "fn"
+//:             let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl source_span_new_unchecked 0 0 2 "fn"
 //:             match selfhost_module_ast_push ast0 item:
 //:                 Result::Ok ast1:
 //:                     let n %i32 selfhost_module_ast_len &ast1

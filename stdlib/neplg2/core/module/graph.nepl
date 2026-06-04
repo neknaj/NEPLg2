@@ -263,7 +263,7 @@ pub fn selfhost_module_graph_visit_import_records %impure fn &SelfhostVirtualFil
                             Result::Err diag
                 Option::None:
                     selfhost_module_graph_free graph
-                    Result::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import record index was unavailable"
+                    Result::Err selfhost_module_graph_internal_diag source_span_empty_unchecked 0 0 "import record index was unavailable"
 
 //: selfhost_module_graph_visit_import_records_with_path_map: path map で import record を DFS 展開する
 pub fn selfhost_module_graph_visit_import_records_with_path_map %impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModulePathMap impure fn str impure fn &Vec SelfhostImportRecord impure fn i32 impure fn i32 impure fn SelfhostModuleGraph Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path_map\from_path\imports\n\idx\graph:
@@ -291,7 +291,7 @@ pub fn selfhost_module_graph_visit_import_records_with_path_map %impure fn &Self
                             Result::Err diag
                 Option::None:
                     selfhost_module_graph_free graph
-                    Result::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import record index was unavailable"
+                    Result::Err selfhost_module_graph_internal_diag source_span_empty_unchecked 0 0 "import record index was unavailable"
 
 //: selfhost_module_graph_extract_scanned_imports: lightweight import scan 結果から graph edge を展開する
 pub fn selfhost_module_graph_extract_scanned_imports %impure fn &SelfhostVirtualFileSystem impure fn str impure fn i32 impure fn SelfhostModuleGraph impure fn Vec SelfhostImportRecord Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path\node_idx\graph\imports:
@@ -396,9 +396,9 @@ pub fn selfhost_module_graph_visit_with_path_map %impure fn &SelfhostVirtualFile
 pub fn selfhost_build_module_graph %impure fn &SelfhostVirtualFileSystem impure fn str Result SelfhostModuleGraph SelfhostDiagnostic \vfs\root_path:
     match selfhost_module_graph_new:
         Result::Ok graph:
-            selfhost_module_graph_visit vfs root_path source_span_empty 0 0 graph
+            selfhost_module_graph_visit vfs root_path source_span_empty_unchecked 0 0 graph
         Result::Err _e:
-            Result::Err selfhost_module_graph_oom_diag source_span_empty 0 0
+            Result::Err selfhost_module_graph_oom_diag source_span_empty_unchecked 0 0
 
 //: selfhost_build_module_graph_with_path_map: stdlib/user root を解決しながら import graph を[構築/こうちく]する
 //:
@@ -408,9 +408,9 @@ pub fn selfhost_build_module_graph %impure fn &SelfhostVirtualFileSystem impure 
 pub fn selfhost_build_module_graph_with_path_map %impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModulePathMap impure fn str Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path_map\root_path:
     match selfhost_module_graph_new:
         Result::Ok graph:
-            selfhost_module_graph_visit_with_path_map vfs path_map root_path source_span_empty 0 0 graph
+            selfhost_module_graph_visit_with_path_map vfs path_map root_path source_span_empty_unchecked 0 0 graph
         Result::Err _e:
-            Result::Err selfhost_module_graph_oom_diag source_span_empty 0 0
+            Result::Err selfhost_module_graph_oom_diag source_span_empty_unchecked 0 0
 
 //: selfhost_module_graph_stage0: VFS から import graph を[作/つく]る smoke API
 pub fn selfhost_module_graph_stage0 %impure fn void i32 \void:

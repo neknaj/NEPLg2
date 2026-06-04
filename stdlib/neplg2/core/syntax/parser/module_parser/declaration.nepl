@@ -388,7 +388,7 @@ fn selfhost_parser_declaration_header %fn &Vec SelfhostToken fn i32 fn i32 fn Se
     let header_end %i32 selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
     let token_span %SelfhostSourceSpan token.span
     let file_id %i32 field::get token_span "file_id"
-    let header_span %SelfhostSourceSpan source_span_new file_id header_start header_end
+    let header_span %SelfhostSourceSpan source_span_new_unchecked file_id header_start header_end
     let head %Option SelfhostModuleDeclarationHead selfhost_parser_declaration_head tokens n idx
     selfhost_module_declaration_header_new decl_kind visibility header_span token_span head
 

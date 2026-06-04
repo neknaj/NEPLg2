@@ -30,7 +30,7 @@ stdout: mlstr:
 
 fn main %impure fn void i32 \void:
     let mut checks checks_new
-    let span %SelfhostSourceSpan source_span_new 4 10 14
+    let span %SelfhostSourceSpan source_span_new_unchecked 4 10 14
     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "identifier"
     let diag0 %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::ImportAliasExpected "expected identifier"
     let diag1 %SelfhostDiagnostic selfhost_diag_with_primary_label diag0 label

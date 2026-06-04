@@ -1,3 +1,15 @@
+# 2026-06-04 self-host compiler Phase 1 SourceSpan validation checkpoint
+
+- `plan.md` は変更していない。セルフホストコンパイラの新設計を `main` へ fast-forward した後、`selfhost/phase1-source-span-validation-20260604` branch で Phase 1 実装を開始した。
+- Zenn 記事の試作段階方針に沿って、SourceSpan の不正値を sentinel や文字列診断ではなく `Result` / `Option` と enum で扱うようにした。`SelfhostSourceSpanBuildError` は `NegativeFileId`、`NegativeStart`、`EndBeforeStart`、`DifferentFile` を網羅する。
+- `source_span_new_result` / `source_span_empty_result` を追加し、通常 caller は checked constructor を使う契約にした。既存の直接構築 API は `source_span_new_unchecked` / `source_span_empty_unchecked` へ改名し、parser / lexer 内部など range validity が別途証明済みの境界だけで使うことを明示した。
+- `source_span_len` は invalid span で負の長さを返さず、`Option::None` を返すようにした。`source_span_contains` も `source_span_is_valid` を前提にし、invalid span が通常の包含判定へ流れないようにした。
+- `source_span_join_result` は file id の不一致を `DifferentFile` として返す。`source_text_line_span` は checked constructor を通し、line map 側で不整合が出た場合は `None` へ落とす。
+- `tests/stdlib/neplg2_span.n.md` と `nodesrc/test_selfhost_source_span_contract.js` を追加し、checked constructor、invalid span length、different-file join、unchecked safe-name 再公開禁止、text line span の checked constructor 使用を回帰検査にした。
+- `ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655` は `fixed` / `resolved: true` に更新した。
+- 検証済み: `node nodesrc\tests.js -i stdlib\neplg2\core\infra\span.nepl -i tests\stdlib\neplg2_span.n.md --no-tree -o tmp\phase1-source-span-validation-span-focused.json -j 1 --assert-io --dist web\dist`、`node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\phase1-source-span-validation-selfhost-tree.json -j 2 --assert-io --dist web\dist`、focused 19 件の stdlib selfhost tests、`node nodesrc\test_selfhost_source_span_contract.js`、`node nodesrc\run_source_policy_regressions.js --warn-only`、`node nodesrc\issues.js index --dir issues; node nodesrc\issues.js check --dir issues`、`git diff --check`。
+- 既知の差分外失敗: `tests\stdlib\neplg2_lexer.n.md` の doctest 2 件は stdout expectation drift、`node nodesrc\test_selfhost_proof_entry_contract.js` は旧 `<SelfhostProofFact>` 前提の source policy mismatch として確認した。今回の SourceSpan validation 差分では修正していない。
+
 # 2026-06-04 NEPLg2.1 self-host compiler redesign checkpoint
 
 - `plan.md` は変更していない。セルフホストコンパイラ設計を、旧 NEPLg2.0 設計ではなく現行 NEPLg2.1 と Rust 実装の実際の pipeline に基づいて再作成した。

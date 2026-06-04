@@ -315,7 +315,11 @@ pub fn source_text_line_span %fn &SelfhostSourceText fn i32 Option SelfhostSourc
                     let n %i32 string_access::len source
                     let raw_end %i32 source_text_next_line_start_or_len starts add line 1 n
                     let end %i32 source_text_trim_line_end source start raw_end
-                    some source_span_new file_id start end
+                    match source_span_new_result file_id start end:
+                        Result::Ok span:
+                            some span
+                        Result::Err _e:
+                            none
                 Option::None:
                     none
 

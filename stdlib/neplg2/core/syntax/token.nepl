@@ -24,7 +24,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/token" as *
 //: fn main %fn void i32 \void:
-//:     let token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new 0 0 2
+//:     let token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 2
 //:     if and selfhost_token_is_expr_start token string::str_eq "fn" selfhost_token_lexeme "fn" token 0 1
 //: ```
 

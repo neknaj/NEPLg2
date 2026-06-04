@@ -31,7 +31,7 @@
 //:| #import "neplg2/core/module/stdlib_map" as *
 //: fn main %impure fn void i32 \void:
 //:     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib";
-//:     match selfhost_module_path_resolve_import &map "user/app/main.nepl" source_span_empty 0 0 "core/result":
+//:     match selfhost_module_path_resolve_import &map "user/app/main.nepl" source_span_empty_unchecked 0 0 "core/result":
 //:         Result::Ok resolved:
 //:             if:
 //:                 and selfhost_resolved_module_path_is_stdlib resolved string_search::str_eq resolved.path "stdlib/core/result.nepl"

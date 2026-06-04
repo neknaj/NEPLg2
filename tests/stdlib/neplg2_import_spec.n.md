@@ -27,9 +27,9 @@ stdout: mlstr:
 
 fn main %impure fn void i32 \void:
     let checks0 checks_new
-    match selfhost_import_spec_parse_lexeme source_span_new 0 0 26 "#import \"core/result\" as *":
+    match selfhost_import_spec_parse_lexeme source_span_new_unchecked 0 0 26 "#import \"core/result\" as *":
         Result::Ok first:
-            match selfhost_import_spec_parse_lexeme source_span_new 0 27 54 "#import \"std/test\" as test":
+            match selfhost_import_spec_parse_lexeme source_span_new_unchecked 0 27 54 "#import \"std/test\" as test":
                 Result::Ok second:
                     let first_span %SelfhostSourceSpan selfhost_import_spec_span first
                     let first_wildcard %bool selfhost_import_spec_is_wildcard first
@@ -79,7 +79,7 @@ stdout: mlstr:
 
 fn main %impure fn void i32 \void:
     let checks0 checks_new
-    let span %SelfhostSourceSpan source_span_new 3 0 7
+    let span %SelfhostSourceSpan source_span_new_unchecked 3 0 7
     match selfhost_import_spec_parse_lexeme span "#import":
         Result::Ok _spec:
             let checks1 checks_push checks0 Result::Err "malformed import was accepted"
@@ -114,7 +114,7 @@ stdout: mlstr:
 
 fn main %impure fn void i32 \void:
     let checks0 checks_new
-    let span %SelfhostSourceSpan source_span_new 4 0 32
+    let span %SelfhostSourceSpan source_span_new_unchecked 4 0 32
     match selfhost_import_spec_parse_lexeme span "#import \"core/result\" as * extra":
         Result::Ok _spec:
             let checks1 checks_push checks0 Result::Err "trailing import text was accepted"

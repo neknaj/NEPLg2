@@ -204,7 +204,7 @@ fn check_owner_error %fn Result SelfhostOwnerState SelfhostProofRefutation fn fn
             Result::Err "invalid owner transition was accepted"
 
 fn main %impure fn void i32 \void:
-    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 4
     let storage %SelfhostOwnerStorageId selfhost_owner_storage_id_new 7
     let other %SelfhostOwnerStorageId selfhost_owner_storage_id_new 9
     let invalid %SelfhostOwnerStorageId selfhost_owner_storage_id_new (sub 0 1)
