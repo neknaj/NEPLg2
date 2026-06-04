@@ -192,13 +192,27 @@ impl RawCellAddressAliases {
         target: &Place,
         context: &mut I32ConditionQueryContext,
     ) -> Vec<(Place, i64)> {
+        let aliases = self.scalar_aliases_for_value_with_context(target, context);
+        self.i32_offset_sources_for_target_aliases_with_context(target, &aliases, context)
+    }
+
+    /// 事前に計算済みの target scalar aliases から offset source を引く。
+    ///
+    /// `aliases` は `target` に対する完全な scalar alias 集合でなければならない。
+    /// 結果は `target` 単位で memoize されるため、部分集合を渡すと後続の同じ
+    /// target query まで狭まり、offset proof を失う。
+    pub(super) fn i32_offset_sources_for_target_aliases_with_context(
+        &self,
+        target: &Place,
+        aliases: &[Place],
+        context: &mut I32ConditionQueryContext,
+    ) -> Vec<(Place, i64)> {
         if let Some(sources) = context.offset_sources(target) {
             return sources;
         }
-        let aliases = self.scalar_aliases_for_value_with_context(target, context);
         let sources: Vec<(Place, i64)> = self
             .i32_offsets
-            .offset_sources_for_target_aliases(&aliases)
+            .offset_sources_for_target_aliases(aliases)
             .into_iter()
             .map(|(source, offset)| {
                 (

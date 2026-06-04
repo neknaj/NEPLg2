@@ -2,15 +2,12 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::types::TypeCtx;
-
 use super::i32_scalar_return_facts::{
     I32ScalarParameterCondition, I32ScalarReturnAlias, I32ScalarReturnCondition,
     I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset, I32ScalarReturnRelation,
 };
 use super::initialized_scalar_flow::I32ScalarConcreteVariants;
 use super::model::{Place, PlaceProjection};
-use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 
 pub(super) trait I32ScalarReturnProjectedFact: Clone + Eq {
     fn return_projection(&self) -> &[PlaceProjection];
@@ -40,20 +37,12 @@ impl I32ScalarReturnProjectedFact for I32ScalarReturnCondition {
     }
 }
 
-pub(super) fn i32_scalar_return_fact_projections(
-    types: &TypeCtx,
+pub(super) fn i32_scalar_return_fact_projections_from_known_leaf_projections(
     value: &Place,
     facts: &I32ScalarReturnFacts,
     concrete_variants: &I32ScalarConcreteVariants,
-    leaf_cache: &mut I32LeafProjectionCache,
+    mut projections: Vec<Vec<PlaceProjection>>,
 ) -> Vec<Vec<PlaceProjection>> {
-    let mut projections = Vec::new();
-    for leaf in leaf_cache.leaf_places_for_conditions(types, value) {
-        if !concrete_variants.projection_is_possible(types, value, &leaf.suffix) {
-            continue;
-        }
-        push_unique_i32_scalar_return_projection(&mut projections, &leaf.suffix);
-    }
     concrete_variants.push_variant_projection_paths(value, &mut projections);
     for alias in &facts.aliases {
         push_unique_i32_scalar_return_projection(&mut projections, &alias.return_projection);

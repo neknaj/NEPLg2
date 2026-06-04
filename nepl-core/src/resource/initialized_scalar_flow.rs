@@ -11,16 +11,17 @@ use super::condition_fact::record_condition_fact_value_constraints;
 use super::function_alias::FunctionAliasTable;
 use super::i32_scalar_return_facts::{
     apply_i32_scalar_return_facts,
-    collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter,
-    collect_i32_scalar_return_facts_for_value_suffix_cached_without_parameter_conditions,
+    collect_i32_scalar_return_fact_collection_cached_with_projection_filter,
+    collect_i32_scalar_return_fact_collection_cached_without_parameter_conditions,
     I32ScalarReturnFacts,
 };
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_op;
 use super::initialized_scalar_flow_return_facts::{
-    i32_scalar_return_fact_projections, merge_i32_scalar_parameter_condition_paths,
-    merge_i32_scalar_return_fact_paths, merge_i32_scalar_return_relation_paths,
+    i32_scalar_return_fact_projections_from_known_leaf_projections,
+    merge_i32_scalar_parameter_condition_paths, merge_i32_scalar_return_fact_paths,
+    merge_i32_scalar_return_relation_paths,
 };
 use super::initialized_scalar_flow_value_cache::{
     preseed_i32_scalar_return_summaries_from_value_cache,
@@ -361,11 +362,11 @@ fn function_i32_scalar_return_summary(
             for state in states {
                 #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
                 let collect_start = i32_scalar_return_timing_start(function, "collect_facts");
-                let path_facts = value
+                let path_collection = value
                     .as_ref()
                     .map(|value| {
                         if parameter_conditions_known_empty {
-                            collect_i32_scalar_return_facts_for_value_suffix_cached_without_parameter_conditions(
+                            collect_i32_scalar_return_fact_collection_cached_without_parameter_conditions(
                                 &function.params,
                                 types,
                                 &state.raw_aliases,
@@ -379,7 +380,7 @@ fn function_i32_scalar_return_summary(
                                 },
                             )
                         } else {
-                            collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+                            collect_i32_scalar_return_fact_collection_cached_with_projection_filter(
                                 &function.params,
                                 types,
                                 &state.raw_aliases,
@@ -395,6 +396,7 @@ fn function_i32_scalar_return_summary(
                         }
                     })
                     .unwrap_or_default();
+                let path_facts = path_collection.facts;
                 if path_facts.parameter_conditions.is_empty() {
                     // parameter condition summary は全 return path の共通部分だけを公開する。
                     // ひとつでも空の path があれば最終 intersection は空に確定するため、
@@ -411,12 +413,11 @@ fn function_i32_scalar_return_summary(
                     value
                         .as_ref()
                         .map(|value| {
-                            i32_scalar_return_fact_projections(
-                                types,
+                            i32_scalar_return_fact_projections_from_known_leaf_projections(
                                 value,
                                 &path_facts,
                                 &state.concrete_variants,
-                                &mut i32_leaf_cache,
+                                path_collection.possible_return_projections,
                             )
                         })
                         .unwrap_or_default(),
