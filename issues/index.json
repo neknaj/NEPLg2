@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T03:55:39.133Z",
+  "generated_at": "2026-06-04T04:02:41.688Z",
   "counts": {
     "total": 1336,
-    "open": 60,
-    "resolved": 1276,
+    "open": 59,
+    "resolved": 1277,
     "by_area": {
       "stdlib": {
         "total": 347,
-        "open": 20,
-        "resolved": 327
+        "open": 19,
+        "resolved": 328
       },
       "core": {
         "total": 663,
@@ -698,21 +698,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T033643338Z-VEC-CONSTRUCTOR-CAPABILITY-REJECTION-463D3E88.md"
-    },
-    {
-      "id": "ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA",
-      "title": "Diags by-value observer must close owner after borrowed observation",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/alloc/diag/error/diags.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA.md"
     },
     {
       "id": "ISS-20260604T033841916Z-STD-FS-AND-IO-APIS-STILL-FLATTEN-TYP-24F6E6AF",
@@ -16043,6 +16028,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260528T094007190Z-STRING-PREDICATE-HELPERS-LACK-DECLAR-0D839544.md"
+    },
+    {
+      "id": "ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA",
+      "title": "Diags by-value observer must close owner after borrowed observation",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/alloc/diag/error/diags.nepl, nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

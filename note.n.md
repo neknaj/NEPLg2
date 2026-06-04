@@ -1,3 +1,12 @@
+# 2026-06-04 Agent2 Diags has_errors owner policy checkpoint
+
+- `origin/main` を確認し、`agent2/fix-diags-has-errors-owner` branch で `ISS-20260604T033643672Z-DIAGS-BY-VALUE-OBSERVER-MUST-CLOSE-O-C6D3EAEA` を修正した。
+- `stdlib/alloc/diag/error/diags.nepl` の by-value `diags_has_errors` は既に `&Diags` で観測してから `diags_free ds` で owner を閉じていた。失敗の根本原因は `nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` が `let ok` などの局所名に過剰適合し、正しい owner close contract を証明できないことだった。
+- source policy を、観測結果の局所名を capture し、`diags_free ds` の後に同じ局所を返すことを確認する形に変更した。`diags_push` についても、`field::get ds "items"` で回収した `Vec<Diag>` owner と `vec_push::push` に渡す owner が同一であることを確認するようにした。
+- subagent review では、stdlib 実装の意味は正しく、検査を意味ベースに直す方針が妥当だと確認した。
+- 対象 issue は `fixed` / `resolved: true` に更新した。
+- 検証: `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`、`node nodesrc/tests.js -i stdlib/alloc/diag/error/diags.nepl -i stdlib/tests/error.n.md -i stdlib/tests/diag.n.md --no-tree -o tmp/agent2-diags-has-errors-tests.json -j 1 --dist web/dist --assert-io` は通過した。`node nodesrc/run_source_policy_regressions.js --warn-only` は `test_stdlib_diag_error_no_unsafe_unwraps.js` が pass し、既存 warning は 13 件から 12 件に減った。`node nodesrc/issues.js index --dir issues && node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-diags-has-errors-playground-editor.json` も通過し、CLI JSON は 13/13 pass を確認した。
+
 # 2026-06-04 Agent2 stdio print_i32 formatter boundary checkpoint
 
 - `origin/main` を確認し、`agent2/fix-stdio-print-i32-formatter` branch で `ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401` を修正した。
