@@ -35,6 +35,24 @@ pub enum StreamWriterTargetKind:
     Stdout
     Stderr
 
+//: ## StreamWriterErrorKind
+//: writer operation の失敗理由を静的検査できる enum として表す
+//:
+//: ### [契約/けいやく]
+//: - 表示文字列ではなく error kind を data として保持し、表示は `stream_writer_error_name` 側に分離します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/writer" as *
+//:| let kind %StreamWriterErrorKind StreamWriterErrorKind::UnsupportedTarget;
+//: ```
+pub enum StreamWriterErrorKind:
+    UnsupportedTarget
+    BufferAllocFailed
+    WriteFailed
+    AppendFailed
+    InvalidInput
+
 impl Clone for StreamWriterTargetKind:
     fn clone %fn &StreamWriterTargetKind StreamWriterTargetKind \target:
         *target
@@ -43,8 +61,116 @@ impl Copy for StreamWriterTargetKind:
     fn copy_mark %fn StreamWriterTargetKind StreamWriterTargetKind \target:
         target
 
+impl Clone for StreamWriterErrorKind:
+    fn clone %fn &StreamWriterErrorKind StreamWriterErrorKind \kind:
+        *kind
+
+impl Copy for StreamWriterErrorKind:
+    fn copy_mark %fn StreamWriterErrorKind StreamWriterErrorKind \kind:
+        kind
+
+//: ## StreamWriterError
+//: writer failure と recovery 用 writer owner をまとめる error data
+//:
+//: ### [契約/けいやく]
+//: - writer owner が recover 可能な失敗では `Option::Some writer` を保持します。
+//: - owner が存在しない失敗では `Option::None` を保持し、caller は kind だけを処理します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/option" as *
+//:| #import "std/streamio/writer" as *
+//:| let e %StreamWriterError stream_writer_error_without_writer StreamWriterErrorKind::UnsupportedTarget;
+//: ```
+pub struct StreamWriterError:
+    kind %StreamWriterErrorKind
+    writer %Option StreamWriter
+
 pub fn stream_writer_noncopy_marker %fn i32 i32 \x:
     x
+
+//: ## stream_writer_error_without_writer
+//: owner を含まない writer error を作る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/writer" as *
+//:| let e %StreamWriterError stream_writer_error_without_writer StreamWriterErrorKind::UnsupportedTarget;
+//: ```
+pub fn stream_writer_error_without_writer %fn StreamWriterErrorKind StreamWriterError \kind:
+    StreamWriterError kind Option::None
+
+//: ## stream_writer_error_with_writer
+//: retry / cleanup 可能な writer owner 付き error を作る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok open WriteStream::Stdio;
+//:| let e %StreamWriterError stream_writer_error_with_writer w StreamWriterErrorKind::WriteFailed;
+//:| stream_writer_error_free e;
+//: ```
+pub fn stream_writer_error_with_writer %fn StreamWriter fn StreamWriterErrorKind StreamWriterError \w\kind:
+    StreamWriterError kind Option::Some w
+
+//: ## stream_writer_error_kind
+//: error data から分類 enum を取り出す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/writer" as *
+//:| let e %StreamWriterError stream_writer_error_without_writer StreamWriterErrorKind::UnsupportedTarget;
+//:| let kind %StreamWriterErrorKind stream_writer_error_kind &e;
+//: ```
+pub fn stream_writer_error_kind %fn &StreamWriterError StreamWriterErrorKind \e:
+    *get_ref e "kind"
+
+//: ## stream_writer_error_recover_or_empty
+//: error payload の writer owner を回収し、なければ空 writer を返す互換 helper
+//:
+//: ### [注意/ちゅうい]
+//: - 新規 code は error kind を `match` し、必要なら owner の有無を明示的に扱うべきです。
+//: - この helper は既存の sentinel 互換 API のために残します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/writer" as *
+//:| let e %StreamWriterError stream_writer_error_without_writer StreamWriterErrorKind::UnsupportedTarget;
+//:| let w %StreamWriter stream_writer_error_recover_or_empty e;
+//:| close w;
+//: ```
+pub fn stream_writer_error_recover_or_empty %fn StreamWriterError StreamWriter \e:
+    match get e "writer":
+        Option::Some w:
+            w
+        Option::None:
+            StreamWriter byte_builder_empty StreamWriterTargetKind::Stdout @stream_writer_noncopy_marker
+
+//: ## stream_writer_error_name
+//: error kind の安定した診断名を返す
+//:
+//: ### [契約/けいやく]
+//: - error 自体は enum で保持し、この関数はログや doctest 用の表示名だけを担当します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/writer" as *
+//:| let name %str stream_writer_error_name StreamWriterErrorKind::WriteFailed;
+//: ```
+pub fn stream_writer_error_name %fn StreamWriterErrorKind str \kind:
+    match kind:
+        StreamWriterErrorKind::UnsupportedTarget:
+            "UnsupportedTarget"
+        StreamWriterErrorKind::BufferAllocFailed:
+            "BufferAllocFailed"
+        StreamWriterErrorKind::WriteFailed:
+            "WriteFailed"
+        StreamWriterErrorKind::AppendFailed:
+            "AppendFailed"
+        StreamWriterErrorKind::InvalidInput:
+            "InvalidInput"
 
 //: ## stream_writer_new
 //: StreamWriter の buffer を確保して owning handle を作る
@@ -52,12 +178,20 @@ pub fn stream_writer_noncopy_marker %fn i32 i32 \x:
 //: ### [目的/もくてき]
 //: - `StreamWriter` は非 Copy の owning struct として `ByteBuilder` と target enum を保持します。
 //: - raw pointer owner は writer state へ直接持たず、byte storage の所有権境界を `ByteBuilder` に集約します。
-pub fn stream_writer_new %impure fn StreamWriterTargetKind Result StreamWriter str \target:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| close w;
+//: ```
+pub fn stream_writer_new %impure fn StreamWriterTargetKind Result StreamWriter StreamWriterError \target:
     match byte_builder_with_capacity 4096:
         Result::Ok builder:
             Result::Ok StreamWriter builder target @stream_writer_noncopy_marker
         Result::Err _e:
-            Result::Err "streamio.stream_writer_new buffer alloc failed"
+            Result::Err stream_writer_error_without_writer StreamWriterErrorKind::BufferAllocFailed
 
 //: ## stream_writer_close_impl
 //: buffered sink の[確保領域/かくほりょういき]を[解放/かいほう]する cleanup helper
@@ -70,44 +204,89 @@ pub fn stream_writer_close_impl %impure fn StreamWriter unit \w:
     byte_builder_free builder
     unit
 
-//: ## drain_impl
+//: ## stream_writer_error_free
+//: error payload に残った writer owner を破棄する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/writer" as *
+//:| let e %StreamWriterError stream_writer_error_without_writer StreamWriterErrorKind::UnsupportedTarget;
+//:| stream_writer_error_free e;
+//: ```
+pub fn stream_writer_error_free %impure fn StreamWriterError unit \e:
+    match get e "writer":
+        Option::Some w:
+            stream_writer_close_impl w
+        Option::None:
+            unit
+
+//: ## drain_result
 //: buffered sink の[内容/ないよう]を target fd へ[書/か]き[出/だ]す
 //:
 //: ### [実装/じっそう]
 //: - `ByteBuilder` の現在の有効 byte 範囲を target kind に[応/おう]じて stdout/stderr へ[出力/しゅつりょく]し、builder の[長/なが]さだけを 0 に[戻/もど]します。
+//: - write error の場合は buffer を消さず、`StreamWriterError` に writer owner を戻します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [現在/げんざい]の[書/か]き[込/こ]み[長/なが]さを n として O(n) です。
-pub fn drain_impl %impure fn StreamWriter StreamWriter \w:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let flushed %StreamWriter unwrap_ok drain_result w;
+//:| close flushed;
+//: ```
+pub fn drain_result %impure fn StreamWriter Result StreamWriter StreamWriterError \w:
     let target %StreamWriterTargetKind *get_ref &w "target";
     let builder %ByteBuilder get w "builder";
     let write_len %i32 *get_ref &builder "len";
     if:
         le write_len 0
         then:
-            StreamWriter builder target @stream_writer_noncopy_marker
+            Result::Ok StreamWriter builder target @stream_writer_noncopy_marker
         else:
             match target:
                 StreamWriterTargetKind::Stdout:
                     match stdio_write_fd_bytebuilder_prefix_result 1 &builder write_len:
                         Result::Ok _:
-                            unit
+                            Result::Ok StreamWriter byte_builder_with_len builder 0 target @stream_writer_noncopy_marker
                         Result::Err _:
-                            unit
+                            let failed %StreamWriter StreamWriter builder target @stream_writer_noncopy_marker
+                            Result::Err stream_writer_error_with_writer failed StreamWriterErrorKind::WriteFailed
                 StreamWriterTargetKind::Stderr:
                     match stdio_write_fd_bytebuilder_prefix_result 2 &builder write_len:
                         Result::Ok _:
-                            unit
+                            Result::Ok StreamWriter byte_builder_with_len builder 0 target @stream_writer_noncopy_marker
                         Result::Err _:
-                            unit
-            StreamWriter byte_builder_with_len builder 0 target @stream_writer_noncopy_marker
+                            let failed %StreamWriter StreamWriter builder target @stream_writer_noncopy_marker
+                            Result::Err stream_writer_error_with_writer failed StreamWriterErrorKind::WriteFailed
 
-//: ## reserve_impl
+//: ## drain_impl
+//: `drain_result` の互換 facade
+pub fn drain_impl %impure fn StreamWriter StreamWriter \w:
+    match drain_result w:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## reserve_result
 //: need byte [分/ぶん]の[空/あ]きを[確保/かくほ]する
 //:
 //: ### [注意/ちゅうい]
 //: - need が capacity を[超/こ]える case は[呼/よ]び[出/だ]し[側/がわ]で[避/さ]けてください。この[版/ばん]では buffer [拡張/かくちょう]ではなく flush を[選/えら]びます。
-pub fn reserve_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\need:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let reserved %StreamWriter unwrap_ok reserve_result w 1;
+//:| close reserved;
+//: ```
+pub fn reserve_result %impure fn StreamWriter impure fn i32 Result StreamWriter StreamWriterError \w\need:
     let target %StreamWriterTargetKind *get_ref &w "target";
     let builder %ByteBuilder get w "builder";
     let cap %i32 *get_ref &builder "cap";
@@ -116,27 +295,74 @@ pub fn reserve_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\need:
     if:
         le required cap
         then:
-            StreamWriter builder target @stream_writer_noncopy_marker
+            Result::Ok StreamWriter builder target @stream_writer_noncopy_marker
         else:
-            drain_impl StreamWriter builder target @stream_writer_noncopy_marker
+            drain_result StreamWriter builder target @stream_writer_noncopy_marker
 
-//: ## push_u8_impl
+//: ## reserve_impl
+//: `reserve_result` の互換 facade
+pub fn reserve_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\need:
+    match reserve_result w need:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## push_u8_result
 //: 1 byte [追記/ついき]する
 //:
 //: ### [計算量/けいさんりょう]
 //: - [通常/つうじょう]は O(1) で、flush が[入/はい]ると O(len) です。
-pub fn push_u8_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\b:
-    let w1 %StreamWriter reserve_impl w 1;
-    let target %StreamWriterTargetKind *get_ref &w1 "target";
-    let builder %ByteBuilder get w1 "builder";
-    match byte_builder_push_u8 builder b:
-        Result::Ok next_builder:
-            StreamWriter next_builder target @stream_writer_noncopy_marker
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok push_u8_result w 65;
+//:| close next;
+//: ```
+pub fn push_u8_result %impure fn StreamWriter impure fn i32 Result StreamWriter StreamWriterError \w\b:
+    match reserve_result w 1:
         Result::Err e:
-            byte_builder_error_free e
-            StreamWriter byte_builder_empty target @stream_writer_noncopy_marker
+            Result::Err e
+        Result::Ok w1:
+            let target %StreamWriterTargetKind *get_ref &w1 "target";
+            let builder %ByteBuilder get w1 "builder";
+            match byte_builder_push_u8 builder b:
+                Result::Ok next_builder:
+                    Result::Ok StreamWriter next_builder target @stream_writer_noncopy_marker
+                Result::Err e:
+                    let returned %ByteBuilder byte_builder_error_builder e
+                    let failed %StreamWriter StreamWriter returned target @stream_writer_noncopy_marker
+                    Result::Err stream_writer_error_with_writer failed StreamWriterErrorKind::AppendFailed
+
+//: ## push_u8_impl
+//: `push_u8_result` の互換 facade
+pub fn push_u8_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\b:
+    match push_u8_result w b:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
 
 //: ## push_newline_impl
 //: [改行/かいぎょう] `\n` を 1 byte [出力/しゅつりょく]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok push_newline_result w;
+//:| close next;
+//: ```
+pub fn push_newline_result %impure fn StreamWriter Result StreamWriter StreamWriterError \w:
+    push_u8_result w 10
+
 pub fn push_newline_impl %impure fn StreamWriter StreamWriter \w:
-    push_u8_impl w 10
+    match push_newline_result w:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e

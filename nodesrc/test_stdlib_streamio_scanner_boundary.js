@@ -13,6 +13,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const facadeRelPath = 'stdlib/std/streamio.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
 const scannerCursorRelPath = 'stdlib/std/streamio/scanner/cursor.nepl';
+const scannerErrorRelPath = 'stdlib/std/streamio/scanner/error.nepl';
 const scannerNumberRelPath = 'stdlib/std/streamio/scanner/number.nepl';
 const scannerNumberIntRelPath = 'stdlib/std/streamio/scanner/number/int.nepl';
 const scannerNumberFloatRelPath = 'stdlib/std/streamio/scanner/number/float.nepl';
@@ -20,6 +21,7 @@ const scannerStateRelPath = 'stdlib/std/streamio/scanner/state.nepl';
 const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
 const src = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
 const cursorSrc = fs.readFileSync(path.join(repoRoot, scannerCursorRelPath), 'utf8');
+const errorSrc = fs.readFileSync(path.join(repoRoot, scannerErrorRelPath), 'utf8');
 const numberSrc = fs.readFileSync(path.join(repoRoot, scannerNumberRelPath), 'utf8');
 const numberIntSrc = fs.readFileSync(path.join(repoRoot, scannerNumberIntRelPath), 'utf8');
 const numberFloatSrc = fs.readFileSync(path.join(repoRoot, scannerNumberFloatRelPath), 'utf8');
@@ -28,11 +30,12 @@ const stateSrc = fs.readFileSync(path.join(repoRoot, scannerStateRelPath), 'utf8
 const code = stripNeplComments(src);
 const stateCode = stripNeplComments(stateSrc);
 const cursorCode = stripNeplComments(cursorSrc);
+const errorCode = stripNeplComments(errorSrc);
 const numberCode = stripNeplComments(numberSrc);
 const numberIntCode = stripNeplComments(numberIntSrc);
 const numberFloatCode = stripNeplComments(numberFloatSrc);
 const facadeCode = stripNeplComments(facade);
-const scannerImplementationCode = `${cursorCode}\n${code}\n${numberCode}\n${numberIntCode}\n${numberFloatCode}`;
+const scannerImplementationCode = `${cursorCode}\n${errorCode}\n${code}\n${numberCode}\n${numberIntCode}\n${numberFloatCode}`;
 
 assert.match(
     facadeCode,
@@ -93,6 +96,7 @@ for (const pattern of [
     /\bfn\s+stream_scanner_is_leading_skip_byte\b/,
     /\bfn\s+stream_scanner_is_token_separator\b/,
     /\bfn\s+stream_scanner_is_ascii_digit\b/,
+    /\bfn\s+stream_scanner_skip_ws_result\b/,
     /\bfn\s+stream_scanner_skip_ws_state\b/,
 ]) {
     assert.doesNotMatch(
@@ -199,15 +203,26 @@ assert.doesNotMatch(
 
 for (const [fnName, relPath, owner] of [
     ['skip_ws', scannerRelPath, 'scanner root'],
+    ['skip_ws_result', scannerRelPath, 'scanner root'],
     ['is_eof', scannerRelPath, 'scanner root'],
+    ['is_eof_result', scannerRelPath, 'scanner root'],
     ['skip', scannerRelPath, 'scanner root'],
+    ['skip_result', scannerRelPath, 'scanner root'],
+    ['scan_token_result', scannerRelPath, 'scanner root'],
     ['scan_token_impl', scannerRelPath, 'scanner root'],
     ['read', scannerRelPath, 'scanner root'],
+    ['read_result', scannerRelPath, 'scanner root'],
+    ['scan_i32_result', scannerNumberIntRelPath, 'scanner integer parser'],
     ['scan_i32_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_u32_result', scannerNumberIntRelPath, 'scanner integer parser'],
     ['scan_u32_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_u64_result', scannerNumberIntRelPath, 'scanner integer parser'],
     ['scan_u64_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_i64_result', scannerNumberIntRelPath, 'scanner integer parser'],
     ['scan_i64_impl', scannerNumberIntRelPath, 'scanner integer parser'],
+    ['scan_f64_result', scannerNumberFloatRelPath, 'scanner float parser'],
     ['scan_f64_impl', scannerNumberFloatRelPath, 'scanner float parser'],
+    ['scan_f32_result', scannerNumberFloatRelPath, 'scanner float parser'],
     ['scan_f32_impl', scannerNumberFloatRelPath, 'scanner float parser'],
 ]) {
     const fnCode = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
@@ -258,29 +273,29 @@ for (const pattern of [
 }
 
 for (const fnName of [
-    'stream_scanner_skip_ws_state',
-    'skip',
-    'scan_token_impl',
-    'scan_i32_impl',
-    'scan_u32_impl',
-    'scan_u64_impl',
-    'scan_i64_impl',
-    'scan_f64_impl',
+    'stream_scanner_skip_ws_result',
+    'skip_result',
+    'scan_token_result',
+    'scan_i32_result',
+    'scan_u32_result',
+    'scan_u64_result',
+    'scan_i64_result',
+    'scan_f64_result',
 ]) {
     const re = new RegExp(`(?:pub\\s+)?fn\\s+${fnName}\\b[\\s\\S]*?(?=\\n(?:pub\\s+)?fn\\s+|$)`);
     const match = scannerImplementationCode.match(re);
     assert.ok(match, `${fnName} body must be found`);
     assert.match(
         match[0],
-        /\bstream_scanner_byte_at\b/,
-        `${fnName} must use stream_scanner_byte_at for buffer reads`,
+        /\bstream_scanner_byte_at_result\b/,
+        `${fnName} must use stream_scanner_byte_at_result for typed buffer reads`,
     );
 }
 
 assert.match(
     code,
     /\bstream_scanner_slice_to_str_result\s+sc\s+start\s+tlen\b/,
-    'scan_token_impl must delegate token string construction to the scanner state ByteBuf slice boundary',
+    'scan_token_result must delegate token string construction to the scanner state ByteBuf slice boundary',
 );
 
 console.log('stdlib streamio scanner boundary regression passed');

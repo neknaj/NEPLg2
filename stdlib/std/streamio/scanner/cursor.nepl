@@ -8,6 +8,8 @@
 #indent 4
 
 #import "alloc/io" as *
+#import "core/result" as *
+#import "std/streamio/scanner/error" as *
 #import "std/streamio/scanner/state" as *
 #import "core/field" as *
 #import "core/math" as *
@@ -63,60 +65,135 @@ pub fn stream_scanner_is_exponent_marker %fn i32 bool \byte:
         _:
             false
 
-pub fn stream_scanner_skip_ws_state %impure fn &StreamScanner unit \sc:
+//: stream_scanner_detect_bom_skip: 先頭 BOM の byte 数を返す
+//:
+//: [目的/もくてき]:
+//: - UTF-8 BOM と UTF-16 BOM の判定を cursor 更新から分離します。
+//: - BOM がない場合は 0 を返し、caller が cursor を変更しないようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "abc";
+//:| let bytes %&ByteBuf get_ref &sc "bytes";
+//:| let n %i32 unwrap_ok stream_scanner_detect_bom_skip bytes stream_scanner_len &sc;
+//:| close sc;
+//: ```
+pub fn stream_scanner_detect_bom_skip %fn &ByteBuf fn i32 Result i32 StreamScannerError \bytes\byte_len:
+    let mut skip_len %i32 0;
+    if:
+        ge byte_len 2
+        then:
+            match stream_scanner_byte_at_result bytes 0:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok b0:
+                    match stream_scanner_byte_at_result bytes 1:
+                        Result::Err e:
+                            Result::Err e
+                        Result::Ok b1:
+                            let is_utf16_bom %bool or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255;
+                            if:
+                                is_utf16_bom
+                                then:
+                                    set skip_len 2;
+                                else:
+                                    unit;
+                            if:
+                                ge byte_len 3
+                                then:
+                                    match stream_scanner_byte_at_result bytes 2:
+                                        Result::Err e:
+                                            Result::Err e
+                                        Result::Ok b2:
+                                            let is_utf8_bom %bool and and eq b0 239 eq b1 187 eq b2 191;
+                                            if:
+                                                is_utf8_bom
+                                                then:
+                                                    set skip_len 3;
+                                                else:
+                                                    unit;
+                                            Result::Ok skip_len
+                                else:
+                                    Result::Ok skip_len
+        else:
+            Result::Ok skip_len
+
+//: ## stream_scanner_skip_ws_result
+//: scanner cursor を token の開始位置まで進める
+//:
+//: ### [契約/けいやく]
+//: - BOM と ASCII 空白だけを読み飛ばします。
+//: - byte 読み取りや cursor storage の失敗は `StreamScannerError` として返し、失敗を NUL byte に丸めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "  abc";
+//:| unwrap_ok stream_scanner_skip_ws_result &sc;
+//:| close sc;
+//: ```
+pub fn stream_scanner_skip_ws_result %impure fn &StreamScanner Result unit StreamScannerError \sc:
     let bytes %&ByteBuf get_ref sc "bytes";
     let len %i32 stream_scanner_len sc;
-    let mut p %i32 stream_scanner_load_pos sc;
-
-    if:
-        eq p 0
-        then:
+    match stream_scanner_load_pos_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok p0:
+            let mut p %i32 p0;
+            let mut done %i32 0;
+            let mut failed %i32 0;
+            let mut scan_error %StreamScannerError StreamScannerError::InvalidByteBuffer;
             if:
-                ge len 2
+                eq p 0
                 then:
-                    let b0 %i32 stream_scanner_byte_at bytes 0;
-                    let b1 %i32 stream_scanner_byte_at bytes 1;
-                    if:
-                        ge len 3
-                        then:
-                            let b2 %i32 stream_scanner_byte_at bytes 2;
+                    match stream_scanner_detect_bom_skip bytes len:
+                        Result::Err e:
+                            set scan_error e;
+                            set failed 1;
+                        Result::Ok bom_skip:
                             if:
-                                and and eq b0 239 eq b1 187 eq b2 191
+                                gt bom_skip 0
                                 then:
-                                    set p 3;
-                                else:
-                                    if:
-                                        or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255
-                                        then:
-                                            set p 2;
-                                        else:
-                                            unit
-                        else:
-                            if:
-                                or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255
-                                then:
-                                    set p 2;
+                                    set p bom_skip;
                                 else:
                                     unit
                 else:
                     unit
-        else:
-            unit;
 
-    let mut done %i32 0;
-    while eq done 0:
-        if:
-            lt p len
-            then:
-                let byte %i32 stream_scanner_byte_at bytes p;
+            while eq done 0:
                 if:
-                    stream_scanner_is_leading_skip_byte byte
+                    and eq failed 0 lt p len
                     then:
-                        set p add p 1;
+                        match stream_scanner_byte_at_result bytes p:
+                            Result::Err e:
+                                set scan_error e;
+                                set failed 1;
+                                set done 1;
+                            Result::Ok byte:
+                                if:
+                                    stream_scanner_is_leading_skip_byte byte
+                                    then:
+                                        set p add p 1;
+                                    else:
+                                        set done 1;
                     else:
                         set done 1;
-            else:
-                set done 1;
 
-    stream_scanner_store_pos sc p;
-    unit
+            if:
+                eq failed 1
+                then:
+                    Result::Err scan_error
+                else:
+                    stream_scanner_store_pos_result sc p
+
+pub fn stream_scanner_skip_ws_state %impure fn &StreamScanner unit \sc:
+    match stream_scanner_skip_ws_result sc:
+        Result::Ok _:
+            unit
+        Result::Err _e:
+            unit

@@ -7,28 +7,46 @@
 
 #indent 4
 
+#import "alloc/io/bytebuilder" as *
 #import "alloc/string" as *
 #import "alloc/string/byte_index" as *
+#import "core/field" as *
+#import "core/result" as *
 #import "std/streamio/writer/state" as *
 #import "core/math" as *
 #import "core/option" as *
 
-//: ## append_str_impl
+//: ## append_str_result
 //: `str` を buffered sink へ[追記/ついき]する
 //:
 //: ### [注意/ちゅうい]
-//: - `str` は `[len][bytes]` [形式/けいしき]なので、byte access helper で 1 byte ずつ[読/よ]みます。
-//: - writer buffer の capacity を[超/こ]える文字列でも、1 byte ずつ `push_u8_impl` に通して flush 境界を保ちます。
+//: - `str` の raw byte 範囲は `ByteBuilder` 側の checked bulk append に委譲します。
+//: - 失敗時は writer owner を `StreamWriterError` に戻し、呼び出し側が cleanup や retry を選べるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_str_result w "abc";
+//:| close next;
+//: ```
+pub fn append_str_result %impure fn StreamWriter impure fn str Result StreamWriter StreamWriterError \w\s:
+    let target %StreamWriterTargetKind *get_ref &w "target";
+    let builder %ByteBuilder get w "builder";
+    match byte_builder_push_str builder s:
+        Result::Ok next_builder:
+            Result::Ok StreamWriter next_builder target @stream_writer_noncopy_marker
+        Result::Err e:
+            let returned %ByteBuilder byte_builder_error_builder e
+            let failed %StreamWriter StreamWriter returned target @stream_writer_noncopy_marker
+            Result::Err stream_writer_error_with_writer failed StreamWriterErrorKind::AppendFailed
+
+//: ## append_str_impl
+//: `append_str_result` の互換 facade
 pub fn append_str_impl %impure fn StreamWriter impure fn str StreamWriter \w\s:
-    let n %i32 len s;
-    let mut ww %StreamWriter w;
-    let mut i %i32 0;
-    while lt i n:
-        do:
-            match checked_string_byte_at s i:
-                Option::Some ch:
-                    set ww push_u8_impl ww ch;
-                    set i add i 1;
-                Option::None:
-                    set i n;
-    ww
+    match append_str_result w s:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e

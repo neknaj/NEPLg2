@@ -49,7 +49,7 @@ for (const pattern of [
     /\benum\s+StreamWriterTargetKind\b/,
     /\bfn\s+stream_writer_new\b/,
     /\bfn\s+stream_writer_close_impl\b/,
-    /\bfn\s+drain_impl\b/,
+    /\bfn\s+drain_result\b/,
     /\bfn\s+append_str_impl\b/,
 ]) {
     assert.doesNotMatch(
@@ -104,6 +104,7 @@ for (const pattern of [
     /\bfn\s+stream_writer_new\b/,
     /\bfn\s+stream_writer_close_impl\b/,
     /\bfn\s+drain_impl\b/,
+    /\bfn\s+drain_result\b/,
     /\bfn\s+append_str_impl\b/,
     /\bfn\s+append_i32_impl\b/,
 ]) {
@@ -166,39 +167,44 @@ assert.doesNotMatch(
 
 assert.match(
     rootCode,
-    new RegExp(`${fnSignaturePattern('close', ['StreamWriter'], 'unit', { effect: 'impure' })}\\s+\\\\w:\\s*stream_writer_close_impl\\s+w\\b`),
-    'streamio/writer root must expose owner-consuming close through the public facade',
+    new RegExp(`${fnSignaturePattern('close_result', ['StreamWriter'], 'Result unit StreamWriterError', { effect: 'impure' })}[\\s\\S]*drain_result\\s+w[\\s\\S]*stream_writer_close_impl\\s+flushed`),
+    'streamio/writer root must expose owner-consuming close_result that flushes before cleanup',
 );
 
-const drainMatch = stateCode.match(/(?:pub\s+)?fn\s+drain_impl\b([\s\S]*?)\n(?:pub\s+)?fn\s+reserve_impl\b/);
-assert.ok(drainMatch, 'drain_impl body must be found');
+const drainMatch = stateCode.match(/(?:pub\s+)?fn\s+drain_result\b([\s\S]*?)\n(?:pub\s+)?fn\s+drain_impl\b/);
+assert.ok(drainMatch, 'drain_result body must be found');
 assert.match(
     drainMatch[1],
     /\bmatch\s+target:\s*[\s\S]*StreamWriterTargetKind::Stdout:[\s\S]*StreamWriterTargetKind::Stderr:/,
-    'drain_impl must branch on StreamWriterTargetKind enum arms',
+    'drain_result must branch on StreamWriterTargetKind enum arms',
 );
 assert.match(
     drainMatch[1],
-    /\bstdio_write_fd_bytebuilder_prefix_result\s+1\s+&builder\s+write_len\b[\s\S]*\bstdio_write_fd_bytebuilder_prefix_result\s+2\s+&builder\s+write_len\b[\s\S]*byte_builder_with_len\s+builder\s+0\s+target\b/,
-    'drain_impl must flush through the typed ByteBuilder prefix fd wrapper and reset builder length without exposing raw pointer spans',
+    /\bstdio_write_fd_bytebuilder_prefix_result\s+1\s+&builder\s+write_len\b[\s\S]*\bstdio_write_fd_bytebuilder_prefix_result\s+2\s+&builder\s+write_len\b[\s\S]*stream_writer_error_with_writer\s+failed\s+StreamWriterErrorKind::WriteFailed/,
+    'drain_result must flush through the typed ByteBuilder prefix fd wrapper and preserve the writer owner on write failure',
+);
+assert.match(
+    drainMatch[1],
+    /\bResult::Ok\s+StreamWriter\s+byte_builder_with_len\s+builder\s+0\s+target\b/,
+    'drain_result must clear builder length only after successful write',
 );
 assert.doesNotMatch(
     drainMatch[1],
     /\bbyte_builder_data_ptr_ref\b/,
-    'drain_impl must not pull a raw ByteBuilder pointer view outside stdio/write/fd',
+    'drain_result must not pull a raw ByteBuilder pointer view outside stdio/write/fd',
 );
 assert.doesNotMatch(
     drainMatch[1],
     /\bstdio_write_(?:stderr_)?mem(?:_result)?\b/,
-    'drain_impl must not call public raw MemPtr span write helpers',
+    'drain_result must not call public raw MemPtr span write helpers',
 );
 assert.doesNotMatch(
     drainMatch[1],
     /\beq\s+target(_kind)?\s+[01]\b/,
-    'drain_impl must not branch on numeric target kind codes',
+    'drain_result must not branch on numeric target kind codes',
 );
 
-const writerOpenMatch = rootCode.match(new RegExp(`${fnSignaturePattern('open', ['WriteStream'], 'Result StreamWriter str', { effect: 'impure' })}([\\s\\S]*?)\\n(?:pub\\s+)?trait\\s+StreamWritable\\b`));
+const writerOpenMatch = rootCode.match(new RegExp(`${fnSignaturePattern('open', ['WriteStream'], 'Result StreamWriter StreamWriterError', { effect: 'impure' })}([\\s\\S]*?)\\n(?:pub\\s+)?trait\\s+StreamWritable\\b`));
 assert.ok(writerOpenMatch, 'WriteStream open body must be found');
 assert.doesNotMatch(
     writerOpenMatch[1],
@@ -206,30 +212,30 @@ assert.doesNotMatch(
     'WriteStream open must not keep the owning writer result in an intermediate raw local',
 );
 
-const appendStrMatch = appendTextCode.match(/(?:pub\s+)?fn\s+append_str_impl\b([\s\S]*)$/);
-assert.ok(appendStrMatch, 'append_str_impl body must be found');
+const appendStrMatch = appendTextCode.match(/(?:pub\s+)?fn\s+append_str_result\b([\s\S]*?)\n(?:pub\s+)?fn\s+append_str_impl\b/);
+assert.ok(appendStrMatch, 'append_str_result body must be found');
 assert.match(
     appendStrMatch[1],
-    /\bchecked_string_byte_at\s+s\s+i\b/,
-    'append_str_impl must use alloc/string byte access instead of raw data loads',
+    /\bbyte_builder_push_str\s+builder\s+s\b/,
+    'append_str_result must use the ByteBuilder string append boundary instead of raw data loads',
 );
 assert.doesNotMatch(
     appendStrMatch[1],
     /\bload_u8\s+mem_ptr_add\s+src\s+i\b/,
-    'append_str_impl must not directly load from string_data_ptr',
+    'append_str_result must not directly load from string_data_ptr',
 );
 
-const appendByteBufMatch = appendByteBufCode.match(/(?:pub\s+)?fn\s+append_bytebuf_impl\b([\s\S]*)$/);
-assert.ok(appendByteBufMatch, 'append_bytebuf_impl body must be found');
+const appendByteBufMatch = appendByteBufCode.match(/(?:pub\s+)?fn\s+append_bytebuf_result\b([\s\S]*?)\n(?:pub\s+)?fn\s+append_bytebuf_impl\b/);
+assert.ok(appendByteBufMatch, 'append_bytebuf_result body must be found');
 assert.match(
     appendByteBufMatch[1],
-    /\bstream_writer_bytebuf_byte_at\s+&bytes\s+i\b/,
-    'append_bytebuf_impl must use the borrowed ByteBuf byte helper',
+    /\bbyte_builder_push_bytebuf\s+builder\s+bytes\b[\s\S]*\bio_bytebuf_free\s+returned_bytes\b/,
+    'append_bytebuf_result must use the ByteBuilder ByteBuf boundary and close rejected input bytes on failure',
 );
 assert.doesNotMatch(
     appendByteBufMatch[1],
     /\bload_u8\s+mem_ptr_add\s+src\s+i\b/,
-    'append_bytebuf_impl must not directly load from the ByteBuf pointer',
+    'append_bytebuf_result must not directly load from the ByteBuf pointer',
 );
 
 assert.doesNotMatch(
@@ -258,8 +264,8 @@ assert.doesNotMatch(
 
 assert.match(
     appendFloatCode,
-    /#import\s+"std\/streamio\/writer\/append\/integer"\s+as\s+\*[\s\S]*fn\s+append_f64_fixed_impl\b[\s\S]*append_u64_impl/,
-    'float append module must reuse integer append for the integral part',
+    /#import\s+"std\/streamio\/writer\/append\/integer"\s+as\s+\*[\s\S]*fn\s+append_f64_fixed_result\b[\s\S]*append_u64_result/,
+    'float append module must reuse integer append result API for the integral part',
 );
 
 console.log('stdlib streamio writer boundary regression passed');
