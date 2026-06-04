@@ -1,3 +1,14 @@
+# 2026-06-04 Agent2 char UTF-8 byte Option contract checkpoint
+
+- `origin/main` 同期済みの `agent2/fix-char-utf8-byte-option` branch で `ISS-20260604T034125917Z-CHAR-UTF-8-BYTE-ACCESSORS-RELY-ON-CA-AC31C3D4` を修正した。
+- `core/char` に `char_utf8_byte_at c idx -> Option i32` を追加し、ASCII の 2 byte 目、短い UTF-8 表現の範囲外、負数 index を `None` として扱う contract にした。
+- `char_utf8_byte1` / `char_utf8_byte2` / `char_utf8_byte3` は public API から外し、`char_utf8_byte_at` の内部 helper に閉じた。public caller は `match Option::Some` / `Option::None` で欠如を扱う。
+- `alloc/io/bytebuilder/append` は raw tail byte helper を直接呼ばず、`char_utf8_byte_at` を `match` する private helper 経由にした。`byte_builder_push_utf8_tail` も `char_utf8_len` 由来の内部前提を受ける helper なので private 化した。
+- `doc/neplg2/char_stdlib_integration_plan.md` は旧 `char_utf8_byte0..3` public contract を削除し、`char_utf8_byte0` と `char_utf8_byte_at -> Option i32` の contract へ更新した。
+- `tests/stdlib/char_utf8_byte_at.n.md` と `nodesrc/test_stdlib_char_utf8_byte_contract.js` を追加した。source policy は public `char_utf8_byte1/2/3` の再公開、bytebuilder の raw helper 直接呼び出し、public `byte_builder_push_utf8_tail` の復帰を検出する。
+- subagent review では、`char_utf8_byte_at -> Option i32`、raw tail byte helper の private 化、bytebuilder caller の `match` 化、`doc/neplg2/char_stdlib_integration_plan.md` 更新が必要と確認された。実装はこの指摘を反映済みである。
+- 検証: `node nodesrc/test_stdlib_char_utf8_byte_contract.js`、`node nodesrc/test_core_char_doc_report_contract.js`、`node nodesrc/test_stdlib_documentation_contract.js`、`node nodesrc/tests.js -i stdlib/core/char.nepl -i stdlib/alloc/io/bytebuilder/append.nepl -i stdlib/alloc/io/bytebuilder/build.nepl -i tests/stdlib/char_utf8_byte_at.n.md -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent2-char-utf8-byte-option-focused-3.json -j 1 --dist web/dist --assert-io` は 13/13 pass。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象の char / bytebuilder / documentation contract が pass し、既存 warning は static/resource/parser/backend/diagnostic 系の 5 件。
+
 # 2026-06-04 Agent2 HashMap/HashSet probe sentinel removal checkpoint
 
 - `origin/main` 同期済みの `agent2/fix-hash-probe-option` branch で `ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4` を修正した。

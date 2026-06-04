@@ -21,6 +21,7 @@ const checks = [
     "nodesrc/test_stdlib_vec_sort_module_split.js",
     "nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js",
     "nodesrc/test_stdlib_bytebuf_utf8_boundary.js",
+    "nodesrc/test_stdlib_char_utf8_byte_contract.js",
     "nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js",

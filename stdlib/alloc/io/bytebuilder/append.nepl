@@ -88,20 +88,119 @@ pub fn byte_builder_push_ascii %fn ByteBuilder fn char Result ByteBuilder ByteBu
         else:
             Result::Err ByteBuilderError builder StdErrorKind::InvalidOperation
 
+//: byte_builder_push_char_utf8_byte_at: UTF-8 byte index を安全に追加する
+//:
+//: [目的/もくてき]:
+//: - `char_utf8_byte_at` の `Option` を `match` し、存在する byte だけを builder へ追加します。
+//: - 存在しない byte は `ByteBuilderError` として owner を caller へ返します。
+//:
+//: [注意/ちゅうい]:
+//: - `idx` は `char_utf8_len` から導出された内部 index だけを想定しますが、欠如は trap せず `Result::Err` で扱います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"byte_builder_push_char_utf8_byte_at_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"encoded fourth byte\" expected=\"175\" actual=\"175\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn build_fourth_byte %impure fn void Result i32 str \void:
+//:     match byte_builder_new:
+//:         Result::Err _e:
+//:             Result::Err "builder alloc"
+//:         Result::Ok b0:
+//:             match byte_builder_push_char_utf8 b0 '\u{1F4AF}':
+//:                 Result::Err e:
+//:                     byte_builder_error_free e
+//:                     Result::Err "push char"
+//:                 Result::Ok b1:
+//:                     match byte_builder_finish b1:
+//:                         Result::Err e:
+//:                             byte_builder_error_free e
+//:                             Result::Err "builder finish"
+//:                         Result::Ok bytes:
+//:                             let result %Result i32 str match io_bytebuf_byte_at &bytes 3:
+//:                                 Option::Some byte:
+//:                                     Result::Ok byte
+//:                                 Option::None:
+//:                                     Result::Err "missing fourth byte"
+//:                             io_bytebuf_free bytes
+//:                             result
+//:
+//: fn main %impure fn void i32 \void:
+//:     let assertion %TestAssertion match build_fourth_byte:
+//:         Result::Err _e:
+//:             assert "encoded fourth byte" false
+//:         Result::Ok byte:
+//:             assert_eq_i32 "encoded fourth byte" 175 byte
+//:     let report:
+//:         test_report_new "byte_builder_push_char_utf8_byte_at_doc"
+//:         |> test_report_push assertion
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+fn byte_builder_push_char_utf8_byte_at %fn ByteBuilder fn char fn i32 Result ByteBuilder ByteBuilderError \builder\c\idx:
+    match char_utf8_byte_at c idx:
+        Option::Some byte:
+            byte_builder_push_u8 builder byte
+        Option::None:
+            Result::Err ByteBuilderError builder StdErrorKind::InvalidOperation
+
 //: byte_builder_push_utf8_tail: UTF-8 の後続 byte を追加する
 //:
 //: [目的/もくてき]:
 //: - `byte_builder_push_char_utf8` が先頭 byte を書いたあと、文字長に応じて残りの byte を追加します。
 //:
 //: [注意/ちゅうい]:
-//: - `count` は `char_utf8_len` から来る値を想定します。
-pub fn byte_builder_push_utf8_tail %fn ByteBuilder fn char fn i32 Result ByteBuilder ByteBuilderError \builder\c\count:
+//: - `count` は `char_utf8_len` から来る内部値です。この helper は public API ではありません。
+//:
+//: neplg2:test
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     match byte_builder_new:
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok b0:
+//:             match byte_builder_push_char_utf8 b0 '\u{1F4AF}':
+//:                 Result::Err e:
+//:                     byte_builder_error_free e
+//:                     1
+//:                 Result::Ok b1:
+//:                     match byte_builder_finish b1:
+//:                         Result::Err e:
+//:                             byte_builder_error_free e
+//:                             1
+//:                         Result::Ok bytes:
+//:                             let status %i32 match io_bytebuf_byte_at &bytes 3:
+//:                                 Option::Some byte:
+//:                                     if:
+//:                                         eq byte 175
+//:                                         then:
+//:                                             0
+//:                                         else:
+//:                                             1
+//:                                 Option::None:
+//:                                     1
+//:                             io_bytebuf_free bytes
+//:                             status
+//: ```
+fn byte_builder_push_utf8_tail %fn ByteBuilder fn char fn i32 Result ByteBuilder ByteBuilderError \builder\c\count:
     if:
         eq count 1
         then:
             Result::Ok builder
         else:
-            match byte_builder_push_u8 builder char_utf8_byte1 c:
+            match byte_builder_push_char_utf8_byte_at builder c 1:
                 Result::Err e:
                     Result::Err e
                 Result::Ok b1:
@@ -110,7 +209,7 @@ pub fn byte_builder_push_utf8_tail %fn ByteBuilder fn char fn i32 Result ByteBui
                         then:
                             Result::Ok b1
                         else:
-                            match byte_builder_push_u8 b1 char_utf8_byte2 c:
+                            match byte_builder_push_char_utf8_byte_at b1 c 2:
                                 Result::Err e:
                                     Result::Err e
                                 Result::Ok b2:
@@ -119,7 +218,7 @@ pub fn byte_builder_push_utf8_tail %fn ByteBuilder fn char fn i32 Result ByteBui
                                         then:
                                             Result::Ok b2
                                         else:
-                                            byte_builder_push_u8 b2 char_utf8_byte3 c
+                                            byte_builder_push_char_utf8_byte_at b2 c 3
 
 //: byte_builder_push_char_utf8: char を UTF-8 bytes として[追加/ついか]する
 //:
@@ -130,7 +229,7 @@ pub fn byte_builder_push_utf8_tail %fn ByteBuilder fn char fn i32 Result ByteBui
 //: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
 pub fn byte_builder_push_char_utf8 %fn ByteBuilder fn char Result ByteBuilder ByteBuilderError \builder\c:
     let utf8_len %i32 char_utf8_len c
-    match byte_builder_push_u8 builder char_utf8_byte0 c:
+    match byte_builder_push_char_utf8_byte_at builder c 0:
         Result::Err e:
             Result::Err e
         Result::Ok b0:

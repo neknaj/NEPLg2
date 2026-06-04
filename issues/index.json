@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T06:01:33.749Z",
+  "generated_at": "2026-06-04T06:25:11.018Z",
   "counts": {
     "total": 1339,
-    "open": 57,
-    "resolved": 1282,
+    "open": 56,
+    "resolved": 1283,
     "by_area": {
       "stdlib": {
         "total": 349,
-        "open": 16,
-        "resolved": 333
+        "open": 15,
+        "resolved": 334
       },
       "core": {
         "total": 664,
@@ -923,21 +923,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034125561Z-BTREEMAP-AND-BTREESET-NAMES-DESCRIBE-4608BFC5.md"
-    },
-    {
-      "id": "ISS-20260604T034125917Z-CHAR-UTF-8-BYTE-ACCESSORS-RELY-ON-CA-AC31C3D4",
-      "title": "char UTF-8 byte accessors rely on caller length checks instead of typed absence",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/core/char.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034125917Z-CHAR-UTF-8-BYTE-ACCESSORS-RELY-ON-CA-AC31C3D4.md"
     },
     {
       "id": "ISS-20260604T034207796Z-GUI-AND-TUI-FEATURE-FACADES-STILL-EX-C5A0CA5B",
@@ -19973,6 +19958,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T033644019Z-STDIO-PRINT-I32-DUPLICATES-INTEGER-F-BB8DC401.md"
+    },
+    {
+      "id": "ISS-20260604T034125917Z-CHAR-UTF-8-BYTE-ACCESSORS-RELY-ON-CA-AC31C3D4",
+      "title": "char UTF-8 byte accessors rely on caller length checks instead of typed absence",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/core/char.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034125917Z-CHAR-UTF-8-BYTE-ACCESSORS-RELY-ON-CA-AC31C3D4.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",

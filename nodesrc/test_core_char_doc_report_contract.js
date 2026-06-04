@@ -16,10 +16,20 @@ assert.equal(doctest.ret, null, `${name} must not use ret as test-success metada
 assert.equal(doctest.exit_code, 0, `${name} must pin exit_code: 0`);
 assert.match(
     doctest.stdout,
-    /^test_report name="core_char_basic" count=9 failed=0\n/,
+    /^test_report name="core_char_basic" count=13 failed=0\n/,
     `${name} must pin canonical stdout report`,
 );
+for (const label of [
+    'ascii byte 0',
+    'ascii byte 1 none',
+    'hiragana byte 2',
+    'negative byte none',
+]) {
+    assert.match(doctest.stdout, new RegExp(`label="${label}"`), `${name} must report ${label}`);
+}
 assert.match(doctest.code, /test_report_new "core_char_basic"/, `${name} must construct a named TestReport`);
+assert.match(doctest.code, /\bchar_utf8_byte_at\b/, `${name} must exercise typed UTF-8 byte access`);
+assert.match(doctest.code, /\bis_none\s+char_utf8_byte_at\b/, `${name} must document absent UTF-8 bytes`);
 assert.match(doctest.code, /test_report_print_stdout report/, `${name} must print the report`);
 assert.match(doctest.code, /test_report_exit_code shown/, `${name} must derive exit code from the shown report`);
 assert.doesNotMatch(doctest.code, /checks_exit_code\s+checks/, `${name} must not hide report details behind checks_exit_code`);

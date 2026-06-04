@@ -46,9 +46,12 @@ NEPLg2 に `'a'` 形式の char literal と `char` primitive type を追加す�
 | `char_is_ascii_alnum(c) -> bool` | digit or alpha。 |
 | `char_is_ascii_whitespace(c) -> bool` | `' '` / `'\t'` / `'\n'` / `'\r'` など。 |
 | `char_utf8_len(c) -> i32` | UTF-8 encode 時の byte count。 |
-| `char_utf8_byte0..3(c) -> i32` | `char_utf8_len` と組み合わせて UTF-8 encode 用 byte を得る。 |
+| `char_utf8_byte0(c) -> i32` | UTF-8 encode 時に必ず存在する先頭 byte を返す。 |
+| `char_utf8_byte_at(c, idx) -> Option<i32>` | UTF-8 encode 後の `idx` 番目 byte を、存在する場合だけ `Some` として返す。 |
 
 `core/char` は `alloc` に依存しない純粋 API とする。`char` と i32 code point の相互変換は `core/cast` の明示変換を経由し、未検証 code point から `char` を作る公開入口は `char_from_i32_result` に限定する。
+
+`char_utf8_byte1`、`char_utf8_byte2`、`char_utf8_byte3` のような raw tail byte helper は public API にしない。ASCII など短い UTF-8 表現では後続 byte が存在しないため、caller が `char_utf8_len` を先に確認する暗黙契約ではなく、`char_utf8_byte_at` の `Option` を `match` して欠如を処理する。
 
 `char` の分類は、`match` と range predicate を組み合わせて実装する。単一文字の有限分岐では char literal を使い、decimal code を避ける。
 
@@ -137,7 +140,7 @@ char support 実装後、次の順で decimal character code を char literal �
 
 ### Stage 2: UTF-8 encode / decode
 
-- `char_utf8_len` と UTF-8 encode helper を追加する。所有 `ByteBuf` を返す helper は `alloc/io` / `std/text` 側に置き、`core/char` から `alloc` へ依存しない。
+- `char_utf8_len`、常に存在する先頭 byte 用の `char_utf8_byte0`、欠如を `Option` で返す `char_utf8_byte_at` を追加する。所有 `ByteBuf` を返す helper は `alloc/io` / `std/text` 側に置き、`core/char` から `alloc` へ依存しない。
 - `str_next_char_result` を実装し、UTF-8 decoder を `string` / `std/text` で共有できる形へ整理する。
 
 ### Stage 3: `string` char API
