@@ -1,0 +1,73 @@
+#indent 4
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "./token_role" as *
+
+//: selfhost_parser_token_role_visibility: parser role から declaration visibility を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - `pub` だけを public modifier として扱い、それ以外の token role は private に畳みます。
+//: - `TokenKind` 追加時の影響は `selfhost_parser_token_role` に集約されます。
+pub fn selfhost_parser_token_role_visibility %fn SelfhostParserTokenRole SelfhostModuleDeclarationVisibility \role:
+    match role:
+        SelfhostParserTokenRole::EndToken:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::SkipToken:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::IndentToken:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::DedentToken:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::LegacySyntaxToken:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::RegularToken:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::DeclarationNameHead:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::DeclarationTypeLabelHead:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::PublicVisibilityModifier:
+            SelfhostModuleDeclarationVisibility::Public
+        SelfhostParserTokenRole::FunctionDeclaration:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::StructDeclaration:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::EnumDeclaration:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::TraitDeclaration:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::ImplDeclaration:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::EntryDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::TargetDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::ImportDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::UseDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::TestDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::IfTargetDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::IfProfileDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::CapabilityDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::PreludeDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::NoPreludeDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::IntrinsicDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::WasmBlockDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::LlvmIrBlockDirective:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::WasmTextBody:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::LlvmIrTextBody:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::MlstrLineBody:
+            SelfhostModuleDeclarationVisibility::Private
+        SelfhostParserTokenRole::DocCommentBody:
+            SelfhostModuleDeclarationVisibility::Private

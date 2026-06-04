@@ -3,8 +3,13 @@
 #import "core/option" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/token" as *
+#import "./token_role" as *
 
 //: selfhost_parser_decl_item_kind: top-level 宣言 token だけを module item にする
+//:
+//: [目的/もくてき]:
+//: - declaration keyword は block depth 0 のときだけ module 宣言として保持します。
+//: - prefix type 内の `fn` など、式や型式内部の keyword は module item にしません。
 pub fn selfhost_parser_decl_item_kind %fn SelfhostModuleItemKind fn i32 Option SelfhostModuleItemKind \item_kind\depth:
     if:
         eq depth 0
@@ -16,156 +21,15 @@ pub fn selfhost_parser_decl_item_kind %fn SelfhostModuleItemKind fn i32 Option S
 //: selfhost_parser_item_kind_from_token: token kind を module item kind へ写す
 //:
 //: [目的/もくてき]:
-//: - parser の入口で保持すべき token だけを `SelfhostModuleItemKind` に変換します。
-//: - 宣言 keyword は通常 block depth 0 のものだけを module 宣言として扱います。
+//: - `selfhost_parser_token_role` で共有分類した role から、AST item として保持する token だけを取り出します。
+//: - declaration keyword の top-level 制約は token 単体では決められないため、この projection で depth を見て適用します。
 pub fn selfhost_parser_item_kind_from_token %fn TokenKind fn i32 Option SelfhostModuleItemKind \kind\depth:
-    match kind:
-        TokenKind::Indent:
+    match selfhost_parser_token_role_item_kind selfhost_parser_token_role kind:
+        Option::Some item_kind:
+            match selfhost_module_item_kind_declaration item_kind:
+                Option::Some _decl_kind:
+                    selfhost_parser_decl_item_kind item_kind depth
+                Option::None:
+                    some item_kind
+        Option::None:
             none
-        TokenKind::Dedent:
-            none
-        TokenKind::Newline:
-            none
-        TokenKind::Eof:
-            none
-        TokenKind::Colon:
-            none
-        TokenKind::Semicolon:
-            none
-        TokenKind::Pipe:
-            none
-        TokenKind::LParen:
-            none
-        TokenKind::RParen:
-            none
-        TokenKind::Comma:
-            none
-        TokenKind::LAngle:
-            none
-        TokenKind::RAngle:
-            none
-        TokenKind::Percent:
-            none
-        TokenKind::Backslash:
-            none
-        TokenKind::Arrow:
-            none
-        TokenKind::PathSep:
-            none
-        TokenKind::At:
-            none
-        TokenKind::Dot:
-            none
-        TokenKind::Ampersand:
-            none
-        TokenKind::Star:
-            none
-        TokenKind::Minus:
-            none
-        TokenKind::Equals:
-            none
-        TokenKind::Ident:
-            none
-        TokenKind::IntLiteral:
-            none
-        TokenKind::FloatLiteral:
-            none
-        TokenKind::BoolLiteral:
-            none
-        TokenKind::CharLiteral:
-            none
-        TokenKind::StringLiteral:
-            none
-        TokenKind::UnitLiteral:
-            none
-        TokenKind::VoidMarker:
-            none
-        TokenKind::KwFn:
-            selfhost_parser_decl_item_kind SelfhostModuleItemKind::FunctionDecl depth
-        TokenKind::KwLet:
-            none
-        TokenKind::KwMut:
-            none
-        TokenKind::KwNoShadow:
-            none
-        TokenKind::KwSet:
-            none
-        TokenKind::KwIf:
-            none
-        TokenKind::KwWhile:
-            none
-        TokenKind::KwCond:
-            none
-        TokenKind::KwThen:
-            none
-        TokenKind::KwElse:
-            none
-        TokenKind::KwDo:
-            none
-        TokenKind::KwStruct:
-            selfhost_parser_decl_item_kind SelfhostModuleItemKind::StructDecl depth
-        TokenKind::KwEnum:
-            selfhost_parser_decl_item_kind SelfhostModuleItemKind::EnumDecl depth
-        TokenKind::KwMatch:
-            none
-        TokenKind::KwTrait:
-            selfhost_parser_decl_item_kind SelfhostModuleItemKind::TraitDecl depth
-        TokenKind::KwImpl:
-            selfhost_parser_decl_item_kind SelfhostModuleItemKind::ImplDecl depth
-        TokenKind::KwFor:
-            none
-        TokenKind::KwPub:
-            none
-        TokenKind::KwBlock:
-            none
-        TokenKind::KwTuple:
-            none
-        TokenKind::KwMlstr:
-            none
-        TokenKind::DirEntry:
-            some SelfhostModuleItemKind::EntryDirective
-        TokenKind::DirTarget:
-            some SelfhostModuleItemKind::TargetDirective
-        TokenKind::DirImport:
-            some SelfhostModuleItemKind::ImportDirective
-        TokenKind::DirUse:
-            some SelfhostModuleItemKind::UseDirective
-        TokenKind::DirTest:
-            some SelfhostModuleItemKind::TestDirective
-        TokenKind::DirIfTarget:
-            some SelfhostModuleItemKind::IfTargetDirective
-        TokenKind::DirIfProfile:
-            some SelfhostModuleItemKind::IfProfileDirective
-        TokenKind::DirCapability:
-            some SelfhostModuleItemKind::CapabilityDirective
-        TokenKind::DirWasm:
-            some SelfhostModuleItemKind::WasmBlock
-        TokenKind::DirLlvmIr:
-            some SelfhostModuleItemKind::LlvmIrBlock
-        TokenKind::DirIndentWidth:
-            none
-        TokenKind::DirInclude:
-            none
-        TokenKind::DirExtern:
-            none
-        TokenKind::DirIntrinsic:
-            some SelfhostModuleItemKind::IntrinsicDirective
-        TokenKind::DirPrelude:
-            some SelfhostModuleItemKind::PreludeDirective
-        TokenKind::DirNoPrelude:
-            some SelfhostModuleItemKind::NoPreludeDirective
-        TokenKind::WasmText:
-            some SelfhostModuleItemKind::WasmText
-        TokenKind::LlvmIrText:
-            some SelfhostModuleItemKind::LlvmIrText
-        TokenKind::MlstrLine:
-            some SelfhostModuleItemKind::MlstrLine
-        TokenKind::DocComment:
-            some SelfhostModuleItemKind::DocComment
-        TokenKind::UnterminatedChar:
-            none
-        TokenKind::UnterminatedString:
-            none
-        TokenKind::Unknown:
-            none
-

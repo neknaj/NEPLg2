@@ -88,16 +88,24 @@ assert.doesNotMatch(
 );
 
 assertTokenKindExhaustiveMatch(
-    functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "selfhost_parser_token_action"),
-    "selfhost_parser_token_action",
+    functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "selfhost_parser_token_role"),
+    "selfhost_parser_token_role",
     tokenKindVariants,
 );
 
-assertTokenKindExhaustiveMatch(
-    functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "selfhost_parser_item_kind_from_token"),
+for (const name of [
+    "selfhost_parser_token_action",
     "selfhost_parser_item_kind_from_token",
-    tokenKindVariants,
-);
+    "selfhost_parser_declaration_head_kind",
+    "selfhost_parser_declaration_visibility",
+]) {
+    const block = functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", name);
+    assert.doesNotMatch(
+        block,
+        /\bmatch\s+(?:kind|prev\.kind):/,
+        `${name} must project from SelfhostParserTokenRole instead of matching TokenKind directly`,
+    );
+}
 
 const moduleLoop = functionBlockFromSource(parser, "stdlib/neplg2/core/syntax/parser/module_parser", "selfhost_parse_module_loop");
 assert.match(

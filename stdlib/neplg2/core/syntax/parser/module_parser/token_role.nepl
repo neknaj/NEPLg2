@@ -1,0 +1,417 @@
+#indent 4
+#import "core/option" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "./state" as *
+
+//: SelfhostParserTokenRole: module parser が token に[与/あた]える AST role
+//:
+//: [目的/もくてき]:
+//: - `TokenKind` そのものではなく、module parser が必要とする意味だけを enum にまとめます。
+//: - item kind、declaration head、visibility はこの role から派生させ、token 追加時の分類ずれを防ぎます。
+pub enum SelfhostParserTokenRole:
+    EndToken
+    SkipToken
+    IndentToken
+    DedentToken
+    LegacySyntaxToken
+    RegularToken
+    DeclarationNameHead
+    DeclarationTypeLabelHead
+    PublicVisibilityModifier
+    FunctionDeclaration
+    StructDeclaration
+    EnumDeclaration
+    TraitDeclaration
+    ImplDeclaration
+    EntryDirective
+    TargetDirective
+    ImportDirective
+    UseDirective
+    TestDirective
+    IfTargetDirective
+    IfProfileDirective
+    CapabilityDirective
+    PreludeDirective
+    NoPreludeDirective
+    IntrinsicDirective
+    WasmBlockDirective
+    LlvmIrBlockDirective
+    WasmTextBody
+    LlvmIrTextBody
+    MlstrLineBody
+    DocCommentBody
+
+impl Clone for SelfhostParserTokenRole:
+    fn clone %fn &SelfhostParserTokenRole SelfhostParserTokenRole \self:
+        *self
+
+impl Copy for SelfhostParserTokenRole:
+    fn copy_mark %fn SelfhostParserTokenRole SelfhostParserTokenRole \self:
+        self
+
+//: selfhost_parser_token_role: token kind を module parser 用 role へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - ここは `TokenKind` を網羅的に分類する唯一の module-item role table です。
+//: - 下流の item / header / visibility 判定はこの role を使い、別々の巨大な token match table を持ちません。
+pub fn selfhost_parser_token_role %fn TokenKind SelfhostParserTokenRole \kind:
+    match kind:
+        TokenKind::Indent:
+            SelfhostParserTokenRole::IndentToken
+        TokenKind::Dedent:
+            SelfhostParserTokenRole::DedentToken
+        TokenKind::Newline:
+            SelfhostParserTokenRole::SkipToken
+        TokenKind::Eof:
+            SelfhostParserTokenRole::EndToken
+        TokenKind::Colon:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Semicolon:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Pipe:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::LParen:
+            SelfhostParserTokenRole::LegacySyntaxToken
+        TokenKind::RParen:
+            SelfhostParserTokenRole::LegacySyntaxToken
+        TokenKind::Comma:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::LAngle:
+            SelfhostParserTokenRole::LegacySyntaxToken
+        TokenKind::RAngle:
+            SelfhostParserTokenRole::LegacySyntaxToken
+        TokenKind::Percent:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Backslash:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Arrow:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::PathSep:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::At:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Dot:
+            SelfhostParserTokenRole::DeclarationTypeLabelHead
+        TokenKind::Ampersand:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Star:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Minus:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Equals:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Ident:
+            SelfhostParserTokenRole::DeclarationNameHead
+        TokenKind::IntLiteral:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::FloatLiteral:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::BoolLiteral:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::CharLiteral:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::StringLiteral:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::UnitLiteral:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::VoidMarker:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwFn:
+            SelfhostParserTokenRole::FunctionDeclaration
+        TokenKind::KwLet:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwMut:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwNoShadow:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwSet:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwIf:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwWhile:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwCond:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwThen:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwElse:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwDo:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwStruct:
+            SelfhostParserTokenRole::StructDeclaration
+        TokenKind::KwEnum:
+            SelfhostParserTokenRole::EnumDeclaration
+        TokenKind::KwMatch:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwTrait:
+            SelfhostParserTokenRole::TraitDeclaration
+        TokenKind::KwImpl:
+            SelfhostParserTokenRole::ImplDeclaration
+        TokenKind::KwFor:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwPub:
+            SelfhostParserTokenRole::PublicVisibilityModifier
+        TokenKind::KwBlock:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwTuple:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::KwMlstr:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::DirEntry:
+            SelfhostParserTokenRole::EntryDirective
+        TokenKind::DirTarget:
+            SelfhostParserTokenRole::TargetDirective
+        TokenKind::DirImport:
+            SelfhostParserTokenRole::ImportDirective
+        TokenKind::DirUse:
+            SelfhostParserTokenRole::UseDirective
+        TokenKind::DirTest:
+            SelfhostParserTokenRole::TestDirective
+        TokenKind::DirIfTarget:
+            SelfhostParserTokenRole::IfTargetDirective
+        TokenKind::DirIfProfile:
+            SelfhostParserTokenRole::IfProfileDirective
+        TokenKind::DirCapability:
+            SelfhostParserTokenRole::CapabilityDirective
+        TokenKind::DirWasm:
+            SelfhostParserTokenRole::WasmBlockDirective
+        TokenKind::DirLlvmIr:
+            SelfhostParserTokenRole::LlvmIrBlockDirective
+        TokenKind::DirIndentWidth:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::DirInclude:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::DirExtern:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::DirIntrinsic:
+            SelfhostParserTokenRole::IntrinsicDirective
+        TokenKind::DirPrelude:
+            SelfhostParserTokenRole::PreludeDirective
+        TokenKind::DirNoPrelude:
+            SelfhostParserTokenRole::NoPreludeDirective
+        TokenKind::WasmText:
+            SelfhostParserTokenRole::WasmTextBody
+        TokenKind::LlvmIrText:
+            SelfhostParserTokenRole::LlvmIrTextBody
+        TokenKind::MlstrLine:
+            SelfhostParserTokenRole::MlstrLineBody
+        TokenKind::DocComment:
+            SelfhostParserTokenRole::DocCommentBody
+        TokenKind::UnterminatedChar:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::UnterminatedString:
+            SelfhostParserTokenRole::RegularToken
+        TokenKind::Unknown:
+            SelfhostParserTokenRole::RegularToken
+
+//: selfhost_parser_token_role_action: parser role を loop action へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - token stream の進行制御は `SelfhostParserTokenAction` に射影します。
+//: - TokenKind の直接分類は `selfhost_parser_token_role` に閉じ、loop は role の意味だけを見ます。
+pub fn selfhost_parser_token_role_action %fn SelfhostParserTokenRole SelfhostParserTokenAction \role:
+    match role:
+        SelfhostParserTokenRole::EndToken:
+            SelfhostParserTokenAction::End
+        SelfhostParserTokenRole::SkipToken:
+            SelfhostParserTokenAction::Skip
+        SelfhostParserTokenRole::IndentToken:
+            SelfhostParserTokenAction::Indent
+        SelfhostParserTokenRole::DedentToken:
+            SelfhostParserTokenAction::Dedent
+        SelfhostParserTokenRole::LegacySyntaxToken:
+            SelfhostParserTokenAction::LegacySyntax
+        SelfhostParserTokenRole::WasmBlockDirective:
+            SelfhostParserTokenAction::DirWasm
+        SelfhostParserTokenRole::LlvmIrBlockDirective:
+            SelfhostParserTokenAction::DirLlvmIr
+        SelfhostParserTokenRole::WasmTextBody:
+            SelfhostParserTokenAction::WasmText
+        SelfhostParserTokenRole::LlvmIrTextBody:
+            SelfhostParserTokenAction::LlvmIrText
+        SelfhostParserTokenRole::RegularToken:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::DeclarationNameHead:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::DeclarationTypeLabelHead:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::PublicVisibilityModifier:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::FunctionDeclaration:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::StructDeclaration:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::EnumDeclaration:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::TraitDeclaration:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::ImplDeclaration:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::EntryDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::TargetDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::ImportDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::UseDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::TestDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::IfTargetDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::IfProfileDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::CapabilityDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::PreludeDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::NoPreludeDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::IntrinsicDirective:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::MlstrLineBody:
+            SelfhostParserTokenAction::Regular
+        SelfhostParserTokenRole::DocCommentBody:
+            SelfhostParserTokenAction::Regular
+
+//: selfhost_parser_token_role_item_kind: parser role を module item kind へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - declaration keyword と directive/body token の item 化規則を、共有roleから一貫して導きます。
+//: - declaration head や visibility 専用の role は item ではないため `None` を返します。
+pub fn selfhost_parser_token_role_item_kind %fn SelfhostParserTokenRole Option SelfhostModuleItemKind \role:
+    match role:
+        SelfhostParserTokenRole::EndToken:
+            none
+        SelfhostParserTokenRole::SkipToken:
+            none
+        SelfhostParserTokenRole::IndentToken:
+            none
+        SelfhostParserTokenRole::DedentToken:
+            none
+        SelfhostParserTokenRole::LegacySyntaxToken:
+            none
+        SelfhostParserTokenRole::RegularToken:
+            none
+        SelfhostParserTokenRole::DeclarationNameHead:
+            none
+        SelfhostParserTokenRole::DeclarationTypeLabelHead:
+            none
+        SelfhostParserTokenRole::PublicVisibilityModifier:
+            none
+        SelfhostParserTokenRole::FunctionDeclaration:
+            some SelfhostModuleItemKind::FunctionDecl
+        SelfhostParserTokenRole::StructDeclaration:
+            some SelfhostModuleItemKind::StructDecl
+        SelfhostParserTokenRole::EnumDeclaration:
+            some SelfhostModuleItemKind::EnumDecl
+        SelfhostParserTokenRole::TraitDeclaration:
+            some SelfhostModuleItemKind::TraitDecl
+        SelfhostParserTokenRole::ImplDeclaration:
+            some SelfhostModuleItemKind::ImplDecl
+        SelfhostParserTokenRole::EntryDirective:
+            some SelfhostModuleItemKind::EntryDirective
+        SelfhostParserTokenRole::TargetDirective:
+            some SelfhostModuleItemKind::TargetDirective
+        SelfhostParserTokenRole::ImportDirective:
+            some SelfhostModuleItemKind::ImportDirective
+        SelfhostParserTokenRole::UseDirective:
+            some SelfhostModuleItemKind::UseDirective
+        SelfhostParserTokenRole::TestDirective:
+            some SelfhostModuleItemKind::TestDirective
+        SelfhostParserTokenRole::IfTargetDirective:
+            some SelfhostModuleItemKind::IfTargetDirective
+        SelfhostParserTokenRole::IfProfileDirective:
+            some SelfhostModuleItemKind::IfProfileDirective
+        SelfhostParserTokenRole::CapabilityDirective:
+            some SelfhostModuleItemKind::CapabilityDirective
+        SelfhostParserTokenRole::PreludeDirective:
+            some SelfhostModuleItemKind::PreludeDirective
+        SelfhostParserTokenRole::NoPreludeDirective:
+            some SelfhostModuleItemKind::NoPreludeDirective
+        SelfhostParserTokenRole::IntrinsicDirective:
+            some SelfhostModuleItemKind::IntrinsicDirective
+        SelfhostParserTokenRole::WasmBlockDirective:
+            some SelfhostModuleItemKind::WasmBlock
+        SelfhostParserTokenRole::LlvmIrBlockDirective:
+            some SelfhostModuleItemKind::LlvmIrBlock
+        SelfhostParserTokenRole::WasmTextBody:
+            some SelfhostModuleItemKind::WasmText
+        SelfhostParserTokenRole::LlvmIrTextBody:
+            some SelfhostModuleItemKind::LlvmIrText
+        SelfhostParserTokenRole::MlstrLineBody:
+            some SelfhostModuleItemKind::MlstrLine
+        SelfhostParserTokenRole::DocCommentBody:
+            some SelfhostModuleItemKind::DocComment
+
+//: selfhost_parser_token_role_declaration_head_kind: parser role を declaration head kind へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `Ident` と `.` の head 分類だけを declaration proof 用 evidence として残します。
+//: - 旧 `<...>` generic list のようなNEPLg2.1非正規構文は role の時点で head evidence にしません。
+pub fn selfhost_parser_token_role_declaration_head_kind %fn SelfhostParserTokenRole Option SelfhostModuleDeclarationHeadKind \role:
+    match role:
+        SelfhostParserTokenRole::EndToken:
+            none
+        SelfhostParserTokenRole::SkipToken:
+            none
+        SelfhostParserTokenRole::IndentToken:
+            none
+        SelfhostParserTokenRole::DedentToken:
+            none
+        SelfhostParserTokenRole::LegacySyntaxToken:
+            none
+        SelfhostParserTokenRole::RegularToken:
+            none
+        SelfhostParserTokenRole::DeclarationNameHead:
+            some SelfhostModuleDeclarationHeadKind::Name
+        SelfhostParserTokenRole::DeclarationTypeLabelHead:
+            some SelfhostModuleDeclarationHeadKind::TypeLabel
+        SelfhostParserTokenRole::PublicVisibilityModifier:
+            none
+        SelfhostParserTokenRole::FunctionDeclaration:
+            none
+        SelfhostParserTokenRole::StructDeclaration:
+            none
+        SelfhostParserTokenRole::EnumDeclaration:
+            none
+        SelfhostParserTokenRole::TraitDeclaration:
+            none
+        SelfhostParserTokenRole::ImplDeclaration:
+            none
+        SelfhostParserTokenRole::EntryDirective:
+            none
+        SelfhostParserTokenRole::TargetDirective:
+            none
+        SelfhostParserTokenRole::ImportDirective:
+            none
+        SelfhostParserTokenRole::UseDirective:
+            none
+        SelfhostParserTokenRole::TestDirective:
+            none
+        SelfhostParserTokenRole::IfTargetDirective:
+            none
+        SelfhostParserTokenRole::IfProfileDirective:
+            none
+        SelfhostParserTokenRole::CapabilityDirective:
+            none
+        SelfhostParserTokenRole::PreludeDirective:
+            none
+        SelfhostParserTokenRole::NoPreludeDirective:
+            none
+        SelfhostParserTokenRole::IntrinsicDirective:
+            none
+        SelfhostParserTokenRole::WasmBlockDirective:
+            none
+        SelfhostParserTokenRole::LlvmIrBlockDirective:
+            none
+        SelfhostParserTokenRole::WasmTextBody:
+            none
+        SelfhostParserTokenRole::LlvmIrTextBody:
+            none
+        SelfhostParserTokenRole::MlstrLineBody:
+            none
+        SelfhostParserTokenRole::DocCommentBody:
+            none

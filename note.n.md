@@ -1,3 +1,13 @@
+# 2026-06-04 self-host parser token role classification checkpoint
+
+- `plan.md` は変更していない。
+- `ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123` を `fixed` / `resolved: true` に更新した。
+- `TokenKind` から module parser 上の意味を決める authority として `SelfhostParserTokenRole` / `selfhost_parser_token_role` を追加した。
+- `selfhost_parser_token_action`、`selfhost_parser_item_kind_from_token`、`selfhost_parser_declaration_head_kind`、`selfhost_parser_declaration_visibility` は `TokenKind` を直接 match せず、role からの projection を使う形へ整理した。
+- `KwFn` などの declaration keyword が top-level item になるかどうか、`pub` が header boundary にいるかどうかは文脈依存なので、role table ではなく既存の depth / statement boundary 検査側に残した。
+- `token_role.nepl` は TokenKind 網羅分類、`token_role_header.nepl` は declaration visibility projection に分け、module parser split line budget を守った。
+- 検証済み: focused selfhost parser source policy、parser doctest fixture、stdlib/neplg2 tree、issue check、`git diff --check` は通過した。`node nodesrc\run_source_policy_regressions.js --warn-only` は今回の parser role policy が pass し、既存の static/resource/parser-backend/resource-gate/diagnostic-code-first 系 5 件だけを warning として報告した。
+
 # 2026-06-04 self-host parser current NEPLg2.1 syntax boundary checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、selfhost parser の旧括弧 / angle syntax を正常 AST へ流さず、typed diagnostic と current syntax boundary として扱うようにした。

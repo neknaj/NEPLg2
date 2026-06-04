@@ -6,6 +6,8 @@ const path = require("node:path");
 const MODULE_PARSER_FACADE = "stdlib/neplg2/core/syntax/parser/module_parser.nepl";
 const MODULE_PARSER_SPLIT_FILES = [
     "stdlib/neplg2/core/syntax/parser/module_parser/state.nepl",
+    "stdlib/neplg2/core/syntax/parser/module_parser/token_role.nepl",
+    "stdlib/neplg2/core/syntax/parser/module_parser/token_role_header.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/action.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/diagnostic.nepl",
     "stdlib/neplg2/core/syntax/parser/module_parser/header_boundary.nepl",

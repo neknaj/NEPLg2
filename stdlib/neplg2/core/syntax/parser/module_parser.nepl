@@ -40,6 +40,8 @@
 
 
 pub #import "./module_parser/state" as *
+pub #import "./module_parser/token_role" as *
+pub #import "./module_parser/token_role_header" as *
 pub #import "./module_parser/action" as *
 pub #import "./module_parser/diagnostic" as *
 pub #import "./module_parser/header_boundary" as *

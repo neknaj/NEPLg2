@@ -51,9 +51,14 @@ assert.match(
     "parser loop action enum must distinguish legacy syntax tokens from ordinary regular tokens",
 );
 assert.match(
-    functionBlock(parser, "selfhost_parser_token_action"),
-    /TokenKind::LParen:\s*\n\s*SelfhostParserTokenAction::LegacySyntax[\s\S]*TokenKind::RParen:\s*\n\s*SelfhostParserTokenAction::LegacySyntax[\s\S]*TokenKind::LAngle:\s*\n\s*SelfhostParserTokenAction::LegacySyntax[\s\S]*TokenKind::RAngle:\s*\n\s*SelfhostParserTokenAction::LegacySyntax/,
-    "parentheses and angle brackets must be rejected by the current NEPLg2.1 parser boundary",
+    functionBlock(parser, "selfhost_parser_token_role"),
+    /TokenKind::LParen:\s*\n\s*SelfhostParserTokenRole::LegacySyntaxToken[\s\S]*TokenKind::RParen:\s*\n\s*SelfhostParserTokenRole::LegacySyntaxToken[\s\S]*TokenKind::LAngle:\s*\n\s*SelfhostParserTokenRole::LegacySyntaxToken[\s\S]*TokenKind::RAngle:\s*\n\s*SelfhostParserTokenRole::LegacySyntaxToken/,
+    "parentheses and angle brackets must be classified as legacy syntax by the current NEPLg2.1 parser boundary",
+);
+assert.match(
+    functionBlock(parser, "selfhost_parser_token_role_action"),
+    /SelfhostParserTokenRole::LegacySyntaxToken:\s*\n\s*SelfhostParserTokenAction::LegacySyntax/,
+    "legacy syntax roles must project to the parser loop legacy diagnostic action",
 );
 assert.match(
     functionBlock(parser, "selfhost_parse_module_loop"),
@@ -71,9 +76,9 @@ assert.doesNotMatch(
     "module declaration head evidence must not keep legacy angle-bracket generic parameters",
 );
 assert.match(
-    functionBlock(parser, "selfhost_parser_declaration_head_kind"),
-    /TokenKind::LAngle:\s*\n\s*none/,
-    "declaration head classification must not promote legacy angle syntax to typed evidence",
+    functionBlock(parser, "selfhost_parser_token_role_declaration_head_kind"),
+    /SelfhostParserTokenRole::LegacySyntaxToken:\s*\n\s*none/,
+    "declaration head projection must not promote legacy angle syntax to typed evidence",
 );
 assert.match(
     parserFixture,

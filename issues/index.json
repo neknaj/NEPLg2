@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T14:10:39.743Z",
+  "generated_at": "2026-06-04T14:28:43.668Z",
   "counts": {
     "total": 1340,
-    "open": 54,
-    "resolved": 1286,
+    "open": 53,
+    "resolved": 1287,
     "by_area": {
       "stdlib": {
         "total": 349,
@@ -23,8 +23,8 @@
       },
       "selfhost": {
         "total": 117,
-        "open": 5,
-        "resolved": 112
+        "open": 4,
+        "resolved": 113
       },
       "neplg21": {
         "total": 2,
@@ -818,21 +818,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123",
-      "title": "selfhost parser token role classification is duplicated across large match tables",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "maintenance",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl, stdlib/neplg2/core/syntax/parser/module_parser/item_kind.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -18968,6 +18953,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md"
+    },
+    {
+      "id": "ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123",
+      "title": "selfhost parser token role classification is duplicated across large match tables",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/neplg2/core/syntax/parser/module_parser/token_role.nepl, stdlib/neplg2/core/syntax/parser/module_parser/token_role_header.nepl, stdlib/neplg2/core/syntax/parser/module_parser/action.nepl, stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl, stdlib/neplg2/core/syntax/parser/module_parser/header_boundary.nepl, stdlib/neplg2/core/syntax/parser/module_parser/item_kind.nepl, nodesrc/test_selfhost_parser_tokenkind_match.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
