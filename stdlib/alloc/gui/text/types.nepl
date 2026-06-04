@@ -11,14 +11,16 @@
 //: - 文字列確保に失敗した場合は `GuiError::ResourceExhausted` を[返/かえ]します。
 //: - `TextMeasurer` は core trait として注入され、host API、platform handle、`std/gui` には[依存/いぞん]しません。
 //:
-//: neplg2:test
-//: ret: 5
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_text_types_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"5\" actual=\"5\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui/text/types" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let buffer_id %TextBufferId text_buffer_id_new 1
 //:     let buffer %TextBuffer text_buffer_new buffer_id "abc"
 //:     match text_buffer_replace buffer 1 2 "XYZ":
@@ -26,6 +28,14 @@
 //:             text_buffer_len &next
 //:         Result::Err _error:
 //:             0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_text_types_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 5 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

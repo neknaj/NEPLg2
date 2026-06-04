@@ -8,8 +8,9 @@
 - insert / replace / delete が `TextBufferId` を保ったまま新しい本文を返すことを確認します。
 - 本文 storage は `str` として扱い、測定 API に依存しないことを固定します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"text_buffer_insert_replace_delete_store_string\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -19,8 +20,9 @@ ret: 0
 #import "alloc/string/search" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let initial_id %TextBufferId text_buffer_id_new 42
     let initial %TextBuffer text_buffer_new initial_id "ac"
     let inserted %TextBuffer unwrap_ok text_buffer_insert initial 1 "b"
@@ -37,6 +39,14 @@ fn main %fn void i32 \void:
             else if not eq actual_len 2:
                 then 3
                 else 0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "text_buffer_insert_replace_delete_store_string"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## text_buffer_rejects_out_of_range
@@ -44,8 +54,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - 範囲外 insert が panic や silent no-op ではなく `GuiError::InvalidCommand` になることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"text_buffer_rejects_out_of_range\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -53,8 +64,9 @@ ret: 0
 
 #import "alloc/gui/text" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let buffer %TextBuffer text_buffer_new buffer_id "abc"
     match text_buffer_insert buffer 4 "z":
@@ -66,6 +78,14 @@ fn main %fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "text_buffer_rejects_out_of_range"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## text_buffer_rejects_utf8_middle_byte
@@ -73,8 +93,9 @@ fn main %fn void i32 \void:
 [目的/もくてき]:
 - UTF-8 文字の途中 byte を編集境界にした場合、文字列を壊さず `GuiError::InvalidCommand` を返すことを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"text_buffer_rejects_utf8_middle_byte\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -82,8 +103,9 @@ ret: 0
 
 #import "alloc/gui/text" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let buffer %TextBuffer text_buffer_new buffer_id "aあ"
     match text_buffer_delete buffer 2 3:
@@ -95,6 +117,14 @@ fn main %fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "text_buffer_rejects_utf8_middle_byte"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## text_layout_measure_uses_char_count_and_cache_key
@@ -104,8 +134,9 @@ fn main %fn void i32 \void:
 - fallback cell count hint が byte length ではなく `str_char_count` に基づくことを、UTF-8 を含む文字列で固定します。
 - `CachedTextLayout` の key が buffer id / run id / font id / max_width / byte length / char count から決まることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"text_layout_measure_uses_char_count_and_cache_key\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -115,8 +146,9 @@ ret: 0
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %impure fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 7
     let run_id %TextRunId text_run_id_new 9
     let font_id %FontId font_id_new 3
@@ -164,6 +196,14 @@ fn main %impure fn void i32 \void:
                                                                 else if not eq 2 text_layout_cache_key_char_count &key:
                                                                     then 16
                                                                     else 0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "text_layout_measure_uses_char_count_and_cache_key"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## text_layout_rejects_invalid_max_width
@@ -171,8 +211,9 @@ fn main %impure fn void i32 \void:
 [目的/もくてき]:
 - 負の max_width が panic や sentinel value ではなく `GuiError::InvalidGeometry` になることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"text_layout_rejects_invalid_max_width\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -182,8 +223,9 @@ ret: 0
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %impure fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let run_id %TextRunId text_run_id_new 1
     let font_id %FontId font_id_new 1
@@ -199,6 +241,14 @@ fn main %impure fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "text_layout_rejects_invalid_max_width"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## text_layout_propagates_measurer_error
@@ -206,8 +256,9 @@ fn main %impure fn void i32 \void:
 [目的/もくてき]:
 - injected `TextMeasurer` が返した error を、text layout 測定 helper が別の error に置き換えないことを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"text_layout_propagates_measurer_error\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -216,6 +267,7 @@ ret: 0
 #import "alloc/gui/text" as *
 #import "core/gui" as *
 #import "core/result" as *
+#import "std/test" as *
 
 struct RejectingTextMeasurer:
     marker %i32
@@ -224,7 +276,7 @@ impl TextMeasurer for RejectingTextMeasurer:
     fn measure_text %fn &RejectingTextMeasurer fn TextMeasureRequest Result TextMeasureResult GuiError \measurer\request:
         Result::Err GuiError::Unsupported
 
-fn main %impure fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let buffer_id %TextBufferId text_buffer_id_new 1
     let run_id %TextRunId text_run_id_new 1
     let font_id %FontId font_id_new 1
@@ -239,4 +291,12 @@ fn main %impure fn void i32 \void:
                     0
                 _:
                     2
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "text_layout_propagates_measurer_error"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

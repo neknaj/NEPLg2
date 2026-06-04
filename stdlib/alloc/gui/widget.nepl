@@ -5,17 +5,27 @@
 //: - widget を callback や platform handle ではなく、`ViewNode`、layout hint、semantic metadata の data として[扱/あつか]います。
 //: - action dispatch と accessibility semantic node 生成を、DOM / ANSI / OS API から[分離/ぶんり]します。
 //:
-//: neplg2:test
-//: ret: 4
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_widget_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "alloc/gui/widget" as *
 //:| #import "core/gui" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let hint %LayoutHint layout_hint_fixed 4 2
 //:     let min_size %GuiSize layout_hint_min_size &hint
 //:     gui_size_width &min_size
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_widget_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 4 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

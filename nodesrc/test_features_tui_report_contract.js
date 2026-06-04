@@ -13,22 +13,22 @@ assert.equal(parsed.doctests.length, 5, "features_tui doctest count changed");
 
 const boxHelpers = parsed.doctests[3];
 const expectedStdout = [
-    "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]",
-    "[0] ok",
-    "[1] ok",
-    "[2] ok",
-    "[3] ok",
-    "[4] ok",
-    "[5] ok",
-    "[6] ok",
-    "[7] ok",
-    "[8] ok",
-    "[9] ok",
-    "[10] ok",
-    "[11] ok",
-    "[12] ok",
-    "[13] ok",
-    "[14] ok",
+    "test_report name=\"features_tui_box_helpers_clamp_narrow_widths\" count=15 failed=0",
+    "assertion index=0 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=1 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=2 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=3 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=4 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=5 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=6 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=7 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=8 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=9 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=10 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=11 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"a\" actual=\"a\" message=\"\"",
+    "assertion index=12 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"ab\" actual=\"ab\" message=\"\"",
+    "assertion index=13 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\" actual=\"\" message=\"\"",
+    "assertion index=14 status=ok kind=str_eq label=\"assert_str_eq\" expected=\"\x1b[31m\x1b[44ma\x1b[0m\" actual=\"\x1b[31m\x1b[44ma\x1b[0m\" message=\"\"",
     "",
 ].join("\n");
 
@@ -50,8 +50,13 @@ assert.equal(
 );
 assert.match(
     boxHelpers.code,
-    /checks_print_report\s+checks[\s\S]*checks_exit_code\s+shown/,
+    /test_report_print_stdout\s+checks[\s\S]*test_report_exit_code\s+shown/,
     "features_tui box helper doctest must print the report before returning its exit code",
+);
+assert.doesNotMatch(
+    boxHelpers.code,
+    /\bchecks_(?:new|push|print_report|exit_code)\b/,
+    "features_tui box helper doctest must not use the legacy checks_* report API",
 );
 
 console.log("features_tui report contract passed");

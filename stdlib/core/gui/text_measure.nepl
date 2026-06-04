@@ -16,16 +16,26 @@
 //: ### [計算量/けいさんりょう]
 //: - `MockTextMeasurer` は O(1) です。host implementation の計算量は backend に[依存/いぞん]します。
 //:
-//: neplg2:test
-//: ret: 16
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_text_measure_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"16\" actual=\"16\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
-//:| #target core
+//:| #target std
 //:| #import "core/gui/text_measure" as *
-//: fn main %impure fn void i32 \void:
+//: #import "std/test" as *
+//: fn run_case %impure fn void i32 \void:
 //:     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
 //:     mock_text_measurer_line_height &measurer
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "core_gui_text_measure_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 16 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

@@ -13,7 +13,7 @@
 - `ESC [ 1 ; <modifier> A/B/C/D` は xterm style modifier 付き arrow key として正規化され、未知 final は event なし、arrow key に対する不正 modifier parameter は `GuiError::InvalidCommand` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n[9] ok\n[10] ok\n[11] ok\n[12] ok\n[13] ok\n[14] ok\n[15] ok\n[16] ok\n[17] ok\n[18] ok\n[19] ok\n[20] ok\n[21] ok\n[22] ok\n[23] ok\n[24] ok\n[25] ok\n[26] ok\n[27] ok\n"
+stdout: "test_report name=\"gui_terminal_input_normalizes_keyboard_and_text_bytes\" count=28 failed=0\nassertion index=0 status=ok kind=bool label=\"tab has keyboard\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"tab focus next\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"tab has no text\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"lf focus activate\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"cr focus activate\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"space has keyboard\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"space focus activate\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"space text value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"printable has no keyboard\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"printable text value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"invalid byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"control byte has no events\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"shift tab has keyboard\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=bool label=\"shift tab focus previous\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"shift tab has no text\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"arrow up key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=bool label=\"arrow down key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"arrow right key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"arrow left key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"unknown escape has no events\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"invalid escape rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"modified arrow up key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"modified arrow up has shift\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"modified arrow left key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"modified arrow left has control\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"unknown csi has no events\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"invalid modifier rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"invalid csi rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -166,37 +166,37 @@ fn main %impure fn void i32 \void:
     let invalid_modifier_rejected %bool result_error_is_invalid_command invalid_modifier
     let invalid_csi_rejected %bool result_error_is_invalid_command invalid_csi
     let checks:
-        checks_new
-        |> checks_push assert "tab has keyboard" tab_has_keyboard
-        |> checks_push assert "tab focus next" tab_focus_next
-        |> checks_push assert "tab has no text" tab_has_no_text
-        |> checks_push assert "lf focus activate" lf_focus_activate
-        |> checks_push assert "cr focus activate" cr_focus_activate
-        |> checks_push assert "space has keyboard" space_has_keyboard
-        |> checks_push assert "space focus activate" space_focus_activate
-        |> checks_push assert "space text value" space_text_value
-        |> checks_push assert "printable has no keyboard" printable_has_no_keyboard
-        |> checks_push assert "printable text value" printable_text_value
-        |> checks_push assert "invalid byte rejected" invalid_rejected
-        |> checks_push assert "control byte has no events" control_has_no_events
-        |> checks_push assert "shift tab has keyboard" shift_tab_has_keyboard
-        |> checks_push assert "shift tab focus previous" shift_tab_focus_previous
-        |> checks_push assert "shift tab has no text" shift_tab_has_no_text
-        |> checks_push assert "arrow up key code" arrow_up_key_code
-        |> checks_push assert "arrow down key code" arrow_down_key_code
-        |> checks_push assert "arrow right key code" arrow_right_key_code
-        |> checks_push assert "arrow left key code" arrow_left_key_code
-        |> checks_push assert "unknown escape has no events" unknown_escape_has_no_events
-        |> checks_push assert "invalid escape rejected" invalid_escape_rejected
-        |> checks_push assert "modified arrow up key code" modified_arrow_up_key_code
-        |> checks_push assert "modified arrow up has shift" modified_arrow_up_has_shift
-        |> checks_push assert "modified arrow left key code" modified_arrow_left_key_code
-        |> checks_push assert "modified arrow left has control" modified_arrow_left_has_control
-        |> checks_push assert "unknown csi has no events" unknown_csi_has_no_events
-        |> checks_push assert "invalid modifier rejected" invalid_modifier_rejected
-        |> checks_push assert "invalid csi rejected" invalid_csi_rejected
-    let shown checks_print_report checks
-    checks_exit_code shown
+        test_report_new "gui_terminal_input_normalizes_keyboard_and_text_bytes"
+        |> test_report_push assert "tab has keyboard" tab_has_keyboard
+        |> test_report_push assert "tab focus next" tab_focus_next
+        |> test_report_push assert "tab has no text" tab_has_no_text
+        |> test_report_push assert "lf focus activate" lf_focus_activate
+        |> test_report_push assert "cr focus activate" cr_focus_activate
+        |> test_report_push assert "space has keyboard" space_has_keyboard
+        |> test_report_push assert "space focus activate" space_focus_activate
+        |> test_report_push assert "space text value" space_text_value
+        |> test_report_push assert "printable has no keyboard" printable_has_no_keyboard
+        |> test_report_push assert "printable text value" printable_text_value
+        |> test_report_push assert "invalid byte rejected" invalid_rejected
+        |> test_report_push assert "control byte has no events" control_has_no_events
+        |> test_report_push assert "shift tab has keyboard" shift_tab_has_keyboard
+        |> test_report_push assert "shift tab focus previous" shift_tab_focus_previous
+        |> test_report_push assert "shift tab has no text" shift_tab_has_no_text
+        |> test_report_push assert "arrow up key code" arrow_up_key_code
+        |> test_report_push assert "arrow down key code" arrow_down_key_code
+        |> test_report_push assert "arrow right key code" arrow_right_key_code
+        |> test_report_push assert "arrow left key code" arrow_left_key_code
+        |> test_report_push assert "unknown escape has no events" unknown_escape_has_no_events
+        |> test_report_push assert "invalid escape rejected" invalid_escape_rejected
+        |> test_report_push assert "modified arrow up key code" modified_arrow_up_key_code
+        |> test_report_push assert "modified arrow up has shift" modified_arrow_up_has_shift
+        |> test_report_push assert "modified arrow left key code" modified_arrow_left_key_code
+        |> test_report_push assert "modified arrow left has control" modified_arrow_left_has_control
+        |> test_report_push assert "unknown csi has no events" unknown_csi_has_no_events
+        |> test_report_push assert "invalid modifier rejected" invalid_modifier_rejected
+        |> test_report_push assert "invalid csi rejected" invalid_csi_rejected
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## gui_terminal_input_normalizes_home_end_delete_csi
@@ -207,7 +207,7 @@ fn main %impure fn void i32 \void:
 - `ESC [ <digit> ~` の未知 numeric parameter は event なし、numeric parameter として不正な byte は `GuiError::InvalidCommand` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n"
+stdout: "test_report name=\"gui_terminal_input_normalizes_home_end_delete_csi\" count=9 failed=0\nassertion index=0 status=ok kind=bool label=\"home ESC[H key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"end ESC[F key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"home tilde key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"delete tilde key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"end tilde key code\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"unknown numeric tilde has no events\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"invalid numeric param rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"unknown final has no events\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid csi4 byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -267,16 +267,16 @@ fn main %impure fn void i32 \void:
     let check7 assert "unknown final has no events" no_events unknown_final
     let check8 assert "invalid csi4 byte rejected" result_error_is_invalid_command invalid_byte
     let checks:
-        checks_new
-        |> checks_push check0
-        |> checks_push check1
-        |> checks_push check2
-        |> checks_push check3
-        |> checks_push check4
-        |> checks_push check5
-        |> checks_push check6
-        |> checks_push check7
-        |> checks_push check8
-    let shown checks_print_report checks
-    checks_exit_code shown
+        test_report_new "gui_terminal_input_normalizes_home_end_delete_csi"
+        |> test_report_push check0
+        |> test_report_push check1
+        |> test_report_push check2
+        |> test_report_push check3
+        |> test_report_push check4
+        |> test_report_push check5
+        |> test_report_push check6
+        |> test_report_push check7
+        |> test_report_push check8
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

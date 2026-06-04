@@ -11,8 +11,9 @@
 //: - allocator-backed arena では後から追加された layout node を手前として[扱/あつか]います。
 //: - disabled widget は `widget_action_event` により `Option::None` になります。
 //:
-//: neplg2:test
-//: ret: 2
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_routing_types_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -24,7 +25,8 @@
 //:| #import "core/gui" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %fn void i32 \void:
+//:| #import "std/test" as *
+//: fn run_case %fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let child_id %WidgetId widget_id 2
 //:     let root_rect %GuiRect gui_rect_new 0 0 10 10
@@ -39,6 +41,14 @@
 //:             widget_id_value id
 //:         Option::None:
 //:             0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test_report_new "alloc_gui_routing_types_doc1"
+//:         |> test_report_push assert_eq_i32 "return value" 2 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 #indent 4

@@ -9,7 +9,7 @@
 - platform handle、std/gui host、draw command を使わずに semantic snapshot を検査します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+stdout: "test_report name=\"accessibility_tree_keeps_semantics_separate_from_draw_commands\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"1\" actual=\"1\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -42,16 +42,16 @@ fn main %impure fn void i32 \void:
                         Option::None:
                             assert false
                     let check2 assert_eq_i32 1 semantic_node_id_raw &semantic_node_id 1
-                    checks_new
-                    |> checks_push check0
-                    |> checks_push check1
-                    |> checks_push check2
+                    test_report_new "accessibility_tree_keeps_semantics_separate_from_draw_commands"
+                    |> test_report_push check0
+                    |> test_report_push check1
+                    |> test_report_push check2
                 Result::Err _error:
-                    checks_push checks_new assert false
+                    test_report_push test_report_new "accessibility_tree_keeps_semantics_separate_from_draw_commands" assert false
         Result::Err _error:
-            checks_push checks_new assert false
-    let shown checks_print_report checks
-    checks_exit_code shown
+            test_report_push test_report_new "accessibility_tree_keeps_semantics_separate_from_draw_commands" assert false
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## accessibility_tree_capacity_failure_is_result
@@ -60,7 +60,7 @@ fn main %impure fn void i32 \void:
 - bounded tree の capacity overflow が silent no-op や panic ではなく `Result::Err` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok]\n[0] ok\n"
+stdout: "test_report name=\"accessibility_tree_capacity_failure_is_result\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -86,7 +86,7 @@ fn main %impure fn void i32 \void:
             match error:
                 AccessibilityTreeError::CapacityExceeded:
                     assert true
-    let checks checks_push checks_new check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks test_report_push test_report_new "accessibility_tree_capacity_failure_is_result" check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```

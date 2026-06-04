@@ -9,7 +9,7 @@
 - button activation は callback ではなく `GuiEvent::Action` として返ることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"route_pointer_action_hits_button_child\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"assert_eq_i32\" expected=\"7\" actual=\"7\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -54,10 +54,10 @@ fn main %impure fn void i32 \void:
                     assert false
         Option::None:
             assert false
-    let checks1 checks_push checks_new hit_check
-    let checks checks_push checks1 event_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "route_pointer_action_hits_button_child" hit_check
+    let checks test_report_push checks1 event_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## route_pointer_action_ignores_disabled_and_outside
@@ -67,7 +67,7 @@ fn main %impure fn void i32 \void:
 - layout bounds 外の pointer は `Option::None` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+stdout: "test_report name=\"route_pointer_action_ignores_disabled_and_outside\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -109,10 +109,10 @@ fn main %impure fn void i32 \void:
     let outside_point %GuiPoint gui_point_new 20 20
     let disabled_check assert is_none_event route_pointer_action &view_tree &layout_tree inside_point
     let outside_check assert is_none_event route_pointer_action &view_tree &layout_tree outside_point
-    let checks1 checks_push checks_new disabled_check
-    let checks checks_push checks1 outside_check
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let checks1 test_report_push test_report_new "route_pointer_action_ignores_disabled_and_outside" disabled_check
+    let checks test_report_push checks1 outside_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
 ```
 
 ## route_pointer_action_uses_second_child_as_topmost
@@ -120,8 +120,9 @@ fn main %impure fn void i32 \void:
 [目的/もくてき]:
 - child 同士が重なった場合、second child が first child より手前として hit されることを確認します。
 
-neplg2:test
-ret: 20
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"route_pointer_action_uses_second_child_as_topmost\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"20\" actual=\"20\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -131,8 +132,9 @@ ret: 20
 #import "alloc/gui/routing" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let first_id %WidgetId widget_id 2
     let second_id %WidgetId widget_id 3
@@ -166,6 +168,14 @@ fn main %fn void i32 \void:
                     0
         Option::None:
             0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "route_pointer_action_uses_second_child_as_topmost"
+        |> test_report_push assert_eq_i32 "return value" 20 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## route_pointer_action_in_arena_hits_nested_front_node
@@ -174,8 +184,9 @@ fn main %fn void i32 \void:
 - allocator-backed `ViewTreeArena` / `LayoutTreeArena` で nested child の pointer routing が action event を返すことを確認します。
 - arena hit test は後から追加された layout node を前面として扱い、root や parent button より nested button を優先することを確認します。
 
-neplg2:test
-ret: 30
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"route_pointer_action_in_arena_hits_nested_front_node\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"30\" actual=\"30\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -186,6 +197,7 @@ ret: 30
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn gui_event_action_value %fn Option GuiEvent i32 \event:
     match event:
@@ -198,7 +210,7 @@ fn gui_event_action_value %fn Option GuiEvent i32 \event:
         Option::None:
             0
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let parent_id %WidgetId widget_id 2
     let nested_id %WidgetId widget_id 3
@@ -239,6 +251,14 @@ fn main %fn void i32 \void:
     if and hit_ok action_ok:
         then 30
         else 0
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "route_pointer_action_in_arena_hits_nested_front_node"
+        |> test_report_push assert_eq_i32 "return value" 30 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## route_pointer_action_in_arena_ignores_disabled_missing_and_outside
@@ -248,8 +268,9 @@ fn main %fn void i32 \void:
 - layout hit があっても対応する `WidgetId` が `ViewTreeArena` に無い場合は `Option::None` になることを確認します。
 - bounds 外の pointer は `Option::None` になることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"route_pointer_action_in_arena_ignores_disabled_missing_and_outside\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -260,6 +281,7 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn is_none_event %fn Option GuiEvent bool \value:
     match value:
@@ -268,7 +290,7 @@ fn is_none_event %fn Option GuiEvent bool \value:
         Option::None:
             true
 
-fn main %fn void i32 \void:
+fn run_case %fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let disabled_id %WidgetId widget_id 2
     let missing_id %WidgetId widget_id 3
@@ -306,4 +328,12 @@ fn main %fn void i32 \void:
     if all_none:
         then 0
         else 9
+
+fn main %impure fn void i32 \void:
+    let actual %i32 run_case
+    let report:
+        test_report_new "route_pointer_action_in_arena_ignores_disabled_missing_and_outside"
+        |> test_report_push assert_eq_i32 "return value" 0 actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
