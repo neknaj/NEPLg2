@@ -144,6 +144,53 @@ fn i32_return_facts_preserve_direct_parameter_conditions() {
     );
 }
 
+/// parameter condition の最終結果が空に確定した後でも、戻り値 fact は収集を続ける。
+///
+/// i32 scalar return summary では parameter condition だけが全 return path の共通部分で
+/// merge される。空の path を見た後の後続 path では parameter condition 探索を省けるが、
+/// return constant / alias / offset は path ごとの戻り値 fact として必要であり、同時に
+/// 落としてはならない。
+#[test]
+fn i32_return_facts_can_skip_parameter_conditions_without_dropping_return_facts() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let param = ResourceLocal {
+        name: String::from("value"),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local(String::from("value"), i32_ty),
+    };
+    let returned_value = Place::local(String::from("out"), i32_ty);
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.add_i32_condition(&param.place, I32ValueCondition::NonNegative);
+    source_aliases.set_i32_value(&returned_value, 7);
+
+    let facts =
+        collect_i32_scalar_return_facts_for_value_suffix_cached_without_parameter_conditions(
+            &[param],
+            &types,
+            &source_aliases,
+            &returned_value,
+            &[],
+            &mut leaf_cache,
+            |_| true,
+        );
+
+    assert!(
+        facts
+            .constants
+            .iter()
+            .any(|constant| { constant.return_projection.is_empty() && constant.value == 7 }),
+        "parameter condition を省略しても戻り値 constant fact は保持する必要がある"
+    );
+    assert!(
+        facts.parameter_conditions.is_empty(),
+        "空確定後の path では parameter condition を収集しない"
+    );
+}
+
 /// literal から offset graph で導ける引数 condition も、直接条件と同じく
 /// parameter condition として保存する。
 ///

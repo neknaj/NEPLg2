@@ -12,6 +12,7 @@ use super::function_alias::FunctionAliasTable;
 use super::i32_scalar_return_facts::{
     apply_i32_scalar_return_facts,
     collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter,
+    collect_i32_scalar_return_facts_for_value_suffix_cached_without_parameter_conditions,
     I32ScalarReturnFacts,
 };
 use super::initialized_alias::RawCellAddressAliases;
@@ -146,7 +147,7 @@ pub(super) fn compute_i32_scalar_return_summaries(
                 types,
                 module,
                 &relevant,
-                dependency_graph.dependencies(),
+                dependency_graph.direct_call_dependencies(),
                 &mut worklist_relevant_functions,
                 &mut preseeded_functions,
                 &mut summaries,
@@ -154,10 +155,11 @@ pub(super) fn compute_i32_scalar_return_summaries(
             );
         }
     }
-    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_edges(
         module,
         worklist_relevant_functions,
-        dependency_graph,
+        dependency_graph.direct_call_dependents(),
+        dependency_graph.direct_call_initial_order(),
     );
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
@@ -190,7 +192,7 @@ pub(super) fn compute_i32_scalar_return_summaries(
                 context,
                 types,
                 module,
-                dependency_graph.dependencies(),
+                dependency_graph.direct_call_dependencies(),
                 &relevant,
                 &candidate_skipped_functions,
                 &summaries,
@@ -262,7 +264,7 @@ fn function_has_i32_scalar_summary_consumer(
     // final initialized check が直接検査するため、内部 caller を持たない関数の summary を
     // cold compile で固定点に入れても安全性には寄与しない。
     dependency_graph
-        .dependents()
+        .direct_call_dependents()
         .get(function_index)
         .is_some_and(|dependents| !dependents.is_empty())
 }
@@ -334,6 +336,7 @@ fn function_i32_scalar_return_summary(
     let mut constant_paths = Vec::new();
     let mut return_condition_paths = Vec::new();
     let mut parameter_condition_paths = Vec::new();
+    let mut parameter_conditions_known_empty = false;
     let mut projection_paths = Vec::new();
     let mut i32_leaf_cache = I32LeafProjectionCache::default();
     let shared_initial_state = if function.blocks.len() > 1 {
@@ -361,21 +364,44 @@ fn function_i32_scalar_return_summary(
                 let path_facts = value
                     .as_ref()
                     .map(|value| {
-                        collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
-                            &function.params,
-                            types,
-                            &state.raw_aliases,
-                            value,
-                            &[],
-                            &mut i32_leaf_cache,
-                            |projection| {
-                                state
-                                    .concrete_variants
-                                    .projection_is_possible(types, value, projection)
-                            },
-                        )
+                        if parameter_conditions_known_empty {
+                            collect_i32_scalar_return_facts_for_value_suffix_cached_without_parameter_conditions(
+                                &function.params,
+                                types,
+                                &state.raw_aliases,
+                                value,
+                                &[],
+                                &mut i32_leaf_cache,
+                                |projection| {
+                                    state
+                                        .concrete_variants
+                                        .projection_is_possible(types, value, projection)
+                                },
+                            )
+                        } else {
+                            collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+                                &function.params,
+                                types,
+                                &state.raw_aliases,
+                                value,
+                                &[],
+                                &mut i32_leaf_cache,
+                                |projection| {
+                                    state
+                                        .concrete_variants
+                                        .projection_is_possible(types, value, projection)
+                                },
+                            )
+                        }
                     })
                     .unwrap_or_default();
+                if path_facts.parameter_conditions.is_empty() {
+                    // parameter condition summary は全 return path の共通部分だけを公開する。
+                    // ひとつでも空の path があれば最終 intersection は空に確定するため、
+                    // 以降の path では戻り値 fact だけを収集し、引数 leaf の条件探索を
+                    // 繰り返さない。
+                    parameter_conditions_known_empty = true;
+                }
                 #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
                 i32_scalar_return_timing_finish(function, "collect_facts", collect_start);
                 #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -631,16 +657,16 @@ fn merge_i32_scalar_path_states(paths: Vec<I32ScalarPathState>) -> Vec<I32Scalar
         return paths;
     }
     vec![I32ScalarPathState {
-        raw_aliases: RawCellAddressAliases::merge_paths(
+        raw_aliases: RawCellAddressAliases::merge_path_refs(
             &paths
                 .iter()
-                .map(|path| path.raw_aliases.clone())
+                .map(|path| &path.raw_aliases)
                 .collect::<Vec<_>>(),
         ),
-        function_aliases: FunctionAliasTable::merge_paths(
+        function_aliases: FunctionAliasTable::merge_path_refs(
             &paths
                 .iter()
-                .map(|path| path.function_aliases.clone())
+                .map(|path| &path.function_aliases)
                 .collect::<Vec<_>>(),
         ),
         concrete_variants: merge_i32_scalar_concrete_variants(

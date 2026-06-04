@@ -210,3 +210,82 @@ fn unit_control_output_keeps_non_scalar_resource_path_differences() {
         &output
     ));
 }
+
+#[test]
+fn loop_paths_drop_scalar_only_path_replay() {
+    let types = TypeCtx::new();
+    let value = Place::local(String::from("value"), types.i32());
+    let mut left = empty_resource_check_state();
+    left.cells.mark_initialized(&value);
+    left.raw_aliases.set_i32_value(&value, 1);
+    let mut right = empty_resource_check_state();
+    right.cells.mark_initialized(&value);
+
+    assert!(!loop_path_states_need_replay_with_merged(
+        &types,
+        &[left, right],
+        None
+    ));
+}
+
+#[test]
+fn loop_paths_keep_raw_address_alias_only_path_replay() {
+    let types = TypeCtx::new();
+    let source = Place::local(String::from("source"), TypeId(0));
+    let target = Place::local(String::from("target"), TypeId(0));
+    let mut left = empty_resource_check_state();
+    left.raw_aliases
+        .copy_explicit_raw_address_alias(&source, &target);
+    let right = empty_resource_check_state();
+
+    assert!(loop_path_states_need_replay_with_merged(
+        &types,
+        &[left, right],
+        None
+    ));
+}
+
+#[test]
+fn loop_paths_drop_raw_view_origin_only_path_replay() {
+    let types = TypeCtx::new();
+    let source = Place::local(String::from("source"), TypeId(0));
+    let target = Place::local(String::from("target"), TypeId(0));
+    let mut left = empty_resource_check_state();
+    left.raw_aliases
+        .record_raw_address_view_origin(&source, &target);
+    let right = empty_resource_check_state();
+
+    assert!(!loop_path_states_need_replay_with_merged(
+        &types,
+        &[left, right],
+        None
+    ));
+}
+
+#[test]
+fn loop_paths_keep_non_copy_maybe_moved_merge() {
+    let types = TypeCtx::new();
+    let value = Place::local(String::from("value"), types.str());
+    let mut initialized = empty_resource_check_state();
+    initialized.cells.mark_initialized(&value);
+    let uninitialized = empty_resource_check_state();
+
+    assert!(loop_path_states_need_replay_with_merged(
+        &types,
+        &[initialized, uninitialized],
+        None
+    ));
+}
+
+#[test]
+fn loop_paths_keep_resource_payload_differences() {
+    let types = TypeCtx::new();
+    let left = resource_check_state_with_function_alias(0);
+    let right = empty_resource_check_state();
+
+    assert!(loop_path_states_need_replay_with_merged(
+        &types,
+        &[left, right],
+        None
+    ));
+}

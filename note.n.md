@@ -50281,6 +50281,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/test_mode_directive_design.md` と issue `ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST` を追加した。issue は既存 index schema に合わせ、`area: core` / `type: architecture` / `priority: P1` として管理している。
 - focused verification は `cargo check -p nepl-core -p nepl-cli -p nepl-language`、`cargo check` in `nepl-web/`、`cargo test -p nepl-core --test functions test_directive -- --nocapture`、`cargo test -p nepl-core test_directive -- --nocapture`、`node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`、`trunk build`、`node nodesrc/tests.js -i tests/compiler/test_mode_directive.n.md --no-tree -j 1 --dist web/dist --assert-io -o tmp/test-mode-directive.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - `rg` で `cfg_test` / `IfTest` / `DirIfTest` / `#if[test]` / `with_cfg` / `test_cfg` の残存を確認し、該当は 0 件だった。
+
+## 2026-06-04 Agent RPN algorithmic Resource search checkpoint
+
+- `perf/rpn-algorithmic-search-space-20260604b` branch で、Zenn 記事の性能追求方針に従い、cache ではなく Resource static check の探索範囲を削った。`plan.md` は変更していない。
+- loop path replay 判定では、raw alias graph 全体を一律 replay 理由にせず、loop post-state で安全側へ落とせる `raw_view_origins` だけを scalar merge と同じ扱いにした。alias group と marked raw cell は union されるため、ここは厳密比較を維持している。
+- i32 scalar summary の dependency graph は、direct call 専用の graph view を使うようにした。function value が存在するだけで i32 scalar 固定点候補を広げず、indirect call candidate は raw alias / raw init 側の保守的 graph に残している。
+- i32 scalar return fact 収集では、parameter condition が全 return path の intersection で merge されることを使い、ある path で空になった後は後続 path の parameter condition 探索を省く。戻り値 alias / offset / constant / relation は path ごとに必要なので収集を継続する。
+- 同時に、leaf offset fact 収集中に parameter condition を重複収集していた経路を削除し、parameter condition の責務を `collect_i32_scalar_parameter_conditions` に一本化した。direct condition と literal offset 由来 condition は既存 focused test で保持を確認している。
+- 詳細計測では、`sb_append_non_empty_result` の1本目 return path は `leaf_facts` 4 leaf で約 232-248ms、parameter condition 0件だった。2本目 return path は return leaf 0件で parameter condition 0件にもかかわらず約 66-81ms 探索していたため、intersection 空確定 skip の対象にした。
+- 恒久コードでの RPN release CLI / cache disabled stage timing 5 run は wall `3983.80ms / 4020.61ms / 4017.97ms / 4093.73ms / 4098.99ms`、`resource_static_check=3073ms / 3417ms / 3382ms / 3510ms / 3486ms`、`resource_initialized_i32_scalar_summaries=672ms / 676ms / 767ms / 771ms / 763ms` だった。直前の同条件で i32 summary は概ね 875-912ms 帯だったため、RPN では i32 scalar summary の探索量を約 100ms 以上削れている。
+- 関数別 timing では i32 scalar summary の上位が `sb_append_non_empty_result=238ms`、`byte_builder_push_bytes_ref=114ms`、`byte_builder_push_u8=89ms`、`byte_builder_reserve=40ms`、`apply_op=37ms`。raw-init summary は `byte_builder_push_bytes_ref=94ms`、`alloc_raw=61ms`、`stdio_fd_write_from_result=56ms`。final initialized check は `parse_i32_decimal_digits_range=170ms`、`eval_line=97ms`、`alloc_raw=80ms` だった。
+- まだ 0.5 秒未満には遠い。次の root target は `sb_append_non_empty_result` / `byte_builder_push_bytes_ref` / `byte_builder_push_u8` の戻り値 alias/offset fact 収集、`parse_i32_decimal_digits_range` / `eval_line` の final initialized check、raw-init の use-site aware demand graph である。
+- focused verification は `cargo fmt --check`、`cargo test -p nepl-core i32_scalar_return_facts --lib -- --nocapture`、`cargo test -p nepl-core initialized_path_state --lib -- --nocapture`、`cargo test -p nepl-core summary_dependency --lib -- --nocapture`、`cargo build -p nepl-cli --release`、RPN stage timing 5 run、RPN per-function timing 1 run を通した。
+
 ## 2026-06-04 Agent2 GUI/TUI doctest report contract checkpoint
 
 - `agent2/fix-gui-tui-report-contracts` branch で、Zenn 記事の静的検査活用、Option / Result / enum / match、doc comment と doctest contract の分離方針を再確認して作業した。`plan.md` は確認のみで変更していない。
