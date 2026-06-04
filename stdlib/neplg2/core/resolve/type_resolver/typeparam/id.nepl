@@ -1,0 +1,60 @@
+#indent 4
+
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+//: SelfhostTypeParameterId: generic type parameter environment 内の parameter identity
+//:
+//: [目的/もくてき]:
+//: - `T` のような generic type parameter を named type constructor identity と分けて扱います。
+//: - raw `i32` を直接使わず newtype にすることで、resolver-local parameter identity と nominal type identity の混同を静的に防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `index` は environment の entry index です。負の値を持つ id は lookup 側が `none` として fail-closed に扱います。
+//: - この id は永続 artifact の key ではありません。永続化では binder path / signature hash へ正規化する必要があります。
+//:
+//: [現状/げんじょう]:
+//: - constructor は unchecked です。呼び出し側は `selfhost_type_parameter_env_add_checked` の結果から得た id を使うのが通常経路です。
+pub struct SelfhostTypeParameterId:
+    index %i32
+
+impl Clone for SelfhostTypeParameterId:
+    fn clone %fn &SelfhostTypeParameterId SelfhostTypeParameterId \self:
+        *self
+
+impl Copy for SelfhostTypeParameterId:
+    fn copy_mark %fn SelfhostTypeParameterId SelfhostTypeParameterId \self:
+        self
+
+//: selfhost_type_parameter_id_new: type parameter identity を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この関数は unchecked constructor です。負の index でも値自体は作れます。
+//: - public lookup API は負の index を `none` として扱うため、不正 id が有効 parameter へ解決されることはありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` で newtype を作ります。
+pub fn selfhost_type_parameter_id_new %fn i32 SelfhostTypeParameterId \index:
+    SelfhostTypeParameterId index
+
+//: selfhost_type_parameter_id_index: type parameter identity の index を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - diagnostic や test で index を確認するための accessor です。
+//: - 返した index を別 environment の id として再利用してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_parameter_id_index %fn SelfhostTypeParameterId i32 \parameter_id:
+    parameter_id.index
+
+//: selfhost_type_parameter_id_eq: type parameter identity が同じ binder を指すか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - 同じ environment から得た id 同士を比較するための関数です。
+//: - 異なる environment 由来の id は、同じ index でも同じ binder とは限りません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_parameter_id_eq %fn SelfhostTypeParameterId fn SelfhostTypeParameterId bool \a\b:
+    eq a.index b.index

@@ -1,0 +1,42 @@
+#indent 4
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "../typeparam" as *
+
+//: SelfhostResolvedTypeParameterRef: resolved tree 上の generic type parameter 参照
+//:
+//: [目的/もくてき]:
+//: - `T` のような generic type parameter を未解決 named type とは別 node として保持します。
+//: - `parameter_id` は type parameter environment 内の binder identity であり、nominal type constructor identity ではありません。
+//:
+//: [契約/けいやく]:
+//: - `parameter_id` は `SelfhostTypeParameterEnv` から割り当てられた id だけを入れます。
+//: - `span` は diagnostic 表示用であり、canonical key や永続 artifact key へそのまま使いません。
+//:
+//: [現状/げんじょう]:
+//: - resolved tree 上の参照 payload だけを定義します。`SelfhostTypeArena` へ保存する binder-indexed type record は後続 stage で追加します。
+pub struct SelfhostResolvedTypeParameterRef:
+    parameter_id %SelfhostTypeParameterId
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostResolvedTypeParameterRef:
+    fn clone %fn &SelfhostResolvedTypeParameterRef SelfhostResolvedTypeParameterRef \self:
+        *self
+
+impl Copy for SelfhostResolvedTypeParameterRef:
+    fn copy_mark %fn SelfhostResolvedTypeParameterRef SelfhostResolvedTypeParameterRef \self:
+        self
+
+//: selfhost_resolved_type_parameter_ref_new: type parameter node payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - reducer が見つけた type parameter identity と source span を、resolved tree の `Parameter` variant に入れる payload へまとめます。
+//:
+//: [契約/けいやく]:
+//: - この関数は unchecked constructor です。`parameter_id` の有効性は caller が environment lookup で保証します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。payload を作るだけで allocation は行いません。
+pub fn selfhost_resolved_type_parameter_ref_new %fn SelfhostTypeParameterId fn SelfhostSourceSpan SelfhostResolvedTypeParameterRef \parameter_id\span:
+    SelfhostResolvedTypeParameterRef parameter_id span

@@ -15,6 +15,19 @@
 //: [目的/もくてき]:
 //: - prefix list が型式として縮約できない理由を、文字列ではなく enum として固定します。
 //: - `VoidAsType` により、0 引数 marker の `void` が型 node として流れることを静的に検査しやすくします。
+//:
+//: [場合分/ばあいわ]け:
+//: - `EmptyInput`: `%` の後に型 item がありません。
+//: - `UnexpectedEnd`: 型式の途中で prefix item が尽きました。
+//: - `VoidAsType`: `void` が `fn` の第 1 引数位置以外で現れました。
+//: - `FunctionMissingArgument`: `fn` の直後に引数 marker または引数型がありません。
+//: - `FunctionMissingResult`: `fn void` または `fn T` の後に戻り値型がありません。
+//: - `GenericTypeArgumentMissing`: constructor arity が要求する型引数数に prefix item が足りません。
+//: - `TypeParameterConstructorNameConflict`: 同じ名前が type parameter と named type constructor の両方にあり、どちらとして読むべきか一意に決まりません。
+//: - `UnsupportedTypePrefixItem`: borrow marker や path separator など、現在の reducer がまだ処理しない item が型式内にあります。
+//: - `TrailingItems`: 1 つの型式を読み終わった後に余分な item が残りました。
+//: - `OutOfMemory`: node table または argument table の拡張に失敗しました。
+//: - `InternalInvariant`: validate/build 間の前提不一致など、通常の source 入力だけでは起きない内部不整合です。
 pub enum SelfhostTypeReduceErrorKind:
     EmptyInput
     UnexpectedEnd
@@ -22,6 +35,7 @@ pub enum SelfhostTypeReduceErrorKind:
     FunctionMissingArgument
     FunctionMissingResult
     GenericTypeArgumentMissing
+    TypeParameterConstructorNameConflict
     UnsupportedTypePrefixItem
     TrailingItems
     OutOfMemory
@@ -155,6 +169,12 @@ pub fn selfhost_type_reduce_error_kind_eq %fn SelfhostTypeReduceErrorKind fn Sel
         SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing:
             match b:
                 SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict:
+            match b:
+                SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict:
                     true
                 _:
                     false

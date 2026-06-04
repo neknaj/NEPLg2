@@ -193,6 +193,7 @@ const checks = [
     "nodesrc/test_selfhost_type_resolver_split_contract.js",
     "nodesrc/test_selfhost_type_resolver_prefix_input.js",
     "nodesrc/test_selfhost_type_resolver_generic_application_contract.js",
+    "nodesrc/test_selfhost_type_resolver_type_parameters.js",
     "nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js",
     "nodesrc/test_selfhost_source_span_contract.js",
     "nodesrc/test_selfhost_source_text_report_contract.js",

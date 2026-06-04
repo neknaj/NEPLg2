@@ -19,6 +19,7 @@
 pub enum SelfhostTypeProjectErrorKind:
     MissingResolvedNode
     UnsupportedNamedType
+    UnsupportedTypeParameter
     UnknownNamedType
     GenericConstructorNeedsArguments
     OutOfMemory
@@ -66,6 +67,12 @@ pub fn selfhost_type_project_error_kind_eq %fn SelfhostTypeProjectErrorKind fn S
         SelfhostTypeProjectErrorKind::UnsupportedNamedType:
             match b:
                 SelfhostTypeProjectErrorKind::UnsupportedNamedType:
+                    true
+                _:
+                    false
+        SelfhostTypeProjectErrorKind::UnsupportedTypeParameter:
+            match b:
+                SelfhostTypeProjectErrorKind::UnsupportedTypeParameter:
                     true
                 _:
                     false
@@ -204,6 +211,8 @@ fn selfhost_type_project_node %impure fn SelfhostTypeArena impure fn &SelfhostRe
                             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) selfhost_type_project_empty_span
                 SelfhostResolvedTypeNode::Named named:
                     selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnsupportedNamedType named.span
+                SelfhostResolvedTypeNode::Parameter parameter:
+                    selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnsupportedTypeParameter parameter.span
                 SelfhostResolvedTypeNode::Applied applied:
                     selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnsupportedNamedType applied.span
                 SelfhostResolvedTypeNode::Function function:
@@ -338,6 +347,8 @@ fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena imp
                             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) selfhost_type_project_empty_span
                 SelfhostResolvedTypeNode::Named named:
                     selfhost_type_project_named_with_constructors arena source constructors named
+                SelfhostResolvedTypeNode::Parameter parameter:
+                    selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnsupportedTypeParameter parameter.span
                 SelfhostResolvedTypeNode::Applied applied:
                     selfhost_type_project_applied_with_constructors arena source constructors tree node_id applied
                 SelfhostResolvedTypeNode::Function function:
@@ -355,6 +366,7 @@ fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena imp
 //: - 成功時は `SelfhostTypeArenaAlloc` が arena owner と root `SelfhostTypeId` を所有します。
 //: - 失敗時はこの関数が入力 arena を解放します。caller は失敗後に同じ arena owner を使えません。
 //: - named type / applied named type は constructor table なしでは定義 identity を確定できないため、`UnsupportedNamedType` として fail-closed にします。
+//: - generic type parameter は binder-indexed arena record がまだないため、`UnsupportedTypeParameter` として fail-closed にします。
 pub fn selfhost_type_project_root_into_arena %impure fn SelfhostTypeArena impure fn &SelfhostResolvedTypeTreeRoot Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\root:
     let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root
     let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id root
@@ -371,6 +383,7 @@ pub fn selfhost_type_project_root_into_arena %impure fn SelfhostTypeArena impure
 //: - named type は arity 0 の constructor だけを bare named type として受理します。
 //: - applied named type は constructor identity と projected type arguments を `SelfhostTypeRecord::Applied` として arena に保存します。
 //: - unknown named type と generic constructor の裸使用は typed error として fail-closed にします。
+//: - generic type parameter は resolved tree では表せますが、現在の arena projection では `UnsupportedTypeParameter` として fail-closed にします。
 pub fn selfhost_type_project_root_with_constructors_into_arena %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTreeRoot Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\root:
     let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root
     let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id root

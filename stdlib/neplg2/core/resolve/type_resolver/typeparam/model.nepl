@@ -1,0 +1,154 @@
+#indent 4
+
+#import "alloc/collections/vec/types" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "./id" as *
+
+//: SelfhostTypeParameter: generic type parameter header
+//:
+//: [目的/もくてき]:
+//: - generic binder から得た parameter name、environment-local identity、kind arity、diagnostic span を保持します。
+//: - resolved tree へは source spelling ではなく `parameter_id` を渡すことで、型 parameter を named constructor と分けます。
+//:
+//: [契約/けいやく]:
+//: - `name` は environment lookup 用で、arena record や canonical type key へ直接保存してはいけません。
+//: - `span` は diagnostic 用であり、型同一性や cache key の材料にしてはいけません。
+//: - 現段階で受理される `kind_arity` は `0` だけです。
+pub struct SelfhostTypeParameter:
+    name %str
+    parameter_id %SelfhostTypeParameterId
+    kind_arity %i32
+    span %SelfhostSourceSpan
+
+//: SelfhostTypeParameterEnv: type resolver が参照する generic type parameter environment
+//:
+//: [目的/もくてき]:
+//: - 型式 reduction 中に `T` / `E` などを未解決 named type へ落とさず、generic parameter node として識別します。
+//: - constructor table とは別 table にし、nominal type と generic parameter の依存方向を混ぜません。
+//:
+//: [現状/げんじょう]:
+//: - `Vec` で insertion order を保持します。
+//: - `add_checked` は重複名を拒否するため、現時点では同じ environment 内の shadowing はありません。
+pub struct SelfhostTypeParameterEnv:
+    entries %Vec SelfhostTypeParameter
+
+//: SelfhostTypeParameterEnvAddResult: parameter 追加後の environment と割り当て identity
+//:
+//: [目的/もくてき]:
+//: - NEPL の owner 型では table を更新すると owner が移動するため、更新後 environment と新 id を 1 つの payload で返します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は caller が `selfhost_type_parameter_env_add_result_into_env` で environment owner を取り出して管理します。
+//: - 失敗時にはこの payload は作られず、`add_checked` が入力 environment owner を解放します。
+pub struct SelfhostTypeParameterEnvAddResult:
+    env %SelfhostTypeParameterEnv
+    parameter_id %SelfhostTypeParameterId
+
+//: SelfhostTypeParameterEnvErrorKind: parameter environment 更新の失敗分類
+//:
+//: [目的/もくてき]:
+//: - parameter 追加が失敗した理由を enum として保持し、表示文言から独立した静的検査可能な diagnostic にします。
+//:
+//: [場合分/ばあいわ]け:
+//: - `NegativeKindArity`: kind arity が負で、binder header の構造が壊れています。
+//: - `HigherKindedTypeParameterUnsupported`: `kind_arity > 0` で、現在の self-host compiler がまだ受理しない higher-kinded parameter です。
+//: - `DuplicateTypeParameter`: 同じ environment 内に同名 parameter がすでにあります。
+//: - `ReservedTypeParameterName`: primitive / `void` / function marker と衝突する予約名です。
+//: - `OutOfMemory`: entry vector の拡張に失敗しました。
+pub enum SelfhostTypeParameterEnvErrorKind:
+    NegativeKindArity
+    HigherKindedTypeParameterUnsupported
+    DuplicateTypeParameter
+    ReservedTypeParameterName
+    OutOfMemory
+
+//: SelfhostTypeParameterEnvError: parameter environment error payload
+//:
+//: [目的/もくてき]:
+//: - enum error kind と diagnostic span をまとめ、表示層が文言や色を後から決められる形にします。
+//:
+//: [契約/けいやく]:
+//: - `span` は原因 token の位置を示します。
+//: - `OutOfMemory` でも、可能なら追加しようとした parameter の span を入れます。
+pub struct SelfhostTypeParameterEnvError:
+    kind %SelfhostTypeParameterEnvErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTypeParameter:
+    fn clone %fn &SelfhostTypeParameter SelfhostTypeParameter \self:
+        *self
+
+impl Copy for SelfhostTypeParameter:
+    fn copy_mark %fn SelfhostTypeParameter SelfhostTypeParameter \self:
+        self
+
+impl Clone for SelfhostTypeParameterEnvErrorKind:
+    fn clone %fn &SelfhostTypeParameterEnvErrorKind SelfhostTypeParameterEnvErrorKind \self:
+        *self
+
+impl Copy for SelfhostTypeParameterEnvErrorKind:
+    fn copy_mark %fn SelfhostTypeParameterEnvErrorKind SelfhostTypeParameterEnvErrorKind \self:
+        self
+
+impl Clone for SelfhostTypeParameterEnvError:
+    fn clone %fn &SelfhostTypeParameterEnvError SelfhostTypeParameterEnvError \self:
+        *self
+
+impl Copy for SelfhostTypeParameterEnvError:
+    fn copy_mark %fn SelfhostTypeParameterEnvError SelfhostTypeParameterEnvError \self:
+        self
+
+//: selfhost_type_parameter_env_error_kind_eq: parameter environment error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - test や diagnostic adapter が表示文字列に依存せず、enum の分類そのものを比較できるようにします。
+//:
+//: [場合分/ばあいわ]け:
+//: - 同じ variant 同士なら `true`、それ以外は `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。match は enum variant 数に対して固定長です。
+pub fn selfhost_type_parameter_env_error_kind_eq %fn SelfhostTypeParameterEnvErrorKind fn SelfhostTypeParameterEnvErrorKind bool \a\b:
+    match a:
+        SelfhostTypeParameterEnvErrorKind::NegativeKindArity:
+            match b:
+                SelfhostTypeParameterEnvErrorKind::NegativeKindArity:
+                    true
+                _:
+                    false
+        SelfhostTypeParameterEnvErrorKind::HigherKindedTypeParameterUnsupported:
+            match b:
+                SelfhostTypeParameterEnvErrorKind::HigherKindedTypeParameterUnsupported:
+                    true
+                _:
+                    false
+        SelfhostTypeParameterEnvErrorKind::DuplicateTypeParameter:
+            match b:
+                SelfhostTypeParameterEnvErrorKind::DuplicateTypeParameter:
+                    true
+                _:
+                    false
+        SelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName:
+            match b:
+                SelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName:
+                    true
+                _:
+                    false
+        SelfhostTypeParameterEnvErrorKind::OutOfMemory:
+            match b:
+                SelfhostTypeParameterEnvErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+
+//: selfhost_type_parameter_env_error_new: parameter environment error payload を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この関数は error payload を作るだけで、message formatting は行いません。
+//: - caller は `kind` に static diagnostic identity を、`span` に原因位置を渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_parameter_env_error_new %fn SelfhostTypeParameterEnvErrorKind fn SelfhostSourceSpan SelfhostTypeParameterEnvError \kind\span:
+    SelfhostTypeParameterEnvError kind span

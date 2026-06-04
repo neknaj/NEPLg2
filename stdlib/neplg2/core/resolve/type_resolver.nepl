@@ -24,9 +24,14 @@
 pub #import "./type_resolver/model" as *
 pub #import "./type_resolver/input" as *
 pub #import "./type_resolver/constructor" as *
+pub #import "./type_resolver/typeparam/id" as *
+pub #import "./type_resolver/typeparam/model" as *
+pub #import "./type_resolver/typeparam/env" as *
+pub #import "./type_resolver/typeparam" as *
 pub #import "./type_resolver/resolved/id" as *
 pub #import "./type_resolver/resolved/kind" as *
 pub #import "./type_resolver/resolved/named" as *
+pub #import "./type_resolver/resolved/typeparam" as *
 pub #import "./type_resolver/resolved" as *
 pub #import "./type_resolver/reduce/model" as *
 pub #import "./type_resolver/reduce/plan" as *

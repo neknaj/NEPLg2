@@ -1,0 +1,67 @@
+#indent 4
+
+//: # type_resolver/typeparam
+//: NEPLg2.1 self-host compiler の generic type parameter environment [入口/いりぐち]
+//:
+//: [目的/もくてき]:
+//: - `T` / `E` のような generic type parameter を、user-defined named type constructor とは別の名前空間として管理します。
+//: - type prefix resolver はこの module の environment を参照し、型 parameter を未解決 named type や `SelfhostNamedTypeId` へ誤って流さないようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeParameterId` は 1 つの `SelfhostTypeParameterEnv` の中だけで有効です。
+//: - `SelfhostTypeParameterId` と `SelfhostNamedTypeId` は相互変換してはいけません。
+//: - 現段階では `kind_arity == 0` の型 parameter だけを受理します。higher-kinded type parameter は typed error として拒否します。
+//:
+//: [現状/げんじょう]:
+//: - environment は `Vec` で保持し、lookup は後ろから前への線形探索です。
+//: - constructor table との衝突判定は、この facade ではなく reducer 境界で行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 追加は重複検査を含めて `O(n)`、lookup も `O(n)` です。`n` は 1 つの generic binder list に含まれる type parameter 数です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok]
+//: ##: [0] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver/typeparam" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_type_parameter_env_new:
+//:         Result::Ok env0:
+//:             match selfhost_type_parameter_env_add_checked env0 "T" 0 source_span_empty_unchecked 0 0:
+//:                 Result::Ok added:
+//:                     let parameter_id %SelfhostTypeParameterId selfhost_type_parameter_env_add_result_parameter_id &added
+//:                     let env1 %SelfhostTypeParameterEnv selfhost_type_parameter_env_add_result_into_env added
+//:                     match selfhost_type_parameter_env_find &env1 "T":
+//:                         Option::Some found:
+//:                             let checks1 checks_push checks0:
+//:                                 if selfhost_type_parameter_id_eq parameter_id found.parameter_id Result::Ok unit Result::Err "parameter id mismatch"
+//:                             selfhost_type_parameter_env_free env1
+//:                             let shown checks_print_report checks1
+//:                             checks_exit_code shown
+//:                         Option::None:
+//:                             selfhost_type_parameter_env_free env1
+//:                             let checks1 checks_push checks0 Result::Err "parameter lookup failed"
+//:                             let shown checks_print_report checks1
+//:                             checks_exit_code shown
+//:                 Result::Err _e:
+//:                     let checks1 checks_push checks0 Result::Err "parameter add failed"
+//:                     let shown checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "environment allocation failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+pub #import "./typeparam/id" as *
+pub #import "./typeparam/model" as *
+pub #import "./typeparam/env" as *

@@ -6,6 +6,7 @@
 pub enum SelfhostResolvedTypeNodeKind:
     Primitive
     Named
+    Parameter
     Applied
     Function
 
@@ -29,6 +30,12 @@ pub fn selfhost_resolved_type_node_kind_eq %fn SelfhostResolvedTypeNodeKind fn S
         SelfhostResolvedTypeNodeKind::Named:
             match b:
                 SelfhostResolvedTypeNodeKind::Named:
+                    true
+                _:
+                    false
+        SelfhostResolvedTypeNodeKind::Parameter:
+            match b:
+                SelfhostResolvedTypeNodeKind::Parameter:
                     true
                 _:
                     false

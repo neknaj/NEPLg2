@@ -11,6 +11,7 @@
 pub #import "./resolved/id" as *
 pub #import "./resolved/kind" as *
 pub #import "./resolved/named" as *
+pub #import "./resolved/typeparam" as *
 
 //: SelfhostResolvedFunctionArgRangeItems: function 引数 node table の nonempty 範囲 payload
 pub struct SelfhostResolvedFunctionArgRangeItems:
@@ -57,11 +58,19 @@ impl Copy for SelfhostResolvedFunctionType:
 //: SelfhostResolvedTypeNode: TypeId 割当前の resolved type node
 //:
 //: [目的/もくてき]:
-//: - primitive、未解決の named type、function type を enum payload で分けます。
+//: - primitive、未解決の named type、generic type parameter、applied named type、function type を enum payload で分けます。
 //: - `void` は型 node ではないため、この enum に variant を持ちません。
+//:
+//: [契約/けいやく]:
+//: - `Parameter` は `SelfhostTypeParameterId` を保持し、`Named` / `Applied` の `SelfhostNamedTypeId` と混ぜてはいけません。
+//: - `Applied` は constructor identity と type argument range を保持し、bare named type と generic application を同じ payload に丸めません。
+//:
+//: [現状/げんじょう]:
+//: - generic type parameter は resolved tree では保持できますが、`SelfhostTypeArena` への一般投影はまだ未実装です。projection stage は `UnsupportedTypeParameter` で fail-closed にします。
 pub enum SelfhostResolvedTypeNode:
     Primitive %SelfhostPrimitiveTypeKind
     Named %SelfhostResolvedNamedTypeRef
+    Parameter %SelfhostResolvedTypeParameterRef
     Applied %SelfhostResolvedAppliedType
     Function %SelfhostResolvedFunctionType
 
@@ -103,6 +112,8 @@ pub fn selfhost_resolved_type_node_kind %fn SelfhostResolvedTypeNode SelfhostRes
             SelfhostResolvedTypeNodeKind::Primitive
         SelfhostResolvedTypeNode::Named _item:
             SelfhostResolvedTypeNodeKind::Named
+        SelfhostResolvedTypeNode::Parameter _parameter:
+            SelfhostResolvedTypeNodeKind::Parameter
         SelfhostResolvedTypeNode::Applied _applied:
             SelfhostResolvedTypeNodeKind::Applied
         SelfhostResolvedTypeNode::Function _function:
@@ -222,6 +233,24 @@ pub fn selfhost_resolved_type_tree_add_primitive %impure fn SelfhostResolvedType
 pub fn selfhost_resolved_type_tree_add_named %impure fn SelfhostResolvedTypeTree impure fn SelfhostSourceSpan Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\span:
     selfhost_resolved_type_tree_push_node tree SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef span
 
+//: selfhost_resolved_type_tree_add_parameter: generic type parameter node を tree に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - type parameter environment で見つかった `T` / `E` などを、unknown named type ではなく `Parameter` node として tree に保存します。
+//:
+//: [契約/けいやく]:
+//: - `parameter_id` は同じ resolver call に渡された `SelfhostTypeParameterEnv` 由来でなければなりません。
+//: - `span` は diagnostic 用であり、type parameter identity そのものではありません。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Ok(alloc)`: node table への追加に成功し、追加 node id と tree owner を返します。
+//: - `Err(e)`: node table の拡張に失敗しました。caller は通常の `StdErrorKind` 経路で `OutOfMemory` などへ変換します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec::push` の償却 `O(1)` です。再確保時は node 数に対して `O(n)` です。
+pub fn selfhost_resolved_type_tree_add_parameter %impure fn SelfhostResolvedTypeTree impure fn SelfhostTypeParameterId impure fn SelfhostSourceSpan Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\parameter_id\span:
+    selfhost_resolved_type_tree_push_node tree SelfhostResolvedTypeNode::Parameter selfhost_resolved_type_parameter_ref_new parameter_id span
+
 fn selfhost_resolved_type_tree_copy_type_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
     if:
         ge idx n
@@ -330,6 +359,31 @@ pub fn selfhost_resolved_type_tree_primitive_kind %fn &SelfhostResolvedTypeTree 
             match node:
                 SelfhostResolvedTypeNode::Primitive kind:
                     some kind
+                _:
+                    none
+        Option::None:
+            none
+
+//: selfhost_resolved_type_tree_parameter_id: type parameter node の binder identity を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - resolved tree の指定 node が generic type parameter なら、その environment-local identity を取り出します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `some(id)`: node id が有効で、node が `Parameter` variant です。
+//: - `none`: node id が範囲外、または node が `Parameter` 以外です。
+//:
+//: [契約/けいやく]:
+//: - 返した id は元の `SelfhostTypeParameterEnv` と対応づけて使います。別 environment の同じ index と比較してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - node table lookup は `O(1)` です。
+pub fn selfhost_resolved_type_tree_parameter_id %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option SelfhostTypeParameterId \tree\node_id:
+    match selfhost_resolved_type_tree_get_node tree node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Parameter parameter:
+                    some parameter.parameter_id
                 _:
                     none
         Option::None:
