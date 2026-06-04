@@ -50202,3 +50202,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_stdlib_string_slice_boundary.js` は、`trim` が `search/compare` の ASCII predicate だけを直接必要とする契約に更新した。`node nodesrc\test_stdlib_string_slice_boundary.js` は通過している。
 - `node nodesrc\run_source_policy_regressions.js --warn-only` は warn-only として完走し、今回変更した `string/slice` 境界の警告は解消した。残る警告は stdio / io bytebuf など別作業領域の既存 source policy mismatch であり、この checkpoint では触れていない。
 - 次の root target は `resource_initialized_raw_init_summaries` の relevance / control merge 固定費、stdio read/write raw buffer 境界、loader dependency body merge の typed interface 化である。
+
+## 2026-06-04 Agent RPN control merge duplicate replay checkpoint
+
+- `perf/rpn-raw-init-use-site-deps-20260604` branch で、cache ではなく Resource static check の control-flow 探索量を確認した。`plan.md` は変更していない。
+- subagent 調査では、`raw_init_dependencies` が direct call を一律 edge にしていることが根本候補だが、callee summary facts が caller summary surface へ届かないことを call site ごとに証明する必要があり、雑な edge pruning は `param_release_requirements` / variant facts を落として unsound になると確認した。
+- owner summary について consumer なし root を summary 固定点から外す試行も行ったが、RPN では relevant function が 170 から 169 にしか減らず、shared graph 構築固定費と相殺されたため採用しなかった。
+- 採用した変更は branch / match の path alternatives merge を一回にすること。これまでは直線 state へ merge した直後、copy/unit output の replay 判定で同じ alternatives を再 merge して `MaybeMoved` non-Copy entry を調べていた。`control_path_states_need_replay_with_merged` に既存 merged state を渡し、branch / match は同じ merge 結果を直線 state と replay 判定に再利用する。
+- RPN release CLI / cache disabled stage timing の最終 5 run は wall `2588.018ms / 2126.629ms / 1960.593ms / 2128.098ms / 1922.240ms`。`resource_static_check` は `1698ms / 1626ms / 1480ms / 1650ms / 1470ms`、`resource_initialized_function_checks` は `535ms / 513ms / 471ms / 528ms / 470ms` だった。
+- 関数別 timing では `parse_i32_decimal_digits_range` の final initialized check が、直前観測の `118ms` から `62ms` へ下がった。`eval_line` は `96ms`、raw-init 側では `stdio_fd_write_from_result` が `46ms` で残る。
+- まだ cold base は 0.5 秒未満ではない。次の root target は raw-init direct call edge を use-site aware にする設計、または `eval_line` / stdio raw-init summary の control-flow proof surface をさらに小さくすることである。

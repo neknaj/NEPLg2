@@ -82,10 +82,26 @@ pub(super) fn path_states_need_replay(states: &[ResourceCheckState]) -> bool {
     })
 }
 
+#[cfg(test)]
 pub(super) fn control_path_states_need_replay(
     types: &TypeCtx,
     states: &[ResourceCheckState],
     output: &Place,
+) -> bool {
+    control_path_states_need_replay_with_merged(types, states, output, None)
+}
+
+/// control output の path replay が必要かを、必要なら既存の merged state で判定する。
+///
+/// branch / match の caller は後続の直線 state へ path alternatives を必ず merge するため、
+/// replay 判定が copy/unit output の maybe-moved 確認を行うと、同じ alternatives を二度
+/// merge してしまう。merged_state が渡された場合はその結果を再利用し、渡されない
+/// helper/test 経路では従来通り必要になった時点で merge する。
+pub(super) fn control_path_states_need_replay_with_merged(
+    types: &TypeCtx,
+    states: &[ResourceCheckState],
+    output: &Place,
+    merged_state: Option<&ResourceCheckState>,
 ) -> bool {
     if !path_states_need_replay(states) {
         return false;
@@ -96,9 +112,12 @@ pub(super) fn control_path_states_need_replay(
     if !place_type_is_unit(types, output) && !types.is_copy(output.ty) {
         return true;
     }
-    merge_resource_check_states(states)
-        .cells
-        .has_maybe_moved_non_copy_entries(types)
+    let Some(merged_state) = merged_state else {
+        return merge_resource_check_states(states)
+            .cells
+            .has_maybe_moved_non_copy_entries(types);
+    };
+    merged_state.cells.has_maybe_moved_non_copy_entries(types)
 }
 
 fn states_have_resource_replay_relevant_difference(states: &[ResourceCheckState]) -> bool {

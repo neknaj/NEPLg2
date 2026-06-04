@@ -21,9 +21,11 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
 use super::initialized_path_state::{
-    control_path_states_need_replay, log_path_state_replay_reason, merge_path_alternatives_into,
-    path_states_need_replay, ResourceCheckState, ResourcePathAlternatives,
+    control_path_states_need_replay_with_merged, log_path_state_replay_reason,
+    merge_path_alternatives_into, path_states_need_replay, ResourceCheckState,
+    ResourcePathAlternatives,
 };
+use super::initialized_path_state_merge::merge_resource_check_states;
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_variant::PendingVariantRawCellInitializations;
@@ -159,16 +161,20 @@ impl ResourceCheckEngine<'_> {
 
         let has_branch_paths = !branch_paths.is_empty();
         if has_branch_paths {
-            merge_path_alternatives_into(
+            let merged_state = merge_resource_check_states(&branch_paths);
+            let replay_paths = control_path_states_need_replay_with_merged(
+                self.types,
                 &branch_paths,
-                cells,
-                collection_slots,
-                raw_aliases,
-                function_aliases,
-                pending_reallocs,
-                variant_initializations,
+                output,
+                Some(&merged_state),
             );
-            if control_path_states_need_replay(self.types, &branch_paths, output) {
+            *cells = merged_state.cells;
+            *collection_slots = merged_state.collection_slots;
+            *raw_aliases = merged_state.raw_aliases;
+            *function_aliases = merged_state.function_aliases;
+            *pending_reallocs = merged_state.pending_reallocs;
+            *variant_initializations = merged_state.variant_initializations;
+            if replay_paths {
                 log_path_state_replay_reason(self.function, "branch", &branch_paths);
                 self.path_alternatives =
                     ResourcePathAlternatives::from_states_preserving_result_variants(
@@ -475,16 +481,20 @@ impl ResourceCheckEngine<'_> {
         }
         let has_match_paths = !match_paths.is_empty();
         if has_match_paths {
-            merge_path_alternatives_into(
+            let merged_state = merge_resource_check_states(&match_paths);
+            let replay_paths = control_path_states_need_replay_with_merged(
+                self.types,
                 &match_paths,
-                cells,
-                collection_slots,
-                raw_aliases,
-                function_aliases,
-                pending_reallocs,
-                variant_initializations,
+                output,
+                Some(&merged_state),
             );
-            if control_path_states_need_replay(self.types, &match_paths, output) {
+            *cells = merged_state.cells;
+            *collection_slots = merged_state.collection_slots;
+            *raw_aliases = merged_state.raw_aliases;
+            *function_aliases = merged_state.function_aliases;
+            *pending_reallocs = merged_state.pending_reallocs;
+            *variant_initializations = merged_state.variant_initializations;
+            if replay_paths {
                 log_path_state_replay_reason(self.function, "match", &match_paths);
                 self.path_alternatives =
                     ResourcePathAlternatives::from_states_preserving_result_variants(
