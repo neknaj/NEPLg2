@@ -1,7 +1,58 @@
 #indent 4
+#import "core/math" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 #import "./id" as *
 #import "./kind/model" as *
+
+//: SelfhostFunctionTypeArgRangeItems: nonempty function argument table 範囲の payload
+//:
+//: [目的/もくてき]:
+//: - function type が持つ引数列の開始 index と個数を、nonempty の場合だけ保持します。
+pub struct SelfhostFunctionTypeArgRangeItems:
+    first_arg %i32
+    arg_count %i32
+
+impl Clone for SelfhostFunctionTypeArgRangeItems:
+    fn clone %fn &SelfhostFunctionTypeArgRangeItems SelfhostFunctionTypeArgRangeItems \self:
+        *self
+
+impl Copy for SelfhostFunctionTypeArgRangeItems:
+    fn copy_mark %fn SelfhostFunctionTypeArgRangeItems SelfhostFunctionTypeArgRangeItems \self:
+        self
+
+//: SelfhostFunctionTypeArgRange: function argument table 上の連続範囲
+//:
+//: [目的/もくてき]:
+//: - 0 引数 function type を `first_arg = 0, arg_count = 0` の loose pair ではなく `Empty` variant として表します。
+//: - nonempty のときだけ payload を持つため、比較や accessor が match による網羅性検査を使えます。
+pub enum SelfhostFunctionTypeArgRange:
+    Empty
+    Range %SelfhostFunctionTypeArgRangeItems
+
+impl Clone for SelfhostFunctionTypeArgRange:
+    fn clone %fn &SelfhostFunctionTypeArgRange SelfhostFunctionTypeArgRange \self:
+        *self
+
+impl Copy for SelfhostFunctionTypeArgRange:
+    fn copy_mark %fn SelfhostFunctionTypeArgRange SelfhostFunctionTypeArgRange \self:
+        self
+
+//: SelfhostFunctionTypeArgRangeBuildError: function argument range 構築の失敗分類
+pub enum SelfhostFunctionTypeArgRangeBuildError:
+    NegativeFirst
+    NegativeCount
+    NonCanonicalEmpty
+    EndOverflow
+    OutOfBounds
+
+impl Clone for SelfhostFunctionTypeArgRangeBuildError:
+    fn clone %fn &SelfhostFunctionTypeArgRangeBuildError SelfhostFunctionTypeArgRangeBuildError \self:
+        *self
+
+impl Copy for SelfhostFunctionTypeArgRangeBuildError:
+    fn copy_mark %fn SelfhostFunctionTypeArgRangeBuildError SelfhostFunctionTypeArgRangeBuildError \self:
+        self
 
 //: SelfhostFunctionTypeRecord: function type record の payload
 //:
@@ -9,8 +60,7 @@
 //: - function type だけが持つ argument table 範囲と戻り値 TypeId を保持します。
 //: - primitive type から function-only field を読めないよう、`SelfhostTypeRecord::Function` の payload に閉じ込めます。
 pub struct SelfhostFunctionTypeRecord:
-    first_arg %i32
-    arg_count %i32
+    args %SelfhostFunctionTypeArgRange
     result %SelfhostTypeId
 
 impl Clone for SelfhostFunctionTypeRecord:
@@ -43,7 +93,100 @@ impl Copy for SelfhostTypeRecord:
 pub fn selfhost_type_record_primitive %fn SelfhostPrimitiveTypeKind SelfhostTypeRecord \kind:
     SelfhostTypeRecord::Primitive kind
 
-//: selfhost_type_record_function: function type record を[作/つく]る
-pub fn selfhost_type_record_function %fn i32 fn i32 fn SelfhostTypeId SelfhostTypeRecord \first_arg\arg_count\result:
-    SelfhostTypeRecord::Function SelfhostFunctionTypeRecord first_arg arg_count result
+//: selfhost_function_type_arg_range_new_unchecked: 証明済みの nonempty function argument range を直接[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `first_arg >= 0`、`arg_count > 0`、`first_arg + arg_count` が function argument table 内であることを検査しません。
+//: - 通常の caller は `selfhost_function_type_arg_range_new_result` または `selfhost_function_type_arg_range_new_bounded_result` を使います。
+pub fn selfhost_function_type_arg_range_new_unchecked %fn i32 fn i32 SelfhostFunctionTypeArgRange \first_arg\arg_count:
+    SelfhostFunctionTypeArgRange::Range SelfhostFunctionTypeArgRangeItems first_arg arg_count
 
+//: selfhost_function_type_arg_range_empty: 0 引数 function type の canonical range を[返/かえ]す
+pub fn selfhost_function_type_arg_range_empty %fn void SelfhostFunctionTypeArgRange \void:
+    SelfhostFunctionTypeArgRange::Empty
+
+//: selfhost_function_type_arg_range_new_result: function argument range を検査して[作/つく]る
+pub fn selfhost_function_type_arg_range_new_result %fn i32 fn i32 Result SelfhostFunctionTypeArgRange SelfhostFunctionTypeArgRangeBuildError \first_arg\arg_count:
+    if:
+        lt first_arg 0
+        then:
+            Result::Err SelfhostFunctionTypeArgRangeBuildError::NegativeFirst
+        else:
+            if:
+                lt arg_count 0
+                then:
+                    Result::Err SelfhostFunctionTypeArgRangeBuildError::NegativeCount
+                else:
+                    if:
+                        eq arg_count 0
+                        then:
+                            if:
+                                eq first_arg 0
+                                then:
+                                    Result::Ok selfhost_function_type_arg_range_empty
+                                else:
+                                    Result::Err SelfhostFunctionTypeArgRangeBuildError::NonCanonicalEmpty
+                        else:
+                            if:
+                                gt arg_count sub 2147483647 first_arg
+                                then:
+                                    Result::Err SelfhostFunctionTypeArgRangeBuildError::EndOverflow
+                                else:
+                                    Result::Ok selfhost_function_type_arg_range_new_unchecked first_arg arg_count
+
+//: selfhost_function_type_arg_range_new_bounded_result: function argument table 長も含めて範囲を検査する
+pub fn selfhost_function_type_arg_range_new_bounded_result %fn i32 fn i32 fn i32 Result SelfhostFunctionTypeArgRange SelfhostFunctionTypeArgRangeBuildError \first_arg\arg_count\table_len:
+    match selfhost_function_type_arg_range_new_result first_arg arg_count:
+        Result::Ok args:
+            if:
+                lt table_len 0
+                then:
+                    Result::Err SelfhostFunctionTypeArgRangeBuildError::OutOfBounds
+                else:
+                    match args:
+                        SelfhostFunctionTypeArgRange::Empty:
+                            Result::Ok args
+                        SelfhostFunctionTypeArgRange::Range range:
+                            if:
+                                gt range.first_arg table_len
+                                then:
+                                    Result::Err SelfhostFunctionTypeArgRangeBuildError::OutOfBounds
+                                else:
+                                    if:
+                                        gt range.arg_count sub table_len range.first_arg
+                                        then:
+                                            Result::Err SelfhostFunctionTypeArgRangeBuildError::OutOfBounds
+                                        else:
+                                            Result::Ok args
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_function_type_arg_range_is_valid: range payload が内部不変条件を満たすか[返/かえ]す
+pub fn selfhost_function_type_arg_range_is_valid %fn SelfhostFunctionTypeArgRange bool \args:
+    match args:
+        SelfhostFunctionTypeArgRange::Empty:
+            true
+        SelfhostFunctionTypeArgRange::Range range:
+            and:
+                ge range.first_arg 0
+                and gt range.arg_count 0 le range.arg_count sub 2147483647 range.first_arg
+
+//: selfhost_function_type_arg_range_first: argument table の開始 index を[返/かえ]す
+pub fn selfhost_function_type_arg_range_first %fn SelfhostFunctionTypeArgRange i32 \args:
+    match args:
+        SelfhostFunctionTypeArgRange::Empty:
+            0
+        SelfhostFunctionTypeArgRange::Range range:
+            range.first_arg
+
+//: selfhost_function_type_arg_range_count: argument 数を[返/かえ]す
+pub fn selfhost_function_type_arg_range_count %fn SelfhostFunctionTypeArgRange i32 \args:
+    match args:
+        SelfhostFunctionTypeArgRange::Empty:
+            0
+        SelfhostFunctionTypeArgRange::Range range:
+            range.arg_count
+
+//: selfhost_type_record_function: function type record を[作/つく]る
+pub fn selfhost_type_record_function %fn SelfhostFunctionTypeArgRange fn SelfhostTypeId SelfhostTypeRecord \args\result:
+    SelfhostTypeRecord::Function SelfhostFunctionTypeRecord args result

@@ -49,11 +49,24 @@ assert.doesNotMatch(hir, /^(?:pub\s+)?struct SelfhostHirChildRange:$/m, "child r
 assert.doesNotMatch(hir, /^(?:pub\s+)?struct SelfhostHirParamRange:$/m, "param range must not be a flat struct");
 assert.deepEqual(enumVariants(hir, "SelfhostHirChildRange"), ["Empty", "Range"], "child range must split empty and nonempty payloads");
 assert.deepEqual(enumVariants(hir, "SelfhostHirParamRange"), ["Empty", "Range"], "param range must split empty and nonempty payloads");
+assert.deepEqual(
+    enumVariants(hir, "SelfhostHirRangeBuildError"),
+    ["NegativeFirst", "NegativeCount", "NonCanonicalEmpty", "EndOverflow", "OutOfBounds"],
+    "HIR range constructor errors must be typed and exhaustive",
+);
 assert.match(hir, /(?:pub\s+)?struct SelfhostHirChildRangeItems:[\s\S]*?\bfirst_child\s+<i32>[\s\S]*?\bchild_count\s+<i32>/, "child range payload must own child table fields");
 assert.match(hir, /(?:pub\s+)?struct SelfhostHirParamRangeItems:[\s\S]*?\bfirst_param\s+<i32>[\s\S]*?\bparam_count\s+<i32>/, "param range payload must own param table fields");
-assert.doesNotMatch(hir, /\bselfhost_hir_child_range_new\s+-1\s+0\b/, "empty child range must not be a negative sentinel");
-assert.doesNotMatch(hir, /\bselfhost_hir_param_range_new\s+-1\s+0\b/, "empty param range must not be a negative sentinel");
+assert.doesNotMatch(hir, /\bpub\s+fn\s+selfhost_hir_child_range_new\s+/, "unchecked child range constructor must not keep the old public name");
+assert.doesNotMatch(hir, /\bpub\s+fn\s+selfhost_hir_param_range_new\s+/, "unchecked param range constructor must not keep the old public name");
+assert.match(hir, /\bpub\s+fn\s+selfhost_hir_child_range_new_result\b[\s\S]{0,180}Result<SelfhostHirChildRange,SelfhostHirRangeBuildError>/, "child range must expose a checked constructor");
+assert.match(hir, /\bpub\s+fn\s+selfhost_hir_param_range_new_result\b[\s\S]{0,180}Result<SelfhostHirParamRange,SelfhostHirRangeBuildError>/, "param range must expose a checked constructor");
+assert.match(hir, /\bpub\s+fn\s+selfhost_hir_child_range_new_bounded_result\b[\s\S]{0,220}Result<SelfhostHirChildRange,SelfhostHirRangeBuildError>/, "child range must expose a table-bounded checked constructor");
+assert.match(hir, /\bpub\s+fn\s+selfhost_hir_param_range_new_bounded_result\b[\s\S]{0,220}Result<SelfhostHirParamRange,SelfhostHirRangeBuildError>/, "param range must expose a table-bounded checked constructor");
+assert.doesNotMatch(hir, /\bselfhost_hir_child_range_new_unchecked\s+-1\s+0\b/, "empty child range must not be a negative sentinel");
+assert.doesNotMatch(hir, /\bselfhost_hir_param_range_new_unchecked\s+-1\s+0\b/, "empty param range must not be a negative sentinel");
 assert.doesNotMatch(hir, /\b(?:child_range|param_range)\.(?:first_child|child_count|first_param|param_count)\b/, "callers must use range accessors or match variants");
+assert.match(hir, /pub\s+struct\s+SelfhostHirFunction:[\s\S]*?\bparams\s+<SelfhostHirParamRange>/, "HIR function record must store a typed parameter range");
+assert.doesNotMatch(hir, /pub\s+struct\s+SelfhostHirFunction:[\s\S]*?\bfirst_param\s+<i32>[\s\S]*?\bparam_count\s+<i32>/, "HIR function record must not store raw parameter range fields");
 
 assertRangeAccessorMatches("selfhost_hir_child_range_first", "SelfhostHirChildRange");
 assertRangeAccessorMatches("selfhost_hir_child_range_count", "SelfhostHirChildRange");

@@ -50500,3 +50500,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 中央値は `wall=2968ms`、`resource_static_check=2443ms`、`resource_initialized_moves=1796ms`、`i32 scalar summaries=621ms`、`raw-init summaries=478ms`、`final initialized checks=647ms`、`owner obligations=540ms`、`owner function checks=99ms` である。owner final function check は約 0.10 秒まで縮んだが、owner summary 固定点と initialized moves がまだ支配的である。
 - 次の root target は、`resource_initialized_function_checks` の branch/loop replay footprint、i32 scalar summary の return fact index 化、raw-init summary 固定点の use-site aware demand graph、owner summary の relevant function / dependency edge 削減である。
 - focused verification は `cargo fmt --check`、`cargo check -p nepl-core`、`cargo test -p nepl-core initialized_summary_release_build_tests -- --nocapture`、`cargo test -p nepl-core owner_obligation_relevance -- --nocapture`、`cargo test -p nepl-core owner_obligation_value_cache_tests -- --nocapture`、`cargo build --release -p nepl-cli`、RPN stage timing 5 run を通した。
+
+## 2026-06-04 Agent selfhost HIR/type range validation checkpoint
+
+- `selfhost/type-hir-range-validation-20260604` branch で、self-host compiler Phase 1 の typed id / range validation issue を進めた。`plan.md` は変更していない。
+- HIR child / parameter range は `SelfhostHirRangeBuildError`、`*_new_result`、`*_new_bounded_result` を持つ checked constructor 境界を追加した。arena が同一関数内で table 長と追加件数から証明済みの範囲だけ、明示名の `_unchecked` constructor を使う。
+- `SelfhostHirFunction` は `first_param` / `param_count` の raw pair を保存せず、`SelfhostHirParamRange` を直接保持する形へ変更した。0 引数関数は `Empty` variant として扱う。
+- function type argument table も `SelfhostFunctionTypeArgRange` と typed build error に分け、`SelfhostFunctionTypeRecord` は typed range と result を保持する形へ変更した。
+- type equality は invalid argument range を空列一致として扱わないよう、range validity を先に確認する defensive wrapper を追加した。
+- 新規 doctest `tests/stdlib/neplg2_hir_ranges.n.md` と `tests/stdlib/neplg2_type_ranges.n.md` で negative count、non-canonical empty、end overflow、out-of-bounds、invalid equality を固定した。
+- resolved issue: `ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E`。

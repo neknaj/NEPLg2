@@ -247,7 +247,7 @@ pub fn selfhost_hir_module_add_param_range %impure fn SelfhostHirModule impure f
             match selfhost_hir_module_copy_params params &params_to_add param_count 0:
                 Result::Ok next_params:
                     v::free params_to_add
-                    let param_range %SelfhostHirParamRange selfhost_hir_param_range_new first_param param_count
+                    let param_range %SelfhostHirParamRange selfhost_hir_param_range_new_unchecked first_param param_count
                     Result::Ok selfhost_hir_module_add_param_range_alloc_new (SelfhostHirModule functions next_params exprs expr_children) param_range
                 Result::Err e:
                     v::free functions
@@ -280,7 +280,7 @@ pub fn selfhost_hir_module_add_child_range %impure fn SelfhostHirModule impure f
             match selfhost_hir_module_copy_expr_children expr_children &children child_count 0:
                 Result::Ok next_expr_children:
                     v::free children
-                    let child_range %SelfhostHirChildRange selfhost_hir_child_range_new first_child child_count
+                    let child_range %SelfhostHirChildRange selfhost_hir_child_range_new_unchecked first_child child_count
                     Result::Ok selfhost_hir_module_add_child_range_alloc_new (SelfhostHirModule functions params exprs next_expr_children) child_range
                 Result::Err e:
                     v::free functions

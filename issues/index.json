@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T14:55:18.539Z",
+  "generated_at": "2026-06-04T15:15:27.871Z",
   "counts": {
     "total": 1341,
-    "open": 53,
-    "resolved": 1288,
+    "open": 52,
+    "resolved": 1289,
     "by_area": {
       "stdlib": {
         "total": 349,
@@ -23,8 +23,8 @@
       },
       "selfhost": {
         "total": 118,
-        "open": 4,
-        "resolved": 114
+        "open": 3,
+        "resolved": 115
       },
       "neplg21": {
         "total": 2,
@@ -593,21 +593,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md"
-    },
-    {
-      "id": "ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E",
-      "title": "selfhost Type and HIR ranges allow invalid raw i32 count invariants",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/neplg2/core/hir/hir/range.nepl, stdlib/neplg2/core/ty/ty/record.nepl, stdlib/neplg2/core/ty/ty/eq.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
@@ -12128,6 +12113,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260520T163240311Z-SELF-HOST-RESOURCE-CELL-MODEL-REMAI-3B6F7A90.md"
+    },
+    {
+      "id": "ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E",
+      "title": "selfhost Type and HIR ranges allow invalid raw i32 count invariants",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/neplg2/core/hir/hir/range.nepl, stdlib/neplg2/core/ty/ty/record.nepl, stdlib/neplg2/core/ty/ty/eq.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md"
     },
     {
       "id": "ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655",

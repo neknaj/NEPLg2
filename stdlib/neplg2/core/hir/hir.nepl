@@ -52,7 +52,7 @@
 //:                 Result::Ok expr_alloc:
 //:                     let root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &expr_alloc
 //:                     let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module expr_alloc
-//:                     let func %SelfhostHirFunction selfhost_hir_function_new "main" result_ty span root 0 0
+//:                     let func %SelfhostHirFunction selfhost_hir_function_new "main" result_ty span root selfhost_hir_param_range_empty
 //:                     match selfhost_hir_module_add_function module1 func:
 //:                         Result::Ok func_alloc:
 //:                             let function_id %SelfhostHirFunctionId selfhost_hir_module_function_alloc_function_id &func_alloc

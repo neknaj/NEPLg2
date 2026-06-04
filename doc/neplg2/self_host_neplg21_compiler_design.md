@@ -613,6 +613,7 @@ Issue slice:
 
 - `SelfhostSourceSpan` の non-negative / ordered / in-range validation を徹底する。
 - integer range、type id、HIR id、resource id を raw i32 のまま公開しない。
+- HIR child / parameter range と function type argument range は、0 件を `Empty` variant、1 件以上を checked nonempty payload として表す。外部入力から作る場合は typed error を返す checked constructor を使い、arena 内で直前の table 長と追加件数から証明済みの場所だけ `_unchecked` constructor を使う。
 - diagnostic code enum と reporter boundary を固定する。
 
 Issue slice:
@@ -858,7 +859,7 @@ Performance acceptance:
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
 | [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 6 | flat prefix parser と call reduction の分離として反映 |
-| [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | open | Phase 1 | typed id / range validation として反映 |
+| [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |
 | [SELFHOST-PARSER-TOKEN-ROLE-CLASSIFICATION...](../../issues/items/ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123.md) | open | Phase 2 | token role classification の単一 authority として反映 |

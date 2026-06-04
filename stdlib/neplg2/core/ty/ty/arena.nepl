@@ -119,7 +119,9 @@ pub fn selfhost_type_arena_add_function %impure fn SelfhostTypeArena impure fn V
     match selfhost_type_arena_copy_function_args function_args &params arg_count 0:
         Result::Ok next_args:
             v::free params
-            let record %SelfhostTypeRecord selfhost_type_record_function first_arg arg_count result
+            let args %SelfhostFunctionTypeArgRange:
+                if eq arg_count 0 selfhost_function_type_arg_range_empty selfhost_function_type_arg_range_new_unchecked first_arg arg_count
+            let record %SelfhostTypeRecord selfhost_type_record_function args result
             selfhost_type_arena_push_record (SelfhostTypeArena records next_args) record
         Result::Err e:
             v::free records
@@ -156,7 +158,7 @@ pub fn selfhost_type_arena_function_arg_count %fn &SelfhostTypeArena fn Selfhost
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Function function:
-                    some function.arg_count
+                    some selfhost_function_type_arg_range_count function.args
         Option::None:
             none
 
@@ -168,13 +170,17 @@ pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Function function:
-                    if:
-                        or lt arg_idx 0 ge arg_idx function.arg_count
-                        then:
+                    match function.args:
+                        SelfhostFunctionTypeArgRange::Empty:
                             none
-                        else:
-                            let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
-                            v::get function_args add function.first_arg arg_idx
+                        SelfhostFunctionTypeArgRange::Range args:
+                            if:
+                                or lt arg_idx 0 ge arg_idx args.arg_count
+                                then:
+                                    none
+                                else:
+                                    let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
+                                    v::get function_args add args.first_arg arg_idx
         Option::None:
             none
 

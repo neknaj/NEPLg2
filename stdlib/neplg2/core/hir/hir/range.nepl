@@ -1,4 +1,6 @@
 #indent 4
+#import "core/math" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
 //: SelfhostHirChildRangeItems: nonempty expression child table 範囲の payload
@@ -33,6 +35,26 @@ impl Copy for SelfhostHirChildRange:
     fn copy_mark %fn SelfhostHirChildRange SelfhostHirChildRange \self:
         self
 
+//: SelfhostHirRangeBuildError: HIR table 範囲構築の失敗分類
+//:
+//: [目的/もくてき]:
+//: - child / parameter table range の不正状態を bool や文字列ではなく enum として返します。
+//: - caller は負の開始 index、負の count、0 count の非正規 empty、i32 end overflow、table 範囲外を match で区別できます。
+pub enum SelfhostHirRangeBuildError:
+    NegativeFirst
+    NegativeCount
+    NonCanonicalEmpty
+    EndOverflow
+    OutOfBounds
+
+impl Clone for SelfhostHirRangeBuildError:
+    fn clone %fn &SelfhostHirRangeBuildError SelfhostHirRangeBuildError \self:
+        *self
+
+impl Copy for SelfhostHirRangeBuildError:
+    fn copy_mark %fn SelfhostHirRangeBuildError SelfhostHirRangeBuildError \self:
+        self
+
 //: SelfhostHirParamRangeItems: nonempty parameter table 範囲の payload
 //:
 //: [目的/もくてき]:
@@ -65,13 +87,82 @@ impl Copy for SelfhostHirParamRange:
     fn copy_mark %fn SelfhostHirParamRange SelfhostHirParamRange \self:
         self
 
-//: selfhost_hir_child_range_new: child table 範囲を[作/つく]る
-pub fn selfhost_hir_child_range_new %fn i32 fn i32 SelfhostHirChildRange \first_child\child_count:
+//: selfhost_hir_child_range_new_unchecked: 証明済みの nonempty child table 範囲を直接[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `first_child >= 0`、`child_count > 0`、`first_child + child_count` が child table 内であることを検査しません。
+//: - 通常の caller は `selfhost_hir_child_range_new_result` または `selfhost_hir_child_range_new_bounded_result` を使います。
+//: - HIR arena が `Vec` の現在長と追加した child 数から同じ式内で範囲を証明済みの場合だけ使います。
+pub fn selfhost_hir_child_range_new_unchecked %fn i32 fn i32 SelfhostHirChildRange \first_child\child_count:
     SelfhostHirChildRange::Range SelfhostHirChildRangeItems first_child child_count
 
 //: selfhost_hir_child_range_empty: child を持たない範囲を[返/かえ]す
 pub fn selfhost_hir_child_range_empty %fn void SelfhostHirChildRange \void:
     SelfhostHirChildRange::Empty
+
+//: selfhost_hir_child_range_new_result: child table 範囲を検査して[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 負の index / count と end overflow を構築時に拒否します。
+//: - `0, 0` は canonical empty range として `Empty` を返し、`first_child != 0 && child_count == 0` は非正規 empty として拒否します。
+pub fn selfhost_hir_child_range_new_result %fn i32 fn i32 Result SelfhostHirChildRange SelfhostHirRangeBuildError \first_child\child_count:
+    if:
+        lt first_child 0
+        then:
+            Result::Err SelfhostHirRangeBuildError::NegativeFirst
+        else:
+            if:
+                lt child_count 0
+                then:
+                    Result::Err SelfhostHirRangeBuildError::NegativeCount
+                else:
+                    if:
+                        eq child_count 0
+                        then:
+                            if:
+                                eq first_child 0
+                                then:
+                                    Result::Ok selfhost_hir_child_range_empty
+                                else:
+                                    Result::Err SelfhostHirRangeBuildError::NonCanonicalEmpty
+                        else:
+                            if:
+                                gt child_count sub 2147483647 first_child
+                                then:
+                                    Result::Err SelfhostHirRangeBuildError::EndOverflow
+                                else:
+                                    Result::Ok selfhost_hir_child_range_new_unchecked first_child child_count
+
+//: selfhost_hir_child_range_new_bounded_result: child table 長も含めて範囲を検査する
+//:
+//: [目的/もくてき]:
+//: - table 長が分かる境界で `[first_child, first_child + child_count)` が table 内に収まることまで確認します。
+//: - 加算 overflow を避けるため、`first_child + child_count` は直接計算せず `child_count <= table_len - first_child` として判定します。
+pub fn selfhost_hir_child_range_new_bounded_result %fn i32 fn i32 fn i32 Result SelfhostHirChildRange SelfhostHirRangeBuildError \first_child\child_count\table_len:
+    match selfhost_hir_child_range_new_result first_child child_count:
+        Result::Ok child_range:
+            if:
+                lt table_len 0
+                then:
+                    Result::Err SelfhostHirRangeBuildError::OutOfBounds
+                else:
+                    match child_range:
+                        SelfhostHirChildRange::Empty:
+                            Result::Ok child_range
+                        SelfhostHirChildRange::Range range:
+                            if:
+                                gt range.first_child table_len
+                                then:
+                                    Result::Err SelfhostHirRangeBuildError::OutOfBounds
+                                else:
+                                    if:
+                                        gt range.child_count sub table_len range.first_child
+                                        then:
+                                            Result::Err SelfhostHirRangeBuildError::OutOfBounds
+                                        else:
+                                            Result::Ok child_range
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_hir_child_range_first: child table の開始 index を[返/かえ]す
 pub fn selfhost_hir_child_range_first %fn SelfhostHirChildRange i32 \child_range:
@@ -89,13 +180,73 @@ pub fn selfhost_hir_child_range_count %fn SelfhostHirChildRange i32 \child_range
         SelfhostHirChildRange::Range range:
             range.child_count
 
-//: selfhost_hir_param_range_new: parameter table 範囲を[作/つく]る
-pub fn selfhost_hir_param_range_new %fn i32 fn i32 SelfhostHirParamRange \first_param\param_count:
+//: selfhost_hir_param_range_new_unchecked: 証明済みの nonempty parameter table 範囲を直接[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `first_param >= 0`、`param_count > 0`、`first_param + param_count` が parameter table 内であることを検査しません。
+//: - 通常の caller は `selfhost_hir_param_range_new_result` または `selfhost_hir_param_range_new_bounded_result` を使います。
+pub fn selfhost_hir_param_range_new_unchecked %fn i32 fn i32 SelfhostHirParamRange \first_param\param_count:
     SelfhostHirParamRange::Range SelfhostHirParamRangeItems first_param param_count
 
 //: selfhost_hir_param_range_empty: parameter を持たない範囲を[返/かえ]す
 pub fn selfhost_hir_param_range_empty %fn void SelfhostHirParamRange \void:
     SelfhostHirParamRange::Empty
+
+//: selfhost_hir_param_range_new_result: parameter table 範囲を検査して[作/つく]る
+pub fn selfhost_hir_param_range_new_result %fn i32 fn i32 Result SelfhostHirParamRange SelfhostHirRangeBuildError \first_param\param_count:
+    if:
+        lt first_param 0
+        then:
+            Result::Err SelfhostHirRangeBuildError::NegativeFirst
+        else:
+            if:
+                lt param_count 0
+                then:
+                    Result::Err SelfhostHirRangeBuildError::NegativeCount
+                else:
+                    if:
+                        eq param_count 0
+                        then:
+                            if:
+                                eq first_param 0
+                                then:
+                                    Result::Ok selfhost_hir_param_range_empty
+                                else:
+                                    Result::Err SelfhostHirRangeBuildError::NonCanonicalEmpty
+                        else:
+                            if:
+                                gt param_count sub 2147483647 first_param
+                                then:
+                                    Result::Err SelfhostHirRangeBuildError::EndOverflow
+                                else:
+                                    Result::Ok selfhost_hir_param_range_new_unchecked first_param param_count
+
+//: selfhost_hir_param_range_new_bounded_result: parameter table 長も含めて範囲を検査する
+pub fn selfhost_hir_param_range_new_bounded_result %fn i32 fn i32 fn i32 Result SelfhostHirParamRange SelfhostHirRangeBuildError \first_param\param_count\table_len:
+    match selfhost_hir_param_range_new_result first_param param_count:
+        Result::Ok param_range:
+            if:
+                lt table_len 0
+                then:
+                    Result::Err SelfhostHirRangeBuildError::OutOfBounds
+                else:
+                    match param_range:
+                        SelfhostHirParamRange::Empty:
+                            Result::Ok param_range
+                        SelfhostHirParamRange::Range range:
+                            if:
+                                gt range.first_param table_len
+                                then:
+                                    Result::Err SelfhostHirRangeBuildError::OutOfBounds
+                                else:
+                                    if:
+                                        gt range.param_count sub table_len range.first_param
+                                        then:
+                                            Result::Err SelfhostHirRangeBuildError::OutOfBounds
+                                        else:
+                                            Result::Ok param_range
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_hir_param_range_first: parameter table の開始 index を[返/かえ]す
 pub fn selfhost_hir_param_range_first %fn SelfhostHirParamRange i32 \param_range:

@@ -9,32 +9,67 @@
 #import "./record" as *
 #import "./arena" as *
 
-//: selfhost_type_arena_function_args_equal: function 引数列が構造的に同じか[返/かえ]す
+//: selfhost_type_arena_function_args_equal_raw: 証明済みの raw argument 範囲を構造比較する
 //:
 //: [注意/ちゅうい]:
-//: - `first_a` / `first_b` は arena 内部の argument table offset です。
-//: - 呼び出し側で function record の `arg_count` が同じであることを確認してから使います。
-pub fn selfhost_type_arena_function_args_equal %fn &SelfhostTypeArena fn i32 fn i32 fn i32 fn i32 bool \arena\first_a\first_b\n\idx:
+//: - `first_a` / `first_b` / `n` は `SelfhostFunctionTypeArgRange` の検査済み payload からだけ渡します。
+//: - `n < 0` は直接呼び出しの誤用なので false にし、負 count が空列一致として扱われないようにします。
+pub fn selfhost_type_arena_function_args_equal_raw %fn &SelfhostTypeArena fn i32 fn i32 fn i32 fn i32 bool \arena\first_a\first_b\n\idx:
     if:
-        ge idx n
+        lt n 0
         then:
-            true
+            false
         else:
-            let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
-            match v::get function_args add first_a idx:
-                Option::Some arg_a:
-                    match v::get function_args add first_b idx:
-                        Option::Some arg_b:
-                            if:
-                                selfhost_type_arena_types_equal arena arg_a arg_b
-                                then:
-                                    selfhost_type_arena_function_args_equal arena first_a first_b n add idx 1
-                                else:
+            if:
+                ge idx n
+                then:
+                    true
+                else:
+                    let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
+                    match v::get function_args add first_a idx:
+                        Option::Some arg_a:
+                            match v::get function_args add first_b idx:
+                                Option::Some arg_b:
+                                    if:
+                                        selfhost_type_arena_types_equal arena arg_a arg_b
+                                        then:
+                                            selfhost_type_arena_function_args_equal_raw arena first_a first_b n add idx 1
+                                        else:
+                                            false
+                                Option::None:
                                     false
                         Option::None:
                             false
-                Option::None:
-                    false
+
+//: selfhost_type_arena_function_arg_ranges_equal: function 引数列 range が構造的に同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostFunctionTypeArgRange` の `Empty` / `Range` を match し、無効 payload は false として扱います。
+//: - invalid `arg_count` が raw 再帰比較の終了条件へ流れて true になることを防ぎます。
+pub fn selfhost_type_arena_function_arg_ranges_equal %fn &SelfhostTypeArena fn SelfhostFunctionTypeArgRange fn SelfhostFunctionTypeArgRange bool \arena\a\b:
+    if:
+        not and selfhost_function_type_arg_range_is_valid a selfhost_function_type_arg_range_is_valid b
+        then:
+            false
+        else:
+            match a:
+                SelfhostFunctionTypeArgRange::Empty:
+                    match b:
+                        SelfhostFunctionTypeArgRange::Empty:
+                            true
+                        SelfhostFunctionTypeArgRange::Range _b_range:
+                            false
+                SelfhostFunctionTypeArgRange::Range a_range:
+                    match b:
+                        SelfhostFunctionTypeArgRange::Empty:
+                            false
+                        SelfhostFunctionTypeArgRange::Range b_range:
+                            if:
+                                ne a_range.arg_count b_range.arg_count
+                                then:
+                                    false
+                                else:
+                                    selfhost_type_arena_function_args_equal_raw arena a_range.first_arg b_range.first_arg a_range.arg_count 0
 
 //: selfhost_type_arena_records_equal: 2 つの型 record が構造的に同じか[返/かえ]す
 //:
@@ -56,14 +91,9 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                 SelfhostTypeRecord::Primitive _b_kind:
                     false
                 SelfhostTypeRecord::Function b_function:
-                    if:
-                        ne a_function.arg_count b_function.arg_count
-                        then:
-                            false
-                        else:
-                            and:
-                                selfhost_type_arena_function_args_equal arena a_function.first_arg b_function.first_arg a_function.arg_count 0
-                                selfhost_type_arena_types_equal arena a_function.result b_function.result
+                    and:
+                        selfhost_type_arena_function_arg_ranges_equal arena a_function.args b_function.args
+                        selfhost_type_arena_types_equal arena a_function.result b_function.result
 
 //: selfhost_type_arena_types_equal: 同じ arena 内の TypeId が構造的に同じ型か[返/かえ]す
 //:
