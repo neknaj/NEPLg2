@@ -7,8 +7,8 @@ use crate::span::{FileId, Span};
 use crate::types::TypeCtx;
 
 use super::super::model::{
-    Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceModule,
-    ResourceTerminator,
+    Place, RawAddressAliasKind, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
@@ -58,6 +58,41 @@ fn local_identity_function(types: &TypeCtx, name: &str, unreachable: bool) -> Re
     }
 }
 
+fn raw_alias_function(types: &TypeCtx, name: &str, unreachable: bool) -> ResourceFunction {
+    let span = test_span();
+    let raw_place = Place::local(String::from("raw"), types.i32());
+    ResourceFunction {
+        name: String::from(name),
+        origin_name: String::from(name),
+        type_params: Vec::new(),
+        params: vec![ResourceLocal {
+            name: String::from("raw"),
+            ty: types.i32(),
+            mutable: false,
+            place: raw_place.clone(),
+        }],
+        result: types.unit(),
+        effect: Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![ResourceOp::RawAddressAlias {
+                source: raw_place,
+                target: Place::local(String::from("raw_alias"), types.i32()),
+                kind: RawAddressAliasKind::Transparent,
+                span,
+            }],
+            terminator: if unreachable {
+                ResourceTerminator::Unreachable { span }
+            } else {
+                ResourceTerminator::Return { value: None, span }
+            },
+            span,
+        }],
+        span,
+    }
+}
+
 fn single_function_module(function: ResourceFunction) -> ResourceModule {
     ResourceModule {
         functions: vec![function],
@@ -72,7 +107,7 @@ fn single_function_module(function: ResourceFunction) -> ResourceModule {
 #[test]
 fn owner_obligation_check_replays_without_rerunning_checker() {
     let types = TypeCtx::new();
-    let module = single_function_module(local_identity_function(&types, "identity", false));
+    let module = single_function_module(raw_alias_function(&types, "raw_alias", false));
     let context = test_context(11);
     let mut cache = ResourceSummaryValueCache::new();
 
@@ -97,10 +132,39 @@ fn owner_obligation_check_replays_without_rerunning_checker() {
         stats.resource_summary_value_owner_obligation_check_plan_skip_functions,
         1
     );
-    assert_eq!(stats.resource_owner_return_summary_recomputations, 0);
+    assert_eq!(stats.resource_owner_return_summary_recomputations, 1);
     assert_eq!(
         stats.resource_owner_return_summary_pass_cache_skip_functions,
         1
+    );
+}
+
+/// scalar-only の pure 関数は owner obligation が観測する資源を持たない。
+/// cache が有効な compile でも stable key probe や checker 起動へ進めず、no-cache 経路と
+/// 同じ空の検査結果を返す。
+#[test]
+fn owner_obligation_check_skips_scalar_function_before_cache_probe() {
+    let types = TypeCtx::new();
+    let module = single_function_module(local_identity_function(&types, "identity", false));
+    let context = test_context(11);
+    let mut cache = ResourceSummaryValueCache::new();
+
+    let without_cache = check_resource_owner_obligations(&module, &types);
+    let with_cache =
+        check_resource_owner_obligations_with_summary_cache(&module, &types, &mut cache, &context);
+
+    assert_eq!(without_cache, with_cache);
+    let stats = cache.stats();
+    assert_eq!(stats.resource_owner_obligation_function_checks, 0);
+    assert_eq!(
+        stats.resource_summary_value_owner_obligation_check_stores,
+        0
+    );
+    assert_eq!(stats.resource_summary_value_owner_obligation_check_hits, 0);
+    assert_eq!(stats.resource_owner_return_summary_recomputations, 0);
+    assert_eq!(
+        stats.resource_owner_return_summary_pass_cache_skip_functions,
+        0
     );
 }
 
@@ -110,8 +174,8 @@ fn owner_obligation_check_replays_without_rerunning_checker() {
 #[test]
 fn owner_obligation_check_misses_after_body_change() {
     let types = TypeCtx::new();
-    let original = single_function_module(local_identity_function(&types, "identity", false));
-    let edited = single_function_module(local_identity_function(&types, "identity", true));
+    let original = single_function_module(raw_alias_function(&types, "raw_alias", false));
+    let edited = single_function_module(raw_alias_function(&types, "raw_alias", true));
     let context = test_context(11);
     let mut cache = ResourceSummaryValueCache::new();
 
@@ -125,7 +189,7 @@ fn owner_obligation_check_misses_after_body_change() {
         2
     );
     assert_eq!(stats.resource_summary_value_owner_obligation_check_hits, 0);
-    assert_eq!(stats.resource_owner_return_summary_recomputations, 0);
+    assert_eq!(stats.resource_owner_return_summary_recomputations, 2);
     assert_eq!(
         stats.resource_owner_return_summary_pass_cache_skip_functions,
         0

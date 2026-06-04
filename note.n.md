@@ -1,3 +1,16 @@
+# 2026-06-04 RPN owner-obligation relevance cache-path checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、cache artifact だけでなく、Resource IR 検査で不要な関数へ進む探索範囲を削る方針で確認した。
+- subagent 調査では、`check_resource_owner_obligations_with_summary_cache` の cold path が no-cache path と違って `owner_obligation_relevant_functions` を先に適用しておらず、scalar-only pure 関数にも stable key probe / checker / cache store の準備へ進むことが固定費になっていると指摘された。
+- `owner_obligation_relevant_functions` を cache 有無にかかわらず先に計算し、relevance false の関数は no-cache path と同じ `empty_owner_obligation_function_check` として扱うようにした。cache pass plan がある場合は空の pass として記録し、後続の pass cache snapshot と final report の関数数を保つ。
+- relevance skip が pass-cache skip と混ざらないよう、全関数 skip / pass-cache skip / mixed skip の stage log を分けた。これにより compile timing で「cache が効いた」のか「owner obligation の対象外だった」のかを混同しない。
+- cache replay / body hash miss の既存テストは、scalar-only 関数が relevance skip されるようになったため、owner obligation relevance を持つ `RawAddressAlias` 関数を使うように変更した。新規に scalar-only pure 関数が cache path でも checker / store / hit へ進まない単体テストを追加した。
+- branch / match / loop 後の raw-address alias を must-merge して path replay を削る案も試した。`parse_i32_decimal_digits_range` の replay は消えたが、Resource IR integration で raw memory / collection slot proof の false positive が大量に出た。現行の cell/range merge が必要とする alias precision を落としすぎるため、この案は採用せず戻した。次に扱うなら watched-prefix / touched-place merge として、後続 op が読む alias だけを対象にする必要がある。
+- RPN cold base release 5 run 中央値は、`execute_inner=1768.008ms`、`loader_load=325.542ms`、`check_pipeline=1438.730ms`、`resource_typecheck=114ms`、`resource_static_check=1306ms`、`resource_initialized_moves=918ms`、`resource_initialized_raw_alias_summaries=19ms`、`resource_initialized_i32_scalar_summaries=151ms`、`resource_initialized_raw_init_summaries=283ms`、`resource_initialized_collection_slot_summaries=1ms`、`resource_initialized_function_checks=467ms`、`resource_owner_obligations=302ms`、`resource_owner_summaries=238ms`、`resource_owner_function_checks=64ms` だった。
+- 0.5 秒未満目標にはまだ届いていない。現在の最大要因は `resource_initialized_moves` であり、cache ではなく raw-init dependency edge、i32 scalar summary、final initialized function check、control-flow replay / merge の探索範囲をさらに削る必要がある。
+- `cargo test -p nepl-core --test resource_ir resource_ir_check_allows_repeated_copy_reads -- --nocapture` は clean worktree でも `TypeCtx::get_ref` の index out of bounds で失敗したため、今回の owner-obligation 差分由来ではない既存 branch 状態として扱った。別 issue または別 branch で Resource IR test fixture の型 ID 前提を確認する必要がある。
+- 検証済み: `cargo fmt --check`、`cargo check -p nepl-core`、`cargo test -p nepl-core owner_obligation -- --nocapture`、`cargo build --release -p nepl-cli`、RPN release CLI 5 run stage timing、`node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-owner-obligation-relevance-after-trunk-20260604.json -j 1 --assert-io --dist web/dist`、`trunk build`、`git diff --check`。
+
 # 2026-06-04 RPN function-value reachability / print_i32 narrow formatter checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針、特に探索範囲削減、依存関係のDAG化、静的検査の正確性維持を前提にした。

@@ -54,6 +54,7 @@ fn check_resource_owner_obligations_inner(
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceOwnerCheckDeferred::default();
     let dependency_graph = ResourceSummaryDependencyGraph::build(module);
+    let relevant_functions = owner_obligation_relevant_functions(module, types, &dependency_graph);
     let mut owner_check_pass_plan = match (
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
@@ -83,7 +84,17 @@ fn check_resource_owner_obligations_inner(
         .as_ref()
         .is_some_and(|cache| cache.stable_entry_collection_enabled());
     if summary_value_cache.is_some() && summary_value_cache_context.is_some() {
+        let mut relevance_skipped_functions = 0usize;
         for (function_index, function) in module.functions.iter().enumerate() {
+            if !relevant_functions[function_index] {
+                function_results[function_index] =
+                    Some(empty_owner_obligation_function_check(function));
+                if let Some(plan) = owner_check_pass_plan.as_mut() {
+                    plan.record_pass(function_index, ResourceOwnerCheckDeferred::default());
+                }
+                relevance_skipped_functions += 1;
+                continue;
+            }
             let function_op_count = resource_function_op_count(function);
             if let (Some(cache), Some(plan)) = (
                 summary_value_cache.as_deref_mut(),
@@ -152,9 +163,17 @@ fn check_resource_owner_obligations_inner(
                 cache.finish_owner_obligation_check_pass_plan(plan);
             }
             if let Some(cache) = summary_value_cache.as_deref_mut() {
-                cache.record_owner_return_summary_pass_cache_skip(module.functions.len());
+                if relevance_skipped_functions == 0 {
+                    cache.record_owner_return_summary_pass_cache_skip(module.functions.len());
+                }
             }
-            stage_start.log("resource_owner_summaries_skipped_by_pass_cache");
+            if relevance_skipped_functions == module.functions.len() {
+                stage_start.log("resource_owner_obligations_skipped_by_relevance");
+            } else if relevance_skipped_functions == 0 {
+                stage_start.log("resource_owner_summaries_skipped_by_pass_cache");
+            } else {
+                stage_start.log("resource_owner_summaries_skipped_by_relevance_and_cache");
+            }
             return ResourceOwnerCheckReport {
                 functions: owner_obligation_function_results(function_results),
                 diagnostics,
@@ -162,8 +181,6 @@ fn check_resource_owner_obligations_inner(
             };
         }
     } else {
-        let relevant_functions =
-            owner_obligation_relevant_functions(module, types, &dependency_graph);
         pending_checks = module
             .functions
             .iter()
