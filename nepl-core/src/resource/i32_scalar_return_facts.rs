@@ -106,6 +106,12 @@ impl I32ScalarReturnFactCounts {
     }
 }
 
+#[derive(Default)]
+pub(super) struct I32ScalarReturnFactCollection {
+    pub(super) facts: I32ScalarReturnFacts,
+    pub(super) possible_return_projections: Vec<Vec<PlaceProjection>>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct I32ScalarReturnAlias {
     pub(super) return_projection: Vec<PlaceProjection>,
@@ -218,8 +224,31 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_proje
         projection_is_possible,
         true,
     )
+    .facts
 }
 
+pub(super) fn collect_i32_scalar_return_fact_collection_cached_with_projection_filter(
+    params: &[ResourceLocal],
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    value: &Place,
+    target_suffix: &[PlaceProjection],
+    leaf_cache: &mut I32LeafProjectionCache,
+    projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
+) -> I32ScalarReturnFactCollection {
+    collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter_inner(
+        params,
+        types,
+        raw_aliases,
+        value,
+        target_suffix,
+        leaf_cache,
+        projection_is_possible,
+        true,
+    )
+}
+
+#[cfg(test)]
 pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_without_parameter_conditions(
     params: &[ResourceLocal],
     types: &TypeCtx,
@@ -229,6 +258,28 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached_without_pa
     leaf_cache: &mut I32LeafProjectionCache,
     projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
 ) -> I32ScalarReturnFacts {
+    collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter_inner(
+        params,
+        types,
+        raw_aliases,
+        value,
+        target_suffix,
+        leaf_cache,
+        projection_is_possible,
+        false,
+    )
+    .facts
+}
+
+pub(super) fn collect_i32_scalar_return_fact_collection_cached_without_parameter_conditions(
+    params: &[ResourceLocal],
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    value: &Place,
+    target_suffix: &[PlaceProjection],
+    leaf_cache: &mut I32LeafProjectionCache,
+    projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
+) -> I32ScalarReturnFactCollection {
     collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter_inner(
         params,
         types,
@@ -250,18 +301,20 @@ fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filte
     leaf_cache: &mut I32LeafProjectionCache,
     projection_is_possible: impl Fn(&[PlaceProjection]) -> bool,
     collect_parameter_conditions_for_path: bool,
-) -> I32ScalarReturnFacts {
+) -> I32ScalarReturnFactCollection {
     let mut facts = I32ScalarReturnFacts::default();
     let mut condition_context = I32ConditionQueryContext::default();
-    let leaves = leaf_cache
-        .leaf_places_for_conditions(types, value)
-        .into_iter()
-        .filter(|leaf| {
-            let mut return_projection = target_suffix.to_vec();
-            return_projection.extend_from_slice(&leaf.suffix);
-            projection_is_possible(&return_projection)
-        })
-        .collect::<Vec<_>>();
+    let mut possible_return_projections = Vec::new();
+    let mut leaves = Vec::new();
+    for leaf in leaf_cache.leaf_places_for_conditions(types, value) {
+        let mut return_projection = target_suffix.to_vec();
+        return_projection.extend_from_slice(&leaf.suffix);
+        if !projection_is_possible(&return_projection) {
+            continue;
+        }
+        push_unique_i32_scalar_projection(&mut possible_return_projections, return_projection);
+        leaves.push(leaf);
+    }
     for leaf in &leaves {
         let mut return_projection = target_suffix.to_vec();
         return_projection.extend_from_slice(&leaf.suffix);
@@ -291,7 +344,10 @@ fn collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filte
             &mut facts,
         );
     }
-    facts
+    I32ScalarReturnFactCollection {
+        facts,
+        possible_return_projections,
+    }
 }
 
 pub(super) fn translate_i32_scalar_return_facts_for_call(
@@ -552,6 +608,18 @@ fn collect_i32_scalar_return_leaf_relations(
     }
 }
 
+fn push_unique_i32_scalar_projection(
+    projections: &mut Vec<Vec<PlaceProjection>>,
+    projection: Vec<PlaceProjection>,
+) {
+    if !projections
+        .iter()
+        .any(|existing| existing.as_slice() == projection.as_slice())
+    {
+        projections.push(projection);
+    }
+}
+
 fn i32_scalar_leaf_places_are_known_equal(
     raw_aliases: &RawCellAddressAliases,
     left: &Place,
@@ -601,7 +669,7 @@ fn collect_i32_scalar_return_leaf_facts(
         facts,
     );
     let leaf_aliases = raw_aliases.scalar_aliases_for_value_with_context(leaf, condition_context);
-    for scalar_alias in leaf_aliases {
+    for scalar_alias in &leaf_aliases {
         for (parameter_index, param) in params.iter().enumerate() {
             let Some(parameter_projection) = place_suffix_after_prefix(&scalar_alias, &param.place)
             else {
@@ -618,10 +686,11 @@ fn collect_i32_scalar_return_leaf_facts(
             );
         }
     }
-    collect_i32_scalar_return_offset_facts(
+    collect_i32_scalar_return_offset_facts_with_source_aliases(
         params,
         raw_aliases,
         leaf,
+        &leaf_aliases,
         return_projection,
         leaf.ty,
         0,
@@ -671,6 +740,30 @@ fn collect_i32_scalar_return_offset_facts(
 ) {
     let source_aliases =
         raw_aliases.scalar_aliases_for_value_with_context(source, condition_context);
+    collect_i32_scalar_return_offset_facts_with_source_aliases(
+        params,
+        raw_aliases,
+        source,
+        &source_aliases,
+        return_projection,
+        scalar_ty,
+        additional_offset,
+        condition_context,
+        facts,
+    );
+}
+
+fn collect_i32_scalar_return_offset_facts_with_source_aliases(
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    source: &Place,
+    source_aliases: &[Place],
+    return_projection: &[PlaceProjection],
+    scalar_ty: TypeId,
+    additional_offset: i64,
+    condition_context: &mut I32ConditionQueryContext,
+    facts: &mut I32ScalarReturnFacts,
+) {
     for scalar_alias in source_aliases {
         for (parameter_index, param) in params.iter().enumerate() {
             let Some(parameter_projection) = place_suffix_after_prefix(&scalar_alias, &param.place)
@@ -689,9 +782,11 @@ fn collect_i32_scalar_return_offset_facts(
             );
         }
     }
-    for (base, source_offset) in
-        raw_aliases.i32_offset_sources_with_context(source, condition_context)
-    {
+    for (base, source_offset) in raw_aliases.i32_offset_sources_for_target_aliases_with_context(
+        source,
+        source_aliases,
+        condition_context,
+    ) {
         let Some(offset) = source_offset.checked_add(additional_offset) else {
             continue;
         };
