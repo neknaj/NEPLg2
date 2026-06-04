@@ -1,3 +1,14 @@
+# 2026-06-04 self-host name resolver declaration hoist checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser の typed declaration header evidence を文字列再走査せず resolver scope へ接続する作業を進めた。
+- `ISS-20260604T143452595Z-SELFHOST-NAME-RESOLVER-DECLARATION-HOIST-05BB431F` を `fixed` / `resolved: true` に更新した。
+- `stdlib/neplg2/core/resolve/name_resolver/hoist.nepl` を追加し、`SelfhostModuleAst` の top-level declaration から `SelfhostNameScope` を構築する入口 `selfhost_name_scope_hoist_module_declarations` を実装した。
+- declaration kind は `Function` / `Struct` / `Enum` / `Trait` だけを `SelfhostDefKind` へ写し、`Impl` は名前束縛ではないため scope に追加しない。declaration head も `Name` だけを binding 化し、`TypeLabel` は `impl .T` などのために非bindingとして扱う。
+- 実装中に `trait` が parser AST へ出ない失敗を確認し、根本原因として selfhost lexer の keyword table が 5 byte の `trait` を 6 byte bucket に置いていたことを特定した。`trait` を `lex_keyword_kind_len5` へ移し、lexer doctest で `KwTrait` を固定した。
+- `nodesrc/test_selfhost_name_resolver_declaration_hoist.js` を追加し、hoist module の facade/source list 登録、declaration kind 対応、`Impl` 非binding、`header.head.span` 由来の name slicing を source policy として固定した。
+- 検証済み: `node nodesrc\test_selfhost_name_resolver_declaration_hoist.js`、`node nodesrc\test_selfhost_name_resolver_split_contract.js`、`node nodesrc\test_selfhost_name_resolver_report_contract.js`、`node nodesrc\test_stdlib_match_decision_trees.js`、`node nodesrc\test_selfhost_lexer_report_contract.js`、`node nodesrc\tests.js -i tests\stdlib\neplg2_name_resolver.n.md --no-tree -o tmp\selfhost-name-resolver-hoist-focused.json -j 1 --assert-io --dist web\dist`、`node nodesrc\tests.js -i tests\stdlib\neplg2_lexer.n.md --no-tree -o tmp\selfhost-lexer-focused.json -j 1 --assert-io --dist web\dist`、`node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-name-resolver-hoist-tree.json -j 2 --assert-io --dist web\dist`、`node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`node nodesrc\run_source_policy_regressions.js --warn-only`、`git diff --check`。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は今回由来の match decision tree / lexer report / name resolver contract が pass し、既存の static/resource/parser-backend/resource-gate/diagnostic-code-first 系 5 件だけを warning として報告した。
+
 # 2026-06-04 self-host parser token role classification checkpoint
 
 - `plan.md` は変更していない。

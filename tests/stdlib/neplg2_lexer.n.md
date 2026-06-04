@@ -5,7 +5,7 @@
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
 stdout: mlstr:
-    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
     ##: [0] ok
     ##: [1] ok
     ##: [2] ok
@@ -23,6 +23,8 @@ stdout: mlstr:
     ##: [14] ok
     ##: [15] ok
     ##: [16] ok
+    ##: [17] ok
+    ##: [18] ok
 ```neplg2
 #entry main
 #target std
@@ -546,7 +548,7 @@ fn main %impure fn void i32 \void:
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
 stdout: mlstr:
-    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
     ##: [0] ok
     ##: [1] ok
     ##: [2] ok
@@ -588,6 +590,8 @@ stdout: mlstr:
     ##: [38] ok
     ##: [39] ok
     ##: [40] ok
+    ##: [41] ok
+    ##: [42] ok
 ```neplg2
 #entry main
 #target std
@@ -783,6 +787,77 @@ fn main %impure fn void i32 \void:
             let checks10 check_token checks9 source &tokens 16 "Eof" ""
             free tokens
             let shown checks_print_report checks10
+            checks_exit_code shown
+        Result::Err diag:
+            let _msg %str field::get diag "message"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
+## lexes_declaration_keywords
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
+    ##: [13] ok
+    ##: [14] ok
+    ##: [15] ok
+    ##: [16] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "std/test" as *
+
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
+
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
+    let checks1 checks_push checks check_str_eq expected_kind kind_name
+    checks_push checks1 check_str_eq expected_lexeme lexeme
+
+fn main %impure fn void i32 \void:
+    let source %str "fn main\nstruct Item\nenum Choice\ntrait Show\nimpl .T\n"
+    let checks0 checks_new
+    match lex_all source:
+        Result::Ok tokens:
+            let checks1 checks_push checks0 check_eq_i32 17 len &tokens
+            let checks2 check_token checks1 source &tokens 0 "KwFn" "fn"
+            let checks3 check_token checks2 source &tokens 1 "Ident" "main"
+            let checks4 check_token checks3 source &tokens 3 "KwStruct" "struct"
+            let checks5 check_token checks4 source &tokens 6 "KwEnum" "enum"
+            let checks6 check_token checks5 source &tokens 9 "KwTrait" "trait"
+            let checks7 check_token checks6 source &tokens 12 "KwImpl" "impl"
+            let checks8 check_token checks7 source &tokens 13 "Dot" "."
+            let checks9 check_token checks8 source &tokens 16 "Eof" ""
+            free tokens
+            let shown checks_print_report checks9
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"

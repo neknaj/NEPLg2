@@ -9,6 +9,7 @@ const NAME_RESOLVER_SPLIT_FILES = [
     "stdlib/neplg2/core/resolve/name_resolver/kind.nepl",
     "stdlib/neplg2/core/resolve/name_resolver/binding.nepl",
     "stdlib/neplg2/core/resolve/name_resolver/scope.nepl",
+    "stdlib/neplg2/core/resolve/name_resolver/hoist.nepl",
     "stdlib/neplg2/core/resolve/name_resolver/stage0.nepl",
 ];
 

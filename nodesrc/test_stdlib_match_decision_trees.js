@@ -184,14 +184,14 @@ assertScalarKeyMatch({
     file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len5',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
-    literals: [30568, 28001, 25196, 21621, 28012, 26209],
+    literals: [30568, 28001, 25196, 21621, 28012, 29810, 26209],
 });
 
 assertScalarKeyMatch({
     file: 'stdlib/neplg2/core/syntax/lexer/keyword.nepl',
     name: 'lex_keyword_kind_len6',
     scrutinee: /\bmatch\s+lex_keyword_match_key\s+lexeme:/,
-    literals: [29556, 29810],
+    literals: [29556],
 });
 
 assertScalarKeyMatch({

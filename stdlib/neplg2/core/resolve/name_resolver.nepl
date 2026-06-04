@@ -155,4 +155,5 @@ pub #import "./name_resolver/id" as *
 pub #import "./name_resolver/kind" as *
 pub #import "./name_resolver/binding" as *
 pub #import "./name_resolver/scope" as *
+pub #import "./name_resolver/hoist" as *
 pub #import "./name_resolver/stage0" as *

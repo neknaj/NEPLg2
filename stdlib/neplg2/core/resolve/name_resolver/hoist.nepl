@@ -1,0 +1,101 @@
+#indent 4
+#import "alloc/string/slice" as string_slice
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "./binding" as *
+#import "./kind" as *
+#import "./scope" as *
+
+//: selfhost_def_kind_from_module_declaration_kind: module declaration kind を resolver の def kind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - parser が保持した declaration header evidence を、resolver の名前空間分類へ変換します。
+//: - `impl` は名前を束縛する宣言ではないため、初期 resolver scope には追加しません。
+pub fn selfhost_def_kind_from_module_declaration_kind %fn SelfhostModuleDeclarationKind Option SelfhostDefKind \kind:
+    match kind:
+        SelfhostModuleDeclarationKind::Function:
+            some SelfhostDefKind::Function
+        SelfhostModuleDeclarationKind::Struct:
+            some SelfhostDefKind::Struct
+        SelfhostModuleDeclarationKind::Enum:
+            some SelfhostDefKind::Enum
+        SelfhostModuleDeclarationKind::Trait:
+            some SelfhostDefKind::Trait
+        SelfhostModuleDeclarationKind::Impl:
+            none
+
+//: selfhost_name_binding_from_declaration_header: declaration header から名前 binding を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - name resolver は parser が残した typed head evidence を信頼し、header lexeme を再解析しません。
+//: - `Name` head の span だけを source から切り出して binding 名にします。
+//: - `TypeLabel` head や head 欠落は名前束縛ではないため `None` とします。
+pub fn selfhost_name_binding_from_declaration_header %fn str fn SelfhostModuleDeclarationHeader Option SelfhostNameBinding \source\header:
+    match selfhost_def_kind_from_module_declaration_kind header.kind:
+        Option::Some def_kind:
+            match header.head:
+                Option::Some head:
+                    match head.kind:
+                        SelfhostModuleDeclarationHeadKind::Name:
+                            let name %str string_slice::str_slice source head.span.start head.span.end
+                            some selfhost_name_binding_pending name def_kind head.span
+                        SelfhostModuleDeclarationHeadKind::TypeLabel:
+                            none
+                Option::None:
+                    none
+        Option::None:
+            none
+
+//: selfhost_name_scope_hoist_declaration_item: declaration item を scope へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - module item が名前付き declaration なら binding を追加します。
+//: - directive、raw backend body、doc comment、名前を束縛しない impl は scope をそのまま返します。
+fn selfhost_name_scope_hoist_declaration_item %impure fn str impure fn SelfhostNameScope impure fn SelfhostModuleItem Result SelfhostNameScope StdErrorKind \source\scope\item:
+    match item.declaration:
+        Option::Some header:
+            match selfhost_name_binding_from_declaration_header source header:
+                Option::Some binding:
+                    match selfhost_name_scope_add_binding scope binding:
+                        Result::Ok added:
+                            Result::Ok selfhost_name_scope_add_result_into_scope added
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Ok scope
+        Option::None:
+            Result::Ok scope
+
+fn selfhost_name_scope_hoist_module_declarations_loop %impure fn str impure fn &SelfhostModuleAst impure fn i32 impure fn i32 impure fn SelfhostNameScope Result SelfhostNameScope StdErrorKind \source\ast\n\idx\scope:
+    if:
+        ge idx n
+        then:
+            Result::Ok scope
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_name_scope_hoist_declaration_item source scope item:
+                        Result::Ok next_scope:
+                            selfhost_name_scope_hoist_module_declarations_loop source ast n add idx 1 next_scope
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+//: selfhost_name_scope_hoist_module_declarations: module AST から top-level 名前 scope を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - parser が作った `SelfhostModuleAst` を resolver の `SelfhostNameScope` へ接続します。
+//: - function / struct / enum / trait の `Name` head は、出現順の `SelfhostDefId` として scope へ追加します。
+//: - `impl` は名前束縛ではないため、scope へ追加しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - module item 数を n とすると、[時間/じかん] O(n)、[空間/くうかん] O(d) です。d は名前付き declaration 数です。
+pub fn selfhost_name_scope_hoist_module_declarations %impure fn str impure fn &SelfhostModuleAst Result SelfhostNameScope StdErrorKind \source\ast:
+    match selfhost_name_scope_new:
+        Result::Ok scope:
+            selfhost_name_scope_hoist_module_declarations_loop source ast selfhost_module_ast_len ast 0 scope
+        Result::Err e:
+            Result::Err e

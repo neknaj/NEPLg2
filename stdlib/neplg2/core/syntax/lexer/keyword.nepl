@@ -117,6 +117,8 @@ pub fn lex_keyword_kind_len5 %fn str Option TokenKind \lexeme:
             lex_keyword_kind_if_eq lexeme "Tuple" TokenKind::KwTuple
         28012:
             lex_keyword_kind_if_eq lexeme "mlstr" TokenKind::KwMlstr
+        29810:
+            lex_keyword_kind_if_eq lexeme "trait" TokenKind::KwTrait
         26209:
             lex_keyword_kind_if_eq lexeme "false" TokenKind::BoolLiteral
         _:
@@ -126,13 +128,11 @@ pub fn lex_keyword_kind_len5 %fn str Option TokenKind \lexeme:
 //:
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 6 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
-//: - `struct` / `trait` は token kind が異なるため、key arm 単位で実文字列を検証します。
+//: - `struct` のような長さ 6 の keyword を key arm 単位で実文字列検証します。
 pub fn lex_keyword_kind_len6 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         29556:
             lex_keyword_kind_if_eq lexeme "struct" TokenKind::KwStruct
-        29810:
-            lex_keyword_kind_if_eq lexeme "trait" TokenKind::KwTrait
         _:
             Option::None
 

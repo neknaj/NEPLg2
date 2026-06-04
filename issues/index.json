@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T14:28:43.668Z",
+  "generated_at": "2026-06-04T14:55:18.539Z",
   "counts": {
-    "total": 1340,
+    "total": 1341,
     "open": 53,
-    "resolved": 1287,
+    "resolved": 1288,
     "by_area": {
       "stdlib": {
         "total": 349,
@@ -22,9 +22,9 @@
         "resolved": 17
       },
       "selfhost": {
-        "total": 117,
+        "total": 118,
         "open": 4,
-        "resolved": 113
+        "resolved": 114
       },
       "neplg21": {
         "total": 2,
@@ -18968,6 +18968,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034256890Z-SELFHOST-PARSER-TOKEN-ROLE-CLASSIFIC-913AF123.md"
+    },
+    {
+      "id": "ISS-20260604T143452595Z-SELFHOST-NAME-RESOLVER-DECLARATION-HOIST-05BB431F",
+      "title": "selfhost name resolver should hoist declarations from module AST",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-04",
+      "target": "stdlib/neplg2/core/resolve/name_resolver/hoist.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl, stdlib/neplg2/core/syntax/lexer/keyword.nepl, nodesrc/test_selfhost_name_resolver_declaration_hoist.js, tests/stdlib/neplg2_name_resolver.n.md, tests/stdlib/neplg2_lexer.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T143452595Z-SELFHOST-NAME-RESOLVER-DECLARATION-HOIST-05BB431F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",
