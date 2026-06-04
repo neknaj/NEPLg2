@@ -1,0 +1,167 @@
+#indent 4
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostTypePrefixItemKind: type prefix list 内の token [分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - token kind をそのまま後段へ渡さず、type resolver に必要な役割だけを enum payload として固定します。
+//: - `VoidMarker` は `unit` と違い通常型名ではないため、別 variant として保持します。
+pub enum SelfhostTypePrefixItemKind:
+    FunctionMarker
+    VoidMarker
+    NamedType
+    PathSeparator
+    BorrowMarker
+    PointerMarker
+    DotMarker
+
+impl Clone for SelfhostTypePrefixItemKind:
+    fn clone %fn &SelfhostTypePrefixItemKind SelfhostTypePrefixItemKind \self:
+        *self
+
+impl Copy for SelfhostTypePrefixItemKind:
+    fn copy_mark %fn SelfhostTypePrefixItemKind SelfhostTypePrefixItemKind \self:
+        self
+
+//: SelfhostTypePrefixItem: type prefix item の token-derived payload
+//:
+//: [目的/もくてき]:
+//: - resolver が source span と token 位置を失わずに diagnostic を返せるよう、分類済み kind、token index、元 token span を保持します。
+pub struct SelfhostTypePrefixItem:
+    kind %SelfhostTypePrefixItemKind
+    token_index %i32
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTypePrefixItem:
+    fn clone %fn &SelfhostTypePrefixItem SelfhostTypePrefixItem \self:
+        *self
+
+impl Copy for SelfhostTypePrefixItem:
+    fn copy_mark %fn SelfhostTypePrefixItem SelfhostTypePrefixItem \self:
+        self
+
+//: SelfhostTypePrefixBuildErrorKind: prefix list 生成の失敗分類
+pub enum SelfhostTypePrefixBuildErrorKind:
+    EmptySyntaxRange
+    InvalidSyntaxRange
+    TokenOutOfBounds
+    MissingAnnotationMarker
+    InvalidToken
+    OutOfMemory
+
+impl Clone for SelfhostTypePrefixBuildErrorKind:
+    fn clone %fn &SelfhostTypePrefixBuildErrorKind SelfhostTypePrefixBuildErrorKind \self:
+        *self
+
+impl Copy for SelfhostTypePrefixBuildErrorKind:
+    fn copy_mark %fn SelfhostTypePrefixBuildErrorKind SelfhostTypePrefixBuildErrorKind \self:
+        self
+
+//: SelfhostTypePrefixBuildError: prefix list 生成失敗の typed diagnostic payload
+pub struct SelfhostTypePrefixBuildError:
+    kind %SelfhostTypePrefixBuildErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTypePrefixBuildError:
+    fn clone %fn &SelfhostTypePrefixBuildError SelfhostTypePrefixBuildError \self:
+        *self
+
+impl Copy for SelfhostTypePrefixBuildError:
+    fn copy_mark %fn SelfhostTypePrefixBuildError SelfhostTypePrefixBuildError \self:
+        self
+
+//: selfhost_type_prefix_item_kind_eq: item kind が同じ分類か[返/かえ]す
+pub fn selfhost_type_prefix_item_kind_eq %fn SelfhostTypePrefixItemKind fn SelfhostTypePrefixItemKind bool \a\b:
+    match a:
+        SelfhostTypePrefixItemKind::FunctionMarker:
+            match b:
+                SelfhostTypePrefixItemKind::FunctionMarker:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixItemKind::VoidMarker:
+            match b:
+                SelfhostTypePrefixItemKind::VoidMarker:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixItemKind::NamedType:
+            match b:
+                SelfhostTypePrefixItemKind::NamedType:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixItemKind::PathSeparator:
+            match b:
+                SelfhostTypePrefixItemKind::PathSeparator:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixItemKind::BorrowMarker:
+            match b:
+                SelfhostTypePrefixItemKind::BorrowMarker:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixItemKind::PointerMarker:
+            match b:
+                SelfhostTypePrefixItemKind::PointerMarker:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixItemKind::DotMarker:
+            match b:
+                SelfhostTypePrefixItemKind::DotMarker:
+                    true
+                _:
+                    false
+
+//: selfhost_type_prefix_build_error_kind_eq: build error kind が同じ分類か[返/かえ]す
+pub fn selfhost_type_prefix_build_error_kind_eq %fn SelfhostTypePrefixBuildErrorKind fn SelfhostTypePrefixBuildErrorKind bool \a\b:
+    match a:
+        SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange:
+            match b:
+                SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange:
+            match b:
+                SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds:
+            match b:
+                SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker:
+            match b:
+                SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixBuildErrorKind::InvalidToken:
+            match b:
+                SelfhostTypePrefixBuildErrorKind::InvalidToken:
+                    true
+                _:
+                    false
+        SelfhostTypePrefixBuildErrorKind::OutOfMemory:
+            match b:
+                SelfhostTypePrefixBuildErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+
+//: selfhost_type_prefix_item_new: prefix item payload を[作/つく]る
+pub fn selfhost_type_prefix_item_new %fn SelfhostTypePrefixItemKind fn i32 fn SelfhostSourceSpan SelfhostTypePrefixItem \kind\token_index\span:
+    SelfhostTypePrefixItem kind token_index span
+
+//: selfhost_type_prefix_build_error_new: build error payload を[作/つく]る
+pub fn selfhost_type_prefix_build_error_new %fn SelfhostTypePrefixBuildErrorKind fn SelfhostSourceSpan SelfhostTypePrefixBuildError \kind\span:
+    SelfhostTypePrefixBuildError kind span

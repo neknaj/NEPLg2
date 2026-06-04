@@ -1,0 +1,140 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "./model" as *
+
+//: SelfhostTypePrefixList: resolver 入力の flat type item buffer
+//:
+//: [目的/もくてき]:
+//: - `%fn i32 fn i32 i32` のような表層型式を、`%` を除いた prefix order の item list として保持します。
+//: - list は所有 buffer なので、caller は使用後に `selfhost_type_prefix_list_free` を呼びます。
+pub struct SelfhostTypePrefixList:
+    items %Vec SelfhostTypePrefixItem
+
+//: selfhost_type_prefix_item_kind_from_token: token kind を type prefix item kind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - 型式として許す token だけを `Some` にし、式 token や header terminator が混入した場合は build error にします。
+//: - `unit` は lexer 上 `UnitLiteral` ですが、type prefix list では通常の named type として扱います。
+pub fn selfhost_type_prefix_item_kind_from_token %fn TokenKind Option SelfhostTypePrefixItemKind \kind:
+    match kind:
+        TokenKind::KwFn:
+            some SelfhostTypePrefixItemKind::FunctionMarker
+        TokenKind::VoidMarker:
+            some SelfhostTypePrefixItemKind::VoidMarker
+        TokenKind::Ident:
+            some SelfhostTypePrefixItemKind::NamedType
+        TokenKind::UnitLiteral:
+            some SelfhostTypePrefixItemKind::NamedType
+        TokenKind::KwTuple:
+            some SelfhostTypePrefixItemKind::NamedType
+        TokenKind::PathSep:
+            some SelfhostTypePrefixItemKind::PathSeparator
+        TokenKind::Ampersand:
+            some SelfhostTypePrefixItemKind::BorrowMarker
+        TokenKind::Star:
+            some SelfhostTypePrefixItemKind::PointerMarker
+        TokenKind::Dot:
+            some SelfhostTypePrefixItemKind::DotMarker
+        _:
+            none
+
+//: selfhost_type_prefix_item_from_token: token から prefix item を[作/つく]る
+pub fn selfhost_type_prefix_item_from_token %fn SelfhostToken fn i32 Option SelfhostTypePrefixItem \token\token_index:
+    match selfhost_type_prefix_item_kind_from_token token.kind:
+        Option::Some kind:
+            some selfhost_type_prefix_item_new kind token_index token.span
+        Option::None:
+            none
+
+//: selfhost_type_prefix_list_len: prefix item 数を[返/かえ]す
+pub fn selfhost_type_prefix_list_len %fn &SelfhostTypePrefixList i32 \list:
+    let items %&Vec SelfhostTypePrefixItem field::get_ref list "items"
+    v::len items
+
+//: selfhost_type_prefix_list_get: prefix item を index で[返/かえ]す
+pub fn selfhost_type_prefix_list_get %fn &SelfhostTypePrefixList fn i32 Option SelfhostTypePrefixItem \list\idx:
+    let items %&Vec SelfhostTypePrefixItem field::get_ref list "items"
+    v::get items idx
+
+//: selfhost_type_prefix_list_free: prefix item buffer を[解放/かいほう]する
+pub fn selfhost_type_prefix_list_free %impure fn SelfhostTypePrefixList unit \list:
+    v::free field::get list "items"
+
+fn selfhost_type_prefix_list_from_range_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn Vec SelfhostTypePrefixItem Result Vec SelfhostTypePrefixItem SelfhostTypePrefixBuildError \tokens\idx\end\out:
+    if:
+        ge idx end
+        then:
+            Result::Ok out
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match selfhost_type_prefix_item_from_token token idx:
+                        Option::Some item:
+                            match v::push out item:
+                                Result::Ok next_out:
+                                    selfhost_type_prefix_list_from_range_loop tokens add idx 1 end next_out
+                                Result::Err e:
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::OutOfMemory token.span
+                        Option::None:
+                            v::free out
+                            Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::InvalidToken token.span
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds source_span_empty_unchecked 0 0
+
+fn selfhost_type_prefix_first_token_is_percent %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
+    match v::get tokens idx:
+        Option::Some token:
+            match token.kind:
+                TokenKind::Percent:
+                    true
+                _:
+                    false
+        Option::None:
+            false
+
+//: selfhost_type_prefix_list_from_syntax_range: parser の syntax range から type prefix list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - declaration header に保存された `%` type annotation range を resolver 入力へ変換します。
+//: - range payload と token table 境界を先に検査し、失敗時には所有中の buffer を解放して typed error を返します。
+pub fn selfhost_type_prefix_list_from_syntax_range %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result SelfhostTypePrefixList SelfhostTypePrefixBuildError \tokens\syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            if:
+                not selfhost_syntax_range_is_valid syntax_range
+                then:
+                    Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange range.span
+                else:
+                    let token_len %i32 v::len tokens
+                    if:
+                        or gt range.first_token token_len gt range.token_count sub token_len range.first_token
+                        then:
+                            Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds range.span
+                        else:
+                            if:
+                                not selfhost_type_prefix_first_token_is_percent tokens range.first_token
+                                then:
+                                    Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker range.span
+                                else:
+                                    let items_result %Result Vec SelfhostTypePrefixItem StdErrorKind v::new
+                                    match items_result:
+                                        Result::Ok items:
+                                            match selfhost_type_prefix_list_from_range_loop tokens add range.first_token 1 add range.first_token range.token_count items:
+                                                Result::Ok built_items:
+                                                    Result::Ok SelfhostTypePrefixList built_items
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err _e:
+                                            Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::OutOfMemory range.span

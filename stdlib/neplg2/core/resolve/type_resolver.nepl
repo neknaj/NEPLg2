@@ -1,0 +1,25 @@
+#indent 4
+
+//: # type_resolver
+//: NEPLg2.1 self-host compiler の type prefix resolver [入口/いりぐち]
+//:
+//: [目的/もくてき]:
+//: - parser が保持した `%` type annotation range を、kind-directed type application reduction の入力へ変換します。
+//: - この facade は公開 API の入口だけを re-export し、実装は `type_resolver/*` に分けます。
+//:
+//: [注意/ちゅうい]:
+//: - この stage はまだ `TypeId` を生成しません。flat prefix item を作り、後続 issue で kind / arity に基づく縮約を追加します。
+//: - `void` は 0 引数 function marker として扱い、type arena の primitive には追加しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/resolve/type_resolver" as *
+//: fn main %impure fn void i32 \void:
+//:     selfhost_type_resolver_stage0
+//: ```
+
+pub #import "./type_resolver/model" as *
+pub #import "./type_resolver/input" as *
+pub #import "./type_resolver/stage0" as *

@@ -1,0 +1,51 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "./input" as *
+#import "./model" as *
+
+fn selfhost_type_resolver_stage0_item_kind %fn &SelfhostTypePrefixList fn i32 fn SelfhostTypePrefixItemKind bool \list\idx\expected:
+    match selfhost_type_prefix_list_get list idx:
+        Option::Some item:
+            selfhost_type_prefix_item_kind_eq item.kind expected
+        Option::None:
+            false
+
+fn selfhost_type_resolver_stage0_header_type_range %impure fn str Result SelfhostSyntaxRange unit \source:
+    match lex_all source:
+        Result::Ok tokens:
+            let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+            v::free tokens
+            Result::Ok range
+        Result::Err _diag:
+            Result::Err unit
+
+//: selfhost_type_resolver_stage0: type prefix resolver input の smoke API
+//:
+//: [目的/もくてき]:
+//: - `%fn void i32` から `%` を除いた flat item list を作り、`void` が named type ではなく marker として分類されることを確認します。
+pub fn selfhost_type_resolver_stage0 %impure fn void i32 \void:
+    let source %str "fn main %fn void i32 \\void:\n    0\n"
+    match lex_all source:
+        Result::Ok tokens:
+            let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+            match selfhost_type_prefix_list_from_syntax_range &tokens range:
+                Result::Ok list:
+                    let ok_len %bool eq selfhost_type_prefix_list_len &list 3
+                    let ok_fn %bool selfhost_type_resolver_stage0_item_kind &list 0 SelfhostTypePrefixItemKind::FunctionMarker
+                    let ok_void %bool selfhost_type_resolver_stage0_item_kind &list 1 SelfhostTypePrefixItemKind::VoidMarker
+                    let ok_i32 %bool selfhost_type_resolver_stage0_item_kind &list 2 SelfhostTypePrefixItemKind::NamedType
+                    selfhost_type_prefix_list_free list
+                    v::free tokens
+                    if and ok_len and ok_fn and ok_void ok_i32 0 1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _diag:
+            1

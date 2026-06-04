@@ -41,7 +41,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 
 - 2026-06-05: `SelfhostSyntaxRange` を追加し、module declaration header が `%` type annotation range と lambda header range を typed evidence として保持するようにした。`module_parser/prefix_range.nepl` は token stream 上の flat range だけを切り、型木・式木・call boundary は parser では確定しない。
 - 2026-06-05: module checker / proof solver は function 宣言で type annotation range と lambda header range が nonempty かつ header span 内にあることを検査するようにした。非 function 宣言では lambda/type range を受け付けない。
-- 残件: full prefix expression/type AST、kind-directed type application resolver、expected type / overload / generic / no partial application を含む call reduction は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `resolve/type_resolver` を追加し、parser の `%` annotation range から `%` marker を除いた flat type prefix item list を作る resolver input 境界を実装した。`void` は専用 marker item、`unit` は通常の named type item として分類し、まだ `TypeId` は生成しない。
+- 残件: prefix expression AST、kind / arity に基づく type application reduction、TypeId allocation、expected type / overload / generic / no partial application を含む call reduction は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -60,3 +61,11 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/run_source_policy_regressions.js --warn-only`（既存 5 warning のみ）
 - `node nodesrc/issues.js check --dir issues`
 - `git diff --check`
+
+2026-06-05 type resolver input checkpoint:
+
+- `node nodesrc/test_selfhost_type_resolver_split_contract.js`
+- `node nodesrc/test_selfhost_type_resolver_prefix_input.js`
+- `node nodesrc/test_selfhost_ty_split_contract.js`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_resolver.n.md -o tmp\selfhost-type-resolver-tests2.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i stdlib\neplg2\core\resolve\type_resolver.nepl -o tmp\selfhost-type-resolver-facade-tests3.json --no-tree -j 1 --assert-io --dist web\dist`

@@ -50521,3 +50521,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_selfhost_proof_entry_contract.js` は NEPLg2.0 の `<Type>` 形を監視していたため、現行 NEPLg2.1 の `%Type` 形へ更新した。proof model 自体は変更せず、policy test の構文前提だけを正した。
 - issue `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` は checkpoint を追記したが、full prefix expression/type AST、kind-directed type application resolver、expected type / overload / generic / no partial application を含む call reduction が未実装のため open のまま維持する。
 - focused verification は parser/checker/proof の source policy、parser/proof/checker doctest、`stdlib/neplg2` 全体 49/49、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は既存 5 warning のみで、今回触った selfhost parser/checker/proof 系は通過した。
+
+## 2026-06-05 Agent selfhost type resolver input checkpoint
+
+- `selfhost/type-prefix-range-items-20260605` branch で、self-host compiler Phase 5 の type resolver input boundary を進めた。`plan.md` は確認のみで変更していない。
+- Subagent review に従い、`ty` 配下ではなく `stdlib/neplg2/core/resolve/type_resolver` に facade と split files を追加した。`ty` は arena/type model の責務に留めた。
+- parser が保持する `%` type annotation `SelfhostSyntaxRange` から、`%` marker を除いた flat `SelfhostTypePrefixList` を構築するようにした。この段階では `TypeId` allocation や kind-directed reduction は行わない。
+- `void` は `SelfhostTypePrefixItemKind::VoidMarker`、`unit` は `NamedType` として分類し、0 引数 function marker と unit 型を resolver input で混同しないようにした。
+- 残件は kind / arity に基づく type application reduction、function type normalization、TypeId allocation、prefix expression AST、call reduction である。issue `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` は引き続き open。
+- focused verification は type resolver split / prefix input policy、既存 ty split policy、type resolver doctest、facade smoke doctest を通した。
