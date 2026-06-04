@@ -37,15 +37,28 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{OwnerExtentSummary, OwnerReturnSummary, OwnerReturnSummaryIndex};
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_owner_return_summaries_with_recomputations(
     module: &ResourceModule,
     types: &TypeCtx,
+    dependency_graph: Option<&ResourceSummaryDependencyGraph>,
 ) -> (Vec<OwnerReturnSummary>, usize) {
-    let relevant_functions = owner_summary_relevant_functions(module, types);
-    let mut worklist = SummaryWorklist::new_filtered(module, relevant_functions.clone());
+    let owned_dependency_graph;
+    let dependency_graph = if let Some(dependency_graph) = dependency_graph {
+        dependency_graph
+    } else {
+        owned_dependency_graph = ResourceSummaryDependencyGraph::build(module);
+        &owned_dependency_graph
+    };
+    let relevant_functions = owner_summary_relevant_functions(module, types, &dependency_graph);
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+        module,
+        relevant_functions.clone(),
+        dependency_graph,
+    );
     let mut summaries = Vec::new();
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {

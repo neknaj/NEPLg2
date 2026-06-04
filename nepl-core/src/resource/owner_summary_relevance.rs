@@ -2,8 +2,9 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use super::model::{EffectOp, Place, ResourceFunction, ResourceModule, ResourceOp};
+use super::model::{Place, ResourceFunction, ResourceModule};
 use super::owner_summary_leaf::owner_leaf_places;
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 use crate::types::TypeCtx;
 
 /// Owner return summary の固定点計算に入れる関数を保守的に絞る。
@@ -17,20 +18,26 @@ use crate::types::TypeCtx;
 pub(super) fn owner_summary_relevant_functions(
     module: &ResourceModule,
     types: &TypeCtx,
+    dependency_graph: &ResourceSummaryDependencyGraph,
 ) -> Vec<bool> {
     module
         .functions
         .iter()
-        .map(|function| owner_summary_relevant_function(types, function))
+        .enumerate()
+        .map(|(function_index, function)| {
+            owner_summary_relevant_function(types, function, dependency_graph, function_index)
+        })
         .collect()
 }
 
-fn owner_summary_relevant_function(types: &TypeCtx, function: &ResourceFunction) -> bool {
+fn owner_summary_relevant_function(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    dependency_graph: &ResourceSummaryDependencyGraph,
+    function_index: usize,
+) -> bool {
     function_signature_carries_owner_summary_facts(types, function)
-        || function
-            .blocks
-            .iter()
-            .any(|block| ops_directly_affect_owner_summary(&block.ops))
+        || dependency_graph.has_direct_owner_summary_op(function_index)
 }
 
 fn function_signature_carries_owner_summary_facts(
@@ -46,53 +53,6 @@ fn function_signature_carries_owner_summary_facts(
 
 fn place_type_has_owner_leaf(types: &TypeCtx, place: &Place) -> bool {
     !owner_leaf_places(types, place).is_empty()
-}
-
-fn ops_directly_affect_owner_summary(ops: &[ResourceOp]) -> bool {
-    ops.iter().any(op_directly_affects_owner_summary)
-}
-
-fn op_directly_affects_owner_summary(op: &ResourceOp) -> bool {
-    match op {
-        ResourceOp::RawMemory { .. }
-        | ResourceOp::RawAddressAlias { .. }
-        | ResourceOp::RawAddressView { .. }
-        | ResourceOp::StorageOrigin { .. }
-        | ResourceOp::IndirectCall { .. } => true,
-        ResourceOp::Call { effect, .. } => !matches!(effect, EffectOp::Pure),
-        ResourceOp::Branch {
-            then_ops, else_ops, ..
-        } => {
-            ops_directly_affect_owner_summary(then_ops)
-                || ops_directly_affect_owner_summary(else_ops)
-        }
-        ResourceOp::Loop {
-            condition_ops,
-            body_ops,
-            ..
-        } => {
-            ops_directly_affect_owner_summary(condition_ops)
-                || ops_directly_affect_owner_summary(body_ops)
-        }
-        ResourceOp::Match { arms, .. } => arms
-            .iter()
-            .any(|arm| ops_directly_affect_owner_summary(&arm.ops)),
-        ResourceOp::Expr { .. }
-        | ResourceOp::DeclareLocal { .. }
-        | ResourceOp::Read { .. }
-        | ResourceOp::Assign { .. }
-        | ResourceOp::Borrow { .. }
-        | ResourceOp::Move { .. }
-        | ResourceOp::Drop { .. }
-        | ResourceOp::EndScope { .. }
-        | ResourceOp::CallEffect { .. }
-        | ResourceOp::FunctionValue { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. }
-        | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. }
-        | ResourceOp::CollectionSlotTransformRange { .. }
-        | ResourceOp::Construct { .. } => false,
-    }
 }
 
 #[cfg(test)]

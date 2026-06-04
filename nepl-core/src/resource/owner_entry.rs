@@ -174,7 +174,11 @@ fn check_resource_owner_obligations_inner(
     }
 
     let (summaries, owner_summary_recomputations) =
-        compute_owner_return_summaries_with_recomputations(module, types);
+        compute_owner_return_summaries_with_recomputations(
+            module,
+            types,
+            dependency_graph.as_ref(),
+        );
     if let Some(cache) = summary_value_cache.as_deref_mut() {
         cache.record_owner_return_summary_stage(owner_summary_recomputations, summaries.len());
     }

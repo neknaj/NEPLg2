@@ -32,6 +32,7 @@ pub(super) struct ResourceSummaryDependencyGraph {
     raw_init_dependents: Vec<Vec<usize>>,
     raw_init_initial_order: Vec<usize>,
     direct_raw_initialization_summary_ops: Vec<bool>,
+    direct_owner_summary_ops: Vec<bool>,
 }
 
 #[derive(Default)]
@@ -41,6 +42,7 @@ struct ResourceFunctionOpInventory {
     function_value_candidate_names: BTreeSet<String>,
     has_indirect_call: bool,
     has_direct_raw_initialization_summary_op: bool,
+    has_direct_owner_summary_op: bool,
 }
 
 impl ResourceSummaryDependencyGraph {
@@ -88,6 +90,10 @@ impl ResourceSummaryDependencyGraph {
             .iter()
             .map(|inventory| inventory.has_direct_raw_initialization_summary_op)
             .collect();
+        let direct_owner_summary_ops = inventories
+            .iter()
+            .map(|inventory| inventory.has_direct_owner_summary_op)
+            .collect();
         Self {
             dependencies,
             dependents,
@@ -102,6 +108,7 @@ impl ResourceSummaryDependencyGraph {
             raw_init_dependents,
             raw_init_initial_order,
             direct_raw_initialization_summary_ops,
+            direct_owner_summary_ops,
         }
     }
 
@@ -190,6 +197,19 @@ impl ResourceSummaryDependencyGraph {
     /// graph に保持し、summary kind ごとの再走査を避ける。
     pub(super) fn has_direct_raw_initialization_summary_op(&self, function_index: usize) -> bool {
         self.direct_raw_initialization_summary_ops
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// 関数内に owner return summary の起点になる operation があるかを返す。
+    ///
+    /// owner summary relevance は公開 signature の owner leaf と、raw memory /
+    /// raw address / storage origin / indirect call / non-pure call のような直接の
+    /// owner proof 起点から決まる。依存辺構築時に同じ op tree を既に走査しているため、
+    /// op 由来の relevance を graph に保持して、owner summary stage での再走査を避ける。
+    pub(super) fn has_direct_owner_summary_op(&self, function_index: usize) -> bool {
+        self.direct_owner_summary_ops
             .get(function_index)
             .copied()
             .unwrap_or(false)
@@ -342,6 +362,14 @@ fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInven
             if direct_call_reads_i32_scalar_summary(effect) {
                 inventory.direct_call_dependency_names.insert(name.clone());
             }
+            if call_directly_affects_owner_summary(effect) {
+                inventory.has_direct_owner_summary_op = true;
+            }
+        }
+        ResourceOp::Call { effect, .. } => {
+            if call_directly_affects_owner_summary(effect) {
+                inventory.has_direct_owner_summary_op = true;
+            }
         }
         ResourceOp::FunctionValue { identity, .. } => {
             let symbol = identity.symbol().to_string();
@@ -351,12 +379,16 @@ fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInven
         ResourceOp::IndirectCall { .. } => {
             inventory.has_indirect_call = true;
             inventory.has_direct_raw_initialization_summary_op = true;
+            inventory.has_direct_owner_summary_op = true;
         }
         ResourceOp::RawMemory { .. }
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
-        | ResourceOp::StorageOrigin { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::StorageOrigin { .. } => {
+            inventory.has_direct_raw_initialization_summary_op = true;
+            inventory.has_direct_owner_summary_op = true;
+        }
+        ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::CollectionSlotDropTraversal { .. }
         | ResourceOp::CollectionSlotTransformRange { .. } => {
@@ -381,8 +413,7 @@ fn collect_op_inventory(op: &ResourceOp, inventory: &mut ResourceFunctionOpInven
                 collect_ops_op_inventory(&arm.ops, inventory);
             }
         }
-        ResourceOp::Call { .. }
-        | ResourceOp::Expr { .. }
+        ResourceOp::Expr { .. }
         | ResourceOp::DeclareLocal { .. }
         | ResourceOp::Read { .. }
         | ResourceOp::Assign { .. }
@@ -403,6 +434,10 @@ fn direct_call_reads_i32_scalar_summary(effect: &EffectOp) -> bool {
         effect,
         EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
     )
+}
+
+fn call_directly_affects_owner_summary(effect: &EffectOp) -> bool {
+    !matches!(effect, EffectOp::Pure)
 }
 
 #[cfg(test)]
