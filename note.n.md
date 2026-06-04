@@ -50349,3 +50349,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 関数別 i32 timing では `sb_append_non_empty_result=213ms`、`byte_builder_push_bytes_ref=94ms`、`byte_builder_push_u8=77ms`、`apply_op=33ms`、`byte_builder_reserve=31ms`。直前観測では `sb_append_non_empty_result` が約 `250ms`、`byte_builder_push_bytes_ref` が約 `113ms`、`byte_builder_push_u8` が約 `91ms` だったため、重い関数単位では約 15-20% の削減が見える。
 - stage 全体は実行ノイズと raw-init / final initialized check の支配が大きく、0.5 秒未満にはまだ遠い。次の root target は `release_requirements` 専用 state step、variant param collector の軽量 state step、`resource_initialized_function_checks` の op footprint replay 削減である。
 - verification は `cargo check -p nepl-core`、`cargo test -p nepl-core i32_scalar_return_facts --lib -- --nocapture`、`cargo build -p nepl-cli --release`、`cargo test -p nepl-core --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+
+## 2026-06-04 Agent RPN branch condition pruning checkpoint
+
+- `perf/rpn-resource-replay-footprint-20260604g` branch で、cache ではなく final initialized check の分岐探索範囲を削った。`plan.md` は変更していない。
+- subagent review では、型検査は両腕を既に検査しており、initialized check 側では `match_arm_reachable` が到達不能 arm を既に skip しているため、Branch でも `RawCellAddressAliases` が `Some(true)` / `Some(false)` と証明できる腕だけ枝刈りする方針は妥当と確認した。`None` は従来通り両腕検査に残す。
+- `condition_fact_truth` を追加し、simple i32 condition、i32 relation、`All` / `Any` を三値論理で評価するようにした。`All` はどれか false なら false、全部 true なら true、それ以外 unknown。`Any` はどれか true なら true、全部 false なら false、それ以外 unknown である。
+- `check_branch` は条件値の `consume_by_value` を従来通り実行し、condition fact を各 path へ適用する前の alias state だけで到達性を判定する。到達不能腕は `check_ops` と branch value transfer の両方を skip し、到達可能腕は従来の path alternative merge へ渡す。
+- 回帰テストとして、静的に false の condition fact で then 側の未初期化 move が診断されないこと、同じ条件で reachable な else 側の未初期化 move は診断されることを `resource_ir` に追加した。
+- RPN release CLI / cache disabled stage timing 5 run は `execute_inner=3459ms / 3356ms / 3572ms / 3299ms / 3478ms`、`resource_static_check=2911ms / 2840ms / 3046ms / 2800ms / 2958ms`、`resource_initialized_function_checks=847ms / 832ms / 930ms / 831ms / 870ms` だった。直前の同条件では function checks が概ね 0.95s 前後だったため、Branch の到達不能腕枝刈りは final check の探索量を削れている。
+- ただし cold base はまだ 0.5 秒未満に遠い。今回の測定でも `resource_initialized_i32_scalar_summaries` が約 `621-674ms`、`resource_initialized_raw_init_summaries` が約 `602-670ms`、`resource_owner_obligations` が約 `551-628ms` 残る。次の root target は raw-init release / variant summary の軽量 state step、i32 scalar return fact の index 化、owner summary の探索範囲縮小である。

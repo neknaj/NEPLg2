@@ -14,7 +14,7 @@ use super::collection_slot_summary_build_range_step_expr::{
 };
 use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
 use super::collection_slot_summary_target::instantiate_summary_target_with_aliases;
-use super::condition_fact::record_condition_fact_value_constraints;
+use super::condition_fact::{condition_fact_truth, record_condition_fact_value_constraints};
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -67,6 +67,10 @@ impl ResourceCheckEngine<'_> {
             span,
         );
         cells.discard_raw_cell_loaded_value_origin(condition);
+        let condition_truth =
+            condition_fact.and_then(|fact| condition_fact_truth(raw_aliases, fact));
+        let then_reachable = condition_truth != Some(false);
+        let else_reachable = condition_truth != Some(true);
         let mut then_cells = cells.clone();
         let mut else_cells = cells.clone();
         let mut then_collection_slots = collection_slots.clone();
@@ -87,6 +91,21 @@ impl ResourceCheckEngine<'_> {
             condition_fact,
             true,
         );
+        let then_path_alternatives = if then_reachable {
+            self.check_ops(
+                &mut then_cells,
+                &mut then_collection_slots,
+                &mut then_aliases,
+                &mut then_function_aliases,
+                &mut then_pending_reallocs,
+                &mut then_variant_initializations,
+                then_ops,
+                then_path,
+            );
+            core::mem::take(&mut self.path_alternatives)
+        } else {
+            ResourcePathAlternatives::default()
+        };
         self.apply_branch_condition_fact(
             &mut else_cells,
             &mut else_aliases,
@@ -94,32 +113,25 @@ impl ResourceCheckEngine<'_> {
             condition_fact,
             false,
         );
-        self.check_ops(
-            &mut then_cells,
-            &mut then_collection_slots,
-            &mut then_aliases,
-            &mut then_function_aliases,
-            &mut then_pending_reallocs,
-            &mut then_variant_initializations,
-            then_ops,
-            then_path,
-        );
-        let then_path_alternatives = core::mem::take(&mut self.path_alternatives);
-        self.check_ops(
-            &mut else_cells,
-            &mut else_collection_slots,
-            &mut else_aliases,
-            &mut else_function_aliases,
-            &mut else_pending_reallocs,
-            &mut else_variant_initializations,
-            else_ops,
-            else_path,
-        );
-        let else_path_alternatives = core::mem::take(&mut self.path_alternatives);
+        let else_path_alternatives = if else_reachable {
+            self.check_ops(
+                &mut else_cells,
+                &mut else_collection_slots,
+                &mut else_aliases,
+                &mut else_function_aliases,
+                &mut else_pending_reallocs,
+                &mut else_variant_initializations,
+                else_ops,
+                else_path,
+            );
+            core::mem::take(&mut self.path_alternatives)
+        } else {
+            ResourcePathAlternatives::default()
+        };
 
         let mut branch_paths = Vec::new();
         let mut paths_available = condition_available;
-        if !self.place_is_never(then_value) {
+        if then_reachable && !self.place_is_never(then_value) {
             let then_states = path_alternatives_or_single(
                 then_path_alternatives,
                 then_cells,
@@ -138,7 +150,7 @@ impl ResourceCheckEngine<'_> {
                 &mut paths_available,
             ));
         }
-        if !self.place_is_never(else_value) {
+        if else_reachable && !self.place_is_never(else_value) {
             let else_states = path_alternatives_or_single(
                 else_path_alternatives,
                 else_cells,

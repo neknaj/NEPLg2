@@ -34,6 +34,66 @@ pub(super) fn record_condition_fact_value_constraints(
     }
 }
 
+pub(super) fn condition_fact_truth(
+    raw_aliases: &RawCellAddressAliases,
+    fact: &ResourceConditionFact,
+) -> Option<bool> {
+    if let Some((place, condition)) = simple_condition_value_constraint(fact, true) {
+        return raw_aliases.i32_condition_truth(place, condition);
+    }
+    match fact {
+        ResourceConditionFact::I32Relation { left, op, right } => {
+            raw_aliases.i32_relation_truth(left, *op, right)
+        }
+        ResourceConditionFact::All(facts) => all_condition_facts_truth(raw_aliases, facts),
+        ResourceConditionFact::Any(facts) => any_condition_facts_truth(raw_aliases, facts),
+        ResourceConditionFact::EqZero { .. }
+        | ResourceConditionFact::NeZero { .. }
+        | ResourceConditionFact::Positive { .. }
+        | ResourceConditionFact::NonPositive { .. }
+        | ResourceConditionFact::Negative { .. }
+        | ResourceConditionFact::NonNegative { .. } => None,
+    }
+}
+
+fn all_condition_facts_truth(
+    raw_aliases: &RawCellAddressAliases,
+    facts: &[ResourceConditionFact],
+) -> Option<bool> {
+    let mut has_unknown = false;
+    for fact in facts {
+        match condition_fact_truth(raw_aliases, fact) {
+            Some(true) => {}
+            Some(false) => return Some(false),
+            None => has_unknown = true,
+        }
+    }
+    if has_unknown {
+        None
+    } else {
+        Some(true)
+    }
+}
+
+fn any_condition_facts_truth(
+    raw_aliases: &RawCellAddressAliases,
+    facts: &[ResourceConditionFact],
+) -> Option<bool> {
+    let mut has_unknown = false;
+    for fact in facts {
+        match condition_fact_truth(raw_aliases, fact) {
+            Some(true) => return Some(true),
+            Some(false) => {}
+            None => has_unknown = true,
+        }
+    }
+    if has_unknown {
+        None
+    } else {
+        Some(false)
+    }
+}
+
 fn record_i32_relation_fact(
     raw_aliases: &mut RawCellAddressAliases,
     left: &Place,
@@ -85,8 +145,9 @@ mod tests {
     use super::*;
     use crate::types::TypeId;
     use alloc::string::String;
+    use alloc::vec;
 
-    use super::super::model::ResourceI32RelationOp;
+    use super::super::model::ResourceI32RelationOp::{Ge, Lt};
 
     fn local(name: &str) -> Place {
         Place::local(String::from(name), TypeId(1))
@@ -98,7 +159,7 @@ mod tests {
         let right = local("len");
         let fact = ResourceConditionFact::I32Relation {
             left: left.clone(),
-            op: ResourceI32RelationOp::Lt,
+            op: Lt,
             right: right.clone(),
         };
         let mut raw_aliases = RawCellAddressAliases::default();
@@ -106,15 +167,19 @@ mod tests {
         record_condition_fact_value_constraints(&mut raw_aliases, &fact, true);
 
         assert_eq!(
-            raw_aliases.i32_relation_truth(&left, ResourceI32RelationOp::Lt, &right),
+            raw_aliases.i32_relation_truth(&left, Lt, &right),
             Some(true)
         );
         assert_eq!(
-            raw_aliases.i32_relation_truth(&left, ResourceI32RelationOp::Ge, &right),
+            raw_aliases.i32_relation_truth(&left, Ge, &right),
             Some(false)
         );
         assert_eq!(
-            raw_aliases.i32_relation_truth(&right, ResourceI32RelationOp::Gt, &left),
+            raw_aliases.i32_relation_truth(
+                &right,
+                super::super::model::ResourceI32RelationOp::Gt,
+                &left,
+            ),
             Some(true)
         );
     }
@@ -125,7 +190,7 @@ mod tests {
         let right = local("len");
         let fact = ResourceConditionFact::I32Relation {
             left: left.clone(),
-            op: ResourceI32RelationOp::Lt,
+            op: Lt,
             right: right.clone(),
         };
         let mut raw_aliases = RawCellAddressAliases::default();
@@ -133,12 +198,115 @@ mod tests {
         record_condition_fact_value_constraints(&mut raw_aliases, &fact, false);
 
         assert_eq!(
-            raw_aliases.i32_relation_truth(&left, ResourceI32RelationOp::Ge, &right),
+            raw_aliases.i32_relation_truth(&left, Ge, &right),
             Some(true)
         );
         assert_eq!(
-            raw_aliases.i32_relation_truth(&left, ResourceI32RelationOp::Lt, &right),
+            raw_aliases.i32_relation_truth(&left, Lt, &right),
             Some(false)
         );
+    }
+
+    #[test]
+    fn condition_fact_truth_reads_known_i32_value_conditions() {
+        let place = local("len");
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.add_i32_condition(&place, I32ValueCondition::Positive);
+
+        assert_eq!(
+            condition_fact_truth(
+                &raw_aliases,
+                &ResourceConditionFact::Positive {
+                    place: place.clone(),
+                },
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            condition_fact_truth(&raw_aliases, &ResourceConditionFact::Negative { place }),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn condition_fact_truth_reads_known_i32_relations() {
+        let left = local("i");
+        let right = local("len");
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.add_i32_relation(&left, Lt, &right);
+
+        assert_eq!(
+            condition_fact_truth(
+                &raw_aliases,
+                &ResourceConditionFact::I32Relation {
+                    left: left.clone(),
+                    op: Lt,
+                    right: right.clone(),
+                },
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            condition_fact_truth(
+                &raw_aliases,
+                &ResourceConditionFact::I32Relation {
+                    left,
+                    op: Ge,
+                    right,
+                },
+            ),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn condition_fact_truth_keeps_unknown_for_partially_known_composites() {
+        let left = local("i");
+        let right = local("len");
+        let unknown = local("unknown");
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.add_i32_relation(&left, Lt, &right);
+
+        let fact = ResourceConditionFact::All(vec![
+            ResourceConditionFact::I32Relation {
+                left,
+                op: Lt,
+                right,
+            },
+            ResourceConditionFact::Positive { place: unknown },
+        ]);
+
+        assert_eq!(condition_fact_truth(&raw_aliases, &fact), None);
+    }
+
+    #[test]
+    fn condition_fact_truth_resolves_composite_short_circuits() {
+        let left = local("i");
+        let right = local("len");
+        let unknown = local("unknown");
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.add_i32_relation(&left, Lt, &right);
+
+        let any = ResourceConditionFact::Any(vec![
+            ResourceConditionFact::Positive {
+                place: unknown.clone(),
+            },
+            ResourceConditionFact::I32Relation {
+                left: left.clone(),
+                op: Lt,
+                right: right.clone(),
+            },
+        ]);
+        let all = ResourceConditionFact::All(vec![
+            ResourceConditionFact::Positive { place: unknown },
+            ResourceConditionFact::I32Relation {
+                left,
+                op: Ge,
+                right,
+            },
+        ]);
+
+        assert_eq!(condition_fact_truth(&raw_aliases, &any), Some(true));
+        assert_eq!(condition_fact_truth(&raw_aliases, &all), Some(false));
     }
 }

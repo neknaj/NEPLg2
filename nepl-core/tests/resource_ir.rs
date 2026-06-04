@@ -33212,6 +33212,57 @@ fn resource_ir_branch_path_alternatives_do_not_keep_invalid_output_initialized()
     );
 }
 
+#[test]
+fn resource_ir_initialized_branch_skips_statically_false_then_path() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let resource = resource_ir_branch_with_statically_false_condition_fact(
+        unit_ty, i32_ty, bool_ty, span, true,
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert_eq!(
+        report.diagnostics,
+        vec![],
+        "statically unreachable then path must not be explored by initialized check:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_initialized_branch_still_checks_reachable_else_path() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let bad_place = Place::temporary(ResourceId(760), unit_ty);
+    let resource = resource_ir_branch_with_statically_false_condition_fact(
+        unit_ty, i32_ty, bool_ty, span, false,
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::Move,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if *place == bad_place
+        )),
+        "reachable else path must still report unavailable cells: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
 fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
@@ -33602,6 +33653,89 @@ fn collection_slot_relocate_summary_resource(
 
 fn manual_resource_module(unit_ty: TypeId, span: Span, ops: Vec<ResourceOp>) -> ResourceModule {
     manual_resource_module_with_effect(Effect::Pure, unit_ty, span, ops)
+}
+
+fn resource_ir_branch_with_statically_false_condition_fact(
+    unit_ty: TypeId,
+    i32_ty: TypeId,
+    bool_ty: TypeId,
+    span: Span,
+    bad_move_in_then: bool,
+) -> ResourceModule {
+    let left = Place::temporary(ResourceId(754), i32_ty);
+    let right = Place::temporary(ResourceId(755), i32_ty);
+    let condition = Place::temporary(ResourceId(756), bool_ty);
+    let output = Place::temporary(ResourceId(757), unit_ty);
+    let then_value = Place::temporary(ResourceId(758), unit_ty);
+    let else_value = Place::temporary(ResourceId(759), unit_ty);
+    let bad_place = Place::temporary(ResourceId(760), unit_ty);
+    let (then_ops, else_ops) = if bad_move_in_then {
+        (
+            vec![ResourceOp::Move {
+                source: bad_place,
+                output: then_value.clone(),
+                span,
+            }],
+            vec![ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: else_value.clone(),
+                ty: unit_ty,
+                span,
+            }],
+        )
+    } else {
+        (
+            vec![ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: then_value.clone(),
+                ty: unit_ty,
+                span,
+            }],
+            vec![ResourceOp::Move {
+                source: bad_place,
+                output: else_value.clone(),
+                span,
+            }],
+        )
+    };
+    manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(5),
+                output: left.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(1),
+                output: right.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: condition.clone(),
+                ty: bool_ty,
+                span,
+            },
+            ResourceOp::Branch {
+                output,
+                condition,
+                condition_fact: Some(ResourceConditionFact::I32Relation {
+                    left,
+                    op: ResourceI32RelationOp::Lt,
+                    right,
+                }),
+                then_ops,
+                then_value,
+                else_ops,
+                else_value,
+                span,
+            },
+        ],
+    )
 }
 
 fn manual_resource_module_with_effect(
