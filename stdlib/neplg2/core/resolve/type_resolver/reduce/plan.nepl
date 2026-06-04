@@ -1,0 +1,212 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "../input" as *
+#import "../model" as *
+#import "./model" as *
+
+fn selfhost_type_reduce_dispatch_kind %fn SelfhostTypePrefixItemKind SelfhostTypeReduceDispatchKind \kind:
+    match kind:
+        SelfhostTypePrefixItemKind::FunctionMarker:
+            SelfhostTypeReduceDispatchKind::Function
+        SelfhostTypePrefixItemKind::VoidMarker:
+            SelfhostTypeReduceDispatchKind::VoidMarker
+        SelfhostTypePrefixItemKind::NamedType:
+            SelfhostTypeReduceDispatchKind::NamedType
+        _:
+            SelfhostTypeReduceDispatchKind::UnsupportedTypePrefixItem
+
+fn selfhost_type_reduce_primitive_from_lexeme %fn str Option SelfhostPrimitiveTypeKind \name:
+    if:
+        string_search::str_eq name "unit"
+        then:
+            some SelfhostPrimitiveTypeKind::Unit
+        else:
+            if:
+                string_search::str_eq name "bool"
+                then:
+                    some SelfhostPrimitiveTypeKind::Bool
+                else:
+                    if:
+                        string_search::str_eq name "i32"
+                        then:
+                            some SelfhostPrimitiveTypeKind::I32
+                        else:
+                            if:
+                                string_search::str_eq name "i64"
+                                then:
+                                    some SelfhostPrimitiveTypeKind::I64
+                                else:
+                                    if:
+                                        string_search::str_eq name "u8"
+                                        then:
+                                            some SelfhostPrimitiveTypeKind::U8
+                                        else:
+                                            if:
+                                                string_search::str_eq name "char"
+                                                then:
+                                                    some SelfhostPrimitiveTypeKind::Char
+                                                else:
+                                                    if:
+                                                        string_search::str_eq name "str"
+                                                        then:
+                                                            some SelfhostPrimitiveTypeKind::Str
+                                                        else:
+                                                            if:
+                                                                string_search::str_eq name "f32"
+                                                                then:
+                                                                    some SelfhostPrimitiveTypeKind::F32
+                                                                else:
+                                                                    if:
+                                                                        string_search::str_eq name "f64"
+                                                                        then:
+                                                                            some SelfhostPrimitiveTypeKind::F64
+                                                                        else:
+                                                                            if:
+                                                                                string_search::str_eq name "never"
+                                                                                then:
+                                                                                    some SelfhostPrimitiveTypeKind::Never
+                                                                                else:
+                                                                                    none
+
+fn selfhost_type_reduce_primitive_from_span %fn &str fn SelfhostSourceSpan Option SelfhostPrimitiveTypeKind \source\span:
+    let source_view %str Clone::clone source
+    let name %str string_slice::str_slice source_view span.start span.end
+    selfhost_type_reduce_primitive_from_lexeme name
+
+fn selfhost_type_reduce_plan_item_new %fn SelfhostTypeReduceDispatchKind fn SelfhostSourceSpan fn SelfhostPrimitiveTypeKind fn bool fn bool fn bool fn bool SelfhostTypeReducePlanItem \dispatch_kind\span\primitive\is_function\is_void\is_primitive\is_named:
+    SelfhostTypeReducePlanItem dispatch_kind span primitive is_function is_void is_primitive is_named
+
+fn selfhost_type_reduce_plan_item_from_prefix_item %fn &str fn SelfhostTypePrefixItem SelfhostTypeReducePlanItem \source\item:
+    let span %SelfhostSourceSpan item.span
+    let dispatch_kind %SelfhostTypeReduceDispatchKind selfhost_type_reduce_dispatch_kind item.kind
+    match dispatch_kind:
+        SelfhostTypeReduceDispatchKind::Function:
+            selfhost_type_reduce_plan_item_new dispatch_kind span SelfhostPrimitiveTypeKind::Error true false false false
+        SelfhostTypeReduceDispatchKind::VoidMarker:
+            selfhost_type_reduce_plan_item_new dispatch_kind span SelfhostPrimitiveTypeKind::Error false true false false
+        SelfhostTypeReduceDispatchKind::NamedType:
+            match selfhost_type_reduce_primitive_from_span source span:
+                Option::Some primitive:
+                    selfhost_type_reduce_plan_item_new SelfhostTypeReduceDispatchKind::PrimitiveType span primitive false false true false
+                Option::None:
+                    selfhost_type_reduce_plan_item_new SelfhostTypeReduceDispatchKind::NamedType span SelfhostPrimitiveTypeKind::Error false false false true
+        _:
+            selfhost_type_reduce_plan_item_new dispatch_kind span SelfhostPrimitiveTypeKind::Error false false false false
+
+pub fn selfhost_type_reduce_plan_new %impure fn Vec SelfhostTypeReducePlanItem SelfhostTypeReducePlan \items:
+    SelfhostTypeReducePlan items
+
+pub fn selfhost_type_reduce_plan_free %impure fn SelfhostTypeReducePlan unit \plan:
+    v::free field::get plan "items"
+
+pub fn selfhost_type_reduce_plan_len %fn &SelfhostTypeReducePlan i32 \plan:
+    let items %&Vec SelfhostTypeReducePlanItem field::get_ref plan "items"
+    v::len items
+
+pub fn selfhost_type_reduce_plan_get %fn &SelfhostTypeReducePlan fn i32 Option SelfhostTypeReducePlanItem \plan\idx:
+    let items %&Vec SelfhostTypeReducePlanItem field::get_ref plan "items"
+    v::get items idx
+
+fn selfhost_type_reduce_plan_from_prefix_list_loop %impure fn &str impure fn &SelfhostTypePrefixList impure fn i32 impure fn i32 impure fn Vec SelfhostTypeReducePlanItem Result Vec SelfhostTypeReducePlanItem SelfhostTypeReduceError \source\list\idx\n\out:
+    if:
+        ge idx n
+        then:
+            Result::Ok out
+        else:
+            match selfhost_type_prefix_list_get list idx:
+                Option::Some item:
+                    let plan_item %SelfhostTypeReducePlanItem selfhost_type_reduce_plan_item_from_prefix_item source item
+                    match v::push out plan_item:
+                        Result::Ok next_out:
+                            selfhost_type_reduce_plan_from_prefix_list_loop source list add idx 1 n next_out
+                        Result::Err e:
+                            v::free v::vec_push_error_vec e
+                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory item.span
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
+
+pub fn selfhost_type_reduce_plan_from_prefix_list %impure fn &str impure fn &SelfhostTypePrefixList Result SelfhostTypeReducePlan SelfhostTypeReduceError \source\list:
+    let n %i32 selfhost_type_prefix_list_len list
+    let items_result %Result Vec SelfhostTypeReducePlanItem StdErrorKind v::new
+    match items_result:
+        Result::Ok items:
+            match selfhost_type_reduce_plan_from_prefix_list_loop source list 0 n items:
+                Result::Ok planned_items:
+                    Result::Ok selfhost_type_reduce_plan_new planned_items
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+
+pub fn selfhost_type_prefix_list_validate_at %fn &SelfhostTypeReducePlan fn i32 Result i32 SelfhostTypeReduceError \plan\idx:
+    let n %i32 selfhost_type_reduce_plan_len plan
+    if:
+        ge idx n
+        then:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
+        else:
+            match selfhost_type_reduce_plan_get plan idx:
+                Option::Some item:
+                    let span %SelfhostSourceSpan item.span
+                    let dispatch_kind %SelfhostTypeReduceDispatchKind item.dispatch_kind
+                    if:
+                        item.is_function
+                        then:
+                            selfhost_type_prefix_list_validate_function plan span idx
+                        else if:
+                            or item.is_primitive item.is_named
+                            then:
+                                Result::Ok add idx 1
+                            else:
+                                Result::Err selfhost_type_reduce_error_new (selfhost_type_reduce_dispatch_kind_error dispatch_kind) span
+                Option::None:
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
+
+fn selfhost_type_prefix_list_validate_function_nonvoid_arg %fn &SelfhostTypeReducePlan fn i32 fn SelfhostSourceSpan Result i32 SelfhostTypeReduceError \plan\arg_idx\fn_span:
+    let n %i32 selfhost_type_reduce_plan_len plan
+    match selfhost_type_prefix_list_validate_at plan arg_idx:
+        Result::Ok result_idx:
+            if:
+                ge result_idx n
+                then:
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingResult fn_span
+                else:
+                    selfhost_type_prefix_list_validate_at plan result_idx
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_type_prefix_list_validate_function %fn &SelfhostTypeReducePlan fn SelfhostSourceSpan fn i32 Result i32 SelfhostTypeReduceError \plan\fn_span\idx:
+    let n %i32 selfhost_type_reduce_plan_len plan
+    let arg_idx %i32 add idx 1
+    if:
+        ge arg_idx n
+        then:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
+        else:
+            match selfhost_type_reduce_plan_get plan arg_idx:
+                Option::Some arg_item:
+                    if:
+                        arg_item.is_void
+                        then:
+                            let result_idx %i32 add idx 2
+                            if:
+                                ge result_idx n
+                                then:
+                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingResult fn_span
+                                else:
+                                    selfhost_type_prefix_list_validate_at plan result_idx
+                        else:
+                            selfhost_type_prefix_list_validate_function_nonvoid_arg plan arg_idx fn_span
+                Option::None:
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
+

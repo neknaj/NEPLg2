@@ -1,0 +1,293 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "../resolved" as *
+
+//: SelfhostTypeReduceErrorKind: type prefix reduction の失敗分類
+//:
+//: [目的/もくてき]:
+//: - prefix list が型式として縮約できない理由を、文字列ではなく enum として固定します。
+//: - `VoidAsType` により、0 引数 marker の `void` が型 node として流れることを静的に検査しやすくします。
+pub enum SelfhostTypeReduceErrorKind:
+    EmptyInput
+    UnexpectedEnd
+    VoidAsType
+    FunctionMissingArgument
+    FunctionMissingResult
+    UnsupportedTypePrefixItem
+    TrailingItems
+    OutOfMemory
+    InternalInvariant
+
+//: SelfhostTypeReduceDispatchKind: reducer が現在 item に対して行う処理分類
+//:
+//: [目的/もくてき]:
+//: - prefix item の分類を数値ではなく enum にし、dispatch の分岐漏れを静的検査で検出できる形にします。
+pub enum SelfhostTypeReduceDispatchKind:
+    Function
+    VoidMarker
+    PrimitiveType
+    NamedType
+    UnsupportedTypePrefixItem
+
+impl Clone for SelfhostTypeReduceDispatchKind:
+    fn clone %fn &SelfhostTypeReduceDispatchKind SelfhostTypeReduceDispatchKind \self:
+        *self
+
+impl Copy for SelfhostTypeReduceDispatchKind:
+    fn copy_mark %fn SelfhostTypeReduceDispatchKind SelfhostTypeReduceDispatchKind \self:
+        self
+
+impl Clone for SelfhostTypeReduceErrorKind:
+    fn clone %fn &SelfhostTypeReduceErrorKind SelfhostTypeReduceErrorKind \self:
+        *self
+
+impl Copy for SelfhostTypeReduceErrorKind:
+    fn copy_mark %fn SelfhostTypeReduceErrorKind SelfhostTypeReduceErrorKind \self:
+        self
+
+//: SelfhostTypeReduceError: reduction 失敗の typed diagnostic payload
+pub struct SelfhostTypeReduceError:
+    kind %SelfhostTypeReduceErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTypeReduceError:
+    fn clone %fn &SelfhostTypeReduceError SelfhostTypeReduceError \self:
+        *self
+
+impl Copy for SelfhostTypeReduceError:
+    fn copy_mark %fn SelfhostTypeReduceError SelfhostTypeReduceError \self:
+        self
+
+//: SelfhostTypeReduceStep: 1 個の型式を読んだ途中結果
+//:
+//: [目的/もくてき]:
+//: - resolved tree の owner table、読んだ型式の node id、次に読む prefix item index をまとめます。
+//: - parser が括弧で境界を決めないため、reducer は消費済み index を明示的に返します。
+pub struct SelfhostTypeReduceStep:
+    nodes %Vec SelfhostResolvedTypeNode
+    function_args %Vec SelfhostResolvedTypeNodeId
+    node_id %SelfhostResolvedTypeNodeId
+    next_index %i32
+
+//: SelfhostTypeReduceBuildState: reduction build 中の owner state
+//:
+//: [目的/もくてき]:
+//: - build 内部では `SelfhostResolvedTypeTree` wrapper を一度分解し、node table と function argument table を直接運びます。
+//: - owner を持つ分岐で wrapper field projection を繰り返さず、Resource IR が各 buffer の移動を追いやすい形にします。
+pub struct SelfhostTypeReduceBuildState:
+    nodes %Vec SelfhostResolvedTypeNode
+    function_args %Vec SelfhostResolvedTypeNodeId
+
+//: SelfhostTypeReducePlanItem: source 参照を使う前処理済み item
+//:
+//: [目的/もくてき]:
+//: - source text から primitive 名を読む処理を、resolved tree owner を消費する build 層から分離します。
+//: - build 層はこの Copy payload だけを読み、source string には触れません。
+pub struct SelfhostTypeReducePlanItem:
+    dispatch_kind %SelfhostTypeReduceDispatchKind
+    span %SelfhostSourceSpan
+    primitive %SelfhostPrimitiveTypeKind
+    is_function %bool
+    is_void %bool
+    is_primitive %bool
+    is_named %bool
+
+impl Clone for SelfhostTypeReducePlanItem:
+    fn clone %fn &SelfhostTypeReducePlanItem SelfhostTypeReducePlanItem \self:
+        *self
+
+impl Copy for SelfhostTypeReducePlanItem:
+    fn copy_mark %fn SelfhostTypeReducePlanItem SelfhostTypeReducePlanItem \self:
+        self
+
+//: SelfhostTypeReducePlan: reducer の source-dependent 前処理結果
+//:
+//: [目的/もくてき]:
+//: - prefix list と source text から、検証と build が共有する dispatch / span / primitive hint を作ります。
+//: - plan は Copy item の `Vec` だけを所有し、resolved tree の owner とは独立して解放できます。
+pub struct SelfhostTypeReducePlan:
+    items %Vec SelfhostTypeReducePlanItem
+
+//: selfhost_type_reduce_error_kind_eq: reduce error kind が同じ分類か[返/かえ]す
+pub fn selfhost_type_reduce_error_kind_eq %fn SelfhostTypeReduceErrorKind fn SelfhostTypeReduceErrorKind bool \a\b:
+    match a:
+        SelfhostTypeReduceErrorKind::EmptyInput:
+            match b:
+                SelfhostTypeReduceErrorKind::EmptyInput:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::UnexpectedEnd:
+            match b:
+                SelfhostTypeReduceErrorKind::UnexpectedEnd:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::VoidAsType:
+            match b:
+                SelfhostTypeReduceErrorKind::VoidAsType:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::FunctionMissingArgument:
+            match b:
+                SelfhostTypeReduceErrorKind::FunctionMissingArgument:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::FunctionMissingResult:
+            match b:
+                SelfhostTypeReduceErrorKind::FunctionMissingResult:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::UnsupportedTypePrefixItem:
+            match b:
+                SelfhostTypeReduceErrorKind::UnsupportedTypePrefixItem:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::TrailingItems:
+            match b:
+                SelfhostTypeReduceErrorKind::TrailingItems:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::OutOfMemory:
+            match b:
+                SelfhostTypeReduceErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+        SelfhostTypeReduceErrorKind::InternalInvariant:
+            match b:
+                SelfhostTypeReduceErrorKind::InternalInvariant:
+                    true
+                _:
+                    false
+
+//: selfhost_type_reduce_error_new: reduce error payload を[作/つく]る
+pub fn selfhost_type_reduce_error_new %fn SelfhostTypeReduceErrorKind fn SelfhostSourceSpan SelfhostTypeReduceError \kind\span:
+    SelfhostTypeReduceError kind span
+
+pub fn selfhost_type_reduce_build_state_new %impure fn Vec SelfhostResolvedTypeNode impure fn Vec SelfhostResolvedTypeNodeId SelfhostTypeReduceBuildState \nodes\function_args:
+    SelfhostTypeReduceBuildState nodes function_args
+
+pub fn selfhost_type_reduce_build_state_from_tree %impure fn SelfhostResolvedTypeTree SelfhostTypeReduceBuildState \tree:
+    let nodes %Vec SelfhostResolvedTypeNode field::get tree "nodes"
+    let function_args %Vec SelfhostResolvedTypeNodeId field::get tree "function_args"
+    selfhost_type_reduce_build_state_new nodes function_args
+
+pub fn selfhost_type_reduce_build_state_free %impure fn SelfhostTypeReduceBuildState unit \state:
+    v::free field::get state "nodes"
+    v::free field::get state "function_args"
+
+pub fn selfhost_type_reduce_build_state_node_len %fn &SelfhostTypeReduceBuildState i32 \state:
+    let nodes %&Vec SelfhostResolvedTypeNode field::get_ref state "nodes"
+    v::len nodes
+
+pub fn selfhost_type_reduce_build_state_function_arg_len %fn &SelfhostTypeReduceBuildState i32 \state:
+    let function_args %&Vec SelfhostResolvedTypeNodeId field::get_ref state "function_args"
+    v::len function_args
+
+pub fn selfhost_type_reduce_build_state_get_node %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNode \state\node_id:
+    if:
+        lt node_id.index 0
+        then:
+            none
+        else:
+            let nodes %&Vec SelfhostResolvedTypeNode field::get_ref state "nodes"
+            v::get nodes node_id.index
+
+pub fn selfhost_type_reduce_build_state_function_arg_count %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId Option i32 \state\node_id:
+    match selfhost_type_reduce_build_state_get_node state node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Function function:
+                    some selfhost_resolved_function_arg_range_count function.args
+                _:
+                    none
+        Option::None:
+            none
+
+pub fn selfhost_type_reduce_build_state_function_result %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNodeId \state\node_id:
+    match selfhost_type_reduce_build_state_get_node state node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Function function:
+                    some function.result
+                _:
+                    none
+        Option::None:
+            none
+
+pub fn selfhost_type_reduce_build_state_function_arg %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId fn i32 Option SelfhostResolvedTypeNodeId \state\node_id\arg_idx:
+    match selfhost_type_reduce_build_state_get_node state node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Function function:
+                    match function.args:
+                        SelfhostResolvedFunctionArgRange::Empty:
+                            none
+                        SelfhostResolvedFunctionArgRange::Range args:
+                            if:
+                                or lt arg_idx 0 ge arg_idx args.arg_count
+                                then:
+                                    none
+                                else:
+                                    let function_args %&Vec SelfhostResolvedTypeNodeId field::get_ref state "function_args"
+                                    v::get function_args add args.first_arg arg_idx
+                _:
+                    none
+        Option::None:
+            none
+
+//: selfhost_type_reduce_step_new: reduction step payload を[作/つく]る
+pub fn selfhost_type_reduce_step_new %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn i32 SelfhostTypeReduceStep \state\node_id\next_index:
+    let nodes %Vec SelfhostResolvedTypeNode field::get state "nodes"
+    let function_args %Vec SelfhostResolvedTypeNodeId field::get state "function_args"
+    SelfhostTypeReduceStep nodes function_args node_id next_index
+
+//: selfhost_type_reduce_step_node_id: step の node id を[返/かえ]す
+pub fn selfhost_type_reduce_step_node_id %fn &SelfhostTypeReduceStep SelfhostResolvedTypeNodeId \step:
+    *field::get_ref step "node_id"
+
+//: selfhost_type_reduce_step_next_index: step の次 index を[返/かえ]す
+pub fn selfhost_type_reduce_step_next_index %fn &SelfhostTypeReduceStep i32 \step:
+    *field::get_ref step "next_index"
+
+//: selfhost_type_reduce_step_into_tree: step から tree owner を[取/と]り[出/だ]す
+pub fn selfhost_type_reduce_step_into_tree %impure fn SelfhostTypeReduceStep SelfhostResolvedTypeTree \step:
+    let nodes %Vec SelfhostResolvedTypeNode field::get step "nodes"
+    let function_args %Vec SelfhostResolvedTypeNodeId field::get step "function_args"
+    SelfhostResolvedTypeTree nodes function_args
+
+pub fn selfhost_type_reduce_step_into_build_state %impure fn SelfhostTypeReduceStep SelfhostTypeReduceBuildState \step:
+    let nodes %Vec SelfhostResolvedTypeNode field::get step "nodes"
+    let function_args %Vec SelfhostResolvedTypeNodeId field::get step "function_args"
+    selfhost_type_reduce_build_state_new nodes function_args
+
+pub fn selfhost_type_reduce_fail %impure fn SelfhostTypeReduceBuildState impure fn SelfhostTypeReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\kind\span:
+    selfhost_type_reduce_build_state_free state
+    Result::Err selfhost_type_reduce_error_new kind span
+
+pub fn selfhost_type_reduce_empty_span %fn void SelfhostSourceSpan \void:
+    source_span_empty_unchecked 0 0
+
+pub fn selfhost_type_reduce_dispatch_kind_error %fn SelfhostTypeReduceDispatchKind SelfhostTypeReduceErrorKind \kind:
+    match kind:
+        SelfhostTypeReduceDispatchKind::VoidMarker:
+            SelfhostTypeReduceErrorKind::VoidAsType
+        SelfhostTypeReduceDispatchKind::UnsupportedTypePrefixItem:
+            SelfhostTypeReduceErrorKind::UnsupportedTypePrefixItem
+        _:
+            SelfhostTypeReduceErrorKind::UnexpectedEnd
+

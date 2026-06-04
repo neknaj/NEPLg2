@@ -694,14 +694,17 @@ Performance acceptance:
 - imported type constructor arity と local declaration header を prefix type reduction に使う。
 - `void` を型として登録しない。
 - parser の `%` annotation range は、`resolve/type_resolver` で `%` marker を除いた flat type prefix item list へ変換する。ここでは `TypeId` を生成せず、`fn` / `void` / named type などの token role と span/token index だけを保持する。
+- type prefix item list は `resolved` tree へ縮約する。`resolved` tree は `TypeId` 割当前の arena-local node table であり、primitive / named type reference / function type node を保持する。
+- `fn i32 fn i32 i32` のように result が nonempty function type の場合は、部分適用を導入せず multi-argument function type へ flatten する。`fn void fn unit unit` のように 0 引数 function が function を返す場合は、`void` marker の境界で flatten せず nested function type として保持する。
+- reducer は source-dependent primitive detection と syntax validation を `reduce/plan.nepl`、owner table への build を `reduce/build.nepl`、共有 payload を `reduce/model.nepl` に分ける。build 層は source string を読まず、plan が作った enum / bool / span payload だけを消費する。
 
 Issue slice:
 
 - built-in type constructor table
 - imported type arity hint integration
 - generic type parameter environment
-- prefix type application reduction
-- function type normalization without partial application
+- TypeId allocation from resolved type tree
+- user-defined generic type constructor kind / arity reduction
 - type resolver diagnostic parity
 
 Performance acceptance:
@@ -860,7 +863,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input を追加した。残件は prefix expression AST、kind / arity reduction、TypeId allocation、call reduction。 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input と TypeId 割当前の resolved type tree reduction を追加した。残件は prefix expression AST、user-defined generic kind / arity reduction、TypeId allocation、call reduction。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |

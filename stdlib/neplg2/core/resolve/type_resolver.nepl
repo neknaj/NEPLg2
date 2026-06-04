@@ -8,7 +8,7 @@
 //: - この facade は公開 API の入口だけを re-export し、実装は `type_resolver/*` に分けます。
 //:
 //: [注意/ちゅうい]:
-//: - この stage はまだ `TypeId` を生成しません。flat prefix item を作り、後続 issue で kind / arity に基づく縮約を追加します。
+//: - この stage はまだ `TypeId` を生成しません。flat prefix item と TypeId 割当前の resolved type tree までを扱います。
 //: - `void` は 0 引数 function marker として扱い、type arena の primitive には追加しません。
 //:
 //: neplg2:test
@@ -22,4 +22,9 @@
 
 pub #import "./type_resolver/model" as *
 pub #import "./type_resolver/input" as *
+pub #import "./type_resolver/resolved" as *
+pub #import "./type_resolver/reduce/model" as *
+pub #import "./type_resolver/reduce/plan" as *
+pub #import "./type_resolver/reduce/build" as *
+pub #import "./type_resolver/reduce" as *
 pub #import "./type_resolver/stage0" as *

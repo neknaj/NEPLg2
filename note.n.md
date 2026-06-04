@@ -50530,3 +50530,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `void` は `SelfhostTypePrefixItemKind::VoidMarker`、`unit` は `NamedType` として分類し、0 引数 function marker と unit 型を resolver input で混同しないようにした。
 - 残件は kind / arity に基づく type application reduction、function type normalization、TypeId allocation、prefix expression AST、call reduction である。issue `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` は引き続き open。
 - focused verification は type resolver split / prefix input policy、既存 ty split policy、type resolver doctest、facade smoke doctest を通した。
+
+## 2026-06-05 Agent selfhost type resolver reduction checkpoint
+
+- `selfhost/type-prefix-reduction-20260605` branch で、self-host compiler Phase 5 の type prefix reduction を進めた。`plan.md` は確認のみで変更していない。
+- `resolved.nepl` を追加し、`SelfhostResolvedTypeTree` / `SelfhostResolvedTypeNode` / function arg range を TypeId 割当前の owner table として定義した。
+- `reduce.nepl` は public entry に薄く保ち、source-dependent primitive detection と validation を `reduce/plan.nepl`、owner table build と function flattening を `reduce/build.nepl`、共有 payload / error enum / build state を `reduce/model.nepl` に分割した。
+- `fn i32 fn i32 i32` は nonempty result function を multi-argument function type に flatten し、`fn void fn unit unit` は 0 引数 function が function を返す nested type として保持する。`void` が top-level や result type として現れた場合は `VoidAsType` を返す。
+- build 層は validation 済みであっても unsupported item を named atom として扱わず、plan の dispatch error へ fail-closed する。これは validation と build の境界が同じ分類規則を持つための防御である。
+- 残件は resolved type tree から `SelfhostTypeId` への allocation、canonical type key projection、user-defined generic type constructor の kind / arity reduction、prefix expression AST、call reduction である。issue `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` は引き続き open。
+- focused verification は type resolver doctest 5/5、split / prefix input policy、facade doctest、`stdlib/neplg2` 全体 50/50 を通した。

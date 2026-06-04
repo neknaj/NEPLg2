@@ -1,0 +1,199 @@
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "../resolved" as *
+#import "./model" as *
+#import "./plan" as *
+
+fn selfhost_type_reduce_build_state_push_node %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNode impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\node\span\next_index:
+    let node_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_node_id_new selfhost_type_reduce_build_state_node_len &state
+    let nodes %Vec SelfhostResolvedTypeNode field::get state "nodes"
+    let function_args %Vec SelfhostResolvedTypeNodeId field::get state "function_args"
+    match v::push nodes node:
+        Result::Ok next_nodes:
+            Result::Ok selfhost_type_reduce_step_new (selfhost_type_reduce_build_state_new next_nodes function_args) node_id next_index
+        Result::Err e:
+            v::free v::vec_push_error_vec e
+            v::free function_args
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory span
+
+fn selfhost_type_reduce_single_param_vec %impure fn SelfhostResolvedTypeNodeId Result Vec SelfhostResolvedTypeNodeId StdErrorKind \param:
+    let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params:
+            match v::push params param:
+                Result::Ok next_params:
+                    Result::Ok next_params
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_type_reduce_append_inner_args_loop %impure fn Vec SelfhostResolvedTypeNodeId impure fn &SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \params\state\inner\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok params
+        else:
+            match selfhost_type_reduce_build_state_function_arg state inner idx:
+                Option::Some arg:
+                    match v::push params arg:
+                        Result::Ok next_params:
+                            selfhost_type_reduce_append_inner_args_loop next_params state inner add idx 1 n
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free params
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+fn selfhost_type_reduce_copy_function_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
+    if:
+        ge idx n
+        then:
+            Result::Ok out
+        else:
+            match v::get params idx:
+                Option::Some node_id:
+                    match v::push out node_id:
+                        Result::Ok next_out:
+                            selfhost_type_reduce_copy_function_args next_out params n add idx 1
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free out
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+fn selfhost_type_reduce_add_function_from_params %impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\params\result\span\next_index:
+    let first_arg %i32 selfhost_type_reduce_build_state_function_arg_len &state
+    let arg_count %i32 v::len &params
+    let nodes %Vec SelfhostResolvedTypeNode field::get state "nodes"
+    let function_args %Vec SelfhostResolvedTypeNodeId field::get state "function_args"
+    match selfhost_type_reduce_copy_function_args function_args &params arg_count 0:
+        Result::Ok next_args:
+            v::free params
+            let args %SelfhostResolvedFunctionArgRange:
+                if eq arg_count 0 selfhost_resolved_function_arg_range_empty selfhost_resolved_function_arg_range_new_unchecked first_arg arg_count
+            let function %SelfhostResolvedFunctionType SelfhostResolvedFunctionType args result
+            selfhost_type_reduce_build_state_push_node (selfhost_type_reduce_build_state_new nodes next_args) (SelfhostResolvedTypeNode::Function function) span next_index
+        Result::Err _e:
+            v::free nodes
+            v::free params
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory span
+
+fn selfhost_type_reduce_add_function_empty_params %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\result\span\next_index:
+    let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params:
+            selfhost_type_reduce_add_function_from_params state params result span next_index
+        Result::Err _e:
+            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory span
+
+fn selfhost_type_reduce_add_function_nonempty_params %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\param\result\span\next_index:
+    match selfhost_type_reduce_build_state_function_arg_count &state result:
+        Option::Some inner_count:
+            if:
+                gt inner_count 0
+                then:
+                    match selfhost_type_reduce_build_state_function_result &state result:
+                        Option::Some inner_result:
+                            match selfhost_type_reduce_single_param_vec param:
+                                Result::Ok params:
+                                    match selfhost_type_reduce_append_inner_args_loop params &state result 0 inner_count:
+                                        Result::Ok flat_params:
+                                            selfhost_type_reduce_add_function_from_params state flat_params inner_result span next_index
+                                        Result::Err _e:
+                                            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::InternalInvariant span
+                                Result::Err _e:
+                                    selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory span
+                        Option::None:
+                            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::InternalInvariant span
+                else:
+                    match selfhost_type_reduce_single_param_vec param:
+                        Result::Ok params:
+                            selfhost_type_reduce_add_function_from_params state params result span next_index
+                        Result::Err _e:
+                            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory span
+        Option::None:
+            match selfhost_type_reduce_single_param_vec param:
+                Result::Ok params:
+                    selfhost_type_reduce_add_function_from_params state params result span next_index
+                Result::Err _e:
+                    selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory span
+
+fn selfhost_type_reduce_atom_node_unchecked %fn bool fn SelfhostSourceSpan fn SelfhostPrimitiveTypeKind SelfhostResolvedTypeNode \is_primitive\span\primitive:
+    if:
+        is_primitive
+        then:
+            SelfhostResolvedTypeNode::Primitive primitive
+        else:
+            SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef span
+
+pub fn selfhost_type_prefix_list_build_at %impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\idx\state:
+    match selfhost_type_reduce_plan_get plan idx:
+        Option::Some item:
+            let span %SelfhostSourceSpan item.span
+            let dispatch_kind %SelfhostTypeReduceDispatchKind item.dispatch_kind
+            if:
+                item.is_function
+                then:
+                    selfhost_type_prefix_list_build_function plan span idx state
+                else if:
+                    or item.is_primitive item.is_named
+                    then:
+                        let node %SelfhostResolvedTypeNode selfhost_type_reduce_atom_node_unchecked item.is_primitive span item.primitive
+                        selfhost_type_reduce_build_state_push_node state node span add idx 1
+                    else:
+                        selfhost_type_reduce_fail state (selfhost_type_reduce_dispatch_kind_error dispatch_kind) span
+        Option::None:
+            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
+
+fn selfhost_type_prefix_list_build_function_nonvoid_arg %impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\arg_idx\fn_span\state:
+    match selfhost_type_prefix_list_build_at plan arg_idx state:
+        Result::Ok param_step:
+            let param_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &param_step
+            let result_idx %i32 selfhost_type_reduce_step_next_index &param_step
+            let param_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state param_step
+            match selfhost_type_prefix_list_build_at plan result_idx param_state:
+                Result::Ok result_step:
+                    let result_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &result_step
+                    let next_index %i32 selfhost_type_reduce_step_next_index &result_step
+                    let result_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state result_step
+                    selfhost_type_reduce_add_function_nonempty_params result_state param_id result_id fn_span next_index
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_type_prefix_list_build_function %impure fn &SelfhostTypeReducePlan impure fn SelfhostSourceSpan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\fn_span\idx\state:
+    let arg_idx %i32 add idx 1
+    match selfhost_type_reduce_plan_get plan arg_idx:
+        Option::Some arg_item:
+            if:
+                arg_item.is_void
+                then:
+                    let result_idx %i32 add idx 2
+                    match selfhost_type_prefix_list_build_at plan result_idx state:
+                        Result::Ok result_step:
+                            let result_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &result_step
+                            let next_index %i32 selfhost_type_reduce_step_next_index &result_step
+                            let next_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state result_step
+                            selfhost_type_reduce_add_function_empty_params next_state result_id fn_span next_index
+                        Result::Err e:
+                            Result::Err e
+                else:
+                    selfhost_type_prefix_list_build_function_nonvoid_arg plan arg_idx fn_span state
+        Option::None:
+            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
+

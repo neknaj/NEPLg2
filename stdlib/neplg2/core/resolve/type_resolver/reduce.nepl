@@ -1,0 +1,64 @@
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "./input" as *
+#import "./resolved" as *
+#import "./reduce/model" as *
+#import "./reduce/plan" as *
+#import "./reduce/build" as *
+
+//: selfhost_type_prefix_list_reduce: flat type prefix list を resolved type tree へ[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - `%` を除いた prefix item list を、TypeId 割当前の node tree に変換します。
+//: - `fn i32 fn i32 i32` は nonempty function 引数列として flatten し、`fn void fn unit unit` は 0 引数 function が function を返す形のまま保持します。
+//:
+//: [注意/ちゅうい]:
+//: - `void` は型ではないため、top-level や戻り値位置に現れた場合は `VoidAsType` を返します。
+//: - primitive 判定は token に文字列を保存せず、source text と item span から必要な境界でだけ lexeme を切り出します。
+pub fn selfhost_type_prefix_list_reduce %impure fn str impure fn &SelfhostTypePrefixList Result SelfhostResolvedTypeTreeRoot SelfhostTypeReduceError \source\list:
+    let n %i32 selfhost_type_prefix_list_len list
+    if:
+        eq n 0
+        then:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::EmptyInput selfhost_type_reduce_empty_span
+        else:
+            match selfhost_type_reduce_plan_from_prefix_list &source list:
+                Result::Ok plan:
+                    match selfhost_type_prefix_list_validate_at &plan 0:
+                        Result::Ok validated_next:
+                            if:
+                                ne validated_next n
+                                then:
+                                    match selfhost_type_reduce_plan_get &plan validated_next:
+                                        Option::Some trailing:
+                                            let span %SelfhostSourceSpan trailing.span
+                                            selfhost_type_reduce_plan_free plan
+                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems span
+                                        Option::None:
+                                            selfhost_type_reduce_plan_free plan
+                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems selfhost_type_reduce_empty_span
+                                else:
+                                    match selfhost_resolved_type_tree_new:
+                                        Result::Ok tree:
+                                            let state %SelfhostTypeReduceBuildState selfhost_type_reduce_build_state_from_tree tree
+                                            match selfhost_type_prefix_list_build_at &plan 0 state:
+                                                Result::Ok step:
+                                                    let root_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &step
+                                                    let result_tree %SelfhostResolvedTypeTree selfhost_type_reduce_step_into_tree step
+                                                    selfhost_type_reduce_plan_free plan
+                                                    Result::Ok selfhost_resolved_type_tree_root_new result_tree root_id
+                                                Result::Err e:
+                                                    selfhost_type_reduce_plan_free plan
+                                                    Result::Err e
+                                        Result::Err _e:
+                                            selfhost_type_reduce_plan_free plan
+                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+                        Result::Err e:
+                            selfhost_type_reduce_plan_free plan
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
