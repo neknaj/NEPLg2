@@ -9,9 +9,9 @@
 //: - filesystem error は `SelfhostDiagnostic` に変換し、reporter / driver と同じ diagnostic 経路で[扱/あつか]えるようにします。
 //:
 //: [実装/じっそう]:
-//: - source 読み込みには `fs_read_to_string_checked` を使い、invalid UTF-8 を errno 付き diagnostic として返します。
+//: - source 読み込みには `fs_read_to_string_checked` を使い、invalid UTF-8 を typed fs error 付き diagnostic として返します。
 //: - root source は input path と同じ logical path で VFS に 1 件登録します。import closure の実 filesystem discovery は後続 issue で追加します。
-//: - artifact 書き込みは `fs_write_to_string` / `fs_write_to_bytes` に直接委譲し、失敗時は path と errno を note に残します。
+//: - artifact 書き込みは `fs_write_to_string` / `fs_write_to_bytes` に直接委譲し、失敗時は path と operation / kind / errno を note に残します。
 //:
 //: [注意/ちゅうい]:
 //: - この module は CLI 層の I/O 境界です。`core/` と `cli/driver.nepl` は `std/fs` を import しません。
@@ -47,21 +47,32 @@
 
 #import "alloc/io" as *
 #import "alloc/string" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/loader" as *
 #import "std/fs" as *
 #import "core/math" as *
 
-//: selfhost_cli_file_io_errno_note: path と errno を diagnostic note にする
+//: selfhost_cli_file_io_fs_error_note: path と typed fs error を diagnostic note にする
 //:
 //: [目的/もくてき]:
-//: - filesystem error の最小情報として、対象 path と host API から返された errno を安定した文字列にまとめます。
-pub fn selfhost_cli_file_io_errno_note %fn str fn i32 str \path\errno:
+//: - filesystem error の[対象/たいしょう] path、[操作/そうさ]、kind、host errno [補足/ほそく]を stable な[文字列/もじれつ]にまとめます。
+pub fn selfhost_cli_file_io_fs_error_note %fn str fn FsError str \path\err:
+    let operation %FsOperation fs_error_operation &err
+    let kind %FsErrorKind fs_error_kind &err
     let mut sb %StringBuilder string_builder_new
     set sb sb_append sb path
-    set sb sb_append sb " (errno "
-    set sb sb_append_i32 sb errno
+    set sb sb_append sb " ("
+    set sb sb_append sb fs_operation_name operation
+    set sb sb_append sb " "
+    set sb sb_append sb fs_error_kind_name kind
+    match fs_error_errno &err:
+        Option::Some errno:
+            set sb sb_append sb " errno "
+            set sb sb_append_i32 sb errno
+        Option::None:
+            unit
     set sb sb_append sb ")"
     sb_build sb
 
@@ -75,14 +86,14 @@ pub fn selfhost_cli_file_io_std_error_note %fn str fn StdErrorKind str \path\kin
     sb_build sb
 
 //: selfhost_cli_file_io_read_failed_diag: source read 失敗 diagnostic を作る
-pub fn selfhost_cli_file_io_read_failed_diag %fn str fn i32 SelfhostDiagnostic \path\errno:
+pub fn selfhost_cli_file_io_read_failed_diag %fn str fn FsError SelfhostDiagnostic \path\err:
     let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::SourceReadFailed "failed to read source file"
-    selfhost_diag_with_note diag selfhost_cli_file_io_errno_note path errno
+    selfhost_diag_with_note diag selfhost_cli_file_io_fs_error_note path err
 
 //: selfhost_cli_file_io_write_failed_diag: artifact write 失敗 diagnostic を作る
-pub fn selfhost_cli_file_io_write_failed_diag %fn str fn i32 SelfhostDiagnostic \path\errno:
+pub fn selfhost_cli_file_io_write_failed_diag %fn str fn FsError SelfhostDiagnostic \path\err:
     let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::ArtifactWriteFailed "failed to write artifact"
-    selfhost_diag_with_note diag selfhost_cli_file_io_errno_note path errno
+    selfhost_diag_with_note diag selfhost_cli_file_io_fs_error_note path err
 
 //: selfhost_cli_file_io_vfs_failed_diag: VFS 構築失敗 diagnostic を作る
 pub fn selfhost_cli_file_io_vfs_failed_diag %fn str fn StdErrorKind SelfhostDiagnostic \path\kind:
@@ -100,8 +111,8 @@ pub fn selfhost_cli_file_io_vfs_failed_diag %fn str fn StdErrorKind SelfhostDiag
 //: - 現段階では root file 1 件だけを登録します。import graph に必要な追加 file の discovery は `stdlib_map` と合わせて後続で拡張します。
 pub fn selfhost_cli_file_io_read_root_vfs %impure fn str Result SelfhostVirtualFileSystem SelfhostDiagnostic \path:
     match fs_read_to_string_checked path:
-        Result::Err errno:
-            Result::Err selfhost_cli_file_io_read_failed_diag path errno
+        Result::Err err:
+            Result::Err selfhost_cli_file_io_read_failed_diag path err
         Result::Ok source:
             match selfhost_vfs_new:
                 Result::Err e:
@@ -122,8 +133,8 @@ pub fn selfhost_cli_file_io_write_text_artifact %impure fn str impure fn str Res
     match fs_write_to_string path text:
         Result::Ok _:
             Result::Ok unit
-        Result::Err errno:
-            Result::Err selfhost_cli_file_io_write_failed_diag path errno
+        Result::Err err:
+            Result::Err selfhost_cli_file_io_write_failed_diag path err
 
 //: selfhost_cli_file_io_write_binary_artifact: binary artifact を file に書き出す
 //:
@@ -136,8 +147,8 @@ pub fn selfhost_cli_file_io_write_binary_artifact %impure fn str impure fn ByteB
     match fs_write_to_bytes path bytes:
         Result::Ok _:
             Result::Ok unit
-        Result::Err errno:
-            Result::Err selfhost_cli_file_io_write_failed_diag path errno
+        Result::Err err:
+            Result::Err selfhost_cli_file_io_write_failed_diag path err
 
 //: selfhost_cli_file_io_stage0: file_io 境界の smoke API
 pub fn selfhost_cli_file_io_stage0 %fn void i32 \void:

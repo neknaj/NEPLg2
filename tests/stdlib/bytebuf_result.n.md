@@ -142,7 +142,7 @@ fn main %impure fn void i32 \void:
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"fs_bytes_to_string_result_reports_invalid_utf8\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fs invalid utf8 reports ilseq\" expected=\"84\" actual=\"84\" message=\"\"\n"
+stdout: "test_report name=\"fs_bytes_to_string_result_reports_invalid_utf8\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"fs invalid utf8 typed kind\" expected=\"InvalidUtf8\" actual=\"InvalidUtf8\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"fs invalid utf8 errno projection\" expected=\"84\" actual=\"84\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -154,7 +154,7 @@ stdout: "test_report name=\"fs_bytes_to_string_result_reports_invalid_utf8\" cou
 #import "std/test" as *
 
 fn main %impure fn void i32 \void:
-    let errno %i32 match byte_builder_new:
+    let kind_name %str match byte_builder_new:
         Result::Ok b0:
             match byte_builder_push_u8 b0 255:
                 Result::Ok b1:
@@ -162,20 +162,22 @@ fn main %impure fn void i32 \void:
                         Result::Ok bytes:
                             match fs_bytes_to_string_result bytes:
                                 Result::Ok _text:
-                                    0
+                                    "Ok"
                                 Result::Err e:
-                                    e
+                                    fs_error_kind_name fs_error_kind &e
                         Result::Err e:
                             byte_builder_error_free e
-                            0
+                            "BuilderError"
                 Result::Err e:
                     byte_builder_error_free e
-                    0
+                    "BuilderError"
         Result::Err _e:
-            0
+            "BuilderError"
+    let errno %i32 fs_error_to_errno fs_error_from_std_error FsOperation::BytesToString StdErrorKind::InvalidUtf8
     let report:
         test_report_new "fs_bytes_to_string_result_reports_invalid_utf8"
-        |> test_report_push assert_eq_i32 "fs invalid utf8 reports ilseq" 84 errno
+        |> test_report_push assert_str_eq "fs invalid utf8 typed kind" "InvalidUtf8" kind_name
+        |> test_report_push assert_eq_i32 "fs invalid utf8 errno projection" 84 errno
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```

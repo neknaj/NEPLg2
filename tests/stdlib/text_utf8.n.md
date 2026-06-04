@@ -282,7 +282,7 @@ fn main %impure fn void i32 \void:
 
 ## fs_read_to_string_checked_rejects_invalid_utf8
 
-このケースは、file read の checked text API が invalid UTF-8 を errno 84 として拒否することを確認します。
+このケースは、file read の checked text API が invalid UTF-8 を typed error として拒否することを確認します。
 binary 読み込みは `ByteBuf` のまま扱い、source text 読み込みだけを checked API に寄せるための回帰テストです。
 
 neplg2:test[stdio, normalize_newlines]
@@ -326,14 +326,14 @@ fn main %impure fn void i32 \void:
                                 Result::Ok text:
                                     set checks checks_push checks Result::Err text
                                 Result::Err e:
-                                    set checks checks_push checks check_eq_i32 84 e;
+                                    set checks checks_push checks check_str_eq "InvalidUtf8" fs_error_kind_name fs_error_kind &e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
 ## fs_read_to_string_rejects_invalid_utf8
 
-このケースは、通常の `fs_read_to_string` も invalid UTF-8 を errno 84 として拒否することを確認します。
+このケースは、通常の `fs_read_to_string` も invalid UTF-8 を typed error として拒否することを確認します。
 `str` 型の UTF-8 保証をファイル読み込みの標準入口でも守るための回帰テストです。
 
 neplg2:test[stdio, normalize_newlines]
@@ -377,7 +377,7 @@ fn main %impure fn void i32 \void:
                                 Result::Ok text:
                                     set checks checks_push checks Result::Err text
                                 Result::Err e:
-                                    set checks checks_push checks check_eq_i32 84 e;
+                                    set checks checks_push checks check_str_eq "InvalidUtf8" fs_error_kind_name fs_error_kind &e;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

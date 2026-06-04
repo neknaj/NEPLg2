@@ -13,6 +13,7 @@
 #import "alloc/io" as *
 #import "core/result" as *
 #import "std/fs/bytes" as *
+#import "std/fs/error" as *
 #import "std/fs/fd" as *
 #import "std/fs/read" as *
 #import "std/fs/write/fd" as *
@@ -27,26 +28,46 @@
 //:
 //: 注意(重要):
 //: - 入力 `ByteBuf` は open 失敗時も含めてこの関数が解放します。
-//: - write 成功後に close が失敗した場合は close の errno を返します。
+//: - write 成功後に close が失敗した場合は `FsOperation::CloseAfterWrite` を持つ `FsError` を返します。
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result unit i32 \path\bytes:
+pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result unit FsError \path\bytes:
     match fs_open_write path:
         Result::Err e:
             io_bytebuf_free bytes
-            Result::Err e
+            Result::Err fs_error_from_errno FsOperation::OpenWrite e
         Result::Ok fd:
             match fs_write_fd_bytes fd bytes:
                 Result::Ok _:
-                    fs_close fd
+                    match fs_close fd:
+                        Result::Ok _:
+                            Result::Ok unit
+                        Result::Err close_errno:
+                            Result::Err fs_error_from_errno FsOperation::CloseAfterWrite close_errno
                 Result::Err e:
                     match fs_close fd:
                         Result::Ok _:
                             unit
                         Result::Err _:
                             unit
-                    Result::Err e
+                    Result::Err fs_error_from_errno FsOperation::WriteFd e
+
+//: fs_write_to_bytes_errno: binary write error を errno 互換値へ[写/うつ]す legacy wrapper
+//:
+//: [注意/ちゅうい]:
+//: - 新規実装は `fs_write_to_bytes` の `FsError` を match してください。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/write" as *
+//: ```
+pub fn fs_write_to_bytes_errno %impure fn str impure fn ByteBuf Result unit i32 \path\bytes:
+    match fs_write_to_bytes path bytes:
+        Result::Ok _:
+            Result::Ok unit
+        Result::Err e:
+            Result::Err fs_error_to_errno e
 
 //: fs_write_to_string: path へ str を create/truncate して書き込む
 //:
@@ -87,9 +108,25 @@ pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result unit i32 \path\
 //:                 Result::Err _e:
 //:                     3
 //: ```
-pub fn fs_write_to_string %impure fn str impure fn str Result unit i32 \path\text:
+pub fn fs_write_to_string %impure fn str impure fn str Result unit FsError \path\text:
     match io_bytebuf_from_str_result text:
         Result::Ok bytes:
             fs_write_to_bytes path bytes
         Result::Err e:
-            Result::Err fs_std_error_to_errno e
+            Result::Err fs_error_from_std_error FsOperation::BuildWriteBuffer e
+
+//: fs_write_to_string_errno: text write error を errno 互換値へ[写/うつ]す legacy wrapper
+//:
+//: [注意/ちゅうい]:
+//: - 新規実装は `fs_write_to_string` の `FsError` を match してください。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/write" as *
+//: ```
+pub fn fs_write_to_string_errno %impure fn str impure fn str Result unit i32 \path\text:
+    match fs_write_to_string path text:
+        Result::Ok _:
+            Result::Ok unit
+        Result::Err e:
+            Result::Err fs_error_to_errno e

@@ -315,12 +315,21 @@ stdout: mlstr:
 #import "core/option" as *
 #import "alloc/collections/vec" as v
 
+fn fs_test_push_entry %impure fn Vec str impure fn str Vec str \entries\name:
+    match v::push entries name:
+        Result::Ok next_entries:
+            next_entries
+        Result::Err e:
+            let recovered %Vec str v::vec_push_error_vec e
+            v::free recovered
+            v::vec_empty
+
 fn main %impure fn void i32 \void:
     let entries %Vec str:
-        unwrap_ok v::new
-        |> v::push "zeta.txt" |> uwok
-        |> v::push "alpha.nepl" |> uwok
-        |> v::push "beta.n.md" |> uwok
+        v::vec_empty
+        |> fs_test_push_entry "zeta.txt"
+        |> fs_test_push_entry "alpha.nepl"
+        |> fs_test_push_entry "beta.n.md"
     let mut checks checks_new;
     match fs_sort_strings &entries:
         Result::Err _e:
