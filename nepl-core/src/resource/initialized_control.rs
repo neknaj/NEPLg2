@@ -743,11 +743,11 @@ fn record_initialized_condition_fact(
     record_condition_fact_value_constraints(raw_aliases, fact, truthy_path);
 }
 
-struct LoopInitializedRangeCandidate {
-    storage: Place,
-    initialized_count: Place,
-    value_ty: crate::types::TypeId,
-    element_stride: usize,
+pub(super) struct LoopInitializedRangeCandidate {
+    pub(super) storage: Place,
+    pub(super) initialized_count: Place,
+    pub(super) value_ty: crate::types::TypeId,
+    pub(super) element_stride: usize,
 }
 
 struct LoopInitializationTarget {
@@ -761,7 +761,7 @@ struct LoopInitializationTarget {
 ///
 /// この証明により、loop の path merge が個別 slot を MaybeInitialized にしても、
 /// loop 完了後の `0..n` 範囲は initialized range として扱える。
-fn loop_initialized_range_candidates(
+pub(super) fn loop_initialized_range_candidates(
     engine: &ResourceCheckEngine<'_>,
     raw_aliases: &RawCellAddressAliases,
     condition_fact: Option<&ResourceConditionFact>,

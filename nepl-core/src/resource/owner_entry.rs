@@ -6,6 +6,7 @@ use crate::types::TypeCtx;
 use super::model::{OwnerStateEntry, ResourceModule};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_check_utils::merge_owner_deferred;
+use super::owner_obligation_relevance::owner_obligation_relevant_functions;
 use super::owner_obligation_value_cache::{
     owner_obligation_check_cache_input, record_owner_obligation_check_value_cache_candidate,
     replay_owner_obligation_check_from_value_cache, OwnerObligationCheckCacheInput,
@@ -52,19 +53,21 @@ fn check_resource_owner_obligations_inner(
     let mut function_results = vec![None; module.functions.len()];
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceOwnerCheckDeferred::default();
-    let dependency_graph = summary_value_cache
-        .as_ref()
-        .map(|_| ResourceSummaryDependencyGraph::build(module));
+    let dependency_graph = ResourceSummaryDependencyGraph::build(module);
     let mut owner_check_pass_plan = match (
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
-        dependency_graph.as_ref(),
     ) {
-        (Some(cache), Some(context), Some(graph))
+        (Some(cache), Some(context))
             if cache.stable_entry_collection_enabled()
                 || cache.has_owner_obligation_check_pass_snapshot() =>
         {
-            Some(cache.begin_owner_obligation_check_pass_plan(context, types, module, graph))
+            Some(cache.begin_owner_obligation_check_pass_plan(
+                context,
+                types,
+                module,
+                &dependency_graph,
+            ))
         }
         _ => None,
     };
@@ -104,9 +107,7 @@ fn check_resource_owner_obligations_inner(
                         summary_value_cache_context,
                         types,
                         module,
-                        dependency_graph
-                            .as_ref()
-                            .map(ResourceSummaryDependencyGraph::dependencies),
+                        Some(dependency_graph.dependencies()),
                         function_index,
                         function,
                         function_op_count,
@@ -161,24 +162,37 @@ fn check_resource_owner_obligations_inner(
             };
         }
     } else {
+        let relevant_functions =
+            owner_obligation_relevant_functions(module, types, &dependency_graph);
         pending_checks = module
             .functions
             .iter()
             .enumerate()
-            .map(|(function_index, function)| OwnerObligationPendingCheck {
-                function_index,
-                function_op_count: resource_function_op_count(function),
-                cache_input: None,
+            .filter_map(|(function_index, function)| {
+                if !relevant_functions[function_index] {
+                    function_results[function_index] =
+                        Some(empty_owner_obligation_function_check(function));
+                    return None;
+                }
+                Some(OwnerObligationPendingCheck {
+                    function_index,
+                    function_op_count: resource_function_op_count(function),
+                    cache_input: None,
+                })
             })
             .collect();
+        if pending_checks.is_empty() {
+            stage_start.log("resource_owner_obligations_skipped_by_relevance");
+            return ResourceOwnerCheckReport {
+                functions: owner_obligation_function_results(function_results),
+                diagnostics,
+                deferred,
+            };
+        }
     }
 
     let (summaries, owner_summary_recomputations) =
-        compute_owner_return_summaries_with_recomputations(
-            module,
-            types,
-            dependency_graph.as_ref(),
-        );
+        compute_owner_return_summaries_with_recomputations(module, types, Some(&dependency_graph));
     if let Some(cache) = summary_value_cache.as_deref_mut() {
         cache.record_owner_return_summary_stage(owner_summary_recomputations, summaries.len());
     }
@@ -247,6 +261,16 @@ struct OwnerObligationPendingCheck {
     function_index: usize,
     function_op_count: usize,
     cache_input: Option<OwnerObligationCheckCacheInput>,
+}
+
+fn empty_owner_obligation_function_check(
+    function: &super::model::ResourceFunction,
+) -> ResourceOwnerFunctionCheck {
+    ResourceOwnerFunctionCheck {
+        name: function.name.clone(),
+        final_owners: Vec::new(),
+        deferred: ResourceOwnerCheckDeferred::default(),
+    }
 }
 
 /// replay できた関数と再検査した関数を、`ResourceModule` の関数順へ戻す。

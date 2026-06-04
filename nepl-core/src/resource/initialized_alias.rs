@@ -483,6 +483,23 @@ impl RawCellAddressAliases {
         out
     }
 
+    /// release requirement summary 用に raw-address source を may-union する。
+    ///
+    /// 通常の initialized-state merge では raw view origin を共通部分だけに落とす。
+    /// それは全 path で成立する must fact だけを後続診断へ渡すために必要である。
+    /// 一方、release requirement summary は「どこかの path で parameter-backed raw cell が
+    /// release され得る」ことを集める may-summary なので、各 path の raw view origin を
+    /// alias group として materialize し、後続 release operation が可能な source を失わない。
+    pub(super) fn merge_release_may_path_refs(paths: &[&RawCellAddressAliases]) -> Self {
+        let mut out = Self::merge_path_refs(paths);
+        for path in paths {
+            for (place, origin) in path.raw_view_origins.origin_pairs() {
+                out.copy_explicit_raw_address_alias_preserving_target(&origin, &place);
+            }
+        }
+        out
+    }
+
     /// raw address として観測される identity proof が一致しているかを判定する。
     ///
     /// i32 の値・差分・大小関係などの scalar facts は、経路合流時に共通部分だけを

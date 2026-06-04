@@ -10,10 +10,14 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_control::{
     initialize_control_output_path_states, invalidate_control_output_path_states,
-    invalidate_control_output_state, path_alternatives_or_single,
+    invalidate_control_output_state, loop_initialized_range_candidates,
+    path_alternatives_or_single,
 };
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
-use super::initialized_path_state::{merge_path_alternatives_into, ResourcePathAlternatives};
+use super::initialized_path_state::{
+    merge_path_alternatives_into, ResourceCheckState, ResourcePathAlternatives,
+};
+use super::initialized_path_state_merge::merge_resource_check_states;
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
@@ -161,6 +165,34 @@ fn collect_param_release_requirements_from_ops_with_engine(
             step_engine.auto_drop_points.clear();
             continue;
         }
+        if let ResourceOp::Loop {
+            condition_ops,
+            condition,
+            condition_fact,
+            body_ops,
+            span,
+        } = op
+        {
+            collect_loop_release_requirements_and_step(
+                out,
+                step_engine,
+                cells,
+                collection_slots,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                params,
+                raw_init_summaries,
+                condition_ops,
+                condition,
+                condition_fact.as_ref(),
+                body_ops,
+                *span,
+            );
+            step_engine.auto_drop_points.clear();
+            continue;
+        }
         collect_param_release_requirements_from_op(
             out,
             &step_engine,
@@ -191,6 +223,139 @@ fn collect_param_release_requirements_from_ops_with_engine(
         // the proof tables carried above, but do not persist temporary drop insertion candidates.
         step_engine.auto_drop_points.clear();
     }
+}
+
+fn collect_loop_release_requirements_and_step(
+    out: &mut Vec<RawCellReleaseParamRequirement>,
+    engine: &mut ResourceCheckEngine<'_>,
+    cells: &mut CellTable,
+    collection_slots: &mut CollectionSlotStateTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    function_aliases: &mut FunctionAliasTable,
+    pending_reallocs: &mut PendingRawReallocs,
+    variant_initializations: &mut PendingVariantRawCellInitializations,
+    params: &[ResourceLocal],
+    raw_init_summaries: &RawCellInitializationFunctionSummaryIndex<'_>,
+    condition_ops: &[ResourceOp],
+    condition: &Place,
+    condition_fact: Option<&ResourceConditionFact>,
+    body_ops: &[ResourceOp],
+    span: crate::span::Span,
+) {
+    let mut condition_cells = cells.clone();
+    let mut condition_collection_slots = collection_slots.clone();
+    let mut condition_aliases = raw_aliases.clone();
+    let mut condition_function_aliases = function_aliases.clone();
+    let mut condition_pending_reallocs = pending_reallocs.clone();
+    let mut condition_variant_initializations = variant_initializations.clone();
+    collect_param_release_requirements_from_ops_with_engine(
+        out,
+        engine,
+        &mut condition_cells,
+        &mut condition_collection_slots,
+        &mut condition_aliases,
+        &mut condition_function_aliases,
+        &mut condition_pending_reallocs,
+        &mut condition_variant_initializations,
+        params,
+        raw_init_summaries,
+        condition_ops,
+    );
+    core::mem::take(&mut engine.path_alternatives);
+    engine.consume_by_value(
+        &mut condition_cells,
+        condition,
+        ResourceCheckOperation::LoopCondition,
+        span,
+    );
+    condition_cells.discard_raw_cell_loaded_value_origin(condition);
+
+    let mut exit_cells = condition_cells.clone();
+    let exit_collection_slots = condition_collection_slots.clone();
+    let mut exit_aliases = condition_aliases.clone();
+    let mut exit_pending_reallocs = condition_pending_reallocs.clone();
+    engine.apply_branch_condition_fact(
+        &mut exit_cells,
+        &mut exit_aliases,
+        &mut exit_pending_reallocs,
+        condition_fact,
+        false,
+    );
+
+    let mut body_cells = condition_cells;
+    let mut body_collection_slots = condition_collection_slots;
+    let mut body_aliases = condition_aliases;
+    let mut body_function_aliases = condition_function_aliases.clone();
+    let mut body_pending_reallocs = condition_pending_reallocs;
+    let mut body_variant_initializations = condition_variant_initializations.clone();
+    engine.apply_branch_condition_fact(
+        &mut body_cells,
+        &mut body_aliases,
+        &mut body_pending_reallocs,
+        condition_fact,
+        true,
+    );
+    let initialized_range_candidates =
+        loop_initialized_range_candidates(engine, &body_aliases, condition_fact, body_ops);
+    collect_param_release_requirements_from_ops_with_engine(
+        out,
+        engine,
+        &mut body_cells,
+        &mut body_collection_slots,
+        &mut body_aliases,
+        &mut body_function_aliases,
+        &mut body_pending_reallocs,
+        &mut body_variant_initializations,
+        params,
+        raw_init_summaries,
+        body_ops,
+    );
+    let body_path_alternatives = core::mem::take(&mut engine.path_alternatives);
+    let body_states = path_alternatives_or_single(
+        body_path_alternatives,
+        body_cells,
+        body_collection_slots,
+        body_aliases,
+        body_function_aliases,
+        body_pending_reallocs,
+        body_variant_initializations,
+    );
+
+    let mut loop_paths = Vec::with_capacity(body_states.len() + 1);
+    loop_paths.push(ResourceCheckState::new(
+        exit_cells,
+        exit_collection_slots,
+        exit_aliases,
+        condition_function_aliases,
+        exit_pending_reallocs,
+        condition_variant_initializations,
+    ));
+    loop_paths.extend(body_states);
+
+    let loop_alias_paths = loop_paths
+        .iter()
+        .map(|state| &state.raw_aliases)
+        .collect::<Vec<_>>();
+    let release_raw_aliases = RawCellAddressAliases::merge_release_may_path_refs(&loop_alias_paths);
+    let merged_state = merge_resource_check_states(&loop_paths);
+    *cells = merged_state.cells;
+    *collection_slots = merged_state.collection_slots;
+    *raw_aliases = release_raw_aliases;
+    *function_aliases = merged_state.function_aliases;
+    *pending_reallocs = merged_state.pending_reallocs;
+    *variant_initializations = merged_state.variant_initializations;
+    for candidate in initialized_range_candidates {
+        collection_slots.mark_initialized_range_with_aliases(
+            &candidate.storage,
+            &candidate.initialized_count,
+            candidate.value_ty,
+            candidate.element_stride,
+            raw_aliases,
+        );
+    }
+    // Release requirement summary は may-summary である。loop の exit / body state を
+    // merge した raw-address table は後続の release operation に必要な feasible source を
+    // 保守的に含むため、path alternatives を保持して残りの summary scan を繰り返さない。
 }
 
 fn collect_match_release_requirements_and_step(

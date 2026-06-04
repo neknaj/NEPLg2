@@ -86,6 +86,18 @@ impl RawValueOrigins {
         out
     }
 
+    /// raw view origin を別の summary 用 table へ materialize するための snapshot を返す。
+    ///
+    /// 通常の問い合わせは `origin_for` / `origins_for` を使う。ここでは release
+    /// may-summary が path ごとの origin を alias group へ変換するため、内部表現を
+    /// 変更可能な参照として漏らさず、値の組として返す。
+    pub(super) fn origin_pairs(&self) -> Vec<(Place, Place)> {
+        self.origins
+            .iter()
+            .map(|origin| (origin.place.clone(), origin.origin.clone()))
+            .collect()
+    }
+
     pub(super) fn clear_prefix(&mut self, place: &Place) {
         self.origins.retain(|origin| {
             place_suffix_after_prefix(&origin.place, place).is_none()

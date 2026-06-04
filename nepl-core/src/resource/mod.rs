@@ -410,6 +410,7 @@ mod owner_host_memory_summary;
 mod owner_host_payload_extent;
 mod owner_host_size_outputs;
 mod owner_match_payload;
+mod owner_obligation_relevance;
 mod owner_obligation_value_cache;
 mod owner_projection_source;
 mod owner_raw_address;
