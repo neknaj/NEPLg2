@@ -50597,3 +50597,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/stdlib_doc_comment_policy.md` と `doc/neplg2/parser_backend_responsibility_split_plan.md` は、行数しきい値ではなく構造的責務境界を監視する方針へ更新した。
 - issue `ISS-20260604T205909858Z-SOURCE-POLICY-SHOULD-NOT-ENFORCE-LIN-0E40D072` を作成し、対応内容を fixed として記録した。
 - focused verification は changed JS の `node --check`、変更済み `nodesrc/test_*.js` 実行、`node nodesrc/test_source_policy_no_line_count_limits.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、未コミットの別 selfhost type resolver 差分と既存 policy gap に由来する warning が 4 件残っている。
+
+## 2026-06-05 Agent2 GUI opaque id checkpoint
+
+- `agent2/gui-opaque-id-validation` branch で、Zenn 記事の invalid state を `Result` / `Option` と型で明示する方針に沿って GUI host id contract を修正した。`plan.md` は変更していない。
+- subagent review で、`window_id` / `surface_id` / `frame_id` が unchecked raw `i32` constructor になっており、0 や負数が application model へ普通の id として流れ得ることを確認した。
+- `WindowId` / `SurfaceId` / `FrameId` に module-private proof field を追加し、public constructor は `window_id_result` / `surface_id_result` / `frame_id_result` と互換 helper の `window_id` / `surface_id` / `frame_id` を通して `Result` を返す形にした。
+- `GuiHost.default_window` は `Option WindowId` にし、headless host は `Option::None` を保持するようにした。Web input bridge は raw host id を `window_id_result` で検証してから `GuiWebEvent` に格納する。
+- runtime の `RequestRedraw` / `SetTitle` effect は target raw id を再検証し、無効 id を `GuiError::InvalidCommand` として返す。
+- source policy `test_stdlib_gui_opaque_id_contract.js` と doctest を追加し、private proof、checked constructor、headless host、Web input boundary、runtime validation を固定した。issue `ISS-20260604T033842647Z-GUI-OPAQUE-IDS-ARE-CONSTRUCTIBLE-FRO-42B59D4F` は resolved に更新した。
+- focused verification は GUI opaque id policy、GUI layering policy、Web GUI shared queue / input bridge policy、`tests/stdlib/gui_std.n.md` と `tests/stdlib/gui_web_input.n.md` の focused doctest 22/22 を通した。

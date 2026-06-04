@@ -22,7 +22,8 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn void i32 \void:
-    let host %GuiHost gui_host_new gui_capabilities_text_grid window_id 9
+    let win %WindowId unwrap_ok window_id_result 9
+    let host %GuiHost gui_host_new_with_window gui_capabilities_text_grid win
     let command_result %Result GuiRuntimeCommand GuiError gui_runtime_interpret_effect &host request_redraw 12
     let checks match command_result:
         Result::Ok command:
@@ -58,7 +59,7 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn void i32 \void:
-    let win %WindowId window_id 4
+    let win %WindowId unwrap_ok window_id_result 4
     let timer %TimerRequest timer_request win timer_id 2 1000 true
     let measurer %HostTextMeasurer host_text_measurer_fixed gui_capabilities_text_grid 8 16 12
     let run_id %TextRunId text_run_id_new 1
@@ -104,7 +105,8 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn void i32 \void:
-    let host %GuiHost gui_host_new gui_capabilities_text_grid window_id 9
+    let win %WindowId unwrap_ok window_id_result 9
+    let host %GuiHost gui_host_new_with_window gui_capabilities_text_grid win
     let batch0 %GuiEffectBatch gui_effect_batch_empty
     let batch1 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch0 request_redraw 1
     let batch2 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch1 request_redraw 2
@@ -162,6 +164,83 @@ fn main %impure fn void i32 \void:
         |> test_report_push assert_eq_i32 "return value" 0 actual
     let shown test_report_print_stdout report
     test_report_exit_code shown
+```
+
+## gui_opaque_ids_require_checked_constructors
+
+[目的/もくてき]:
+- window / surface / frame id は raw `i32` だけで作らず、checked constructor で 0 以下を拒否します。
+- headless host は `WindowId 0` ではなく `Option::None` で既定 window 不在を表します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_opaque_ids_require_checked_constructors\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"assert\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/option" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn is_invalid_window_id %fn i32 bool \raw:
+    match window_id_result raw:
+        Result::Ok _:
+            false
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+
+fn is_invalid_surface_id %fn i32 bool \raw:
+    match surface_id_result raw:
+        Result::Ok _:
+            false
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+
+fn frame_id_roundtrip_ok %fn i32 bool \raw:
+    match frame_id_result raw:
+        Result::Ok id:
+            eq raw frame_id_raw &id
+        Result::Err _:
+            false
+
+fn main %impure fn void i32 \void:
+    let headless %GuiHost gui_host_headless
+    let default_is_none %bool is_none gui_host_default_window &headless
+    let checks0 test_report_new "gui_opaque_ids_require_checked_constructors"
+    let checks1 test_report_push checks0 assert is_invalid_window_id 0
+    let checks2 test_report_push checks1 assert is_invalid_surface_id -1
+    let checks3 test_report_push checks2 assert frame_id_roundtrip_ok 7
+    let checks test_report_push checks3 assert default_is_none
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
+
+## gui_window_id_raw_constructor_is_not_public_contract
+
+neplg2:test[compile_fail]
+diag_code: type.stack.extra_values
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "std/gui" as *
+
+fn main %fn void i32 \void:
+    let _id %WindowId WindowId 0
+    0
 ```
 
 ## gui_error_display_keeps_typed_error

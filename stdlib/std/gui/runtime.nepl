@@ -142,14 +142,22 @@ pub fn gui_runtime_interpret_effect %fn &GuiHost fn GuiEffect Result GuiRuntimeC
             if gui_runtime_can_request_redraw host:
                 then:
                     let target %i32 field::get payload "target"
-                    gui_ok GuiRuntimeCommand::RequestRedraw window_id target
+                    match window_id_result target:
+                        Result::Ok window:
+                            gui_ok GuiRuntimeCommand::RequestRedraw window
+                        Result::Err _:
+                            Result::Err GuiError::InvalidCommand
                 else Result::Err GuiError::Unsupported
         GuiEffect::SetTitle payload:
             if gui_runtime_can_set_title host:
                 then:
                     let target %i32 field::get payload "target"
                     let title %str field::get payload "title"
-                    gui_ok GuiRuntimeCommand::SetTitle window_title_update window_id target title
+                    match window_id_result target:
+                        Result::Ok window:
+                            gui_ok GuiRuntimeCommand::SetTitle window_title_update window title
+                        Result::Err _:
+                            Result::Err GuiError::InvalidCommand
                 else Result::Err GuiError::Unsupported
 
 //: gui_runtime_interpret_second_effect: 2 個目の effect を command batch に[反映/はんえい]する

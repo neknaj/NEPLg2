@@ -17,13 +17,14 @@
 
 #import "core/field" as field
 #import "core/gui" as *
+#import "core/option" as *
 #import "core/traits/copy" as *
 #import "std/gui/window" as *
 
 //: GuiHost: std/gui runtime が[参照/さんしょう]する host contract value
 pub struct GuiHost:
     capabilities %GuiCapabilities
-    default_window %WindowId
+    default_window %Option WindowId
 
 impl Clone for GuiHost:
     fn clone %fn &GuiHost GuiHost \host:
@@ -33,18 +34,26 @@ impl Copy for GuiHost:
     fn copy_mark %fn GuiHost GuiHost \host:
         host
 
-//: gui_host_new: capability と既定 window から GuiHost contract を[作/つく]る
-pub fn gui_host_new %fn GuiCapabilities fn WindowId GuiHost \capabilities\default_window:
+//: gui_host_new: capability と任意の既定 window から GuiHost contract を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - surface を持つ host は `Option::Some WindowId` を渡します。
+//: - headless host や window 未作成 host は `Option::None` を渡し、0 などの invalid id で代用しません。
+pub fn gui_host_new %fn GuiCapabilities fn Option WindowId GuiHost \capabilities\default_window:
     GuiHost capabilities default_window
+
+//: gui_host_new_with_window: capability と検証済み window から GuiHost contract を[作/つく]る
+pub fn gui_host_new_with_window %fn GuiCapabilities fn WindowId GuiHost \capabilities\default_window:
+    gui_host_new capabilities Option::Some default_window
 
 //: gui_host_headless: test/headless 用 host contract を[作/つく]る
 pub fn gui_host_headless %fn void GuiHost \void:
-    gui_host_new gui_capabilities_headless window_id 0
+    gui_host_new gui_capabilities_headless Option::None
 
 //: gui_host_capabilities: host capability を[読/よ]む
 pub fn gui_host_capabilities %fn &GuiHost GuiCapabilities \host:
     *field::get_ref host "capabilities"
 
-//: gui_host_default_window: 既定 window id を[読/よ]む
-pub fn gui_host_default_window %fn &GuiHost WindowId \host:
+//: gui_host_default_window: 既定 window id を Option で[読/よ]む
+pub fn gui_host_default_window %fn &GuiHost Option WindowId \host:
     *field::get_ref host "default_window"

@@ -13,63 +13,173 @@
 #indent 4
 
 #import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
+
+//: GuiOpaqueIdProof: checked constructor を通った raw id であることを module 内で示す proof
+//:
+//: [目的/もくてき]:
+//: - public opaque id の struct constructor が raw `i32` だけで成立しないようにします。
+//: - proof value はこの module の checked constructor だけが作ります。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+struct GuiOpaqueIdProof:
+    raw %i32
+
+//: gui_opaque_id_proof: module 内 checked constructor 用 proof を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - この helper は private です。public API は raw integer を必ず `*_id_result` で検証します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+fn gui_opaque_id_proof %fn i32 GuiOpaqueIdProof \raw:
+    GuiOpaqueIdProof raw
 
 //: WindowId: host window を[参照/さんしょう]する opaque id
 pub struct WindowId:
     raw %i32
+    proof %GuiOpaqueIdProof
 
 impl Clone for WindowId:
     fn clone %fn &WindowId WindowId \id:
-        *id
+        let raw %i32 *field::get_ref id "raw"
+        WindowId raw gui_opaque_id_proof raw
 
 impl Copy for WindowId:
     fn copy_mark %fn WindowId WindowId \id:
-        id
+        let raw %i32 *field::get_ref &id "raw"
+        WindowId raw gui_opaque_id_proof raw
 
 //: SurfaceId: render surface を[参照/さんしょう]する opaque id
 pub struct SurfaceId:
     raw %i32
+    proof %GuiOpaqueIdProof
 
 impl Clone for SurfaceId:
     fn clone %fn &SurfaceId SurfaceId \id:
-        *id
+        let raw %i32 *field::get_ref id "raw"
+        SurfaceId raw gui_opaque_id_proof raw
 
 impl Copy for SurfaceId:
     fn copy_mark %fn SurfaceId SurfaceId \id:
-        id
+        let raw %i32 *field::get_ref &id "raw"
+        SurfaceId raw gui_opaque_id_proof raw
 
 //: FrameId: streaming render frame を[参照/さんしょう]する opaque id
 pub struct FrameId:
     raw %i32
+    proof %GuiOpaqueIdProof
 
 impl Clone for FrameId:
     fn clone %fn &FrameId FrameId \id:
-        *id
+        let raw %i32 *field::get_ref id "raw"
+        FrameId raw gui_opaque_id_proof raw
 
 impl Copy for FrameId:
     fn copy_mark %fn FrameId FrameId \id:
-        id
+        let raw %i32 *field::get_ref &id "raw"
+        FrameId raw gui_opaque_id_proof raw
 
-//: window_id: raw integer から WindowId を[作/つく]る
-pub fn window_id %fn i32 WindowId \raw:
-    WindowId raw
+//: window_id_unchecked: 検証済み raw integer から WindowId を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - caller に公開する constructor は `window_id_result` です。この helper は module 内で検証後の値を包むためだけに使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+fn window_id_unchecked %fn i32 WindowId \raw:
+    WindowId raw gui_opaque_id_proof raw
+
+//: window_id_result: raw integer を検証して WindowId を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - raw id は 1 以上を有効値とします。
+//: - 0 または負値は `GuiError::InvalidCommand` を返します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+pub fn window_id_result %fn i32 Result WindowId GuiError \raw:
+    if:
+        gt raw 0
+        then Result::Ok window_id_unchecked raw
+        else Result::Err GuiError::InvalidCommand
+
+//: window_id: raw integer を検証して WindowId を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - 互換名ですが、unchecked constructor ではありません。失敗を `Result` として扱ってください。
+pub fn window_id %fn i32 Result WindowId GuiError \raw:
+    window_id_result raw
 
 //: window_id_raw: WindowId の raw value を[読/よ]む
 pub fn window_id_raw %fn &WindowId i32 \id:
     *field::get_ref id "raw"
 
-//: surface_id: raw integer から SurfaceId を[作/つく]る
-pub fn surface_id %fn i32 SurfaceId \raw:
-    SurfaceId raw
+//: surface_id_unchecked: 検証済み raw integer から SurfaceId を[作/つく]る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+fn surface_id_unchecked %fn i32 SurfaceId \raw:
+    SurfaceId raw gui_opaque_id_proof raw
+
+//: surface_id_result: raw integer を検証して SurfaceId を[作/つく]る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+pub fn surface_id_result %fn i32 Result SurfaceId GuiError \raw:
+    if:
+        gt raw 0
+        then Result::Ok surface_id_unchecked raw
+        else Result::Err GuiError::InvalidCommand
+
+//: surface_id: raw integer を検証して SurfaceId を[作/つく]る
+pub fn surface_id %fn i32 Result SurfaceId GuiError \raw:
+    surface_id_result raw
 
 //: surface_id_raw: SurfaceId の raw value を[読/よ]む
 pub fn surface_id_raw %fn &SurfaceId i32 \id:
     *field::get_ref id "raw"
 
-//: frame_id: raw integer から FrameId を[作/つく]る
-pub fn frame_id %fn i32 FrameId \raw:
-    FrameId raw
+//: frame_id_unchecked: 検証済み raw integer から FrameId を[作/つく]る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+fn frame_id_unchecked %fn i32 FrameId \raw:
+    FrameId raw gui_opaque_id_proof raw
+
+//: frame_id_result: raw integer を検証して FrameId を[作/つく]る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+pub fn frame_id_result %fn i32 Result FrameId GuiError \raw:
+    if:
+        gt raw 0
+        then Result::Ok frame_id_unchecked raw
+        else Result::Err GuiError::InvalidCommand
+
+//: frame_id: raw integer を検証して FrameId を[作/つく]る
+pub fn frame_id %fn i32 Result FrameId GuiError \raw:
+    frame_id_result raw
 
 //: frame_id_raw: FrameId の raw value を[読/よ]む
 pub fn frame_id_raw %fn &FrameId i32 \id:

@@ -47,16 +47,20 @@ exit_code: 0
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "core/result" as *
 #import "platforms/gui/web" as *
 #import "std/gui/keymap" as *
+#import "std/gui/window" as *
 #import "std/test" as *
 
 fn pointer_wrapper_ok %fn &GuiWebEvent bool \web:
+    let window %WindowId gui_web_event_window_id web
+    let window_ok %bool eq 3 window_id_raw &window
     match gui_web_event_pointer web:
         Option::Some event:
             match pointer_event_kind &event:
                 PointerEventKind::Move:
-                    eq 9 pointer_event_pointer_id &event
+                    and window_ok eq 9 pointer_event_pointer_id &event
                 _:
                     false
         Option::None:
@@ -94,18 +98,19 @@ fn window_wrapper_ok %fn &GuiWebEvent bool \web:
 
 fn run_case %impure fn void i32 \void:
     let point %GuiPoint gui_point_new 0 0
+    let host_window %WindowId unwrap_ok window_id_result 3
     let pointer %PointerEvent pointer_event_new PointerEventKind::Move 9 point PointerButton::None
-    let pointer_web %GuiWebEvent GuiWebEvent 3 point gui_event_pointer pointer
+    let pointer_web %GuiWebEvent GuiWebEvent host_window point gui_event_pointer pointer
     let pointer_ok %bool pointer_wrapper_ok &pointer_web
     let keyboard %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
-    let keyboard_web %GuiWebEvent GuiWebEvent 3 point gui_event_keyboard keyboard
+    let keyboard_web %GuiWebEvent GuiWebEvent host_window point gui_event_keyboard keyboard
     let keyboard_ok %bool keyboard_wrapper_ok &keyboard_web
     let text %TextInputEvent text_input_event_new '\u{3042}'
-    let text_web %GuiWebEvent GuiWebEvent 3 point gui_event_text_input text
+    let text_web %GuiWebEvent GuiWebEvent host_window point gui_event_text_input text
     let text_ok %bool text_wrapper_ok &text_web
     let size %GuiSize gui_size_new 640 480
     let window %WindowEvent window_event_new WindowEventKind::Resized size
-    let window_web %GuiWebEvent GuiWebEvent 3 point gui_event_window window
+    let window_web %GuiWebEvent GuiWebEvent host_window point gui_event_window window
     let window_ok %bool window_wrapper_ok &window_web
     let no_window %Option WindowEvent gui_web_event_window &keyboard_web
     let no_window_ok %bool is_none no_window
