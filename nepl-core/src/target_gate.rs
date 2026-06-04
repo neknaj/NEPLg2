@@ -1,8 +1,8 @@
-//! target/profile 条件付きコンパイル gate の共通評価。
+//! target/profile/test-mode 条件付きコンパイル gate の共通評価。
 //!
-//! `#if[target=...]` と `#if[profile=...]` は typecheck / raw body precheck /
-//! codegen が同じ active statement 集合を見る必要があるため、この module に
-//! 判定規則と invalid gate 診断を集約する。
+//! `#if[target=...]`、`#if[profile=...]`、`#test` は typecheck / raw body
+//! precheck / codegen が同じ active statement 集合を見る必要があるため、この
+//! module に判定規則と invalid gate 診断を集約する。
 
 extern crate alloc;
 
@@ -66,6 +66,7 @@ pub fn directive_gate_decision(
     directive: &Directive,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> Option<GateDecision> {
     match directive {
         Directive::IfTarget { target: gate, .. } => {
@@ -74,6 +75,11 @@ pub fn directive_gate_decision(
         Directive::IfProfile { profile: gate, .. } => {
             Some(evaluate_profile_gate(gate.as_str(), profile))
         }
+        Directive::Test { .. } => Some(if test_mode {
+            GateDecision::Active
+        } else {
+            GateDecision::Inactive
+        }),
         _ => None,
     }
 }
@@ -82,8 +88,9 @@ pub fn directive_gate_allows(
     directive: &Directive,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> Option<bool> {
-    directive_gate_decision(directive, target, profile).map(GateDecision::allows)
+    directive_gate_decision(directive, target, profile, test_mode).map(GateDecision::allows)
 }
 
 pub fn invalid_gate_diagnostic(directive: &Directive) -> Option<Diagnostic> {
@@ -99,13 +106,21 @@ pub fn validate_module_gates(
     module: &Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     let mut seen = BTreeSet::new();
     for directive in &module.directives {
-        push_invalid_gate_diagnostic(&mut out, &mut seen, directive, target, profile);
+        push_invalid_gate_diagnostic(&mut out, &mut seen, directive, target, profile, test_mode);
     }
-    validate_block_gates(&module.root, target, profile, &mut out, &mut seen);
+    validate_block_gates(
+        &module.root,
+        target,
+        profile,
+        test_mode,
+        &mut out,
+        &mut seen,
+    );
     out
 }
 
@@ -113,19 +128,26 @@ fn validate_block_gates(
     block: &Block,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     out: &mut Vec<Diagnostic>,
     seen: &mut BTreeSet<(u32, u32, u32)>,
 ) {
     for stmt in &block.items {
         match stmt {
             Stmt::Directive(directive) => {
-                push_invalid_gate_diagnostic(out, seen, directive, target, profile);
+                push_invalid_gate_diagnostic(out, seen, directive, target, profile, test_mode);
             }
-            Stmt::FnDef(function) => validate_function_gates(function, target, profile, out, seen),
-            Stmt::Trait(trait_def) => validate_trait_gates(trait_def, target, profile, out, seen),
-            Stmt::Impl(impl_def) => validate_impl_gates(impl_def, target, profile, out, seen),
+            Stmt::FnDef(function) => {
+                validate_function_gates(function, target, profile, test_mode, out, seen)
+            }
+            Stmt::Trait(trait_def) => {
+                validate_trait_gates(trait_def, target, profile, test_mode, out, seen)
+            }
+            Stmt::Impl(impl_def) => {
+                validate_impl_gates(impl_def, target, profile, test_mode, out, seen)
+            }
             Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
-                validate_prefix_gates(expr, target, profile, out, seen);
+                validate_prefix_gates(expr, target, profile, test_mode, out, seen);
             }
             _ => {}
         }
@@ -136,11 +158,12 @@ fn validate_trait_gates(
     trait_def: &TraitDef,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     out: &mut Vec<Diagnostic>,
     seen: &mut BTreeSet<(u32, u32, u32)>,
 ) {
     for method in &trait_def.methods {
-        validate_function_gates(method, target, profile, out, seen);
+        validate_function_gates(method, target, profile, test_mode, out, seen);
     }
 }
 
@@ -148,11 +171,12 @@ fn validate_impl_gates(
     impl_def: &ImplDef,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     out: &mut Vec<Diagnostic>,
     seen: &mut BTreeSet<(u32, u32, u32)>,
 ) {
     for method in &impl_def.methods {
-        validate_function_gates(method, target, profile, out, seen);
+        validate_function_gates(method, target, profile, test_mode, out, seen);
     }
 }
 
@@ -160,11 +184,12 @@ fn validate_function_gates(
     function: &FnDef,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     out: &mut Vec<Diagnostic>,
     seen: &mut BTreeSet<(u32, u32, u32)>,
 ) {
     if let FnBody::Parsed(block) = &function.body {
-        validate_block_gates(block, target, profile, out, seen);
+        validate_block_gates(block, target, profile, test_mode, out, seen);
     }
 }
 
@@ -172,25 +197,28 @@ fn validate_prefix_gates(
     expr: &PrefixExpr,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     out: &mut Vec<Diagnostic>,
     seen: &mut BTreeSet<(u32, u32, u32)>,
 ) {
     for item in &expr.items {
         match item {
-            PrefixItem::Block(block, _) => validate_block_gates(block, target, profile, out, seen),
+            PrefixItem::Block(block, _) => {
+                validate_block_gates(block, target, profile, test_mode, out, seen)
+            }
             PrefixItem::Match(match_expr, _) => {
-                validate_match_gates(match_expr, target, profile, out, seen);
+                validate_match_gates(match_expr, target, profile, test_mode, out, seen);
             }
             PrefixItem::Tuple(items, _) => {
                 for item in items {
-                    validate_prefix_gates(item, target, profile, out, seen);
+                    validate_prefix_gates(item, target, profile, test_mode, out, seen);
                 }
             }
             PrefixItem::Group(inner, _) => {
-                validate_prefix_gates(inner, target, profile, out, seen);
+                validate_prefix_gates(inner, target, profile, test_mode, out, seen);
             }
             PrefixItem::Intrinsic(intrinsic, _) => {
-                validate_intrinsic_gates(intrinsic, target, profile, out, seen);
+                validate_intrinsic_gates(intrinsic, target, profile, test_mode, out, seen);
             }
             _ => {}
         }
@@ -201,12 +229,13 @@ fn validate_match_gates(
     match_expr: &MatchExpr,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     out: &mut Vec<Diagnostic>,
     seen: &mut BTreeSet<(u32, u32, u32)>,
 ) {
-    validate_prefix_gates(&match_expr.scrutinee, target, profile, out, seen);
+    validate_prefix_gates(&match_expr.scrutinee, target, profile, test_mode, out, seen);
     for arm in &match_expr.arms {
-        validate_block_gates(&arm.body, target, profile, out, seen);
+        validate_block_gates(&arm.body, target, profile, test_mode, out, seen);
     }
 }
 
@@ -214,11 +243,12 @@ fn validate_intrinsic_gates(
     intrinsic: &IntrinsicExpr,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     out: &mut Vec<Diagnostic>,
     seen: &mut BTreeSet<(u32, u32, u32)>,
 ) {
     for arg in &intrinsic.args {
-        validate_prefix_gates(arg, target, profile, out, seen);
+        validate_prefix_gates(arg, target, profile, test_mode, out, seen);
     }
 }
 
@@ -228,9 +258,10 @@ fn push_invalid_gate_diagnostic(
     directive: &Directive,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) {
     if !matches!(
-        directive_gate_decision(directive, target, profile),
+        directive_gate_decision(directive, target, profile, test_mode),
         Some(GateDecision::Invalid)
     ) {
         return;
@@ -410,6 +441,21 @@ mod tests {
         assert_eq!(
             evaluate_profile_gate("staging", BuildProfile::Debug),
             GateDecision::Invalid
+        );
+    }
+
+    #[test]
+    fn test_directive_follows_test_mode_axis() {
+        let directive = Directive::Test {
+            span: Span::dummy(),
+        };
+        assert_eq!(
+            directive_gate_decision(&directive, CompileTarget::Wasm, BuildProfile::Debug, false),
+            Some(GateDecision::Inactive)
+        );
+        assert_eq!(
+            directive_gate_decision(&directive, CompileTarget::Wasm, BuildProfile::Debug, true),
+            Some(GateDecision::Active)
         );
     }
 }

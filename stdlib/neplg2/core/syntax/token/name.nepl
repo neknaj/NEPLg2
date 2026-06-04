@@ -114,6 +114,8 @@ pub fn token_kind_name %fn TokenKind str \kind:
             "DirImport"
         TokenKind::DirUse:
             "DirUse"
+        TokenKind::DirTest:
+            "DirTest"
         TokenKind::DirIfTarget:
             "DirIfTarget"
         TokenKind::DirIfProfile:

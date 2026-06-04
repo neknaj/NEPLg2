@@ -1,6 +1,6 @@
 //! Disk cache for Resource summary proof artifacts used by native `--check`.
 //!
-//! This cache stores `.neplproof` bytes keyed by compiler binary, target/profile,
+//! This cache stores `.neplproof` bytes keyed by compiler binary, target/profile/test-mode,
 //! input path, and stdlib root. The source text itself is intentionally not part
 //! of the path key: changed function bodies should reuse still-compatible proof
 //! entries and reject stale entries by their per-function body hash inside
@@ -40,6 +40,7 @@ impl ResourceProofCacheProbe {
         std_root: &Path,
         target: CompileTarget,
         profile: BuildProfile,
+        test_mode: bool,
     ) -> Option<Self> {
         let stage = proof_cache_stage_start();
         if proof_cache_disabled() {
@@ -47,7 +48,8 @@ impl ResourceProofCacheProbe {
             return None;
         }
         let path_stage = proof_cache_stage_start();
-        let Some(path) = Self::path_for_input(input_path, std_root, target, profile) else {
+        let Some(path) = Self::path_for_input(input_path, std_root, target, profile, test_mode)
+        else {
             proof_cache_stage_finish("proof_cache_path", path_stage);
             proof_cache_stage_finish("proof_cache_new_no_path", stage);
             return None;
@@ -145,10 +147,12 @@ impl ResourceProofCacheProbe {
         std_root: &Path,
         target: CompileTarget,
         profile: BuildProfile,
+        test_mode: bool,
     ) -> Option<PathBuf> {
         let mut hash = fnv1a64(NEPL_PROOF_CACHE_SCHEMA.as_bytes());
         proof_cache_hash_str(&mut hash, target_cache_tag(target));
         proof_cache_hash_str(&mut hash, profile_cache_tag(profile));
+        proof_cache_hash_u64(&mut hash, if test_mode { 1 } else { 0 });
         proof_cache_hash_current_executable(&mut hash)?;
         proof_cache_hash_str(&mut hash, &stable_path_for_cache(input_path));
         proof_cache_hash_str(&mut hash, &stable_path_for_cache(std_root));

@@ -21,6 +21,7 @@ pub fn compile_src(src: &str) -> Vec<u8> {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     )
     .expect("compile failure");
@@ -352,6 +353,7 @@ pub fn run_main_wasi_i32(src: &str) -> i32 {
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     run_wasi_wasm_i32(&wasm)
@@ -367,6 +369,7 @@ pub fn run_main_wasi_i32_raw_memory_boundary(src: &str) -> i32 {
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     run_wasi_wasm_i32(&wasm)
@@ -829,6 +832,7 @@ pub fn run_main_capture_stdout(src: &str) -> String {
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let engine = Engine::default();
@@ -1093,6 +1097,7 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     run_wasi_wasm_capture_stdout_with_stdin(&wasm, stdin)
@@ -1108,6 +1113,7 @@ pub fn run_main_capture_stdout_with_stdin_raw_memory_boundary(src: &str, stdin: 
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     run_wasi_wasm_capture_stdout_with_stdin(&wasm, stdin)
@@ -1123,6 +1129,7 @@ pub fn run_main_wasi_i32_with_stdin_raw_memory_boundary(src: &str, stdin: &[u8])
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     run_wasi_wasm_capture_stdout_with_stdin_result(&wasm, stdin).0

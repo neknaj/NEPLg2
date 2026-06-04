@@ -63,6 +63,7 @@ pub enum SelfhostModuleItemKind:
     TargetDirective
     ImportDirective
     UseDirective
+    TestDirective
     IfTargetDirective
     IfProfileDirective
     CapabilityDirective
@@ -260,6 +261,8 @@ pub fn selfhost_module_item_kind_declaration %fn SelfhostModuleItemKind Option S
             none
         SelfhostModuleItemKind::UseDirective:
             none
+        SelfhostModuleItemKind::TestDirective:
+            none
         SelfhostModuleItemKind::IfTargetDirective:
             none
         SelfhostModuleItemKind::IfProfileDirective:
@@ -296,6 +299,8 @@ pub fn selfhost_module_item_kind_name %fn SelfhostModuleItemKind str \kind:
             "ImportDirective"
         SelfhostModuleItemKind::UseDirective:
             "UseDirective"
+        SelfhostModuleItemKind::TestDirective:
+            "TestDirective"
         SelfhostModuleItemKind::IfTargetDirective:
             "IfTargetDirective"
         SelfhostModuleItemKind::IfProfileDirective:

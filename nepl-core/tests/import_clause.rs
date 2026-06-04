@@ -90,6 +90,7 @@ fn compile_with_virtual_sources(main: &str, sources: &[(&str, &str)]) -> Result<
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     )
     .map(|_| ())

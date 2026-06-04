@@ -293,7 +293,7 @@ impl<'a> BlockChecker<'a> {
         let mut pending_if: Option<bool> = None;
         for (idx, stmt) in block.items.iter().enumerate() {
             if let Stmt::Directive(d) = stmt {
-                if let Some(allowed) = gate_allows(d, self.target, self.profile) {
+                if let Some(allowed) = gate_allows(d, self.target, self.profile, self.test_mode) {
                     pending_if = Some(allowed);
                     continue;
                 }
@@ -462,6 +462,7 @@ impl<'a> BlockChecker<'a> {
                         false,
                         self.target,
                         self.profile,
+                        self.test_mode,
                         captures.as_slice(),
                         self.ctx,
                         self.env,

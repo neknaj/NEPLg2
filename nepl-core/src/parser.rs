@@ -528,6 +528,7 @@ impl Parser {
                 | Some(TokenKind::DirUse(_))
                 | Some(TokenKind::DirIfTarget(_))
                 | Some(TokenKind::DirIfProfile(_))
+                | Some(TokenKind::DirTest)
                 | Some(TokenKind::DirCapability(_))
                 | Some(TokenKind::DirIndentWidth(_))
                 | Some(TokenKind::DirExtern { .. })
@@ -840,6 +841,10 @@ impl Parser {
                     None => return None,
                 };
                 Some(Stmt::Directive(Directive::IfProfile { profile, span }))
+            }
+            TokenKind::DirTest => {
+                let span = self.next().map(|tok| tok.span).unwrap_or_else(Span::dummy);
+                Some(Stmt::Directive(Directive::Test { span }))
             }
             TokenKind::DirCapability(_) => {
                 let span = self.next().map(|t| t.span).unwrap_or_else(Span::dummy);
@@ -4421,6 +4426,7 @@ impl Parser {
                 Directive::Use { span, .. } => *span,
                 Directive::IfTarget { span, .. } => *span,
                 Directive::IfProfile { span, .. } => *span,
+                Directive::Test { span } => *span,
                 Directive::IndentWidth { span, .. } => *span,
                 Directive::Extern { span, .. } => *span,
                 Directive::Include { span, .. } => *span,

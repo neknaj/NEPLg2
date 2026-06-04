@@ -116,6 +116,8 @@ pub fn selfhost_token_is_expr_start %fn SelfhostToken bool \token:
             false
         TokenKind::DirUse:
             false
+        TokenKind::DirTest:
+            false
         TokenKind::DirIfTarget:
             false
         TokenKind::DirIfProfile:

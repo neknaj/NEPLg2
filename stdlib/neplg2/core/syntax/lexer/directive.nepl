@@ -18,6 +18,7 @@ pub enum SelfhostLexerDirectiveKind:
     Target
     Import
     Use
+    Test
     IfTarget
     IfProfile
     Capability
@@ -105,6 +106,12 @@ pub fn lex_directive_kind_if_bucket %fn str fn i32 SelfhostLexerDirectiveKind \s
     let profile %SelfhostLexerDirectiveKind lex_directive_kind_if_prefix source start "#if[profile=" SelfhostLexerDirectiveKind::IfProfile unknown
     lex_directive_kind_if_prefix source start "#if[target=" SelfhostLexerDirectiveKind::IfTarget profile
 
+//: lex_directive_kind_t_bucket: `#t...` directive を分類する
+pub fn lex_directive_kind_t_bucket %fn str fn i32 fn i32 SelfhostLexerDirectiveKind \source\n\start:
+    let unknown %SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind::Unknown
+    let target %SelfhostLexerDirectiveKind lex_directive_kind_if_word source n start "#target" SelfhostLexerDirectiveKind::Target unknown
+    lex_directive_kind_if_word source n start "#test" SelfhostLexerDirectiveKind::Test target
+
 //: lex_directive_kind_at: `#` directive を enum として分類する
 pub fn lex_directive_kind_at %fn str fn i32 fn i32 SelfhostLexerDirectiveKind \source\n\start:
     match lex_directive_match_key_at source n start:
@@ -125,7 +132,7 @@ pub fn lex_directive_kind_at %fn str fn i32 fn i32 SelfhostLexerDirectiveKind \s
         28786:
             lex_directive_kind_if_word source n start "#prelude" SelfhostLexerDirectiveKind::Prelude SelfhostLexerDirectiveKind::Unknown
         29793:
-            lex_directive_kind_if_word source n start "#target" SelfhostLexerDirectiveKind::Target SelfhostLexerDirectiveKind::Unknown
+            lex_directive_kind_t_bucket source n start
         30067:
             lex_directive_kind_if_word source n start "#use" SelfhostLexerDirectiveKind::Use SelfhostLexerDirectiveKind::Unknown
         30561:
@@ -150,6 +157,8 @@ pub fn lex_directive_token %fn str fn i32 fn i32 fn i32 SelfhostToken \source\n\
             lex_token_slice TokenKind::DirImport source file_id start line_end
         SelfhostLexerDirectiveKind::Use:
             lex_token_slice TokenKind::DirUse source file_id start line_end
+        SelfhostLexerDirectiveKind::Test:
+            lex_token_slice TokenKind::DirTest source file_id start line_end
         SelfhostLexerDirectiveKind::IfTarget:
             lex_token_slice TokenKind::DirIfTarget source file_id start lex_hash_bracket_end source n start
         SelfhostLexerDirectiveKind::IfProfile:

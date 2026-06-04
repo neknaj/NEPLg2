@@ -1104,6 +1104,7 @@ async function runSingleLlvmCli(c, workerId, cliPath, options = {}) {
             'llvm',
             '--profile',
             'debug',
+            '--test-mode',
             '--input',
             entryPath,
             '--output',

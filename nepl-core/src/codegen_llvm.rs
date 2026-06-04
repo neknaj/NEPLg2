@@ -126,23 +126,43 @@ pub fn emit_ll_from_module_for_target_with_source_map(
     minify: bool,
     source_map: Option<&SourceMap>,
 ) -> Result<String, LlvmCodegenError> {
+    emit_ll_from_module_for_target_with_test_mode_and_source_map(
+        module, target, profile, false, minify, source_map,
+    )
+}
+
+pub fn emit_ll_from_module_for_target_with_test_mode_and_source_map(
+    module: &Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+    minify: bool,
+    source_map: Option<&SourceMap>,
+) -> Result<String, LlvmCodegenError> {
     let mut out = String::new();
-    let entry_names = collect_active_entry_names(module, target, profile);
-    let prepared = compiler::prepare_module_for_llvm_codegen_with_source_map(
+    let entry_names = collect_active_entry_names(module, target, profile, test_mode);
+    let prepared = compiler::prepare_module_for_llvm_codegen_with_source_map_and_test_mode(
         module,
         target,
         profile,
+        test_mode,
         &entry_names,
         source_map,
     )
     .map_err(map_core_error_to_llvm_codegen_error)?;
     let reachable_hint = (!prepared.reachable_set.is_empty()).then_some(&prepared.reachable_set);
-    let raw_call_requirements = collect_required_raw_calls_fixed_point(module, target, profile);
-    let raw_name_counts = collect_active_ast_raw_name_counts(module, target, profile);
+    let raw_call_requirements =
+        collect_required_raw_calls_fixed_point(module, target, profile, test_mode);
+    let raw_name_counts = collect_active_ast_raw_name_counts(module, target, profile, test_mode);
     let mut raw_canonical_taken: BTreeSet<String> = BTreeSet::new();
     let mut selected_raw_ll_sigs: BTreeSet<String> = BTreeSet::new();
     let mut emitted_functions: Vec<String> = Vec::new();
-    for idx in target_precheck::active_stmt_indices(&module.root, target, profile) {
+    for idx in target_precheck::active_stmt_indices_with_test_mode(
+        &module.root,
+        target,
+        profile,
+        test_mode,
+    ) {
         let stmt = &module.root.items[idx];
 
         match stmt {
@@ -185,10 +205,11 @@ pub fn emit_ll_from_module_for_target_with_source_map(
                     if !is_ast_fn_reachable(def.name.name.as_str(), reachable_hint) {
                         continue;
                     }
-                    match target_precheck::select_active_raw_body(
+                    match target_precheck::select_active_raw_body_with_test_mode(
                         block,
                         target,
                         profile,
+                        test_mode,
                         def.name.name.as_str(),
                     ) {
                         Ok(Some(ActiveRawBody::LlvmIr(raw))) => {
@@ -222,6 +243,7 @@ pub fn emit_ll_from_module_for_target_with_source_map(
                                 block,
                                 target,
                                 profile,
+                                test_mode,
                             ) {
                                 emitted_functions.push(def.name.name.clone());
                                 out.push_str(&lowered);
@@ -377,6 +399,7 @@ fn collect_required_raw_calls_fixed_point(
     module: &Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> Vec<RawCallRequirement> {
     #[derive(Debug, Clone)]
     struct Candidate<'a> {
@@ -387,7 +410,12 @@ fn collect_required_raw_calls_fixed_point(
     }
     let mut candidates: Vec<Candidate<'_>> = Vec::new();
     let mut reqs = Vec::new();
-    for idx in target_precheck::active_stmt_indices(&module.root, target, profile) {
+    for idx in target_precheck::active_stmt_indices_with_test_mode(
+        &module.root,
+        target,
+        profile,
+        test_mode,
+    ) {
         let stmt = &module.root.items[idx];
         match stmt {
             Stmt::LlvmIr(block) => {
@@ -406,10 +434,11 @@ fn collect_required_raw_calls_fixed_point(
                 }
                 FnBody::Parsed(block) => {
                     if let Ok(Some(ActiveRawBody::LlvmIr(raw))) =
-                        target_precheck::select_active_raw_body(
+                        target_precheck::select_active_raw_body_with_test_mode(
                             block,
                             target,
                             profile,
+                            test_mode,
                             def.name.name.as_str(),
                         )
                     {
@@ -454,9 +483,15 @@ fn collect_active_ast_raw_name_counts(
     module: &Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> BTreeMap<String, usize> {
     let mut out = BTreeMap::new();
-    for idx in target_precheck::active_stmt_indices(&module.root, target, profile) {
+    for idx in target_precheck::active_stmt_indices_with_test_mode(
+        &module.root,
+        target,
+        profile,
+        test_mode,
+    ) {
         let stmt = &module.root.items[idx];
         let Some(def) = (match stmt {
             Stmt::FnDef(def) => Some(def),
@@ -467,10 +502,11 @@ fn collect_active_ast_raw_name_counts(
         let has_raw = match &def.body {
             FnBody::LlvmIr(_) => true,
             FnBody::Parsed(block) => matches!(
-                target_precheck::select_active_raw_body(
+                target_precheck::select_active_raw_body_with_test_mode(
                     block,
                     target,
                     profile,
+                    test_mode,
                     def.name.name.as_str()
                 ),
                 Ok(Some(ActiveRawBody::LlvmIr(_)))
@@ -3758,9 +3794,15 @@ fn collect_active_entry_names(
     module: &Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> Vec<String> {
     let mut out = Vec::new();
-    for idx in target_precheck::active_stmt_indices(&module.root, target, profile) {
+    for idx in target_precheck::active_stmt_indices_with_test_mode(
+        &module.root,
+        target,
+        profile,
+        test_mode,
+    ) {
         let stmt = &module.root.items[idx];
         if let Stmt::Directive(Directive::Entry { name }) = stmt {
             out.push(name.name.clone());
@@ -3812,6 +3854,7 @@ fn lower_parsed_fn_with_gates(
     body: &Block,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> Option<String> {
     if !params.is_empty() {
         return None;
@@ -3825,7 +3868,8 @@ fn lower_parsed_fn_with_gates(
         return None;
     }
 
-    let active = target_precheck::active_stmt_indices(body, target, profile);
+    let active =
+        target_precheck::active_stmt_indices_with_test_mode(body, target, profile, test_mode);
     if active.len() != 1 {
         return None;
     }

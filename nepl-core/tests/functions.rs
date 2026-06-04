@@ -21,6 +21,7 @@ fn compile_err(src: &str) {
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
@@ -34,6 +35,7 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
@@ -65,9 +67,64 @@ fn compile_with_loader(src: &str) -> Result<Vec<u8>, CoreError> {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     )
     .map(|artifact| artifact.wasm)
+}
+
+#[test]
+fn test_directive_hides_next_function_in_normal_compile() {
+    let src = r#"
+#entry main
+#target wasm
+#test
+fn helper %fn void i32 \void:
+    7
+fn main %fn void i32 \void:
+    helper
+"#;
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+            test_mode: false,
+        },
+    );
+    assert!(
+        result.is_err(),
+        "normal compile must not see #test-only helper"
+    );
+}
+
+#[test]
+fn test_directive_enables_next_function_in_test_mode() {
+    let src = r#"
+#entry main
+#target wasm
+#test
+fn helper %fn void i32 \void:
+    7
+fn main %fn void i32 \void:
+    helper
+"#;
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+            test_mode: true,
+        },
+    );
+    assert!(
+        result.is_ok(),
+        "test mode compile must see #test-only helper: {result:?}"
+    );
 }
 
 fn compile_with_loader_err_has_type_code(src: &str, code: TypeDiagnosticCode) {

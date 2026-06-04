@@ -167,6 +167,7 @@ fn write_token_kind_cache_repr(out: &mut String, kind: &TokenKind) {
             out.push_str("DirIfProfile");
             push_source_key_part(out, value);
         }
+        TokenKind::DirTest => out.push_str("DirTest"),
         TokenKind::DirCapability(value) => {
             out.push_str("DirCapability");
             push_source_key_part(out, value);

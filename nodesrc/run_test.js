@@ -560,7 +560,7 @@ function compileApiForRun(api, meta = null) {
     return meta && meta.compilerSession ? meta.compilerSession : api;
 }
 
-function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, forceStdlibVfs = false, metrics = null) {
+function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, forceStdlibVfs = false, metrics = null, testMode = false) {
     const stdlibVfsMode = selectStdlibVfsMode(meta, forceStdlibVfs);
     const mustPassStdlibVfs = stdlibVfsMode !== 'bundled';
     const compilerApi = compileApiForRun(api, meta);
@@ -570,6 +570,21 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
     }
     if (compilerApi !== api) {
         prewarmCompilerSession(meta, source, stdlibVfsMode, metrics, vfs);
+    }
+    if (mustPassStdlibVfs && testMode && typeof compilerApi.compile_source_with_vfs_stdlib_and_profile_test_mode === 'function') {
+        const stdlibVfs = loadStdlibVfsForCompile(metrics);
+        return callCompilerForTiming(() =>
+            compilerApi.compile_source_with_vfs_stdlib_and_profile_test_mode(
+                '/virtual/entry.nepl',
+                source,
+                vfs,
+                stdlibVfs,
+                profile,
+                true,
+            ),
+            metrics,
+            compilerApi,
+        );
     }
     if (mustPassStdlibVfs && typeof compilerApi.compile_source_with_vfs_stdlib_and_profile === 'function') {
         const stdlibVfs = loadStdlibVfsForCompile(metrics);
@@ -604,6 +619,19 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
             ...vfs,
         }
         : vfs;
+    if (testMode && typeof compilerApi.compile_source_with_vfs_and_profile_test_mode === 'function') {
+        return callCompilerForTiming(() =>
+            compilerApi.compile_source_with_vfs_and_profile_test_mode(
+                '/virtual/entry.nepl',
+                source,
+                effectiveVfs,
+                profile,
+                true,
+            ),
+            metrics,
+            compilerApi,
+        );
+    }
     if (typeof compilerApi.compile_source_with_vfs_and_profile === 'function') {
         return callCompilerForTiming(() =>
             compilerApi.compile_source_with_vfs_and_profile(
@@ -887,6 +915,7 @@ async function runSingle(req, preloaded, onProgress = null) {
                 meta,
                 Boolean(req.forceStdlibVfs),
                 compileMetrics,
+                true,
             );
         } catch (e) {
             compileError = formatError(e);

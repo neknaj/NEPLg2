@@ -123,6 +123,8 @@ pub fn lex_error_for_token %fn SelfhostToken LexDiagnostic \token:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirUse:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::DirTest:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirIfTarget:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirIfProfile:

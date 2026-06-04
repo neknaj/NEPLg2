@@ -28,6 +28,7 @@ fn compile_move_test_at_path(path: PathBuf, source: &str) -> Result<Vec<u8>, Vec
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     ) {
         Ok(artifact) => Ok(artifact.wasm),

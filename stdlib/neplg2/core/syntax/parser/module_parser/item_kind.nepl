@@ -130,6 +130,8 @@ pub fn selfhost_parser_item_kind_from_token %fn TokenKind fn i32 Option Selfhost
             some SelfhostModuleItemKind::ImportDirective
         TokenKind::DirUse:
             some SelfhostModuleItemKind::UseDirective
+        TokenKind::DirTest:
+            some SelfhostModuleItemKind::TestDirective
         TokenKind::DirIfTarget:
             some SelfhostModuleItemKind::IfTargetDirective
         TokenKind::DirIfProfile:

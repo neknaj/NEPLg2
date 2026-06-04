@@ -18,6 +18,7 @@ fn compile_recursive_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
             target: Some(CompileTarget::Wasi),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     ) {
         Ok(artifact) => Ok(artifact.wasm),

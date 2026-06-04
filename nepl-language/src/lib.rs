@@ -1239,6 +1239,7 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::DirTarget(_) => "DirTarget",
         TokenKind::DirImport(_) => "DirImport",
         TokenKind::DirUse(_) => "DirUse",
+        TokenKind::DirTest => "DirTest",
         TokenKind::DirIfTarget(_) => "DirIfTarget",
         TokenKind::DirIfProfile(_) => "DirIfProfile",
         TokenKind::DirCapability(_) => "DirCapability",

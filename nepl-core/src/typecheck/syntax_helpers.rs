@@ -56,6 +56,7 @@ pub(super) fn gate_allows(
     d: &Directive,
     target: CompileTarget,
     active_profile: BuildProfile,
+    test_mode: bool,
 ) -> Option<bool> {
-    crate::target_gate::directive_gate_allows(d, target, active_profile)
+    crate::target_gate::directive_gate_allows(d, target, active_profile, test_mode)
 }

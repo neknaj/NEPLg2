@@ -87,6 +87,11 @@ pub struct CompileOptions {
     pub verbose: bool,
     /// Explicit profile override for conditional compilation.
     pub profile: Option<BuildProfile>,
+    /// Enables statements guarded by `#test`.
+    ///
+    /// This axis is separate from `profile`: debug builds still exclude test-only
+    /// source unless the caller is running doctests or an explicit test compile.
+    pub test_mode: bool,
 }
 
 impl Default for CompileOptions {
@@ -95,6 +100,7 @@ impl Default for CompileOptions {
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         }
     }
 }
@@ -776,12 +782,14 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
+    let test_mode = options.test_mode;
     let resource_summary_proof_stdlib_content_hash =
         resource_summary_proof_options.stdlib_content_hash;
     let prepared = prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
         &module,
         target,
         profile,
+        test_mode,
         source_map,
         public_interface_artifacts,
         resource_summary_value_cache,
@@ -845,8 +853,9 @@ pub fn check_module_with_source_map(
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
+    let test_mode = options.test_mode;
     prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
-        &module, target, profile, source_map, None,
+        &module, target, profile, test_mode, source_map, None,
     )?;
     Ok(())
 }
@@ -879,11 +888,13 @@ pub fn check_module_with_source_map_resource_summary_value_cache_and_neplproof(
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
+    let test_mode = options.test_mode;
     let mut stage_recorder = CompileStageRecorder::disabled();
     let prepared = prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
         &module,
         target,
         profile,
+        test_mode,
         source_map,
         PublicInterfaceArtifactInputs::new(None, None, &[]),
         resource_summary_value_cache,
@@ -928,15 +939,17 @@ pub fn compile_nepl_meta_artifact_with_source_identity(
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
-    let precheck_diags =
-        crate::target_precheck::precheck_module_before_codegen(&module, target, profile);
+    let test_mode = options.test_mode;
+    let precheck_diags = crate::target_precheck::precheck_module_before_codegen_with_test_mode(
+        &module, target, profile, test_mode,
+    );
     if precheck_diags
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
     {
         return Err(CoreError::from_diagnostics(precheck_diags));
     }
-    let typed = run_typecheck(&module, target, profile, source_map, &[])?;
+    let typed = run_typecheck(&module, target, profile, test_mode, source_map, &[])?;
     Ok(
         crate::artifact::NeplMetaArtifact::from_public_surface_and_module_surface_with_source_identity(
             target,
@@ -1019,8 +1032,8 @@ pub struct PreparedLlvmProgram {
 /// それらは compile session ごとの arena や source-map allocation に結び付くため、
 /// 長寿命 cache value の key として直接保存すると stale hit の原因になる。
 ///
-/// 現段階では、target/profile、typed public signature hash、任意の dependency
-/// public surface hash から作る staging artifact である。実際に Resource IR
+/// 現段階では、target/profile/test-mode、typed public signature hash、任意の
+/// dependency public surface hash から作る staging artifact である。実際に Resource IR
 /// summary value を再利用する段階では、この namespace key に function body hash、
 /// generic type-argument hash、source capability policy hash、summary kind/version を
 /// 組み合わせた per-summary-value key を作る。
@@ -1031,18 +1044,21 @@ pub struct ResourceSummaryCacheNamespaceKey {
     pub dependency_public_surface_hash: Option<u64>,
     pub target: CompileTarget,
     pub profile: BuildProfile,
+    pub test_mode: bool,
 }
 
 impl ResourceSummaryCacheNamespaceKey {
     pub fn new(
         target: CompileTarget,
         profile: BuildProfile,
+        test_mode: bool,
         typed_public_signature_hash: u64,
         dependency_public_surface_hash: Option<u64>,
     ) -> Self {
         let stable_hash = resource_summary_cache_namespace_hash(
             target,
             profile,
+            test_mode,
             typed_public_signature_hash,
             dependency_public_surface_hash,
         );
@@ -1052,6 +1068,7 @@ impl ResourceSummaryCacheNamespaceKey {
             dependency_public_surface_hash,
             target,
             profile,
+            test_mode,
         }
     }
 
@@ -1092,6 +1109,7 @@ const RESOURCE_SUMMARY_PRIVATE_EFFECT_POLICY_VERSION: &str = "neplg2-private-eff
 fn resource_summary_cache_namespace_hash(
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     typed_public_signature_hash: u64,
     dependency_public_surface_hash: Option<u64>,
 ) -> u64 {
@@ -1099,6 +1117,7 @@ fn resource_summary_cache_namespace_hash(
     resource_summary_cache_hash_str(&mut hash, RESOURCE_SUMMARY_CACHE_NAMESPACE_KEY_VERSION);
     resource_summary_cache_hash_str(&mut hash, resource_summary_cache_target_tag(target));
     resource_summary_cache_hash_str(&mut hash, resource_summary_cache_profile_tag(profile));
+    resource_summary_cache_hash_u8(&mut hash, u8::from(test_mode));
     resource_summary_cache_hash_u64(&mut hash, typed_public_signature_hash);
     match dependency_public_surface_hash {
         Some(value) => {
@@ -1230,13 +1249,15 @@ fn run_typecheck(
     module: &ast::Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     source_map: Option<&SourceMap>,
     materialized_public_surfaces: &[crate::typecheck::MaterializedPublicSurfaceInput],
 ) -> Result<TypedProgram, CoreError> {
-    let tc = typecheck::typecheck_with_materialized_public_surfaces(
+    let tc = typecheck::typecheck_with_materialized_public_surfaces_and_test_mode(
         module,
         target,
         profile,
+        test_mode,
         source_map,
         materialized_public_surfaces,
     );
@@ -2130,6 +2151,7 @@ mod tests {
             &module,
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             None,
             Some(dependency_public_surface_hash),
         )
@@ -2153,6 +2175,7 @@ mod tests {
                 target: Some(CompileTarget::Wasm),
                 verbose: false,
                 profile: Some(BuildProfile::Debug),
+                test_mode: false,
             },
             Some(cache),
             options,
@@ -2235,18 +2258,21 @@ mod tests {
         let base = ResourceSummaryCacheNamespaceKey::new(
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             7,
             None,
         );
         let with_dependency = ResourceSummaryCacheNamespaceKey::new(
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             7,
             Some(1),
         );
         let other_dependency = ResourceSummaryCacheNamespaceKey::new(
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             7,
             Some(2),
         );
@@ -2274,6 +2300,7 @@ mod tests {
         let namespace = ResourceSummaryCacheNamespaceKey::new(
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             7,
             Some(11),
         );
@@ -2320,6 +2347,7 @@ mod tests {
         let namespace = ResourceSummaryCacheNamespaceKey::new(
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             7,
             None,
         );
@@ -2361,6 +2389,7 @@ mod tests {
                 &module,
                 CompileTarget::Wasm,
                 BuildProfile::Debug,
+                false,
                 Some(&source_map),
                 Some(123),
             )
@@ -2482,6 +2511,7 @@ mod tests {
             &first_module,
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             Some(&first_source_map),
             Some(123),
         )
@@ -2490,6 +2520,7 @@ mod tests {
             &second_module,
             CompileTarget::Wasm,
             BuildProfile::Debug,
+            false,
             Some(&second_source_map),
             Some(123),
         )
@@ -4370,8 +4401,20 @@ pub fn prepare_module_for_codegen_with_source_map(
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
 ) -> Result<PreparedProgram, CoreError> {
+    prepare_module_for_codegen_with_source_map_and_test_mode(
+        module, target, profile, false, source_map,
+    )
+}
+
+pub fn prepare_module_for_codegen_with_source_map_and_test_mode(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+    source_map: Option<&SourceMap>,
+) -> Result<PreparedProgram, CoreError> {
     prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
-        module, target, profile, source_map, None,
+        module, target, profile, test_mode, source_map, None,
     )
 }
 
@@ -4379,6 +4422,7 @@ pub fn prepare_module_for_codegen_with_source_map_and_dependency_public_surface_
     module: &ast::Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     source_map: Option<&SourceMap>,
     dependency_public_surface_hash: Option<u64>,
 ) -> Result<PreparedProgram, CoreError> {
@@ -4386,6 +4430,7 @@ pub fn prepare_module_for_codegen_with_source_map_and_dependency_public_surface_
         module,
         target,
         profile,
+        test_mode,
         source_map,
         dependency_public_surface_hash,
         None,
@@ -4402,6 +4447,7 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
     module: &ast::Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     source_map: Option<&SourceMap>,
     dependency_public_surface_hash: Option<u64>,
     resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
@@ -4411,6 +4457,7 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
         module,
         target,
         profile,
+        test_mode,
         source_map,
         PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, None, &[]),
         resource_summary_value_cache,
@@ -4437,6 +4484,7 @@ pub fn prepare_module_for_codegen_with_public_interface_artifacts_and_resource_s
         module,
         target,
         profile,
+        false,
         source_map,
         public_interface_artifacts,
         resource_summary_value_cache,
@@ -4449,6 +4497,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     module: &ast::Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     source_map: Option<&SourceMap>,
     public_interface_artifacts: PublicInterfaceArtifactInputs<'_>,
     mut resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
@@ -4458,8 +4507,9 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();
-    let precheck_diags =
-        crate::target_precheck::precheck_module_before_codegen(module, target, profile);
+    let precheck_diags = crate::target_precheck::precheck_module_before_codegen_with_test_mode(
+        module, target, profile, test_mode,
+    );
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("target_precheck", stage_start);
     stage_recorder.finish("target_precheck", stage_start_ms);
@@ -4476,6 +4526,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         module,
         target,
         profile,
+        test_mode,
         source_map,
         public_interface_artifacts.materialized_public_surfaces,
     );
@@ -4501,6 +4552,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     let resource_summary_cache_namespace_key = ResourceSummaryCacheNamespaceKey::new(
         target,
         profile,
+        test_mode,
         public_signatures.stable_hash,
         public_interface_artifacts.dependency_public_surface_hash,
     );
@@ -4710,8 +4762,29 @@ pub fn prepare_module_for_llvm_codegen_with_source_map(
     entry_names: &[String],
     source_map: Option<&SourceMap>,
 ) -> Result<PreparedLlvmProgram, CoreError> {
-    let program = prepare_module_for_codegen_with_source_map(module, target, profile, source_map)?;
-    let raw_entry_defs = collect_top_level_llvm_defined_functions(module, target, profile);
+    prepare_module_for_llvm_codegen_with_source_map_and_test_mode(
+        module,
+        target,
+        profile,
+        false,
+        entry_names,
+        source_map,
+    )
+}
+
+pub fn prepare_module_for_llvm_codegen_with_source_map_and_test_mode(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+    entry_names: &[String],
+    source_map: Option<&SourceMap>,
+) -> Result<PreparedLlvmProgram, CoreError> {
+    let program = prepare_module_for_codegen_with_source_map_and_test_mode(
+        module, target, profile, test_mode, source_map,
+    )?;
+    let raw_entry_defs =
+        collect_top_level_llvm_defined_functions(module, target, profile, test_mode);
     let mut reachable_set = BTreeSet::new();
     let mut resolved_entries = BTreeMap::new();
     for entry in entry_names {
@@ -4842,9 +4915,15 @@ fn collect_top_level_llvm_defined_functions(
     module: &ast::Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
 ) -> BTreeSet<String> {
     let mut names = Vec::new();
-    for idx in crate::target_precheck::active_stmt_indices(&module.root, target, profile) {
+    for idx in crate::target_precheck::active_stmt_indices_with_test_mode(
+        &module.root,
+        target,
+        profile,
+        test_mode,
+    ) {
         if let ast::Stmt::LlvmIr(block) = &module.root.items[idx] {
             crate::llvm_ir::collect_defined_functions_from_llvmir_block(block, &mut names);
         }

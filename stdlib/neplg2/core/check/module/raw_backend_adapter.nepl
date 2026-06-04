@@ -27,6 +27,8 @@ fn selfhost_module_raw_backend_item_kind %fn SelfhostModuleItemKind SelfhostRawB
             SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::UseDirective:
             SelfhostRawBackendItemKind::NonRaw
+        SelfhostModuleItemKind::TestDirective:
+            SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::IfTargetDirective:
             SelfhostRawBackendItemKind::NonRaw
         SelfhostModuleItemKind::IfProfileDirective:

@@ -36,6 +36,7 @@ fn main <()* >()> ():
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     ) {
         Ok(artifact) => println!("compiled ok, wasm len {}", artifact.wasm.len()),

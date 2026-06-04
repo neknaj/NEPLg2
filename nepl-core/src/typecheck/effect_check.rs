@@ -189,7 +189,7 @@ impl<'a> BlockChecker<'a> {
         let mut selected: Option<HirBody> = None;
         for stmt in &block.items {
             if let Stmt::Directive(d) = stmt {
-                if let Some(allowed) = gate_allows(d, self.target, self.profile) {
+                if let Some(allowed) = gate_allows(d, self.target, self.profile, self.test_mode) {
                     pending_if = Some(allowed);
                     continue;
                 }

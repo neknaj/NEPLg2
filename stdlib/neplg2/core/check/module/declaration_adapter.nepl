@@ -19,6 +19,8 @@ fn selfhost_module_directive_item_kind %fn SelfhostModuleItemKind SelfhostModule
             SelfhostModuleDirectiveKind::Other
         SelfhostModuleItemKind::UseDirective:
             SelfhostModuleDirectiveKind::Other
+        SelfhostModuleItemKind::TestDirective:
+            SelfhostModuleDirectiveKind::Other
         SelfhostModuleItemKind::IfTargetDirective:
             SelfhostModuleDirectiveKind::Other
         SelfhostModuleItemKind::IfProfileDirective:

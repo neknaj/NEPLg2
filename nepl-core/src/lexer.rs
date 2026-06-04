@@ -88,6 +88,7 @@ pub enum TokenKind {
     DirUse(String),
     DirIfTarget(String),
     DirIfProfile(String),
+    DirTest,
     DirCapability(String),
     DirWasm,
     DirLlvmIr,
@@ -595,6 +596,16 @@ impl LexState {
             );
             self.tokens.push(Token {
                 kind: TokenKind::DirUse(arg.to_string()),
+                span,
+            });
+        } else if body.trim() == "test" {
+            let span = Span::new(
+                self.file_id,
+                line_offset as u32,
+                (line_offset + body.len()) as u32,
+            );
+            self.tokens.push(Token {
+                kind: TokenKind::DirTest,
                 span,
             });
         } else if body.starts_with("if[target=") {

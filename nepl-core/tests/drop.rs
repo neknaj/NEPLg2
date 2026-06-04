@@ -26,6 +26,7 @@ fn compile_drop_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     ) {
         Ok(artifact) => Ok(artifact.wasm),
@@ -41,6 +42,7 @@ fn run_drop_trace(source: &str) -> Vec<i32> {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let engine = Engine::default();

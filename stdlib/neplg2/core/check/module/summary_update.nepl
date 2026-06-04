@@ -23,6 +23,8 @@ pub fn selfhost_module_check_summary_record %fn SelfhostModuleCheckSummary fn Se
             SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count add summary.import_count 1 summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
         SelfhostModuleItemKind::UseDirective:
             SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
+        SelfhostModuleItemKind::TestDirective:
+            SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
         SelfhostModuleItemKind::IfTargetDirective:
             SelfhostModuleCheckSummary item_count summary.doc_comment_count add summary.directive_count 1 summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count
         SelfhostModuleItemKind::IfProfileDirective:

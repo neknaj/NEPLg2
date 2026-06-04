@@ -25,6 +25,7 @@ fn compile_with_loader(src: &str) -> Result<(), nepl_core::error::CoreError> {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     )
     .map(|_| ())

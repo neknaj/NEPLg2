@@ -2890,6 +2890,9 @@ fn hash_public_directive_surface(
             hash_str(hash, "directive.if_profile");
             hash_str(hash, profile);
         }
+        Directive::Test { .. } => {
+            hash_str(hash, "directive.test");
+        }
         Directive::NoPrelude { .. } => hash_str(hash, "directive.no_prelude"),
         Directive::Prelude { path, .. } if !dependency_surface_hashed => {
             hash_str(hash, "directive.prelude");

@@ -422,6 +422,7 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::DirTarget(_) => "DirTarget",
         TokenKind::DirImport(_) => "DirImport",
         TokenKind::DirUse(_) => "DirUse",
+        TokenKind::DirTest => "DirTest",
         TokenKind::DirIfTarget(_) => "DirIfTarget",
         TokenKind::DirIfProfile(_) => "DirIfProfile",
         TokenKind::DirCapability(_) => "DirCapability",
@@ -599,6 +600,7 @@ fn directive_name(d: &Directive) -> &'static str {
         Directive::Target { .. } => "Target",
         Directive::Import { .. } => "Import",
         Directive::Use { .. } => "Use",
+        Directive::Test { .. } => "Test",
         Directive::IfTarget { .. } => "IfTarget",
         Directive::IfProfile { .. } => "IfProfile",
         Directive::IndentWidth { .. } => "IndentWidth",
@@ -3850,6 +3852,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         None,
         None,
         include_wat_comments,
+        false,
         loader_cache,
         None,
         None,
@@ -4048,6 +4051,7 @@ fn compile_wasm_with_entry_and_comments(
         None,
         None,
         include_wat_comments,
+        false,
     )
 }
 
@@ -4096,6 +4100,7 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
     stdlib_vfs: Option<JsValue>,
     profile: Option<BuildProfile>,
     include_wat_comments: bool,
+    test_mode: bool,
 ) -> Result<CompiledWasm, String> {
     let stdlib_root = PathBuf::from("/stdlib");
     let bundled_sources = stdlib_sources(&stdlib_root);
@@ -4108,6 +4113,7 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
         stdlib_vfs,
         profile,
         include_wat_comments,
+        test_mode,
     )
 }
 
@@ -4120,6 +4126,7 @@ fn compile_wasm_with_bundled_sources(
     stdlib_vfs: Option<JsValue>,
     profile: Option<BuildProfile>,
     include_wat_comments: bool,
+    test_mode: bool,
 ) -> Result<CompiledWasm, String> {
     compile_wasm_with_bundled_sources_and_cache(
         entry_path,
@@ -4130,6 +4137,7 @@ fn compile_wasm_with_bundled_sources(
         stdlib_vfs,
         profile,
         include_wat_comments,
+        test_mode,
         None,
         None,
         None,
@@ -4232,6 +4240,7 @@ fn populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: Some(profile),
+            test_mode: false,
         };
         let artifact = compile_nepl_meta_artifact_with_source_identity(
             loaded.module,
@@ -4591,6 +4600,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     stdlib_vfs: Option<JsValue>,
     profile: Option<BuildProfile>,
     include_wat_comments: bool,
+    test_mode: bool,
     loader_cache: Option<&mut LoaderSessionCache>,
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     preseed_resource_summary_proof_artifact: Option<&ResourceSummaryProofArtifact>,
@@ -4725,6 +4735,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         target: None,
         verbose: false,
         profile,
+        test_mode,
     };
     let artifact_options = CompilationArtifactOptions {
         include_wat_comments,
@@ -6386,13 +6397,24 @@ impl CompilerSession {
         vfs: JsValue,
         profile: &str,
     ) -> Result<Vec<u8>, JsValue> {
+        self.compile_source_with_vfs_and_profile_test_mode(entry_path, source, vfs, profile, false)
+    }
+
+    pub fn compile_source_with_vfs_and_profile_test_mode(
+        &self,
+        entry_path: &str,
+        source: &str,
+        vfs: JsValue,
+        profile: &str,
+        test_mode: bool,
+    ) -> Result<Vec<u8>, JsValue> {
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
         self.reset_last_nepl_meta_materialized_compile_stats();
         self.record_resource_summary_proof_preseed_report(None);
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
-        let key = compiled_output_cache_key(entry_path, source, &vfs, false, profile);
+        let key = compiled_output_cache_key(entry_path, source, &vfs, false, profile, test_mode);
         if let Some(compiled) = self
             .compiled_output_cache
             .borrow()
@@ -6436,6 +6458,7 @@ impl CompilerSession {
                 None,
                 Some(parsed),
                 false,
+                test_mode,
                 Some(&mut cache),
                 Some(&mut resource_summary_value_cache),
                 preseed_artifact.as_ref(),
@@ -6483,6 +6506,25 @@ impl CompilerSession {
         stdlib_vfs: JsValue,
         profile: &str,
     ) -> Result<Vec<u8>, JsValue> {
+        self.compile_source_with_vfs_stdlib_and_profile_test_mode(
+            entry_path,
+            source,
+            vfs,
+            stdlib_vfs,
+            profile,
+            false,
+        )
+    }
+
+    pub fn compile_source_with_vfs_stdlib_and_profile_test_mode(
+        &self,
+        entry_path: &str,
+        source: &str,
+        vfs: JsValue,
+        stdlib_vfs: JsValue,
+        profile: &str,
+        test_mode: bool,
+    ) -> Result<Vec<u8>, JsValue> {
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
         self.reset_last_nepl_meta_materialized_compile_stats();
@@ -6502,6 +6544,7 @@ impl CompilerSession {
             Some(stdlib_vfs),
             Some(parsed),
             false,
+            test_mode,
             None,
             None,
             None,
@@ -6545,7 +6588,8 @@ impl CompilerSession {
         self.reset_last_nepl_meta_materialized_compile_stats();
         let emit_list = parse_emit_list(emit)?;
         let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
-        let key = compiled_output_cache_key(entry_path, source, &vfs, include_wat_comments, "debug");
+        let key =
+            compiled_output_cache_key(entry_path, source, &vfs, include_wat_comments, "debug", false);
         if let Some(compiled) = self
             .compiled_output_cache
             .borrow()
@@ -6595,6 +6639,7 @@ impl CompilerSession {
                 None,
                 Some(BuildProfile::default_source_profile()),
                 include_wat_comments,
+                false,
                 Some(&mut loader_cache),
                 Some(&mut resource_summary_value_cache),
                 preseed_artifact.as_ref(),
@@ -6668,10 +6713,12 @@ fn compiled_output_cache_key(
     vfs: &JsValue,
     include_wat_comments: bool,
     profile: &str,
+    test_mode: bool,
 ) -> String {
     let mut key = String::new();
     push_cache_key_part(&mut key, entry_path);
     push_cache_key_part(&mut key, profile);
+    push_cache_key_part(&mut key, if test_mode { "test" } else { "normal" });
     push_cache_key_part(&mut key, if include_wat_comments { "wat" } else { "wasm" });
     push_cache_key_part(&mut key, &compiled_source_cache_key_part(source));
     if vfs.is_object() {
@@ -6717,6 +6764,7 @@ pub fn compile_source_with_vfs_and_stdlib(
         Some(stdlib_vfs),
         None,
         false,
+        false,
     )
     .map(|a| a.wasm)
     .map_err(|msg| JsValue::from_str(&msg))
@@ -6733,9 +6781,10 @@ pub fn compile_source_with_profile(source: &str, profile: &str) -> Result<Vec<u8
         None,
         Some(parsed),
         false,
+        false,
     )
-        .map(|a| a.wasm)
-        .map_err(|msg| JsValue::from_str(&msg))
+    .map(|a| a.wasm)
+    .map_err(|msg| JsValue::from_str(&msg))
 }
 
 #[wasm_bindgen]
@@ -6754,9 +6803,33 @@ pub fn compile_source_with_vfs_and_profile(
         None,
         Some(parsed),
         false,
+        false,
     )
-        .map(|a| a.wasm)
-        .map_err(|msg| JsValue::from_str(&msg))
+    .map(|a| a.wasm)
+    .map_err(|msg| JsValue::from_str(&msg))
+}
+
+#[wasm_bindgen]
+pub fn compile_source_with_vfs_and_profile_test_mode(
+    entry_path: &str,
+    source: &str,
+    vfs: JsValue,
+    profile: &str,
+    test_mode: bool,
+) -> Result<Vec<u8>, JsValue> {
+    let parsed = parse_profile(profile)
+        .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+    compile_wasm_with_entry_and_profile_and_stdlib(
+        entry_path,
+        source,
+        Some(vfs),
+        None,
+        Some(parsed),
+        false,
+        test_mode,
+    )
+    .map(|a| a.wasm)
+    .map_err(|msg| JsValue::from_str(&msg))
 }
 
 #[wasm_bindgen]
@@ -6776,6 +6849,31 @@ pub fn compile_source_with_vfs_stdlib_and_profile(
         Some(stdlib_vfs),
         Some(parsed),
         false,
+        false,
+    )
+    .map(|a| a.wasm)
+    .map_err(|msg| JsValue::from_str(&msg))
+}
+
+#[wasm_bindgen]
+pub fn compile_source_with_vfs_stdlib_and_profile_test_mode(
+    entry_path: &str,
+    source: &str,
+    vfs: JsValue,
+    stdlib_vfs: JsValue,
+    profile: &str,
+    test_mode: bool,
+) -> Result<Vec<u8>, JsValue> {
+    let parsed = parse_profile(profile)
+        .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+    compile_wasm_with_entry_and_profile_and_stdlib(
+        entry_path,
+        source,
+        Some(vfs),
+        Some(stdlib_vfs),
+        Some(parsed),
+        false,
+        test_mode,
     )
     .map(|a| a.wasm)
     .map_err(|msg| JsValue::from_str(&msg))

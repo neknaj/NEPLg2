@@ -62,6 +62,7 @@ pub(super) fn check_function(
     _is_entry: bool,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     captured_params: &[(String, TypeId)],
     ctx: &mut TypeCtx,
     env: &mut Env,
@@ -104,9 +105,11 @@ pub(super) fn check_function(
         ));
         return Err(diags);
     }
-    diags.extend(crate::target_precheck::precheck_function_raw_body_target(
-        f, target, profile,
-    ));
+    diags.extend(
+        crate::target_precheck::precheck_function_raw_body_target_with_test_mode(
+            f, target, profile, test_mode,
+        ),
+    );
     if diags
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
@@ -165,6 +168,7 @@ pub(super) fn check_function(
             generated_functions,
             target,
             profile,
+            test_mode,
             source_map,
         };
 

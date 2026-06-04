@@ -1,8 +1,8 @@
 //! Exact success cache for native `--check`.
 //!
 //! This module deliberately stores only the fact that a previous full check
-//! succeeded for an identical compiler binary, target/profile, stdlib root, and
-//! loaded source set. It is not a Resource IR proof cache. Any mismatch or
+//! succeeded for an identical compiler binary, target/profile/test-mode, stdlib
+//! root, and loaded source set. It is not a Resource IR proof cache. Any mismatch or
 //! unreadable manifest must fall back to the normal compiler pipeline so the
 //! cache never weakens static checking.
 
@@ -39,6 +39,7 @@ impl ExactCheckCacheProbe {
         source_map: &SourceMap,
         _target: CompileTarget,
         _profile: BuildProfile,
+        test_mode: bool,
         precomputed_path: Option<PathBuf>,
     ) -> Option<Self> {
         if exact_check_cache_disabled() {
@@ -46,6 +47,7 @@ impl ExactCheckCacheProbe {
         }
         let path = precomputed_path?;
         let mut hash = fnv1a64(NEPL_CHECK_CACHE_SCHEMA.as_bytes());
+        exact_check_hash_u64(&mut hash, if test_mode { 1 } else { 0 });
         let mut source_entries = source_map
             .iter_paths()
             .filter_map(|(file_id, path)| {
@@ -125,6 +127,7 @@ impl ExactCheckCacheProbe {
         std_root: &Path,
         target: CompileTarget,
         profile: BuildProfile,
+        test_mode: bool,
     ) -> Option<PathBuf> {
         if exact_check_cache_disabled() {
             return None;
@@ -133,6 +136,7 @@ impl ExactCheckCacheProbe {
         exact_check_hash_str(&mut hash, "input-manifest");
         exact_check_hash_str(&mut hash, target_cache_tag(target));
         exact_check_hash_str(&mut hash, profile_cache_tag(profile));
+        exact_check_hash_u64(&mut hash, if test_mode { 1 } else { 0 });
         exact_check_hash_current_executable(&mut hash)?;
         exact_check_hash_str(&mut hash, &stable_path_for_cache(input_path));
         exact_check_hash_str(&mut hash, &stable_path_for_cache(std_root));

@@ -132,6 +132,8 @@ fn selfhost_parser_declaration_visibility %fn &Vec SelfhostToken fn i32 Selfhost
                             SelfhostModuleDeclarationVisibility::Private
                         TokenKind::DirUse:
                             SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::DirTest:
+                            SelfhostModuleDeclarationVisibility::Private
                         TokenKind::DirIfTarget:
                             SelfhostModuleDeclarationVisibility::Private
                         TokenKind::DirIfProfile:
@@ -293,6 +295,8 @@ fn selfhost_parser_declaration_head_kind %fn TokenKind Option SelfhostModuleDecl
         TokenKind::DirImport:
             none
         TokenKind::DirUse:
+            none
+        TokenKind::DirTest:
             none
         TokenKind::DirIfTarget:
             none

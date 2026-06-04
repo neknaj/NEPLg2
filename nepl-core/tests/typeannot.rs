@@ -58,6 +58,7 @@ fn main %fn void i32 \void:
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(result.is_err(), "expected void type annotation to fail");
@@ -80,6 +81,7 @@ fn main %fn void i32 \void:
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(result.is_err(), "expected void value expression to fail");
@@ -187,6 +189,7 @@ fn main %fn void i32 \void:
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     )
     .expect("compile imported generic type");

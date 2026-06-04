@@ -1,4 +1,4 @@
-//! target/profile 条件を反映した raw body 事前検証。
+//! target/profile/test-mode 条件を反映した raw body 事前検証。
 //!
 //! codegen backend に入る前段で `#wasm` / `#llvmir` の有効性を共通検証し、
 //! backend ごとの差分診断を減らすために利用する。
@@ -48,7 +48,16 @@ pub fn gate_allows(
     target: CompileTarget,
     active_profile: BuildProfile,
 ) -> Option<bool> {
-    crate::target_gate::directive_gate_allows(directive, target, active_profile)
+    gate_allows_with_test_mode(directive, target, active_profile, false)
+}
+
+pub fn gate_allows_with_test_mode(
+    directive: &Directive,
+    target: CompileTarget,
+    active_profile: BuildProfile,
+    test_mode: bool,
+) -> Option<bool> {
+    crate::target_gate::directive_gate_allows(directive, target, active_profile, test_mode)
 }
 
 pub fn active_stmt_indices(
@@ -56,11 +65,20 @@ pub fn active_stmt_indices(
     target: CompileTarget,
     profile: BuildProfile,
 ) -> Vec<usize> {
+    active_stmt_indices_with_test_mode(block, target, profile, false)
+}
+
+pub fn active_stmt_indices_with_test_mode(
+    block: &Block,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+) -> Vec<usize> {
     let mut pending_if: Option<bool> = None;
     let mut out = Vec::new();
     for (idx, stmt) in block.items.iter().enumerate() {
         if let Stmt::Directive(d) = stmt {
-            if let Some(allowed) = gate_allows(d, target, profile) {
+            if let Some(allowed) = gate_allows_with_test_mode(d, target, profile, test_mode) {
                 pending_if = Some(allowed);
                 continue;
             }
@@ -80,8 +98,18 @@ pub fn select_active_raw_body<'a>(
     profile: BuildProfile,
     owner_name: &str,
 ) -> Result<Option<ActiveRawBody<'a>>, Diagnostic> {
+    select_active_raw_body_with_test_mode(block, target, profile, false, owner_name)
+}
+
+pub fn select_active_raw_body_with_test_mode<'a>(
+    block: &'a Block,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+    owner_name: &str,
+) -> Result<Option<ActiveRawBody<'a>>, Diagnostic> {
     let mut selected: Option<ActiveRawBody<'a>> = None;
-    for idx in active_stmt_indices(block, target, profile) {
+    for idx in active_stmt_indices_with_test_mode(block, target, profile, test_mode) {
         match &block.items[idx] {
             Stmt::Wasm(w) => {
                 if selected.is_some() {
@@ -169,10 +197,25 @@ pub fn precheck_function_raw_body_target(
     target: CompileTarget,
     profile: BuildProfile,
 ) -> Vec<Diagnostic> {
+    precheck_function_raw_body_target_with_test_mode(function, target, profile, false)
+}
+
+pub fn precheck_function_raw_body_target_with_test_mode(
+    function: &FnDef,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     match &function.body {
         FnBody::Parsed(block) => {
-            match select_active_raw_body(block, target, profile, function.name.name.as_str()) {
+            match select_active_raw_body_with_test_mode(
+                block,
+                target,
+                profile,
+                test_mode,
+                function.name.name.as_str(),
+            ) {
                 Ok(Some(raw)) => {
                     if !is_raw_body_allowed_for_target(raw.kind(), target) {
                         out.push(raw_body_target_mismatch_diagnostic(
@@ -216,10 +259,21 @@ pub fn precheck_module_raw_bodies(
     target: CompileTarget,
     profile: BuildProfile,
 ) -> Vec<Diagnostic> {
+    precheck_module_raw_bodies_with_test_mode(module, target, profile, false)
+}
+
+pub fn precheck_module_raw_bodies_with_test_mode(
+    module: &Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for idx in active_stmt_indices(&module.root, target, profile) {
+    for idx in active_stmt_indices_with_test_mode(&module.root, target, profile, test_mode) {
         if let Stmt::FnDef(function) = &module.root.items[idx] {
-            out.extend(precheck_function_raw_body_target(function, target, profile));
+            out.extend(precheck_function_raw_body_target_with_test_mode(
+                function, target, profile, test_mode,
+            ));
         }
     }
     out
@@ -283,10 +337,21 @@ pub fn precheck_module_before_codegen(
     target: CompileTarget,
     profile: BuildProfile,
 ) -> Vec<Diagnostic> {
+    precheck_module_before_codegen_with_test_mode(module, target, profile, false)
+}
+
+pub fn precheck_module_before_codegen_with_test_mode(
+    module: &Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+) -> Vec<Diagnostic> {
     let mut out = precheck_module_target_directives(module);
     out.extend(crate::target_gate::validate_module_gates(
-        module, target, profile,
+        module, target, profile, test_mode,
     ));
-    out.extend(precheck_module_raw_bodies(module, target, profile));
+    out.extend(precheck_module_raw_bodies_with_test_mode(
+        module, target, profile, test_mode,
+    ));
     out
 }

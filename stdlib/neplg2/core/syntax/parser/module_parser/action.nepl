@@ -115,6 +115,8 @@ pub fn selfhost_parser_token_action %fn TokenKind SelfhostParserTokenAction \kin
             SelfhostParserTokenAction::Regular
         TokenKind::DirUse:
             SelfhostParserTokenAction::Regular
+        TokenKind::DirTest:
+            SelfhostParserTokenAction::Regular
         TokenKind::DirIfTarget:
             SelfhostParserTokenAction::Regular
         TokenKind::DirIfProfile:
@@ -151,4 +153,3 @@ pub fn selfhost_parser_token_action %fn TokenKind SelfhostParserTokenAction \kin
             SelfhostParserTokenAction::Regular
         TokenKind::Unknown:
             SelfhostParserTokenAction::Regular
-

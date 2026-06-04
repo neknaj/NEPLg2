@@ -270,6 +270,9 @@ pub enum Directive {
         profile: String,
         span: Span,
     },
+    Test {
+        span: Span,
+    },
     IndentWidth {
         width: usize,
         span: Span,
@@ -619,6 +622,7 @@ fn remap_directive_file_id(directive: &mut Directive, from: FileId, to: FileId) 
         | Directive::Use { span, .. }
         | Directive::IfTarget { span, .. }
         | Directive::IfProfile { span, .. }
+        | Directive::Test { span }
         | Directive::IndentWidth { span, .. }
         | Directive::Include { span, .. }
         | Directive::Prelude { span, .. }

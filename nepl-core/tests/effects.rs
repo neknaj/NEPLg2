@@ -25,6 +25,7 @@ fn options(target: CompileTarget) -> CompileOptions {
         target: Some(target),
         verbose: false,
         profile: None,
+        test_mode: false,
     }
 }
 

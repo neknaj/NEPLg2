@@ -50261,3 +50261,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - RPN release CLI / cache disabled stage timing の最終 5 run は wall `2588.018ms / 2126.629ms / 1960.593ms / 2128.098ms / 1922.240ms`。`resource_static_check` は `1698ms / 1626ms / 1480ms / 1650ms / 1470ms`、`resource_initialized_function_checks` は `535ms / 513ms / 471ms / 528ms / 470ms` だった。
 - 関数別 timing では `parse_i32_decimal_digits_range` の final initialized check が、直前観測の `118ms` から `62ms` へ下がった。`eval_line` は `96ms`、raw-init 側では `stdio_fd_write_from_result` が `46ms` で残る。
 - まだ cold base は 0.5 秒未満ではない。次の root target は raw-init direct call edge を use-site aware にする設計、または `eval_line` / stdio raw-init summary の control-flow proof surface をさらに小さくすることである。
+
+## 2026-06-04 Agent test-mode directive checkpoint
+
+- `feature/test-directive-20260604` branch で、Rust の test-only module に相当する NEPLg2 compile axis を `#test` directive として実装した。`cfg` という名前や `#if[test]` 構文は採用せず、`#test` が直後 1 statement だけを test mode compile で有効化する。`plan.md` は変更していない。
+- lexer / parser / AST には `TokenKind::DirTest` と `Directive::Test` を追加した。通常 compile では `#test` の直後 statement を除外し、`test_mode=true` の compile では有効化する処理を `target_gate` / `target_precheck` / typecheck / LLVM codegen の active statement 判定へ通した。
+- `CompileOptions`、CLI の `--test-mode`、`nepl-cli test`、Web wasm-bindgen API、Node doctest runner に test mode を通した。通常 playground compile は false のままで、doctest / `nepl-cli test` は true を使う。
+- 通常 compile と test compile が artifact を誤共有しないように、exact check cache、resource proof cache、compiled output cache、Resource summary cache namespace に `test_mode` を含めた。
+- selfhost lexer/parser 側にも `DirTest` / `TestDirective` を追加し、token name、predicate、module item kind、raw backend adapter、declaration adapter、summary update の exhaustive match を同期した。
+- `doc/neplg2/test_mode_directive_design.md` と issue `ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST` を追加した。issue は既存 index schema に合わせ、`area: core` / `type: architecture` / `priority: P1` として管理している。
+- focused verification は `cargo check -p nepl-core -p nepl-cli -p nepl-language`、`cargo check` in `nepl-web/`、`cargo test -p nepl-core --test functions test_directive -- --nocapture`、`cargo test -p nepl-core test_directive -- --nocapture`、`node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`、`trunk build`、`node nodesrc/tests.js -i tests/compiler/test_mode_directive.n.md --no-tree -j 1 --dist web/dist --assert-io -o tmp/test-mode-directive.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `rg` で `cfg_test` / `IfTest` / `DirIfTest` / `#if[test]` / `with_cfg` / `test_cfg` の残存を確認し、該当は 0 件だった。

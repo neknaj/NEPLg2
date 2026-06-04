@@ -21,6 +21,7 @@ fn compile_ok(src: &str) {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(result.is_ok(), "expected success, got {:?}", result);
@@ -34,6 +35,7 @@ fn compile_err(src: &str) {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
@@ -47,6 +49,7 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
@@ -70,6 +73,7 @@ fn compile_err_has_effect_code(src: &str, code: EffectDiagnosticCode) {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
@@ -93,6 +97,7 @@ fn compile_err_type_code_count(src: &str, code: TypeDiagnosticCode) -> usize {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
@@ -112,6 +117,7 @@ fn compile_err_has_resolve_code(src: &str, code: ResolveDiagnosticCode) {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
@@ -192,6 +198,7 @@ fn compile_ok_target(src: &str, target: CompileTarget) {
             target: Some(target),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(result.is_ok(), "expected success, got {:?}", result);
@@ -205,6 +212,7 @@ fn compile_err_target(src: &str, target: CompileTarget) {
             target: Some(target),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
@@ -218,6 +226,7 @@ fn compile_ok_profile(src: &str, profile: BuildProfile) {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: Some(profile),
+            test_mode: false,
         },
     );
     assert!(result.is_ok(), "expected success, got {:?}", result);
@@ -231,6 +240,7 @@ fn compile_err_profile(src: &str, profile: BuildProfile) {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: Some(profile),
+            test_mode: false,
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
@@ -353,6 +363,7 @@ fn main <() -> i32> ():
             target: Some(CompileTarget::Llvm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
         BackendDiagnosticCode::TargetRequiresCli,
     );
@@ -926,6 +937,7 @@ fn invalid_ast_char_literal_has_type_code() {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("invalid char literal should fail")
@@ -1025,6 +1037,7 @@ fn main <() -> i32> ():
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("unknown target gate should fail") else {
@@ -1059,6 +1072,7 @@ fn main <() -> i32> ():
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: Some(BuildProfile::Debug),
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("unknown profile gate should fail")
@@ -1097,6 +1111,7 @@ fn main <() -> i32> ():
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("nested unknown target gate should fail")
@@ -1386,6 +1401,7 @@ fn extern_signature_not_function_has_type_code() {
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) =
@@ -1636,6 +1652,7 @@ fn main <()* >()> ():
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     assert!(!wasm.is_empty());
@@ -1656,6 +1673,7 @@ fn main <()->i32> ():
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
         LoaderDiagnosticCode::TargetMultipleDirective,
     );
@@ -1675,6 +1693,7 @@ fn main <()->i32> ():
             target: None,
             verbose: false,
             profile: None,
+            test_mode: false,
         },
         LoaderDiagnosticCode::TargetUnknown,
     );
@@ -1685,6 +1704,7 @@ fn main <()->i32> ():
                 target: None,
                 verbose: false,
                 profile: None,
+                test_mode: false,
             },
             LoaderDiagnosticCode::TargetUnknown,
         ),
@@ -2762,6 +2782,7 @@ fn main <()->i32> ():
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("missing trait impl should fail") else {
@@ -2863,6 +2884,7 @@ fn main <()->i32> ():
             target: Some(CompileTarget::Wasm),
             verbose: false,
             profile: None,
+            test_mode: false,
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("generic impl target should fail") else {

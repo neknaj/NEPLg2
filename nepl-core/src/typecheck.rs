@@ -62,8 +62,9 @@ use model::{AssignKind, FieldIdx, ScalarMatchKind, StackEntry};
 use traits::BoundEnv;
 
 pub use driver::{
-    typecheck, typecheck_with_materialized_public_surfaces, MaterializedPublicSurfaceInput,
-    TypeCheckResult,
+    typecheck, typecheck_with_materialized_public_surfaces,
+    typecheck_with_materialized_public_surfaces_and_test_mode, typecheck_with_test_mode,
+    MaterializedPublicSurfaceInput, TypeCheckResult,
 };
 pub use materializer::{
     PublicSurfaceMaterializeReject, PublicSurfaceMaterializeRejectReason,

@@ -461,6 +461,12 @@ struct Cli {
 
     #[arg(
         long,
+        help = "Enable statements guarded by #test during this compilation"
+    )]
+    test_mode: bool,
+
+    #[arg(
+        long,
         value_enum,
         value_name = "PROFILE",
         help = "Compile profile: debug or release"
@@ -574,6 +580,7 @@ fn execute_inner(cli: Cli) -> Result<()> {
                 &std_root,
                 target,
                 active_profile,
+                cli.test_mode,
             ),
             _ => None,
         }
@@ -649,6 +656,7 @@ fn execute_inner(cli: Cli) -> Result<()> {
         target: target_override,
         verbose: cli.verbose,
         profile,
+        test_mode: cli.test_mode,
     };
     if is_check {
         let stage = cli_stage_start();
@@ -656,6 +664,7 @@ fn execute_inner(cli: Cli) -> Result<()> {
             &source_map,
             run_target,
             active_profile,
+            cli.test_mode,
             pre_load_check_cache_path,
         );
         cli_stage_finish("exact_check_manifest_build", stage);
@@ -671,7 +680,13 @@ fn execute_inner(cli: Cli) -> Result<()> {
         }
         let stage = cli_stage_start();
         let proof_cache = input_path.as_ref().and_then(|path| {
-            ResourceProofCacheProbe::new(Path::new(path), &std_root, run_target, active_profile)
+            ResourceProofCacheProbe::new(
+                Path::new(path),
+                &std_root,
+                run_target,
+                active_profile,
+                cli.test_mode,
+            )
         });
         cli_stage_finish("proof_cache_probe", stage);
         let use_proof_cache = proof_cache
@@ -781,10 +796,11 @@ fn execute_inner(cli: Cli) -> Result<()> {
         let base = output_base_from_arg(output);
 
         if emits.contains(&Emit::Llvm) {
-            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
+            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_test_mode_and_source_map(
                 &module,
                 run_target,
                 active_profile,
+                cli.test_mode,
                 false,
                 Some(&source_map),
             )
@@ -792,10 +808,11 @@ fn execute_inner(cli: Cli) -> Result<()> {
             write_bytes(&base.with_extension("ll"), ir.as_bytes())?;
         }
         if emits.contains(&Emit::LlvmMin) {
-            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
+            let ir = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_test_mode_and_source_map(
                 &module,
                 run_target,
                 active_profile,
+                cli.test_mode,
                 true,
                 Some(&source_map),
             )
@@ -984,6 +1001,7 @@ fn run_test_file(path: &Path, std_root: &Path, verbose: bool) -> Result<()> {
             target: Some(CompileTarget::Wasi),
             verbose,
             profile: None,
+            test_mode: true,
         },
         CompilationArtifactOptions {
             include_wat_comments: false,

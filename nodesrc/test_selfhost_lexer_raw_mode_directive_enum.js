@@ -86,6 +86,7 @@ const directiveVariants = [
     "Target",
     "Import",
     "Use",
+    "Test",
     "IfTarget",
     "IfProfile",
     "Capability",

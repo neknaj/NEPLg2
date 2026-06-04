@@ -36,5 +36,6 @@ pub(super) struct BlockChecker<'a> {
     pub(super) generated_functions: &'a mut Vec<HirFunction>,
     pub(super) target: CompileTarget,
     pub(super) profile: BuildProfile,
+    pub(super) test_mode: bool,
     pub(super) source_map: Option<&'a SourceMap>,
 }

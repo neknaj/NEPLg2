@@ -158,7 +158,24 @@ pub fn typecheck(
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
 ) -> TypeCheckResult {
-    typecheck_with_materialized_public_surfaces(module, target, profile, source_map, &[])
+    typecheck_with_test_mode(module, target, profile, false, source_map)
+}
+
+pub fn typecheck_with_test_mode(
+    module: &crate::ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+    source_map: Option<&SourceMap>,
+) -> TypeCheckResult {
+    typecheck_with_materialized_public_surfaces_and_test_mode(
+        module,
+        target,
+        profile,
+        test_mode,
+        source_map,
+        &[],
+    )
 }
 
 fn materialized_public_surface_origin_matches(
@@ -272,12 +289,30 @@ pub fn typecheck_with_materialized_public_surfaces(
     source_map: Option<&SourceMap>,
     materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
 ) -> TypeCheckResult {
+    typecheck_with_materialized_public_surfaces_and_test_mode(
+        module,
+        target,
+        profile,
+        false,
+        source_map,
+        materialized_public_surfaces,
+    )
+}
+
+pub fn typecheck_with_materialized_public_surfaces_and_test_mode(
+    module: &crate::ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    test_mode: bool,
+    source_map: Option<&SourceMap>,
+    materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
+) -> TypeCheckResult {
     let mut ctx = TypeCtx::new();
     let mut label_env = LabelEnv::new();
     let mut env = Env::new();
     let mut diagnostics = Vec::new();
     diagnostics.extend(crate::target_gate::validate_module_gates(
-        module, target, profile,
+        module, target, profile, test_mode,
     ));
     let mut strings = StringTable::new();
     let mut enums: BTreeMap<String, EnumInfo> = BTreeMap::new();
@@ -307,6 +342,7 @@ pub fn typecheck_with_materialized_public_surfaces(
             Directive::Use { span, .. } => *span,
             Directive::IfTarget { span, .. } => *span,
             Directive::IfProfile { span, .. } => *span,
+            Directive::Test { span } => *span,
             Directive::IndentWidth { span, .. } => *span,
             Directive::Include { span, .. } => *span,
             Directive::Prelude { span, .. } => *span,
@@ -385,7 +421,7 @@ pub fn typecheck_with_materialized_public_surfaces(
 
     let mut pending_if: Option<bool> = None;
     for d in &module.directives {
-        if let Some(allowed) = gate_allows(d, target, profile) {
+        if let Some(allowed) = gate_allows(d, target, profile, test_mode) {
             pending_if = Some(allowed);
             continue;
         }
@@ -399,7 +435,7 @@ pub fn typecheck_with_materialized_public_surfaces(
             pending_if = None;
             continue;
         };
-        if let Some(allowed) = gate_allows(d, target, profile) {
+        if let Some(allowed) = gate_allows(d, target, profile, test_mode) {
             pending_if = Some(allowed);
             continue;
         }
@@ -457,7 +493,7 @@ pub fn typecheck_with_materialized_public_surfaces(
     let mut fn_aliases: Vec<&FnAlias> = Vec::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
-            if let Some(allowed) = gate_allows(d, target, profile) {
+            if let Some(allowed) = gate_allows(d, target, profile, test_mode) {
                 pending_if = Some(allowed);
                 continue;
             }
@@ -848,7 +884,7 @@ pub fn typecheck_with_materialized_public_surfaces(
     let mut seen_impl_collection_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
-            if let Some(allowed) = gate_allows(d, target, profile) {
+            if let Some(allowed) = gate_allows(d, target, profile, test_mode) {
                 pending_if = Some(allowed);
                 continue;
             }
@@ -1079,7 +1115,7 @@ pub fn typecheck_with_materialized_public_surfaces(
     let mut seen_callable_item_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
-            if let Some(allowed) = gate_allows(d, target, profile) {
+            if let Some(allowed) = gate_allows(d, target, profile, test_mode) {
                 pending_if = Some(allowed);
                 continue;
             }
@@ -1497,7 +1533,7 @@ pub fn typecheck_with_materialized_public_surfaces(
     let mut seen_function_body_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
-            if let Some(allowed) = gate_allows(d, target, profile) {
+            if let Some(allowed) = gate_allows(d, target, profile, test_mode) {
                 pending_if = Some(allowed);
                 continue;
             }
@@ -1623,6 +1659,7 @@ pub fn typecheck_with_materialized_public_surfaces(
                     .unwrap_or(false),
                 target,
                 profile,
+                test_mode,
                 &[],
                 &mut ctx,
                 &mut env,
@@ -1673,7 +1710,7 @@ pub fn typecheck_with_materialized_public_surfaces(
     let mut seen_final_impl_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
-            if let Some(allowed) = gate_allows(d, target, profile) {
+            if let Some(allowed) = gate_allows(d, target, profile, test_mode) {
                 pending_if = Some(allowed);
                 continue;
             }
@@ -1841,6 +1878,7 @@ pub fn typecheck_with_materialized_public_surfaces(
                     false,
                     target,
                     profile,
+                    test_mode,
                     &[],
                     &mut ctx,
                     &mut env,
@@ -1909,8 +1947,15 @@ pub fn typecheck_with_materialized_public_surfaces(
         }
     }
 
-    let resolved_entry =
-        resolve_entry_function(module, target, profile, &env, entry, &mut diagnostics);
+    let resolved_entry = resolve_entry_function(
+        module,
+        target,
+        profile,
+        test_mode,
+        &env,
+        entry,
+        &mut diagnostics,
+    );
 
     let has_error = diagnostics
         .iter()

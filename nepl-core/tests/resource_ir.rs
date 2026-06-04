@@ -148,6 +148,7 @@ fn compile_resource_source_with_path(
             target: Some(target),
             verbose: false,
             profile: Some(BuildProfile::Debug),
+            test_mode: false,
         },
     )
     .map(|_| ())

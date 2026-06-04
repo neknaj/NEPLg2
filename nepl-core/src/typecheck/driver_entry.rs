@@ -14,6 +14,7 @@ pub(super) fn resolve_entry_function(
     module: &Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     env: &Env,
     entry: Option<(String, Span)>,
     diagnostics: &mut Vec<Diagnostic>,
@@ -28,7 +29,8 @@ pub(super) fn resolve_entry_function(
         }
         if func_symbols.len() == 1 {
             Some(func_symbols.remove(0))
-        } else if top_level_llvmir_defines_entry(module, target, profile, name.as_str()) {
+        } else if top_level_llvmir_defines_entry(module, target, profile, test_mode, name.as_str())
+        {
             None
         } else {
             diagnostics.push(resolve_error(
@@ -47,12 +49,18 @@ fn top_level_llvmir_defines_entry(
     module: &Module,
     target: CompileTarget,
     profile: BuildProfile,
+    test_mode: bool,
     entry: &str,
 ) -> bool {
     if !matches!(target, CompileTarget::Llvm) {
         return false;
     }
-    for idx in crate::target_precheck::active_stmt_indices(&module.root, target, profile) {
+    for idx in crate::target_precheck::active_stmt_indices_with_test_mode(
+        &module.root,
+        target,
+        profile,
+        test_mode,
+    ) {
         if let Stmt::LlvmIr(block) = &module.root.items[idx] {
             for line in &block.lines {
                 if crate::llvm_ir::parse_defined_function_name(line) == Some(entry) {
