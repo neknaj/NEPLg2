@@ -21,6 +21,7 @@ pub enum SelfhostTypeReduceErrorKind:
     VoidAsType
     FunctionMissingArgument
     FunctionMissingResult
+    GenericTypeArgumentMissing
     UnsupportedTypePrefixItem
     TrailingItems
     OutOfMemory
@@ -74,6 +75,7 @@ impl Copy for SelfhostTypeReduceError:
 pub struct SelfhostTypeReduceStep:
     nodes %Vec SelfhostResolvedTypeNode
     function_args %Vec SelfhostResolvedTypeNodeId
+    type_args %Vec SelfhostResolvedTypeNodeId
     node_id %SelfhostResolvedTypeNodeId
     next_index %i32
 
@@ -85,6 +87,7 @@ pub struct SelfhostTypeReduceStep:
 pub struct SelfhostTypeReduceBuildState:
     nodes %Vec SelfhostResolvedTypeNode
     function_args %Vec SelfhostResolvedTypeNodeId
+    type_args %Vec SelfhostResolvedTypeNodeId
 
 //: SelfhostTypeReducePlanItem: source 参照を使う前処理済み item
 //:
@@ -149,6 +152,12 @@ pub fn selfhost_type_reduce_error_kind_eq %fn SelfhostTypeReduceErrorKind fn Sel
                     true
                 _:
                     false
+        SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing:
+            match b:
+                SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing:
+                    true
+                _:
+                    false
         SelfhostTypeReduceErrorKind::UnsupportedTypePrefixItem:
             match b:
                 SelfhostTypeReduceErrorKind::UnsupportedTypePrefixItem:
@@ -178,17 +187,19 @@ pub fn selfhost_type_reduce_error_kind_eq %fn SelfhostTypeReduceErrorKind fn Sel
 pub fn selfhost_type_reduce_error_new %fn SelfhostTypeReduceErrorKind fn SelfhostSourceSpan SelfhostTypeReduceError \kind\span:
     SelfhostTypeReduceError kind span
 
-pub fn selfhost_type_reduce_build_state_new %impure fn Vec SelfhostResolvedTypeNode impure fn Vec SelfhostResolvedTypeNodeId SelfhostTypeReduceBuildState \nodes\function_args:
-    SelfhostTypeReduceBuildState nodes function_args
+pub fn selfhost_type_reduce_build_state_new %impure fn Vec SelfhostResolvedTypeNode impure fn Vec SelfhostResolvedTypeNodeId impure fn Vec SelfhostResolvedTypeNodeId SelfhostTypeReduceBuildState \nodes\function_args\type_args:
+    SelfhostTypeReduceBuildState nodes function_args type_args
 
 pub fn selfhost_type_reduce_build_state_from_tree %impure fn SelfhostResolvedTypeTree SelfhostTypeReduceBuildState \tree:
     let nodes %Vec SelfhostResolvedTypeNode field::get tree "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get tree "function_args"
-    selfhost_type_reduce_build_state_new nodes function_args
+    let type_args %Vec SelfhostResolvedTypeNodeId field::get tree "type_args"
+    selfhost_type_reduce_build_state_new nodes function_args type_args
 
 pub fn selfhost_type_reduce_build_state_free %impure fn SelfhostTypeReduceBuildState unit \state:
     v::free field::get state "nodes"
     v::free field::get state "function_args"
+    v::free field::get state "type_args"
 
 pub fn selfhost_type_reduce_build_state_node_len %fn &SelfhostTypeReduceBuildState i32 \state:
     let nodes %&Vec SelfhostResolvedTypeNode field::get_ref state "nodes"
@@ -197,6 +208,10 @@ pub fn selfhost_type_reduce_build_state_node_len %fn &SelfhostTypeReduceBuildSta
 pub fn selfhost_type_reduce_build_state_function_arg_len %fn &SelfhostTypeReduceBuildState i32 \state:
     let function_args %&Vec SelfhostResolvedTypeNodeId field::get_ref state "function_args"
     v::len function_args
+
+pub fn selfhost_type_reduce_build_state_type_arg_len %fn &SelfhostTypeReduceBuildState i32 \state:
+    let type_args %&Vec SelfhostResolvedTypeNodeId field::get_ref state "type_args"
+    v::len type_args
 
 pub fn selfhost_type_reduce_build_state_get_node %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNode \state\node_id:
     if:
@@ -254,7 +269,8 @@ pub fn selfhost_type_reduce_build_state_function_arg %fn &SelfhostTypeReduceBuil
 pub fn selfhost_type_reduce_step_new %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn i32 SelfhostTypeReduceStep \state\node_id\next_index:
     let nodes %Vec SelfhostResolvedTypeNode field::get state "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get state "function_args"
-    SelfhostTypeReduceStep nodes function_args node_id next_index
+    let type_args %Vec SelfhostResolvedTypeNodeId field::get state "type_args"
+    SelfhostTypeReduceStep nodes function_args type_args node_id next_index
 
 //: selfhost_type_reduce_step_node_id: step の node id を[返/かえ]す
 pub fn selfhost_type_reduce_step_node_id %fn &SelfhostTypeReduceStep SelfhostResolvedTypeNodeId \step:
@@ -268,12 +284,14 @@ pub fn selfhost_type_reduce_step_next_index %fn &SelfhostTypeReduceStep i32 \ste
 pub fn selfhost_type_reduce_step_into_tree %impure fn SelfhostTypeReduceStep SelfhostResolvedTypeTree \step:
     let nodes %Vec SelfhostResolvedTypeNode field::get step "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get step "function_args"
-    SelfhostResolvedTypeTree nodes function_args
+    let type_args %Vec SelfhostResolvedTypeNodeId field::get step "type_args"
+    SelfhostResolvedTypeTree nodes function_args type_args
 
 pub fn selfhost_type_reduce_step_into_build_state %impure fn SelfhostTypeReduceStep SelfhostTypeReduceBuildState \step:
     let nodes %Vec SelfhostResolvedTypeNode field::get step "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get step "function_args"
-    selfhost_type_reduce_build_state_new nodes function_args
+    let type_args %Vec SelfhostResolvedTypeNodeId field::get step "type_args"
+    selfhost_type_reduce_build_state_new nodes function_args type_args
 
 pub fn selfhost_type_reduce_fail %impure fn SelfhostTypeReduceBuildState impure fn SelfhostTypeReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\kind\span:
     selfhost_type_reduce_build_state_free state

@@ -406,6 +406,139 @@ fn main %impure fn void i32 \void:
             checks_exit_code shown
 ```
 
+## stores_applied_named_type_arguments_and_compares_structurally
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn check_type_kind_option %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostTypeKind Result unit str \arena\type_id\expected:
+    match selfhost_type_arena_get_kind arena type_id:
+        Option::Some actual:
+            if selfhost_type_kind_eq actual expected Result::Ok unit Result::Err "type kind mismatch"
+        Option::None:
+            Result::Err "type kind missing"
+
+fn check_type_id_option %fn Option SelfhostTypeId fn SelfhostTypeId Result unit str \actual\expected:
+    match actual:
+        Option::Some type_id:
+            if selfhost_type_id_eq type_id expected Result::Ok unit Result::Err "type id mismatch"
+        Option::None:
+            Result::Err "type id missing"
+
+fn check_named_id_option %fn Option SelfhostNamedTypeId fn SelfhostNamedTypeId Result unit str \actual\expected:
+    match actual:
+        Option::Some nominal_id:
+            if selfhost_named_type_id_eq nominal_id expected Result::Ok unit Result::Err "named id mismatch"
+        Option::None:
+            Result::Err "named id missing"
+
+fn check_i32_option %fn Option i32 fn i32 Result unit str \actual\expected:
+    match actual:
+        Option::Some value:
+            if eq value expected Result::Ok unit Result::Err "i32 option mismatch"
+        Option::None:
+            Result::Err "i32 option missing"
+
+fn add_single_arg_applied %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id\arg:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind new
+    match params_result:
+        Result::Ok params0:
+            match push params0 arg:
+                Result::Ok params1:
+                    selfhost_type_arena_add_applied_named arena nominal_id params1
+                Result::Err e:
+                    let error %StdErrorKind vec_push_error_kind &e
+                    let returned %Vec SelfhostTypeId vec_push_error_vec e
+                    free returned
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok alloc1:
+                    let i32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc1
+                    match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc1 SelfhostPrimitiveTypeKind::Bool:
+                        Result::Ok alloc2:
+                            let bool_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc2
+                            let box_id %SelfhostNamedTypeId selfhost_named_type_id_new 0
+                            match add_single_arg_applied selfhost_type_arena_alloc_into_arena alloc2 box_id i32_id:
+                                Result::Ok alloc3:
+                                    let box_i32_a %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc3
+                                    match add_single_arg_applied selfhost_type_arena_alloc_into_arena alloc3 box_id i32_id:
+                                        Result::Ok alloc4:
+                                            let box_i32_b %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc4
+                                            match add_single_arg_applied selfhost_type_arena_alloc_into_arena alloc4 box_id bool_id:
+                                                Result::Ok alloc5:
+                                                    let box_bool %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc5
+                                                    let arena5 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc5
+                                                    let checks1 checks_push checks0 check_type_kind_option &arena5 box_i32_a SelfhostTypeKind::Named
+                                                    let checks2 checks_push checks1 check_named_id_option (selfhost_type_arena_applied_constructor_id &arena5 box_i32_a) box_id
+                                                    let checks3 checks_push checks2 check_i32_option (selfhost_type_arena_applied_arg_count &arena5 box_i32_a) 1
+                                                    let checks4 checks_push checks3 check_type_id_option (selfhost_type_arena_applied_arg &arena5 box_i32_a 0) i32_id
+                                                    let checks5 checks_push checks4 check is_none selfhost_type_arena_named_id &arena5 box_i32_a
+                                                    let checks6 checks_push checks5 check is_none selfhost_type_arena_function_arg_count &arena5 box_i32_a
+                                                    let checks7 checks_push checks6 check selfhost_type_arena_types_equal &arena5 box_i32_a box_i32_b
+                                                    let checks8 checks_push checks7 check not selfhost_type_arena_types_equal &arena5 box_i32_a box_bool
+                                                    let checks9 checks_push checks8 check_eq_i32 3 selfhost_type_arena_type_arg_len &arena5
+                                                    let checks10 checks_push checks9 check_eq_i32 5 selfhost_type_arena_len &arena5
+                                                    selfhost_type_arena_free arena5
+                                                    let shown checks_print_report checks10
+                                                    checks_exit_code shown
+                                                Result::Err _e:
+                                                    let checks1 checks_push checks0 Result::Err "Box bool allocation failed"
+                                                    let shown checks_print_report checks1
+                                                    checks_exit_code shown
+                                        Result::Err _e:
+                                            let checks1 checks_push checks0 Result::Err "second Box i32 allocation failed"
+                                            let shown checks_print_report checks1
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    let checks1 checks_push checks0 Result::Err "first Box i32 allocation failed"
+                                    let shown checks_print_report checks1
+                                    checks_exit_code shown
+                        Result::Err _e:
+                            let checks1 checks_push checks0 Result::Err "bool type allocation failed"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 checks_push checks0 Result::Err "i32 type allocation failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 checks_push checks0 Result::Err "type arena allocation failed"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## rejects_mismatched_function_type_shapes
 
 neplg2:test[stdio, normalize_newlines]

@@ -1,0 +1,60 @@
+#indent 4
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostResolvedNamedTypeRef: 未解決 named type の source 参照
+//:
+//: [目的/もくてき]:
+//: - TypeId 割当前の段階では、user type や generic type constructor の名前を source span で参照します。
+//: - token buffer の payload を resolved tree に持ち込まず、diagnostic に必要な source span だけを保持します。
+pub struct SelfhostResolvedNamedTypeRef:
+    span %SelfhostSourceSpan
+
+//: SelfhostResolvedAppliedTypeArgRange: resolved tree の applied type argument 範囲
+pub struct SelfhostResolvedAppliedTypeArgRange:
+    first_arg %i32
+    arg_count %i32
+
+//: SelfhostResolvedAppliedType: generic type application node の payload
+//:
+//: [目的/もくてき]:
+//: - constructor arity によって縮約済みの `Box i32` / `Result i32 str` を 1 つの node として表します。
+//: - constructor identity は table lookup で得た `SelfhostNamedTypeId` を保持し、source spelling への依存を後続 stage へ持ち込みません。
+pub struct SelfhostResolvedAppliedType:
+    nominal_id %SelfhostNamedTypeId
+    span %SelfhostSourceSpan
+    args %SelfhostResolvedAppliedTypeArgRange
+
+impl Clone for SelfhostResolvedNamedTypeRef:
+    fn clone %fn &SelfhostResolvedNamedTypeRef SelfhostResolvedNamedTypeRef \self:
+        *self
+
+impl Copy for SelfhostResolvedNamedTypeRef:
+    fn copy_mark %fn SelfhostResolvedNamedTypeRef SelfhostResolvedNamedTypeRef \self:
+        self
+
+impl Clone for SelfhostResolvedAppliedTypeArgRange:
+    fn clone %fn &SelfhostResolvedAppliedTypeArgRange SelfhostResolvedAppliedTypeArgRange \self:
+        *self
+
+impl Copy for SelfhostResolvedAppliedTypeArgRange:
+    fn copy_mark %fn SelfhostResolvedAppliedTypeArgRange SelfhostResolvedAppliedTypeArgRange \self:
+        self
+
+impl Clone for SelfhostResolvedAppliedType:
+    fn clone %fn &SelfhostResolvedAppliedType SelfhostResolvedAppliedType \self:
+        *self
+
+impl Copy for SelfhostResolvedAppliedType:
+    fn copy_mark %fn SelfhostResolvedAppliedType SelfhostResolvedAppliedType \self:
+        self
+
+//: selfhost_resolved_applied_type_arg_range_new_unchecked: 証明済みの applied type argument 範囲を[作/つく]る
+pub fn selfhost_resolved_applied_type_arg_range_new_unchecked %fn i32 fn i32 SelfhostResolvedAppliedTypeArgRange \first_arg\arg_count:
+    SelfhostResolvedAppliedTypeArgRange first_arg arg_count
+
+//: selfhost_resolved_applied_type_arg_range_count: applied type argument 数を[返/かえ]す
+pub fn selfhost_resolved_applied_type_arg_range_count %fn SelfhostResolvedAppliedTypeArgRange i32 \args:
+    args.arg_count

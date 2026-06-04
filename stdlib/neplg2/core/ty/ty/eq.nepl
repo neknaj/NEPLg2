@@ -71,11 +71,58 @@ pub fn selfhost_type_arena_function_arg_ranges_equal %fn &SelfhostTypeArena fn S
                                 else:
                                     selfhost_type_arena_function_args_equal_raw arena a_range.first_arg b_range.first_arg a_range.arg_count 0
 
+//: selfhost_type_arena_applied_args_equal_raw: 証明済みの applied type argument 範囲を構造比較する
+//:
+//: [注意/ちゅうい]:
+//: - `first_a` / `first_b` / `n` は `SelfhostAppliedTypeArgRange` の検査済み payload からだけ渡します。
+//: - `n <= 0` は generic application として不正なので false にします。
+pub fn selfhost_type_arena_applied_args_equal_raw %fn &SelfhostTypeArena fn i32 fn i32 fn i32 fn i32 bool \arena\first_a\first_b\n\idx:
+    if:
+        le n 0
+        then:
+            false
+        else:
+            if:
+                ge idx n
+                then:
+                    true
+                else:
+                    let type_args %&Vec SelfhostTypeId field::get_ref arena "type_args"
+                    match v::get type_args add first_a idx:
+                        Option::Some arg_a:
+                            match v::get type_args add first_b idx:
+                                Option::Some arg_b:
+                                    if:
+                                        selfhost_type_arena_types_equal arena arg_a arg_b
+                                        then:
+                                            selfhost_type_arena_applied_args_equal_raw arena first_a first_b n add idx 1
+                                        else:
+                                            false
+                                Option::None:
+                                    false
+                        Option::None:
+                            false
+
+//: selfhost_type_arena_applied_arg_ranges_equal: applied type argument range が構造的に同じか[返/かえ]す
+pub fn selfhost_type_arena_applied_arg_ranges_equal %fn &SelfhostTypeArena fn SelfhostAppliedTypeArgRange fn SelfhostAppliedTypeArgRange bool \arena\a\b:
+    if:
+        not and selfhost_applied_type_arg_range_is_valid a selfhost_applied_type_arg_range_is_valid b
+        then:
+            false
+        else:
+            if:
+                ne a.arg_count b.arg_count
+                then:
+                    false
+                else:
+                    selfhost_type_arena_applied_args_equal_raw arena a.first_arg b.first_arg a.arg_count 0
+
 //: selfhost_type_arena_records_equal: 2 つの型 record が構造的に同じか[返/かえ]す
 //:
 //: [実装/じっそう]:
 //: - primitive type は `SelfhostTypeKind` が一致すれば同形とします。
 //: - named type は source spelling ではなく type constructor table の identity が一致すれば同形とします。
+//: - applied named type は constructor identity と型引数列の構造が一致すれば同形とします。
 //: - function type は arity、各引数 TypeId の構造、戻り値 TypeId の構造を比較します。
 pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeRecord fn SelfhostTypeRecord bool \arena\a\b:
     match a:
@@ -87,6 +134,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                     selfhost_type_kind_eq a_general b_general
                 SelfhostTypeRecord::Named _b_named:
                     false
+                SelfhostTypeRecord::Applied _b_applied:
+                    false
                 SelfhostTypeRecord::Function _b_function:
                     false
         SelfhostTypeRecord::Named a_named:
@@ -95,6 +144,20 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                     false
                 SelfhostTypeRecord::Named b_named:
                     selfhost_named_type_id_eq (selfhost_named_type_record_id a_named) (selfhost_named_type_record_id b_named)
+                SelfhostTypeRecord::Applied _b_applied:
+                    false
+                SelfhostTypeRecord::Function _b_function:
+                    false
+        SelfhostTypeRecord::Applied a_applied:
+            match b:
+                SelfhostTypeRecord::Primitive _b_kind:
+                    false
+                SelfhostTypeRecord::Named _b_named:
+                    false
+                SelfhostTypeRecord::Applied b_applied:
+                    and:
+                        selfhost_named_type_id_eq (selfhost_applied_type_record_id a_applied) (selfhost_applied_type_record_id b_applied)
+                        selfhost_type_arena_applied_arg_ranges_equal arena (selfhost_applied_type_record_args a_applied) (selfhost_applied_type_record_args b_applied)
                 SelfhostTypeRecord::Function _b_function:
                     false
         SelfhostTypeRecord::Function a_function:
@@ -102,6 +165,8 @@ pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeR
                 SelfhostTypeRecord::Primitive _b_kind:
                     false
                 SelfhostTypeRecord::Named _b_named:
+                    false
+                SelfhostTypeRecord::Applied _b_applied:
                     false
                 SelfhostTypeRecord::Function b_function:
                     and:

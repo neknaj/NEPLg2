@@ -50558,3 +50558,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `selfhost_type_project_root_into_arena` は既存の fail-closed API として残し、named type を `UnsupportedNamedType` で拒否し続ける。新しい `selfhost_type_project_root_with_constructors_into_arena` は arity 0 constructor だけを `SelfhostTypeRecord::Named` へ投影し、unknown named type と bare generic constructor を typed error で拒否する。
 - subagent review では、`ty` から `resolve/type_resolver` へ依存を逆流させないこと、arena に source string を入れないこと、constructor logic を `constructor.nepl` に分けること、既存 negative doctest を残すことが妥当と確認した。
 - focused verification は type arena doctest 6/6、type resolver doctest 10/10、ty / type resolver split contract を通した。残件は generic type constructor application、canonical type key projection、user-defined generic kind / arity reduction、prefix expression AST、call reduction である。
+
+## 2026-06-05 Agent selfhost generic type application checkpoint
+
+- `selfhost/generic-type-application-20260605` branch で、self-host compiler Phase 5 の constructor-aware generic type application reduction / projection を進めた。`plan.md` は確認のみで変更していない。
+- `SelfhostTypeRecord::Applied`、`SelfhostResolvedTypeNode::Applied`、resolved / arena の type argument table を追加し、`Box i32` のような applied named type を source spelling ではなく constructor identity と structural type argument list として保持するようにした。
+- `resolved.nepl` が肥大化したため、`resolved/id.nepl`、`resolved/kind.nepl`、`resolved/named.nepl` に分割し、facade から `pub #import` する形で既存 import 境界を保った。
+- `selfhost_type_prefix_list_reduce_with_constructors` は constructor table の arity に従って型引数を再帰消費し、型引数不足を `GenericTypeArgumentMissing`、余剰 item を `TrailingItems` として reduction 段階で拒否する。
+- constructor table なし projection は named / applied named type を `UnsupportedNamedType` として fail-closed に保ち、constructor-aware projection だけが `SelfhostTypeRecord::Named` / `SelfhostTypeRecord::Applied` を arena に追加する。
+- subagent review では、次の slice は canonical type key projection が妥当と確認した。generic type application は構造比較できるが、同じ型の allocation canonical 化と artifact/proof/cache key への安定投影は未実装である。
+- focused verification は type record / arena / resolver source policy、arena doctest 7/7、type resolver doctest shard 1/2 と 2/2、type resolver facade smoke を通した。残件は canonical type key projection、generic type parameter environment / kind validation、prefix expression AST、call reductionである。

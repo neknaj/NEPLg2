@@ -1,0 +1,46 @@
+#indent 4
+
+#import "core/traits/copy" as *
+
+//: SelfhostResolvedTypeNodeKind: payload を除いた resolved type node 分類
+pub enum SelfhostResolvedTypeNodeKind:
+    Primitive
+    Named
+    Applied
+    Function
+
+impl Clone for SelfhostResolvedTypeNodeKind:
+    fn clone %fn &SelfhostResolvedTypeNodeKind SelfhostResolvedTypeNodeKind \self:
+        *self
+
+impl Copy for SelfhostResolvedTypeNodeKind:
+    fn copy_mark %fn SelfhostResolvedTypeNodeKind SelfhostResolvedTypeNodeKind \self:
+        self
+
+//: selfhost_resolved_type_node_kind_eq: node kind が同じ分類か[返/かえ]す
+pub fn selfhost_resolved_type_node_kind_eq %fn SelfhostResolvedTypeNodeKind fn SelfhostResolvedTypeNodeKind bool \a\b:
+    match a:
+        SelfhostResolvedTypeNodeKind::Primitive:
+            match b:
+                SelfhostResolvedTypeNodeKind::Primitive:
+                    true
+                _:
+                    false
+        SelfhostResolvedTypeNodeKind::Named:
+            match b:
+                SelfhostResolvedTypeNodeKind::Named:
+                    true
+                _:
+                    false
+        SelfhostResolvedTypeNodeKind::Applied:
+            match b:
+                SelfhostResolvedTypeNodeKind::Applied:
+                    true
+                _:
+                    false
+        SelfhostResolvedTypeNodeKind::Function:
+            match b:
+                SelfhostResolvedTypeNodeKind::Function:
+                    true
+                _:
+                    false

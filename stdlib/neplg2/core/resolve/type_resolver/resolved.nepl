@@ -8,22 +8,9 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/ty/ty" as *
-
-//: SelfhostResolvedTypeNodeId: type resolver tree 内の node index
-//:
-//: [目的/もくてき]:
-//: - TypeId を割り当てる前の段階で、解決済み型 node を raw `i32` ではなく専用 id として参照します。
-//: - この id は resolver tree local であり、`SelfhostTypeArena` の `SelfhostTypeId` と混ぜてはいけません。
-pub struct SelfhostResolvedTypeNodeId:
-    index %i32
-
-impl Clone for SelfhostResolvedTypeNodeId:
-    fn clone %fn &SelfhostResolvedTypeNodeId SelfhostResolvedTypeNodeId \self:
-        *self
-
-impl Copy for SelfhostResolvedTypeNodeId:
-    fn copy_mark %fn SelfhostResolvedTypeNodeId SelfhostResolvedTypeNodeId \self:
-        self
+pub #import "./resolved/id" as *
+pub #import "./resolved/kind" as *
+pub #import "./resolved/named" as *
 
 //: SelfhostResolvedFunctionArgRangeItems: function 引数 node table の nonempty 範囲 payload
 pub struct SelfhostResolvedFunctionArgRangeItems:
@@ -67,36 +54,6 @@ impl Copy for SelfhostResolvedFunctionType:
     fn copy_mark %fn SelfhostResolvedFunctionType SelfhostResolvedFunctionType \self:
         self
 
-//: SelfhostResolvedNamedTypeRef: 未解決 named type の source 参照
-//:
-//: [目的/もくてき]:
-//: - TypeId 割当前の段階では、user type や generic type constructor の名前を source span で参照します。
-//: - token buffer の payload を resolved tree に持ち込まず、diagnostic に必要な source span だけを保持します。
-pub struct SelfhostResolvedNamedTypeRef:
-    span %SelfhostSourceSpan
-
-impl Clone for SelfhostResolvedNamedTypeRef:
-    fn clone %fn &SelfhostResolvedNamedTypeRef SelfhostResolvedNamedTypeRef \self:
-        *self
-
-impl Copy for SelfhostResolvedNamedTypeRef:
-    fn copy_mark %fn SelfhostResolvedNamedTypeRef SelfhostResolvedNamedTypeRef \self:
-        self
-
-//: SelfhostResolvedTypeNodeKind: payload を除いた resolved type node 分類
-pub enum SelfhostResolvedTypeNodeKind:
-    Primitive
-    Named
-    Function
-
-impl Clone for SelfhostResolvedTypeNodeKind:
-    fn clone %fn &SelfhostResolvedTypeNodeKind SelfhostResolvedTypeNodeKind \self:
-        *self
-
-impl Copy for SelfhostResolvedTypeNodeKind:
-    fn copy_mark %fn SelfhostResolvedTypeNodeKind SelfhostResolvedTypeNodeKind \self:
-        self
-
 //: SelfhostResolvedTypeNode: TypeId 割当前の resolved type node
 //:
 //: [目的/もくてき]:
@@ -105,6 +62,7 @@ impl Copy for SelfhostResolvedTypeNodeKind:
 pub enum SelfhostResolvedTypeNode:
     Primitive %SelfhostPrimitiveTypeKind
     Named %SelfhostResolvedNamedTypeRef
+    Applied %SelfhostResolvedAppliedType
     Function %SelfhostResolvedFunctionType
 
 impl Clone for SelfhostResolvedTypeNode:
@@ -122,6 +80,7 @@ impl Copy for SelfhostResolvedTypeNode:
 pub struct SelfhostResolvedTypeTree:
     nodes %Vec SelfhostResolvedTypeNode
     function_args %Vec SelfhostResolvedTypeNodeId
+    type_args %Vec SelfhostResolvedTypeNodeId
 
 //: SelfhostResolvedTypeTreeAlloc: node 追加後の tree owner と追加 node id
 pub struct SelfhostResolvedTypeTreeAlloc:
@@ -137,36 +96,6 @@ pub struct SelfhostResolvedTypeTreeRoot:
     tree %SelfhostResolvedTypeTree
     root %SelfhostResolvedTypeNodeId
 
-//: selfhost_resolved_type_node_id_new: resolver-local node id を[作/つく]る
-pub fn selfhost_resolved_type_node_id_new %fn i32 SelfhostResolvedTypeNodeId \index:
-    SelfhostResolvedTypeNodeId index
-
-//: selfhost_resolved_type_node_id_index: node id の index を[返/かえ]す
-pub fn selfhost_resolved_type_node_id_index %fn SelfhostResolvedTypeNodeId i32 \node_id:
-    node_id.index
-
-//: selfhost_resolved_type_node_kind_eq: node kind が同じ分類か[返/かえ]す
-pub fn selfhost_resolved_type_node_kind_eq %fn SelfhostResolvedTypeNodeKind fn SelfhostResolvedTypeNodeKind bool \a\b:
-    match a:
-        SelfhostResolvedTypeNodeKind::Primitive:
-            match b:
-                SelfhostResolvedTypeNodeKind::Primitive:
-                    true
-                _:
-                    false
-        SelfhostResolvedTypeNodeKind::Named:
-            match b:
-                SelfhostResolvedTypeNodeKind::Named:
-                    true
-                _:
-                    false
-        SelfhostResolvedTypeNodeKind::Function:
-            match b:
-                SelfhostResolvedTypeNodeKind::Function:
-                    true
-                _:
-                    false
-
 //: selfhost_resolved_type_node_kind: node の分類を[返/かえ]す
 pub fn selfhost_resolved_type_node_kind %fn SelfhostResolvedTypeNode SelfhostResolvedTypeNodeKind \node:
     match node:
@@ -174,6 +103,8 @@ pub fn selfhost_resolved_type_node_kind %fn SelfhostResolvedTypeNode SelfhostRes
             SelfhostResolvedTypeNodeKind::Primitive
         SelfhostResolvedTypeNode::Named _item:
             SelfhostResolvedTypeNodeKind::Named
+        SelfhostResolvedTypeNode::Applied _applied:
+            SelfhostResolvedTypeNodeKind::Applied
         SelfhostResolvedTypeNode::Function _function:
             SelfhostResolvedTypeNodeKind::Function
 
@@ -204,7 +135,14 @@ pub fn selfhost_resolved_type_tree_new %impure fn void Result SelfhostResolvedTy
             let args_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
             match args_result:
                 Result::Ok function_args:
-                    Result::Ok SelfhostResolvedTypeTree nodes function_args
+                    let type_args_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
+                    match type_args_result:
+                        Result::Ok type_args:
+                            Result::Ok SelfhostResolvedTypeTree nodes function_args type_args
+                        Result::Err e:
+                            v::free nodes
+                            v::free function_args
+                            Result::Err e
                 Result::Err e:
                     v::free nodes
                     Result::Err e
@@ -215,6 +153,7 @@ pub fn selfhost_resolved_type_tree_new %impure fn void Result SelfhostResolvedTy
 pub fn selfhost_resolved_type_tree_free %impure fn SelfhostResolvedTypeTree unit \tree:
     v::free field::get tree "nodes"
     v::free field::get tree "function_args"
+    v::free field::get tree "type_args"
 
 //: selfhost_resolved_type_tree_node_len: node table の長さを[返/かえ]す
 pub fn selfhost_resolved_type_tree_node_len %fn &SelfhostResolvedTypeTree i32 \tree:
@@ -225,6 +164,11 @@ pub fn selfhost_resolved_type_tree_node_len %fn &SelfhostResolvedTypeTree i32 \t
 pub fn selfhost_resolved_type_tree_function_arg_len %fn &SelfhostResolvedTypeTree i32 \tree:
     let function_args %&Vec SelfhostResolvedTypeNodeId field::get_ref tree "function_args"
     v::len function_args
+
+//: selfhost_resolved_type_tree_type_arg_len: applied type argument table の長さを[返/かえ]す
+pub fn selfhost_resolved_type_tree_type_arg_len %fn &SelfhostResolvedTypeTree i32 \tree:
+    let type_args %&Vec SelfhostResolvedTypeNodeId field::get_ref tree "type_args"
+    v::len type_args
 
 //: selfhost_resolved_type_tree_alloc_new: node 追加結果を[作/つく]る
 pub fn selfhost_resolved_type_tree_alloc_new %impure fn SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId SelfhostResolvedTypeTreeAlloc \tree\node_id:
@@ -259,13 +203,15 @@ pub fn selfhost_resolved_type_tree_push_node %impure fn SelfhostResolvedTypeTree
     let node_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_node_id_new selfhost_resolved_type_tree_node_len &tree
     let nodes %Vec SelfhostResolvedTypeNode field::get tree "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get tree "function_args"
+    let type_args %Vec SelfhostResolvedTypeNodeId field::get tree "type_args"
     match v::push nodes node:
         Result::Ok next_nodes:
-            Result::Ok selfhost_resolved_type_tree_alloc_new (SelfhostResolvedTypeTree next_nodes function_args) node_id
+            Result::Ok selfhost_resolved_type_tree_alloc_new (SelfhostResolvedTypeTree next_nodes function_args type_args) node_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free v::vec_push_error_vec e
             v::free function_args
+            v::free type_args
             Result::Err error
 
 //: selfhost_resolved_type_tree_add_primitive: primitive node を tree に[追加/ついか]する
@@ -275,6 +221,47 @@ pub fn selfhost_resolved_type_tree_add_primitive %impure fn SelfhostResolvedType
 //: selfhost_resolved_type_tree_add_named: named type node を tree に[追加/ついか]する
 pub fn selfhost_resolved_type_tree_add_named %impure fn SelfhostResolvedTypeTree impure fn SelfhostSourceSpan Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\span:
     selfhost_resolved_type_tree_push_node tree SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef span
+
+fn selfhost_resolved_type_tree_copy_type_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
+    if:
+        ge idx n
+        then:
+            Result::Ok out
+        else:
+            match v::get params idx:
+                Option::Some node_id:
+                    match v::push out node_id:
+                        Result::Ok next_out:
+                            selfhost_resolved_type_tree_copy_type_args next_out params n add idx 1
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free out
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+//: selfhost_resolved_type_tree_add_applied_named: generic application node を tree に[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - `params` はこの関数が消費し、成功・失敗どちらでも解放します。
+pub fn selfhost_resolved_type_tree_add_applied_named %impure fn SelfhostResolvedTypeTree impure fn SelfhostNamedTypeId impure fn SelfhostSourceSpan impure fn Vec SelfhostResolvedTypeNodeId Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\nominal_id\span\params:
+    let first_arg %i32 selfhost_resolved_type_tree_type_arg_len &tree
+    let arg_count %i32 v::len &params
+    let nodes %Vec SelfhostResolvedTypeNode field::get tree "nodes"
+    let function_args %Vec SelfhostResolvedTypeNodeId field::get tree "function_args"
+    let type_args %Vec SelfhostResolvedTypeNodeId field::get tree "type_args"
+    match selfhost_resolved_type_tree_copy_type_args type_args &params arg_count 0:
+        Result::Ok next_args:
+            v::free params
+            let args %SelfhostResolvedAppliedTypeArgRange selfhost_resolved_applied_type_arg_range_new_unchecked first_arg arg_count
+            let applied %SelfhostResolvedAppliedType SelfhostResolvedAppliedType nominal_id span args
+            selfhost_resolved_type_tree_push_node (SelfhostResolvedTypeTree nodes function_args next_args) SelfhostResolvedTypeNode::Applied applied
+        Result::Err e:
+            v::free nodes
+            v::free function_args
+            v::free params
+            Result::Err e
 
 fn selfhost_resolved_type_tree_copy_function_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
     if:
@@ -304,15 +291,17 @@ pub fn selfhost_resolved_type_tree_add_function %impure fn SelfhostResolvedTypeT
     let arg_count %i32 v::len &params
     let nodes %Vec SelfhostResolvedTypeNode field::get tree "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get tree "function_args"
+    let type_args %Vec SelfhostResolvedTypeNodeId field::get tree "type_args"
     match selfhost_resolved_type_tree_copy_function_args function_args &params arg_count 0:
         Result::Ok next_args:
             v::free params
             let args %SelfhostResolvedFunctionArgRange:
                 if eq arg_count 0 selfhost_resolved_function_arg_range_empty selfhost_resolved_function_arg_range_new_unchecked first_arg arg_count
             let function %SelfhostResolvedFunctionType SelfhostResolvedFunctionType args result
-            selfhost_resolved_type_tree_push_node (SelfhostResolvedTypeTree nodes next_args) SelfhostResolvedTypeNode::Function function
+            selfhost_resolved_type_tree_push_node (SelfhostResolvedTypeTree nodes next_args type_args) SelfhostResolvedTypeNode::Function function
         Result::Err e:
             v::free nodes
+            v::free type_args
             v::free params
             Result::Err e
 
@@ -341,6 +330,48 @@ pub fn selfhost_resolved_type_tree_primitive_kind %fn &SelfhostResolvedTypeTree 
             match node:
                 SelfhostResolvedTypeNode::Primitive kind:
                     some kind
+                _:
+                    none
+        Option::None:
+            none
+
+//: selfhost_resolved_type_tree_applied_constructor_id: applied type node の constructor identity を[返/かえ]す
+pub fn selfhost_resolved_type_tree_applied_constructor_id %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option SelfhostNamedTypeId \tree\node_id:
+    match selfhost_resolved_type_tree_get_node tree node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Applied applied:
+                    some applied.nominal_id
+                _:
+                    none
+        Option::None:
+            none
+
+//: selfhost_resolved_type_tree_applied_arg_count: applied type node の型引数数を[返/かえ]す
+pub fn selfhost_resolved_type_tree_applied_arg_count %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option i32 \tree\node_id:
+    match selfhost_resolved_type_tree_get_node tree node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Applied applied:
+                    some selfhost_resolved_applied_type_arg_range_count applied.args
+                _:
+                    none
+        Option::None:
+            none
+
+//: selfhost_resolved_type_tree_applied_arg: applied type node の指定型引数 node id を[返/かえ]す
+pub fn selfhost_resolved_type_tree_applied_arg %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn i32 Option SelfhostResolvedTypeNodeId \tree\node_id\arg_idx:
+    match selfhost_resolved_type_tree_get_node tree node_id:
+        Option::Some node:
+            match node:
+                SelfhostResolvedTypeNode::Applied applied:
+                    if:
+                        or lt arg_idx 0 ge arg_idx applied.args.arg_count
+                        then:
+                            none
+                        else:
+                            let type_args %&Vec SelfhostResolvedTypeNodeId field::get_ref tree "type_args"
+                            v::get type_args add applied.args.first_arg arg_idx
                 _:
                     none
         Option::None:

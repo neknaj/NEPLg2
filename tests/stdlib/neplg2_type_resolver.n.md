@@ -644,6 +644,259 @@ fn main %impure fn void i32 \void:
 
 ## rejects_unknown_named_type_with_constructor_projection
 
+## projects_generic_type_application_with_constructor_table
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn primitive_kind_eq %fn SelfhostPrimitiveTypeKind fn SelfhostPrimitiveTypeKind bool \a\b:
+    match a:
+        SelfhostPrimitiveTypeKind::I32:
+            match b:
+                SelfhostPrimitiveTypeKind::I32:
+                    true
+                _:
+                    false
+        _:
+            false
+
+fn reduce_header_with_constructors %impure fn str impure fn &SelfhostTypeConstructorTable Result SelfhostResolvedTypeTreeRoot str \source\constructors:
+    match lex_all source:
+        Result::Ok tokens:
+            let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+            match selfhost_type_prefix_list_from_syntax_range &tokens range:
+                Result::Ok list:
+                    match selfhost_type_prefix_list_reduce_with_constructors source constructors &list:
+                        Result::Ok root:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Ok root
+                        Result::Err _e:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Err "reduce failed"
+                Result::Err _e:
+                    v::free tokens
+                    Result::Err "prefix list build failed"
+        Result::Err _diag:
+            Result::Err "lex failed"
+
+fn check_node_kind %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn SelfhostResolvedTypeNodeKind Result unit str \tree\node_id\expected:
+    match selfhost_resolved_type_tree_get_node_kind tree node_id:
+        Option::Some actual:
+            if selfhost_resolved_type_node_kind_eq actual expected Result::Ok unit Result::Err "node kind mismatch"
+        Option::None:
+            Result::Err "node missing"
+
+fn check_node_primitive %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn SelfhostPrimitiveTypeKind Result unit str \tree\node_id\expected:
+    match selfhost_resolved_type_tree_primitive_kind tree node_id:
+        Option::Some actual:
+            if primitive_kind_eq actual expected Result::Ok unit Result::Err "primitive mismatch"
+        Option::None:
+            Result::Err "primitive missing"
+
+fn check_resolved_applied_arg_primitive %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn i32 fn SelfhostPrimitiveTypeKind Result unit str \tree\node_id\idx\expected:
+    match selfhost_resolved_type_tree_applied_arg tree node_id idx:
+        Option::Some arg_id:
+            check_node_primitive tree arg_id expected
+        Option::None:
+            Result::Err "applied type argument missing"
+
+fn check_named_id_option %fn Option SelfhostNamedTypeId fn SelfhostNamedTypeId Result unit str \actual\expected:
+    match actual:
+        Option::Some nominal_id:
+            if selfhost_named_type_id_eq nominal_id expected Result::Ok unit Result::Err "named id mismatch"
+        Option::None:
+            Result::Err "named id missing"
+
+fn check_i32_option %fn Option i32 fn i32 Result unit str \actual\expected:
+    match actual:
+        Option::Some value:
+            if eq value expected Result::Ok unit Result::Err "i32 option mismatch"
+        Option::None:
+            Result::Err "i32 option missing"
+
+fn check_type_kind_option %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostTypeKind Result unit str \arena\type_id\expected:
+    match selfhost_type_arena_get_kind arena type_id:
+        Option::Some actual:
+            if selfhost_type_kind_eq actual expected Result::Ok unit Result::Err "type kind mismatch"
+        Option::None:
+            Result::Err "type kind missing"
+
+fn check_arena_applied_arg_kind %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn SelfhostTypeKind Result unit str \arena\type_id\idx\expected:
+    match selfhost_type_arena_applied_arg arena type_id idx:
+        Option::Some arg_id:
+            check_type_kind_option arena arg_id expected
+        Option::None:
+            Result::Err "arena applied type argument missing"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let source %str "fn use_box %Box i32 \\x:\n    x\n"
+    match selfhost_type_constructor_table_new:
+        Result::Ok constructors0:
+            match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+                Result::Ok added:
+                    let box_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &added
+                    let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+                    match reduce_header_with_constructors source &constructors:
+                        Result::Ok root:
+                            let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree &root
+                            let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id &root
+                            let checks1 checks_push checks0 check_node_kind tree root_id SelfhostResolvedTypeNodeKind::Applied
+                            let checks2 checks_push checks1 check_named_id_option (selfhost_resolved_type_tree_applied_constructor_id tree root_id) box_id
+                            let checks3 checks_push checks2 check_i32_option (selfhost_resolved_type_tree_applied_arg_count tree root_id) 1
+                            let checks4 checks_push checks3 check_resolved_applied_arg_primitive tree root_id 0 SelfhostPrimitiveTypeKind::I32
+                            match selfhost_type_arena_new:
+                                Result::Ok arena0:
+                                    match selfhost_type_project_root_with_constructors_into_arena arena0 &source &constructors &root:
+                                        Result::Ok alloc:
+                                            let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc
+                                            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc
+                                            let checks5 checks_push checks4 check_type_kind_option &arena1 type_id SelfhostTypeKind::Named
+                                            let checks6 checks_push checks5 check_named_id_option (selfhost_type_arena_applied_constructor_id &arena1 type_id) box_id
+                                            let checks7 checks_push checks6 check_i32_option (selfhost_type_arena_applied_arg_count &arena1 type_id) 1
+                                            let checks8 checks_push checks7 check_arena_applied_arg_kind &arena1 type_id 0 SelfhostTypeKind::I32
+                                            let checks9 checks_push checks8 check_eq_i32 2 selfhost_type_arena_len &arena1
+                                            let checks10 checks_push checks9 check_eq_i32 1 selfhost_type_arena_type_arg_len &arena1
+                                            selfhost_type_arena_free arena1
+                                            selfhost_type_constructor_table_free constructors
+                                            selfhost_resolved_type_tree_root_free root
+                                            let shown checks_print_report checks10
+                                            checks_exit_code shown
+                                        Result::Err _e:
+                                            selfhost_type_constructor_table_free constructors
+                                            selfhost_resolved_type_tree_root_free root
+                                            let checks5 checks_push checks4 Result::Err "applied projection failed"
+                                            let shown checks_print_report checks5
+                                            checks_exit_code shown
+                                Result::Err _e:
+                                    selfhost_type_constructor_table_free constructors
+                                    selfhost_resolved_type_tree_root_free root
+                                    let checks5 checks_push checks4 Result::Err "arena allocation failed"
+                                    let shown checks_print_report checks5
+                                    checks_exit_code shown
+                        Result::Err e:
+                            selfhost_type_constructor_table_free constructors
+                            let checks1 checks_push checks0 Result::Err e
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 checks_push checks0 Result::Err "constructor add failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 checks_push checks0 Result::Err "constructor table allocation failed"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
+## rejects_missing_generic_type_argument_with_constructor_reducer
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "std/test" as *
+
+fn reduce_header_error_kind_with_constructors %impure fn str impure fn &SelfhostTypeConstructorTable Result SelfhostTypeReduceErrorKind str \source\constructors:
+    match lex_all source:
+        Result::Ok tokens:
+            let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+            match selfhost_type_prefix_list_from_syntax_range &tokens range:
+                Result::Ok list:
+                    match selfhost_type_prefix_list_reduce_with_constructors source constructors &list:
+                        Result::Ok root:
+                            selfhost_resolved_type_tree_root_free root
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Err "reduction unexpectedly succeeded"
+                        Result::Err e:
+                            selfhost_type_prefix_list_free list
+                            v::free tokens
+                            Result::Ok e.kind
+                Result::Err _e:
+                    v::free tokens
+                    Result::Err "prefix list build failed"
+        Result::Err _diag:
+            Result::Err "lex failed"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let source %str "fn use_box %Box \\x:\n    x\n"
+    match selfhost_type_constructor_table_new:
+        Result::Ok constructors0:
+            match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+                Result::Ok added:
+                    let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+                    match reduce_header_error_kind_with_constructors source &constructors:
+                        Result::Ok kind:
+                            selfhost_type_constructor_table_free constructors
+                            let checks1 checks_push checks0:
+                                if:
+                                    selfhost_type_reduce_error_kind_eq kind SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing
+                                    then:
+                                        Result::Ok unit
+                                    else:
+                                        Result::Err "unexpected reduce error kind"
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                        Result::Err e:
+                            selfhost_type_constructor_table_free constructors
+                            let checks1 checks_push checks0 Result::Err e
+                            let shown checks_print_report checks1
+                            checks_exit_code shown
+                Result::Err _e:
+                    let checks1 checks_push checks0 Result::Err "constructor add failed"
+                    let shown checks_print_report checks1
+                    checks_exit_code shown
+        Result::Err _e:
+            let checks1 checks_push checks0 Result::Err "constructor table allocation failed"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
+## rejects_unknown_named_type_with_constructor_projection
+
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
 stdout: mlstr:

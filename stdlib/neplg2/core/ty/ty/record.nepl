@@ -71,12 +71,38 @@ pub struct SelfhostFunctionTypeRecord:
 pub struct SelfhostNamedTypeRecord:
     nominal_id %SelfhostNamedTypeId
 
+//: SelfhostAppliedTypeArgRange: applied named type の型引数 table 範囲
+//:
+//: [目的/もくてき]:
+//: - `Box i32` のような generic type application が持つ型引数列の開始 index と個数を保持します。
+//: - applied named type は少なくとも 1 個の型引数を持つため、0 個の範囲はこの payload に入れません。
+pub struct SelfhostAppliedTypeArgRange:
+    first_arg %i32
+    arg_count %i32
+
+//: SelfhostAppliedTypeRecord: applied named type record の payload
+//:
+//: [目的/もくてき]:
+//: - generic type constructor の定義 identity と、arena type argument table 上の引数範囲を保持します。
+//: - source spelling は保持せず、constructor lookup 後の identity と型引数 TypeId だけを後続 stage へ渡します。
+pub struct SelfhostAppliedTypeRecord:
+    nominal_id %SelfhostNamedTypeId
+    args %SelfhostAppliedTypeArgRange
+
 impl Clone for SelfhostFunctionTypeRecord:
     fn clone %fn &SelfhostFunctionTypeRecord SelfhostFunctionTypeRecord \self:
         *self
 
 impl Copy for SelfhostFunctionTypeRecord:
     fn copy_mark %fn SelfhostFunctionTypeRecord SelfhostFunctionTypeRecord \self:
+        self
+
+impl Clone for SelfhostAppliedTypeArgRange:
+    fn clone %fn &SelfhostAppliedTypeArgRange SelfhostAppliedTypeArgRange \self:
+        *self
+
+impl Copy for SelfhostAppliedTypeArgRange:
+    fn copy_mark %fn SelfhostAppliedTypeArgRange SelfhostAppliedTypeArgRange \self:
         self
 
 impl Clone for SelfhostNamedTypeRecord:
@@ -87,15 +113,25 @@ impl Copy for SelfhostNamedTypeRecord:
     fn copy_mark %fn SelfhostNamedTypeRecord SelfhostNamedTypeRecord \self:
         self
 
+impl Clone for SelfhostAppliedTypeRecord:
+    fn clone %fn &SelfhostAppliedTypeRecord SelfhostAppliedTypeRecord \self:
+        *self
+
+impl Copy for SelfhostAppliedTypeRecord:
+    fn copy_mark %fn SelfhostAppliedTypeRecord SelfhostAppliedTypeRecord \self:
+        self
+
 //: SelfhostTypeRecord: arena に保存する型 record
 //:
 //: [目的/もくてき]:
-//: - primitive type、named type、function type を enum payload で分け、存在しない field を record に持たせません。
+//: - primitive type、named type、applied named type、function type を enum payload で分け、存在しない field を record に持たせません。
 //: - named payload は type constructor table の定義 identity だけを保持し、source span や display name を arena record に混ぜません。
+//: - applied payload は constructor identity と型引数範囲だけを保持し、generic application の spelling を後続 stage へ漏らしません。
 //: - function payload は `SelfhostFunctionTypeRecord` に集約し、accessor は record variant を match してから読む構造にします。
 pub enum SelfhostTypeRecord:
     Primitive %SelfhostPrimitiveTypeKind
     Named %SelfhostNamedTypeRecord
+    Applied %SelfhostAppliedTypeRecord
     Function %SelfhostFunctionTypeRecord
 
 impl Clone for SelfhostTypeRecord:
@@ -118,6 +154,35 @@ pub fn selfhost_type_record_named %fn SelfhostNamedTypeId SelfhostTypeRecord \no
 //: selfhost_named_type_record_id: named type record の identity を[返/かえ]す
 pub fn selfhost_named_type_record_id %fn SelfhostNamedTypeRecord SelfhostNamedTypeId \record:
     record.nominal_id
+
+//: selfhost_applied_type_arg_range_new_unchecked: 証明済みの applied type argument range を直接[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - caller は `first_arg >= 0`、`arg_count > 0`、`first_arg + arg_count` が arena type argument table 内であることを保証してください。
+pub fn selfhost_applied_type_arg_range_new_unchecked %fn i32 fn i32 SelfhostAppliedTypeArgRange \first_arg\arg_count:
+    SelfhostAppliedTypeArgRange first_arg arg_count
+
+//: selfhost_applied_type_arg_range_is_valid: applied type argument range が内部不変条件を満たすか[返/かえ]す
+pub fn selfhost_applied_type_arg_range_is_valid %fn SelfhostAppliedTypeArgRange bool \args:
+    and:
+        ge args.first_arg 0
+        and gt args.arg_count 0 le args.arg_count sub 2147483647 args.first_arg
+
+//: selfhost_applied_type_arg_range_count: applied type argument 数を[返/かえ]す
+pub fn selfhost_applied_type_arg_range_count %fn SelfhostAppliedTypeArgRange i32 \args:
+    args.arg_count
+
+//: selfhost_type_record_applied: generic application record を[作/つく]る
+pub fn selfhost_type_record_applied %fn SelfhostNamedTypeId fn SelfhostAppliedTypeArgRange SelfhostTypeRecord \nominal_id\args:
+    SelfhostTypeRecord::Applied SelfhostAppliedTypeRecord nominal_id args
+
+//: selfhost_applied_type_record_id: applied named type record の constructor identity を[返/かえ]す
+pub fn selfhost_applied_type_record_id %fn SelfhostAppliedTypeRecord SelfhostNamedTypeId \record:
+    record.nominal_id
+
+//: selfhost_applied_type_record_args: applied named type record の型引数範囲を[返/かえ]す
+pub fn selfhost_applied_type_record_args %fn SelfhostAppliedTypeRecord SelfhostAppliedTypeArgRange \record:
+    record.args
 
 //: selfhost_function_type_arg_range_new_unchecked: 証明済みの nonempty function argument range を直接[作/つく]る
 //:

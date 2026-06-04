@@ -14,8 +14,8 @@
 //: SelfhostTypeProjectErrorKind: resolved type tree から TypeArena への投影失敗分類
 //:
 //: [目的/もくてき]:
-//: - `SelfhostResolvedTypeTree` は named type を保持できますが、現段階の `SelfhostTypeArena` は primitive / function の最小モデルです。
-//: - 未実装の user-defined type constructor を primitive に丸めず、typed error として fail-closed にします。
+//: - `SelfhostResolvedTypeTree` は named type と applied named type を保持できます。
+//: - constructor table がない投影経路では user-defined type constructor を primitive に丸めず、typed error として fail-closed にします。
 pub enum SelfhostTypeProjectErrorKind:
     MissingResolvedNode
     UnsupportedNamedType
@@ -204,10 +204,60 @@ fn selfhost_type_project_node %impure fn SelfhostTypeArena impure fn &SelfhostRe
                             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) selfhost_type_project_empty_span
                 SelfhostResolvedTypeNode::Named named:
                     selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnsupportedNamedType named.span
+                SelfhostResolvedTypeNode::Applied applied:
+                    selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnsupportedNamedType applied.span
                 SelfhostResolvedTypeNode::Function function:
                     selfhost_type_project_function arena tree node_id function selfhost_type_project_empty_span
         Option::None:
             selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::MissingResolvedNode selfhost_type_project_empty_span
+
+fn selfhost_type_project_applied_args_loop_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 impure fn Vec SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\applied_node_id\idx\n\params\span:
+    if:
+        ge idx n
+        then:
+            Result::Ok selfhost_type_project_arg_build_new arena params
+        else:
+            match selfhost_resolved_type_tree_applied_arg tree applied_node_id idx:
+                Option::Some arg_node_id:
+                    match selfhost_type_project_node_with_constructors arena source constructors tree arg_node_id:
+                        Result::Ok arg_alloc:
+                            let arg_type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &arg_alloc
+                            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena arg_alloc
+                            match selfhost_type_project_push_arg_id next_arena params arg_type_id span:
+                                Result::Ok next_build:
+                                    let loop_arena %SelfhostTypeArena field::get next_build "arena"
+                                    let loop_params %Vec SelfhostTypeId field::get next_build "params"
+                                    selfhost_type_project_applied_args_loop_with_constructors loop_arena source constructors tree applied_node_id add idx 1 n loop_params span
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            v::free params
+                            Result::Err e
+                Option::None:
+                    selfhost_type_project_fail_with_params arena params SelfhostTypeProjectErrorKind::InternalInvariant span
+
+fn selfhost_type_project_applied_args_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\applied_node_id\n\span:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params:
+            selfhost_type_project_applied_args_loop_with_constructors arena source constructors tree applied_node_id 0 n params span
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) span
+
+fn selfhost_type_project_applied_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedAppliedType Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\tree\node_id\applied:
+    let arg_count %i32 selfhost_resolved_applied_type_arg_range_count applied.args
+    match selfhost_type_project_applied_args_with_constructors arena source constructors tree node_id arg_count applied.span:
+        Result::Ok arg_build:
+            let arg_arena %SelfhostTypeArena field::get arg_build "arena"
+            let params %Vec SelfhostTypeId field::get arg_build "params"
+            match selfhost_type_arena_add_applied_named arg_arena applied.nominal_id params:
+                Result::Ok allocated:
+                    Result::Ok allocated
+                Result::Err e:
+                    Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) applied.span
+        Result::Err e:
+            Result::Err e
 
 fn selfhost_type_project_named_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn SelfhostResolvedNamedTypeRef Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\named:
     match selfhost_type_constructor_table_find_span constructors source named.span:
@@ -288,6 +338,8 @@ fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena imp
                             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) selfhost_type_project_empty_span
                 SelfhostResolvedTypeNode::Named named:
                     selfhost_type_project_named_with_constructors arena source constructors named
+                SelfhostResolvedTypeNode::Applied applied:
+                    selfhost_type_project_applied_with_constructors arena source constructors tree node_id applied
                 SelfhostResolvedTypeNode::Function function:
                     selfhost_type_project_function_with_constructors arena source constructors tree node_id function selfhost_type_project_empty_span
         Option::None:
@@ -302,7 +354,7 @@ fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena imp
 //: [契約/けいやく]:
 //: - 成功時は `SelfhostTypeArenaAlloc` が arena owner と root `SelfhostTypeId` を所有します。
 //: - 失敗時はこの関数が入力 arena を解放します。caller は失敗後に同じ arena owner を使えません。
-//: - named type / generic type constructor はまだ type constructor table に接続されていないため、`UnsupportedNamedType` として fail-closed にします。
+//: - named type / applied named type は constructor table なしでは定義 identity を確定できないため、`UnsupportedNamedType` として fail-closed にします。
 pub fn selfhost_type_project_root_into_arena %impure fn SelfhostTypeArena impure fn &SelfhostResolvedTypeTreeRoot Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\root:
     let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root
     let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id root
@@ -316,7 +368,8 @@ pub fn selfhost_type_project_root_into_arena %impure fn SelfhostTypeArena impure
 //:
 //: [契約/けいやく]:
 //: - primitive / function type は既存 projection と同じ形で arena record へ投影します。
-//: - named type は arity 0 の constructor だけを bare named type として受理します。generic application は後続 slice で `Apply` 相当の record を追加して扱います。
+//: - named type は arity 0 の constructor だけを bare named type として受理します。
+//: - applied named type は constructor identity と projected type arguments を `SelfhostTypeRecord::Applied` として arena に保存します。
 //: - unknown named type と generic constructor の裸使用は typed error として fail-closed にします。
 pub fn selfhost_type_project_root_with_constructors_into_arena %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTreeRoot Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\root:
     let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root

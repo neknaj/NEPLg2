@@ -12,6 +12,7 @@
 pub struct SelfhostTypeArena:
     records %Vec SelfhostTypeRecord
     function_args %Vec SelfhostTypeId
+    type_args %Vec SelfhostTypeId
 
 //: SelfhostTypeArenaAlloc: 型追加後の arena と新しい TypeId
 pub struct SelfhostTypeArenaAlloc:
@@ -27,7 +28,14 @@ pub fn selfhost_type_arena_new %impure fn void Result SelfhostTypeArena StdError
             let function_args_result %Result Vec SelfhostTypeId StdErrorKind v::new
             match function_args_result:
                 Result::Ok function_args:
-                    Result::Ok SelfhostTypeArena records function_args
+                    let type_args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+                    match type_args_result:
+                        Result::Ok type_args:
+                            Result::Ok SelfhostTypeArena records function_args type_args
+                        Result::Err e:
+                            v::free records
+                            v::free function_args
+                            Result::Err e
                 Result::Err e:
                     v::free records
                     Result::Err e
@@ -38,6 +46,7 @@ pub fn selfhost_type_arena_new %impure fn void Result SelfhostTypeArena StdError
 pub fn selfhost_type_arena_free %impure fn SelfhostTypeArena unit \arena:
     v::free field::get arena "records"
     v::free field::get arena "function_args"
+    v::free field::get arena "type_args"
 
 //: selfhost_type_arena_len: arena に登録された型数を[返/かえ]す
 pub fn selfhost_type_arena_len %fn &SelfhostTypeArena i32 \arena:
@@ -48,6 +57,11 @@ pub fn selfhost_type_arena_len %fn &SelfhostTypeArena i32 \arena:
 pub fn selfhost_type_arena_function_arg_len %fn &SelfhostTypeArena i32 \arena:
     let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
     v::len function_args
+
+//: selfhost_type_arena_type_arg_len: applied type argument table の長さを[返/かえ]す
+pub fn selfhost_type_arena_type_arg_len %fn &SelfhostTypeArena i32 \arena:
+    let type_args %&Vec SelfhostTypeId field::get_ref arena "type_args"
+    v::len type_args
 
 //: selfhost_type_arena_alloc_new: 型追加結果を[作/つく]る
 pub fn selfhost_type_arena_alloc_new %impure fn SelfhostTypeArena impure fn SelfhostTypeId SelfhostTypeArenaAlloc \arena\type_id:
@@ -74,13 +88,15 @@ pub fn selfhost_type_arena_push_record %impure fn SelfhostTypeArena impure fn Se
     let type_id %SelfhostTypeId selfhost_type_id_new selfhost_type_arena_len &arena
     let records %Vec SelfhostTypeRecord field::get arena "records"
     let function_args %Vec SelfhostTypeId field::get arena "function_args"
+    let type_args %Vec SelfhostTypeId field::get arena "type_args"
     match v::push records record:
         Result::Ok next_records:
-            Result::Ok selfhost_type_arena_alloc_new (SelfhostTypeArena next_records function_args) type_id
+            Result::Ok selfhost_type_arena_alloc_new (SelfhostTypeArena next_records function_args type_args) type_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free v::vec_push_error_vec e
             v::free function_args
+            v::free type_args
             Result::Err error
 
 //: selfhost_type_arena_add_primitive: primitive type を arena に[追加/ついか]する
@@ -94,6 +110,56 @@ pub fn selfhost_type_arena_add_primitive %impure fn SelfhostTypeArena impure fn 
 //: - source name 文字列は constructor table 側の責務であり、arena には定義 identity だけを置きます。
 pub fn selfhost_type_arena_add_named %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id:
     selfhost_type_arena_push_record arena selfhost_type_record_named nominal_id
+
+//: selfhost_type_arena_copy_type_args: applied type argument TypeId を arena argument table に[複製/ふくせい]する
+pub fn selfhost_type_arena_copy_type_args %impure fn Vec SelfhostTypeId impure fn &Vec SelfhostTypeId impure fn i32 impure fn i32 Result Vec SelfhostTypeId StdErrorKind \out\params\n\idx:
+    if:
+        ge idx n
+        then:
+            Result::Ok out
+        else:
+            match v::get params idx:
+                Option::Some type_id:
+                    match v::push out type_id:
+                        Result::Ok next_out:
+                            selfhost_type_arena_copy_type_args next_out params n add idx 1
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free out
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+//: selfhost_type_arena_add_applied_named: generic application type を arena に[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - `params` はこの関数が消費し、成功・失敗どちらでも解放します。
+//: - `params` が空の場合は generic application として不正なので `IndexOutOfBounds` を返します。arity 0 constructor は `selfhost_type_arena_add_named` を使います。
+pub fn selfhost_type_arena_add_applied_named %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId impure fn Vec SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id\params:
+    let first_arg %i32 selfhost_type_arena_type_arg_len &arena
+    let arg_count %i32 v::len &params
+    if:
+        le arg_count 0
+        then:
+            v::free params
+            selfhost_type_arena_free arena
+            Result::Err StdErrorKind::IndexOutOfBounds
+        else:
+            let records %Vec SelfhostTypeRecord field::get arena "records"
+            let function_args %Vec SelfhostTypeId field::get arena "function_args"
+            let type_args %Vec SelfhostTypeId field::get arena "type_args"
+            match selfhost_type_arena_copy_type_args type_args &params arg_count 0:
+                Result::Ok next_type_args:
+                    v::free params
+                    let args %SelfhostAppliedTypeArgRange selfhost_applied_type_arg_range_new_unchecked first_arg arg_count
+                    let record %SelfhostTypeRecord selfhost_type_record_applied nominal_id args
+                    selfhost_type_arena_push_record (SelfhostTypeArena records function_args next_type_args) record
+                Result::Err e:
+                    v::free records
+                    v::free function_args
+                    v::free params
+                    Result::Err e
 
 //: selfhost_type_arena_copy_function_args: function 引数 TypeId を arena argument table に[複製/ふくせい]する
 pub fn selfhost_type_arena_copy_function_args %impure fn Vec SelfhostTypeId impure fn &Vec SelfhostTypeId impure fn i32 impure fn i32 Result Vec SelfhostTypeId StdErrorKind \out\params\n\idx:
@@ -124,15 +190,17 @@ pub fn selfhost_type_arena_add_function %impure fn SelfhostTypeArena impure fn V
     let arg_count %i32 v::len &params
     let records %Vec SelfhostTypeRecord field::get arena "records"
     let function_args %Vec SelfhostTypeId field::get arena "function_args"
+    let type_args %Vec SelfhostTypeId field::get arena "type_args"
     match selfhost_type_arena_copy_function_args function_args &params arg_count 0:
         Result::Ok next_args:
             v::free params
             let args %SelfhostFunctionTypeArgRange:
                 if eq arg_count 0 selfhost_function_type_arg_range_empty selfhost_function_type_arg_range_new_unchecked first_arg arg_count
             let record %SelfhostTypeRecord selfhost_type_record_function args result
-            selfhost_type_arena_push_record (SelfhostTypeArena records next_args) record
+            selfhost_type_arena_push_record (SelfhostTypeArena records next_args type_args) record
         Result::Err e:
             v::free records
+            v::free type_args
             v::free params
             Result::Err e
 
@@ -155,6 +223,8 @@ pub fn selfhost_type_arena_get_kind %fn &SelfhostTypeArena fn SelfhostTypeId Opt
                     some selfhost_primitive_type_kind_to_type_kind kind
                 SelfhostTypeRecord::Named _named:
                     some SelfhostTypeKind::Named
+                SelfhostTypeRecord::Applied _applied:
+                    some SelfhostTypeKind::Named
                 SelfhostTypeRecord::Function _function:
                     some SelfhostTypeKind::Function
         Option::None:
@@ -169,6 +239,65 @@ pub fn selfhost_type_arena_named_id %fn &SelfhostTypeArena fn SelfhostTypeId Opt
                     none
                 SelfhostTypeRecord::Named named:
                     some selfhost_named_type_record_id named
+                SelfhostTypeRecord::Applied _applied:
+                    none
+                SelfhostTypeRecord::Function _function:
+                    none
+        Option::None:
+            none
+
+//: selfhost_type_arena_applied_constructor_id: applied named type の constructor identity を[返/かえ]す
+pub fn selfhost_type_arena_applied_constructor_id %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostNamedTypeId \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Applied applied:
+                    some selfhost_applied_type_record_id applied
+                SelfhostTypeRecord::Function _function:
+                    none
+        Option::None:
+            none
+
+//: selfhost_type_arena_applied_arg_count: applied named type の型引数数を[返/かえ]す
+pub fn selfhost_type_arena_applied_arg_count %fn &SelfhostTypeArena fn SelfhostTypeId Option i32 \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Applied applied:
+                    some selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied
+                SelfhostTypeRecord::Function _function:
+                    none
+        Option::None:
+            none
+
+//: selfhost_type_arena_applied_arg: applied named type の指定型引数 TypeId を[返/かえ]す
+pub fn selfhost_type_arena_applied_arg %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 Option SelfhostTypeId \arena\type_id\arg_idx:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    none
+                SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Applied applied:
+                    let args %SelfhostAppliedTypeArgRange selfhost_applied_type_record_args applied
+                    if:
+                        or:
+                            not selfhost_applied_type_arg_range_is_valid args
+                            or lt arg_idx 0 ge arg_idx args.arg_count
+                        then:
+                            none
+                        else:
+                            let type_args %&Vec SelfhostTypeId field::get_ref arena "type_args"
+                            v::get type_args add args.first_arg arg_idx
                 SelfhostTypeRecord::Function _function:
                     none
         Option::None:
@@ -183,6 +312,8 @@ pub fn selfhost_type_arena_function_arg_count %fn &SelfhostTypeArena fn Selfhost
                     none
                 SelfhostTypeRecord::Named _named:
                     none
+                SelfhostTypeRecord::Applied _applied:
+                    none
                 SelfhostTypeRecord::Function function:
                     some selfhost_function_type_arg_range_count function.args
         Option::None:
@@ -196,6 +327,8 @@ pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Applied _applied:
                     none
                 SelfhostTypeRecord::Function function:
                     match function.args:
@@ -220,6 +353,8 @@ pub fn selfhost_type_arena_function_result %fn &SelfhostTypeArena fn SelfhostTyp
                 SelfhostTypeRecord::Primitive _kind:
                     none
                 SelfhostTypeRecord::Named _named:
+                    none
+                SelfhostTypeRecord::Applied _applied:
                     none
                 SelfhostTypeRecord::Function function:
                     some function.result

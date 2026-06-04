@@ -1,0 +1,27 @@
+#indent 4
+
+#import "core/traits/copy" as *
+
+//: SelfhostResolvedTypeNodeId: type resolver tree 内の node index
+//:
+//: [目的/もくてき]:
+//: - TypeId を割り当てる前の段階で、解決済み型 node を raw `i32` ではなく専用 id として参照します。
+//: - この id は resolver tree local であり、`SelfhostTypeArena` の `SelfhostTypeId` と混ぜてはいけません。
+pub struct SelfhostResolvedTypeNodeId:
+    index %i32
+
+impl Clone for SelfhostResolvedTypeNodeId:
+    fn clone %fn &SelfhostResolvedTypeNodeId SelfhostResolvedTypeNodeId \self:
+        *self
+
+impl Copy for SelfhostResolvedTypeNodeId:
+    fn copy_mark %fn SelfhostResolvedTypeNodeId SelfhostResolvedTypeNodeId \self:
+        self
+
+//: selfhost_resolved_type_node_id_new: resolver-local node id を[作/つく]る
+pub fn selfhost_resolved_type_node_id_new %fn i32 SelfhostResolvedTypeNodeId \index:
+    SelfhostResolvedTypeNodeId index
+
+//: selfhost_resolved_type_node_id_index: node id の index を[返/かえ]す
+pub fn selfhost_resolved_type_node_id_index %fn SelfhostResolvedTypeNodeId i32 \node_id:
+    node_id.index
