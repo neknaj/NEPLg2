@@ -17,7 +17,14 @@
 #import "core/field" as *
 #import "core/math" as *
 
-//: 現行 storage view は `Vec Option .T` の payload storage 形状を返すため、non-Copy collection drop traversal が入るまで Copy に限定します。
+//: ## btreeset_storage_keys
+//: storage owner から key storage を[借用/しゃくよう]する
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - 戻り値は `Vec Option .T` の borrowed view です。
+//: - `Option::Some key` は live key、`Option::None` は unused slot を表します。
+//: - 現行 storage view は payload storage 形状を返すため、non-Copy collection drop traversal が入るまで Copy に限定します。
 //:
 //: neplg2:test[compile_fail]
 //: diag_code: type.trait_bound.unsatisfied
@@ -38,6 +45,54 @@
 pub fn btreeset_storage_keys <.T: Copy> %fn &BTreeSetStorage .T &Vec Option .T \storage:
     field::get_ref storage "keys"
 
+//: ## btreeset_key_at
+//: key slot storage から key を `Option` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `keys` owner は[消費/しょうひ]しません。
+//: - `idx` が storage 範囲外なら `Option::None` を返します。
+//: - 範囲内 slot が empty の場合も `Option::None` を返し、live key は `Option::Some key` です。
+//: - 範囲外と empty slot は同じ戻り値に畳まれるため、caller は `len` / `cap` invariant と合わせて意味を判断します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.get` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_key_at_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads stored key\" expected=\"12\" actual=\"12\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"empty key slot is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/collections/btreeset/types" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 2
+//:     btreeset_store_key_slot &storage 0 some 12
+//:     let keys %&Vec Option i32 btreeset_storage_keys &storage
+//:     let present %i32 match btreeset_key_at keys 0:
+//:         Option::Some key:
+//:             key
+//:         Option::None:
+//:             -1
+//:     let empty %bool match btreeset_key_at keys 1:
+//:         Option::Some _key:
+//:             false
+//:         Option::None:
+//:             true
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_key_at_doc"
+//:         |> test_report_push assert_eq_i32 "reads stored key" 12 present
+//:         |> test_report_push assert "empty key slot is none" empty
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
     let slot %Option Option .T vec::get keys idx
     match slot:
@@ -46,19 +101,208 @@ pub fn btreeset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
         Option::None:
             none
 
+//: ## btreeset_store_key
+//: key storage の 1 slot を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `keys` owner は[消費/しょうひ]しません。
+//: - `Option::Some key` は live key、`Option::None` は unused slot を表します。
+//: - index validation は caller の責務です。public API は `cap` 内の slot だけを渡します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.replace` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_store_key_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores key\" expected=\"14\" actual=\"14\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/collections/btreeset/types" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 1
+//:     let keys %&Vec Option i32 btreeset_storage_keys &storage
+//:     btreeset_store_key keys 0 some 14
+//:     let value %i32 match btreeset_key_at keys 0:
+//:         Option::Some key:
+//:             key
+//:         Option::None:
+//:             -1
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_store_key_doc"
+//:         |> test_report_push assert_eq_i32 "stores key" 14 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \keys\idx\key:
     vec::replace keys idx key
 
+//: ## btreeset_key_slot
+//: storage wrapper の key slot を `Option` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - 戻り値条件は `btreeset_key_at` と同じです。
+//: - storage wrapper を通して読むため `.T` は現行 cleanup contract に合わせて `Copy` です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_key_slot_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads key slot\" expected=\"21\" actual=\"21\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 1
+//:     btreeset_store_key_slot &storage 0 some 21
+//:     let value %i32 match btreeset_key_slot &storage 0:
+//:         Option::Some key:
+//:             key
+//:         Option::None:
+//:             -1
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_key_slot_doc"
+//:         |> test_report_push assert_eq_i32 "reads key slot" 21 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_key_slot <.T: Copy> %fn &BTreeSetStorage .T fn i32 Option .T \storage\idx:
     btreeset_key_at<.T> btreeset_storage_keys<.T> storage idx
 
+//: ## btreeset_store_key_slot
+//: storage wrapper の key slot を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - 戻り値と slot state の意味は `btreeset_store_key` と同じです。
+//: - public API は `Option::Some key` を live prefix へ、`Option::None` を unused suffix へ書きます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_store_key_slot_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores key slot\" expected=\"31\" actual=\"31\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 1
+//:     btreeset_store_key_slot &storage 0 some 31
+//:     let value %i32 match btreeset_key_slot &storage 0:
+//:         Option::Some key:
+//:             key
+//:         Option::None:
+//:             -1
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_store_key_slot_doc"
+//:         |> test_report_push assert_eq_i32 "stores key slot" 31 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_store_key_slot <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn Option .T unit \storage\idx\key:
     btreeset_store_key<.T> btreeset_storage_keys<.T> storage idx key
 
+//: ## btreeset_free_storage
+//: key storage owner を[閉/と]じる
+//:
+//: ### [契約/けいやく]
+//: - `btreeset_alloc_storage` が返した `BTreeSetStorage` owner を[消費/しょうひ]します。
+//: - key の `Vec Option .T` owner を `vec::free` で閉じます。
+//: - 現行 collection cleanup は element drop traversal を持たないため `.T` は `Copy` に限定します。
+//: - caller はこの関数の後に同じ storage owner を[再利用/さいりよう]してはいけません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_free_storage_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free completes\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 1
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_free_storage_doc"
+//:         |> test_report_push assert "free completes" true
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_free_storage <.T: Copy> %impure fn BTreeSetStorage .T unit \storage:
     let keys %Vec Option .T field::get storage "keys"
     vec::free keys
 
+//: ## btreeset_alloc_storage
+//: 指定 capacity の key storage owner を[確保/かくほ]する
+//:
+//: ### [契約/けいやく]
+//: - 成功時は長さ `cap` の `Vec Option .T` owner で、全 slot は `Option::None` です。
+//: - key storage 確保失敗は `Result::Err Diag` を返します。
+//: - storage 詳細の `StdErrorKind` は外へ出さず、`diag_out_of_memory` に正規化します。
+//: - BTreeSet は key だけを保持するため、map の value slot に対応する追加領域はありません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量と空間計算量は O(cap) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_alloc_storage_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"key slots start empty\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let result %Result BTreeSetStorage i32 Diag btreeset_alloc_storage 2
+//:     let empty %bool match result:
+//:         Result::Ok storage:
+//:             let key_empty %bool match btreeset_key_slot &storage 0:
+//:                 Option::Some _key:
+//:                     false
+//:                 Option::None:
+//:                     true
+//:             btreeset_free_storage storage
+//:             key_empty
+//:         Result::Err _diag:
+//:             false
+//:     let report:
+//:         test_report_new "btreeset_alloc_storage_doc"
+//:         |> test_report_push assert "key slots start empty" empty
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_alloc_storage <.T: Copy> %impure fn i32 Result BTreeSetStorage .T Diag \cap:
     let keys_result %Result Vec Option .T StdErrorKind vec::filled cap none
     match keys_result:
@@ -67,6 +311,48 @@ pub fn btreeset_alloc_storage <.T: Copy> %impure fn i32 Result BTreeSetStorage .
         Result::Ok keys:
             ok BTreeSetStorage<.T> keys
 
+//: ## btreeset_copy_live_slots
+//: live prefix の key slot を別 storage へ[複写/ふくしゃ]する
+//:
+//: ### [契約/けいやく]
+//: - `src` と `dst` owner は[消費/しょうひ]しません。
+//: - caller は `0 <= len0 <= src.cap` かつ `len0 <= dst.cap` を[保証/ほしょう]します。
+//: - `0 <= i < len0` の key slot を `src` から読み、同じ index の `dst` へ書きます。
+//: - missing key slot は storage invariant failure とみなし、該当 slot を書かずに進みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(len0) です。追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_copy_live_slots_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copied key\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let src %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 2
+//:     let dst %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 2
+//:     btreeset_store_key_slot &src 0 some 4
+//:     btreeset_copy_live_slots &src &dst 1
+//:     let key %i32 match btreeset_key_slot &dst 0:
+//:         Option::Some saved_key:
+//:             saved_key
+//:         Option::None:
+//:             -1
+//:     btreeset_free_storage src
+//:     btreeset_free_storage dst
+//:     let report:
+//:         test_report_new "btreeset_copy_live_slots_doc"
+//:         |> test_report_push assert_eq_i32 "copied key" 4 key
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_copy_live_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure fn &BTreeSetStorage .T impure fn i32 unit \src\dst\len0:
     let src_keys %&Vec Option .T btreeset_storage_keys<.T> src
     let dst_keys %&Vec Option .T btreeset_storage_keys<.T> dst
@@ -80,6 +366,54 @@ pub fn btreeset_copy_live_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure
                     unit
             set i add i 1
 
+//: ## btreeset_clear_slots
+//: storage の `i <= slot < end` を unused に[戻/もど]す
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - caller は `0 <= i <= end <= cap` を[保証/ほしょう]します。
+//: - 対象 key slot を `Option::None` に戻します。
+//: - public `clear` は live prefix 全体をこの helper に渡します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 対象 slot 数を n として O(n) です。再帰深さも O(n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_clear_slots_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"first slot cleared\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"second slot cleared\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 2
+//:     btreeset_store_key_slot &storage 0 some 1
+//:     btreeset_store_key_slot &storage 1 some 2
+//:     btreeset_clear_slots &storage 2 0
+//:     let first %bool match btreeset_key_slot &storage 0:
+//:         Option::Some _key:
+//:             false
+//:         Option::None:
+//:             true
+//:     let second %bool match btreeset_key_slot &storage 1:
+//:         Option::Some _key:
+//:             false
+//:         Option::None:
+//:             true
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_clear_slots_doc"
+//:         |> test_report_push assert "first slot cleared" first
+//:         |> test_report_push assert "second slot cleared" second
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_clear_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 unit \storage\end\i:
     if:
         lt i end
@@ -89,6 +423,47 @@ pub fn btreeset_clear_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure fn 
         else:
             unit
 
+//: ## btreeset_shift_right
+//: 挿入位置以降の live slot を 1 つ[右/みぎ]へずらす
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - caller は `0 <= idx <= len0 < cap` を[保証/ほしょう]します。
+//: - `idx <= i < len0` の slot を `i + 1` へ移します。`idx` slot は後続の insert が上書きします。
+//: - missing slot は storage invariant failure として `Option::None` のまま写します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 移動する slot 数を n として O(n) です。追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_shift_right_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"shifted key\" expected=\"5\" actual=\"5\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 3
+//:     btreeset_store_key_slot &storage 0 some 1
+//:     btreeset_store_key_slot &storage 1 some 5
+//:     btreeset_shift_right &storage 1 2
+//:     let key %i32 match btreeset_key_slot &storage 2:
+//:         Option::Some saved_key:
+//:             saved_key
+//:         Option::None:
+//:             -1
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_shift_right_doc"
+//:         |> test_report_push assert_eq_i32 "shifted key" 5 key
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_shift_right <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 unit \storage\idx\len0:
     let mut i %i32 len0
     while gt i idx:
@@ -101,6 +476,54 @@ pub fn btreeset_shift_right <.T: Copy> %impure fn &BTreeSetStorage .T impure fn 
                     btreeset_store_key_slot<.T> storage i none
             set i from
 
+//: ## btreeset_shift_left_after_remove
+//: 削除位置より右の live slot を 1 つ[左/ひだり]へずらす
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - caller は `0 <= idx < len0 <= cap` を[保証/ほしょう]します。
+//: - `idx + 1 <= i < len0` の slot を `i - 1` へ移し、old last slot は `Option::None` にします。
+//: - missing slot は storage invariant failure として `Option::None` のまま写します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 移動する slot 数を n として O(n) です。追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_shift_left_after_remove_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"left shifted key\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"last slot cleared\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeSetStorage i32 unwrap_ok btreeset_alloc_storage 3
+//:     btreeset_store_key_slot &storage 0 some 1
+//:     btreeset_store_key_slot &storage 1 some 5
+//:     btreeset_store_key_slot &storage 2 some 9
+//:     btreeset_shift_left_after_remove &storage 1 3
+//:     let key %i32 match btreeset_key_slot &storage 1:
+//:         Option::Some saved_key:
+//:             saved_key
+//:         Option::None:
+//:             -1
+//:     let last_empty %bool match btreeset_key_slot &storage 2:
+//:         Option::Some _key:
+//:             false
+//:         Option::None:
+//:             true
+//:     btreeset_free_storage storage
+//:     let report:
+//:         test_report_new "btreeset_shift_left_after_remove_doc"
+//:         |> test_report_push assert_eq_i32 "left shifted key" 9 key
+//:         |> test_report_push assert "last slot cleared" last_empty
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_shift_left_after_remove <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 unit \storage\idx\len0:
     let last %i32 sub len0 1
     let mut i %i32 idx
@@ -115,6 +538,84 @@ pub fn btreeset_shift_left_after_remove <.T: Copy> %impure fn &BTreeSetStorage .
             set i nxt
     btreeset_store_key_slot<.T> storage last none
 
+//: ## btreeset_grow
+//: set storage の capacity を 2 倍にして live key を[移/うつ]す
+//:
+//: ### [契約/けいやく]
+//: - `set0` owner を[消費/しょうひ]します。
+//: - 成功時は `len` を保ち、`cap` を `cap0 * 2` にした新しい `BTreeSet` owner を返します。
+//: - 成功時は live prefix を新 storage に copy し、旧 storage owner を free します。
+//: - 新 storage 確保に失敗した場合は旧 storage を保持した元 set owner と `Diag` を `BTreeSetInsertError` に入れて返します。
+//: - public `insert` からは `len == cap` かつ `cap > 0` の set に対して呼ばれます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - live 要素数を n とすると、成功時は O(n) 時間と O(cap0 * 2) 追加 storage を使います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreeset_grow_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"grow keeps len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"grow doubles initial cap\" expected=\"16\" actual=\"16\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"grow keeps key\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/collections/btreeset/storage" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/field" as field
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
+//:     match r:
+//:         Result::Ok s:
+//:             s
+//:         Result::Err e:
+//:             let _d %Diag btreeset_insert_error_diag &e
+//:             btreeset_insert_error_owner e
+//: fn main %impure fn void i32 \void:
+//:     let set0 %BTreeSet i32:
+//:         unwrap_ok new
+//:         |> insert 1 |> must_set
+//:     let len_after %i32 match btreeset_grow set0:
+//:         Result::Ok grown:
+//:             let kept_len %i32 len &grown
+//:             free grown
+//:             kept_len
+//:         Result::Err e:
+//:             let recovered %BTreeSet i32 btreeset_insert_error_owner e
+//:             free recovered
+//:             -1
+//:     let set1 %BTreeSet i32:
+//:         unwrap_ok new
+//:         |> insert 1 |> must_set
+//:     let cap_after %i32 match btreeset_grow set1:
+//:         Result::Ok grown:
+//:             let cap %i32 *field::get_ref &grown "cap"
+//:             free grown
+//:             cap
+//:         Result::Err e:
+//:             let recovered %BTreeSet i32 btreeset_insert_error_owner e
+//:             free recovered
+//:             -1
+//:     let set2 %BTreeSet i32:
+//:         unwrap_ok new
+//:         |> insert 1 |> must_set
+//:     let key_after %bool match btreeset_grow set2:
+//:         Result::Ok grown:
+//:             let observed %bool contains &grown 1
+//:             free grown
+//:             observed
+//:         Result::Err e:
+//:             let recovered %BTreeSet i32 btreeset_insert_error_owner e
+//:             free recovered
+//:             false
+//:     let report:
+//:         test_report_new "btreeset_grow_doc"
+//:         |> test_report_push assert_eq_i32 "grow keeps len" 1 len_after
+//:         |> test_report_push assert_eq_i32 "grow doubles initial cap" 16 cap_after
+//:         |> test_report_push assert "grow keeps key" key_after
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreeset_grow <.T: Copy> %impure fn BTreeSet .T Result BTreeSet .T BTreeSetInsertError .T \set0:
     let len0 %i32 *field::get_ref &set0 "len"
     let cap0 %i32 *field::get_ref &set0 "cap"
