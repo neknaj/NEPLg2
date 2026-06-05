@@ -180,6 +180,46 @@ pub enum VecCopyInvariant:
     Valid
     Invalid %VecCopyInvariantInvalid
 
+//: ## vec_storage_invalid_to_copy_invalid
+//: payload 非依存 storage invariant の失敗理由を Copy raw-access proof の失敗理由へ写像する
+//:
+//: ### [契約/けいやく]
+//: - `VecStorageInvariantInvalid` の各 variant を、同じ意味を持つ `VecCopyInvariantInvalid` variant へ 1 対 1 で変換します。
+//: - bool や message 文字列へ畳まず、enum payload を保つため、failure reason を追加した場合は `match` の網羅性で追従漏れを検出できます。
+//: - payload を読み書きせず、storage metadata proof から Copy raw-access proof への型上の橋渡しだけを行います。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"vec_storage_invalid_to_copy_invalid_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"storage invalid reason is typed enum\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec/invariant" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let reason %VecStorageInvariantInvalid VecStorageInvariantInvalid::OwnedStorageExtentMismatch
+//:     let ok %bool match reason:
+//:         VecStorageInvariantInvalid::NegativeLength:
+//:             false
+//:         VecStorageInvariantInvalid::InitializedLengthMismatch:
+//:             false
+//:         VecStorageInvariantInvalid::LengthExceedsCapacity:
+//:             false
+//:         VecStorageInvariantInvalid::EmptyStorageMetadataMismatch:
+//:             false
+//:         VecStorageInvariantInvalid::OwnedStorageCapacityMismatch:
+//:             false
+//:         VecStorageInvariantInvalid::OwnedStorageExtentMismatch:
+//:             true
+//:     let report:
+//:         test_report_new "vec_storage_invalid_to_copy_invalid_doc"
+//:         |> test_report_push assert "storage invalid reason is typed enum" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn vec_storage_invalid_to_copy_invalid %fn VecStorageInvariantInvalid VecCopyInvariantInvalid \reason:
     match reason:
         VecStorageInvariantInvalid::NegativeLength:

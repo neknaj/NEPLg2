@@ -353,8 +353,88 @@ fn vec_push_storage_checked <.T> %impure fn Vec .T impure fn .T Result Vec .T Ve
                             vec_push_slot_store_initialized<.T> &v_region byte_off item
                             Result::Ok Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
 
+//: ## push
+//: Copy payload を `Vec` の末尾へ追加する
+//:
+//: ### [契約/けいやく]
+//: - `item` を `v` の末尾 slot へ追加し、成功時は `Result::Ok next_vec` を返します。
+//: - 失敗時は `Result::Err VecPushError` を返し、消費した `Vec` owner と rejected `item` は `VecPushRejected .T` として同じ error payload に残します。
+//: - capacity が不足するときは allocator payload 上限を確認してから grow し、旧 storage owner を raw address ではなく typed `RegionToken .T` として移動します。
+//: - `.T: Copy` overload は Copy payload を扱いますが、public 本体は raw pointer 操作を開かず、payload 非依存の `VecStorageInvariant` と private slot initialization helper に委譲します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - capacity 0 からは 1 要素分、以後は allocator 上限内で 2 倍を基準に拡張します。
+//: - 償却 O(1)、grow 時は O(n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"vec_push_copy_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"copy push len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"copy push value\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let v0 %Vec i32 unwrap_ok new
+//:     let v1 %Vec i32 unwrap_ok push v0 7
+//:     let observed_len %i32 len &v1
+//:     let observed_value %i32:
+//:         match get &v1 0:
+//:             Option::Some x:
+//:                 x
+//:             Option::None:
+//:                 -1
+//:     free v1
+//:     let report:
+//:         test_report_new "vec_push_copy_doc"
+//:         |> test_report_push assert_eq_i32 "copy push len" 1 observed_len
+//:         |> test_report_push assert_eq_i32 "copy push value" 7 observed_value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn push <.T: Copy> %impure fn Vec .T impure fn .T Result Vec .T VecPushError .T \v\item:
     vec_push_storage_checked<.T> v item
 
+//: ## push
+//: Drop payload を `Vec` の末尾へ owner として追加する
+//:
+//: ### [契約/けいやく]
+//: - `.T: Drop` payload を Copy せず、`item` owner を末尾 slot へ移動します。
+//: - 成功時は更新後 `Vec` owner を `Result::Ok` で返し、失敗時は `VecPushError.rejected` に入力 `Vec` owner と rejected `item` owner を同時に返します。
+//: - caller は `vec_push_error_rejected` と `vec_push_rejected_with` により、cleanup、再試行、診断変換を owner loss なしで実装できます。
+//: - raw store と slot initialization marker は private helper に閉じ、public overload は `VecStorageInvariant` による metadata / storage proof を前提にします。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - Copy overload と同じ `vec_push_storage_checked` path を共有します。
+//: - 償却 O(1)、grow 時は O(n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"vec_push_drop_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"drop push len\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/drop" as *
+//:| #import "std/test" as *
+//: struct DropPayload:
+//:     value %i32
+//: impl Drop for DropPayload:
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn void i32 \void:
+//:     let v0 %Vec DropPayload unwrap_ok new
+//:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 7)
+//:     let observed_len %i32 len &v1
+//:     free v1
+//:     let report:
+//:         test_report_new "vec_push_drop_doc"
+//:         |> test_report_push assert_eq_i32 "drop push len" 1 observed_len
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn push <.T: Drop> %impure fn Vec .T impure fn .T Result Vec .T VecPushError .T \v\item:
     vec_push_storage_checked<.T> v item

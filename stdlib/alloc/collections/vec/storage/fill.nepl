@@ -84,6 +84,46 @@ fn vec_filled_slot_store_initialized <.T: Copy> %fn &RegionToken .T fn i32 fn .T
     store<.T> raw value
     #intrinsic "collection_slot_initialize_empty" <.T> (storage, byte_off)
 
+//: ## filled
+//: 同じ Copy 値で初期化済みの `Vec .T` を作る
+//:
+//: ### [契約/けいやく]
+//: - `n <= 0` なら `VecStorage::Empty` の空 `Vec` を `Result::Ok` で返します。
+//: - `n > 0` なら長さ、初期化済み長、capacity がすべて `n` の `Vec` を返します。
+//: - 確保に失敗した場合は `StdErrorKind::OutOfMemory` を `Result::Err` で返します。
+//: - `.T: Copy` に限定します。同じ `value` を複数 slot に複製して保持するため、owner payload には使いません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `alloc_region .T` で typed storage を確保し、各 slot への `store` と `collection_slot_initialize_empty` marker を private helper で対にします。
+//: - 時間計算量は O(n)、追加の空間計算量は O(n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"vec_filled_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"filled len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"filled middle\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let v %Vec i32 unwrap_ok filled 3 7
+//:     let observed_len %i32 len &v
+//:     let observed_middle %i32:
+//:         match get &v 1:
+//:             Option::Some x:
+//:                 x
+//:             Option::None:
+//:                 -1
+//:     free v
+//:     let report:
+//:         test_report_new "vec_filled_doc"
+//:         |> test_report_push assert_eq_i32 "filled len" 3 observed_len
+//:         |> test_report_push assert_eq_i32 "filled middle" 7 observed_middle
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn filled <.T: Copy> %fn i32 fn .T Result Vec .T StdErrorKind \n\value:
     if:
         le n 0

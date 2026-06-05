@@ -122,6 +122,55 @@ fn vec_filter_release_storage <.T> %impure fn RegionToken .T unit \region:
     allocator::dealloc_raw raw total_size
     #intrinsic "collection_slot_storage_dealloc" <.T> (&region)
 
+//: ## filter
+//: Copy payload を値渡し predicate で選別し、単一出力 `Vec` を返す
+//:
+//: ### [契約/けいやく]
+//: - `p item` が `true` を返した要素だけを、入力順を保って新しい `Vec .T` に入れます。
+//: - 出力 storage の確保に失敗した場合は、入力 `Vec` owner を `VecTransformError .T` に戻して `Result::Err` を返します。
+//: - `.T: Copy` overload では predicate は `(.T)->bool` です。payload を copy して観測するため、Drop payload には使いません。
+//: - malformed storage invariant は `StdErrorKind::InvalidOperation` として失敗させ、成功した空 filter と混同しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - 1 回目の traversal で `keep_len` を数え、2 回目の traversal で exact capacity の出力へ copy します。
+//: - 時間計算量は O(n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"vec_filter_copy_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"filter len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"filter second\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn is_even %fn i32 bool \x:
+//:     eq rem_s x 2 0
+//: fn main %impure fn void i32 \void:
+//:     let src %Vec i32:
+//:         unwrap_ok new
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:         |> push 4 |> uwok
+//:     let out %Vec i32 unwrap_ok filter src is_even
+//:     let observed_len %i32 len &out
+//:     let observed_second %i32:
+//:         match get &out 1:
+//:             Option::Some x:
+//:                 x
+//:             Option::None:
+//:                 -1
+//:     free out
+//:     let report:
+//:         test_report_new "vec_filter_copy_doc"
+//:         |> test_report_push assert_eq_i32 "filter len" 2 observed_len
+//:         |> test_report_push assert_eq_i32 "filter second" 4 observed_second
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn filter <.T: Copy> %impure fn Vec .T impure fn fn .T bool Result Vec .T VecTransformError .T \v\p:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let src_len %i32 *field::get_ref v_buffer_ref "len"
