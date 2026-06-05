@@ -44,7 +44,7 @@ NEPLg2.1 self-host の各 checkpoint は、Zenn 記事 `https://zenn.dev/bem130/
 subagent review では、少なくとも次を確認する。
 
 - 詳細な review 入力、確認項目、指摘分類、`note.n.md` 記録形式は `doc/neplg2/self_host_zenn_review_checklist.md` に従う。
-- review 依頼は `nodesrc/selfhost_zenn_review_packet.js` で生成した packet を土台にし、branch、base / head、committed / staged / unstaged / untracked に分けた変更 file list、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning、Zenn 記事 URL、Zenn 再確認日時、`AGENTS.md`、checklist、prompt authority を省かない。
+- review 依頼は `nodesrc/selfhost_zenn_review_packet.js` で生成した packet を土台にし、branch、base / head、committed / staged / unstaged / untracked に分けた変更 file list、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning、Zenn 記事 URL、`YYYY-MM-DD` または ISO-like date-time の Zenn 再確認日時、`AGENTS.md`、checklist、prompt authority を省かない。
 - 失敗が `Option` / `Result` / enum diagnostic で表され、文字列や sentinel 値で分岐していないこと。
 - `match` の網羅性検査が効く設計であり、公開 API が数値 tag や文字列 tag に依存していないこと。
 - core / CLI boundary、parser / checker / HIR / Resource IR / backend boundary が混ざっていないこと。

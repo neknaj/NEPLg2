@@ -214,6 +214,10 @@ for (const needle of [
     "fail-closed に残した範囲:",
     "Zenn policy:",
     "https://zenn.dev/bem130/articles/1b352797de94e7",
+    "zenn_checked_at: <YYYY-MM-DD-or-ISO-like-date-time>",
+    "YYYY-MM-DDTHH:mm",
+    "YYYY-MM-DDTHH:mm:ss",
+    "+09:00",
     "Repo policy:",
     "AGENTS.md",
     "Review checklist:",
@@ -293,6 +297,10 @@ for (const needle of [
     "--not-executed",
     "--existing-warnings",
     "--new-warnings",
+    "requiredDateTimeOption",
+    "isReviewEvidenceDateTime",
+    "must be YYYY-MM-DD or ISO-like date-time",
+    "YYYY-MM-DD-or-ISO-like-date-time",
     "process.exitCode = 1",
     "https://zenn.dev/bem130/articles/1b352797de94e7",
     "zenn_checked_at:",
@@ -345,6 +353,10 @@ assert.ok(
     helperHelp.stdout.includes("--zenn-checked-at") && helperHelp.stdout.includes("--existing-warnings"),
     "selfhost review packet helper --help must show review evidence arguments",
 );
+assert.ok(
+    helperHelp.stdout.includes("YYYY-MM-DD-or-ISO-like-date-time"),
+    "selfhost review packet helper --help must show the exact Zenn review timestamp format",
+);
 
 const helperMissingRequired = spawnSync(process.execPath, ["nodesrc/selfhost_zenn_review_packet.js"], {
     cwd: repoRoot,
@@ -372,7 +384,7 @@ try {
         "--fail-closed",
         "none for this packet",
         "--zenn-checked-at",
-        "2026-06-05",
+        "2026-06-05T12:30:00+09:00",
         "--executed",
         "node nodesrc/test_selfhost_zenn_review_gate_contract.js",
         "--not-executed",
@@ -392,7 +404,7 @@ try {
     assert.equal(helperPacket.status, 0, "selfhost review packet helper must generate a complete packet");
     for (const needle of [
         "Repository: NEPLg2",
-        "zenn_checked_at: 2026-06-05",
+        "zenn_checked_at: 2026-06-05T12:30:00+09:00",
         "committed diff files:",
         "staged files:",
         "unstaged files:",
@@ -436,5 +448,52 @@ assert.ok(
     helperMissingVerification.stderr.includes("--executed is required"),
     "selfhost review packet helper must name the missing verification evidence",
 );
+
+for (const invalidZennCheckedAt of [
+    "today",
+    "2026/06/05",
+    "06-05",
+    "2026-02-30",
+    "2026-04-31",
+    "2026-06-05T24:00:00+09:00",
+]) {
+    const helperInvalidZennCheckedAt = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_packet.js",
+        "--issue",
+        "note.n.md",
+        "--slice",
+        "review-packet-contract",
+        "--accepted",
+        "contract execution check",
+        "--fail-closed",
+        "none for this packet",
+        "--zenn-checked-at",
+        invalidZennCheckedAt,
+        "--executed",
+        "node nodesrc/test_selfhost_zenn_review_gate_contract.js",
+        "--not-executed",
+        "none",
+        "--existing-warnings",
+        "none",
+        "--new-warnings",
+        "none",
+        "--base",
+        "HEAD",
+        "--head",
+        "HEAD",
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        helperInvalidZennCheckedAt.status,
+        0,
+        `selfhost review packet helper must reject invalid Zenn review timestamp ${invalidZennCheckedAt}`,
+    );
+    assert.ok(
+        helperInvalidZennCheckedAt.stderr.includes("--zenn-checked-at must be YYYY-MM-DD or ISO-like date-time"),
+        "selfhost review packet helper must explain the accepted Zenn review timestamp format",
+    );
+}
 
 console.log("selfhost Zenn review gate contract passed");

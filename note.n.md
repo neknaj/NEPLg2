@@ -51199,6 +51199,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では bitset slice に blocker はなく、report doctest と owner-backed error の実経路確認を強めるべきと指摘されたため、直接 `BitSetUpdateError` constructor を使わず `insert` / `remove` の Err 経路へ修正した。
 - focused verification は BitSet doctest 27/27、documentation contract、BitSet source-policy 4 件を通した。残件は adjacency_matrix / binary_heap / bloom_filter / btree 系などの declaration doc gap である。
 
+## 2026-06-05 Agent selfhost Zenn review timestamp checkpoint
+
+- `selfhost/zenn-checked-at-validation-20260605` branch で、セルフホストコンパイラ開発の Zenn 方針 review packet に含める `--zenn-checked-at` を機械検査可能な証跡へ強化した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、明示的な失敗、丁寧な契約記述、試作段階でも雑設計を残さない方針を review gate の入力検査に反映した。
+- `nodesrc/selfhost_zenn_review_packet.js` は `YYYY-MM-DD` または ISO-like date-time のみを Zenn 再確認日時として受理し、自然言語、slash date、月日だけ、存在しない暦日、存在しない時刻を fail-closed に拒否する。
+- `doc/neplg2/self_host_zenn_review_prompt.md`、`doc/neplg2/self_host_zenn_review_checklist.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`doc/neplg2/self_host_execution_plan.md` は、review packet が `YYYY-MM-DD` または ISO-like date-time の Zenn 再確認日時を含むことを明記した。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` は、helper usage、内部 validator、error message、prompt の手動 template、正常 ISO timestamp、自然言語、slash date、月日だけ、invalid calendar date、invalid time を source policy として固定した。
+- subagent review 3 件では Blocker なし、merge approved と確認した。Non-blocker として、timezone offset をより厳密な ISO 8601 実在範囲へ狭める余地と fractional seconds を将来扱うかの判断が挙がったが、現行 docs は ISO-like と明記しており今回 slice の完了条件には含めない。
+- focused verification は `node nodesrc/test_selfhost_zenn_review_gate_contract.js` を通した。broad verification は `node nodesrc/test_source_policy_no_line_count_limits.js`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `git diff --check` では空白エラーはなく、Windows の改行変換 warning だけが表示された。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存の documentation gap sample と Node WASI ExperimentalWarning が表示された。
+
 ## 2026-06-05 Agent2 AdjacencyMatrix doc report checkpoint
 
 - `agent2/adjacency-matrix-doc-contract` branch で、`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` のうち `stdlib/alloc/collections/adjacency_matrix` slice を進めた。`plan.md` は確認のみで変更していない。

@@ -18,14 +18,14 @@ node nodesrc/selfhost_zenn_review_packet.js \
   --slice <implementation-slice-name> \
   --accepted <accepted-scope> \
   --fail-closed <remaining-fail-closed-scope> \
-  --zenn-checked-at <date-or-date-time> \
+  --zenn-checked-at <YYYY-MM-DD-or-ISO-like-date-time> \
   --executed <command-list> \
   --not-executed <command-and-reason-list-or-none> \
   --existing-warnings <warning-list-or-none> \
   --new-warnings <warning-list-or-none>
 ```
 
-helper は Zenn 記事 URL、Zenn 再確認日時、`AGENTS.md`、checklist、prompt authority、base / head、committed / staged / unstaged / untracked に分けた差分 file list、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning を出力する。review owner は helper 実行前に Zenn 記事を再確認し、出力後に空欄や現状とずれた項目が残っていないことを確認してから subagent へ渡す。
+helper は Zenn 記事 URL、Zenn 再確認日時、`AGENTS.md`、checklist、prompt authority、base / head、committed / staged / unstaged / untracked に分けた差分 file list、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning を出力する。Zenn 再確認日時は `YYYY-MM-DD` または ISO-like date-time とする。日時付きの場合は `YYYY-MM-DDTHH:mm`、`YYYY-MM-DDTHH:mm:ss`、末尾 `Z`、または `+09:00` のような timezone offset を使える。自然言語、月日だけの値、存在しない暦日、存在しない時刻は helper が拒否する。review owner は helper 実行前に Zenn 記事を再確認し、出力後に空欄や現状とずれた項目が残っていないことを確認してから subagent へ渡す。
 
 手動で補う場合も、次の template の項目を省いてはならない。
 
@@ -41,6 +41,7 @@ head commit:
 fail-closed に残した範囲:
 Zenn policy:
   https://zenn.dev/bem130/articles/1b352797de94e7
+  zenn_checked_at: <YYYY-MM-DD-or-ISO-like-date-time>
 Repo policy:
   AGENTS.md
 Review checklist:

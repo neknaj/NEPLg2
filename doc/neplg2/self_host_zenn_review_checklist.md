@@ -14,7 +14,7 @@
 
 subagent review を依頼するときは、少なくとも次を渡す。
 
-- `nodesrc/selfhost_zenn_review_packet.js` で生成した review packet、または同等の全項目を持つ依頼文。packet は Zenn 再確認日時、committed / staged / unstaged / untracked の差分区分、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning を明示する。
+- `nodesrc/selfhost_zenn_review_packet.js` で生成した review packet、または同等の全項目を持つ依頼文。packet は `YYYY-MM-DD` または ISO-like date-time の Zenn 再確認日時、committed / staged / unstaged / untracked の差分区分、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning を明示する。
 - `doc/neplg2/self_host_zenn_review_prompt.md` の request template。
 - 対象 branch と対象 commit。
 - 対象 issue または実装 slice の目的。

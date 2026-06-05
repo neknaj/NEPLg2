@@ -11,7 +11,7 @@ const usage = [
     "  --slice <implementation-slice-name>",
     "  --accepted <accepted-scope>",
     "  --fail-closed <remaining-fail-closed-scope>",
-    "  --zenn-checked-at <date-or-date-time>",
+    "  --zenn-checked-at <YYYY-MM-DD-or-ISO-like-date-time>",
     "  --executed <command-list-or-none-with-reason>",
     "  --not-executed <command-and-reason-list-or-none>",
     "  --existing-warnings <warning-list-or-none>",
@@ -57,7 +57,7 @@ function buildPacket(parsed) {
     const slice = requiredOption(parsed, "slice");
     const accepted = requiredOption(parsed, "accepted");
     const failClosed = requiredOption(parsed, "fail-closed");
-    const zennCheckedAt = requiredOption(parsed, "zenn-checked-at");
+    const zennCheckedAt = requiredDateTimeOption(parsed, "zenn-checked-at");
     const executed = requiredOption(parsed, "executed");
     const notExecuted = requiredOption(parsed, "not-executed");
     const existingWarnings = requiredOption(parsed, "existing-warnings");
@@ -138,6 +138,74 @@ function requiredOption(parsed, name) {
         throw new Error(`--${name} is required\n${usage}`);
     }
     return value;
+}
+
+function requiredDateTimeOption(parsed, name) {
+    const value = requiredOption(parsed, name);
+    if (!isReviewEvidenceDateTime(value)) {
+        throw new Error(`--${name} must be YYYY-MM-DD or ISO-like date-time\n${usage}`);
+    }
+    return value.trim();
+}
+
+function isReviewEvidenceDateTime(value) {
+    const normalized = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        return isValidCalendarDate(normalized);
+    }
+    const dateTimeMatch = normalized.match(
+        /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z|([+-])(\d{2}):(\d{2}))?$/,
+    );
+    if (!dateTimeMatch) {
+        return false;
+    }
+
+    const [, datePart, hourText, minuteText, secondText = "00", timezone, , timezoneHourText, timezoneMinuteText] = dateTimeMatch;
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    const second = Number(secondText);
+    if (
+        !isValidCalendarDate(datePart)
+        || !isIntegerBetween(hour, 0, 23)
+        || !isIntegerBetween(minute, 0, 59)
+        || !isIntegerBetween(second, 0, 59)
+    ) {
+        return false;
+    }
+
+    if (!timezone || timezone === "Z") {
+        return true;
+    }
+    return isIntegerBetween(Number(timezoneHourText), 0, 23)
+        && isIntegerBetween(Number(timezoneMinuteText), 0, 59);
+}
+
+function isValidCalendarDate(value) {
+    const [yearText, monthText, dayText] = value.split("-");
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    return Number.isInteger(year)
+        && isIntegerBetween(month, 1, 12)
+        && isIntegerBetween(day, 1, daysInMonth(year, month));
+}
+
+function daysInMonth(year, month) {
+    if (month === 2) {
+        return isLeapYear(year) ? 29 : 28;
+    }
+    if ([4, 6, 9, 11].includes(month)) {
+        return 30;
+    }
+    return 31;
+}
+
+function isLeapYear(year) {
+    return year % 400 === 0 || (year % 4 === 0 && year % 100 !== 0);
+}
+
+function isIntegerBetween(value, min, max) {
+    return Number.isInteger(value) && value >= min && value <= max;
 }
 
 function optionalOption(parsed, name, fallback) {
