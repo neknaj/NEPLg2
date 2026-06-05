@@ -1,0 +1,245 @@
+#indent 4
+
+//: # module_parser/body_range
+//: declaration body の token range evidence を切り出す parser helper です。
+//:
+//: [目的/もくてき]:
+//: - declaration header と body を同じ `SelfhostModuleItem` に載せる前に、body 側の token range を明示的な parser evidence として作ります。
+//: - parser は body を HIR や call tree へ変換しません。ここで作るのは、後続 checker / body segmenter が再利用する `SelfhostSyntaxRange` だけです。
+//:
+//: [契約/けいやく]:
+//: - `envelope` は declaration body block 全体を表す token range です。nested block の `Indent` / `Dedent` は depth で追跡し、top-level declaration body を閉じる `Dedent` の直前までを範囲にします。
+//: - `first_expression` は body の先頭 expression segment だけを表す token range です。`SelfhostExprPrefixList` は newline や offside token を受け取らないため、複数式 body 全体を 1 list にまとめません。
+//: - 空 body や header に `:` がない不正入力では empty range を返します。存在必須かどうかの診断は proof / checker 側の責務です。
+//:
+//: [計算量/けいさんりょう]:
+//: - declaration token index から body envelope の終端までを 1 回ずつ走査するため、対象 token 数を k として O(k) です。
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "./prefix_range" as *
+
+//: selfhost_parser_body_missing_index: declaration body scan の missing sentinel を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - body range parser では `Option i32` を返すかわりに、内部 helper の index sentinel として負の値を使います。
+//: - sentinel はこの module 内でだけ使い、外部へは `SelfhostModuleDeclarationBody` の empty range として正規化します。
+//:
+//: [契約/けいやく]:
+//: - 戻り値は有効な token index ではありません。
+//: - caller はこの値を検出した時点で `selfhost_module_declaration_body_empty` へ落とします。
+fn selfhost_parser_body_missing_index %fn void i32 \void:
+    sub 0 1
+
+//: selfhost_parser_body_find_colon_loop: declaration header の `:` token を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - declaration keyword の token index から同じ header に属する `:` までを直線走査します。
+//: - newline、indent、dedent、EOF に到達した場合は、その declaration header には body introducer が存在しないものとして扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - header 内の token 数を h として O(h) です。
+fn selfhost_parser_body_find_colon_loop %fn &Vec SelfhostToken fn i32 fn i32 i32 \tokens\n\idx:
+    if:
+        ge idx n
+        then:
+            selfhost_parser_body_missing_index
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Colon:
+                            idx
+                        TokenKind::Newline:
+                            selfhost_parser_body_missing_index
+                        TokenKind::Indent:
+                            selfhost_parser_body_missing_index
+                        TokenKind::Dedent:
+                            selfhost_parser_body_missing_index
+                        TokenKind::Eof:
+                            selfhost_parser_body_missing_index
+                        _:
+                            selfhost_parser_body_find_colon_loop tokens n add idx 1
+                Option::None:
+                    selfhost_parser_body_missing_index
+
+//: selfhost_parser_body_skip_newlines: colon 直後の layout newline を[読/よ]み[飛/と]ばす
+//:
+//: [目的/もくてき]:
+//: - `fn ...:` の直後に body が同じ行に続く場合と、次行の indent block に置かれる場合を同じ後続処理へ渡します。
+//: - newline 以外の token は消費せず、その token index を返します。
+fn selfhost_parser_body_skip_newlines %fn &Vec SelfhostToken fn i32 fn i32 i32 \tokens\n\idx:
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            selfhost_parser_body_skip_newlines tokens n add idx 1
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_parser_body_skip_initial_layout: body 先頭 expression の token index を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - colon 直後の newline 群と、block body を開始する最初の `Indent` だけを layout として読み飛ばします。
+//: - nested block 内の `Indent` はここでは扱わず、body envelope scan 側で depth として追跡します。
+//:
+//: [契約/けいやく]:
+//: - 戻り値は body の先頭 expression token、または入力末尾を指します。
+//: - この helper は body が必ず存在することを保証しません。存在検査は range construction と checker 側で行います。
+fn selfhost_parser_body_skip_initial_layout %fn &Vec SelfhostToken fn i32 fn i32 i32 \tokens\n\idx:
+    let after_newlines %i32 selfhost_parser_body_skip_newlines tokens n idx
+    if:
+        ge after_newlines n
+        then:
+            after_newlines
+        else:
+            match v::get tokens after_newlines:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            add after_newlines 1
+                        _:
+                            after_newlines
+                Option::None:
+                    after_newlines
+
+//: selfhost_parser_body_has_initial_indent: declaration body が block body かどうかを[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - body envelope の終端規則を選ぶため、colon 直後の newline 群の後に `Indent` があるかを確認します。
+//: - `Indent` がない場合は single-line body とみなし、first expression range と同じ終端を envelope に使います。
+fn selfhost_parser_body_has_initial_indent %fn &Vec SelfhostToken fn i32 fn i32 bool \tokens\n\idx:
+    let after_newlines %i32 selfhost_parser_body_skip_newlines tokens n idx
+    if:
+        ge after_newlines n
+        then:
+            false
+        else:
+            match v::get tokens after_newlines:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            true
+                        _:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_parser_body_first_expression_end_loop: body の先頭 expression segment の終端を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostExprPrefixList` に渡せる最小単位として、newline、dedent、EOF の直前までを先頭 expression として切り出します。
+//: - parser は複数 expression body を 1 つの prefix list に畳み込みません。複数行 body は後続 segmenter が envelope を再走査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭 expression の token 数を e として O(e) です。
+fn selfhost_parser_body_first_expression_end_loop %fn &Vec SelfhostToken fn i32 fn i32 i32 \tokens\n\idx:
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            idx
+                        TokenKind::Dedent:
+                            idx
+                        TokenKind::Eof:
+                            idx
+                        _:
+                            selfhost_parser_body_first_expression_end_loop tokens n add idx 1
+                Option::None:
+                    idx
+
+//: selfhost_parser_body_envelope_end_loop: block body envelope の終端を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - declaration body 全体を後続 segmenter へ渡すため、top-level body を閉じる `Dedent` の直前までを走査します。
+//: - nested `if:` や `match:` などで発生する内側の `Indent` / `Dedent` は `depth` で追跡し、最初の内側 `Dedent` で body を切らないようにします。
+//:
+//: [契約/けいやく]:
+//: - `depth` は caller が initial body indent を消費した後の block depth として渡します。
+//: - 戻り値は envelope に含めない after-token index です。body を閉じる `Dedent` 自体は envelope に含めません。
+fn selfhost_parser_body_envelope_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\depth:
+    if:
+        or ge idx n le depth 0
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            selfhost_parser_body_envelope_end_loop tokens n add idx 1 add depth 1
+                        TokenKind::Dedent:
+                            if:
+                                le depth 1
+                                then:
+                                    idx
+                                else:
+                                    selfhost_parser_body_envelope_end_loop tokens n add idx 1 sub depth 1
+                        TokenKind::Eof:
+                            idx
+                        _:
+                            selfhost_parser_body_envelope_end_loop tokens n add idx 1 depth
+                Option::None:
+                    idx
+
+//: selfhost_parser_body_range_or_empty: token index 区間を body 用 syntax range に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - body scan helper が計算した `[first_token, after_token)` を `SelfhostSyntaxRange` へ正規化します。
+//: - 範囲が空、逆順、または token buffer 外のときは invalid index を漏らさず empty range を返します。
+//:
+//: [契約/けいやく]:
+//: - empty range は「parser evidence がない」ことだけを表します。missing body をエラーにするかどうかは後段の checker / proof の責務です。
+fn selfhost_parser_body_range_or_empty %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
+    if:
+        or ge first_token n le after_token first_token
+        then:
+            selfhost_syntax_range_empty
+        else:
+            selfhost_parser_syntax_range_from_indices tokens n first_token after_token
+
+//: selfhost_parser_declaration_body_range: declaration body の range evidence を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - declaration keyword token index から同じ header の `:` を探し、その後ろにある body block と先頭 expression segment を切り出します。
+//: - body の構文解釈や呼び出し境界の縮約は行わず、後続 checker が同じ token range を使って `SelfhostExprPrefixList` を作れるようにします。
+//:
+//: [契約/けいやく]:
+//: - `envelope` は複数 expression body や nested block を後続 segmenter が扱うための広い range です。
+//: - `first_expression` は最初の expression だけを `SelfhostExprPrefixList` に変換するための狭い range です。
+//: - `:` が見つからない、または body token がない場合は empty body evidence を返します。
+pub fn selfhost_parser_declaration_body_range %fn &Vec SelfhostToken fn i32 fn i32 SelfhostModuleDeclarationBody \tokens\n\decl_idx:
+    let colon_idx %i32 selfhost_parser_body_find_colon_loop tokens n decl_idx
+    if:
+        lt colon_idx 0
+        then:
+            selfhost_module_declaration_body_empty
+        else:
+            let after_colon %i32 add colon_idx 1
+            let first_expr %i32 selfhost_parser_body_skip_initial_layout tokens n after_colon
+            let expr_end %i32 selfhost_parser_body_first_expression_end_loop tokens n first_expr
+            let first_expression %SelfhostSyntaxRange selfhost_parser_body_range_or_empty tokens n first_expr expr_end
+            let envelope_end %i32:
+                if:
+                    selfhost_parser_body_has_initial_indent tokens n after_colon
+                    then:
+                        selfhost_parser_body_envelope_end_loop tokens n first_expr 1
+                    else:
+                        expr_end
+            let envelope %SelfhostSyntaxRange selfhost_parser_body_range_or_empty tokens n first_expr envelope_end
+            selfhost_module_declaration_body_new envelope first_expression

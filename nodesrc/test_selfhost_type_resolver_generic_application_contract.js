@@ -30,6 +30,58 @@ assert.match(
     /pub enum SelfhostTypeReduceErrorKind:[\s\S]*GenericTypeArgumentMissing[\s\S]*TrailingItems/,
     "constructor-aware reduction must distinguish missing generic arguments from trailing items",
 );
+assert.match(
+    source,
+    /pub enum SelfhostTypeConstructorKind:[\s\S]*Type[\s\S]*TypeConstructor %i32/,
+    "constructor table must store checked constructor kind instead of passing raw arity through reducers",
+);
+assert.match(
+    source,
+    /pub enum SelfhostTypeConstructorTableErrorKind:[\s\S]*NegativeConstructorArity[\s\S]*DuplicateTypeConstructor[\s\S]*ReservedTypeConstructorName[\s\S]*OutOfMemory/,
+    "constructor header validation must report typed table errors before entries reach the reducer",
+);
+const addChecked = topLevelBlock(source, "fn", "selfhost_type_constructor_table_add_checked");
+assert.match(
+    addChecked,
+    /selfhost_type_constructor_kind_from_arity_checked/,
+    "constructor table insertion must normalize arity through the checked kind helper",
+);
+for (const kind of ["DuplicateTypeConstructor", "ReservedTypeConstructorName"]) {
+    assert.match(addChecked, new RegExp(kind), `constructor table insertion must check ${kind} at the table boundary`);
+}
+const kindFromArity = topLevelBlock(source, "fn", "selfhost_type_constructor_kind_from_arity_checked");
+assert.match(
+    kindFromArity,
+    /NegativeConstructorArity[\s\S]*SelfhostTypeConstructorKind::Type[\s\S]*SelfhostTypeConstructorKind::TypeConstructor/,
+    "constructor kind normalization must reject negative arity and encode zero/nonzero arity as checked kind",
+);
+assert.doesNotMatch(
+    source,
+    /pub fn selfhost_type_constructor_table_add\b/,
+    "unchecked constructor table insertion must not remain as the public path",
+);
+for (const legacyReducerApi of [
+    "selfhost_type_prefix_list_validate_at_with_constructors",
+    "selfhost_type_prefix_list_build_at_with_constructors",
+    "selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters",
+    "selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters",
+]) {
+    assert.doesNotMatch(
+        source,
+        new RegExp(`${legacyReducerApi}\\b`),
+        `${legacyReducerApi} must not remain because constructor lookup must pass through SelfhostTypeBoundPlan`,
+    );
+}
+assert.doesNotMatch(
+    source,
+    /constructor\.arity/,
+    "reducers and projection must use checked constructor kind accessors instead of raw arity fields",
+);
+assert.match(
+    source,
+    /pub enum SelfhostTypeBoundName:[\s\S]*Constructor %SelfhostTypeConstructor[\s\S]*TypeParameter %SelfhostTypeParameter[\s\S]*Conflict[\s\S]*Unresolved/,
+    "constructor and type-parameter lookup must be represented as a bound plan item before validation/build",
+);
 assert.doesNotMatch(
     source,
     /generic application は後続 slice|generic application is a later slice/,
@@ -39,27 +91,27 @@ assert.doesNotMatch(
 const reduceWithConstructors = topLevelBlock(source, "fn", "selfhost_type_prefix_list_reduce_with_constructors");
 assert.match(
     reduceWithConstructors,
-    /selfhost_type_prefix_list_validate_at_with_constructors/,
-    "constructor-aware reducer must validate with constructor arity before building",
+    /selfhost_type_bound_plan_from_reduce_plan_with_constructors[\s\S]*selfhost_type_prefix_list_validate_at_bound/,
+    "constructor-aware reducer must bind constructor lookup once before validation",
 );
 assert.match(
     reduceWithConstructors,
-    /selfhost_type_prefix_list_build_at_with_constructors/,
-    "constructor-aware reducer must build with constructor arity",
+    /selfhost_type_prefix_list_build_at_bound/,
+    "constructor-aware reducer must build from the same bound plan used by validation",
 );
 
-const validateNamed = topLevelBlock(source, "fn", "selfhost_type_prefix_list_validate_named_with_constructors");
+const validateNamed = topLevelBlock(source, "fn", "selfhost_type_prefix_list_validate_bound_named");
 assert.match(
     validateNamed,
-    /constructor\.arity[\s\S]*selfhost_type_prefix_list_validate_generic_args_loop/,
-    "named type validation must consume arity-driven generic arguments",
+    /selfhost_type_constructor_kind_arg_count[\s\S]*selfhost_type_prefix_list_validate_generic_args_loop_bound/,
+    "named type validation must consume kind-driven generic arguments from a bound constructor",
 );
 
-const buildNamed = topLevelBlock(source, "fn", "selfhost_type_prefix_list_build_named_with_constructors");
+const buildNamed = topLevelBlock(source, "fn", "selfhost_type_prefix_list_build_bound_named");
 assert.match(
     buildNamed,
-    /constructor\.arity[\s\S]*selfhost_type_prefix_list_build_generic_args_loop[\s\S]*selfhost_type_reduce_add_applied_named_from_params/,
-    "named type build must lower arity-driven generic arguments into Applied nodes",
+    /selfhost_type_constructor_kind_arg_count[\s\S]*selfhost_type_prefix_list_build_generic_args_loop_bound[\s\S]*selfhost_type_reduce_add_applied_named_from_params/,
+    "named type build must lower kind-driven generic arguments into Applied nodes",
 );
 
 const addApplied = topLevelBlock(source, "fn", "selfhost_type_reduce_add_applied_named_from_params");
@@ -77,6 +129,16 @@ assert.match(
 );
 
 const projectApplied = topLevelBlock(source, "fn", "selfhost_type_project_applied_with_constructors");
+assert.match(
+    source,
+    /pub enum SelfhostTypeProjectErrorKind:[\s\S]*GenericConstructorArgumentArityMismatch/,
+    "projection must distinguish malformed applied constructor arity from generic constructor bare use",
+);
+assert.match(
+    projectApplied,
+    /selfhost_type_constructor_table_get constructors applied\.nominal_id[\s\S]*GenericConstructorArgumentArityMismatch[\s\S]*UnknownNamedType/,
+    "constructor-aware projection must re-check constructor identity and arity before writing Applied into TypeArena",
+);
 assert.match(
     projectApplied,
     /selfhost_type_project_applied_args_with_constructors[\s\S]*selfhost_type_arena_add_applied_named/,

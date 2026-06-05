@@ -223,6 +223,8 @@ ParsedType:
 
 `%T expr` は expected type boundary として保持する。runtime operation ではない。
 
+現行 self-host 実装では、`stdlib/neplg2/core/syntax/ast/prefix_expr.nepl` が `SelfhostExprPrefixList` を提供する。これは `SelfhostSyntaxRange` から作る pre-HIR の flat expression item list であり、`%` type annotation marker、lambda marker、`@function` marker、literal、identifier、control form marker を token index と span 付きで保持する。`SelfhostExprPrefixList` は HIR ではなく、`SelfhostHirExprPayload::Call` のような解決済み call tree を作らない。body parser は `module_parser/body_range.nepl` で declaration body envelope と first expression segment を `SelfhostSyntaxRange` として切り出し、単純な function body についてはその first expression range から `SelfhostExprPrefixList` を構築できる。
+
 `fn void T` は parser/type resolver boundary で `params = []` へ正規化する。`void` は result type、type argument、expression、parameter name として受理しない。
 
 `fn unit T` は `params = [unit]` として扱う。旧構文の `fn unit T \unit` は、0 引数関数のつもりであれば `fn void T \void` を提示する diagnostic にする。
@@ -655,6 +657,8 @@ Performance acceptance:
 - expression と type は flat prefix list として保持し、parser で call boundary を決めない。
 - `%T expr`、`\a\b:`、`\void:`、`fn void T`、`fn unit T` を正規に扱う。
 - module declaration header では、`%` type annotation と lambda header を `SelfhostSyntaxRange` として保持する。これは最終的な型木・式木ではなく、後続 resolver / checker が kind / arity / expected type に基づいて境界を解くための flat token range evidence である。
+- `syntax/ast/prefix_expr.nepl` は `SelfhostSyntaxRange` から `SelfhostExprPrefixList` を作る。expression prefix list は `%` marker を保持し、call boundary、expected type、overload、generic、trait、partial application の判断は Type checker へ渡す。
+- `module_parser/body_range.nepl` は declaration body block の envelope と first expression segment を `SelfhostSyntaxRange` として保持する。複数式 body や nested block は envelope を後段 segmenter が扱い、`first_expression` は初期 call reduction 入力のための bounded expression range として使う。
 - 旧 `()` grouping、angle type、generic postfix は正規 grammar から外し、必要なら migration diagnostic に限定する。
 
 Issue slice:
@@ -700,12 +704,12 @@ Performance acceptance:
 - parser の `%` annotation range は、`resolve/type_resolver` で `%` marker を除いた flat type prefix item list へ変換する。ここでは `TypeId` を生成せず、`fn` / `void` / named type などの token role と span/token index だけを保持する。
 - type prefix item list は `resolved` tree へ縮約する。`resolved` tree は `TypeId` 割当前の arena-local node table であり、primitive / named type reference / generic type parameter / applied named type / function type node を保持する。
 - `fn i32 fn i32 i32` のように result が nonempty function type の場合は、部分適用を導入せず multi-argument function type へ flatten する。`fn void fn unit unit` のように 0 引数 function が function を返す場合は、`void` marker の境界で flatten せず nested function type として保持する。
-- reducer は source-dependent primitive detection と syntax validation を `reduce/plan.nepl`、owner table への build を `reduce/build.nepl`、共有 payload を `reduce/model.nepl` に分ける。build 層は source string を読まず、plan が作った enum / bool / span payload だけを消費する。
+- reducer は source-dependent primitive detection と syntax validation を `reduce/plan.nepl`、owner table への build を `reduce/build.nepl`、共有 payload を `reduce/model.nepl` に分ける。constructor / type parameter lookup が必要な経路では `SelfhostTypeBoundPlan` を作り、validate / build は同じ束縛結果を共有する。旧 constructor-aware validate/build helper は公開 surface から外し、build 層は source string を読まず、plan が作った enum / bool / span payload だけを消費する。
 - `project.nepl` は `resolved` tree root と `SelfhostTypeArena` を受け取り、primitive / function type を arena-local `SelfhostTypeId` へ投影する。constructor table なし API は named type / applied named type を `UnsupportedNamedType` として fail-closed にする。
-- `constructor.nepl` は module surface / local declaration header から構築される named type constructor table の最小形を持つ。table lookup は `source + span` から一時 name key を切り出し、arena へは `SelfhostNamedTypeId` だけを保存する。
+- `constructor.nepl` は module surface / local declaration header から構築される named type constructor table の最小形を持つ。table 登録時に `SelfhostTypeConstructorKind` へ arity を正規化し、負 arity、予約名、同一 table 内の重複名を `SelfhostTypeConstructorTableErrorKind` として拒否する。table lookup は `source + span` から一時 name key を切り出し、arena へは `SelfhostNamedTypeId` だけを保存する。
 - `project.nepl` の lookup 付き API は arity 0 の named constructor を `SelfhostTypeRecord::Named` へ投影する。unknown named type と bare generic constructor は typed error として fail-closed にし、既存の constructor table なし API は named を拒否し続ける。
-- constructor-aware reducer は `SelfhostTypeConstructorTable.arity` に従って `Box i32` / `Result i32 str` のような type argument list を再帰的に消費し、`SelfhostResolvedTypeNode::Applied` として保持する。型引数不足は projection まで送らず `GenericTypeArgumentMissing` として reducer で拒否する。
-- constructor-aware projection は `Applied` node の constructor identity と projected type argument `SelfhostTypeId` list を `SelfhostTypeRecord::Applied` として arena へ保存する。arena は source spelling ではなく identity と structural argument list だけを保持する。
+- constructor-aware reducer は `SelfhostTypeConstructorKind` に従って `Box i32` / `Result i32 str` のような type argument list を再帰的に消費し、`SelfhostResolvedTypeNode::Applied` として保持する。型引数不足は projection まで送らず `GenericTypeArgumentMissing` として reducer で拒否する。
+- constructor-aware projection は `Applied` node の constructor identity を constructor table で再検査し、constructor kind が要求する型引数数と resolved tree の argument range が一致する場合だけ、projected type argument `SelfhostTypeId` list を `SelfhostTypeRecord::Applied` として arena へ保存する。arena は source spelling ではなく identity と structural argument list だけを保持する。reducer が作った tree はすでに kind-checked だが、resolved tree constructor は public API でも作れるため、TypeArena へ入る直前の projection 境界でも `UnknownNamedType` / `GenericConstructorArgumentArityMismatch` として fail-closed にする。
 - `ty/key.nepl` は `SelfhostTypeArena` の root `SelfhostTypeId` を `SelfhostCanonicalTypeKeyArena` へ投影する。canonical key node は `SelfhostTypeId` を持たず、primitive / named / type parameter / applied / function の構造と key argument range だけを保持する。projection は型 record と argument edge の数に対して O(n) であり、同じ key arena 内の structural equality を提供する。
 - type-parameter-aware reducer は generic binder から作った `SelfhostTypeParameterEnv` を参照し、`T` / `E` のような名前を `Named` ではなく `SelfhostResolvedTypeNode::Parameter` として保持する。constructor table と parameter environment の両方に同じ名前がある場合は `TypeParameterConstructorNameConflict` として fail-closed にする。
 - `SelfhostTypeArena` は type parameter を `SelfhostTypeRecord::Parameter` として保存する。payload は source name / span / resolver-local node id ではなく、`SelfhostTypeParameterBinding { binder_depth, parameter_index }` だけである。
@@ -715,12 +719,11 @@ Issue slice:
 
 - imported / local type constructor table construction
 - imported type arity hint integration
-- user-defined generic type constructor declaration kind validation
 - type resolver diagnostic parity
 
 Performance acceptance:
 
-- type constructor lookup は module surface から構築した table を使い、prefix type ごとに import graph を再探索しない。
+- type constructor lookup は module surface から構築した table と `SelfhostTypeBoundPlan` を使い、prefix type ごとに import graph を再探索しない。constructor / type parameter lookup は validate と build の両方で繰り返さず、binding phase で 1 回に固定する。
 - canonical type key を生成し、artifact / cache key へ `TypeId` を入れない。現 checkpoint では type parameter binding を含む structural key tree と equality までを実装済みであり、cross-arena serialized key / fingerprint は interface artifact 接続時に追加する。
 
 ### Phase 6: Type checker and higher-order functions
@@ -733,6 +736,8 @@ Issue slice:
 
 - expected type and `%T` ascription
 - callable candidate collection
+- `SelfhostExprPrefixList` からの expression reduction input validation
+- declaration body envelope からの expression segmenter
 - prefix call reduction stack
 - generic instantiation inference
 - trait bound solving
@@ -874,7 +879,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor arity に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction を追加した。残件は prefix expression AST、binder-indexed type parameter の arena/key projection、user-defined generic type constructor kind validation、call reduction。 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor kind に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction、binder-indexed type parameter の arena/key projection、constructor kind validation と bound plan、pre-HIR `SelfhostExprPrefixList`、declaration body envelope / first expression range 抽出を追加した。残件は expression segmenter、call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |

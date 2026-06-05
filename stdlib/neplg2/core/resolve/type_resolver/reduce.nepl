@@ -99,274 +99,105 @@ fn selfhost_type_reduce_add_applied_named_from_params %impure fn SelfhostTypeRed
                     v::free params
                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory span
 
-fn selfhost_type_prefix_list_validate_generic_args_loop %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeReducePlan fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostTypeReduceError \source\constructors\plan\idx\remaining\span:
+//: selfhost_type_prefix_list_validate_generic_args_loop_bound: bound plan 上の generic type argument 列を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - checked constructor kind が要求する個数だけ、後続の type expression subtree を消費できるか確認します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Ok(next_idx)`: `remaining` 個の型引数をすべて消費しました。
+//: - `Err(GenericTypeArgumentMissing)`: 型引数が足りません。
+//: - その他の `Err`: 型引数 subtree の内部に不正な prefix type がありました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 消費する subtree 数に対して `O(n)` です。constructor / parameter lookup は bound plan 作成時に済んでいます。
+fn selfhost_type_prefix_list_validate_generic_args_loop_bound %fn &SelfhostTypeBoundPlan fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostTypeReduceError \plan\idx\remaining\span:
     if:
         le remaining 0
         then:
             Result::Ok idx
         else:
-            let n %i32 selfhost_type_reduce_plan_len plan
+            let n %i32 selfhost_type_bound_plan_len plan
             if:
                 ge idx n
                 then:
                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing span
                 else:
-                    match selfhost_type_prefix_list_validate_at_with_constructors source constructors plan idx:
+                    match selfhost_type_prefix_list_validate_at_bound plan idx:
                         Result::Ok next_idx:
-                            selfhost_type_prefix_list_validate_generic_args_loop source constructors plan next_idx sub remaining 1 span
+                            selfhost_type_prefix_list_validate_generic_args_loop_bound plan next_idx sub remaining 1 span
                         Result::Err e:
                             Result::Err e
 
-fn selfhost_type_prefix_list_validate_named_with_constructors %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeReducePlan fn SelfhostTypeReducePlanItem fn i32 Result i32 SelfhostTypeReduceError \source\constructors\plan\item\idx:
-    match selfhost_type_constructor_table_find_span constructors source item.span:
-        Option::Some constructor:
-            if:
-                lt constructor.arity 0
-                then:
-                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::InternalInvariant item.span
-                else:
-                    if:
-                        eq constructor.arity 0
-                        then:
-                            Result::Ok add idx 1
-                        else:
-                            selfhost_type_prefix_list_validate_generic_args_loop source constructors plan add idx 1 constructor.arity item.span
-        Option::None:
-            Result::Ok add idx 1
-
-fn selfhost_type_prefix_list_validate_function_nonvoid_arg_with_constructors %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeReducePlan fn i32 fn SelfhostSourceSpan Result i32 SelfhostTypeReduceError \source\constructors\plan\arg_idx\fn_span:
-    let n %i32 selfhost_type_reduce_plan_len plan
-    match selfhost_type_prefix_list_validate_at_with_constructors source constructors plan arg_idx:
-        Result::Ok result_idx:
-            if:
-                ge result_idx n
-                then:
-                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingResult fn_span
-                else:
-                    selfhost_type_prefix_list_validate_at_with_constructors source constructors plan result_idx
-        Result::Err e:
-            Result::Err e
-
-fn selfhost_type_prefix_list_validate_function_with_constructors %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeReducePlan fn SelfhostSourceSpan fn i32 Result i32 SelfhostTypeReduceError \source\constructors\plan\fn_span\idx:
-    let n %i32 selfhost_type_reduce_plan_len plan
-    let arg_idx %i32 add idx 1
-    if:
-        ge arg_idx n
-        then:
-            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
-        else:
-            match selfhost_type_reduce_plan_get plan arg_idx:
-                Option::Some arg_item:
-                    if:
-                        arg_item.is_void
-                        then:
-                            let result_idx %i32 add idx 2
-                            if:
-                                ge result_idx n
-                                then:
-                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingResult fn_span
-                                else:
-                                    selfhost_type_prefix_list_validate_at_with_constructors source constructors plan result_idx
-                        else:
-                            selfhost_type_prefix_list_validate_function_nonvoid_arg_with_constructors source constructors plan arg_idx fn_span
-                Option::None:
-                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
-
-pub fn selfhost_type_prefix_list_validate_at_with_constructors %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeReducePlan fn i32 Result i32 SelfhostTypeReduceError \source\constructors\plan\idx:
-    let n %i32 selfhost_type_reduce_plan_len plan
-    if:
-        ge idx n
-        then:
-            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
-        else:
-            match selfhost_type_reduce_plan_get plan idx:
-                Option::Some item:
-                    let span %SelfhostSourceSpan item.span
-                    let dispatch_kind %SelfhostTypeReduceDispatchKind item.dispatch_kind
-                    if:
-                        item.is_function
-                        then:
-                            selfhost_type_prefix_list_validate_function_with_constructors source constructors plan span idx
-                        else if:
-                            item.is_primitive
-                            then:
-                                Result::Ok add idx 1
-                            else if:
-                                item.is_named
-                                then:
-                                    selfhost_type_prefix_list_validate_named_with_constructors source constructors plan item idx
-                                else:
-                                    Result::Err selfhost_type_reduce_error_new (selfhost_type_reduce_dispatch_kind_error dispatch_kind) span
-                Option::None:
-                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
-
-fn selfhost_type_prefix_list_build_generic_args_loop %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeReducePlan impure fn i32 impure fn i32 impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan Result SelfhostTypeReduceGenericArgBuild SelfhostTypeReduceError \source\constructors\plan\idx\remaining\state\params\span:
-    if:
-        le remaining 0
-        then:
-            Result::Ok selfhost_type_reduce_generic_arg_build_new state params idx
-        else:
-            let n %i32 selfhost_type_reduce_plan_len plan
-            if:
-                ge idx n
-                then:
-                    selfhost_type_reduce_generic_arg_build_fail state params SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing span
-                else:
-                    match selfhost_type_prefix_list_build_at_with_constructors source constructors plan idx state:
-                        Result::Ok arg_step:
-                            let arg_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &arg_step
-                            let next_idx %i32 selfhost_type_reduce_step_next_index &arg_step
-                            let next_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state arg_step
-                            match selfhost_type_reduce_generic_arg_push next_state params arg_id next_idx span:
-                                Result::Ok pushed:
-                                    let loop_state %SelfhostTypeReduceBuildState field::get pushed "state"
-                                    let loop_params %Vec SelfhostResolvedTypeNodeId field::get pushed "params"
-                                    let loop_idx %i32 field::get pushed "next_index"
-                                    selfhost_type_prefix_list_build_generic_args_loop source constructors plan loop_idx sub remaining 1 loop_state loop_params span
-                                Result::Err e:
-                                    Result::Err e
-                        Result::Err e:
-                            v::free params
-                            Result::Err e
-
-fn selfhost_type_prefix_list_build_named_with_constructors %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeReducePlan impure fn SelfhostTypeReducePlanItem impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\plan\item\idx\state:
-    match selfhost_type_constructor_table_find_span constructors source item.span:
-        Option::Some constructor:
-            if:
-                lt constructor.arity 0
-                then:
-                    selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::InternalInvariant item.span
-                else:
-                    if:
-                        eq constructor.arity 0
-                        then:
-                            let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef item.span
-                            selfhost_type_reduce_push_node_with_state state node item.span add idx 1
-                        else:
-                            let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
-                            match params_result:
-                                Result::Ok params:
-                                    match selfhost_type_prefix_list_build_generic_args_loop source constructors plan add idx 1 constructor.arity state params item.span:
-                                        Result::Ok arg_build:
-                                            let next_state %SelfhostTypeReduceBuildState field::get arg_build "state"
-                                            let applied_params %Vec SelfhostResolvedTypeNodeId field::get arg_build "params"
-                                            let next_idx %i32 field::get arg_build "next_index"
-                                            selfhost_type_reduce_add_applied_named_from_params next_state constructor.nominal_id item.span applied_params next_idx
-                                        Result::Err e:
-                                            Result::Err e
-                                Result::Err _e:
-                                    selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory item.span
-        Option::None:
-            let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef item.span
-            selfhost_type_reduce_push_node_with_state state node item.span add idx 1
-
-pub fn selfhost_type_prefix_list_build_at_with_constructors %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\plan\idx\state:
-    match selfhost_type_reduce_plan_get plan idx:
-        Option::Some item:
-            let span %SelfhostSourceSpan item.span
-            let dispatch_kind %SelfhostTypeReduceDispatchKind item.dispatch_kind
-            if:
-                item.is_function
-                then:
-                    selfhost_type_prefix_list_build_function_with_constructors source constructors plan span idx state
-                else if:
-                    item.is_primitive
-                    then:
-                        let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Primitive item.primitive
-                        selfhost_type_reduce_push_node_with_state state node span add idx 1
-                    else if:
-                        item.is_named
-                        then:
-                            selfhost_type_prefix_list_build_named_with_constructors source constructors plan item idx state
-                        else:
-                            selfhost_type_reduce_fail state (selfhost_type_reduce_dispatch_kind_error dispatch_kind) span
-        Option::None:
-            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
-
-fn selfhost_type_prefix_list_build_function_nonvoid_arg_with_constructors %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\plan\arg_idx\fn_span\state:
-    match selfhost_type_prefix_list_build_at_with_constructors source constructors plan arg_idx state:
-        Result::Ok param_step:
-            let param_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &param_step
-            let result_idx %i32 selfhost_type_reduce_step_next_index &param_step
-            let param_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state param_step
-            match selfhost_type_prefix_list_build_at_with_constructors source constructors plan result_idx param_state:
-                Result::Ok result_step:
-                    let result_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &result_step
-                    let next_index %i32 selfhost_type_reduce_step_next_index &result_step
-                    let result_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state result_step
-                    selfhost_type_reduce_add_function_nonempty_params result_state param_id result_id fn_span next_index
-                Result::Err e:
-                    Result::Err e
-        Result::Err e:
-            Result::Err e
-
-fn selfhost_type_prefix_list_build_function_with_constructors %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeReducePlan impure fn SelfhostSourceSpan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\plan\fn_span\idx\state:
-    let arg_idx %i32 add idx 1
-    match selfhost_type_reduce_plan_get plan arg_idx:
-        Option::Some arg_item:
-            if:
-                arg_item.is_void
-                then:
-                    let result_idx %i32 add idx 2
-                    match selfhost_type_prefix_list_build_at_with_constructors source constructors plan result_idx state:
-                        Result::Ok result_step:
-                            let result_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &result_step
-                            let next_index %i32 selfhost_type_reduce_step_next_index &result_step
-                            let next_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state result_step
-                            selfhost_type_reduce_add_function_empty_params next_state result_id fn_span next_index
-                        Result::Err e:
-                            Result::Err e
-                else:
-                    selfhost_type_prefix_list_build_function_nonvoid_arg_with_constructors source constructors plan arg_idx fn_span state
-        Option::None:
-            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
-
-//: selfhost_type_prefix_list_validate_named_with_constructors_and_type_parameters: named item の constructor / parameter 境界を[検証/けんしょう]する
-//:
-//: [目的/もくてき]:
-//: - `T` が type parameter environment にあるとき、constructor-aware validation がそれを generic constructor として余分な型引数を消費しないようにします。
-//: - 同じ名前が constructor table と type parameter environment の両方にある場合は、曖昧さを typed error として先に固定します。
+//: selfhost_type_prefix_list_validate_bound_named: bound named item の arity と衝突を[検査/けんさ]する
 //:
 //: [場合分/ばあいわ]け:
-//: - parameter だけがある場合は 1 item を消費します。
-//: - parameter と constructor が両方ある場合は `TypeParameterConstructorNameConflict` です。
-//: - parameter がない場合は既存の constructor-aware named validation へ委譲します。
+//: - `Constructor(Type)`: named type 1 item を消費します。
+//: - `Constructor(TypeConstructor(n))`: `n` 個の型引数 subtree を消費します。
+//: - `TypeParameter`: type parameter 1 item を消費します。
+//: - `Conflict`: constructor と type parameter の同名衝突として失敗します。
+//: - `Unresolved`: unknown named type は projection diagnostic に委ねるため、ここでは 1 item として通します。
 //:
-//: [計算量/けいさんりょう]:
-//: - lookup は `O(c + p)` です。`c` は constructor 数、`p` は type parameter 数です。
-fn selfhost_type_prefix_list_validate_named_with_constructors_and_type_parameters %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeParameterEnv fn &SelfhostTypeReducePlan fn SelfhostTypeReducePlanItem fn i32 Result i32 SelfhostTypeReduceError \source\constructors\type_parameters\plan\item\idx:
-    match selfhost_type_parameter_env_find_span type_parameters source item.span:
-        Option::Some _parameter:
-            match selfhost_type_constructor_table_find_span constructors source item.span:
-                Option::Some _constructor:
-                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict item.span
-                Option::None:
+//: [契約/けいやく]:
+//: - `NotNamed` は caller の分岐不整合なので `InternalInvariant` として fail-closed にします。
+fn selfhost_type_prefix_list_validate_bound_named %fn &SelfhostTypeBoundPlan fn SelfhostTypeBoundPlanItem fn i32 Result i32 SelfhostTypeReduceError \plan\item\idx:
+    match item.bound_name:
+        SelfhostTypeBoundName::Constructor constructor:
+            let arg_count %i32 selfhost_type_constructor_kind_arg_count constructor.kind
+            if:
+                eq arg_count 0
+                then:
                     Result::Ok add idx 1
-        Option::None:
-            selfhost_type_prefix_list_validate_named_with_constructors source constructors plan item idx
+                else:
+                    selfhost_type_prefix_list_validate_generic_args_loop_bound plan add idx 1 arg_count item.span
+        SelfhostTypeBoundName::TypeParameter _parameter:
+            Result::Ok add idx 1
+        SelfhostTypeBoundName::Conflict:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict item.span
+        SelfhostTypeBoundName::Unresolved:
+            Result::Ok add idx 1
+        SelfhostTypeBoundName::NotNamed:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::InternalInvariant item.span
 
-fn selfhost_type_prefix_list_validate_function_nonvoid_arg_with_constructors_and_type_parameters %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeParameterEnv fn &SelfhostTypeReducePlan fn i32 fn SelfhostSourceSpan Result i32 SelfhostTypeReduceError \source\constructors\type_parameters\plan\arg_idx\fn_span:
-    let n %i32 selfhost_type_reduce_plan_len plan
-    match selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters source constructors type_parameters plan arg_idx:
+//: selfhost_type_prefix_list_validate_function_nonvoid_arg_bound: non-void 引数を持つ function type を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `fn A B` の `A` を 1 つの type expression として消費し、その直後に result type が存在することを確認します。
+//:
+//: [場合分/ばあいわ]け:
+//: - 引数または返り値が不足していれば function marker の span で typed error を返します。
+//: - 引数と返り値が揃っていれば、返り値 subtree を消費した後の index を返します。
+fn selfhost_type_prefix_list_validate_function_nonvoid_arg_bound %fn &SelfhostTypeBoundPlan fn i32 fn SelfhostSourceSpan Result i32 SelfhostTypeReduceError \plan\arg_idx\fn_span:
+    let n %i32 selfhost_type_bound_plan_len plan
+    match selfhost_type_prefix_list_validate_at_bound plan arg_idx:
         Result::Ok result_idx:
             if:
                 ge result_idx n
                 then:
                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingResult fn_span
                 else:
-                    selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters source constructors type_parameters plan result_idx
+                    selfhost_type_prefix_list_validate_at_bound plan result_idx
         Result::Err e:
             Result::Err e
 
-fn selfhost_type_prefix_list_validate_function_with_constructors_and_type_parameters %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeParameterEnv fn &SelfhostTypeReducePlan fn SelfhostSourceSpan fn i32 Result i32 SelfhostTypeReduceError \source\constructors\type_parameters\plan\fn_span\idx:
-    let n %i32 selfhost_type_reduce_plan_len plan
+//: selfhost_type_prefix_list_validate_function_bound: bound plan 上の function type を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `fn void T` と `fn A T` を区別し、`void` marker の位置では argument subtree を作らず result type だけを消費します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `FunctionMissingArgument`: `fn` の直後に argument marker / argument type がありません。
+//: - `FunctionMissingResult`: argument marker / argument type はあるが result type がありません。
+//: - `Ok(next_idx)`: function type subtree 全体を消費しました。
+fn selfhost_type_prefix_list_validate_function_bound %fn &SelfhostTypeBoundPlan fn SelfhostSourceSpan fn i32 Result i32 SelfhostTypeReduceError \plan\fn_span\idx:
+    let n %i32 selfhost_type_bound_plan_len plan
     let arg_idx %i32 add idx 1
     if:
         ge arg_idx n
         then:
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
         else:
-            match selfhost_type_reduce_plan_get plan arg_idx:
+            match selfhost_type_bound_plan_get plan arg_idx:
                 Option::Some arg_item:
                     if:
                         arg_item.is_void
@@ -377,35 +208,39 @@ fn selfhost_type_prefix_list_validate_function_with_constructors_and_type_parame
                                 then:
                                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingResult fn_span
                                 else:
-                                    selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters source constructors type_parameters plan result_idx
+                                    selfhost_type_prefix_list_validate_at_bound plan result_idx
                         else:
-                            selfhost_type_prefix_list_validate_function_nonvoid_arg_with_constructors_and_type_parameters source constructors type_parameters plan arg_idx fn_span
+                            selfhost_type_prefix_list_validate_function_nonvoid_arg_bound plan arg_idx fn_span
                 Option::None:
                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
 
-//: selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters: constructor と parameter を使って 1 型式の消費範囲を[検証/けんしょう]する
+//: selfhost_type_prefix_list_validate_at_bound: bound plan の index から type expression を 1 つ[検査/けんさ]する
 //:
 //: [目的/もくてき]:
-//: - build 前に prefix list の境界を決め、同じ入力で build が同じ消費範囲を辿れることを確認します。
+//: - binding phase が作った `SelfhostTypeBoundPlan` だけを読み、source string や constructor table を再探索せずに type expression 境界を決めます。
 //:
-//: [契約/けいやく]:
-//: - 成功時は `idx` から始まる 1 つの型式を消費した次 index を返します。
-//: - 失敗時は source span 付きの `SelfhostTypeReduceError` を返し、owner を持つ値は消費しません。
-pub fn selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeParameterEnv fn &SelfhostTypeReducePlan fn i32 Result i32 SelfhostTypeReduceError \source\constructors\type_parameters\plan\idx:
-    let n %i32 selfhost_type_reduce_plan_len plan
+//: [場合分/ばあいわ]け:
+//: - primitive / type parameter / named type / applied named type / function type をそれぞれの subtree 消費規則で検査します。
+//: - index が範囲外なら `UnexpectedEnd` を返します。
+//: - dispatch kind が type expression として不正なら対応する typed error を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 消費する subtree の item 数に対して `O(n)` です。lookup は含みません。
+pub fn selfhost_type_prefix_list_validate_at_bound %fn &SelfhostTypeBoundPlan fn i32 Result i32 SelfhostTypeReduceError \plan\idx:
+    let n %i32 selfhost_type_bound_plan_len plan
     if:
         ge idx n
         then:
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
         else:
-            match selfhost_type_reduce_plan_get plan idx:
+            match selfhost_type_bound_plan_get plan idx:
                 Option::Some item:
                     let span %SelfhostSourceSpan item.span
                     let dispatch_kind %SelfhostTypeReduceDispatchKind item.dispatch_kind
                     if:
                         item.is_function
                         then:
-                            selfhost_type_prefix_list_validate_function_with_constructors_and_type_parameters source constructors type_parameters plan span idx
+                            selfhost_type_prefix_list_validate_function_bound plan span idx
                         else if:
                             item.is_primitive
                             then:
@@ -413,25 +248,36 @@ pub fn selfhost_type_prefix_list_validate_at_with_constructors_and_type_paramete
                             else if:
                                 item.is_named
                                 then:
-                                    selfhost_type_prefix_list_validate_named_with_constructors_and_type_parameters source constructors type_parameters plan item idx
+                                    selfhost_type_prefix_list_validate_bound_named plan item idx
                                 else:
                                     Result::Err selfhost_type_reduce_error_new (selfhost_type_reduce_dispatch_kind_error dispatch_kind) span
                 Option::None:
                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
 
-fn selfhost_type_prefix_list_build_generic_args_loop_with_constructors_and_type_parameters %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypeReducePlan impure fn i32 impure fn i32 impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan Result SelfhostTypeReduceGenericArgBuild SelfhostTypeReduceError \source\constructors\type_parameters\plan\idx\remaining\state\params\span:
+//: selfhost_type_prefix_list_build_generic_args_loop_bound: bound plan から generic argument node list を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - validate 済みの applied named type について、型引数 subtree を resolved node へ構築し、node id vector に追加します。
+//:
+//: [契約/けいやく]:
+//: - `state` と `params` はこの関数が owner として受け取り、成功時は `SelfhostTypeReduceGenericArgBuild` に移します。
+//: - 失敗時は、失敗箇所で保持している owner を閉じる helper を通して返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築する型引数 subtree の node 数に対して `O(n)` です。
+fn selfhost_type_prefix_list_build_generic_args_loop_bound %impure fn &SelfhostTypeBoundPlan impure fn i32 impure fn i32 impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan Result SelfhostTypeReduceGenericArgBuild SelfhostTypeReduceError \plan\idx\remaining\state\params\span:
     if:
         le remaining 0
         then:
             Result::Ok selfhost_type_reduce_generic_arg_build_new state params idx
         else:
-            let n %i32 selfhost_type_reduce_plan_len plan
+            let n %i32 selfhost_type_bound_plan_len plan
             if:
                 ge idx n
                 then:
                     selfhost_type_reduce_generic_arg_build_fail state params SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing span
                 else:
-                    match selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters source constructors type_parameters plan idx state:
+                    match selfhost_type_prefix_list_build_at_bound plan idx state:
                         Result::Ok arg_step:
                             let arg_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &arg_step
                             let next_idx %i32 selfhost_type_reduce_step_next_index &arg_step
@@ -441,82 +287,78 @@ fn selfhost_type_prefix_list_build_generic_args_loop_with_constructors_and_type_
                                     let loop_state %SelfhostTypeReduceBuildState field::get pushed "state"
                                     let loop_params %Vec SelfhostResolvedTypeNodeId field::get pushed "params"
                                     let loop_idx %i32 field::get pushed "next_index"
-                                    selfhost_type_prefix_list_build_generic_args_loop_with_constructors_and_type_parameters source constructors type_parameters plan loop_idx sub remaining 1 loop_state loop_params span
+                                    selfhost_type_prefix_list_build_generic_args_loop_bound plan loop_idx sub remaining 1 loop_state loop_params span
                                 Result::Err e:
                                     Result::Err e
                         Result::Err e:
                             v::free params
                             Result::Err e
 
-//: selfhost_type_prefix_list_build_named_with_constructors_and_type_parameters: named item を resolved node へ[変換/へんかん]する
+//: selfhost_type_prefix_list_build_bound_named: bound named item を resolved node へ[構築/こうちく]する
 //:
-//: [目的/もくてき]:
-//: - named-looking item を、type parameter、bare named type、applied named type、unknown named type のいずれかへ縮約します。
+//: [場合分/ばあいわ]け:
+//: - `Constructor(Type)` は `Named` node を追加します。
+//: - `Constructor(TypeConstructor(n))` は `n` 個の型引数を構築し、`Applied` node を追加します。
+//: - `TypeParameter` は `Parameter` node を追加します。
+//: - `Conflict` は typed error として `state` owner を閉じます。
+//: - `Unresolved` は unknown named type diagnostic を projection へ委ねるため、`Named` node として保持します。
 //:
 //: [契約/けいやく]:
-//: - type parameter と constructor が衝突した場合は、片方を優先せず build state を解放して `TypeParameterConstructorNameConflict` を返します。
-//: - constructor arity が正なら、arity 個の引数を再帰的に build して `Applied` node を作ります。
-//: - constructor table にない名前は後続 diagnostic のため `Named` node として残します。
-//:
-//: [計算量/けいさんりょう]:
-//: - 単独 item では `O(c + p)`、generic application では各引数の build cost を加えます。
-fn selfhost_type_prefix_list_build_named_with_constructors_and_type_parameters %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypeReducePlan impure fn SelfhostTypeReducePlanItem impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\type_parameters\plan\item\idx\state:
-    match selfhost_type_parameter_env_find_span type_parameters source item.span:
-        Option::Some parameter:
-            match selfhost_type_constructor_table_find_span constructors source item.span:
-                Option::Some _constructor:
-                    selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict item.span
-                Option::None:
-                    let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Parameter selfhost_resolved_type_parameter_ref_new parameter.parameter_id item.span
-                    selfhost_type_reduce_push_node_with_state state node item.span add idx 1
-        Option::None:
-            match selfhost_type_constructor_table_find_span constructors source item.span:
-                Option::Some constructor:
-                    if:
-                        lt constructor.arity 0
-                        then:
-                            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::InternalInvariant item.span
-                        else:
-                            if:
-                                eq constructor.arity 0
-                                then:
-                                    let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef item.span
-                                    selfhost_type_reduce_push_node_with_state state node item.span add idx 1
-                                else:
-                                    let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
-                                    match params_result:
-                                        Result::Ok params:
-                                            match selfhost_type_prefix_list_build_generic_args_loop_with_constructors_and_type_parameters source constructors type_parameters plan add idx 1 constructor.arity state params item.span:
-                                                Result::Ok arg_build:
-                                                    let next_state %SelfhostTypeReduceBuildState field::get arg_build "state"
-                                                    let applied_params %Vec SelfhostResolvedTypeNodeId field::get arg_build "params"
-                                                    let next_idx %i32 field::get arg_build "next_index"
-                                                    selfhost_type_reduce_add_applied_named_from_params next_state constructor.nominal_id item.span applied_params next_idx
-                                                Result::Err e:
-                                                    Result::Err e
-                                        Result::Err _e:
-                                            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory item.span
-                Option::None:
+//: - `state` owner は成功時に返却 step へ移動し、失敗時は error helper が閉じます。
+fn selfhost_type_prefix_list_build_bound_named %impure fn &SelfhostTypeBoundPlan impure fn SelfhostTypeBoundPlanItem impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\item\idx\state:
+    match item.bound_name:
+        SelfhostTypeBoundName::Constructor constructor:
+            let arg_count %i32 selfhost_type_constructor_kind_arg_count constructor.kind
+            if:
+                eq arg_count 0
+                then:
                     let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef item.span
                     selfhost_type_reduce_push_node_with_state state node item.span add idx 1
+                else:
+                    let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
+                    match params_result:
+                        Result::Ok params:
+                            match selfhost_type_prefix_list_build_generic_args_loop_bound plan add idx 1 arg_count state params item.span:
+                                Result::Ok arg_build:
+                                    let next_state %SelfhostTypeReduceBuildState field::get arg_build "state"
+                                    let applied_params %Vec SelfhostResolvedTypeNodeId field::get arg_build "params"
+                                    let next_idx %i32 field::get arg_build "next_index"
+                                    selfhost_type_reduce_add_applied_named_from_params next_state constructor.nominal_id item.span applied_params next_idx
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err _e:
+                            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory item.span
+        SelfhostTypeBoundName::TypeParameter parameter:
+            let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Parameter selfhost_resolved_type_parameter_ref_new parameter.parameter_id item.span
+            selfhost_type_reduce_push_node_with_state state node item.span add idx 1
+        SelfhostTypeBoundName::Conflict:
+            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict item.span
+        SelfhostTypeBoundName::Unresolved:
+            let node %SelfhostResolvedTypeNode SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef item.span
+            selfhost_type_reduce_push_node_with_state state node item.span add idx 1
+        SelfhostTypeBoundName::NotNamed:
+            selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::InternalInvariant item.span
 
-//: selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters: constructor と parameter を使って 1 型式を resolved tree に[構築/こうちく]する
+//: selfhost_type_prefix_list_build_at_bound: bound plan の index から resolved subtree を 1 つ[構築/こうちく]する
 //:
 //: [目的/もくてき]:
-//: - validation と同じ規則で prefix list を読み、node table / function argument table / type argument table を更新します。
+//: - validate と同じ bound plan を使い、source lookup なしで resolved type tree node を構築します。
 //:
 //: [契約/けいやく]:
-//: - 成功時は build step が tree owner と root node id と次 index を所有します。
-//: - 失敗時は入力 build state をこの関数または下位関数が解放し、caller は同じ owner を再利用できません。
-pub fn selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\type_parameters\plan\idx\state:
-    match selfhost_type_reduce_plan_get plan idx:
+//: - `state` owner は成功時に `SelfhostTypeReduceStep` へ移動します。
+//: - 失敗時は `selfhost_type_reduce_fail` 系 helper が state owner を閉じます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築する subtree の node 数に対して `O(n)` です。
+pub fn selfhost_type_prefix_list_build_at_bound %impure fn &SelfhostTypeBoundPlan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\idx\state:
+    match selfhost_type_bound_plan_get plan idx:
         Option::Some item:
             let span %SelfhostSourceSpan item.span
             let dispatch_kind %SelfhostTypeReduceDispatchKind item.dispatch_kind
             if:
                 item.is_function
                 then:
-                    selfhost_type_prefix_list_build_function_with_constructors_and_type_parameters source constructors type_parameters plan span idx state
+                    selfhost_type_prefix_list_build_function_bound plan span idx state
                 else if:
                     item.is_primitive
                     then:
@@ -525,19 +367,26 @@ pub fn selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters 
                     else if:
                         item.is_named
                         then:
-                            selfhost_type_prefix_list_build_named_with_constructors_and_type_parameters source constructors type_parameters plan item idx state
+                            selfhost_type_prefix_list_build_bound_named plan item idx state
                         else:
                             selfhost_type_reduce_fail state (selfhost_type_reduce_dispatch_kind_error dispatch_kind) span
         Option::None:
             selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
 
-fn selfhost_type_prefix_list_build_function_nonvoid_arg_with_constructors_and_type_parameters %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\type_parameters\plan\arg_idx\fn_span\state:
-    match selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters source constructors type_parameters plan arg_idx state:
+//: selfhost_type_prefix_list_build_function_nonvoid_arg_bound: non-void 引数 function type node を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - `fn A B` の argument subtree と result subtree を構築し、multi-argument flattening 規則に従う function node を追加します。
+//:
+//: [契約/けいやく]:
+//: - validate 済み input を前提にしますが、build 中の allocation 失敗や defensive index error は typed error として返します。
+fn selfhost_type_prefix_list_build_function_nonvoid_arg_bound %impure fn &SelfhostTypeBoundPlan impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\arg_idx\fn_span\state:
+    match selfhost_type_prefix_list_build_at_bound plan arg_idx state:
         Result::Ok param_step:
             let param_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &param_step
             let result_idx %i32 selfhost_type_reduce_step_next_index &param_step
             let param_state %SelfhostTypeReduceBuildState selfhost_type_reduce_step_into_build_state param_step
-            match selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters source constructors type_parameters plan result_idx param_state:
+            match selfhost_type_prefix_list_build_at_bound plan result_idx param_state:
                 Result::Ok result_step:
                     let result_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &result_step
                     let next_index %i32 selfhost_type_reduce_step_next_index &result_step
@@ -548,15 +397,23 @@ fn selfhost_type_prefix_list_build_function_nonvoid_arg_with_constructors_and_ty
         Result::Err e:
             Result::Err e
 
-fn selfhost_type_prefix_list_build_function_with_constructors_and_type_parameters %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypeReducePlan impure fn SelfhostSourceSpan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \source\constructors\type_parameters\plan\fn_span\idx\state:
+//: selfhost_type_prefix_list_build_function_bound: bound plan から function type node を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - `fn void T` は empty-param function node として、`fn A B` は nonempty-param function node として構築します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `void` marker は値や型ではなく、ここでは空引数境界としてだけ消費します。
+//: - `void` でない argument item は通常の type expression subtree として構築します。
+fn selfhost_type_prefix_list_build_function_bound %impure fn &SelfhostTypeBoundPlan impure fn SelfhostSourceSpan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\fn_span\idx\state:
     let arg_idx %i32 add idx 1
-    match selfhost_type_reduce_plan_get plan arg_idx:
+    match selfhost_type_bound_plan_get plan arg_idx:
         Option::Some arg_item:
             if:
                 arg_item.is_void
                 then:
                     let result_idx %i32 add idx 2
-                    match selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters source constructors type_parameters plan result_idx state:
+                    match selfhost_type_prefix_list_build_at_bound plan result_idx state:
                         Result::Ok result_step:
                             let result_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &result_step
                             let next_index %i32 selfhost_type_reduce_step_next_index &result_step
@@ -565,7 +422,7 @@ fn selfhost_type_prefix_list_build_function_with_constructors_and_type_parameter
                         Result::Err e:
                             Result::Err e
                 else:
-                    selfhost_type_prefix_list_build_function_nonvoid_arg_with_constructors_and_type_parameters source constructors type_parameters plan arg_idx fn_span state
+                    selfhost_type_prefix_list_build_function_nonvoid_arg_bound plan arg_idx fn_span state
         Option::None:
             selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
 
@@ -641,35 +498,41 @@ pub fn selfhost_type_prefix_list_reduce_with_constructors %impure fn str impure 
         else:
             match selfhost_type_reduce_plan_from_prefix_list &source list:
                 Result::Ok plan:
-                    match selfhost_type_prefix_list_validate_at_with_constructors &source constructors &plan 0:
-                        Result::Ok validated_next:
-                            if:
-                                ne validated_next n
-                                then:
-                                    match selfhost_type_reduce_plan_get &plan validated_next:
-                                        Option::Some trailing:
-                                            let span %SelfhostSourceSpan trailing.span
-                                            selfhost_type_reduce_plan_free plan
-                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems span
-                                        Option::None:
-                                            selfhost_type_reduce_plan_free plan
-                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems selfhost_type_reduce_empty_span
-                                else:
-                                    match selfhost_resolved_type_tree_new:
-                                        Result::Ok tree:
-                                            let state %SelfhostTypeReduceBuildState selfhost_type_reduce_build_state_from_tree tree
-                                            match selfhost_type_prefix_list_build_at_with_constructors &source constructors &plan 0 state:
-                                                Result::Ok step:
-                                                    let root_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &step
-                                                    let result_tree %SelfhostResolvedTypeTree selfhost_type_reduce_step_into_tree step
-                                                    selfhost_type_reduce_plan_free plan
-                                                    Result::Ok selfhost_resolved_type_tree_root_new result_tree root_id
-                                                Result::Err e:
-                                                    selfhost_type_reduce_plan_free plan
-                                                    Result::Err e
-                                        Result::Err _e:
-                                            selfhost_type_reduce_plan_free plan
-                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+                    match selfhost_type_bound_plan_from_reduce_plan_with_constructors &source constructors &plan:
+                        Result::Ok bound_plan:
+                            selfhost_type_reduce_plan_free plan
+                            match selfhost_type_prefix_list_validate_at_bound &bound_plan 0:
+                                Result::Ok validated_next:
+                                    if:
+                                        ne validated_next n
+                                        then:
+                                            match selfhost_type_bound_plan_get &bound_plan validated_next:
+                                                Option::Some trailing:
+                                                    let span %SelfhostSourceSpan trailing.span
+                                                    selfhost_type_bound_plan_free bound_plan
+                                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems span
+                                                Option::None:
+                                                    selfhost_type_bound_plan_free bound_plan
+                                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems selfhost_type_reduce_empty_span
+                                        else:
+                                            match selfhost_resolved_type_tree_new:
+                                                Result::Ok tree:
+                                                    let state %SelfhostTypeReduceBuildState selfhost_type_reduce_build_state_from_tree tree
+                                                    match selfhost_type_prefix_list_build_at_bound &bound_plan 0 state:
+                                                        Result::Ok step:
+                                                            let root_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &step
+                                                            let result_tree %SelfhostResolvedTypeTree selfhost_type_reduce_step_into_tree step
+                                                            selfhost_type_bound_plan_free bound_plan
+                                                            Result::Ok selfhost_resolved_type_tree_root_new result_tree root_id
+                                                        Result::Err e:
+                                                            selfhost_type_bound_plan_free bound_plan
+                                                            Result::Err e
+                                                Result::Err _e:
+                                                    selfhost_type_bound_plan_free bound_plan
+                                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+                                Result::Err e:
+                                    selfhost_type_bound_plan_free bound_plan
+                                    Result::Err e
                         Result::Err e:
                             selfhost_type_reduce_plan_free plan
                             Result::Err e
@@ -702,35 +565,41 @@ pub fn selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters %i
         else:
             match selfhost_type_reduce_plan_from_prefix_list &source list:
                 Result::Ok plan:
-                    match selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters &source constructors type_parameters &plan 0:
-                        Result::Ok validated_next:
-                            if:
-                                ne validated_next n
-                                then:
-                                    match selfhost_type_reduce_plan_get &plan validated_next:
-                                        Option::Some trailing:
-                                            let span %SelfhostSourceSpan trailing.span
-                                            selfhost_type_reduce_plan_free plan
-                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems span
-                                        Option::None:
-                                            selfhost_type_reduce_plan_free plan
-                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems selfhost_type_reduce_empty_span
-                                else:
-                                    match selfhost_resolved_type_tree_new:
-                                        Result::Ok tree:
-                                            let state %SelfhostTypeReduceBuildState selfhost_type_reduce_build_state_from_tree tree
-                                            match selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters &source constructors type_parameters &plan 0 state:
-                                                Result::Ok step:
-                                                    let root_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &step
-                                                    let result_tree %SelfhostResolvedTypeTree selfhost_type_reduce_step_into_tree step
-                                                    selfhost_type_reduce_plan_free plan
-                                                    Result::Ok selfhost_resolved_type_tree_root_new result_tree root_id
-                                                Result::Err e:
-                                                    selfhost_type_reduce_plan_free plan
-                                                    Result::Err e
-                                        Result::Err _e:
-                                            selfhost_type_reduce_plan_free plan
-                                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+                    match selfhost_type_bound_plan_from_reduce_plan_with_constructors_and_type_parameters &source constructors type_parameters &plan:
+                        Result::Ok bound_plan:
+                            selfhost_type_reduce_plan_free plan
+                            match selfhost_type_prefix_list_validate_at_bound &bound_plan 0:
+                                Result::Ok validated_next:
+                                    if:
+                                        ne validated_next n
+                                        then:
+                                            match selfhost_type_bound_plan_get &bound_plan validated_next:
+                                                Option::Some trailing:
+                                                    let span %SelfhostSourceSpan trailing.span
+                                                    selfhost_type_bound_plan_free bound_plan
+                                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems span
+                                                Option::None:
+                                                    selfhost_type_bound_plan_free bound_plan
+                                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::TrailingItems selfhost_type_reduce_empty_span
+                                        else:
+                                            match selfhost_resolved_type_tree_new:
+                                                Result::Ok tree:
+                                                    let state %SelfhostTypeReduceBuildState selfhost_type_reduce_build_state_from_tree tree
+                                                    match selfhost_type_prefix_list_build_at_bound &bound_plan 0 state:
+                                                        Result::Ok step:
+                                                            let root_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &step
+                                                            let result_tree %SelfhostResolvedTypeTree selfhost_type_reduce_step_into_tree step
+                                                            selfhost_type_bound_plan_free bound_plan
+                                                            Result::Ok selfhost_resolved_type_tree_root_new result_tree root_id
+                                                        Result::Err e:
+                                                            selfhost_type_bound_plan_free bound_plan
+                                                            Result::Err e
+                                                Result::Err _e:
+                                                    selfhost_type_bound_plan_free bound_plan
+                                                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+                                Result::Err e:
+                                    selfhost_type_bound_plan_free bound_plan
+                                    Result::Err e
                         Result::Err e:
                             selfhost_type_reduce_plan_free plan
                             Result::Err e

@@ -17,11 +17,18 @@
 //: [目的/もくてき]:
 //: - `SelfhostResolvedTypeTree` は named type と applied named type を保持できます。
 //: - constructor table がない投影経路では user-defined type constructor を primitive に丸めず、typed error として fail-closed にします。
+//:
+//: [場合分/ばあいわ]け:
+//: - `UnknownNamedType`: constructor table に存在しない named identity です。
+//: - `GenericConstructorNeedsArguments`: 型引数を要求する constructor が bare named type として使われています。
+//: - `GenericConstructorArgumentArityMismatch`: public resolved tree constructor などから作られた applied node の型引数数が constructor kind と一致しません。
+//: - `InternalInvariant`: resolved tree の range 不整合など、通常の source reduction を通る限り起きない内部不整合です。
 pub enum SelfhostTypeProjectErrorKind:
     MissingResolvedNode
     UnsupportedNamedType
     UnknownNamedType
     GenericConstructorNeedsArguments
+    GenericConstructorArgumentArityMismatch
     OutOfMemory
     InternalInvariant
 
@@ -79,6 +86,12 @@ pub fn selfhost_type_project_error_kind_eq %fn SelfhostTypeProjectErrorKind fn S
         SelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments:
             match b:
                 SelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments:
+                    true
+                _:
+                    false
+        SelfhostTypeProjectErrorKind::GenericConstructorArgumentArityMismatch:
+            match b:
+                SelfhostTypeProjectErrorKind::GenericConstructorArgumentArityMismatch:
                     true
                 _:
                     false
@@ -259,25 +272,51 @@ fn selfhost_type_project_applied_args_with_constructors %impure fn SelfhostTypeA
             selfhost_type_arena_free arena
             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) span
 
+//: selfhost_type_project_applied_constructor_arg_count_is_valid: applied node が constructor kind と同じ型引数数を持つか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - reducer が生成した resolved tree は本来 constructor kind と整合しています。
+//: - ただし resolved tree constructor は public API でも作れるため、TypeArena へ投影する境界でも同じ不変条件を再検査します。
+//:
+//: [契約/けいやく]:
+//: - `TypeConstructor(n)` かつ `applied_arg_count == n` のときだけ true を返します。
+//: - `Type` constructor を `Applied` node として投影することは、引数数が 0 でも受理しません。bare type は `Named` node を使う必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+fn selfhost_type_project_applied_constructor_arg_count_is_valid %fn SelfhostTypeConstructor fn i32 bool \constructor\applied_arg_count:
+    let expected_arg_count %i32 selfhost_type_constructor_kind_arg_count constructor.kind
+    and gt expected_arg_count 0 eq expected_arg_count applied_arg_count
+
 fn selfhost_type_project_applied_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedAppliedType Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\tree\node_id\applied:
     let arg_count %i32 selfhost_resolved_applied_type_arg_range_count applied.args
-    match selfhost_type_project_applied_args_with_constructors arena source constructors tree node_id arg_count applied.span:
-        Result::Ok arg_build:
-            let arg_arena %SelfhostTypeArena field::get arg_build "arena"
-            let params %Vec SelfhostTypeId field::get arg_build "params"
-            match selfhost_type_arena_add_applied_named arg_arena applied.nominal_id params:
-                Result::Ok allocated:
-                    Result::Ok allocated
-                Result::Err e:
-                    Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) applied.span
-        Result::Err e:
-            Result::Err e
+    match selfhost_type_constructor_table_get constructors applied.nominal_id:
+        Option::Some constructor:
+            if:
+                selfhost_type_project_applied_constructor_arg_count_is_valid constructor arg_count
+                then:
+                    match selfhost_type_project_applied_args_with_constructors arena source constructors tree node_id arg_count applied.span:
+                        Result::Ok arg_build:
+                            let arg_arena %SelfhostTypeArena field::get arg_build "arena"
+                            let params %Vec SelfhostTypeId field::get arg_build "params"
+                            match selfhost_type_arena_add_applied_named arg_arena applied.nominal_id params:
+                                Result::Ok allocated:
+                                    Result::Ok allocated
+                                Result::Err e:
+                                    Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) applied.span
+                        Result::Err e:
+                            Result::Err e
+                else:
+                    selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::GenericConstructorArgumentArityMismatch applied.span
+        Option::None:
+            selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnknownNamedType applied.span
 
 fn selfhost_type_project_named_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn SelfhostResolvedNamedTypeRef Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\named:
     match selfhost_type_constructor_table_find_span constructors source named.span:
         Option::Some constructor:
+            let arg_count %i32 selfhost_type_constructor_kind_arg_count constructor.kind
             if:
-                eq constructor.arity 0
+                eq arg_count 0
                 then:
                     match selfhost_type_arena_add_named arena constructor.nominal_id:
                         Result::Ok allocated:

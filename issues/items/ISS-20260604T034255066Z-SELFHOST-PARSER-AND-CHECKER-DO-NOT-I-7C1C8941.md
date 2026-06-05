@@ -45,11 +45,15 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `resolve/type_resolver` の flat type prefix item list を TypeId 割当前の `resolved` tree へ縮約する reducer を追加した。`fn i32 fn i32 i32` は nonempty function type として flatten し、`fn void fn unit unit` は 0 引数 function が function を返す nested type として保持する。plan / validation / build は別 module に分割し、build 層が source string を再読しない境界にした。
 - 2026-06-05: `resolved` tree root を `SelfhostTypeArena` へ投影する `project.nepl` を追加した。primitive / function type は arena-local `SelfhostTypeId` を得られるようになり、named type は type constructor table 未接続のため `UnsupportedNamedType` として fail-closed にした。
 - 2026-06-05: `core/ty/ty` に `SelfhostNamedTypeId` と `SelfhostTypeRecord::Named` を追加し、`resolve/type_resolver/constructor.nepl` の constructor table から arity 0 named type を `SelfhostTypeArena` へ投影できるようにした。constructor table なし API は引き続き named type を拒否し、unknown named type / bare generic constructor は typed error で fail-closed にした。
-- 2026-06-05: constructor-aware reducer が `SelfhostTypeConstructorTable.arity` に従って generic type argument list を再帰消費し、`SelfhostResolvedTypeNode::Applied` へ縮約するようにした。constructor-aware projection は `SelfhostTypeRecord::Applied` と arena type argument table へ投影し、constructor table なし projection は Applied node を `UnsupportedNamedType` として fail-closed にする。
+- 2026-06-05: constructor-aware reducer が constructor table header に従って generic type argument list を再帰消費し、`SelfhostResolvedTypeNode::Applied` へ縮約するようにした。constructor-aware projection は `SelfhostTypeRecord::Applied` と arena type argument table へ投影し、constructor table なし projection は Applied node を `UnsupportedNamedType` として fail-closed にする。
 - 2026-06-05: `core/ty/ty/key.nepl` を追加し、arena-local `SelfhostTypeId` を payload に入れない `SelfhostCanonicalTypeKeyArena` へ type record tree を投影できるようにした。primitive / named / applied / function key node と key argument table を持ち、projection は型 record / argument edge 数に対して O(n) である。同じ key arena 内の structural equality も追加した。
 - 2026-06-05: `resolve/type_resolver/typeparam` を追加し、generic binder から作る `SelfhostTypeParameterEnv` と `SelfhostTypeParameterId` を named constructor identity から分離した。`selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters` は `T` / `E` を `SelfhostResolvedTypeNode::Parameter` へ縮約し、constructor と parameter が同名の場合は `TypeParameterConstructorNameConflict` として fail-closed にする。
 - 2026-06-05: `core/ty/ty` に `SelfhostTypeParameterBinding`、`SelfhostTypeRecord::Parameter`、`SelfhostCanonicalTypeKeyNode::Parameter` を追加した。type resolver projection は `SelfhostTypeParameterId` を現在 binder の `binder_depth = 0` と `parameter_index` へ正規化して TypeArena に保存し、canonical key equality は source spelling / span / arena-local `TypeId` ではなく binder identity で比較する。
-- 残件: prefix expression AST、user-defined generic type constructor kind validation、expected type / overload / generic / no partial application を含む call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: user-defined type constructor header を `SelfhostTypeConstructorKind` へ正規化し、負 arity、予約名、同一 table 内の重複名を `SelfhostTypeConstructorTableErrorKind` として登録時に拒否するようにした。constructor / type parameter lookup は `SelfhostTypeBoundPlan` に束縛し、validate と build が同じ lookup 結果を共有するため、reducer は raw `arity` や source span lookup を通常経路で繰り返さない。旧 constructor-aware validate/build helper は削除し、公開 API から bound plan を迂回できないようにした。
+- 2026-06-05: constructor-aware projection でも `Applied` node の `SelfhostNamedTypeId` を constructor table で再検査し、constructor kind の型引数数と applied argument range が一致しない resolved tree を `GenericConstructorArgumentArityMismatch` として拒否するようにした。reducer 由来でない public resolved-tree constructor から不正な `SelfhostTypeRecord::Applied` が TypeArena に入る経路を閉じた。
+- 2026-06-05: `syntax/ast/prefix_expr.nepl` を追加し、parser / focused test 由来の `SelfhostSyntaxRange` を pre-HIR の flat `SelfhostExprPrefixList` へ変換する入力境界を作った。`%` type annotation marker、lambda marker、`@function` marker、literal、identifier、control form marker を token index / span 付き enum payload として保持し、call tree / HIR / TypeId / DefId allocation は行わない。`void` は expression start として拒否し、legacy grouping token 混入は typed build error にする。
+- 2026-06-05: `module_parser/body_range.nepl` を追加し、declaration body block の envelope と first expression segment を `SelfhostSyntaxRange` として保持するようにした。parser は body を HIR / call tree へ落とさず、単純な function body では `declaration_body.first_expression` から `SelfhostExprPrefixList` を構築できることを focused doctest で確認した。複数式 body / nested block は envelope を後段 segmenter へ渡す設計にした。
+- 残件: declaration body envelope からの expression segmenter、expected type / overload / generic / no partial application を含む call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -110,6 +114,36 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_arena.n.md -o tmp\selfhost-type-arena-applied-tests.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_resolver.n.md -o tmp\selfhost-type-resolver-applied-shard-1-2.json --no-tree --shard 1/2 -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_resolver.n.md -o tmp\selfhost-type-resolver-applied-shard-2-2.json --no-tree --shard 2/2 -j 1 --assert-io --dist web\dist`
+
+2026-06-05 type constructor kind validation checkpoint:
+
+- `node nodesrc/test_selfhost_type_resolver_generic_application_contract.js`
+- `node nodesrc/test_selfhost_type_resolver_type_parameters.js`
+- `node nodesrc/test_selfhost_type_resolver_split_contract.js`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_constructor_validation.n.md -o tmp\selfhost-type-constructor-validation-projection-final2.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_constructor_type_parameters.n.md -o tmp\selfhost-type-constructor-type-parameters-final6.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_type_constructor_projection.n.md -o tmp\selfhost-type-constructor-projection-final.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i stdlib\neplg2\core\resolve\type_resolver.nepl -o tmp\selfhost-type-resolver-facade-kind-bound.json --no-tree -j 1 --assert-io --dist web\dist`
+
+2026-06-05 prefix expression input checkpoint:
+
+- `node nodesrc/test_selfhost_expr_prefix_contract.js`
+- `node nodesrc/test_selfhost_parser_current_syntax_boundary.js`
+- `node nodesrc/test_selfhost_type_resolver_prefix_input.js`
+- `node nodesrc/test_selfhost_module_parser_split_contract.js`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_expr_prefix.n.md -o tmp\selfhost-expr-prefix-tests.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i stdlib\neplg2\core\syntax\ast\prefix_expr.nepl -o tmp\selfhost-expr-prefix-module-doctest.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i stdlib\neplg2\core\syntax -o tmp\selfhost-syntax-focused.json --no-tree -j 2 --assert-io --dist web\dist`
+
+2026-06-05 function body range checkpoint:
+
+- `node nodesrc/test_selfhost_function_body_prefix_range_contract.js`
+- `node nodesrc/test_selfhost_module_parser_split_contract.js`
+- `node nodesrc/test_selfhost_parser_current_syntax_boundary.js`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_expr_prefix.n.md -o tmp\selfhost-expr-prefix-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_parser.n.md -o tmp\selfhost-parser-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_checker.n.md -o tmp\selfhost-checker-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i stdlib\neplg2\core\syntax\parser\module_parser.nepl -o tmp\selfhost-module-parser-facade-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
 
 2026-06-05 canonical type key checkpoint:
 
