@@ -1,3 +1,16 @@
+# 2026-06-05 Agent2 Life GUI board model checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の「静的検査を活かす」「Option / Result / enum / match を使う」「platform / host effect を表層へ閉じる」方針に合わせ、Life GUI example の hardcoded pattern renderer を実 board model へ置き換えた。
+- `ISS-20260604T034206360Z-LIFE-GUI-EXAMPLE-RENDERS-PRESET-PATT-A9CAC1AF` を `fixed` / `resolved: true` に更新した。
+- `examples/gui_life.nepl` は `life_present_glider_phase*` / `life_present_patterns` を削除し、`BitSet` owner を board storage として使うようにした。
+- 現行 resource checker は owner-backed aggregate を user source の struct へ埋め込むことを禁止するため、`LifeModel` は `generation` / `animate` / `cell_size` だけを持つ Copy な scalar model にした。board owner は event loop が裸の `BitSet` として保持し、loop exit 後に 1 回だけ free する。
+- `LifeCellState`、`life_cell_next_state`、`life_board_neighbor_count`、`life_board_next_generation` を追加し、Next / Animate が実際の Conway rule と stored board から次世代を作るようにした。
+- animation は timeout `Option::None` tick ではなく、`gui_web_stdout_animation_timer` と `gui_web_event_timer` による host timer event で進める。
+- subagent review で、source policy が owner-backed aggregate への回帰を十分に検出できていないこと、実 next-generation の回帰テストが不足していることを blocker として受けた。`LifeModel` scalar policy の自己テストと `--test-blinker-next` doctest を追加して反映した。
+- `nodesrc/test_web_gui_life_model_contract.js` を追加し、Life example が real NEPL `BitSet` board、typed cell state、neighbour count、timer event を使い、owner-backed aggregate board struct や hardcoded pattern renderer に戻らないことを source policy で固定した。
+- 実装後 subagent review は blocker なしで APPROVE。`nodesrc/test_web_gui_life_model_contract.js` は新規 file なので commit に含めることを確認した。
+- 検証済み: `node nodesrc/test_web_gui_life_model_contract.js`、`node nodesrc/run_doctest.js -i examples/gui_life.nepl -n 1`、`node nodesrc/tests.js -i examples/gui_life.nepl --no-tree -o tmp/agent2-life-gui-board-model-after-review.json -j 1 --dist web/dist --assert-io`、`node nodesrc/issues.js index --dir issues && node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-life-gui-board-playground-editor-after-review.json`。
+
 # 2026-06-05 Agent selfhost body segmenter checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser が body を HIR / call tree へ落とさず、typed token range evidence だけを後段へ渡す境界を維持した。

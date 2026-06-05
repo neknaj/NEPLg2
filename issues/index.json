@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T02:08:16.456Z",
+  "generated_at": "2026-06-05T03:00:06.300Z",
   "counts": {
     "total": 1344,
-    "open": 45,
-    "resolved": 1299,
+    "open": 44,
+    "resolved": 1300,
     "by_area": {
       "stdlib": {
         "total": 351,
@@ -18,8 +18,8 @@
       },
       "examples": {
         "total": 22,
-        "open": 3,
-        "resolved": 19
+        "open": 2,
+        "resolved": 20
       },
       "selfhost": {
         "total": 118,
@@ -533,21 +533,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034206002Z-MANDELBROT-GUI-EXAMPLE-CANNOT-MEET-H-86DB03F0.md"
-    },
-    {
-      "id": "ISS-20260604T034206360Z-LIFE-GUI-EXAMPLE-RENDERS-PRESET-PATT-A9CAC1AF",
-      "title": "Life GUI example renders preset patterns instead of a pure Conway board model",
-      "area": "examples",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "examples/gui_life.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034206360Z-LIFE-GUI-EXAMPLE-RENDERS-PRESET-PATT-A9CAC1AF.md"
     },
     {
       "id": "ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941",
@@ -10733,6 +10718,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T100459865Z-EXAMPLES-RELY-ON-QUALIFIED-ALLOC-STR-B6D68CEA.md"
+    },
+    {
+      "id": "ISS-20260604T034206360Z-LIFE-GUI-EXAMPLE-RENDERS-PRESET-PATT-A9CAC1AF",
+      "title": "Life GUI example renders preset patterns instead of a pure Conway board model",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "examples/gui_life.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034206360Z-LIFE-GUI-EXAMPLE-RENDERS-PRESET-PATT-A9CAC1AF.md"
     },
     {
       "id": "ISS-20260604T034206714Z-PAINT-GUI-EXAMPLE-USES-FIXED-STROKE--B21EFEC7",

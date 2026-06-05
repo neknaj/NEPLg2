@@ -15,7 +15,6 @@
 - Web / native の formal presentation ABI に tile / bitmap / row / RLE payload を追加し、Mandelbrot などの true HD raster を stdout の大量 `fill_rect` stream ではなく bounded command transport で扱う
 - Web Playground の `GuiWebEvent` action / pointer down-move-up-cancel / keyboard / single-scalar text input / window resized-close / timer checkpoint を、IME composition / multi-scalar text、window focus-unfocus policy、lifecycle variant、session id formalization へ拡張する
 - Mandelbrot progressive rendering を NEPL app の update loop で処理する
-- Life example を bounded pattern renderer から arbitrary-size board storage と checked next-generation update へ拡張する
 - Paint example を直近 stroke slot の軽量 model から persistent canvas / stroke storage へ拡張する
 - stdout fallback の timer request を正式 Wasm host import ABI と `std/gui` scheduler / timeslice contract へ移す
 - `nepl-gui-native` の framebuffer renderer を、`std/gui::GuiHost` と `platforms/gui/native` の正式 `present` 実装へ寄せる
