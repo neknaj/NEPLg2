@@ -18,6 +18,17 @@
 pub struct SelfhostTypePrefixList:
     items %Vec SelfhostTypePrefixItem
 
+//: selfhost_type_prefix_list_new: prefix item buffer owner を list に[包/つつ]む
+//:
+//: [目的/もくてき]:
+//: - parser 由来でない focused test や今後の parser boundary が、owner-backed aggregate constructor を直接呼ばずに resolver input を作れるようにします。
+//:
+//: [契約/けいやく]:
+//: - `items` owner は返却される `SelfhostTypePrefixList` へ移動します。caller は同じ `items` owner を直接解放しません。
+//: - item span は source string に対する byte range でなければなりません。constructor / type parameter lookup はこの span で source を切り出します。
+pub fn selfhost_type_prefix_list_new %impure fn Vec SelfhostTypePrefixItem SelfhostTypePrefixList \items:
+    SelfhostTypePrefixList items
+
 //: selfhost_type_prefix_item_kind_from_token: token kind を type prefix item kind へ[写/うつ]す
 //:
 //: [目的/もくてき]:
@@ -133,7 +144,7 @@ pub fn selfhost_type_prefix_list_from_syntax_range %impure fn &Vec SelfhostToken
                                         Result::Ok items:
                                             match selfhost_type_prefix_list_from_range_loop tokens add range.first_token 1 add range.first_token range.token_count items:
                                                 Result::Ok built_items:
-                                                    Result::Ok SelfhostTypePrefixList built_items
+                                                    Result::Ok selfhost_type_prefix_list_new built_items
                                                 Result::Err e:
                                                     Result::Err e
                                         Result::Err _e:

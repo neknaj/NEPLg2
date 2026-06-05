@@ -596,7 +596,7 @@ fn main %impure fn void i32 \void:
         Result::Ok root:
             match selfhost_type_constructor_table_new:
                 Result::Ok constructors0:
-                    match selfhost_type_constructor_table_add constructors0 "Foo" 0 source_span_empty_unchecked 0 0:
+                    match selfhost_type_constructor_table_add_checked constructors0 "Foo" 0 source_span_empty_unchecked 0 0:
                         Result::Ok added:
                             let foo_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &added
                             let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
@@ -762,7 +762,7 @@ fn main %impure fn void i32 \void:
     let source %str "fn use_box %Box i32 \\x:\n    x\n"
     match selfhost_type_constructor_table_new:
         Result::Ok constructors0:
-            match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+            match selfhost_type_constructor_table_add_checked constructors0 "Box" 1 source_span_empty_unchecked 0 0:
                 Result::Ok added:
                     let box_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &added
                     let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
@@ -865,7 +865,7 @@ fn main %impure fn void i32 \void:
     let source %str "fn use_box %Box \\x:\n    x\n"
     match selfhost_type_constructor_table_new:
         Result::Ok constructors0:
-            match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+            match selfhost_type_constructor_table_add_checked constructors0 "Box" 1 source_span_empty_unchecked 0 0:
                 Result::Ok added:
                     let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
                     match reduce_header_error_kind_with_constructors source &constructors:
@@ -1032,7 +1032,7 @@ fn main %impure fn void i32 \void:
         Result::Ok root:
             match selfhost_type_constructor_table_new:
                 Result::Ok constructors0:
-                    match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+                    match selfhost_type_constructor_table_add_checked constructors0 "Box" 1 source_span_empty_unchecked 0 0:
                         Result::Ok added:
                             let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
                             match selfhost_type_arena_new:

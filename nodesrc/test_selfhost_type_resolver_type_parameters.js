@@ -58,6 +58,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub enum SelfhostTypeBoundName:[\s\S]*TypeParameter %SelfhostTypeParameter[\s\S]*Conflict/,
+    "type parameter lookup and constructor conflicts must be fixed in the bound plan before validate/build",
+);
+assert.match(
+    source,
     /SelfhostResolvedTypeNode::Parameter parameter:[\s\S]*selfhost_type_project_parameter arena parameter/,
     "projection must lower resolved type parameters into a dedicated TypeArena parameter record",
 );
@@ -72,40 +77,38 @@ assert.match(
     "resolver-local type parameter ids must be normalized into binder-depth-zero parameter bindings at projection",
 );
 
-const validateNamed = topLevelBlock(
+const boundNameWithTypeParameters = topLevelBlock(
     source,
     "fn",
-    "selfhost_type_prefix_list_validate_named_with_constructors_and_type_parameters",
+    "selfhost_type_bound_name_with_constructors_and_type_parameters",
 );
 assert.match(
-    validateNamed,
-    /selfhost_type_parameter_env_find_span[\s\S]*selfhost_type_constructor_table_find_span[\s\S]*TypeParameterConstructorNameConflict/,
-    "validation must reject names that are both type parameters and constructors",
-);
-assert.match(
-    validateNamed,
-    /Option::Some _parameter:[\s\S]*Option::None:[\s\S]*Result::Ok add idx 1/,
-    "validation must consume a type parameter as exactly one type expression",
+    boundNameWithTypeParameters,
+    /selfhost_type_parameter_env_find_span[\s\S]*selfhost_type_constructor_table_find_span[\s\S]*SelfhostTypeBoundName::Conflict/,
+    "binding must detect names that are both type parameters and constructors before validation/build",
 );
 
-const buildNamed = topLevelBlock(
-    source,
-    "fn",
-    "selfhost_type_prefix_list_build_named_with_constructors_and_type_parameters",
+const validateNamed = topLevelBlock(source, "fn", "selfhost_type_prefix_list_validate_bound_named");
+assert.match(
+    validateNamed,
+    /SelfhostTypeBoundName::TypeParameter _parameter:[\s\S]*Result::Ok add idx 1/,
+    "validation must consume a bound type parameter as exactly one type expression",
 );
+
+const buildNamed = topLevelBlock(source, "fn", "selfhost_type_prefix_list_build_bound_named");
 assert.match(
     buildNamed,
-    /Option::Some parameter:[\s\S]*SelfhostResolvedTypeNode::Parameter[\s\S]*parameter\.parameter_id/,
+    /SelfhostTypeBoundName::TypeParameter parameter:[\s\S]*SelfhostResolvedTypeNode::Parameter[\s\S]*parameter\.parameter_id/,
     "build must lower a matching type parameter into a Parameter node",
 );
 assert.match(
     buildNamed,
-    /Option::Some _constructor:[\s\S]*TypeParameterConstructorNameConflict/,
+    /SelfhostTypeBoundName::Conflict:[\s\S]*TypeParameterConstructorNameConflict/,
     "build must reject constructor/type-parameter name conflicts instead of silently choosing one",
 );
 assert.match(
     buildNamed,
-    /Option::None:[\s\S]*SelfhostResolvedTypeNode::Named/,
+    /SelfhostTypeBoundName::Unresolved:[\s\S]*SelfhostResolvedTypeNode::Named/,
     "names absent from both tables must remain unresolved named nodes for downstream diagnostics",
 );
 
@@ -116,13 +119,13 @@ const reduceWithTypeParameters = topLevelBlock(
 );
 assert.match(
     reduceWithTypeParameters,
-    /selfhost_type_prefix_list_validate_at_with_constructors_and_type_parameters/,
-    "type-parameter-aware reducer must validate with the same environment it uses to build",
+    /selfhost_type_bound_plan_from_reduce_plan_with_constructors_and_type_parameters[\s\S]*selfhost_type_prefix_list_validate_at_bound/,
+    "type-parameter-aware reducer must bind constructor and parameter lookup before validation",
 );
 assert.match(
     reduceWithTypeParameters,
-    /selfhost_type_prefix_list_build_at_with_constructors_and_type_parameters/,
-    "type-parameter-aware reducer must build with the type parameter environment",
+    /selfhost_type_prefix_list_build_at_bound/,
+    "type-parameter-aware reducer must build with the same bound plan used by validation",
 );
 
 console.log("selfhost type resolver type parameter contract passed");

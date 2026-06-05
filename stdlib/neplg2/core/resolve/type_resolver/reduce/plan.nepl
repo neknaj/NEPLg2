@@ -9,8 +9,10 @@
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/ty/ty" as *
+#import "../constructor" as *
 #import "../input" as *
 #import "../model" as *
+#import "../typeparam" as *
 #import "./model" as *
 
 fn selfhost_type_reduce_dispatch_kind %fn SelfhostTypePrefixItemKind SelfhostTypeReduceDispatchKind \kind:
@@ -115,6 +117,277 @@ pub fn selfhost_type_reduce_plan_len %fn &SelfhostTypeReducePlan i32 \plan:
 pub fn selfhost_type_reduce_plan_get %fn &SelfhostTypeReducePlan fn i32 Option SelfhostTypeReducePlanItem \plan\idx:
     let items %&Vec SelfhostTypeReducePlanItem field::get_ref plan "items"
     v::get items idx
+
+//: SelfhostTypeBoundName: named-looking type item の束縛結果
+//:
+//: [目的/もくてき]:
+//: - source span から constructor table / type parameter environment を引く処理を、validate/build の前に 1 回だけ行います。
+//: - reducer 本体は source string を再び slice せず、この enum payload を見て境界を決めます。
+//:
+//: [場合分/ばあいわ]け:
+//: - `NotNamed`: function marker、void marker、primitive など、named lookup の対象ではない item です。
+//: - `Constructor(constructor)`: named type constructor table に束縛されました。
+//: - `TypeParameter(parameter)`: generic binder の type parameter に束縛されました。
+//: - `Conflict`: 同じ spelling が constructor と parameter の両方にあり、片方を選べません。
+//: - `Unresolved`: constructor / parameter のどちらにも束縛されず、後続 diagnostic 用に named node として残します。
+pub enum SelfhostTypeBoundName:
+    NotNamed
+    Constructor %SelfhostTypeConstructor
+    TypeParameter %SelfhostTypeParameter
+    Conflict
+    Unresolved
+
+impl Clone for SelfhostTypeBoundName:
+    fn clone %fn &SelfhostTypeBoundName SelfhostTypeBoundName \self:
+        *self
+
+impl Copy for SelfhostTypeBoundName:
+    fn copy_mark %fn SelfhostTypeBoundName SelfhostTypeBoundName \self:
+        self
+
+//: SelfhostTypeBoundPlanItem: lookup 済み type reduce plan item
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeReducePlanItem` の lexical classification に、constructor / type parameter lookup 結果を加えます。
+//: - validate と build は同じ bound plan を読むため、両者の lookup 順序や衝突規則がずれません。
+//:
+//: [契約/けいやく]:
+//: - `is_named == true` の item だけが `Constructor` / `TypeParameter` / `Conflict` / `Unresolved` を持ちます。
+//: - primitive は source spelling lookup を終えた後なので、constructor や type parameter より先に primitive として処理されます。
+pub struct SelfhostTypeBoundPlanItem:
+    dispatch_kind %SelfhostTypeReduceDispatchKind
+    span %SelfhostSourceSpan
+    primitive %SelfhostPrimitiveTypeKind
+    bound_name %SelfhostTypeBoundName
+    is_function %bool
+    is_void %bool
+    is_primitive %bool
+    is_named %bool
+
+impl Clone for SelfhostTypeBoundPlanItem:
+    fn clone %fn &SelfhostTypeBoundPlanItem SelfhostTypeBoundPlanItem \self:
+        *self
+
+impl Copy for SelfhostTypeBoundPlanItem:
+    fn copy_mark %fn SelfhostTypeBoundPlanItem SelfhostTypeBoundPlanItem \self:
+        self
+
+//: SelfhostTypeBoundPlan: lookup 済み reducer plan
+//:
+//: [目的/もくてき]:
+//: - prefix item 列を validate/build が共有する bound item table として保持します。
+//: - source text、constructor table、type parameter environment は binding phase でだけ参照し、後段へ探索範囲を広げません。
+pub struct SelfhostTypeBoundPlan:
+    items %Vec SelfhostTypeBoundPlanItem
+
+//: selfhost_type_bound_plan_item_new: bound plan item を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - 引数は `SelfhostTypeReducePlanItem` から得た lexical classification と、binding phase で得た `bound_name` です。
+//: - この関数は payload を組み立てるだけで、source lookup や vector owner の操作は行いません。
+fn selfhost_type_bound_plan_item_new %fn SelfhostTypeReduceDispatchKind fn SelfhostSourceSpan fn SelfhostPrimitiveTypeKind fn SelfhostTypeBoundName fn bool fn bool fn bool fn bool SelfhostTypeBoundPlanItem \dispatch_kind\span\primitive\bound_name\is_function\is_void\is_primitive\is_named:
+    SelfhostTypeBoundPlanItem dispatch_kind span primitive bound_name is_function is_void is_primitive is_named
+
+//: selfhost_type_bound_plan_new: bound plan owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `items` owner はこの plan に移動します。caller は返却後に同じ `items` owner を直接使いません。
+pub fn selfhost_type_bound_plan_new %impure fn Vec SelfhostTypeBoundPlanItem SelfhostTypeBoundPlan \items:
+    SelfhostTypeBoundPlan items
+
+//: selfhost_type_bound_plan_free: bound plan の item buffer を[解放/かいほう]する
+//:
+//: [契約/けいやく]:
+//: - この関数は plan owner を消費します。解放後に同じ plan を参照してはいけません。
+pub fn selfhost_type_bound_plan_free %impure fn SelfhostTypeBoundPlan unit \plan:
+    v::free field::get plan "items"
+
+//: selfhost_type_bound_plan_len: bound plan item 数を[返/かえ]す
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_bound_plan_len %fn &SelfhostTypeBoundPlan i32 \plan:
+    let items %&Vec SelfhostTypeBoundPlanItem field::get_ref plan "items"
+    v::len items
+
+//: selfhost_type_bound_plan_get: bound plan item を index で[返/かえ]す
+//:
+//: [場合分/ばあいわ]け:
+//: - `Some(item)`: `idx` が plan item 範囲内です。
+//: - `None`: `idx` が負または範囲外です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_bound_plan_get %fn &SelfhostTypeBoundPlan fn i32 Option SelfhostTypeBoundPlanItem \plan\idx:
+    let items %&Vec SelfhostTypeBoundPlanItem field::get_ref plan "items"
+    v::get items idx
+
+//: selfhost_type_bound_name_with_constructors: constructor table だけで named item を[束縛/そくばく]する
+//:
+//: [目的/もくてき]:
+//: - generic binder がない type annotation で、source span の spelling を constructor table に対応させます。
+//:
+//: [場合分/ばあいわ]け:
+//: - constructor が見つかれば `Constructor` を返します。
+//: - 見つからなければ `Unresolved` を返し、projection 側の unknown named type diagnostic に委ねます。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor table の線形検索により `O(c)` です。
+fn selfhost_type_bound_name_with_constructors %fn &str fn &SelfhostTypeConstructorTable fn SelfhostSourceSpan SelfhostTypeBoundName \source\constructors\span:
+    match selfhost_type_constructor_table_find_span constructors source span:
+        Option::Some constructor:
+            SelfhostTypeBoundName::Constructor constructor
+        Option::None:
+            SelfhostTypeBoundName::Unresolved
+
+//: selfhost_type_bound_name_with_constructors_and_type_parameters: constructor と type parameter を同じ lookup 境界で[束縛/そくばく]する
+//:
+//: [目的/もくてき]:
+//: - generic binder のある type annotation で、同じ source spelling を validate/build の前に 1 回だけ分類します。
+//:
+//: [場合分/ばあいわ]け:
+//: - type parameter だけが見つかれば `TypeParameter` を返します。
+//: - constructor だけが見つかれば `Constructor` を返します。
+//: - 両方に見つかれば `Conflict` を返し、片方を暗黙に優先しません。
+//: - どちらにも見つからなければ `Unresolved` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - type parameter table と constructor table の線形検索により `O(p + c)` です。
+fn selfhost_type_bound_name_with_constructors_and_type_parameters %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeParameterEnv fn SelfhostSourceSpan SelfhostTypeBoundName \source\constructors\type_parameters\span:
+    match selfhost_type_parameter_env_find_span type_parameters source span:
+        Option::Some parameter:
+            match selfhost_type_constructor_table_find_span constructors source span:
+                Option::Some _constructor:
+                    SelfhostTypeBoundName::Conflict
+                Option::None:
+                    SelfhostTypeBoundName::TypeParameter parameter
+        Option::None:
+            selfhost_type_bound_name_with_constructors source constructors span
+
+//: selfhost_type_bound_plan_item_from_reduce_item_with_constructors: reduce item に constructor lookup 結果を[付/つ]ける
+//:
+//: [契約/けいやく]:
+//: - `item.is_named` が false の場合は source lookup を行わず、`NotNamed` を入れます。
+//: - function marker、void marker、primitive は reduce plan 側の classification を保ち、constructor として再解釈しません。
+fn selfhost_type_bound_plan_item_from_reduce_item_with_constructors %fn &str fn &SelfhostTypeConstructorTable fn SelfhostTypeReducePlanItem SelfhostTypeBoundPlanItem \source\constructors\item:
+    if:
+        item.is_named
+        then:
+            let bound_name %SelfhostTypeBoundName selfhost_type_bound_name_with_constructors source constructors item.span
+            selfhost_type_bound_plan_item_new item.dispatch_kind item.span item.primitive bound_name item.is_function item.is_void item.is_primitive item.is_named
+        else:
+            selfhost_type_bound_plan_item_new item.dispatch_kind item.span item.primitive SelfhostTypeBoundName::NotNamed item.is_function item.is_void item.is_primitive item.is_named
+
+//: selfhost_type_bound_plan_item_from_reduce_item_with_constructors_and_type_parameters: reduce item に constructor / parameter lookup 結果を[付/つ]ける
+//:
+//: [契約/けいやく]:
+//: - `item.is_named` が true の item だけを generic binder の lookup 対象にします。
+//: - constructor と type parameter の同名衝突はここで `Conflict` に固定し、validate/build で同じ診断へ進めます。
+fn selfhost_type_bound_plan_item_from_reduce_item_with_constructors_and_type_parameters %fn &str fn &SelfhostTypeConstructorTable fn &SelfhostTypeParameterEnv fn SelfhostTypeReducePlanItem SelfhostTypeBoundPlanItem \source\constructors\type_parameters\item:
+    if:
+        item.is_named
+        then:
+            let bound_name %SelfhostTypeBoundName selfhost_type_bound_name_with_constructors_and_type_parameters source constructors type_parameters item.span
+            selfhost_type_bound_plan_item_new item.dispatch_kind item.span item.primitive bound_name item.is_function item.is_void item.is_primitive item.is_named
+        else:
+            selfhost_type_bound_plan_item_new item.dispatch_kind item.span item.primitive SelfhostTypeBoundName::NotNamed item.is_function item.is_void item.is_primitive item.is_named
+
+//: selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors: constructor lookup 済み item vector を[再帰/さいき]的に[構築/こうちく]する
+//:
+//: [場合分/ばあいわ]け:
+//: - 全 item を処理すると `Ok(out)` を返します。
+//: - `Vec::push` が失敗した場合は push error 内の vector owner を解放し、`OutOfMemory` を返します。
+//: - reduce plan の index が不整合なら `out` owner を解放し、`UnexpectedEnd` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(m * c)` です。`m` は残り item 数、`c` は constructor 数です。
+fn selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeReducePlan impure fn i32 impure fn i32 impure fn Vec SelfhostTypeBoundPlanItem Result Vec SelfhostTypeBoundPlanItem SelfhostTypeReduceError \source\constructors\plan\idx\n\out:
+    if:
+        ge idx n
+        then:
+            Result::Ok out
+        else:
+            match selfhost_type_reduce_plan_get plan idx:
+                Option::Some item:
+                    let bound_item %SelfhostTypeBoundPlanItem selfhost_type_bound_plan_item_from_reduce_item_with_constructors source constructors item
+                    match v::push out bound_item:
+                        Result::Ok next_out:
+                            selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors source constructors plan add idx 1 n next_out
+                        Result::Err e:
+                            v::free v::vec_push_error_vec e
+                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory item.span
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
+
+//: selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors_and_type_parameters: generic binder 付き bound item vector を[再帰/さいき]的に[構築/こうちく]する
+//:
+//: [場合分/ばあいわ]け:
+//: - 全 item を処理すると `Ok(out)` を返します。
+//: - `Vec::push` が失敗した場合は push error 内の vector owner を解放し、`OutOfMemory` を返します。
+//: - reduce plan の index が不整合なら `out` owner を解放し、`UnexpectedEnd` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(m * (c + p))` です。`m` は残り item 数、`c` は constructor 数、`p` は type parameter 数です。
+fn selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors_and_type_parameters %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypeReducePlan impure fn i32 impure fn i32 impure fn Vec SelfhostTypeBoundPlanItem Result Vec SelfhostTypeBoundPlanItem SelfhostTypeReduceError \source\constructors\type_parameters\plan\idx\n\out:
+    if:
+        ge idx n
+        then:
+            Result::Ok out
+        else:
+            match selfhost_type_reduce_plan_get plan idx:
+                Option::Some item:
+                    let bound_item %SelfhostTypeBoundPlanItem selfhost_type_bound_plan_item_from_reduce_item_with_constructors_and_type_parameters source constructors type_parameters item
+                    match v::push out bound_item:
+                        Result::Ok next_out:
+                            selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors_and_type_parameters source constructors type_parameters plan add idx 1 n next_out
+                        Result::Err e:
+                            v::free v::vec_push_error_vec e
+                            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory item.span
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
+
+//: selfhost_type_bound_plan_from_reduce_plan_with_constructors: constructor lookup 済み plan を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - constructor-aware reducer の validate/build 前に source span lookup を 1 回だけ行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(m * c)` です。`m` は item 数、`c` は constructor table の entry 数です。
+pub fn selfhost_type_bound_plan_from_reduce_plan_with_constructors %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeReducePlan Result SelfhostTypeBoundPlan SelfhostTypeReduceError \source\constructors\plan:
+    let n %i32 selfhost_type_reduce_plan_len plan
+    let items_result %Result Vec SelfhostTypeBoundPlanItem StdErrorKind v::new
+    match items_result:
+        Result::Ok items:
+            match selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors source constructors plan 0 n items:
+                Result::Ok bound_items:
+                    Result::Ok selfhost_type_bound_plan_new bound_items
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+
+//: selfhost_type_bound_plan_from_reduce_plan_with_constructors_and_type_parameters: constructor / parameter lookup 済み plan を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - generic binder がある reducer 境界で、type parameter と constructor の lookup 結果を先に固定します。
+//: - 同名衝突は `Conflict` item として保持し、validate/build の両方が同じ typed error へ進みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(m * (c + p))` です。`m` は item 数、`c` は constructor 数、`p` は type parameter 数です。
+pub fn selfhost_type_bound_plan_from_reduce_plan_with_constructors_and_type_parameters %impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypeReducePlan Result SelfhostTypeBoundPlan SelfhostTypeReduceError \source\constructors\type_parameters\plan:
+    let n %i32 selfhost_type_reduce_plan_len plan
+    let items_result %Result Vec SelfhostTypeBoundPlanItem StdErrorKind v::new
+    match items_result:
+        Result::Ok items:
+            match selfhost_type_bound_plan_from_reduce_plan_loop_with_constructors_and_type_parameters source constructors type_parameters plan 0 n items:
+                Result::Ok bound_items:
+                    Result::Ok selfhost_type_bound_plan_new bound_items
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
 
 fn selfhost_type_reduce_plan_from_prefix_list_loop %impure fn &str impure fn &SelfhostTypePrefixList impure fn i32 impure fn i32 impure fn Vec SelfhostTypeReducePlanItem Result Vec SelfhostTypeReducePlanItem SelfhostTypeReduceError \source\list\idx\n\out:
     if:

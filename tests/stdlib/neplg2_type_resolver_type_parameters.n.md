@@ -91,7 +91,7 @@ fn main %impure fn void i32 \void:
     let source %str "fn use_box %Box T \\x:\n    x\n"
     match selfhost_type_constructor_table_new:
         Result::Ok constructors0:
-            match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+            match selfhost_type_constructor_table_add_checked constructors0 "Box" 1 source_span_empty_unchecked 0 0:
                 Result::Ok constructor_added:
                     let box_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &constructor_added
                     let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table constructor_added
@@ -230,7 +230,7 @@ fn main %impure fn void i32 \void:
     let source %str ""
     match selfhost_type_constructor_table_new:
         Result::Ok constructors0:
-            match selfhost_type_constructor_table_add constructors0 "Box" 1 source_span_empty_unchecked 0 0:
+            match selfhost_type_constructor_table_add_checked constructors0 "Box" 1 source_span_empty_unchecked 0 0:
                 Result::Ok constructor_added:
                     let box_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &constructor_added
                     let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table constructor_added
@@ -328,7 +328,7 @@ fn main %impure fn void i32 \void:
     let source %str "fn use_t %T \\x:\n    x\n"
     match selfhost_type_constructor_table_new:
         Result::Ok constructors0:
-            match selfhost_type_constructor_table_add constructors0 "T" 0 source_span_empty_unchecked 0 0:
+            match selfhost_type_constructor_table_add_checked constructors0 "T" 0 source_span_empty_unchecked 0 0:
                 Result::Ok constructor_added:
                     let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table constructor_added
                     match selfhost_type_parameter_env_new:

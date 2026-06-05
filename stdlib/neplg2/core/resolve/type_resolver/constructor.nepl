@@ -15,16 +15,34 @@
 //:
 //: [目的/もくてき]:
 //: - module surface / local declaration header から得た named type の最小 public header を保持します。
-//: - `name` は lookup 用の spelling、`nominal_id` は arena record に保存する安定した定義 identity、`arity` は generic 引数数です。
+//: - `name` は lookup 用の spelling、`nominal_id` は arena record に保存する安定した定義 identity、`kind` は constructor が要求する型引数数を検査済みの形で表します。
 //:
 //: [契約/けいやく]:
 //: - `nominal_id` は table 内の位置から割り当てるため、同じ table の中でのみ意味を持ちます。
+//: - `kind` は table 登録時に作られる checked payload です。reducer や projection は負の arity を通常経路で再検査しません。
 //: - source span は diagnostic 用であり、arena record へは入れません。
 pub struct SelfhostTypeConstructor:
     name %str
     nominal_id %SelfhostNamedTypeId
-    arity %i32
+    kind %SelfhostTypeConstructorKind
     span %SelfhostSourceSpan
+
+//: SelfhostTypeConstructorKind: named type constructor の kind
+//:
+//: [目的/もくてき]:
+//: - user-defined type header が単なる型なのか、型引数を要求する type constructor なのかを enum で表します。
+//: - reducer / projection が raw `i32` をそれぞれ解釈するのではなく、table 構築時に検査済み kind へ正規化します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Type`: 型引数を取らない通常の named type です。
+//: - `TypeConstructor(n)`: `n > 0` 個の型引数を要求する first-order type constructor です。
+//:
+//: [契約/けいやく]:
+//: - `TypeConstructor` の payload は `selfhost_type_constructor_kind_from_arity_checked` だけで作り、負数や 0 を入れないでください。
+//: - higher-kinded type parameter は現在 `SelfhostTypeParameterEnv` 側で拒否します。ここでの `TypeConstructor(n)` は、`Type -> ... -> Type` の first-order constructor だけを表します。
+pub enum SelfhostTypeConstructorKind:
+    Type
+    TypeConstructor %i32
 
 impl Clone for SelfhostTypeConstructor:
     fn clone %fn &SelfhostTypeConstructor SelfhostTypeConstructor \self:
@@ -34,11 +52,23 @@ impl Copy for SelfhostTypeConstructor:
     fn copy_mark %fn SelfhostTypeConstructor SelfhostTypeConstructor \self:
         self
 
+impl Clone for SelfhostTypeConstructorKind:
+    fn clone %fn &SelfhostTypeConstructorKind SelfhostTypeConstructorKind \self:
+        *self
+
+impl Copy for SelfhostTypeConstructorKind:
+    fn copy_mark %fn SelfhostTypeConstructorKind SelfhostTypeConstructorKind \self:
+        self
+
 //: SelfhostTypeConstructorTable: named type constructor header table
 //:
 //: [目的/もくてき]:
 //: - type prefix を 1 件ずつ解くたびに import graph を再探索せず、事前構築済み table を borrow して lookup します。
-//: - insertion order を保持し、同名がある場合は後から追加された header を優先します。
+//: - table へ入る header は checked kind を持つため、後続 stage は invalid arity を通常診断に混ぜずに済みます。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_type_constructor_table_add_checked` は同じ table 内の重複名を拒否します。
+//: - import overlay や明示 shadowing が必要になった場合は、この table を直接曖昧にせず、別の merge boundary で診断または shadowing rule を固定します。
 pub struct SelfhostTypeConstructorTable:
     entries %Vec SelfhostTypeConstructor
 
@@ -47,9 +77,130 @@ pub struct SelfhostTypeConstructorAddResult:
     table %SelfhostTypeConstructorTable
     nominal_id %SelfhostNamedTypeId
 
+//: SelfhostTypeConstructorTableErrorKind: constructor table 更新の失敗分類
+//:
+//: [目的/もくてき]:
+//: - constructor header の kind validation 失敗を `InternalInvariant` に丸めず、静的検査可能な enum diagnostic として保持します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `NegativeConstructorArity`: declaration header から得た型引数数が負です。
+//: - `DuplicateTypeConstructor`: 同じ constructor table に同名 constructor がすでにあります。
+//: - `ReservedTypeConstructorName`: primitive / `void` / function marker と衝突する予約名です。
+//: - `OutOfMemory`: entry vector の拡張に失敗しました。
+pub enum SelfhostTypeConstructorTableErrorKind:
+    NegativeConstructorArity
+    DuplicateTypeConstructor
+    ReservedTypeConstructorName
+    OutOfMemory
+
+//: SelfhostTypeConstructorTableError: constructor table error payload
+//:
+//: [目的/もくてき]:
+//: - error kind と diagnostic span を分離し、表示文言や表示言語から独立した診断 payload にします。
+//:
+//: [契約/けいやく]:
+//: - `span` は問題の constructor header 名または arity の原因位置を指します。
+pub struct SelfhostTypeConstructorTableError:
+    kind %SelfhostTypeConstructorTableErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTypeConstructorTableErrorKind:
+    fn clone %fn &SelfhostTypeConstructorTableErrorKind SelfhostTypeConstructorTableErrorKind \self:
+        *self
+
+impl Copy for SelfhostTypeConstructorTableErrorKind:
+    fn copy_mark %fn SelfhostTypeConstructorTableErrorKind SelfhostTypeConstructorTableErrorKind \self:
+        self
+
+impl Clone for SelfhostTypeConstructorTableError:
+    fn clone %fn &SelfhostTypeConstructorTableError SelfhostTypeConstructorTableError \self:
+        *self
+
+impl Copy for SelfhostTypeConstructorTableError:
+    fn copy_mark %fn SelfhostTypeConstructorTableError SelfhostTypeConstructorTableError \self:
+        self
+
 //: selfhost_type_constructor_new: constructor header を[作/つく]る
-pub fn selfhost_type_constructor_new %fn str fn SelfhostNamedTypeId fn i32 fn SelfhostSourceSpan SelfhostTypeConstructor \name\nominal_id\arity\span:
-    SelfhostTypeConstructor name nominal_id arity span
+pub fn selfhost_type_constructor_new %fn str fn SelfhostNamedTypeId fn SelfhostTypeConstructorKind fn SelfhostSourceSpan SelfhostTypeConstructor \name\nominal_id\kind\span:
+    SelfhostTypeConstructor name nominal_id kind span
+
+//: selfhost_type_constructor_kind_arg_count: constructor kind が要求する型引数数を[返/かえ]す
+//:
+//: [場合分/ばあいわ]け:
+//: - `Type` は `0` を返します。
+//: - `TypeConstructor(n)` は登録時に検査済みの `n` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_constructor_kind_arg_count %fn SelfhostTypeConstructorKind i32 \kind:
+    match kind:
+        SelfhostTypeConstructorKind::Type:
+            0
+        SelfhostTypeConstructorKind::TypeConstructor n:
+            n
+
+//: selfhost_type_constructor_kind_eq: constructor kind が同じ分類と arity か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - tests / source policy が表示文字列に依存せず、kind payload を直接確認できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_constructor_kind_eq %fn SelfhostTypeConstructorKind fn SelfhostTypeConstructorKind bool \a\b:
+    match a:
+        SelfhostTypeConstructorKind::Type:
+            match b:
+                SelfhostTypeConstructorKind::Type:
+                    true
+                _:
+                    false
+        SelfhostTypeConstructorKind::TypeConstructor an:
+            match b:
+                SelfhostTypeConstructorKind::TypeConstructor bn:
+                    eq an bn
+                _:
+                    false
+
+//: selfhost_type_constructor_table_error_kind_eq: constructor table error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - diagnostic adapter と doctest が enum error を直接比較できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+pub fn selfhost_type_constructor_table_error_kind_eq %fn SelfhostTypeConstructorTableErrorKind fn SelfhostTypeConstructorTableErrorKind bool \a\b:
+    match a:
+        SelfhostTypeConstructorTableErrorKind::NegativeConstructorArity:
+            match b:
+                SelfhostTypeConstructorTableErrorKind::NegativeConstructorArity:
+                    true
+                _:
+                    false
+        SelfhostTypeConstructorTableErrorKind::DuplicateTypeConstructor:
+            match b:
+                SelfhostTypeConstructorTableErrorKind::DuplicateTypeConstructor:
+                    true
+                _:
+                    false
+        SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName:
+            match b:
+                SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName:
+                    true
+                _:
+                    false
+        SelfhostTypeConstructorTableErrorKind::OutOfMemory:
+            match b:
+                SelfhostTypeConstructorTableErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+
+//: selfhost_type_constructor_table_error_new: constructor table error payload を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この関数は payload だけを作り、message formatting は行いません。
+pub fn selfhost_type_constructor_table_error_new %fn SelfhostTypeConstructorTableErrorKind fn SelfhostSourceSpan SelfhostTypeConstructorTableError \kind\span:
+    SelfhostTypeConstructorTableError kind span
 
 //: selfhost_type_constructor_table_new: [空/から]の constructor table を[作/つく]る
 pub fn selfhost_type_constructor_table_new %impure fn void Result SelfhostTypeConstructorTable StdErrorKind \void:
@@ -77,22 +228,146 @@ pub fn selfhost_type_constructor_add_result_nominal_id %fn &SelfhostTypeConstruc
 pub fn selfhost_type_constructor_add_result_into_table %impure fn SelfhostTypeConstructorAddResult SelfhostTypeConstructorTable \added:
     field::get added "table"
 
-//: selfhost_type_constructor_table_add: constructor header を table に[追加/ついか]する
+//: selfhost_type_constructor_name_is_reserved: type constructor として使えない予約名か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - primitive type、`void` marker、function marker と user-defined type constructor 名が衝突しないようにします。
+//:
+//: [現状/げんじょう]:
+//: - 予約名は固定の string 比較で列挙します。primitive type set が増えたら、この関数も同じ commit で更新します。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive type 名の個数に対する固定長比較なので、現状は `O(1)` と扱います。
+fn selfhost_type_constructor_name_is_reserved %fn str bool \name:
+    if:
+        string_search::str_eq name "void"
+        then:
+            true
+        else if:
+            string_search::str_eq name "fn"
+            then:
+                true
+            else if:
+                string_search::str_eq name "impure"
+                then:
+                    true
+                else if:
+                    string_search::str_eq name "unit"
+                    then:
+                        true
+                    else if:
+                        string_search::str_eq name "bool"
+                        then:
+                            true
+                        else if:
+                            string_search::str_eq name "i32"
+                            then:
+                                true
+                            else if:
+                                string_search::str_eq name "i64"
+                                then:
+                                    true
+                                else if:
+                                    string_search::str_eq name "u8"
+                                    then:
+                                        true
+                                    else if:
+                                        string_search::str_eq name "char"
+                                        then:
+                                            true
+                                        else if:
+                                            string_search::str_eq name "str"
+                                            then:
+                                                true
+                                            else if:
+                                                string_search::str_eq name "f32"
+                                                then:
+                                                    true
+                                                else if:
+                                                    string_search::str_eq name "f64"
+                                                    then:
+                                                        true
+                                                    else:
+                                                        string_search::str_eq name "never"
+
+//: selfhost_type_constructor_kind_from_arity_checked: source header の arity を checked kind に[変換/へんかん]する
+//:
+//: [場合分/ばあいわ]け:
+//: - `Ok(Type)`: `arity == 0` です。
+//: - `Ok(TypeConstructor(n))`: `arity > 0` です。
+//: - `Err(NegativeConstructorArity)`: `arity < 0` です。
 //:
 //: [契約/けいやく]:
-//: - arity の semantic validation は projection / kind resolver 側で行います。
-//: - 失敗時は `Vec::push` から返された owner を閉じ、入力 table owner はこの関数が消費します。
-pub fn selfhost_type_constructor_table_add %impure fn SelfhostTypeConstructorTable impure fn str impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeConstructorAddResult StdErrorKind \table\name\arity\span:
-    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new selfhost_type_constructor_table_len &table
-    let entries %Vec SelfhostTypeConstructor field::get table "entries"
-    let item %SelfhostTypeConstructor selfhost_type_constructor_new name nominal_id arity span
-    match v::push entries item:
-        Result::Ok next_entries:
-            Result::Ok SelfhostTypeConstructorAddResult (SelfhostTypeConstructorTable next_entries) nominal_id
-        Result::Err e:
-            let error %StdErrorKind field::get e "error"
-            v::free v::vec_push_error_vec e
-            Result::Err error
+//: - 戻り値の kind payload は reducer / projection へ渡してよい検査済み値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+fn selfhost_type_constructor_kind_from_arity_checked %fn i32 fn SelfhostSourceSpan Result SelfhostTypeConstructorKind SelfhostTypeConstructorTableError \arity\span:
+    if:
+        lt arity 0
+        then:
+            Result::Err selfhost_type_constructor_table_error_new SelfhostTypeConstructorTableErrorKind::NegativeConstructorArity span
+        else if:
+            eq arity 0
+            then:
+                Result::Ok SelfhostTypeConstructorKind::Type
+            else:
+                Result::Ok SelfhostTypeConstructorKind::TypeConstructor arity
+
+//: selfhost_type_constructor_table_add_fail: 追加失敗時に table owner を閉じて error を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - この関数は入力 table owner を必ず解放します。
+//: - caller は `Err` を受け取った後に同じ table owner を使えません。
+//:
+//: [計算量/けいさんりょう]:
+//: - vector 解放コストを除き `O(1)` です。
+fn selfhost_type_constructor_table_add_fail %impure fn SelfhostTypeConstructorTable impure fn SelfhostTypeConstructorTableErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeConstructorAddResult SelfhostTypeConstructorTableError \table\kind\span:
+    selfhost_type_constructor_table_free table
+    Result::Err selfhost_type_constructor_table_error_new kind span
+
+//: selfhost_type_constructor_table_add_checked: checked constructor header を table に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - parser / declaration checker が読んだ named type header を、kind 検査済みの constructor table entry として追加します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Ok(result)`: `name` が予約語でなく、`arity >= 0` で、同名 constructor がなく、vector 追加に成功しました。
+//: - `Err(NegativeConstructorArity)`: `arity < 0` です。
+//: - `Err(DuplicateTypeConstructor)`: 同じ table に `name` がすでにあります。
+//: - `Err(ReservedTypeConstructorName)`: `name` が primitive / marker 名です。
+//: - `Err(OutOfMemory)`: vector 追加に失敗しました。
+//:
+//: [契約/けいやく]:
+//: - 失敗時は入力 table owner をこの関数が解放します。
+//: - constructor table と type parameter environment の名前衝突は、generic binder の文脈が必要なので reducer binding boundary で診断します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 重複検査により `O(n)` です。`n` は既存 constructor 数です。
+pub fn selfhost_type_constructor_table_add_checked %impure fn SelfhostTypeConstructorTable impure fn str impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeConstructorAddResult SelfhostTypeConstructorTableError \table\name\arity\span:
+    if:
+        selfhost_type_constructor_name_is_reserved name
+        then:
+            selfhost_type_constructor_table_add_fail table SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName span
+        else:
+            match selfhost_type_constructor_kind_from_arity_checked arity span:
+                Result::Ok constructor_kind:
+                    match selfhost_type_constructor_table_find &table name:
+                        Option::Some _existing:
+                            selfhost_type_constructor_table_add_fail table SelfhostTypeConstructorTableErrorKind::DuplicateTypeConstructor span
+                        Option::None:
+                            let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new selfhost_type_constructor_table_len &table
+                            let entries %Vec SelfhostTypeConstructor field::get table "entries"
+                            let item %SelfhostTypeConstructor selfhost_type_constructor_new name nominal_id constructor_kind span
+                            match v::push entries item:
+                                Result::Ok next_entries:
+                                    Result::Ok SelfhostTypeConstructorAddResult (SelfhostTypeConstructorTable next_entries) nominal_id
+                                Result::Err e:
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err selfhost_type_constructor_table_error_new SelfhostTypeConstructorTableErrorKind::OutOfMemory span
+                Result::Err e:
+                    selfhost_type_constructor_table_free table
+                    Result::Err e
 
 //: selfhost_type_constructor_table_get: constructor header を index で[返/かえ]す
 pub fn selfhost_type_constructor_table_get %fn &SelfhostTypeConstructorTable fn SelfhostNamedTypeId Option SelfhostTypeConstructor \table\nominal_id:
