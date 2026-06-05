@@ -50,12 +50,123 @@ pub enum StringUtf8LeadKind:
     Four
     Invalid
 
+//: string_utf8_in_range: byte 値が閉区間に入るか判定する
+//:
+//: [目的/もくてき]:
+//: - UTF-8 leading byte / continuation byte の範囲判定を、境界値を含む predicate として共有します。
+//:
+//: [契約/けいやく]:
+//: - `lo <= b <= hi` のときだけ `true` を返します。
+//: - この helper 自体は UTF-8 の文脈や scalar value の妥当性を検証しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_in_range_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"inclusive byte range\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/math/bool" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %bool:
+//:         and:
+//:             and string_utf8_in_range 194 194 223 string_utf8_in_range 223 194 223
+//:             not string_utf8_in_range 193 194 223
+//:     let report:
+//:         test_report_new "alloc_string_utf8_in_range_doc"
+//:         |> test_report_push assert "inclusive byte range" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn string_utf8_in_range %fn i32 fn i32 fn i32 bool \b\lo\hi:
     and ge b lo le b hi
 
+//: string_utf8_is_continuation: UTF-8 continuation byte か判定する
+//:
+//: [目的/もくてき]:
+//: - sequence validator が 2 byte 目以降を `10xxxxxx` byte として分類できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `0x80..0xBF` だけを `true` とします。
+//: - leading byte や ASCII byte は `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_continuation_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"continuation range\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/math/bool" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %bool:
+//:         and:
+//:             and string_utf8_is_continuation 128 string_utf8_is_continuation 191
+//:             not string_utf8_is_continuation 192
+//:     let report:
+//:         test_report_new "alloc_string_utf8_continuation_doc"
+//:         |> test_report_push assert "continuation range" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn string_utf8_is_continuation %fn i32 bool \b:
     string_utf8_in_range b 128 191
 
+//: string_utf8_lead_kind: UTF-8 leading byte を enum に分類する
+//:
+//: [目的/もくてき]:
+//: - validator 本体が byte 値の範囲を raw integer のまま扱わず、`StringUtf8LeadKind` の網羅的 `match` で分岐できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `0x00..0x7F` は `Ascii`、`0xC2..0xDF` は `Two`、`0xE0..0xEF` は `Three`、`0xF0..0xF4` は `Four` です。
+//: - overlong の入口になる `0xC0..0xC1`、`0xF5..0xFF`、continuation byte 単体、負数は `Invalid` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_lead_kind_range_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"lead kind ranges\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/math/bool" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ascii %bool match string_utf8_lead_kind 65:
+//:         StringUtf8LeadKind::Ascii:
+//:             true
+//:         _:
+//:             false
+//:     let two %bool match string_utf8_lead_kind 194:
+//:         StringUtf8LeadKind::Two:
+//:             true
+//:         _:
+//:             false
+//:     let invalid %bool match string_utf8_lead_kind 193:
+//:         StringUtf8LeadKind::Invalid:
+//:             true
+//:         _:
+//:             false
+//:     let ok %bool and ascii and two invalid
+//:     let report:
+//:         test_report_new "alloc_string_utf8_lead_kind_range_doc"
+//:         |> test_report_push assert "lead kind ranges" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn string_utf8_lead_kind %fn i32 StringUtf8LeadKind \b:
     if:
         le b 127
@@ -79,6 +190,61 @@ pub fn string_utf8_lead_kind %fn i32 StringUtf8LeadKind \b:
                                 else:
                                     StringUtf8LeadKind::Invalid
 
+//: string_utf8_byte_at_checked: 検証対象 span から 1 byte を安全に読む
+//:
+//: [目的/もくてき]:
+//: - validator 内部で `MemPtr u8` を byte offset 付きで読み、範囲外や pointer failure を `Result::Err` として明示します。
+//:
+//: [契約/けいやく]:
+//: - `idx < 0` または `byte_len <= idx` は `Err` です。
+//: - `load_u8` が `Option::None` を返した場合も sentinel byte ではなく `Err` へ変換します。
+//: - `data` が指す領域の所有権は caller に残り、この helper は解放も再確保もしません。
+//:
+//: [現状/げんじょう]:
+//: - 範囲確認後に `mem_ptr_add data idx` で非所有 pointer view を作り、typed `load_u8` を 1 回だけ呼びます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_byte_at_checked_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"checked reader path\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "core/math/bool" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %bool match alloc_region_bytes<u8> 1:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok region:
+//:             let data %MemPtr u8 region_ptr &region
+//:             let valid %bool match store_u8 data 65:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     match string_utf8_validate_mem data 1:
+//:                         Result::Err _e:
+//:                             false
+//:                         Result::Ok _:
+//:                             true
+//:             let freed %bool match dealloc_region<u8> region:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             and valid freed
+//:     let report:
+//:         test_report_new "alloc_string_utf8_byte_at_checked_doc"
+//:         |> test_report_push assert "checked reader path" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn string_utf8_byte_at_checked %fn MemPtr u8 fn i32 fn i32 Result i32 str \data\byte_len\idx:
     if:
         or lt idx 0 le byte_len idx
@@ -92,6 +258,68 @@ fn string_utf8_byte_at_checked %fn MemPtr u8 fn i32 fn i32 Result i32 str \data\
                 Option::None:
                     Result::Err "string.utf8 invalid pointer"
 
+//: string_utf8_validate_two: 2 byte UTF-8 sequence を検証する
+//:
+//: [目的/もくてき]:
+//: - `0xC2..0xDF` の leading byte に続く 1 byte が continuation byte か確認します。
+//:
+//: [契約/けいやく]:
+//: - `i + 2 > byte_len` は truncated sequence として `Err` です。
+//: - 2 byte 目が `0x80..0xBF` でない場合は invalid continuation として `Err` です。
+//: - byte read の失敗は `string_utf8_byte_at_checked` の `Err` をそのまま返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_validate_two_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"valid two-byte sequence\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "core/math/bool" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %bool match alloc_region_bytes<u8> 2:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok region:
+//:             let data %MemPtr u8 region_ptr &region
+//:             let b0 %bool match store_u8 data 0xC2:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             let b1 %bool match region_ptr_at<u8,u8> &region 1:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok p1:
+//:                     match store_u8 p1 0xA2:
+//:                         Result::Err _e:
+//:                             false
+//:                         Result::Ok _:
+//:                             true
+//:             let valid %bool match string_utf8_validate_mem data 2:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             let freed %bool match dealloc_region<u8> region:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             and b0 and b1 and valid freed
+//:     let report:
+//:         test_report_new "alloc_string_utf8_validate_two_doc"
+//:         |> test_report_push assert "valid two-byte sequence" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn string_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result unit str \data\i\byte_len:
     if:
         gt add i 2 byte_len
@@ -109,6 +337,78 @@ fn string_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result unit str \data\i\
                         else:
                             Result::Err "string.utf8 invalid continuation"
 
+//: string_utf8_validate_three: 3 byte UTF-8 sequence を検証する
+//:
+//: [目的/もくてき]:
+//: - 3 byte sequence の continuation byte と、overlong / surrogate range に入る境界条件を検査します。
+//:
+//: [契約/けいやく]:
+//: - `i + 3 > byte_len` は truncated sequence として `Err` です。
+//: - leading byte が `0xE0` のとき 2 byte 目は `0xA0..0xBF` だけを受け付けます。
+//: - leading byte が `0xED` のとき 2 byte 目は `0x80..0x9F` だけを受け付け、surrogate range を拒否します。
+//: - その他の 3 byte leading byte では 2 byte 目と 3 byte 目が continuation byte であることを検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_validate_three_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"overlong three-byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "core/math/bool" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %bool match alloc_region_bytes<u8> 3:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok region:
+//:             let data %MemPtr u8 region_ptr &region
+//:             let b0 %bool match store_u8 data 0xE0:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             let b1 %bool match region_ptr_at<u8,u8> &region 1:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok p1:
+//:                     match store_u8 p1 0x80:
+//:                         Result::Err _e:
+//:                             false
+//:                         Result::Ok _:
+//:                             true
+//:             let b2 %bool match region_ptr_at<u8,u8> &region 2:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok p2:
+//:                     match store_u8 p2 0x80:
+//:                         Result::Err _e:
+//:                             false
+//:                         Result::Ok _:
+//:                             true
+//:             let rejected %bool match string_utf8_validate_mem data 3:
+//:                 Result::Err _e:
+//:                     true
+//:                 Result::Ok _:
+//:                     false
+//:             let freed %bool match dealloc_region<u8> region:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             and b0 and b1 and b2 and rejected freed
+//:     let report:
+//:         test_report_new "alloc_string_utf8_validate_three_doc"
+//:         |> test_report_push assert "overlong three-byte rejected" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn string_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit str \data\i\byte_len\b0:
     if:
         gt add i 3 byte_len
@@ -142,6 +442,87 @@ fn string_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit str
                                 else:
                                     Result::Err "string.utf8 invalid three-byte sequence"
 
+//: string_utf8_validate_four: 4 byte UTF-8 sequence を検証する
+//:
+//: [目的/もくてき]:
+//: - 4 byte sequence の continuation byte と、overlong / U+10FFFF 超過につながる境界条件を検査します。
+//:
+//: [契約/けいやく]:
+//: - `i + 4 > byte_len` は truncated sequence として `Err` です。
+//: - leading byte が `0xF0` のとき 2 byte 目は `0x90..0xBF` だけを受け付けます。
+//: - leading byte が `0xF4` のとき 2 byte 目は `0x80..0x8F` だけを受け付け、`U+10FFFF` 超過を拒否します。
+//: - その他の 4 byte leading byte では 2 byte 目から 4 byte 目が continuation byte であることを検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_utf8_validate_four_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"large four-byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/utf8" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "core/math/bool" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %bool match alloc_region_bytes<u8> 4:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok region:
+//:             let data %MemPtr u8 region_ptr &region
+//:             let b0 %bool match store_u8 data 0xF4:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             let b1 %bool match region_ptr_at<u8,u8> &region 1:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok p1:
+//:                     match store_u8 p1 0x90:
+//:                         Result::Err _e:
+//:                             false
+//:                         Result::Ok _:
+//:                             true
+//:             let b2 %bool match region_ptr_at<u8,u8> &region 2:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok p2:
+//:                     match store_u8 p2 0x80:
+//:                         Result::Err _e:
+//:                             false
+//:                         Result::Ok _:
+//:                             true
+//:             let b3 %bool match region_ptr_at<u8,u8> &region 3:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok p3:
+//:                     match store_u8 p3 0x80:
+//:                         Result::Err _e:
+//:                             false
+//:                         Result::Ok _:
+//:                             true
+//:             let rejected %bool match string_utf8_validate_mem data 4:
+//:                 Result::Err _e:
+//:                     true
+//:                 Result::Ok _:
+//:                     false
+//:             let freed %bool match dealloc_region<u8> region:
+//:                 Result::Err _e:
+//:                     false
+//:                 Result::Ok _:
+//:                     true
+//:             and b0 and b1 and b2 and b3 and rejected freed
+//:     let report:
+//:         test_report_new "alloc_string_utf8_validate_four_doc"
+//:         |> test_report_push assert "large four-byte rejected" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit str \data\i\byte_len\b0:
     if:
         gt add i 4 byte_len
