@@ -11,9 +11,45 @@
 //: ## CountingBloomFilter
 //: counter [配列/はいれつ]と hasher を[保持/ほじ]する[所有者/しょゆうしゃ]
 //:
+//: ### [目的/もくてき]
+//: - counter [長/ちょう]、typed counter storage owner、hasher を 1 つの owner [値/あたい]として[扱/あつか]います。
+//:
+//: ### [契約/けいやく]
+//: - public constructor `new` が[返/かえ]す値では `nslots > 0` です。
+//: - `counters` は長さ `nslots` の `Vec u8` owner で、各 counter は `0..255` の範囲にあります。
+//: - `insert` は 3 probe の counter を 255 で飽和する形で増やし、`remove` は 0 を下回らない形で減らします。
+//: - `remove` は caller が key の logical count を管理している前提です。未挿入 key や衝突 key を remove すると、他 key の false negative を作り得ます。
+//: - `len` と `contains` は owner を[借用/しゃくよう]し、`insert` / `remove` / `clear` / `free` は owner を[消費/しょうひ]します。
+//:
 //: ### [注意/ちゅうい]
 //: - counter [領域/りょういき]の[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
 //: - key 型 `.T` と hasher 型 `.H` は、複数 probe の[計算/けいさん]で[繰/く]り[返/かえ]し[読/よ]むため標準 `Copy` を impl する[必要/ひつよう]があります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_type_invariant_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"counter length\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"initial filter is empty\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/field" as field
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/hash" as *
+//: fn main %impure fn void i32 \void:
+//:     let bf %CountingBloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 9
+//:     let nslots %i32 *field::get_ref &bf "nslots"
+//:     let empty %bool not contains &bf 1
+//:     free bf
+//:     let report:
+//:         test_report_new "counting_bloom_filter_type_invariant_doc"
+//:         |> test_report_push assert_eq_i32 "counter length" 9 nslots
+//:         |> test_report_push assert "initial filter is empty" empty
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct CountingBloomFilter<.T,.H>:
     nslots %i32
     counters %Vec u8

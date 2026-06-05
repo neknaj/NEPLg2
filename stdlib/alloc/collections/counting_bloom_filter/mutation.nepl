@@ -11,6 +11,48 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
+//: ## counting_bloom_counter_inc
+//: counter を 255 で[飽和/ほうわ]する形で 1 [増/ふ]やす
+//:
+//: ### [契約/けいやく]
+//: - `counters` owner は[消費/しょうひ]しません。
+//: - 範囲内 counter が 254 以下なら 1 増やし、255 なら no-op にします。
+//: - 現状実装では missing counter を storage invariant failure とみなし no-op で止まります。error は返しません。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_counter_inc_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"saturates at max\" expected=\"255\" actual=\"255\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing counter is no-op\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/mutation" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 1 254
+//:     counting_bloom_counter_inc &counters 0
+//:     counting_bloom_counter_inc &counters 0
+//:     counting_bloom_counter_inc &counters 3
+//:     let value %i32 match counting_bloom_counter_at &counters 0:
+//:         Option::Some observed:
+//:             observed
+//:         Option::None:
+//:             -1
+//:     let missing_ok %bool not counting_bloom_counter_nonzero &counters 3
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_counter_inc_doc"
+//:         |> test_report_push assert_eq_i32 "saturates at max" 255 value
+//:         |> test_report_push assert "missing counter is no-op" missing_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_counter_inc %impure fn &Vec u8 impure fn i32 unit \counters\idx:
     match counting_bloom_counter_at counters idx:
         Option::Some cur:
@@ -23,6 +65,51 @@ pub fn counting_bloom_counter_inc %impure fn &Vec u8 impure fn i32 unit \counter
         Option::None:
             unit
 
+//: ## counting_bloom_counter_dec
+//: counter を 0 [未満/みまん]にしない形で 1 [減/へ]らす
+//:
+//: ### [契約/けいやく]
+//: - `counters` owner は[消費/しょうひ]しません。
+//: - 範囲内 counter が 1 以上なら 1 減らし、0 なら no-op にします。
+//: - 現状実装では missing counter を storage invariant failure とみなし no-op で止まります。error は返しません。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_counter_dec_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"decrements positive counter\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"stays at zero\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/mutation" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 2 0
+//:     counting_bloom_store_counter &counters 0 2
+//:     counting_bloom_counter_dec &counters 0
+//:     counting_bloom_counter_dec &counters 1
+//:     let positive %i32 match counting_bloom_counter_at &counters 0:
+//:         Option::Some observed:
+//:             observed
+//:         Option::None:
+//:             -1
+//:     let zero %i32 match counting_bloom_counter_at &counters 1:
+//:         Option::Some observed:
+//:             observed
+//:         Option::None:
+//:             -1
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_counter_dec_doc"
+//:         |> test_report_push assert_eq_i32 "decrements positive counter" 1 positive
+//:         |> test_report_push assert_eq_i32 "stays at zero" 0 zero
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_counter_dec %impure fn &Vec u8 impure fn i32 unit \counters\idx:
     match counting_bloom_counter_at counters idx:
         Option::Some cur:
@@ -35,6 +122,43 @@ pub fn counting_bloom_counter_dec %impure fn &Vec u8 impure fn i32 unit \counter
         Option::None:
             unit
 
+//: ## counting_bloom_counter_nonzero
+//: counter が 0 より大きいかどうかを[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `counters` owner は[消費/しょうひ]しません。
+//: - 範囲内 counter が 1 以上なら `true`、0 なら `false` を返します。
+//: - 現状実装では missing counter を `false` として扱います。public API は valid probe index だけを渡すため、missing counter は internal invariant failure の fail-closed path です。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_counter_nonzero_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"positive counter is true\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"zero counter is false\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"missing counter is false\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/mutation" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 2 0
+//:     counting_bloom_store_counter &counters 0 1
+//:     let positive %bool counting_bloom_counter_nonzero &counters 0
+//:     let zero %bool not counting_bloom_counter_nonzero &counters 1
+//:     let missing %bool not counting_bloom_counter_nonzero &counters 4
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_counter_nonzero_doc"
+//:         |> test_report_push assert "positive counter is true" positive
+//:         |> test_report_push assert "zero counter is false" zero
+//:         |> test_report_push assert "missing counter is false" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_counter_nonzero %fn &Vec u8 fn i32 bool \counters\idx:
     match counting_bloom_counter_at counters idx:
         Option::Some cur:

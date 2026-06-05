@@ -25,6 +25,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の BloomFilter slice で `stdlib/alloc/collections/bloom_filter` の facade / type invariant / hash helper / layout helper / storage helper / mutation helper / public API docs と report doctest を追加し、baseline は `moduleNoDoctest=297`、`declarationNoDoc=318`、`declarationNoDoctest=1670`、`publicDeclarationNoDoctest=1511` まで改善した。ただし btreemap / btreeset / counting_bloom_filter などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の CountingBloomFilter slice で `stdlib/alloc/collections/counting_bloom_filter` の facade / type invariant / hash helper / storage helper / mutation helper / public API docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=306`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし btreemap / btreeset / disjoint_set などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 対象
 
 - `stdlib/core`
@@ -34,7 +36,7 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 ## 根拠
 
 - `node nodesrc/test_stdlib_documentation_contract.js` の再集計で、current baseline は `files=456`、`declarationNoDoc=361`、`declarationNoDoctest=1690` だった。
-- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだったが、その後の BitSet / AdjacencyMatrix / BinaryHeap / BloomFilter slice により sample gaps は btreemap / btreeset / counting_bloom_filter 系へ進んでいる。
+- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだったが、その後の BitSet / AdjacencyMatrix / BinaryHeap / BloomFilter / CountingBloomFilter slice により sample gaps は btreemap / btreeset / disjoint_set 系へ進んでいる。
 - baseline refresh はこれ以上の悪化を止める regression guard であり、既存 gap を解消したことを意味しない。
 - `stdlib/alloc/collections/bitset` では、owner-backed `BitSetUpdateError` を直接構築する doctest を避け、public `insert` / `remove` の Err 経路から error を取得して `bitset_update_error_diag` と `bitset_update_error_owner` の契約を確認する形にした。
 
@@ -51,6 +53,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 同日 BinaryHeap slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=299`、`declarationNoDoc=332`、`declarationNoDoctest=1671`、`publicDeclarationNoDoctest=1512` である。`nodesrc/test_stdlib_binary_heap_doc_report_contract.js` により、BinaryHeap の facade lifecycle、type invariant、observer / pop API、`Vec Option .T` storage、index math、swap、sift-up / sift-down、`BinaryHeapPop` owner accessor doc contract を module 固有にも固定する。
 
 同日 BloomFilter slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=297`、`declarationNoDoc=318`、`declarationNoDoctest=1670`、`publicDeclarationNoDoctest=1511` である。`nodesrc/test_stdlib_bloom_filter_doc_report_contract.js` により、BloomFilter の facade lifecycle、type invariant、invalid length error kind、borrowed observer、false positive / false negative contract、hash / layout / storage / mutation helper doc contract を module 固有にも固定する。
+
+同日 CountingBloomFilter slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=306`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_counting_bloom_filter_doc_report_contract.js` により、CountingBloomFilter の facade lifecycle、type invariant、invalid length error kind、borrowed observer、false positive / false negative、counter saturation / lower-bound remove、typed counter storage、hash / storage / mutation helper doc contract を module 固有にも固定する。
 
 ## 影響
 
@@ -73,3 +77,6 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl -i stdlib/alloc/collections/binary_heap/types.nepl -i stdlib/alloc/collections/binary_heap/storage.nepl -i stdlib/alloc/collections/binary_heap/order.nepl -i stdlib/alloc/collections/binary_heap/api.nepl -i stdlib/alloc/collections/binary_heap/api/create.nepl -i stdlib/alloc/collections/binary_heap/api/observer.nepl -i stdlib/alloc/collections/binary_heap/api/push.nepl -i stdlib/alloc/collections/binary_heap/api/pop.nepl -i stdlib/alloc/collections/binary_heap/api/cleanup.nepl -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/binary_heap.n.md --no-tree -o tmp/agent2-binary-heap-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_bloom_filter_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl -i stdlib/alloc/collections/bloom_filter/types.nepl -i stdlib/alloc/collections/bloom_filter/hash.nepl -i stdlib/alloc/collections/bloom_filter/layout.nepl -i stdlib/alloc/collections/bloom_filter/storage.nepl -i stdlib/alloc/collections/bloom_filter/mutation.nepl -i stdlib/alloc/collections/bloom_filter/api.nepl -i stdlib/tests/bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/agent2-bloom-filter-doc-slice-fourth.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/test_stdlib_counting_bloom_filter_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl -i stdlib/alloc/collections/counting_bloom_filter/types.nepl -i stdlib/alloc/collections/counting_bloom_filter/hash.nepl -i stdlib/alloc/collections/counting_bloom_filter/storage.nepl -i stdlib/alloc/collections/counting_bloom_filter/mutation.nepl -i stdlib/alloc/collections/counting_bloom_filter/api.nepl --no-tree -o tmp/agent2-counting-bloom-filter-doc-modules.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/tests.js -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/agent2-counting-bloom-filter-existing-tests.json -j 1 --dist web/dist --assert-io`

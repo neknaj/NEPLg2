@@ -12,14 +12,91 @@
 #import "core/traits/copy" as *
 #import "alloc/hash/hash32" as hash32
 
+//: ## counting_bloom_hash0
+//: Counting Bloom Filter の primary hash を[計算/けいさん]する
+//:
+//: ### [契約/けいやく]
+//: - `Hasher .T` の `hash_with` をそのまま使い、key と hasher は[消費/しょうひ]しません。
+//: - 時間計算量は `Hasher` / `HashKey` 実装に[依存/いぞん]します。固定長 key では O(1)、`str` では文字列長に比例します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_hash0_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"hash0 delegates to hasher\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/hash" as *
+//:| #import "core/math" as *
+//:| #import "core/traits/hash" as *
+//: fn main %impure fn void i32 \void:
+//:     let expected %i32 hash_with DefaultHash32 7
+//:     let actual %i32 counting_bloom_hash0 DefaultHash32 7
+//:     let same %bool eq expected actual
+//:     let report:
+//:         test_report_new "counting_bloom_filter_hash0_doc"
+//:         |> test_report_push assert "hash0 delegates to hasher" same
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_hash0 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn .H fn .T i32 \hasher\key:
     hash_with hasher key
 
+//: ## counting_bloom_hash1
+//: Counting Bloom Filter の secondary hash を 0 ではない値として[計算/けいさん]する
+//:
+//: ### [契約/けいやく]
+//: - primary hash と key 固有 hash を `hash32::mix` で[混合/こんごう]します。
+//: - mixed hash が 0 のときは 1 に[正規化/せいきか]し、probe の[歩幅/ほはば]が 0 にならないようにします。
+//: - probe 計算の mixing 自体は固定回数です。時間計算量は `Hasher` / `HashKey` 実装に[依存/いぞん]し、固定長 key では O(1)、`str` では文字列長に比例します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_hash1_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"hash1 is nonzero\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/hash" as *
+//:| #import "core/math" as *
+//:| #import "core/traits/hash" as *
+//: fn main %impure fn void i32 \void:
+//:     let value %i32 counting_bloom_hash1 DefaultHash32 7
+//:     let report:
+//:         test_report_new "counting_bloom_filter_hash1_doc"
+//:         |> test_report_push assert "hash1 is nonzero" ne value 0
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_hash1 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn .H fn .T i32 \hasher\key:
     let h0 %i32 counting_bloom_hash0<.T,.H> hasher key
     let hk %i32 hashkey_hash32 key
     let mixed %i32 hash32::mix xor h0 hk
     if eq mixed 0 1 mixed
 
+//: ## counting_bloom_probe_index
+//: 直前 probe と secondary hash から次の counter index を[求/もと]める
+//:
+//: ### [契約/けいやく]
+//: - `rem_u (h0 + h1) nslots` を返します。
+//: - caller は `nslots > 0` を[保証/ほしょう]します。public constructor は 0 以下の counter [長/ちょう]を `Result::Err` にします。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_probe_index_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"probe advances\" expected=\"15\" actual=\"15\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"probe wraps\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/hash" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "counting_bloom_filter_probe_index_doc"
+//:         |> test_report_push assert_eq_i32 "probe advances" 15 counting_bloom_probe_index 64 10 5
+//:         |> test_report_push assert_eq_i32 "probe wraps" 4 counting_bloom_probe_index 64 60 8
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_probe_index %fn i32 fn i32 fn i32 i32 \nslots\h0\h1:
     rem_u add h0 h1 nslots

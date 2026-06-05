@@ -15,6 +15,47 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
+//: ## counting_bloom_counter_at
+//: counter を `Option i32` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `counters` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内なら `Option::Some value` を返し、範囲外なら `Option::None` を返します。
+//: - counter storage は typed `Vec u8` で、戻り値は計算しやすい `i32` に変換します。
+//: - 時間計算量は `Vec.get` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_counter_at_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads initialized counter\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing counter is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 2 7
+//:     let present %i32 match counting_bloom_counter_at &counters 0:
+//:         Option::Some value:
+//:             value
+//:         Option::None:
+//:             -1
+//:     let missing %bool match counting_bloom_counter_at &counters 4:
+//:         Option::Some _value:
+//:             false
+//:         Option::None:
+//:             true
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_counter_at_doc"
+//:         |> test_report_push assert_eq_i32 "reads initialized counter" 7 present
+//:         |> test_report_push assert "missing counter is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_counter_at %fn &Vec u8 fn i32 Option i32 \counters\idx:
     match vec::get counters idx:
         Option::Some counter:
@@ -23,10 +64,82 @@ pub fn counting_bloom_counter_at %fn &Vec u8 fn i32 Option i32 \counters\idx:
         Option::None:
             none
 
+//: ## counting_bloom_store_counter
+//: counter を 1 [個/こ]だけ[書/か]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `counters` owner は[消費/しょうひ]せず、指定 index の counter を更新します。
+//: - caller は `0 <= value <= 255` を[保証/ほしょう]します。public mutation helper はこの範囲を保ちます。
+//: - invalid index を error として返しません。public API は valid probe から導いた counter index だけを渡します。
+//: - 時間計算量は `Vec.replace` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_store_counter_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores counter\" expected=\"33\" actual=\"33\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 2 0
+//:     counting_bloom_store_counter &counters 1 33
+//:     let value %i32 match counting_bloom_counter_at &counters 1:
+//:         Option::Some observed:
+//:             observed
+//:         Option::None:
+//:             -1
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_store_counter_doc"
+//:         |> test_report_push assert_eq_i32 "stores counter" 33 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_store_counter %impure fn &Vec u8 impure fn i32 impure fn i32 unit \counters\idx\value:
     let counter %u8 cast value
     vec::replace counters idx counter
 
+//: ## counting_bloom_fill_counters
+//: counter [配列/はいれつ]の先頭 `nslots` [個/こ]を同じ値で[埋/う]める
+//:
+//: ### [契約/けいやく]
+//: - `counters` owner は[消費/しょうひ]しません。
+//: - caller は `0 <= nslots <= len counters` と `0 <= value <= 255` を[保証/ほしょう]します。
+//: - 現状実装は index 0 から `nslots - 1` まで順に `counting_bloom_store_counter` を呼びます。
+//: - 時間計算量は O(nslots)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_fill_counters_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fills counter range\" expected=\"12\" actual=\"12\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 3 0
+//:     counting_bloom_fill_counters &counters 3 12
+//:     let value %i32 match counting_bloom_counter_at &counters 2:
+//:         Option::Some observed:
+//:             observed
+//:         Option::None:
+//:             -1
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_fill_counters_doc"
+//:         |> test_report_push assert_eq_i32 "fills counter range" 12 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_fill_counters %impure fn &Vec u8 impure fn i32 impure fn i32 unit \counters\nslots\value:
     let mut i %i32 0
     while lt i nslots:
@@ -34,6 +147,41 @@ pub fn counting_bloom_fill_counters %impure fn &Vec u8 impure fn i32 impure fn i
             counting_bloom_store_counter counters i value
             set i add i 1
 
+//: ## counting_bloom_alloc_counters
+//: 初期値つき counter storage を[確保/かくほ]する
+//:
+//: ### [契約/けいやく]
+//: - 長さ `nslots` の typed `Vec u8` owner を[作/つく]ります。
+//: - caller は `0 <= value <= 255` を[保証/ほしょう]します。
+//: - `vec::filled` の失敗は storage 詳細を漏らさず `diag_out_of_memory` に正規化します。
+//: - 時間計算量と空間計算量は O(nslots) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_alloc_counters_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"alloc initializes counter\" expected=\"5\" actual=\"5\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 2 5
+//:     let value %i32 match counting_bloom_counter_at &counters 0:
+//:         Option::Some observed:
+//:             observed
+//:         Option::None:
+//:             -1
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_alloc_counters_doc"
+//:         |> test_report_push assert_eq_i32 "alloc initializes counter" 5 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_alloc_counters %impure fn i32 impure fn i32 Result Vec u8 Diag \nslots\value:
     let counter %u8 cast value
     match vec::filled nslots counter:
@@ -42,5 +190,33 @@ pub fn counting_bloom_alloc_counters %impure fn i32 impure fn i32 Result Vec u8 
         Result::Err _e:
             diag_err diag_out_of_memory
 
+//: ## counting_bloom_free_counters
+//: counter storage owner を[解放/かいほう]する
+//:
+//: ### [契約/けいやく]
+//: - `counting_bloom_alloc_counters` が返した `Vec u8` owner を[閉/と]じます。
+//: - caller はこの関数の後に同じ owner を[再利用/さいりよう]してはいけません。
+//: - 時間計算量は `Vec.free` に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"counting_bloom_filter_free_counters_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free completes\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/counting_bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let counters %Vec u8 unwrap_ok counting_bloom_alloc_counters 1 0
+//:     counting_bloom_free_counters counters
+//:     let report:
+//:         test_report_new "counting_bloom_filter_free_counters_doc"
+//:         |> test_report_push assert "free completes" true
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn counting_bloom_free_counters %impure fn Vec u8 unit \counters:
     vec::free counters
