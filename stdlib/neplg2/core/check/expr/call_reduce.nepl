@@ -63,6 +63,21 @@ fn selfhost_call_reduce_expected_result %fn &SelfhostTypeArena fn SelfhostCallab
         Option::None:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::NotCallable candidate.span
 
+//: selfhost_call_reduce_error_from_argument_match: argument match error を call reduction error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - 実引数検査層の失敗を、call reduction 全体の error domain へ移します。
+//: - literal decode、named value evidence、function value evidence、ascription failure を、`UnsupportedArgumentExpression` や arity error へ潰さず保持します。
+//:
+//: [契約/けいやく]:
+//: - `LiteralBoolInvalid` / `LiteralI32Invalid` / `LiteralI32RadixUnsupported` / `LiteralStringMalformed` / `LiteralStringEscapeUnsupported` / `LiteralStringSliceFailed` は、対応する `ArgumentLiteral*` error へ 1 対 1 で写像します。
+//: - `MissingArgument` だけは call 全体の head span を使い、partial application rejection として扱います。それ以外は元 error span を保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `Result::Err` を返します。戻り値型を `Result unit ...` にしているのは、`match` の全分岐で call reduction error を作ることを型上明示するためです。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
 fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchError fn SelfhostExprPrefixItem Result unit SelfhostCallReduceError \error\head:
     match error.kind:
         SelfhostExprArgumentMatchErrorKind::MissingArgument:
@@ -115,11 +130,24 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed error.span
         SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed error.span
         SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedArgumentExpression error.span
         SelfhostExprArgumentMatchErrorKind::InternalInvariant:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_error_from_argument_match_owned: argument match error を owner-returning 経路用の error に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - owner-returning reducer の helper が `SelfhostCallReduceError` そのものを必要とする箇所で、typed argument error mapping を再利用します。
+//:
+//: [契約/けいやく]:
+//: - 通常は `selfhost_call_reduce_error_from_argument_match` が返した `Err` をそのまま取り出します。
+//: - もし内部不変条件に反して `Ok` が返った場合は、head span の `InternalInvariant` に落として、成功扱いにしません。
+//:
+//: [計算量/けいさんりょう]:
+//: - inner mapping と同じく O(1) です。
 fn selfhost_call_reduce_error_from_argument_match_owned %fn SelfhostExprArgumentMatchError fn SelfhostExprPrefixItem SelfhostCallReduceError \error\head:
     match selfhost_call_reduce_error_from_argument_match error head:
         Result::Err e:

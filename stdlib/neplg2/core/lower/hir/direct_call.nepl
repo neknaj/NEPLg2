@@ -13,7 +13,8 @@
 //: [契約/けいやく]:
 //: - 入力 module は owner として受け取り、成功時は `SelfhostHirModuleExprAlloc` の中で更新済み owner を返します。
 //: - 失敗時は入力 module owner と、この module が作った一時 Vec owner を解放してから typed error を返します。
-//: - 現 checkpoint では `UnitValue`、bool / i32 / simple string literal、`NamedValue`、`FunctionValue` argument を accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、char literal / escaped string / nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
+//: - 現 checkpoint では `UnitValue`、bool / i32 / simple string literal、`NamedValue`、`FunctionValue` argument を accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、char literal payload / nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
+//: - escape 付き string は `check/expr/literal_payload.nepl` が `StringEscapeUnsupported` として拒否するため、raw lexeme を持ったままこの lowering 境界へ到達しません。
 //: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
 //:
 //: [計算量/けいさんりょう]:
@@ -322,7 +323,7 @@ fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impu
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: module に child expression が追加され、`alloc.expr_id` がその child の id です。
-//: - `Err(UnsupportedArgumentKind)`: 値 payload 未保存の char literal / escaped string / nested call / block result は、まだ HIR expression tree へ落とせないため拒否しました。
+//: - `Err(UnsupportedArgumentKind)`: 値 payload 未保存の char literal、nested call、block result などは、まだ HIR expression tree へ落とせないため拒否しました。escape 付き string は checker 側の typed error で止まります。
 pub fn selfhost_hir_lower_checked_argument %impure fn SelfhostHirModule impure fn SelfhostCheckedArgument Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\argument:
     match *field::get_ref &argument "kind":
         SelfhostCheckedArgumentKind::UnitValue:

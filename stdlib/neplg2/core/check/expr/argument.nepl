@@ -102,6 +102,7 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     LiteralI32RadixUnsupported
     LiteralStringMalformed
     LiteralStringEscapeUnsupported
+    LiteralStringSliceFailed
     UnsupportedArgumentExpression
     InternalInvariant
 
@@ -265,6 +266,21 @@ fn selfhost_expr_argument_checked_simple_item %fn SelfhostExprPrefixItem fn i32 
         _:
             selfhost_checked_argument_typed_expression start_index next_index value_type item.span
 
+//: selfhost_expr_argument_match_error_from_literal: literal payload error を argument match error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - source-backed literal decode の失敗を、argument checker の error domain へ移します。
+//: - call reducer は argument match error だけを受け取るため、ここで literal 固有の原因を失わない enum variant に変換します。
+//:
+//: [契約/けいやく]:
+//: - すべての `SelfhostLiteralArgumentErrorKind` は対応する `SelfhostExprArgumentMatchErrorKind::Literal*` に 1 対 1 で写像します。
+//: - この関数は表示文を生成しません。診断表示は call reduction error 以降の report 層が担当します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 返り値の `span` は元の literal error の span と同一です。呼び出し側の head span へ丸めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
 fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentError SelfhostExprArgumentMatchError \error:
     match error.kind:
         SelfhostLiteralArgumentErrorKind::TokenOutOfBounds:
@@ -279,6 +295,8 @@ fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentEr
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed error.span
         SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported error.span
+        SelfhostLiteralArgumentErrorKind::StringSliceFailed:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed error.span
 
 //: selfhost_expr_argument_match_literal_with_source: source-backed literal payload を持つ argument match を[作/つく]る
 //:
@@ -289,6 +307,14 @@ fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentEr
 //: [契約/けいやく]:
 //: - 失敗時には `arena` を解放してから `SelfhostExprArgumentMatchError` を返します。
 //: - `CharLiteral` など HIR payload が未実装の literal は、`literal_payload.nepl` で `TypedExpression` として残り、direct-call HIR lowering 側で fail-closed になります。
+//: - この関数は HIR 型や HIR record を扱いません。source-backed literal decode の結果は `SelfhostCheckedArgument` だけに閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: expected type と一致した literal payload、consume-width、更新済み arena owner を返します。
+//: - `Err(error)`: literal token 参照または意味値解析に失敗しました。arena owner はこの関数内で解放済みです。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 取得と payload record 構築は O(1)、literal lexeme 解析は token spelling 長 n に対して O(n) です。
 fn selfhost_expr_argument_match_literal_with_source %impure fn SelfhostTypeArena impure fn &Vec SelfhostToken impure fn str impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\tokens\source\item\item_index\next_index\expected_type:
     let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
     match selfhost_literal_argument_checked_with_source tokens source item item_index next_index expected_type:

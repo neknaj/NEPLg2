@@ -141,6 +141,7 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentLiteralI32RadixUnsupported
     ArgumentLiteralStringMalformed
     ArgumentLiteralStringEscapeUnsupported
+    ArgumentLiteralStringSliceFailed
     ArgumentNestedCandidatePendingBinding
     ArgumentNestedCandidateMissingSignature
     ArgumentNestedCandidateHeadTokenOutOfBounds
@@ -409,6 +410,12 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed:
                     true
                 _:
                     false

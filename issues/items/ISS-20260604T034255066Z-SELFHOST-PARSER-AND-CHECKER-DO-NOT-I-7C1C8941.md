@@ -78,6 +78,7 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `lower/hir/direct_call.nepl` を追加し、`SelfhostCallReduceResult::DirectCall` と `Vec SelfhostCheckedArgument` を消費して HIR child expression と parent call expression を作る初期 lowering を実装した。現 checkpoint では `UnitValue` を HIR `Unit` child、`NamedValue(identity)` を DefId-linked HIR `Var` child、`FunctionValue(candidate)` を HIR `FnValue` child にする。`TypedExpression` / `NestedDirectCall` / `BlockResult` は lowerable payload が不足しているため `UnsupportedArgumentKind` として fail-closed にする。callee は `candidate_index` から candidate table を読むだけで、prefix token や scope lookup を再実行しない。
 - 2026-06-05: HIR expression model の `Var` payload を `str` から `SelfhostHirValueIdentity` へ変更した。`argument.nepl` は `name -> latest binding -> DefId -> value type evidence` の成功時に `SelfhostCheckedValueIdentity` を作り、`direct_call.nepl` はその payload だけを使って HIR `Var` child を作る。lowering は source token、scope lookup、value evidence lookup を再実行せず、DefId / 型 / binding kind を持つ variable identity を保持する。
 - 2026-06-05: `check/expr/literal_payload.nepl` を追加し、source-backed checker が bool / 10 進 i32 / escape なし string literal の意味値を `SelfhostCheckedArgumentKind::BoolLiteral` / `I32Literal` / `StrLiteral` として保存するようにした。`lower/hir/direct_call.nepl` はこの payload だけを使って HIR `BoolLiteral` / `I32Literal` / `StrLiteral` child を作り、source token や literal lexeme を再読しない。hex integer は `ArgumentLiteralI32RadixUnsupported`、escape 付き string は `ArgumentLiteralStringEscapeUnsupported` として fail-closed にした。
+- 2026-06-05: Zenn 方針と AGENTS.md のコメント方針に照らした subagent review を受け、`literal_payload.nepl` の helper doc comment を目的・契約・戻り値/エラー条件・計算量つきで補強した。`string::str_slice` fallback をやめ、`string::str_slice_result` の失敗を `StringSliceFailed` / `LiteralStringSliceFailed` / `ArgumentLiteralStringSliceFailed` として typed error に写すよう修正した。radix 判定は局所値へ分け、char literal は明示 branch で fail-closed payload に残す。
 - 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、char literal payload、escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
@@ -331,6 +332,17 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_selfhost_hir_expr_payload.js`
 - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-literal-payload.json`（3/3 pass）
 - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-literal-lowering.json`（2/2 pass）
+- `node nodesrc/issues.js check --dir issues`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`
+
+2026-06-05 Zenn policy compliance review checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- `node nodesrc/test_selfhost_hir_expr_payload.js`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-zenn-comment-compliance.json`（3/3 pass）
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-zenn-comment-compliance.json`（2/2 pass）
 - `node nodesrc/issues.js check --dir issues`
 - `node nodesrc/run_source_policy_regressions.js --warn-only`
 - `git diff --check`

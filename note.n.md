@@ -1,3 +1,22 @@
+# 2026-06-05 Agent Zenn policy compliance review checkpoint
+
+- Zenn 記事を再確認した。特に、Option / Result と enum による失敗表現、エラーと表示の分離、目的・契約・戻り値条件・計算量を含む丁寧な doc comment、責務分割、試作段階でも技術的負債を残さない方針を今回の修正基準にした。
+- 既存 subagent 2 つに、直近 selfhost literal payload 変更を Zenn 方針と AGENTS.md のコメント方針に照らして独立レビューさせた。新規 subagent は上限到達のため作成できず、既存 subagent を再利用した。
+- 指摘に基づき、`literal_payload.nepl` の private helper 群へ関数単位の日本語 doc comment を追加した。目的、契約、戻り値 / エラー条件、計算量を明示し、char literal は明示 branch で `TypedExpression` に残すようにした。
+- `string::str_slice` の空文字 fallback を使わず、`string::str_slice_result` の失敗を `StringSliceFailed` / `LiteralStringSliceFailed` / `ArgumentLiteralStringSliceFailed` として typed error に写すようにした。
+- radix 判定を `first_is_zero` と `second_is_radix_marker` に分け、`0x` / `0X` の未対応基数だけを明示的に拒否する読みやすい形へ直した。
+- `check/expr.nepl` と `lower/hir/direct_call.nepl` のコメントを更新し、escape 付き string は lower まで到達せず checker 側の typed error で止まること、lower 側で fail-closed に残るのは `TypedExpression` / `NestedDirectCall` / `BlockResult` などであることを分けて書いた。
+- source policy に、`literal_payload.nepl` の helper doc comment が `[目的]` と `[計算量]`、必要な関数では `[戻り値]` / `[契約]` を持つこと、`str_slice_result` と `StringSliceFailed` を使うこと、char literal が明示 fail-closed branch であることを追加した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-zenn-comment-compliance.json`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-zenn-comment-compliance.json`: pass（2/2）
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost literal value payload checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも技術的負債を残さない方針を判断基準にした。
