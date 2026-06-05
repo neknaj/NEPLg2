@@ -1,3 +1,15 @@
+# 2026-06-05 Agent selfhost nested named call argument checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の静的検査・enum error・Result/Option・fail-closed・責務分割の方針に沿って、source-backed call reducer に nested named call argument の consume-width 縮約を追加した。
+- `stdlib/neplg2/core/check/expr/candidate_collection.nepl` は、prefix 全体の先頭だけでなく任意の `SelfhostExprPrefixItem` head から callable candidate を集められるようにした。候補収集は token spelling、`SelfhostNameScope`、DefId-linked `SelfhostCallableSignatureTable` を通し、文字列名だけでは型を推測しない。
+- subagent review で、scope 全体から同名 function を集めるだけでは、後から同名 local / parameter が shadow した古い function を argument position で復活させる危険が指摘された。これを受けて、候補収集は `selfhost_name_scope_find` で最新の可視 binding を先に確認し、それが `Function` の場合だけ同名 function overload scan へ進む形に修正した。最新 binding が non-function の場合は候補 0 とし、`NamedValue` value evidence fallback へ進む。
+- `stdlib/neplg2/core/check/expr/call_reduce.nepl` は、argument position の `NamedValue` に visible function candidate がある場合だけ nested call として縮約し、外側 parameter expected type を nested call の result expectation として渡す。`add add 1 2 3` では内側 `add 1 2` の消費後 `next_index` を外側 loop へ返し、最後の `3` を外側第2引数として残す。
+- `SelfhostCallReduceErrorKind::ArgumentNestedCandidate*` を追加し、nested candidate collection の pending binding、missing signature、head token 範囲外、allocation failure、内部不変条件違反を `UnsupportedArgumentExpression` へ潰さず分けた。
+- `stage1` smoke に `add add 1 2 3` の nested call success と、古い function signature が残った同名 `Local` が `add add 2` の2個目の `add` として value evidence fallback される shadowing regression を追加した。再レビューでは blocking concern はなく、Param shadow は同じ non-function branch で守られるが個別 smoke は Local 固定であることを確認した。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` は、head item candidate collection、最新可視 binding gate、nested error projection、direct-or-nested argument boundary、shadowing smoke を source policy として固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` を更新し、nested named call argument を完了済みに移した。残件は block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、memo_call の Phase 1 境界である。
+- 検証済み: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_nested_argument_tests.json`（2/2 pass）、`node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-nested-call-review.json`（3/3 pass）、`node nodesrc/issues.js check --dir issues`、`git diff --check`。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象の selfhost policy が pass し、既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけが warning として残った。
+
 # 2026-06-05 Agent selfhost named value argument evidence checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の静的検査・enum error・Result/Option・fail-closed・責務分割の方針に沿って、argument position の `NamedValue` を spelling ではなく DefId-linked な値型証拠で検査する境界を追加した。

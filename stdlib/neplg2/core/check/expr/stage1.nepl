@@ -40,18 +40,19 @@
 //: SelfhostCheckExprStage1ValueContext: smoke helper 用の scope と値型証拠 table
 //:
 //: [目的/もくてき]:
-//: - source-backed reducer の新しい入力である `SelfhostNameScope` と `SelfhostValueTypeEvidenceTable` を、stage1 fixture 内で同じ owner lifetime として扱います。
+//: - source-backed reducer の入力である `SelfhostNameScope`、`SelfhostValueTypeEvidenceTable`、`SelfhostCallableSignatureTable` を、stage1 fixture 内で同じ owner lifetime として扱います。
 //: - fixture が名前付き値を使わない場合でも、空 context を渡して production API と同じ呼び出し形を通します。
 //:
 //: [契約/けいやく]:
 //: - この型は stage1 smoke helper 専用です。production checker の環境 model ではありません。
-//: - `scope` と `value_types` は同じ checker phase で構築されたものとして扱い、関数終了時に必ず解放します。
+//: - `scope`、`value_types`、`signatures` は同じ checker phase で構築されたものとして扱い、関数終了時に必ず解放します。
 struct SelfhostCheckExprStage1ValueContext:
     scope %SelfhostNameScope
     value_types %SelfhostValueTypeEvidenceTable
+    signatures %SelfhostCallableSignatureTable
 
-fn selfhost_check_expr_stage1_value_context_new %impure fn SelfhostNameScope impure fn SelfhostValueTypeEvidenceTable SelfhostCheckExprStage1ValueContext \scope\value_types:
-    SelfhostCheckExprStage1ValueContext scope value_types
+fn selfhost_check_expr_stage1_value_context_new %impure fn SelfhostNameScope impure fn SelfhostValueTypeEvidenceTable impure fn SelfhostCallableSignatureTable SelfhostCheckExprStage1ValueContext \scope\value_types\signatures:
+    SelfhostCheckExprStage1ValueContext scope value_types signatures
 
 fn selfhost_check_expr_stage1_value_context_scope %fn &SelfhostCheckExprStage1ValueContext &SelfhostNameScope \context:
     field::get_ref context "scope"
@@ -59,16 +60,26 @@ fn selfhost_check_expr_stage1_value_context_scope %fn &SelfhostCheckExprStage1Va
 fn selfhost_check_expr_stage1_value_context_value_types %fn &SelfhostCheckExprStage1ValueContext &SelfhostValueTypeEvidenceTable \context:
     field::get_ref context "value_types"
 
+fn selfhost_check_expr_stage1_value_context_signatures %fn &SelfhostCheckExprStage1ValueContext &SelfhostCallableSignatureTable \context:
+    field::get_ref context "signatures"
+
 fn selfhost_check_expr_stage1_value_context_free %impure fn SelfhostCheckExprStage1ValueContext unit \context:
     selfhost_name_scope_free field::get context "scope"
     selfhost_value_type_evidence_table_free field::get context "value_types"
+    selfhost_callable_signature_table_free field::get context "signatures"
 
 fn selfhost_check_expr_stage1_empty_value_context %impure fn void Result SelfhostCheckExprStage1ValueContext StdErrorKind \void:
     match selfhost_name_scope_new:
         Result::Ok scope:
             match selfhost_value_type_evidence_table_new:
                 Result::Ok value_types:
-                    Result::Ok selfhost_check_expr_stage1_value_context_new scope value_types
+                    match selfhost_callable_signature_table_new:
+                        Result::Ok signatures:
+                            Result::Ok selfhost_check_expr_stage1_value_context_new scope value_types signatures
+                        Result::Err e:
+                            selfhost_value_type_evidence_table_free value_types
+                            selfhost_name_scope_free scope
+                            Result::Err e
                 Result::Err e:
                     selfhost_name_scope_free scope
                     Result::Err e
@@ -84,7 +95,13 @@ fn selfhost_check_expr_stage1_value_context_with_binding_only %impure fn str imp
                     let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope added
                     match selfhost_value_type_evidence_table_new:
                         Result::Ok value_types:
-                            Result::Ok selfhost_check_expr_stage1_value_context_new scope1 value_types
+                            match selfhost_callable_signature_table_new:
+                                Result::Ok signatures:
+                                    Result::Ok selfhost_check_expr_stage1_value_context_new scope1 value_types signatures
+                                Result::Err e:
+                                    selfhost_value_type_evidence_table_free value_types
+                                    selfhost_name_scope_free scope1
+                                    Result::Err e
                         Result::Err e:
                             selfhost_name_scope_free scope1
                             Result::Err e
@@ -106,12 +123,104 @@ fn selfhost_check_expr_stage1_value_context_with_typed_value %impure fn str impu
                             let evidence %SelfhostValueTypeEvidence selfhost_value_type_evidence_new def_id value_type span
                             match selfhost_value_type_evidence_table_add value_types0 evidence:
                                 Result::Ok value_types1:
-                                    Result::Ok selfhost_check_expr_stage1_value_context_new scope1 value_types1
+                                    match selfhost_callable_signature_table_new:
+                                        Result::Ok signatures:
+                                            Result::Ok selfhost_check_expr_stage1_value_context_new scope1 value_types1 signatures
+                                        Result::Err e:
+                                            selfhost_value_type_evidence_table_free value_types1
+                                            selfhost_name_scope_free scope1
+                                            Result::Err e
                                 Result::Err e:
                                     selfhost_name_scope_free scope1
                                     Result::Err e
                         Result::Err e:
                             selfhost_name_scope_free scope1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_check_expr_stage1_value_context_with_function %impure fn str impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostCheckExprStage1ValueContext StdErrorKind \name\callable_type\span:
+    match selfhost_name_scope_new:
+        Result::Ok scope0:
+            let binding %SelfhostNameBinding selfhost_name_binding_pending name SelfhostDefKind::Function span
+            match selfhost_name_scope_add_binding scope0 binding:
+                Result::Ok added:
+                    let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &added
+                    let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope added
+                    match selfhost_value_type_evidence_table_new:
+                        Result::Ok value_types:
+                            match selfhost_callable_signature_table_new:
+                                Result::Ok signatures0:
+                                    let signature %SelfhostCallableSignature selfhost_callable_signature_new def_id callable_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+                                    match selfhost_callable_signature_table_add signatures0 signature:
+                                        Result::Ok signatures1:
+                                            Result::Ok selfhost_check_expr_stage1_value_context_new scope1 value_types signatures1
+                                        Result::Err e:
+                                            selfhost_value_type_evidence_table_free value_types
+                                            selfhost_name_scope_free scope1
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_value_type_evidence_table_free value_types
+                                    selfhost_name_scope_free scope1
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_name_scope_free scope1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_value_context_with_shadowed_function_value: function を同名 local で shadow した context を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - callable signature table には古い function signature が残っていても、scope の最新 binding が local value なら argument position では value evidence fallback が使われることを確認します。
+//: - 候補収集が `find_kind(Function)` だけで古い function を復活させる退行を、stage1 smoke から検出できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 成功時は scope、value evidence table、callable signature table をまとめた context owner を返します。
+//: - 失敗時は、この helper が作成済み owner をすべて解放してから `StdErrorKind` を返します。
+fn selfhost_check_expr_stage1_value_context_with_shadowed_function_value %impure fn str impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostCheckExprStage1ValueContext StdErrorKind \name\callable_type\value_type\span:
+    match selfhost_name_scope_new:
+        Result::Ok scope0:
+            let function_binding %SelfhostNameBinding selfhost_name_binding_pending name SelfhostDefKind::Function span
+            match selfhost_name_scope_add_binding scope0 function_binding:
+                Result::Ok function_added:
+                    let function_def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &function_added
+                    let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope function_added
+                    let value_binding %SelfhostNameBinding selfhost_name_binding_pending name SelfhostDefKind::Local span
+                    match selfhost_name_scope_add_binding scope1 value_binding:
+                        Result::Ok value_added:
+                            let value_def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &value_added
+                            let scope2 %SelfhostNameScope selfhost_name_scope_add_result_into_scope value_added
+                            match selfhost_value_type_evidence_table_new:
+                                Result::Ok value_types0:
+                                    let evidence %SelfhostValueTypeEvidence selfhost_value_type_evidence_new value_def_id value_type span
+                                    match selfhost_value_type_evidence_table_add value_types0 evidence:
+                                        Result::Ok value_types1:
+                                            match selfhost_callable_signature_table_new:
+                                                Result::Ok signatures0:
+                                                    let signature %SelfhostCallableSignature selfhost_callable_signature_new function_def_id callable_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+                                                    match selfhost_callable_signature_table_add signatures0 signature:
+                                                        Result::Ok signatures1:
+                                                            Result::Ok selfhost_check_expr_stage1_value_context_new scope2 value_types1 signatures1
+                                                        Result::Err e:
+                                                            selfhost_value_type_evidence_table_free value_types1
+                                                            selfhost_name_scope_free scope2
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    selfhost_value_type_evidence_table_free value_types1
+                                                    selfhost_name_scope_free scope2
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_name_scope_free scope2
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_name_scope_free scope2
+                                    Result::Err e
+                        Result::Err e:
                             Result::Err e
                 Result::Err e:
                     Result::Err e
@@ -251,6 +360,24 @@ fn selfhost_check_expr_stage1_ascribed_argument_segment %fn SelfhostSourceSpan S
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 5 span
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_nested_call_argument_segment: `add add 1 2 3` 全体を指す expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 先頭 `add` の第1引数が nested call `add 1 2` であり、最後の `3` が外側 call の第2引数として残る token range を fixture 化します。
+//: - raw item count では 4 arguments に見えるため、consume-width reducer が nested call 後の `next_index` を返すことを確認できます。
+fn selfhost_check_expr_stage1_nested_call_argument_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 5 source_span_new_unchecked 0 0 13
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
+//: selfhost_check_expr_stage1_shadowed_function_argument_segment: `add add 2` 全体を指す expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 内側位置の `add` が、古い function binding ではなく最新 local binding として扱われる shadowing regression を確認します。
+//: - 3 token 全体が外側 call であり、2個目の `add` は 1 item の `NamedValue` argument として消費されます。
+fn selfhost_check_expr_stage1_shadowed_function_argument_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 9
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
 //: selfhost_check_expr_stage1_block_intro_segment: 拒否確認用の block-intro segment を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -299,6 +426,64 @@ fn selfhost_check_expr_stage1_make_tokens %impure fn void Result Vec SelfhostTok
                         Result::Ok tokens2:
                             let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 6 7
                             selfhost_check_expr_stage1_push_token tokens2 arg1
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_nested_call_argument_tokens: `add add 1 2 3` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 2個目の `add` が nested named call head として扱われ、`1 2` を消費して `i32` を返す引数式になることを確認します。
+//: - 最後の `3` は外側 call の第2引数です。nested call が suffix 全体を要求すると、この fixture は失敗します。
+fn selfhost_check_expr_stage1_make_nested_call_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let outer_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 outer_add:
+                Result::Ok tokens1:
+                    let inner_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 4 7
+                    match selfhost_check_expr_stage1_push_token tokens1 inner_add:
+                        Result::Ok tokens2:
+                            let arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 8 9
+                            match selfhost_check_expr_stage1_push_token tokens2 arg0:
+                                Result::Ok tokens3:
+                                    let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 10 11
+                                    match selfhost_check_expr_stage1_push_token tokens3 arg1:
+                                        Result::Ok tokens4:
+                                            let outer_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 12 13
+                                            selfhost_check_expr_stage1_push_token tokens4 outer_arg1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_shadowed_function_argument_tokens: `add add 2` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 2個目の `add` は `Ident` ですが、fixture scope では同名 function を local value が shadow します。
+//: - candidate collection が古い function を復活させると、この入力は nested call として扱われて失敗します。
+fn selfhost_check_expr_stage1_make_shadowed_function_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let outer_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 outer_add:
+                Result::Ok tokens1:
+                    let value_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 4 7
+                    match selfhost_check_expr_stage1_push_token tokens1 value_add:
+                        Result::Ok tokens2:
+                            let outer_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 8 9
+                            selfhost_check_expr_stage1_push_token tokens2 outer_arg1
                         Result::Err e:
                             Result::Err e
                 Result::Err e:
@@ -517,7 +702,8 @@ fn selfhost_check_expr_stage1_segment_span %fn SelfhostBodySegment SelfhostSourc
 fn selfhost_check_expr_stage1_reduce_body_segment_with_value_context %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn SelfhostCheckExprStage1ValueContext impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\context\candidates\expected:
     let scope %&SelfhostNameScope selfhost_check_expr_stage1_value_context_scope &context
     let value_types %&SelfhostValueTypeEvidenceTable selfhost_check_expr_stage1_value_context_value_types &context
-    let result %Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError selfhost_check_expr_reduce_body_segment_with_arena tokens source segment arena scope value_types candidates expected
+    let signatures %&SelfhostCallableSignatureTable selfhost_check_expr_stage1_value_context_signatures &context
+    let result %Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError selfhost_check_expr_reduce_body_segment_with_arena tokens source segment arena scope value_types signatures candidates expected
     selfhost_check_expr_stage1_value_context_free context
     result
 
@@ -755,6 +941,79 @@ fn selfhost_check_expr_stage1_ascribed_named_argument_ok_with_scope %impure fn V
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_nested_call_argument_ok_with_scope: `add add 1 2 3` が direct call になるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 2個目の `add` を nested named call head として扱い、`add 1 2` を外側 `add` の第1引数式として縮約できることを確認します。
+//: - nested reducer は suffix 全体の消費を要求せず、内側 call の消費後 index を返す必要があります。最後の `3` は外側 call の第2引数として残ります。
+//:
+//: [契約/けいやく]:
+//: - nested head の候補は context 内の scope と callable signature table から収集します。
+//: - `arena`、`tokens`、candidate vector、context は成功・失敗にかかわらずこの helper が閉じます。
+fn selfhost_check_expr_stage1_nested_call_argument_ok_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_nested_call_argument_segment
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "add add 1 2 3" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool selfhost_check_expr_stage1_success_is_two_arg_direct_call &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
+//: selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence: shadow された function が復活しないか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `add add 2` の2個目の `add` について、古い function binding と signature が残っていても、最新 local binding の `i32` value evidence が優先されることを確認します。
+//: - candidate collection が最新 binding を見ずに scope 全体から同名 function を拾うと、この fixture は nested call として扱われ、外側 argument cursor が壊れます。
+//:
+//: [契約/けいやく]:
+//: - `arena`、`tokens`、candidate vector、context は成功・失敗にかかわらずこの helper が閉じます。
+fn selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\add_type\i32_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_shadowed_function_argument_segment
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 4 7
+            match selfhost_check_expr_stage1_value_context_with_shadowed_function_value "add" add_type i32_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "add add 2" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool selfhost_check_expr_stage1_success_is_two_arg_direct_call &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_run_with_candidate: token / arena / candidate owner を閉じて smoke result を[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -955,6 +1214,26 @@ fn selfhost_check_expr_stage1_run_ascribed_named_argument_with_i32 %impure fn Ve
             v::free tokens
             1
 
+fn selfhost_check_expr_stage1_run_nested_call_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_nested_call_argument_ok_with_scope tokens next_arena add_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence tokens next_arena add_type i32_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
 fn selfhost_check_expr_stage1_run_named_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -993,6 +1272,36 @@ fn selfhost_check_expr_stage1_run_ascribed_named_argument_with_tokens %impure fn
                     let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
                     selfhost_check_expr_stage1_run_ascribed_named_argument_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_nested_call_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_nested_call_argument_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32 tokens arena1 i32_type
                 Result::Err _e:
                     v::free tokens
                     1
@@ -1061,6 +1370,23 @@ fn selfhost_check_expr_stage1_named_argument_body_line %impure fn void i32 \void
         Result::Err _e:
             1
 
+fn selfhost_check_expr_stage1_nested_call_argument_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_nested_call_argument_tokens:
+        Result::Ok tokens:
+            let nested_result %i32 selfhost_check_expr_stage1_run_nested_call_argument_with_tokens tokens
+            if:
+                eq nested_result 0
+                then:
+                    match selfhost_check_expr_stage1_make_shadowed_function_argument_tokens:
+                        Result::Ok shadow_tokens:
+                            selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens shadow_tokens
+                        Result::Err _e:
+                            1
+                else:
+                    1
+        Result::Err _e:
+            1
+
 //: selfhost_check_expr_stage1_body_line: body expression line 接続の smoke API
 //:
 //: [目的/もくてき]:
@@ -1068,6 +1394,8 @@ fn selfhost_check_expr_stage1_named_argument_body_line %impure fn void i32 \void
 //: - `BlockIntro` が同じ入口から拒否されることも確認し、nested body を flat expression として扱う退行を防ぎます。
 //: - line-head ascription と argument-scope ascription の両方を smoke test に含め、source-backed reducer への接続退行を検出します。
 //: - `NamedValue` argument は、scope binding と value type evidence が揃う場合だけ通り、binding だけでは拒否されることを確認します。
+//: - nested named call argument は、scope と callable signature table から inner head の候補を集め、消費後 index を外側 call へ返すことを確認します。
+//: - 同名 local が function を shadow している場合は、古い function candidate を復活させず、NamedValue value evidence fallback を使うことも確認します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `0`: expression line reduction と block intro rejection が期待通りでした。
@@ -1087,7 +1415,13 @@ pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
                             if:
                                 eq argument_ascription 0
                                 then:
-                                    selfhost_check_expr_stage1_named_argument_body_line
+                                    let named_argument %i32 selfhost_check_expr_stage1_named_argument_body_line
+                                    if:
+                                        eq named_argument 0
+                                        then:
+                                            selfhost_check_expr_stage1_nested_call_argument_body_line
+                                        else:
+                                            1
                                 else:
                                     1
                         else:

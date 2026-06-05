@@ -65,8 +65,9 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: call reducer の raw `item_count - 1` argument count 依存をやめ、parameter index と prefix item cursor を分けた argument expression consume-width 境界へ移した。現 checkpoint では単一 literal item だけが `SelfhostExprArgumentMatch.next_index` を返して成功し、`%T literal` は source / token backed argument checker が未接続のため `UnsupportedArgumentExpression` として fail-closed にする。これにより `add %i32 1 2` 相当の flat prefix item 列を raw 4 argument と誤分類せず、後続の argument-scope ascription 検査へ接続できる。
 - 2026-06-05: source / token backed の argument-scope ascription 検査を追加し、`selfhost_call_reduce_prefix_with_source` から `%T literal` を 1 つの argument expression として縮約できるようにした。`SelfhostExprArgumentOwnedMatch` / `SelfhostCallReduceOwnedResult` は `SelfhostTypeArena` owner を返すため、projection 後の expected type を arena-local id のまま安全に比較できる。source-less borrowed reducer は引き続き `%T literal` を成功扱いせず fail-closed にし、source と token を持つ入口だけが `add %i32 1 2` を 2 引数 direct call として受理し、`add %bool 1 2` を `ArgumentAscriptionExpectedTypeConflict` として拒否する。`%T` head の projection 自体が失敗した場合は `ArgumentAscriptionProjectionFailed` として span を保持し、empty-span の unsupported error へ潰さない。
 - 2026-06-05: `check/expr/value_evidence.nepl` を追加し、source / token backed の `NamedValue` argument と `%T NamedValue` argument を DefId-linked な型証拠で検査するようにした。`SelfhostValueTypeEvidenceTable` は scope binding の `SelfhostDefId` と arena-local `SelfhostTypeId` を結び、名前の spelling だけでは成功させない。binding 欠落、DefId 未割当、値として扱えない binding kind、型証拠欠落を `NamedValue*` error として分け、call reducer 側では `ArgumentNamedValue*` error へ投影する。`add x 2` と `add %i32 x 2` は `x: i32` の証拠が登録済みの場合だけ受理し、binding だけでは `ArgumentNamedValueEvidenceMissing` として拒否する。
+- 2026-06-05: source / token backed の nested named call argument 検査を追加した。`candidate_collection.nepl` は prefix 全体の先頭ではない `SelfhostExprPrefixItem` head からも function candidate を集め、`call_reduce.nepl` は外側 parameter の expected type を nested call の result expectation として使う。`add add 1 2 3` では内側 `add 1 2` が第1引数として消費され、返された `next_index` により最後の `3` が外側 call の第2引数として残る。候補 0 件のときだけ NamedValue value evidence へ fallback し、候補収集の DefId / signature 不整合は `ArgumentNestedCandidate*` として fail-closed にする。subagent review で指摘された shadowing 退行も修正し、最新の可視 binding が local / parameter などの non-function なら、古い同名 function を復活させず value evidence fallback へ進む。
 - 2026-06-05: focused doctest を止めていた既存 effect 境界も修正した。`selfhost_diagnostics_push` / `selfhost_diagnostics_free` / `lex_stack_drop_top` は `Vec` owner の更新または解放を行うため `impure fn` に正規化し、`lex_stack_drop_top` は引き続き public `drop_last` API へ委譲して `Vec` 内部 storage layout へ依存しない。
-- 残件: source / token backed の nested call / block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 残件: source / token backed の block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -108,6 +109,12 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_selfhost_type_resolver_split_contract.js`
 - `node nodesrc/test_selfhost_type_resolver_prefix_input.js`
 - `node nodesrc/tests.js -i stdlib\neplg2\core\resolve\type_resolver.nepl -o tmp\selfhost-type-resolver-project-facade2.json --no-tree -j 1 --assert-io --dist web\dist`
+
+2026-06-05 nested named call argument checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_nested_argument_tests.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-nested-call-review.json`
 - `node nodesrc/tests.js -i stdlib\neplg2 -o tmp\selfhost-type-resolver-project-stdlib-neplg2.json --no-tree -j 2 --assert-io --dist web\dist`
 
 2026-06-05 type constructor lookup checkpoint:

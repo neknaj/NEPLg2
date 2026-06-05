@@ -10,7 +10,8 @@
 //:
 //: [契約/けいやく]:
 //: - 先頭 item が `NamedValue` のときだけ function binding を探します。
-//: - 同名 function binding が複数ある場合は、scope の宣言順にすべて candidate list へ追加します。overload の曖昧性や narrowing は call reduction 側で扱います。
+//: - 同名 function binding が複数ある場合は、最新の可視 binding が function である場合だけ、scope の宣言順にすべて candidate list へ追加します。overload の曖昧性や narrowing は call reduction 側で扱います。
+//: - 最新の可視 binding が local / parameter / type などの non-function である場合、古い同名 function binding を復活させず、空候補として返します。argument position では caller が通常の `NamedValue` evidence へ fallback します。
 //: - 名前が見つからない場合は空の candidate list を返します。最終的な `UnresolvedName` diagnostic は call reduction 側が同じ error model で作ります。
 //: - binding があるのに DefId や signature が欠けている場合は、この module の typed error として fail-closed にします。
 //: - signature table は caller が scope 構築時に事前構築します。この module は import graph や module AST を再探索しません。
@@ -277,18 +278,30 @@ fn selfhost_callable_candidates_collect_scope_loop %impure fn str impure fn &Sel
                     v::free out
                     Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::PendingBinding source_span_empty_unchecked 0 0
 
-//: selfhost_callable_candidates_collect_from_scope_name: 名前に対応する function candidate list を[作/つく]る
+//: selfhost_callable_candidates_collect_from_scope_name: 可視名に対応する function candidate list を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - scope 内の同名 function binding を宣言順に集め、overload 判定へ渡せる candidate list にします。
-//: - 名前が 1 件も見つからない場合でも空 list を返し、diagnostic の統一は reducer に任せます。
+//: - 最新の可視 binding が function の場合だけ、scope 内の同名 function binding を宣言順に集め、overload 判定へ渡せる candidate list にします。
+//: - 名前が 1 件も見つからない場合、または最新の可視 binding が non-function の場合でも空 list を返し、diagnostic や value fallback の判断は reducer に任せます。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_name_scope_find` の後勝ち shadowing を先に確認します。これをせず `find_kind(Function)` や全 scope scan だけで候補を作ると、後から追加された local / parameter に隠れた古い function が argument expression として復活してしまいます。
 fn selfhost_callable_candidates_collect_from_scope_name %impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostSourceSpan Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \name\scope\signatures\head_span:
-    let out_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
-    match out_result:
-        Result::Ok out:
-            selfhost_callable_candidates_collect_scope_loop name scope signatures 0 selfhost_name_scope_len scope out
-        Result::Err _e:
-            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory head_span
+    match selfhost_name_scope_find scope name:
+        Option::Some latest:
+            if:
+                selfhost_def_kind_eq latest.kind SelfhostDefKind::Function
+                then:
+                    let out_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
+                    match out_result:
+                        Result::Ok out:
+                            selfhost_callable_candidates_collect_scope_loop name scope signatures 0 selfhost_name_scope_len scope out
+                        Result::Err _e:
+                            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory head_span
+                else:
+                    selfhost_callable_candidates_empty head_span
+        Option::None:
+            selfhost_callable_candidates_empty head_span
 
 //: selfhost_callable_candidates_collect_named: head token の名前から candidate list を[集/あつ]める
 //:
@@ -302,6 +315,23 @@ fn selfhost_callable_candidates_collect_named %impure fn str impure fn &Vec Self
             selfhost_callable_candidates_collect_from_scope_name name scope signatures head.span
         Option::None:
             Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::HeadTokenOutOfBounds head.span
+
+//: selfhost_callable_candidates_collect_for_head_item: prefix 内の head item から callable candidate list を[集/あつ]める
+//:
+//: [目的/もくてき]:
+//: - nested call argument のように、prefix list 全体の先頭ではない位置にある `NamedValue` を callee head として扱うときに使います。
+//: - token spelling、scope binding、DefId-linked signature table を通す規則は top-level collection と同じです。
+//:
+//: [契約/けいやく]:
+//: - `head.kind` が `NamedValue` でない場合は `UnsupportedHead` を返します。
+//: - 名前が function binding として見つからない場合、または最新 binding が non-function の場合は空 candidate list を返し、caller が値 argument として扱うか `UnresolvedName` にするかを決めます。
+//: - signature table の不整合や DefId 未割当は fail-closed の typed error として返します。
+pub fn selfhost_callable_candidates_collect_for_head_item %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostExprPrefixItem impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \source\tokens\head\scope\signatures:
+    match head.kind:
+        SelfhostExprPrefixItemKind::NamedValue:
+            selfhost_callable_candidates_collect_named source tokens head scope signatures
+        _:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::UnsupportedHead head.span
 
 //: selfhost_callable_candidates_collect_for_prefix: prefix 先頭名から callable candidate list を[集/あつ]める
 //:

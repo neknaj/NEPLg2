@@ -70,6 +70,7 @@ pub struct SelfhostCallReduceOwnedResult:
 //: - `UnsupportedArgumentExpression` は、ascription 付き引数や nested call のように 1 個の prefix item では型証拠を得られないが、raw item 数で overload 失敗へ潰してはいけない場合に使います。
 //: - `ArgumentAscriptionProjectionFailed` と `ArgumentAscriptionExpectedTypeConflict` は、argument-scope `%T expr` の型注釈自体の不備と expected parameter type との衝突を分けます。
 //: - `ArgumentNamedValue*` は、argument position の名前が値として解決できない場合と、値は解決できるが型証拠がまだ無い場合を分けます。
+//: - `ArgumentNestedCandidate*` は、nested named call argument の head を function candidate として収集する段階の不整合を分けます。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
     UnsupportedPrefixItem
@@ -83,6 +84,11 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentNamedValuePendingBinding
     ArgumentNamedValueUnsupportedBinding
     ArgumentNamedValueEvidenceMissing
+    ArgumentNestedCandidatePendingBinding
+    ArgumentNestedCandidateMissingSignature
+    ArgumentNestedCandidateHeadTokenOutOfBounds
+    ArgumentNestedCandidateOutOfMemory
+    ArgumentNestedCandidateInternalInvariant
     UnsupportedArgumentExpression
     OverloadNoCandidate
     OverloadAmbiguous
@@ -215,6 +221,36 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidatePendingBinding:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNestedCandidatePendingBinding:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateMissingSignature:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNestedCandidateMissingSignature:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateHeadTokenOutOfBounds:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNestedCandidateHeadTokenOutOfBounds:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateOutOfMemory:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNestedCandidateOutOfMemory:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant:
                     true
                 _:
                     false
