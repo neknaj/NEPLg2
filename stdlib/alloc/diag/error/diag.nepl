@@ -96,6 +96,54 @@ pub fn diag_level %fn &Diag DiagLevel \d:
     let kind %&DiagKind field::get_ref d "kind";
     *field::get_ref kind "level"
 
+//: diag_level: by-value `Diag` から[重大度/じゅうだいど] enum を[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - borrowed overload と[同/おな]じ `DiagLevel` を[返/かえ]します。
+//: - [重大度/じゅうだいど]は `DiagLevel` enum が[権威/けんい]であり、`"error"` などの[表示/ひょうじ][文字列/もじれつ]では[判定/はんてい]しません。
+//: - `Diag` は Copy な[診断/しんだん][値/あたい]なので owner cleanup は[不要/ふよう]です。
+//:
+//: ### [戻り値/もどりち]
+//: - `DiagLevel::Log`
+//: - `DiagLevel::Info`
+//: - `DiagLevel::Warn`
+//: - `DiagLevel::Error`
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `&d` を[作/つく]って borrowed overload に[委譲/いじょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diag_level_by_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"level enum\" expected=\"error\" actual=\"error\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error/diag" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag diag_error StdErrorKind::OutOfMemory "allocation failed"
+//:     let level %DiagLevel diag_level d
+//:     let actual %str match level:
+//:         DiagLevel::Error:
+//:             "error"
+//:         DiagLevel::Warn:
+//:             "warn"
+//:         DiagLevel::Info:
+//:             "info"
+//:         DiagLevel::Log:
+//:             "log"
+//:     let report:
+//:         test_report_new "diag_level_by_value_doc"
+//:         |> test_report_push assert_str_eq "level enum" "error" actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diag_level %fn Diag DiagLevel \d:
     diag_level &d
 
@@ -104,6 +152,47 @@ pub fn diag_std_error_kind %fn &Diag Option StdErrorKind \d:
     let kind %&DiagKind field::get_ref d "kind";
     *field::get_ref kind "std_error"
 
+//: diag_std_error_kind: by-value `Diag` から `StdErrorKind` payload を[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `DiagKind.std_error` を `Option StdErrorKind` のまま[返/かえ]します。
+//: - [共通/きょうつう] stdlib error の[判定/はんてい]は、この `Option` と `StdErrorKind` enum を `match` して[行/おこな]います。
+//: - `Option::None` は local kind や log/info/warn など、stdlib [共通/きょうつう] error kind を[持/も]たない[診断/しんだん]を[表/あらわ]します。
+//:
+//: ### [戻り値/もどりち]
+//: - `Option::Some kind`: `StdErrorKind` が[構造化/こうぞうか] payload として[存在/そんざい]します。
+//: - `Option::None`: stdlib [共通/きょうつう] error kind は[存在/そんざい]しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `&d` を[作/つく]って borrowed overload に[委譲/いじょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diag_std_error_kind_by_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"std kind\" expected=\"OutOfMemory\" actual=\"OutOfMemory\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error/diag" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag diag_error StdErrorKind::OutOfMemory "allocation failed"
+//:     let kind_name %str match diag_std_error_kind d:
+//:         Option::Some k:
+//:             std_error_kind_str k
+//:         Option::None:
+//:             "missing"
+//:     let report:
+//:         test_report_new "diag_std_error_kind_by_value_doc"
+//:         |> test_report_push assert_str_eq "std kind" "OutOfMemory" kind_name
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diag_std_error_kind %fn Diag Option StdErrorKind \d:
     diag_std_error_kind &d
 
@@ -115,6 +204,44 @@ pub fn diag_std_error_kind_str %fn &Diag str \d:
         Option::None:
             "None"
 
+//: diag_std_error_kind_str: by-value `Diag` の std error kind を[表示/ひょうじ][文字列/もじれつ]へ[変換/へんかん]する
+//:
+//: ### [契約/けいやく]
+//: - `diag_std_error_kind d` が `Option::Some k` なら `std_error_kind_str k` を[返/かえ]します。
+//: - `Option::None` なら[表示/ひょうじ] helper として `"None"` を[返/かえ]します。
+//: - error [判定/はんてい]の[権威/けんい]は `Option StdErrorKind` であり、この[文字列/もじれつ]は doctest や人間向け表示の補助です。
+//:
+//: ### [戻り値/もどりち]
+//: - `StdErrorKind` の[名前/なまえ][文字列/もじれつ]
+//: - std error kind がない[場合/ばあい]の `"None"`
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - by-value accessor を `match` して[文字列/もじれつ]へ[投影/とうえい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diag_std_error_kind_str_by_value_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"std kind name\" expected=\"OutOfMemory\" actual=\"OutOfMemory\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"missing kind name\" expected=\"None\" actual=\"None\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error/diag" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d0 %Diag diag_error StdErrorKind::OutOfMemory "allocation failed"
+//:     let d1 %Diag diag_warn "careful"
+//:     let report:
+//:         test_report_new "diag_std_error_kind_str_by_value_doc"
+//:         |> test_report_push assert_str_eq "std kind name" "OutOfMemory" diag_std_error_kind_str d0
+//:         |> test_report_push assert_str_eq "missing kind name" "None" diag_std_error_kind_str d1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diag_std_error_kind_str %fn Diag str \d:
     match diag_std_error_kind d:
         Option::Some k:

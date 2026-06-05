@@ -47,6 +47,40 @@ pub fn kind_str %fn &Diag str \d:
                 Option::None:
                     level_name
 
+//: kind_str: by-value `Diag` から kind 表示名を[取/と]り[出/だ]す
+//:
+//: ### [契約/けいやく]
+//: - `&Diag` overload と[同/おな]じ[規則/きそく]で `level`、`StdErrorKind`、local kind を[文字列化/もじれつか]します。
+//: - `Diag` は Copy な[診断/しんだん][値/あたい]なので、この overload は owner cleanup を[行/おこな]いません。
+//: - error の[権威/けんい]は `DiagKind.std_error` の enum payload であり、この[文字列/もじれつ]は[表示/ひょうじ] helper の[出力/しゅつりょく]です。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - 一度 `&d` を[作/つく]り、borrowed overload へ[委譲/いじょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(k)（kind [文字列/もじれつ][連結/れんけつ]の[長/なが]さ）
+//: - [空間/くうかん]: O(k)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diag_kind_str_by_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"by value kind\" expected=\"error[OutOfMemory]\" actual=\"error[OutOfMemory]\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag diag_error StdErrorKind::OutOfMemory "allocation failed"
+//:     let actual %str kind_str d
+//:     let report:
+//:         test_report_new "diag_kind_str_by_value_doc"
+//:         |> test_report_push assert_str_eq "by value kind" "error[OutOfMemory]" actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn kind_str %fn Diag str \d:
     kind_str &d
 
@@ -103,6 +137,40 @@ pub fn diag_to_string %fn &Diag str \d:
             concat s1 "\n"
         Option::None:
             out
+
+//: diag_to_string: by-value `Diag` を[表示/ひょうじ][文字列/もじれつ]へ[変換/へんかん]する
+//:
+//: ### [契約/けいやく]
+//: - borrowed overload と[同/おな]じ format を[返/かえ]します。
+//: - `Diag` は Copy な[診断/しんだん][値/あたい]なので、by-value overload でも owner cleanup は[行/おこな]いません。
+//: - format [文字列/もじれつ]は[現行/げんこう] renderer の[出力/しゅつりょく]であり、typed error [判定/はんてい]には `diag_std_error_kind` などの enum accessor を[使/つか]います。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `&d` を[作/つく]り、borrowed overload へ[委譲/いじょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n)（出力[文字列/もじれつ]の[長/なが]さ）
+//: - [空間/くうかん]: O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diag_to_string_by_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"by value string\" expected=\"warn[warn]: careful\\n\" actual=\"warn[warn]: careful\\n\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag diag_warn "careful"
+//:     let actual %str diag_to_string d
+//:     let report:
+//:         test_report_new "diag_to_string_by_value_doc"
+//:         |> test_report_push assert_str_eq "by value string" "warn[warn]: careful\n" actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diag_to_string %fn Diag str \d:
     diag_to_string &d
 //: diags_to_string: `Diags` を[改行/かいぎょう][区切/くぎ]りで[連結/れんけつ]する
@@ -111,11 +179,80 @@ pub fn diags_to_string %fn &Diags str \ds:
     let items_len %i32 v::len items;
     diags_to_string_loop items items_len 0 ""
 
-pub fn diags_to_string %fn Diags str \ds:
+//: diags_to_string: by-value `Diags` を[文字列化/もじれつか]して owner を[閉/と]じる
+//:
+//: ### [契約/けいやく]
+//: - `Diags` 内の `Diag` を[追加/ついか][順/じゅん]に[文字列化/もじれつか]します。
+//: - by-value overload は `Diags` owner を[消費/しょうひ]し、[観測/かんそく]後に `diags_free` で backing `Vec Diag` を[解放/かいほう]します。
+//: - owner cleanup を[伴/ともな]うため、この overload は `impure fn` です。
+//: - [表示/ひょうじ][文字列/もじれつ]は diagnostic data の[投影/とうえい]であり、error kind の[権威/けんい]は `DiagKind` / `StdErrorKind` enum です。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - borrowed overload で string を[作/つく]り、最後に `diags_free ds` を[呼/よ]びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(m)（`m` は[診断群/しんだんぐん]の[出力/しゅつりょく][文字数/もじすう]）
+//: - [空間/くうかん]: O(m)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diags_to_string_by_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"consuming string\" expected=\"error[Failure]: bad\\n\" actual=\"error[Failure]: bad\\n\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ds %Diags diags_one diag_error StdErrorKind::Failure "bad"
+//:     let actual %str diags_to_string ds
+//:     let report:
+//:         test_report_new "diags_to_string_by_value_doc"
+//:         |> test_report_push assert_str_eq "consuming string" "error[Failure]: bad\n" actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+pub fn diags_to_string %impure fn Diags str \ds:
     let s %str diags_to_string &ds
     diags_free ds
     s
 
+//: diags_to_string_loop: borrowed `Vec Diag` を[先頭/せんとう]から[順/じゅん]に[走査/そうさ]する private renderer loop
+//:
+//: ### [契約/けいやく]
+//: - `i >= n` なら accumulator `acc` をそのまま[返/かえ]します。
+//: - `Vec.get` が `Option::Some d` を[返/かえ]した cell だけを `diag_to_string` で[連結/れんけつ]します。
+//: - `Option::None` は malformed backing storage の fail-closed [経路/けいろ]であり、raw pointer 走査や unreachable には[落/お]としません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `alloc/collections/vec` facade の borrowed `len` / `get` を[使/つか]う renderer-local recursion です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n + m)（`n` は[診断数/しんだんすう]、`m` は[出力/しゅつりょく][文字数/もじすう]）
+//: - [空間/くうかん]: O(n + m)（[再帰/さいき]と[連結/れんけつ][文字列/もじれつ]）
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diags_to_string_loop_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"loop order\" expected=\"warn[warn]: first\\ninfo[info]: second\\n\" actual=\"warn[warn]: first\\ninfo[info]: second\\n\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ds0 %Diags diags_one diag_warn "first"
+//:     let ds1 %Diags diags_push ds0 diag_info "second"
+//:     let actual %str diags_to_string ds1
+//:     let report:
+//:         test_report_new "diags_to_string_loop_doc"
+//:         |> test_report_push assert_str_eq "loop order" "warn[warn]: first\ninfo[info]: second\n" actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diags_to_string_loop %fn &Vec Diag fn i32 fn i32 fn str str \items\n\i\acc:
     if:
         ge i n
@@ -130,21 +267,143 @@ pub fn diags_to_string_loop %fn &Vec Diag fn i32 fn i32 fn str str \items\n\i\ac
                     acc
 
 #if[target=std]
+//: diag_print: `Diag` 1 [件/けん]を stdout へ[表示/ひょうじ]する
+//:
+//: ### [契約/けいやく]
+//: - `diag_to_string` の[結果/けっか]を `print` に[渡/わた]します。
+//: - stdio [副作用/ふくさよう]はこの helper に[閉/と]じ、診断 data の[構築/こうちく]や kind [判定/はんてい]とは[分離/ぶんり]します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - by-value `Diag` を[文字列化/もじれつか]してから `std/stdio.print` を[呼/よ]びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n)
+//: - [空間/くうかん]: O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "warn[warn]: careful\ntest_report name=\"diag_print_doc\" count=0 failed=0\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     diag_print diag_warn "careful"
+//:     let report test_report_new "diag_print_doc"
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diag_print %impure fn Diag unit \d:
     let s %str diag_to_string d;
     print s
 
 #if[target=std]
+//: diag_println: `Diag` 1 [件/けん]を stdout へ[表示/ひょうじ]して[改行/かいぎょう]を[追加/ついか]する
+//:
+//: ### [契約/けいやく]
+//: - `diag_to_string` の[結果/けっか]を `println` に[渡/わた]します。
+//: - `diag_to_string` 自体が末尾[改行/かいぎょう]を[持/も]つため、現行 stdout は diagnostic の[後/あと]に[空行/くうぎょう]を 1 [行/ぎょう][含/ふく]みます。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - by-value `Diag` を[文字列化/もじれつか]し、`std/stdio.println` を[呼/よ]びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n)
+//: - [空間/くうかん]: O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "warn[warn]: careful\n\ntest_report name=\"diag_println_doc\" count=0 failed=0\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     diag_println diag_warn "careful"
+//:     let report test_report_new "diag_println_doc"
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diag_println %impure fn Diag unit \d:
     let s %str diag_to_string d;
     println s
 
 #if[target=std]
+//: diags_print: `Diags` を stdout へ[表示/ひょうじ]して owner を[閉/と]じる
+//:
+//: ### [契約/けいやく]
+//: - by-value `diags_to_string` で[診断群/しんだんぐん]を[文字列化/もじれつか]し、その[結果/けっか]を `print` に[渡/わた]します。
+//: - `Diags` owner は `diags_to_string` の by-value overload で[解放/かいほう]されます。
+//: - stdio [副作用/ふくさよう]は std target のこの helper に[閉/と]じます。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `diags_to_string ds` の[戻/もど]り[値/ち]を `std/stdio.print` へ[渡/わた]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(m)
+//: - [空間/くうかん]: O(m)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "error[Failure]: bad\ntest_report name=\"diags_print_doc\" count=0 failed=0\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ds %Diags diags_one diag_error StdErrorKind::Failure "bad"
+//:     diags_print ds
+//:     let report test_report_new "diags_print_doc"
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diags_print %impure fn Diags unit \ds:
     let s %str diags_to_string ds;
     print s
 
 #if[target=std]
+//: diags_println: `Diags` を stdout へ[表示/ひょうじ]して[改行/かいぎょう]を[追加/ついか]する
+//:
+//: ### [契約/けいやく]
+//: - by-value `diags_to_string` で[文字列化/もじれつか]し、`println` へ[渡/わた]します。
+//: - `Diags` owner は `diags_to_string` の by-value overload で[解放/かいほう]されます。
+//: - `diags_to_string` の[結果/けっか]は末尾[改行/かいぎょう]を[持/も]つため、現行 stdout は[最後/さいご]に[空行/くうぎょう]を 1 [行/ぎょう][含/ふく]みます。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `diags_to_string ds` の[戻/もど]り[値/ち]を `std/stdio.println` へ[渡/わた]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(m)
+//: - [空間/くうかん]: O(m)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "error[Failure]: bad\n\ntest_report name=\"diags_println_doc\" count=0 failed=0\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/diag/diag" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ds %Diags diags_one diag_error StdErrorKind::Failure "bad"
+//:     diags_println ds
+//:     let report test_report_new "diags_println_doc"
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diags_println %impure fn Diags unit \ds:
     let s %str diags_to_string ds;
     println s

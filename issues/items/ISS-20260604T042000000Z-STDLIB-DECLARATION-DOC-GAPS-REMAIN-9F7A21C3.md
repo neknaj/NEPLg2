@@ -41,6 +41,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 2026-06-06 の Vec slice で `stdlib/alloc/collections/vec/invariant.nepl`、`mutation/push.nepl`、`storage/fill.nepl`、`transform/filter/select.nepl` の invariant adapter / push overload / filled constructor / Copy filter docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=229`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし diag / io / string builder などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の Diag slice で `stdlib/alloc/diag/diag.nepl`、`error/diag.nepl`、`error/diags.nepl` の renderer by-value overload / stdio print helper / typed error accessor / `Diags` by-value observer docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=215`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし hash32 / io / string builder などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 対象
 
 - `stdlib/core`
@@ -84,6 +86,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 2026-06-06 Vec slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=229`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_vec_doc_report_contract.js` により、Vec の storage invariant adapter が enum proof を bool / message へ畳まないこと、Copy / Drop `push` overload の `VecPushRejected .T` owner recovery、`filled` の initialized storage contract、Copy `filter` の input owner recovery と Drop payload との差分、storage invariant failure で rollback を契約しないこと、O(1) / O(n) contract を module 固有にも固定する。
 
+同日 Diag slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=215`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_diag_doc_report_contract.js` により、Diag の enum authority と表示文字列の分離、by-value `diags_to_string` の `impure fn` owner cleanup、`Diags` by-value observer の borrowed observation + `diags_free`、`diags_has_errors_loop` の `Vec.get` + exhaustive `DiagLevel` match、stdio print helper の IO boundary を module 固有にも固定する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -97,6 +101,10 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/test_stdlib_documentation_contract.js`
 - module family ごとの focused doctest
 - 追加される cfg-test-style regular tests
+- `node nodesrc/test_stdlib_diag_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/diag/diag.nepl -i stdlib/alloc/diag/error/diag.nepl -i stdlib/alloc/diag/error/diags.nepl --no-tree -o tmp/agent2-diag-doc-smoke-4.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/tests.js -i stdlib/tests/diag.n.md --no-tree -o tmp/agent2-diag-nmd-after-impure.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent2-collections-diag-after-impure.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_bitset_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/bitset/types.nepl -i stdlib/alloc/collections/bitset/layout.nepl -i stdlib/alloc/collections/bitset/storage.nepl -i stdlib/alloc/collections/bitset/mutation.nepl -i stdlib/alloc/collections/bitset/api.nepl -i stdlib/alloc/collections/bitset/api/diagnostic.nepl -i stdlib/alloc/collections/bitset/api/create.nepl -i stdlib/alloc/collections/bitset/api/observer.nepl -i stdlib/alloc/collections/bitset/api/update.nepl -i stdlib/alloc/collections/bitset/api/bulk.nepl -i stdlib/alloc/collections/bitset/api/cleanup.nepl -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/agent2-bitset-doc-slice-2.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js`

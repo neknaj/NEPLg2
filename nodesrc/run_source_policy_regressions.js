@@ -91,6 +91,7 @@ const checks = [
     "nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js",
     "nodesrc/test_stdlib_nm_parser_no_block_unwraps.js",
     "nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_diag_doc_report_contract.js",
     "nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js",
