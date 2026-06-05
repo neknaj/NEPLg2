@@ -16,7 +16,7 @@ const BASELINE = {
     moduleNoDoc: 0,
     moduleNoDoctest: 293,
     declarations: 2488,
-    declarationNoDoc: 161,
+    declarationNoDoc: 154,
     declarationNoDoctest: 1651,
     publicDeclarationNoDoctest: 1498,
     privateDeclarationNoDoctest: 153,

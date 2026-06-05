@@ -108,6 +108,41 @@ pub fn string_builder_new_result %fn void Result StringBuilder str \void:
         Result::Err e:
             Result::Err string_builder_error e
 
+//: string_builder_new: 既定 capacity の空 builder を作る互換 API
+//:
+//: ### [目的/もくてき]
+//: - allocation error を扱わない既存 call site 向けに、空の `StringBuilder` を直接返します。
+//:
+//: ### [契約/けいやく]
+//: - 成功時は内部 `ByteBuilder` owner を持つ空 builder を返します。
+//: - 失敗時は allocation を持たない `string_builder_empty` を返します。error reason が必要な場合は `string_builder_new_result` を使います。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `string_builder_new_result` の `Result` を `match` し、`Result::Err` を空 builder fallback に畳みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 初期 allocation に依存します。state access 自体は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_builder_new_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"empty len\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"empty build\" expected=\"\" actual=\"\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let sb %StringBuilder string_builder_new
+//:     let len0 %i32 string_builder_len_ref &sb
+//:     let text %str sb_build sb
+//:     let report:
+//:         test_report_new "string_builder_new_doc"
+//:         |> test_report_push assert_eq_i32 "empty len" 0 len0
+//:         |> test_report_push assert_str_eq "empty build" "" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn string_builder_new %fn void StringBuilder \void:
     match string_builder_new_result:
         Result::Ok sb:

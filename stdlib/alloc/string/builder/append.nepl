@@ -132,6 +132,42 @@ pub fn sb_append_byte_result %fn StringBuilder fn i32 Result StringBuilder str \
                     byte_builder_error_free e
                     Result::Err string_builder_error kind
 
+//: sb_append_char: builder に char を UTF-8 として追加する互換 API
+//:
+//: ### [目的/もくてき]
+//: - allocation error を扱わない既存 call site 向けに、`char` 追加後の builder を直接返します。
+//:
+//: ### [契約/けいやく]
+//: - `sb` owner を消費し、成功時は `c` を UTF-8 bytes として末尾へ追加した builder owner を返します。
+//: - 失敗時は `sb_append_char_result` が入力 owner を閉じ、この helper は allocation を持たない空 builder を返します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `sb_append_char_result` の `Result` を `match` し、`Result::Err` を空 builder fallback に畳みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 通常は O(1) です。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sb_append_char_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"char append\" expected=\"AZ\" actual=\"AZ\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let text %str:
+//:         string_builder_new
+//:         |> sb_append_char 'A'
+//:         |> sb_append_char 'Z'
+//:         |> sb_build
+//:     let report:
+//:         test_report_new "sb_append_char_doc"
+//:         |> test_report_push assert_str_eq "char append" "AZ" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sb_append_char %fn StringBuilder fn char StringBuilder \sb\c:
     match sb_append_char_result sb c:
         Result::Ok next:
@@ -139,6 +175,46 @@ pub fn sb_append_char %fn StringBuilder fn char StringBuilder \sb\c:
         Result::Err _e:
             string_builder_empty
 
+//: sb_append_ascii: builder に ASCII char を 1 byte として追加する互換 API
+//:
+//: ### [目的/もくてき]
+//: - punctuation や protocol marker など、ASCII として決まっている文字を 1 byte で追加します。
+//:
+//: ### [契約/けいやく]
+//: - `sb` owner を消費し、ASCII `c` なら byte 値を末尾へ追加した builder owner を返します。
+//: - 非 ASCII または allocation failure では、入力 owner を閉じた上で空 builder fallback を返します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - ASCII 判定と error cleanup は `sb_append_ascii_result` に委譲し、この helper は `Result` を空 builder fallback に畳みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 通常は O(1) です。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sb_append_ascii_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"ascii char\" expected=\"!\" actual=\"!\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"non ascii fallback\" expected=\"\" actual=\"\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok_text %str:
+//:         string_builder_new
+//:         |> sb_append_ascii '!'
+//:         |> sb_build
+//:     let rejected %str:
+//:         string_builder_new
+//:         |> sb_append_ascii 'あ'
+//:         |> sb_build
+//:     let report:
+//:         test_report_new "sb_append_ascii_doc"
+//:         |> test_report_push assert_str_eq "ascii char" "!" ok_text
+//:         |> test_report_push assert_str_eq "non ascii fallback" "" rejected
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sb_append_ascii %fn StringBuilder fn char StringBuilder \sb\c:
     match sb_append_ascii_result sb c:
         Result::Ok next:
@@ -146,6 +222,48 @@ pub fn sb_append_ascii %fn StringBuilder fn char StringBuilder \sb\c:
         Result::Err _e:
             string_builder_empty
 
+//: sb_append_byte: builder に検証済み byte を追加する互換 API
+//:
+//: ### [目的/もくてき]
+//: - 既に UTF-8 として妥当な source から読んだ byte を、一時 `str` を作らず builder へ追加します。
+//:
+//: ### [契約/けいやく]
+//: - `byte` が 0..255 なら 1 byte を末尾へ追加した builder owner を返します。
+//: - 範囲外 byte または allocation failure では、入力 owner を閉じた上で空 builder fallback を返します。
+//: - UTF-8 妥当性はこの helper では検査しません。最終的な `sb_build` が UTF-8 として検証します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `sb_append_byte_result` の `Result` を `match` し、`Result::Err` を空 builder fallback に畳みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 通常は O(1) です。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sb_append_byte_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"byte text\" expected=\"AZ\" actual=\"AZ\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"invalid byte fallback\" expected=\"\" actual=\"\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let text %str:
+//:         string_builder_new
+//:         |> sb_append_byte 65
+//:         |> sb_append_byte 90
+//:         |> sb_build
+//:     let invalid %str:
+//:         string_builder_new
+//:         |> sb_append_byte 256
+//:         |> sb_build
+//:     let report:
+//:         test_report_new "sb_append_byte_doc"
+//:         |> test_report_push assert_str_eq "byte text" "AZ" text
+//:         |> test_report_push assert_str_eq "invalid byte fallback" "" invalid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sb_append_byte %fn StringBuilder fn i32 StringBuilder \sb\byte:
     match sb_append_byte_result sb byte:
         Result::Ok next:
@@ -153,6 +271,42 @@ pub fn sb_append_byte %fn StringBuilder fn i32 StringBuilder \sb\byte:
         Result::Err _e:
             string_builder_empty
 
+//: sb_append: builder に str を追加する互換 API
+//:
+//: ### [目的/もくてき]
+//: - allocation error を扱わない既存 call site 向けに、`str` 片を追加した builder を直接返します。
+//:
+//: ### [契約/けいやく]
+//: - `sb` owner を消費し、成功時は `s` の UTF-8 byte 列を末尾へ copy した builder owner を返します。
+//: - `s` owner は保持しません。失敗時は `sb_append_result` が入力 builder owner を閉じ、この helper は空 builder fallback を返します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `sb_append_result` の `Result` を `match` し、`Result::Err` を空 builder fallback に畳みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(len(s))。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sb_append_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"append str\" expected=\"core/gui\" actual=\"core/gui\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let text %str:
+//:         string_builder_new
+//:         |> sb_append "core"
+//:         |> sb_append "/gui"
+//:         |> sb_build
+//:     let report:
+//:         test_report_new "sb_append_doc"
+//:         |> test_report_push assert_str_eq "append str" "core/gui" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sb_append %fn StringBuilder fn str StringBuilder \sb\s:
     match sb_append_result sb s:
         Result::Ok next:
