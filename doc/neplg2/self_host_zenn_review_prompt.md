@@ -10,7 +10,24 @@ review の観点は `doc/neplg2/self_host_zenn_review_checklist.md` を正とす
 
 ## review request template
 
-subagent へ依頼するときは、次の template を使う。
+subagent へ依頼するときは、`nodesrc/selfhost_zenn_review_packet.js` で現在 branch / base commit / head commit / 変更 file list を入れた review packet を生成し、その本文を依頼文の土台にする。
+
+```bash
+node nodesrc/selfhost_zenn_review_packet.js \
+  --issue <issue-id-or-note-checkpoint> \
+  --slice <implementation-slice-name> \
+  --accepted <accepted-scope> \
+  --fail-closed <remaining-fail-closed-scope> \
+  --zenn-checked-at <date-or-date-time> \
+  --executed <command-list> \
+  --not-executed <command-and-reason-list-or-none> \
+  --existing-warnings <warning-list-or-none> \
+  --new-warnings <warning-list-or-none>
+```
+
+helper は Zenn 記事 URL、Zenn 再確認日時、`AGENTS.md`、checklist、prompt authority、base / head、committed / staged / unstaged / untracked に分けた差分 file list、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning を出力する。review owner は helper 実行前に Zenn 記事を再確認し、出力後に空欄や現状とずれた項目が残っていないことを確認してから subagent へ渡す。
+
+手動で補う場合も、次の template の項目を省いてはならない。
 
 ```text
 Repository:

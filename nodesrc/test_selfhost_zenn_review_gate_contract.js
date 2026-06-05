@@ -2,6 +2,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -16,6 +17,7 @@ const executionPlan = read("doc/neplg2/self_host_execution_plan.md");
 const checklist = read("doc/neplg2/self_host_zenn_review_checklist.md");
 const prompt = read("doc/neplg2/self_host_zenn_review_prompt.md");
 const docCommentPolicy = read("doc/stdlib_doc_comment_policy.md");
+const packetHelper = read("nodesrc/selfhost_zenn_review_packet.js");
 
 function assertIncludes(needle, message) {
     assert.ok(design.includes(needle), message);
@@ -275,5 +277,162 @@ for (const needle of [
 ]) {
     assert.ok(prompt.includes(needle), `selfhost review prompt must enforce ${needle}`);
 }
+
+for (const needle of [
+    "spawnSync",
+    "merge-base",
+    "origin/main",
+    "diff",
+    "ls-files",
+    "--issue",
+    "--slice",
+    "--accepted",
+    "--fail-closed",
+    "--zenn-checked-at",
+    "--executed",
+    "--not-executed",
+    "--existing-warnings",
+    "--new-warnings",
+    "process.exitCode = 1",
+    "https://zenn.dev/bem130/articles/1b352797de94e7",
+    "zenn_checked_at:",
+    "Review owner reopened this article before sending the packet.",
+    "AGENTS.md",
+    "doc/neplg2/self_host_zenn_review_checklist.md",
+    "doc/neplg2/self_host_zenn_review_prompt.md",
+    "doc/neplg2/self_host_neplg21_compiler_design.md",
+    "doc/neplg2/self_host_execution_plan.md",
+    "policy/spec と implementation/test の 2 軸",
+    "files_read",
+    "not_reviewed",
+    "existing warnings",
+    "new warnings",
+    "Blocker は同じ branch 内で修正が必要なものとして分類してください",
+    "必ず `doc/neplg2/self_host_zenn_review_prompt.md` の response 形式で返してください",
+]) {
+    assert.ok(packetHelper.includes(needle), `selfhost review packet helper must include ${needle}`);
+}
+
+for (const needle of [
+    "対象 branch:",
+    "base commit:",
+    "head commit:",
+    "対象 issue / slice:",
+    "変更 file list:",
+    "committed diff files:",
+    "staged files:",
+    "unstaged files:",
+    "untracked files:",
+    "今回 accepted にした範囲:",
+    "fail-closed に残した範囲:",
+    "検証:",
+    "executed:",
+    "not executed:",
+]) {
+    assert.ok(packetHelper.includes(needle), `selfhost review packet helper must render ${needle}`);
+}
+
+const helperHelp = spawnSync(process.execPath, ["nodesrc/selfhost_zenn_review_packet.js", "--help"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+});
+assert.equal(helperHelp.status, 0, "selfhost review packet helper --help must succeed");
+assert.ok(
+    helperHelp.stdout.includes("--issue") && helperHelp.stdout.includes("--fail-closed"),
+    "selfhost review packet helper --help must show required review packet arguments",
+);
+assert.ok(
+    helperHelp.stdout.includes("--zenn-checked-at") && helperHelp.stdout.includes("--existing-warnings"),
+    "selfhost review packet helper --help must show review evidence arguments",
+);
+
+const helperMissingRequired = spawnSync(process.execPath, ["nodesrc/selfhost_zenn_review_packet.js"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+});
+assert.notEqual(helperMissingRequired.status, 0, "selfhost review packet helper must fail when required review context is missing");
+assert.ok(
+    helperMissingRequired.stderr.includes("--issue is required"),
+    "selfhost review packet helper must report the first missing required review context",
+);
+
+const untrackedProbe = path.join(repoRoot, "nodesrc", "__selfhost_zenn_review_packet_contract_untracked__.tmp");
+try {
+    fs.writeFileSync(untrackedProbe, "review packet contract probe\n", "utf8");
+    const helperPacket = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_packet.js",
+        "--issue",
+        "note.n.md",
+        "--slice",
+        "review-packet-contract",
+        "--accepted",
+        "contract execution check",
+        "--fail-closed",
+        "none for this packet",
+        "--zenn-checked-at",
+        "2026-06-05",
+        "--executed",
+        "node nodesrc/test_selfhost_zenn_review_gate_contract.js",
+        "--not-executed",
+        "none",
+        "--existing-warnings",
+        "none",
+        "--new-warnings",
+        "none",
+        "--base",
+        "HEAD",
+        "--head",
+        "HEAD",
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.equal(helperPacket.status, 0, "selfhost review packet helper must generate a complete packet");
+    for (const needle of [
+        "Repository: NEPLg2",
+        "zenn_checked_at: 2026-06-05",
+        "committed diff files:",
+        "staged files:",
+        "unstaged files:",
+        "untracked files:",
+        "nodesrc/__selfhost_zenn_review_packet_contract_untracked__.tmp",
+        "今回 accepted にした範囲:",
+        "fail-closed に残した範囲:",
+        "existing warnings:",
+        "new warnings:",
+    ]) {
+        assert.ok(helperPacket.stdout.includes(needle), `selfhost review packet helper output must include ${needle}`);
+    }
+} finally {
+    if (fs.existsSync(untrackedProbe)) {
+        fs.unlinkSync(untrackedProbe);
+    }
+}
+
+const helperMissingVerification = spawnSync(process.execPath, [
+    "nodesrc/selfhost_zenn_review_packet.js",
+    "--issue",
+    "note.n.md",
+    "--slice",
+    "review-packet-contract",
+    "--accepted",
+    "contract execution check",
+    "--fail-closed",
+    "none for this packet",
+    "--zenn-checked-at",
+    "2026-06-05",
+], {
+    cwd: repoRoot,
+    encoding: "utf8",
+});
+assert.notEqual(
+    helperMissingVerification.status,
+    0,
+    "selfhost review packet helper must fail when verification evidence is missing",
+);
+assert.ok(
+    helperMissingVerification.stderr.includes("--executed is required"),
+    "selfhost review packet helper must name the missing verification evidence",
+);
 
 console.log("selfhost Zenn review gate contract passed");

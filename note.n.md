@@ -1,3 +1,21 @@
+# 2026-06-05 Agent selfhost Zenn review packet helper checkpoint
+
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の判断基準は、静的検査を活用すること、Result / Option / enum による失敗表現、pure core と host boundary の分離、責務分割、丁寧なドキュメントコメント、試作段階でも技術的負債を残さないこと、性能改善では探索範囲と計算量を明示的に扱うことである。
+- `nodesrc/selfhost_zenn_review_packet.js` を追加した。self-host 実装 slice の subagent review 依頼で、branch、base / head、committed / staged / unstaged / untracked の差分区分、accepted / fail-closed、Zenn 再確認日時、検証、既存 warning、今回差分由来 warning、Zenn URL、AGENTS.md、checklist、prompt authority を同じ形式で出力する。
+- helper は `--issue`、`--slice`、`--accepted`、`--fail-closed`、`--zenn-checked-at`、`--executed`、`--not-executed`、`--existing-warnings`、`--new-warnings` を必須にした。検証欄や warning 欄を空欄 placeholder のまま成功させないことで、review gate の証跡不足を fail-closed に扱う。
+- `doc/neplg2/self_host_zenn_review_prompt.md`、`doc/neplg2/self_host_zenn_review_checklist.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`doc/neplg2/self_host_execution_plan.md` を更新し、review packet helper を標準の依頼入口として明記した。差分 file list は committed / staged / unstaged / untracked に分け、Zenn 再確認日時と warning 区分を省かない。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` を更新した。source presence だけでなく、helper の `--help`、必須項目不足、検証欄不足、正常 packet 生成、一時 untracked file の表示を subprocess で検査する。
+- subagent review は 3 件実施した。初回 review では 2 名から、検証欄と warning 欄が optional であること、差分 file list が committed / staged / unstaged / untracked を区別していないこと、source policy が実行検査ではなく文字列 presence に寄っていることが Blocker として指摘された。
+- Blocker は同じ branch 内で修正した。修正後、Blocker 指摘者 2 名から `MERGE_APPROVED` が返り、残り 1 名も Blocker なしと判定した。`origin/main` default は `--base` / `--head` で明示上書きできるため、現時点では Non-blocker として扱う。
+- 現時点の検証:
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+  - `node nodesrc/selfhost_zenn_review_packet.js --help`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+- 次 slice 以降では、self-host 実装変更ごとにこの helper で packet を生成してから subagent review を依頼する。review packet を生成しただけでは review 完了とは扱わず、実際の review response と Blocker 修正結果を `note.n.md` に残す。
+
 # 2026-06-05 Agent Zenn policy compliance review checkpoint
 
 - Zenn 記事を再確認した。特に、Option / Result と enum による失敗表現、エラーと表示の分離、目的・契約・戻り値条件・計算量を含む丁寧な doc comment、責務分割、試作段階でも技術的負債を残さない方針を今回の修正基準にした。
