@@ -39,6 +39,8 @@ review gate は次の順で行う。
 subagent review は、単に承認を得るためではなく、実装者と独立した観点で次の観点を確認するために使う。
 
 - 詳細な review 入力、確認項目、指摘分類、`note.n.md` 記録形式は `doc/neplg2/self_host_zenn_review_checklist.md` を正とする。
+- review 依頼は `nodesrc/selfhost_zenn_review_packet.js` で生成した packet を土台にし、branch、base / head、committed / staged / unstaged / untracked に分けた変更 file list、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning、Zenn 記事 URL、`YYYY-MM-DD` または ISO-like date-time の Zenn 再確認日時、`AGENTS.md`、checklist、prompt authority を省かない。
+- review response は `nodesrc/selfhost_zenn_review_response_check.js` で検査し、必須 section / field が欠けた返答、`policy/spec` と `implementation/test` のどちらかを欠いた返答、または弱い approve だけの返答を review 記録として扱わない。
 - 失敗経路が `Result` / `Option` / enum error で表現され、表示文字列や sentinel 値で分岐していないこと。
 - `match` の網羅性が効く形で variant が設計され、数値 tag や文字列 tag を公開 API にしていないこと。
 - parser、checker、HIR、Resource IR、backend の authority が混ざっていないこと。

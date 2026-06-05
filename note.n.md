@@ -20,6 +20,38 @@
   - `trunk build`: pass
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-bloom-filter-doc-playground-editor.json`: pass（13/13）
 
+# 2026-06-05 Agent selfhost Zenn review gate re-audit checkpoint
+
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回も、静的検査の正確性、Result / Option / enum による失敗表現、pure core と host boundary、丁寧な doc comment、行数制限ではなく責務境界を検査する方針、試作段階でも技術的負債を残さない方針を判断基準にした。
+- 現行 `main` の selfhost Zenn review gate 一式を subagent 3 件で再監査した。対象は `doc/neplg2/self_host_zenn_review_checklist.md`、`doc/neplg2/self_host_zenn_review_prompt.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`doc/neplg2/self_host_execution_plan.md`、`nodesrc/selfhost_zenn_review_packet.js`、`nodesrc/test_selfhost_zenn_review_gate_contract.js` である。
+- subagent review では Blocker は出なかった。Non-blocker として、`zenn_checked_at` の日付形式検査、長い検証 command の comma 区切り以外の入力形式、将来的な note checkpoint 検査の強化が挙がったが、現行 gate の merge / 運用を妨げるものではない。
+- ローカル検証中に、`nodesrc/test_selfhost_zenn_review_gate_contract.js` の untracked probe file 名が固定であり、同じ contract test を並列実行した場合に干渉し得ることを確認した。これは review gate の検査信頼性に関わるため、process 固有の probe 名へ変更した。
+- 追加差分は subagent 2 件へ短い再レビューを依頼した。2 件とも Blocker なしで、固定 probe 名の衝突を根本から避ける妥当な source policy 信頼性向上として approve した。
+- 現時点の検証:
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js` を並列 2 本で実行: pass
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+- 次回以降も、selfhost 実装 slice では `nodesrc/selfhost_zenn_review_packet.js` で packet を生成し、subagent review response と Blocker 修正結果を `note.n.md` に残す。
+
+# 2026-06-05 Agent selfhost Zenn review packet helper checkpoint
+
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の判断基準は、静的検査を活用すること、Result / Option / enum による失敗表現、pure core と host boundary の分離、責務分割、丁寧なドキュメントコメント、試作段階でも技術的負債を残さないこと、性能改善では探索範囲と計算量を明示的に扱うことである。
+- `nodesrc/selfhost_zenn_review_packet.js` を追加した。self-host 実装 slice の subagent review 依頼で、branch、base / head、committed / staged / unstaged / untracked の差分区分、accepted / fail-closed、Zenn 再確認日時、検証、既存 warning、今回差分由来 warning、Zenn URL、AGENTS.md、checklist、prompt authority を同じ形式で出力する。
+- helper は `--issue`、`--slice`、`--accepted`、`--fail-closed`、`--zenn-checked-at`、`--executed`、`--not-executed`、`--existing-warnings`、`--new-warnings` を必須にした。検証欄や warning 欄を空欄 placeholder のまま成功させないことで、review gate の証跡不足を fail-closed に扱う。
+- `doc/neplg2/self_host_zenn_review_prompt.md`、`doc/neplg2/self_host_zenn_review_checklist.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`doc/neplg2/self_host_execution_plan.md` を更新し、review packet helper を標準の依頼入口として明記した。差分 file list は committed / staged / unstaged / untracked に分け、Zenn 再確認日時と warning 区分を省かない。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` を更新した。source presence だけでなく、helper の `--help`、必須項目不足、検証欄不足、正常 packet 生成、一時 untracked file の表示を subprocess で検査する。
+- subagent review は 3 件実施した。初回 review では 2 名から、検証欄と warning 欄が optional であること、差分 file list が committed / staged / unstaged / untracked を区別していないこと、source policy が実行検査ではなく文字列 presence に寄っていることが Blocker として指摘された。
+- Blocker は同じ branch 内で修正した。修正後、Blocker 指摘者 2 名から `MERGE_APPROVED` が返り、残り 1 名も Blocker なしと判定した。`origin/main` default は `--base` / `--head` で明示上書きできるため、現時点では Non-blocker として扱う。
+- 現時点の検証:
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+  - `node nodesrc/selfhost_zenn_review_packet.js --help`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+- 次 slice 以降では、self-host 実装変更ごとにこの helper で packet を生成してから subagent review を依頼する。review packet を生成しただけでは review 完了とは扱わず、実際の review response と Blocker 修正結果を `note.n.md` に残す。
 # 2026-06-05 Agent Zenn policy compliance review checkpoint
 
 - Zenn 記事を再確認した。特に、Option / Result と enum による失敗表現、エラーと表示の分離、目的・契約・戻り値条件・計算量を含む丁寧な doc comment、責務分割、試作段階でも技術的負債を残さない方針を今回の修正基準にした。
@@ -51188,6 +51220,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では bitset slice に blocker はなく、report doctest と owner-backed error の実経路確認を強めるべきと指摘されたため、直接 `BitSetUpdateError` constructor を使わず `insert` / `remove` の Err 経路へ修正した。
 - focused verification は BitSet doctest 27/27、documentation contract、BitSet source-policy 4 件を通した。残件は adjacency_matrix / binary_heap / bloom_filter / btree 系などの declaration doc gap である。
 
+## 2026-06-05 Agent selfhost Zenn review timestamp checkpoint
+
+- `selfhost/zenn-checked-at-validation-20260605` branch で、セルフホストコンパイラ開発の Zenn 方針 review packet に含める `--zenn-checked-at` を機械検査可能な証跡へ強化した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、明示的な失敗、丁寧な契約記述、試作段階でも雑設計を残さない方針を review gate の入力検査に反映した。
+- `nodesrc/selfhost_zenn_review_packet.js` は `YYYY-MM-DD` または ISO-like date-time のみを Zenn 再確認日時として受理し、自然言語、slash date、月日だけ、存在しない暦日、存在しない時刻を fail-closed に拒否する。
+- `doc/neplg2/self_host_zenn_review_prompt.md`、`doc/neplg2/self_host_zenn_review_checklist.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`doc/neplg2/self_host_execution_plan.md` は、review packet が `YYYY-MM-DD` または ISO-like date-time の Zenn 再確認日時を含むことを明記した。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` は、helper usage、内部 validator、error message、prompt の手動 template、正常 ISO timestamp、自然言語、slash date、月日だけ、invalid calendar date、invalid time を source policy として固定した。
+- subagent review 3 件では Blocker なし、merge approved と確認した。Non-blocker として、timezone offset をより厳密な ISO 8601 実在範囲へ狭める余地と fractional seconds を将来扱うかの判断が挙がったが、現行 docs は ISO-like と明記しており今回 slice の完了条件には含めない。
+- focused verification は `node nodesrc/test_selfhost_zenn_review_gate_contract.js` を通した。broad verification は `node nodesrc/test_source_policy_no_line_count_limits.js`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `git diff --check` では空白エラーはなく、Windows の改行変換 warning だけが表示された。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存の documentation gap sample と Node WASI ExperimentalWarning が表示された。
+
 ## 2026-06-05 Agent2 AdjacencyMatrix doc report checkpoint
 
 - `agent2/adjacency-matrix-doc-contract` branch で、`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` のうち `stdlib/alloc/collections/adjacency_matrix` slice を進めた。`plan.md` は確認のみで変更していない。
@@ -51266,3 +51309,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `source_policy: not-needed` でも理由を要求し、Blocker は同じ branch 内で修正、修正できない場合は原因、影響、完了条件、検証予定を持つ issue へ分離する形へ固定した。
 - `doc/neplg2/self_host_zenn_review_checklist.md` から prompt template を参照し、`nodesrc/test_selfhost_zenn_review_gate_contract.js` で prompt の必須項目と禁止事項を検査するようにした。
 - Non-blocker として、将来の実装 slice では `note.n.md` または issue 完了記録が prompt response field を満たしているかを対象 issue 単位で検査する source policy を追加する余地がある。
+
+## 2026-06-05 Agent selfhost Zenn review response validation checkpoint
+
+- `selfhost/zenn-review-response-validation-20260605` branch で、セルフホストコンパイラ開発の subagent review response を機械検査してから review 記録として扱う gate を追加した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、明示的な失敗、構造化データ、試作段階でも雑設計を残さない方針を review response 受理条件に反映した。
+- `nodesrc/selfhost_zenn_review_response_check.js` を追加し、`--input` または `--stdin` の review response に対して、`review_scope`、`decision`、`policy/spec`、`implementation/test`、`zenn_check`、`evidence_to_record`、`summary` の必須 section と必須 field を検査するようにした。
+- checker は `Approve` だけの弱い返答、空の `files_read`、不正な `classification` / `source_policy`、`MERGE_APPROVED` と残存 `blockers` / `questions` の矛盾、空の `unexecuted_verification` を fail-closed に拒否する。
+- `doc/neplg2/self_host_zenn_review_prompt.md`、`self_host_zenn_review_checklist.md`、`self_host_neplg21_compiler_design.md`、`self_host_execution_plan.md` は、review response checker を gate に組み込み、checker が失敗した返答を review 記録として扱わないことを明記した。
+- `nodesrc/selfhost_zenn_review_packet.js` は、subagent への依頼文に response checker で返答を検査することを含めるようにした。
+- subagent review では初回 2 件が「response 受理側の機械検査不足」を Blocker とした。今回の checker と docs / source policy 更新後の最終 review 2 件では Blocker なし、`MERGE_APPROVED` と確認した。
+- Non-blocker として、今後 `note.n.md` に残る review evidence 自体を future marker 付きで検査する source policy、また checker の各 error code に対する追加負例を広げる余地が残る。
+- focused verification は `node nodesrc/test_selfhost_zenn_review_gate_contract.js` を通した。broad verification は `node nodesrc/test_source_policy_no_line_count_limits.js`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `git diff --check` では空白エラーはなく、Windows の改行変換 warning だけが表示された。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存の documentation gap sample と Node WASI ExperimentalWarning が表示された。

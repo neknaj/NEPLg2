@@ -10,7 +10,24 @@ review の観点は `doc/neplg2/self_host_zenn_review_checklist.md` を正とす
 
 ## review request template
 
-subagent へ依頼するときは、次の template を使う。
+subagent へ依頼するときは、`nodesrc/selfhost_zenn_review_packet.js` で現在 branch / base commit / head commit / 変更 file list を入れた review packet を生成し、その本文を依頼文の土台にする。
+
+```bash
+node nodesrc/selfhost_zenn_review_packet.js \
+  --issue <issue-id-or-note-checkpoint> \
+  --slice <implementation-slice-name> \
+  --accepted <accepted-scope> \
+  --fail-closed <remaining-fail-closed-scope> \
+  --zenn-checked-at <YYYY-MM-DD-or-ISO-like-date-time> \
+  --executed <command-list> \
+  --not-executed <command-and-reason-list-or-none> \
+  --existing-warnings <warning-list-or-none> \
+  --new-warnings <warning-list-or-none>
+```
+
+helper は Zenn 記事 URL、Zenn 再確認日時、`AGENTS.md`、checklist、prompt authority、base / head、committed / staged / unstaged / untracked に分けた差分 file list、accepted / fail-closed、検証欄、既存 warning、今回差分由来 warning を出力する。Zenn 再確認日時は `YYYY-MM-DD` または ISO-like date-time とする。日時付きの場合は `YYYY-MM-DDTHH:mm`、`YYYY-MM-DDTHH:mm:ss`、末尾 `Z`、または `+09:00` のような timezone offset を使える。自然言語、月日だけの値、存在しない暦日、存在しない時刻は helper が拒否する。review owner は helper 実行前に Zenn 記事を再確認し、出力後に空欄や現状とずれた項目が残っていないことを確認してから subagent へ渡す。
+
+手動で補う場合も、次の template の項目を省いてはならない。
 
 ```text
 Repository:
@@ -24,6 +41,7 @@ head commit:
 fail-closed に残した範囲:
 Zenn policy:
   https://zenn.dev/bem130/articles/1b352797de94e7
+  zenn_checked_at: <YYYY-MM-DD-or-ISO-like-date-time>
 Repo policy:
   AGENTS.md
 Review checklist:
@@ -55,6 +73,7 @@ Design docs:
   Non-blocker は次 slice または issue へ残す改善として分類してください。
   Question は仕様判断や優先順位確認が必要なものとして分類してください。
   Approve は Blocker がない場合だけ出してください。
+  返答は `nodesrc/selfhost_zenn_review_response_check.js` で検査します。
 
 必ず次の形式で返してください。
 
@@ -122,6 +141,9 @@ Design docs:
 
 review response を受け取った agent は、次を行う。
 
+- review response を `node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>` または `--stdin` で検査する。
+- response checker が失敗した返答は review 記録として扱わず、subagent に不足 section / field の再提出を依頼する。
+- `MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read` と `not_reviewed` が記録されている場合だけ受理する。
 - `Blocker` は同じ branch 内で修正する。
 - 同じ branch 内で修正できない `Blocker` は、原因、影響、完了条件、検証予定を持つ issue へ分離する。
 - `Non-blocker` は `note.n.md`、`todo.md`、または対応 issue に残す。
