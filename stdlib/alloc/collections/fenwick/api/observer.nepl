@@ -2,7 +2,8 @@
 //: `Fenwick` の借用 observer API
 //:
 //: ### [目的/もくてき]
-//: - `len` を `Fenwick` owner を消費しない read-only API として提供します。
+//: - `len` を borrowed observer API として提供します。
+//: - observer は owner を消費しないため、caller は query 後も同じ `Fenwick` を使い、不要になったら `free` できます。
 
 #indent 4
 

@@ -116,6 +116,7 @@ const checks = [
     "nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_fenwick_borrowed_queries.js",
     "nodesrc/test_stdlib_fenwick_add_error_owner.js",
+    "nodesrc/test_stdlib_fenwick_doc_report_contract.js",
     "nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_ringbuffer_borrowed_observers.js",
     "nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js",

@@ -1,3 +1,29 @@
+# 2026-06-05 Agent 2 Fenwick documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。
+- subagent review では、`stdlib/alloc/collections/fenwick/api/diagnostic.nepl`、`storage.nepl`、`query.nepl`、`mutation.nepl` の diagnostic / typed storage / prefix query / point update helper 9件に declaration doc gap が残ることが blocker として指摘された。さらに public `add` doc が storage invariant failure でも rollback 済み owner のように読める点が blocker として指摘された。
+- `api/diagnostic.nepl` では `fenwick_diag_len`、`fenwick_diag_index`、`fenwick_diag_range` の日本語 doc comment と `test_report` 形式の doctest を追加した。diagnostic の判定は message 文字列ではなく `StdErrorKind` の enum kind によることを明記した。
+- `storage.nepl` では `fenwick_load_owned`、`fenwick_store_owned`、`fenwick_alloc_bit`、`fenwick_free_bit` の日本語 doc comment と `test_report` 形式の doctest を追加した。1-indexed `Vec i32` storage、`n + 1` cell、sentinel / unused `bit[0]`、`Vec.get` / `Vec.replace` / `Vec.filled` / `Vec.free` の typed boundary を契約として固定した。
+- `query.nepl` と `mutation.nepl` では `fenwick_sum_prefix_storage` と `fenwick_add_storage` の日本語 doc comment と `test_report` 形式の doctest を追加した。`Option::None` / `false` は storage invariant failure を API 層へ返す内部結果であり、valid storage では lowbit traversal により O(log n) であることを明記した。
+- `types.nepl`、`api/observer.nepl`、`api/update.nepl` の既存 doc comment も補強し、storage invariant、borrowed observer、owner-consuming update と `FenwickAddError` での owner recovery の接続を明示した。`add` は範囲外 index では storage update 前に拒否するが、storage invariant failure では cleanup 用 owner を返すだけで rollback は契約しないと書き分けた。実装本体は変更していない。
+- `nodesrc/test_stdlib_fenwick_doc_report_contract.js` を追加し、Fenwick 固有の report doctest 名、typed error kind、`n + 1` 1-indexed storage invariant、sentinel cell、typed `Vec i32` storage boundary、prefix query contract、owner recovery contract、rollback 非保証を source policy として固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline を実測値に締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=257`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。Fenwick slice は進んだが、sample gaps は segment_tree / sparse_set / vec 系へ残っている。
+- subagent final review では Blocker なし。Non-blocker として diagnostic docs の message 文言が contract に見えやすい点が挙がったため、`fixed message` ではなく `現行 message` に直して、typed error kind を契約とする説明へ寄せた。再確認後も `MERGE_APPROVED` と判定された。
+- 現時点の検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/fenwick/types.nepl -i stdlib/alloc/collections/fenwick/storage.nepl -i stdlib/alloc/collections/fenwick/query.nepl -i stdlib/alloc/collections/fenwick/mutation.nepl -i stdlib/alloc/collections/fenwick/api.nepl -i stdlib/alloc/collections/fenwick/api/diagnostic.nepl -i stdlib/alloc/collections/fenwick/api/create.nepl -i stdlib/alloc/collections/fenwick/api/observer.nepl -i stdlib/alloc/collections/fenwick/api/query.nepl -i stdlib/alloc/collections/fenwick/api/update.nepl -i stdlib/alloc/collections/fenwick/api/cleanup.nepl -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/agent2-fenwick-doc-slice.json -j 1 --dist web/dist --assert-io`: pass（20/20）
+  - `node nodesrc/test_stdlib_fenwick_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: pass
+  - `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-fenwick-doc-playground-editor.json`: pass（13/13）
+
 # 2026-06-05 Agent 2 DisjointSet documentation contract checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。
