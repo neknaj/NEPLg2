@@ -63,8 +63,28 @@ assert.match(
 );
 assert.match(
     source,
+    /pub enum SelfhostExpressionLineCheckError:[\s\S]*AscriptionFailed %SelfhostExprAscriptionError/,
+    "expression line connector must preserve type-ascription failures separately",
+);
+assert.match(
+    source,
+    /pub enum SelfhostExprAscriptionError:[\s\S]*NotTypeAscription %SelfhostSourceSpan[\s\S]*TypeReduceFailed %SelfhostTypeReduceError[\s\S]*TypeProjectFailed %SelfhostTypeProjectError[\s\S]*MissingExpressionTail %SelfhostSourceSpan/,
+    "type ascription connector must keep typed range, reduce, project, and missing-tail failures",
+);
+assert.match(
+    source,
     /pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError/,
     "call reduction input must keep expected type as Option SelfhostTypeExpectation",
+);
+assert.match(
+    source,
+    /pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError/,
+    "type ascription must expose an arena-owner projection boundary",
+);
+assert.match(
+    source,
+    /pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError/,
+    "body segment connector must expose an arena-owner boundary for ascription projection",
 );
 assert.match(
     source,
@@ -98,8 +118,23 @@ assert.match(
 );
 assert.match(
     bodyLine,
+    /selfhost_check_expr_head_starts_with_percent tokens segment\.head[\s\S]*selfhost_expr_ascription_project_expectation tokens source arena segment\.head[\s\S]*selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens projection candidates/,
+    "percent-prefixed expression lines must be projected as type ascriptions before call reduction",
+);
+assert.match(
+    source,
+    /selfhost_type_prefix_list_reduce_prefix source &type_prefix[\s\S]*SelfhostTypeExpectationSource::ExplicitAscription[\s\S]*selfhost_expr_ascription_projection_new allocated expectation tail/,
+    "type ascription projection must use prefix-boundary reduction and explicit expectation evidence",
+);
+assert.match(
+    bodyLine,
     /SelfhostBodySegmentKind::BlockIntro:[\s\S]*SelfhostExpressionLineCheckError::NotExpressionLine/,
     "BlockIntro must be rejected instead of being flattened through expression reduction",
+);
+assert.match(
+    bodyLine,
+    /borrowed API[\s\S]*selfhost_check_expr_reduce_body_segment_with_arena/,
+    "borrowed expression-line connector must document that percent ascription uses the owner-returning API",
 );
 assert.doesNotMatch(
     bodyLine,

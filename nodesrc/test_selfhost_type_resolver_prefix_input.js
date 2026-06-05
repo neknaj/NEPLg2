@@ -27,6 +27,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostTypePrefixReducePrefixResult:[\s\S]*root %SelfhostResolvedTypeTreeRoot[\s\S]*next_index %i32/,
+    "prefix reducer must expose the consumed boundary for type-ascription inputs",
+);
+assert.match(
+    source,
     /pub enum SelfhostTypePrefixBuildErrorKind:[\s\S]*MissingAnnotationMarker[\s\S]*InvalidToken/,
     "type prefix list builder must reject ranges that are not parser-provided % annotations",
 );
@@ -63,6 +68,23 @@ assert.match(
     fromRange,
     /selfhost_type_prefix_list_from_range_loop\s+tokens\s+add\s+range\.first_token\s+1/,
     "builder must skip the % marker when creating resolver input items",
+);
+
+const reducePrefix = topLevelBlock(source, "fn", "selfhost_type_prefix_list_reduce_prefix");
+assert.match(
+    reducePrefix,
+    /selfhost_type_prefix_list_reduce_prefix_from_plan &plan/,
+    "prefix reducer must share the same validate/build path as full reduction",
+);
+assert.doesNotMatch(
+    reducePrefix,
+    /TrailingItems/,
+    "prefix reducer must not reject expression tokens that remain after the first type expression",
+);
+assert.match(
+    source,
+    /pub fn selfhost_type_prefix_reduce_prefix_result_next_index %fn &SelfhostTypePrefixReducePrefixResult i32/,
+    "prefix reduce result must expose the next type-prefix index",
 );
 
 console.log("selfhost type resolver prefix input contract passed");

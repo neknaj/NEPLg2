@@ -93,6 +93,19 @@ pub struct SelfhostTypeReduceStep:
     node_id %SelfhostResolvedTypeNodeId
     next_index %i32
 
+//: SelfhostTypePrefixReducePrefixResult: prefix item list の先頭 1 型式を縮約した結果
+//:
+//: [目的/もくてき]:
+//: - `%T expr` のように型式の直後へ式 token が続く場面で、type resolver が消費した型式境界を checker へ返します。
+//: - parser に型式境界を決めさせず、kind / constructor arity / type parameter environment を見た reducer が `next_index` を決めます。
+//:
+//: [契約/けいやく]:
+//: - `root` は resolved type tree owner です。caller は projection 後に `selfhost_type_prefix_reduce_prefix_result_free` で解放します。
+//: - `next_index` は `%` を除いた `SelfhostTypePrefixList` 内の次 item index です。元 token stream では `percent_token_index + 1 + next_index` が内側 expression の先頭候補になります。
+pub struct SelfhostTypePrefixReducePrefixResult:
+    root %SelfhostResolvedTypeTreeRoot
+    next_index %i32
+
 //: SelfhostTypeReduceBuildState: reduction build 中の owner state
 //:
 //: [目的/もくてき]:
@@ -312,6 +325,22 @@ pub fn selfhost_type_reduce_step_into_build_state %impure fn SelfhostTypeReduceS
     let function_args %Vec SelfhostResolvedTypeNodeId field::get step "function_args"
     let type_args %Vec SelfhostResolvedTypeNodeId field::get step "type_args"
     selfhost_type_reduce_build_state_new nodes function_args type_args
+
+//: selfhost_type_prefix_reduce_prefix_result_new: prefix reduce result を[作/つく]る
+pub fn selfhost_type_prefix_reduce_prefix_result_new %impure fn SelfhostResolvedTypeTreeRoot impure fn i32 SelfhostTypePrefixReducePrefixResult \root\next_index:
+    SelfhostTypePrefixReducePrefixResult root next_index
+
+//: selfhost_type_prefix_reduce_prefix_result_root: resolved type root を borrow で[返/かえ]す
+pub fn selfhost_type_prefix_reduce_prefix_result_root %fn &SelfhostTypePrefixReducePrefixResult &SelfhostResolvedTypeTreeRoot \result:
+    field::get_ref result "root"
+
+//: selfhost_type_prefix_reduce_prefix_result_next_index: 消費済み type prefix item 数を[返/かえ]す
+pub fn selfhost_type_prefix_reduce_prefix_result_next_index %fn &SelfhostTypePrefixReducePrefixResult i32 \result:
+    *field::get_ref result "next_index"
+
+//: selfhost_type_prefix_reduce_prefix_result_free: prefix reduce result の resolved tree owner を[解放/かいほう]する
+pub fn selfhost_type_prefix_reduce_prefix_result_free %impure fn SelfhostTypePrefixReducePrefixResult unit \result:
+    selfhost_resolved_type_tree_root_free field::get result "root"
 
 pub fn selfhost_type_reduce_fail %impure fn SelfhostTypeReduceBuildState impure fn SelfhostTypeReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\kind\span:
     selfhost_type_reduce_build_state_free state

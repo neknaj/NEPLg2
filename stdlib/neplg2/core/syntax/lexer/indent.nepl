@@ -177,7 +177,12 @@ pub fn lex_stack_top_result %fn &Vec i32 fn i32 fn i32 Result i32 LexDiagnostic 
                     Result::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty_unchecked file_id offset "lexer indent stack top is unavailable"
 
 //: lex_stack_drop_top: indent stack の末尾 level を[捨/す]てた Vec を[返/かえ]す
-pub fn lex_stack_drop_top %fn Vec i32 Vec i32 \stack:
+//:
+//: [契約/けいやく]:
+//: - `stack` owner を[消費/しょうひ]し、末尾要素を[破棄/はき]した新しい owner を[返/かえ]します。
+//: - `Vec` の public owner API である `drop_last` へ委譲し、`Vec` の内部 storage layout には依存しません。
+//: - `drop_last` は buffer state を[更新/こうしん]するため、この wrapper も impure です。
+pub fn lex_stack_drop_top %impure fn Vec i32 Vec i32 \stack:
     drop_last stack
 
 //: lex_indent_aligned: indent 幅が offside unit に[揃/そろ]っているか[返/かえ]す

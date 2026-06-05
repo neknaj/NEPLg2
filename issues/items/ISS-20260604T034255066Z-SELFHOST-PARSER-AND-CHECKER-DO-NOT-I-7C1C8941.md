@@ -56,7 +56,11 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `syntax/parser/body_segmenter.nepl` を追加し、declaration body envelope を `ExpressionLine` / `BlockIntro` の typed segment list へ分解するようにした。`ExpressionLine.head` は `SelfhostExprPrefixList` の入力候補、`BlockIntro.body` は recursive segmenter の入力として分離し、nested body を flat prefix list に直接渡さない契約を source policy と doctest で固定した。
 - 2026-06-05: `check/expr` を追加し、`SelfhostExprPrefixList` と callable candidate list を受け取る call reduction の初期境界を実装した。`SelfhostTypeExpectation` は expected type の由来と span を保持し、generic inference state / overload rejection / call reduction error は enum payload で分ける。現段階では named direct call の arity / expected result / no partial application / ambiguity / generic fail-closed を検査し、HIR lowering は行わない。
 - 2026-06-05: `check/expr/body_line.nepl` を追加し、`SelfhostBodySegmentKind::ExpressionLine.head` から `SelfhostExprPrefixList` を作って `selfhost_call_reduce_prefix` へ渡す接続を実装した。`BlockIntro` は `NotExpressionLine`、prefix build failure は `PrefixBuildFailed`、call reduction failure は `CallReduceFailed` として分け、nested body を flat prefix list に直接渡さない契約を source policy と focused doctest で固定した。
-- 残件: `%T` ascription から `SelfhostTypeExpectation` を作る接続、argument type checking、candidate collection、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `resolve/type_resolver` に先頭 1 型式だけを縮約して `next_index` を返す `selfhost_type_prefix_list_reduce_prefix*` API を追加した。`TrailingItems` を返す full annotation reducer と分け、`%i32 add 1 2` のような ascription 入力で後続 expression token を誤って型式 trailing item として拒否しない境界にした。
+- 2026-06-05: `check/expr/ascription.nepl` を追加し、`%T expr` を `SelfhostTypeExpectationSource::ExplicitAscription` と内側 `SelfhostSyntaxRange` へ投影する owner 付き入口を実装した。`body_line.nepl` には arena owner を受け取る `selfhost_check_expr_reduce_body_segment_with_arena` を追加し、`%` で始まる expression line は call reduction へ直接渡さず、ascription projection 後の内側 expression だけを縮約する。
+- 2026-06-05: `stage1` smoke helper に `%i32 add 1 2` の固定 token fixture を追加した。lexer / parser の詳細ではなく、type resolver が返す型式消費境界と body line connector の owner 戻しを確認する fixture とした。
+- 2026-06-05: focused doctest を止めていた既存 effect 境界も修正した。`selfhost_diagnostics_push` / `selfhost_diagnostics_free` / `lex_stack_drop_top` は `Vec` owner の更新または解放を行うため `impure fn` に正規化し、`lex_stack_drop_top` は引き続き public `drop_last` API へ委譲して `Vec` 内部 storage layout へ依存しない。
+- 残件: line head に対する candidate collection、argument type checking、generic instantiation inference、trait solving、ascription と外側 expected type の diagnostic 統合、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -171,6 +175,18 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_selfhost_module_checker_split_contract.js`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_call_reduce.n.md -o tmp\selfhost-call-reduce-body-line-final.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i stdlib\neplg2\core\check\expr.nepl -o tmp\selfhost-check-expr-facade-body-line-final.json --no-tree -j 1 --assert-io --dist web\dist`
+
+2026-06-05 expression ascription expectation checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_type_resolver_prefix_input.js`
+- `node nodesrc/test_selfhost_type_resolver_split_contract.js`
+- `node nodesrc/test_selfhost_type_resolver_generic_application_contract.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`（今回追加した selfhost / type resolver policy は pass。既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` は warning）
+- `node nodesrc/test_selfhost_string_helpers_boundary.js`
+- `node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_ascription_tests.json`（2/2 pass）
+- `git diff --check`
 
 2026-06-05 canonical type key checkpoint:
 

@@ -21,7 +21,11 @@ pub fn selfhost_diagnostics_new %fn void Result SelfhostDiagnostics StdErrorKind
             Result::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_one: diagnostic 1 [件/けん]から collection を[作/つく]る
-pub fn selfhost_diagnostics_one %fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diag:
+//:
+//: [契約/けいやく]:
+//: - collection の内部 buffer を[確保/かくほ]し、続けて diagnostic を[追加/ついか]します。
+//: - buffer allocation と `Vec` owner の[更新/こうしん]を行うため、関数全体は impure です。
+pub fn selfhost_diagnostics_one %impure fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diag:
     match selfhost_diagnostics_new:
         Result::Ok ds:
             selfhost_diagnostics_push ds diag
@@ -29,7 +33,12 @@ pub fn selfhost_diagnostics_one %fn SelfhostDiagnostic Result SelfhostDiagnostic
             Result::Err e
 
 //: selfhost_diagnostics_push: diagnostic を 1 [件/けん][追加/ついか]する
-pub fn selfhost_diagnostics_push %fn SelfhostDiagnostics fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diagnostics\diag:
+//:
+//: [契約/けいやく]:
+//: - `diagnostics` が[所有/しょゆう]する `Vec` に diagnostic を[追加/ついか]し、新しい owner を[返/かえ]します。
+//: - `Vec::push` の allocation と owner [移動/いどう]を含むため、この関数は impure です。
+//: - [失敗/しっぱい]した場合は `VecPushError` に[戻/もど]された buffer を[解放/かいほう]し、`OutOfMemory` に[正規化/せいきか]します。
+pub fn selfhost_diagnostics_push %impure fn SelfhostDiagnostics impure fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diagnostics\diag:
     match v::push field::get diagnostics "items" diag:
         Result::Ok items:
             Result::Ok SelfhostDiagnostics items
@@ -71,5 +80,9 @@ pub fn selfhost_diagnostics_has_errors %fn &SelfhostDiagnostics bool \diagnostic
     selfhost_diagnostics_has_errors_loop diagnostics n 0
 
 //: selfhost_diagnostics_free: diagnostic collection の[内部/ないぶ] buffer を[解放/かいほう]する
-pub fn selfhost_diagnostics_free %fn SelfhostDiagnostics unit \diagnostics:
+//:
+//: [契約/けいやく]:
+//: - collection の `Vec` owner を[消費/しょうひ]し、内部 buffer を[解放/かいほう]します。
+//: - heap state を[更新/こうしん]するため、この関数は impure です。
+pub fn selfhost_diagnostics_free %impure fn SelfhostDiagnostics unit \diagnostics:
     v::free field::get diagnostics "items"

@@ -36,6 +36,7 @@ pub #import "./expr/expectation" as *
 pub #import "./expr/call_candidate" as *
 pub #import "./expr/model" as *
 pub #import "./expr/call_reduce" as *
+pub #import "./expr/ascription" as *
 pub #import "./expr/body_line" as *
 pub #import "./expr/stage0" as *
 pub #import "./expr/stage1" as *

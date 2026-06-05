@@ -6,6 +6,7 @@
 //: [目的/もくてき]:
 //: - token buffer、`SelfhostBodySegmentKind::ExpressionLine`、type arena、callable candidate を組み合わせ、`body_line.nepl` の接続が実際に direct call plan を返すことを確認します。
 //: - `BlockIntro` を誤って expression line reduction へ渡した場合に、typed error として拒否されることを確認します。
+//: - `%i32 add 1 2` のような明示 type ascription が、`%` を call reduction へ渡さず expected type と内側 expression range に分解されることを確認します。
 //:
 //: [契約/けいやく]:
 //: - この module は focused smoke helper だけを持ち、production の接続規則は `body_line.nepl` に置きます。
@@ -96,6 +97,18 @@ fn selfhost_check_expr_stage1_expression_segment %fn void SelfhostBodySegment \v
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 7
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_ascribed_expression_segment: `%i32 add 1 2` 全体を指す expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `ExpressionLine.head` が `%` から始まるときに、body line connector が ascription projection を先に行う経路を確認します。
+//:
+//: [契約/けいやく]:
+//: - token buffer の 0..5 全体を 1 expression line として渡します。
+//: - `%i32` の型式境界はこの fixture ではなく type resolver が `next_index` として返します。
+fn selfhost_check_expr_stage1_ascribed_expression_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 5 source_span_new_unchecked 0 0 12
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
 //: selfhost_check_expr_stage1_block_intro_segment: 拒否確認用の block-intro segment を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -151,6 +164,42 @@ fn selfhost_check_expr_stage1_make_tokens %impure fn void Result Vec SelfhostTok
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_make_ascribed_tokens: `%i32 add 1 2` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - type ascription connector の focused smoke test 用に、`%`、型名、内側 expression を同じ token range に置きます。
+//:
+//: [現状/げんじょう]:
+//: - source text は `%i32 add 1 2` で、span は byte range に合わせて手組みします。
+fn selfhost_check_expr_stage1_make_ascribed_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let percent_token %SelfhostToken selfhost_token_new TokenKind::Percent source_span_new_unchecked 0 0 1
+            match selfhost_check_expr_stage1_push_token tokens0 percent_token:
+                Result::Ok tokens1:
+                    let type_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 1 4
+                    match selfhost_check_expr_stage1_push_token tokens1 type_token:
+                        Result::Ok tokens2:
+                            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 5 8
+                            match selfhost_check_expr_stage1_push_token tokens2 add_token:
+                                Result::Ok tokens3:
+                                    let arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 9 10
+                                    match selfhost_check_expr_stage1_push_token tokens3 arg0:
+                                        Result::Ok tokens4:
+                                            let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 11 12
+                                            selfhost_check_expr_stage1_push_token tokens4 arg1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_check_expr_stage1_direct_ok: expression segment が direct call として[縮約/しゅくやく]できるか[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -183,6 +232,40 @@ fn selfhost_check_expr_stage1_block_intro_rejected %impure fn &Vec SelfhostToken
             false
         Result::Err e:
             selfhost_expression_line_check_error_is_not_expression_line e
+
+fn selfhost_check_expr_stage1_success_is_two_arg_direct_call %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let reduced %&SelfhostCallReduceResult selfhost_expression_line_check_success_result success
+    match *reduced:
+        SelfhostCallReduceResult::DirectCall call:
+            eq call.argument_count 2
+
+//: selfhost_check_expr_stage1_ascription_ok_with_candidate: `%i32 add 1 2` が expected type 付き direct call になるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `selfhost_check_expr_reduce_body_segment_with_arena` が arena owner を受け取り、ascription の型を arena に追加したうえで内側 expression を縮約することを確認します。
+//:
+//: [契約/けいやく]:
+//: - `arena` は owner として受け取り、この helper 内で成功・失敗にかかわらず閉じます。
+//: - `tokens` と candidate vector も helper 内で解放し、doctest 入口に owner を残しません。
+fn selfhost_check_expr_stage1_ascription_ok_with_candidate %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let segment %SelfhostBodySegment selfhost_check_expr_stage1_ascribed_expression_segment
+            match selfhost_check_expr_reduce_body_segment_with_arena &tokens "%i32 add 1 2" segment arena &candidates none:
+                Result::Ok success:
+                    let ok %bool selfhost_check_expr_stage1_success_is_two_arg_direct_call &success
+                    selfhost_expression_line_check_success_free success
+                    v::free candidates
+                    v::free tokens
+                    ok
+                Result::Err _e:
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
 
 //: selfhost_check_expr_stage1_run_with_candidate: token / arena / candidate owner を閉じて smoke result を[返/かえ]す
 //:
@@ -224,6 +307,16 @@ fn selfhost_check_expr_stage1_run_with_i32 %impure fn Vec SelfhostToken impure f
             v::free tokens
             1
 
+fn selfhost_check_expr_stage1_run_ascription_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_ascription_ok_with_candidate tokens next_arena add_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_with_tokens: token buffer に対して type arena fixture を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -246,6 +339,28 @@ fn selfhost_check_expr_stage1_run_with_tokens %impure fn Vec SelfhostToken i32 \
             v::free tokens
             1
 
+fn selfhost_check_expr_stage1_run_ascription_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_ascription_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_ascribed_tokens:
+        Result::Ok tokens:
+            selfhost_check_expr_stage1_run_ascription_with_tokens tokens
+        Result::Err _e:
+            1
+
 //: selfhost_check_expr_stage1_body_line: body expression line 接続の smoke API
 //:
 //: [目的/もくてき]:
@@ -258,6 +373,12 @@ fn selfhost_check_expr_stage1_run_with_tokens %impure fn Vec SelfhostToken i32 \
 pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_tokens:
         Result::Ok tokens:
-            selfhost_check_expr_stage1_run_with_tokens tokens
+            let base %i32 selfhost_check_expr_stage1_run_with_tokens tokens
+            if:
+                eq base 0
+                then:
+                    selfhost_check_expr_stage1_ascription_body_line
+                else:
+                    1
         Result::Err _e:
             1

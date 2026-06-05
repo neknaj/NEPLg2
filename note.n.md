@@ -1,3 +1,19 @@
+# 2026-06-05 Agent selfhost expression ascription expectation checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser が `%T expr` の型式境界を推測せず、type resolver / checker が typed evidence と owner を持って解決する境界へ寄せた。
+- subagent review では、`%` を `selfhost_call_reduce_prefix` へ直接渡すと call boundary が壊れること、`body_line.nepl` は borrowed arena API だけでは ascription type projection の arena owner を返せないこと、type resolver は whole expression range ではなく先頭 1 型式の消費 index を返す必要があることを blocker として確認した。
+- `resolve/type_resolver/reduce/model.nepl` に `SelfhostTypePrefixReducePrefixResult` を追加し、resolved type root と `next_index` を一緒に返すようにした。
+- `resolve/type_resolver/reduce.nepl` に `selfhost_type_prefix_list_reduce_prefix`、constructor-aware 版、constructor + type parameter 版を追加した。full annotation reducer は trailing item を拒否し、prefix reducer は後続 expression token を残すという役割分担にした。
+- `check/expr/ascription.nepl` を追加し、`%T expr` を `SelfhostTypeExpectationSource::ExplicitAscription` と内側 `SelfhostSyntaxRange` へ投影する owner 付き入口を実装した。失敗は `SelfhostExprAscriptionError` の enum data として保持し、表示文言へ潰していない。
+- `check/expr/body_line.nepl` に `SelfhostExpressionLineCheckSuccess` と `selfhost_check_expr_reduce_body_segment_with_arena` を追加した。`%` で始まる expression line は ascription projection を通してから内側 expression を call reduction へ渡し、成功時は更新済み TypeArena owner を success payload で返す。
+- `check/expr/stage1.nepl` に `%i32 add 1 2` の固定 token fixture を追加し、ascription connector が `%` を直接 call reduction へ流さず two-argument direct call へ進む縦切りを smoke helper に含めた。
+- `nodesrc/selfhost_check_expr_sources.js` と `nodesrc/test_selfhost_expr_call_reduce_contract.js`、`nodesrc/test_selfhost_type_resolver_prefix_input.js` を更新し、ascription module の facade 登録、typed error、explicit expectation、prefix reducer の `next_index` 契約を source policy で固定した。
+- focused doctest を止めていた既存 effect 境界として、`selfhost_diagnostics_push` / `selfhost_diagnostics_free` / `lex_stack_drop_top` を `impure fn` に正規化した。これらは `Vec` owner の更新・解放を行うため pure ではなく、Zenn 方針の純粋性検査に従って宣言へ反映した。
+- subagent 追加レビューでは blocking finding はなかった。非 blocking 指摘として旧 borrowed API が ascription 非対応であることを明示すべきとされたため、`selfhost_check_expr_reduce_body_segment` のコメントと `test_selfhost_expr_call_reduce_contract.js` で owner-returning API を使う契約を固定した。
+- 残件は line head に対する candidate collection、argument type checking、ascription と外側 expected type の diagnostic 統合、generic instantiation inference、trait solving である。`todo.md` もこの残件へ更新した。
+- 検証済み: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/test_selfhost_type_resolver_prefix_input.js`、`node nodesrc/test_selfhost_type_resolver_split_contract.js`、`node nodesrc/test_selfhost_type_resolver_generic_application_contract.js`、`node nodesrc/test_selfhost_string_helpers_boundary.js`、`node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_ascription_tests.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check`。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した selfhost / type resolver policy が pass し、既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけを warning として報告した。
+
 # 2026-06-05 Agent selfhost body segmenter checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser が body を HIR / call tree へ落とさず、typed token range evidence だけを後段へ渡す境界を維持した。

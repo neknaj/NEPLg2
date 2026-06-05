@@ -1,0 +1,288 @@
+#indent 4
+
+//: # check/expr/ascription
+//: expression line の先頭にある `%T expr` を、期待型と内側 expression range へ分解する module です。
+//:
+//: [目的/もくてき]:
+//: - NEPLg2.1 の `%` type ascription を、call reduction の prefix list に混ぜずに先に処理します。
+//: - `%` の直後に続く flat type prefix item から、type resolver が先頭 1 型式だけを縮約し、消費した item 数を返します。
+//: - 縮約された型式を `SelfhostTypeArena` へ投影し、`SelfhostTypeExpectationSource::ExplicitAscription` として内側 expression checker へ渡します。
+//:
+//: [契約/けいやく]:
+//: - この module は expression を評価したり call boundary を決めたりしません。返すのは「型注釈由来の expected type」と「注釈を除いた内側 expression range」です。
+//: - `arena` は owner として受け取ります。成功時は `SelfhostExprAscriptionProjection` が arena owner を保持し、失敗時はこの module が arena を解放します。
+//: - `void` や generic arity などの型式規則は type resolver の typed error をそのまま保持し、文字列診断へ潰しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - type prefix candidate 収集は、注釈位置から式 token へ到達するまでの token 数を k として O(k) です。
+//: - 先頭 1 型式の縮約と TypeArena projection は、型式 subtree の node 数に比例します。後続 expression 全体を探索しません。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/ty" as *
+#import "./expectation" as *
+
+//: SelfhostExprAscriptionError: `%T expr` 分解の失敗分類
+//:
+//: [目的/もくてき]:
+//: - syntax range 自体の不備、type prefix list 生成失敗、type resolver 失敗、TypeArena 投影失敗、内側 expression 欠落を enum として分けます。
+//: - diagnostic display はこの enum を後続で投影し、この module は source span と typed sub-error だけを保持します。
+pub enum SelfhostExprAscriptionError:
+    EmptyExpressionRange %SelfhostSourceSpan
+    InvalidExpressionRange %SelfhostSourceSpan
+    NotTypeAscription %SelfhostSourceSpan
+    TypePrefixBuildFailed %SelfhostTypePrefixBuildError
+    TypeReduceFailed %SelfhostTypeReduceError
+    TypeProjectFailed %SelfhostTypeProjectError
+    MissingExpressionTail %SelfhostSourceSpan
+
+impl Clone for SelfhostExprAscriptionError:
+    fn clone %fn &SelfhostExprAscriptionError SelfhostExprAscriptionError \self:
+        *self
+
+impl Copy for SelfhostExprAscriptionError:
+    fn copy_mark %fn SelfhostExprAscriptionError SelfhostExprAscriptionError \self:
+        self
+
+//: SelfhostExprAscriptionProjection: `%T expr` から得た checker 入力
+//:
+//: [目的/もくてき]:
+//: - projected TypeArena owner、明示注釈由来の expected type、内側 expression range を 1 つにまとめます。
+//: - owner と Copy evidence を混ぜるため、この構造は Copy にしません。caller は `into_arena` または `free` で owner を閉じます。
+pub struct SelfhostExprAscriptionProjection:
+    allocated %SelfhostTypeArenaAlloc
+    expectation %SelfhostTypeExpectation
+    expression_tail %SelfhostSyntaxRange
+
+//: selfhost_expr_ascription_projection_new: ascription projection payload を[作/つく]る
+fn selfhost_expr_ascription_projection_new %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeExpectation impure fn SelfhostSyntaxRange SelfhostExprAscriptionProjection \allocated\expectation\expression_tail:
+    SelfhostExprAscriptionProjection allocated expectation expression_tail
+
+//: selfhost_expr_ascription_projection_expectation: 注釈由来 expected type を[返/かえ]す
+pub fn selfhost_expr_ascription_projection_expectation %fn &SelfhostExprAscriptionProjection SelfhostTypeExpectation \projection:
+    *field::get_ref projection "expectation"
+
+//: selfhost_expr_ascription_projection_tail: 注釈を除いた内側 expression range を[返/かえ]す
+pub fn selfhost_expr_ascription_projection_tail %fn &SelfhostExprAscriptionProjection SelfhostSyntaxRange \projection:
+    *field::get_ref projection "expression_tail"
+
+//: selfhost_expr_ascription_projection_type_id: 注釈型の TypeId を[返/かえ]す
+pub fn selfhost_expr_ascription_projection_type_id %fn &SelfhostExprAscriptionProjection SelfhostTypeId \projection:
+    let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation projection
+    expectation.expected_type
+
+//: selfhost_expr_ascription_projection_into_arena: projection を消費して TypeArena owner を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeArenaAlloc` wrapper を消費して arena owner を返します。
+//: - この後、同じ projection から `expectation` や `tail` を読むことはできません。必要な Copy payload は先に読んでください。
+pub fn selfhost_expr_ascription_projection_into_arena %impure fn SelfhostExprAscriptionProjection SelfhostTypeArena \projection:
+    let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
+    selfhost_type_arena_alloc_into_arena allocated
+
+//: selfhost_expr_ascription_projection_free: projection が保持する arena owner を[解放/かいほう]する
+pub fn selfhost_expr_ascription_projection_free %impure fn SelfhostExprAscriptionProjection unit \projection:
+    let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
+    selfhost_type_arena_free selfhost_type_arena_alloc_into_arena allocated
+
+fn selfhost_expr_ascription_error_from_build %fn SelfhostTypePrefixBuildError SelfhostExprAscriptionError \error:
+    SelfhostExprAscriptionError::TypePrefixBuildFailed error
+
+fn selfhost_expr_ascription_first_token_is_percent %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
+    match v::get tokens idx:
+        Option::Some token:
+            match token.kind:
+                TokenKind::Percent:
+                    true
+                _:
+                    false
+        Option::None:
+            false
+
+fn selfhost_expr_ascription_push_type_item %impure fn Vec SelfhostTypePrefixItem impure fn SelfhostTypePrefixItem impure fn SelfhostSourceSpan Result Vec SelfhostTypePrefixItem SelfhostExprAscriptionError \items\item\span:
+    match v::push items item:
+        Result::Ok next_items:
+            Result::Ok next_items
+        Result::Err e:
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostExprAscriptionError::TypePrefixBuildFailed selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::OutOfMemory span
+
+fn selfhost_expr_ascription_type_items_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn Vec SelfhostTypePrefixItem Result Vec SelfhostTypePrefixItem SelfhostExprAscriptionError \tokens\idx\end\items:
+    if:
+        ge idx end
+        then:
+            Result::Ok items
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match selfhost_type_prefix_item_from_token token idx:
+                        Option::Some item:
+                            match selfhost_expr_ascription_push_type_item items item token.span:
+                                Result::Ok next_items:
+                                    selfhost_expr_ascription_type_items_loop tokens add idx 1 end next_items
+                                Result::Err e:
+                                    Result::Err e
+                        Option::None:
+                            Result::Ok items
+                Option::None:
+                    v::free items
+                    Result::Err SelfhostExprAscriptionError::InvalidExpressionRange source_span_empty_unchecked 0 0
+
+fn selfhost_expr_ascription_type_prefix_list_from_range %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result SelfhostTypePrefixList SelfhostExprAscriptionError \tokens\syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            Result::Err SelfhostExprAscriptionError::EmptyExpressionRange source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            if:
+                not selfhost_syntax_range_is_valid syntax_range
+                then:
+                    Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
+                else:
+                    let token_len %i32 v::len tokens
+                    if:
+                        or gt range.first_token token_len gt range.token_count sub token_len range.first_token
+                        then:
+                            Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
+                        else if:
+                            not selfhost_expr_ascription_first_token_is_percent tokens range.first_token
+                            then:
+                                Result::Err SelfhostExprAscriptionError::NotTypeAscription range.span
+                            else:
+                                let items_result %Result Vec SelfhostTypePrefixItem StdErrorKind v::new
+                                match items_result:
+                                    Result::Ok items:
+                                        match selfhost_expr_ascription_type_items_loop tokens add range.first_token 1 add range.first_token range.token_count items:
+                                            Result::Ok built_items:
+                                                Result::Ok selfhost_type_prefix_list_new built_items
+                                            Result::Err e:
+                                                Result::Err e
+                                    Result::Err _e:
+                                        Result::Err SelfhostExprAscriptionError::TypePrefixBuildFailed selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::OutOfMemory range.span
+
+fn selfhost_expr_ascription_type_span_from_range %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 SelfhostSourceSpan \tokens\syntax_range\next_index:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            let last_type_index %i32 add range.first_token next_index
+            match v::get tokens range.first_token:
+                Option::Some percent_token:
+                    match v::get tokens last_type_index:
+                        Option::Some last_type_token:
+                            source_span_new_unchecked percent_token.span.file_id percent_token.span.start last_type_token.span.end
+                        Option::None:
+                            range.span
+                Option::None:
+                    range.span
+
+fn selfhost_expr_ascription_tail_span_from_tokens %fn SelfhostToken fn SelfhostToken SelfhostSourceSpan \first_token\last_token:
+    source_span_new_unchecked first_token.span.file_id first_token.span.start last_token.span.end
+
+fn selfhost_expr_ascription_expression_tail_range %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 Result SelfhostSyntaxRange SelfhostExprAscriptionError \tokens\syntax_range\next_index:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            Result::Err SelfhostExprAscriptionError::EmptyExpressionRange source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            let tail_first %i32 add add range.first_token 1 next_index
+            let range_end %i32 add range.first_token range.token_count
+            if:
+                ge tail_first range_end
+                then:
+                    Result::Err SelfhostExprAscriptionError::MissingExpressionTail range.span
+                else:
+                    match v::get tokens tail_first:
+                        Option::Some first_tail_token:
+                            match v::get tokens sub range_end 1:
+                                Option::Some last_tail_token:
+                                    let tail_count %i32 sub range_end tail_first
+                                    let tail_span %SelfhostSourceSpan selfhost_expr_ascription_tail_span_from_tokens first_tail_token last_tail_token
+                                    Result::Ok selfhost_syntax_range_new_unchecked tail_first tail_count tail_span
+                                Option::None:
+                                    Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
+                        Option::None:
+                            Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
+
+fn selfhost_expr_ascription_project_reduced %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn SelfhostTypePrefixReducePrefixResult Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\syntax_range\arena\reduced:
+    let next_index %i32 selfhost_type_prefix_reduce_prefix_result_next_index &reduced
+    match selfhost_expr_ascription_expression_tail_range tokens syntax_range next_index:
+        Result::Ok tail:
+            let ascription_span %SelfhostSourceSpan selfhost_expr_ascription_type_span_from_range tokens syntax_range next_index
+            let root %&SelfhostResolvedTypeTreeRoot selfhost_type_prefix_reduce_prefix_result_root &reduced
+            match selfhost_type_project_root_into_arena arena root:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let expectation %SelfhostTypeExpectation selfhost_type_expectation_new type_id SelfhostTypeExpectationSource::ExplicitAscription ascription_span
+                    selfhost_type_prefix_reduce_prefix_result_free reduced
+                    Result::Ok selfhost_expr_ascription_projection_new allocated expectation tail
+                Result::Err e:
+                    selfhost_type_prefix_reduce_prefix_result_free reduced
+                    Result::Err SelfhostExprAscriptionError::TypeProjectFailed e
+        Result::Err e:
+            selfhost_type_prefix_reduce_prefix_result_free reduced
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_expr_ascription_project_expectation: `%T expr` を expected type と inner expression range へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - named constructor table を使わない最小入口です。primitive type、function type、type parameter projection が必要ない focused slice で使います。
+//: - expression checker の `%` 処理はこの関数を通し、`selfhost_call_reduce_prefix` に `%` item を直接渡しません。
+pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\source\arena\syntax_range:
+    match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
+        Result::Ok type_prefix:
+            let reduced_result %Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError selfhost_type_prefix_list_reduce_prefix source &type_prefix
+            selfhost_type_prefix_list_free type_prefix
+            match reduced_result:
+                Result::Ok reduced:
+                    selfhost_expr_ascription_project_reduced tokens syntax_range arena reduced
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err SelfhostExprAscriptionError::TypeReduceFailed e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_expr_ascription_project_expectation_with_constructors: constructor table を使って `%T expr` を[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - module surface から得た named type constructor table を使い、`%Vec i32 expr` のような ascription を expected type へ変換します。
+//: - 型式境界は constructor arity を見て決めるため、generic type の直後に式 token が続いても parser が境界を推測しません。
+pub fn selfhost_expr_ascription_project_expectation_with_constructors %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\source\constructors\arena\syntax_range:
+    match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
+        Result::Ok type_prefix:
+            let reduced_result %Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError selfhost_type_prefix_list_reduce_prefix_with_constructors source constructors &type_prefix
+            selfhost_type_prefix_list_free type_prefix
+            match reduced_result:
+                Result::Ok reduced:
+                    let next_index %i32 selfhost_type_prefix_reduce_prefix_result_next_index &reduced
+                    match selfhost_expr_ascription_expression_tail_range tokens syntax_range next_index:
+                        Result::Ok tail:
+                            let ascription_span %SelfhostSourceSpan selfhost_expr_ascription_type_span_from_range tokens syntax_range next_index
+                            let root %&SelfhostResolvedTypeTreeRoot selfhost_type_prefix_reduce_prefix_result_root &reduced
+                            match selfhost_type_project_root_with_constructors_into_arena arena &source constructors root:
+                                Result::Ok allocated:
+                                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                                    let expectation %SelfhostTypeExpectation selfhost_type_expectation_new type_id SelfhostTypeExpectationSource::ExplicitAscription ascription_span
+                                    selfhost_type_prefix_reduce_prefix_result_free reduced
+                                    Result::Ok selfhost_expr_ascription_projection_new allocated expectation tail
+                                Result::Err e:
+                                    selfhost_type_prefix_reduce_prefix_result_free reduced
+                                    Result::Err SelfhostExprAscriptionError::TypeProjectFailed e
+                        Result::Err e:
+                            selfhost_type_prefix_reduce_prefix_result_free reduced
+                            selfhost_type_arena_free arena
+                            Result::Err e
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err SelfhostExprAscriptionError::TypeReduceFailed e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e

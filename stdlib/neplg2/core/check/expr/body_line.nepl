@@ -19,6 +19,7 @@
 //: - 将来 candidate narrowing を追加しても、candidate table を外側で構築し、この関数は与えられた候補列を 1 回だけ扱う境界を維持します。
 
 #import "alloc/collections/vec" as v
+#import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
@@ -31,6 +32,7 @@
 #import "./call_candidate" as *
 #import "./model" as *
 #import "./call_reduce" as *
+#import "./ascription" as *
 
 //: SelfhostExpressionLineCheckError: expression line 接続の失敗分類
 //:
@@ -41,6 +43,32 @@ pub enum SelfhostExpressionLineCheckError:
     NotExpressionLine %SelfhostSourceSpan
     PrefixBuildFailed %SelfhostExprPrefixBuildError
     CallReduceFailed %SelfhostCallReduceError
+    AscriptionFailed %SelfhostExprAscriptionError
+
+//: SelfhostExpressionLineCheckSuccess: owner 付き expression line check の成功 payload
+//:
+//: [目的/もくてき]:
+//: - `%T expr` は TypeArena に expected type を追加してから内側 expression を検査するため、成功後の arena owner も caller へ返す必要があります。
+//: - call reduction result と arena owner を分けずに運ぶことで、checker 呼び出し側が古い arena owner を誤って使う経路をなくします。
+pub struct SelfhostExpressionLineCheckSuccess:
+    arena %SelfhostTypeArena
+    result %SelfhostCallReduceResult
+
+//: selfhost_expression_line_check_success_new: owner 付き成功 payload を[作/つく]る
+pub fn selfhost_expression_line_check_success_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult SelfhostExpressionLineCheckSuccess \arena\result:
+    SelfhostExpressionLineCheckSuccess arena result
+
+//: selfhost_expression_line_check_success_result: call reduction result を borrow で[返/かえ]す
+pub fn selfhost_expression_line_check_success_result %fn &SelfhostExpressionLineCheckSuccess &SelfhostCallReduceResult \success:
+    field::get_ref success "result"
+
+//: selfhost_expression_line_check_success_into_arena: 成功 payload を消費して arena owner を[取/と]り[出/だ]す
+pub fn selfhost_expression_line_check_success_into_arena %impure fn SelfhostExpressionLineCheckSuccess SelfhostTypeArena \success:
+    field::get success "arena"
+
+//: selfhost_expression_line_check_success_free: 成功 payload の arena owner を[解放/かいほう]する
+pub fn selfhost_expression_line_check_success_free %impure fn SelfhostExpressionLineCheckSuccess unit \success:
+    selfhost_type_arena_free field::get success "arena"
 
 //: `SelfhostExpressionLineCheckError` の値をそのまま複製する実装です。
 //:
@@ -96,6 +124,17 @@ pub fn selfhost_expression_line_check_error_is_call_reduce %fn SelfhostExpressio
         _:
             false
 
+//: selfhost_expression_line_check_error_is_ascription: type ascription 分解 error か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `%T expr` の失敗を、通常の expression prefix build / call reduction と分けて focused test が確認できるようにします。
+pub fn selfhost_expression_line_check_error_is_ascription %fn SelfhostExpressionLineCheckError bool \error:
+    match error:
+        SelfhostExpressionLineCheckError::AscriptionFailed _ascription_error:
+            true
+        _:
+            false
+
 //: selfhost_check_expr_body_segment_head_span: segment head の span を[取/と]り[出/だ]す
 //:
 //: [目的/もくてき]:
@@ -110,6 +149,21 @@ fn selfhost_check_expr_body_segment_head_span %fn SelfhostBodySegment SelfhostSo
             range.span
         SelfhostSyntaxRange::Empty:
             source_span_empty_unchecked 0 0
+
+fn selfhost_check_expr_head_starts_with_percent %fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \tokens\head:
+    match head:
+        SelfhostSyntaxRange::Empty:
+            false
+        SelfhostSyntaxRange::Range range:
+            match v::get tokens range.first_token:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Percent:
+                            true
+                        _:
+                            false
+                Option::None:
+                    false
 
 //: selfhost_check_expr_reduce_expression_line_prefix: expression head range を prefix list にして call reduction する
 //:
@@ -144,6 +198,7 @@ fn selfhost_check_expr_reduce_expression_line_prefix %impure fn &Vec SelfhostTok
 //: [前提/ぜんてい]:
 //: - `candidates` は caller が line head の callable name と現在 scope から収集した候補列です。
 //: - この関数は candidate collection を行わず、parser / segmenter / prefix builder と call reduction の責務境界だけを接続します。
+//: - `%T expr` ascription を[含/ふく]む line は、arena owner を[更新/こうしん]する必要があるため、この borrowed API ではなく `selfhost_check_expr_reduce_body_segment_with_arena` を使います。
 //:
 //: [場合分/ばあいわ]け:
 //: - `Ok(DirectCall)`: expression line が direct named call として縮約できました。
@@ -155,4 +210,51 @@ pub fn selfhost_check_expr_reduce_body_segment %impure fn &Vec SelfhostToken imp
         SelfhostBodySegmentKind::ExpressionLine:
             selfhost_check_expr_reduce_expression_line_prefix tokens segment.head arena candidates expected
         SelfhostBodySegmentKind::BlockIntro:
+            Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment
+
+fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn SelfhostExprAscriptionProjection impure fn &Vec SelfhostCallableCandidate Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\projection\candidates:
+    let tail %SelfhostSyntaxRange selfhost_expr_ascription_projection_tail &projection
+    let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation &projection
+    let arena %SelfhostTypeArena selfhost_expr_ascription_projection_into_arena projection
+    let expected %Option SelfhostTypeExpectation some expectation
+    match selfhost_check_expr_reduce_expression_line_prefix tokens tail &arena candidates expected:
+        Result::Ok result:
+            Result::Ok selfhost_expression_line_check_success_new arena result
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_check_expr_reduce_body_segment_with_arena: body segment を owner 付きで expression checker へ[接続/せつぞく]する
+//:
+//: [目的/もくてき]:
+//: - `%T expr` で始まる expression line を、ascription projection の後に内側 expression だけ call reduction へ渡します。
+//: - ascription でない expression line は従来と同じ prefix list 生成へ進め、arena owner は成功 payload へそのまま移します。
+//:
+//: [契約/けいやく]:
+//: - `arena` は owner として受け取り、成功時は `SelfhostExpressionLineCheckSuccess` が保持します。
+//: - 失敗時はこの関数が arena owner を解放します。caller は失敗後に同じ arena を使えません。
+//: - この入口でも candidate collection は行いません。`candidates` は caller が内側 expression の先頭名に対して構築する責務を持ちます。
+//:
+//: [現状/げんじょう]:
+//: - 外側 context から渡された `expected` と明示 ascription の整合検査は、後続の diagnostic projection slice で統合します。現段階では明示 ascription を内側 expression の expected type として優先します。
+pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\candidates\expected:
+    match segment.kind:
+        SelfhostBodySegmentKind::ExpressionLine:
+            if:
+                selfhost_check_expr_head_starts_with_percent tokens segment.head
+                then:
+                    match selfhost_expr_ascription_project_expectation tokens source arena segment.head:
+                        Result::Ok projection:
+                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens projection candidates
+                        Result::Err e:
+                            Result::Err SelfhostExpressionLineCheckError::AscriptionFailed e
+                else:
+                    match selfhost_check_expr_reduce_expression_line_prefix tokens segment.head &arena candidates expected:
+                        Result::Ok result:
+                            Result::Ok selfhost_expression_line_check_success_new arena result
+                        Result::Err e:
+                            selfhost_type_arena_free arena
+                            Result::Err e
+        SelfhostBodySegmentKind::BlockIntro:
+            selfhost_type_arena_free arena
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment

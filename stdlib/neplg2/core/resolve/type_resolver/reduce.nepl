@@ -426,6 +426,54 @@ fn selfhost_type_prefix_list_build_function_bound %impure fn &SelfhostTypeBoundP
         Option::None:
             selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::FunctionMissingArgument fn_span
 
+//: selfhost_type_prefix_reduce_step_into_prefix_result: 1 型式分の build step を prefix reduce result へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_prefix_list_reduce_prefix` 系の入口で共有する owner 移動を 1 箇所に集めます。
+//: - `SelfhostTypeReduceStep` は tree table と root node id を別々に持つため、caller が `SelfhostResolvedTypeTreeRoot` を直接組み立てなくてよいようにします。
+//:
+//: [契約/けいやく]:
+//: - `step` owner はこの関数が消費します。
+//: - 返却される `SelfhostTypePrefixReducePrefixResult` は resolved tree owner を持つため、projection 後に caller が解放します。
+fn selfhost_type_prefix_reduce_step_into_prefix_result %impure fn SelfhostTypeReduceStep SelfhostTypePrefixReducePrefixResult \step:
+    let root_id %SelfhostResolvedTypeNodeId selfhost_type_reduce_step_node_id &step
+    let next_index %i32 selfhost_type_reduce_step_next_index &step
+    let result_tree %SelfhostResolvedTypeTree selfhost_type_reduce_step_into_tree step
+    let root %SelfhostResolvedTypeTreeRoot selfhost_resolved_type_tree_root_new result_tree root_id
+    selfhost_type_prefix_reduce_prefix_result_new root next_index
+
+fn selfhost_type_prefix_list_reduce_prefix_from_plan %impure fn &SelfhostTypeReducePlan Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \plan:
+    match selfhost_type_prefix_list_validate_at plan 0:
+        Result::Ok _validated_next:
+            match selfhost_resolved_type_tree_new:
+                Result::Ok tree:
+                    let state %SelfhostTypeReduceBuildState selfhost_type_reduce_build_state_from_tree tree
+                    match selfhost_type_prefix_list_build_at plan 0 state:
+                        Result::Ok step:
+                            Result::Ok selfhost_type_prefix_reduce_step_into_prefix_result step
+                        Result::Err e:
+                            Result::Err e
+                Result::Err _e:
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_type_prefix_list_reduce_prefix_from_bound_plan %impure fn &SelfhostTypeBoundPlan Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \plan:
+    match selfhost_type_prefix_list_validate_at_bound plan 0:
+        Result::Ok _validated_next:
+            match selfhost_resolved_type_tree_new:
+                Result::Ok tree:
+                    let state %SelfhostTypeReduceBuildState selfhost_type_reduce_build_state_from_tree tree
+                    match selfhost_type_prefix_list_build_at_bound plan 0 state:
+                        Result::Ok step:
+                            Result::Ok selfhost_type_prefix_reduce_step_into_prefix_result step
+                        Result::Err e:
+                            Result::Err e
+                Result::Err _e:
+                    Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_type_prefix_list_reduce: flat type prefix list を resolved type tree へ[縮約/しゅくやく]する
 //:
 //: [目的/もくてき]:
@@ -476,6 +524,33 @@ pub fn selfhost_type_prefix_list_reduce %impure fn str impure fn &SelfhostTypePr
                         Result::Err e:
                             selfhost_type_reduce_plan_free plan
                             Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_type_prefix_list_reduce_prefix: flat type prefix list の先頭 1 型式だけを[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - `%i32 add 1 2` のように type ascription の直後へ式 token が続く入力で、型式境界を reducer が決めます。
+//: - parser や expression prefix builder は型式の終端を推測せず、この関数が返す `next_index` を使って内側 expression range を作ります。
+//:
+//: [契約/けいやく]:
+//: - `TrailingItems` は返しません。先頭 1 型式を読めれば、後続 item は expression 側へ残します。
+//: - `next_index` は `%` を除いた type prefix list 内の消費済み item 数です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭型式の subtree item 数を k とすると、validate と build は `O(k)` です。後続 expression token の数には比例しません。
+pub fn selfhost_type_prefix_list_reduce_prefix %impure fn str impure fn &SelfhostTypePrefixList Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \source\list:
+    let n %i32 selfhost_type_prefix_list_len list
+    if:
+        eq n 0
+        then:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::EmptyInput selfhost_type_reduce_empty_span
+        else:
+            match selfhost_type_reduce_plan_from_prefix_list &source list:
+                Result::Ok plan:
+                    let reduced %Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError selfhost_type_prefix_list_reduce_prefix_from_plan &plan
+                    selfhost_type_reduce_plan_free plan
+                    reduced
                 Result::Err e:
                     Result::Err e
 
@@ -533,6 +608,35 @@ pub fn selfhost_type_prefix_list_reduce_with_constructors %impure fn str impure 
                                 Result::Err e:
                                     selfhost_type_bound_plan_free bound_plan
                                     Result::Err e
+                        Result::Err e:
+                            selfhost_type_reduce_plan_free plan
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_type_prefix_list_reduce_prefix_with_constructors: constructor arity を使って先頭 1 型式だけを[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - `%Result i32 str expr` のような generic type ascription で、constructor arity に基づき `Result i32 str` だけを型式として消費します。
+//: - 後続 expression の先頭を `next_index` で返し、`Result i32` のような不足は `GenericTypeArgumentMissing` として fail-closed にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭型式に含まれる named item 数 m について、bound plan 作成時に constructor lookup を行います。
+pub fn selfhost_type_prefix_list_reduce_prefix_with_constructors %impure fn str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypePrefixList Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \source\constructors\list:
+    let n %i32 selfhost_type_prefix_list_len list
+    if:
+        eq n 0
+        then:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::EmptyInput selfhost_type_reduce_empty_span
+        else:
+            match selfhost_type_reduce_plan_from_prefix_list &source list:
+                Result::Ok plan:
+                    match selfhost_type_bound_plan_from_reduce_plan_with_constructors &source constructors &plan:
+                        Result::Ok bound_plan:
+                            selfhost_type_reduce_plan_free plan
+                            let reduced %Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError selfhost_type_prefix_list_reduce_prefix_from_bound_plan &bound_plan
+                            selfhost_type_bound_plan_free bound_plan
+                            reduced
                         Result::Err e:
                             selfhost_type_reduce_plan_free plan
                             Result::Err e
@@ -600,6 +704,36 @@ pub fn selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters %i
                                 Result::Err e:
                                     selfhost_type_bound_plan_free bound_plan
                                     Result::Err e
+                        Result::Err e:
+                            selfhost_type_reduce_plan_free plan
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_type_prefix_list_reduce_prefix_with_constructors_and_type_parameters: constructor と generic parameter を使って先頭 1 型式だけを[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - generic binder 内の `%T expr` や `%Result T E expr` を、宣言済み type parameter と named constructor の両方を見て 1 型式だけ消費します。
+//: - `next_index` を返すことで、ascription checker が内側 expression range を安全に切り出せるようにします。
+//:
+//: [契約/けいやく]:
+//: - 同名の type parameter と constructor がある場合は、全体 reducer と同じく `TypeParameterConstructorNameConflict` を返します。
+//: - この関数は型式の trailing item を検査しません。後続 token は expression checker が扱います。
+pub fn selfhost_type_prefix_list_reduce_prefix_with_constructors_and_type_parameters %impure fn str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypePrefixList Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \source\constructors\type_parameters\list:
+    let n %i32 selfhost_type_prefix_list_len list
+    if:
+        eq n 0
+        then:
+            Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::EmptyInput selfhost_type_reduce_empty_span
+        else:
+            match selfhost_type_reduce_plan_from_prefix_list &source list:
+                Result::Ok plan:
+                    match selfhost_type_bound_plan_from_reduce_plan_with_constructors_and_type_parameters &source constructors type_parameters &plan:
+                        Result::Ok bound_plan:
+                            selfhost_type_reduce_plan_free plan
+                            let reduced %Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError selfhost_type_prefix_list_reduce_prefix_from_bound_plan &bound_plan
+                            selfhost_type_bound_plan_free bound_plan
+                            reduced
                         Result::Err e:
                             selfhost_type_reduce_plan_free plan
                             Result::Err e
