@@ -14,8 +14,11 @@ const extraScanFiles = [
     "nodesrc/run_source_policy_regressions.js",
     "nodesrc/selfhost_zenn_review_packet.js",
     "nodesrc/selfhost_zenn_review_response_check.js",
+    "doc/neplg2/self_host_neplg21_compiler_design.md",
+    "doc/neplg2/self_host_execution_plan.md",
     "doc/neplg2/self_host_zenn_review_checklist.md",
     "doc/neplg2/self_host_zenn_review_prompt.md",
+    "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md",
 ];
 
 function read(relPath) {

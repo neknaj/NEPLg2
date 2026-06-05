@@ -67,6 +67,8 @@ Design docs:
   Zenn policy、AGENTS.md、NEPLg2.1 仕様、設計文書、issue 完了条件、source policy、doc comment、検証結果に照らして確認してください。
   実際に読んだ file list を files_read に列挙してください。
   見ていない範囲は not_reviewed に明記してください。
+  review response には、この review を実行した subagent の id を subagent_review_ids に列挙し、件数を subagent_review_count に記録してください。
+  `subagent_review_ids` と `subagent_review_count` は、文字列として存在するだけではなく、実際に作業した subagent の id と件数に一致している必要があります。
   行数制限、ファイル長制限、doc comment 長制限、コメント削減を理由にしないでください。
   source token 再読、scope lookup 再実行、cursor-only evidence loss、owner/free、pure/impure、authority boundary を重点確認してください。
   Blocker は同じ branch 内で修正が必要なものとして分類してください。
@@ -83,6 +85,8 @@ Design docs:
 - head:
 - files_read:
 - not_reviewed:
+- subagent_review_ids:
+- subagent_review_count:
 
 ## decision
 - MERGE_APPROVED | BLOCKED | QUESTION
@@ -144,20 +148,20 @@ review response を受け取った agent は、次を行う。
 - review response を `node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>` または `--stdin` で検査する。
 - commit 前の最終受理では、review response の要約を `note.n.md` または `issues/items/*.md` の関連 issue に記録したうえで、`node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md> --record <note-or-issue.md>` を実行し、review 証跡が durable な記録先にも残っていることを検査する。`--record` に一時ファイルや repo 外ファイルを指定してはならない。
 - response checker が失敗した返答は review 記録として扱わず、subagent に不足 section / field の再提出を依頼する。
-- `MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read` と `not_reviewed` が記録されている場合だけ受理する。
+- `MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count` が記録されている場合だけ受理する。
 - `Blocker` は同じ branch 内で修正する。
 - 同じ branch 内で修正できない `Blocker` は、原因、影響、完了条件、検証予定を持つ issue へ分離する。
 - `Non-blocker` は `note.n.md`、`todo.md`、または対応 issue に残す。
 - `Question` は仕様確認として扱い、勝手な回避実装で進めない。
 - `Approve` があっても、検証未実行や今回差分由来 warning が残る場合は merge しない。
-- `Approve` があっても、`files_read`、`not_reviewed`、`zenn_check`、`residual_risk`、`unexecuted_verification` が空の場合は review 記録として扱わない。
+- `Approve` があっても、`files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count`、`zenn_check`、`residual_risk`、`unexecuted_verification` が空の場合は review 記録として扱わない。
 - `source_policy: not-needed` の場合も、`source_policy_reason` に理由を残す。
 
 ## 禁止事項
 
 - Zenn 記事 URL、`AGENTS.md`、checklist、対象 branch / commit / issue を省いた依頼を出してはならない。
 - `policy/spec` と `implementation/test` のどちらか片方だけで approve してはならない。
-- `files_read` と `not_reviewed` を省いてはならない。
+- `files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count` を省いてはならない。
 - `source_policy: not-needed` の理由を省いてはならない。
 - Blocker を「後で見る」とだけ書いて merge してはならない。
 - 行数制限、ファイル長制限、doc comment 長制限を review 条件にしてはならない。

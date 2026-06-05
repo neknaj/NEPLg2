@@ -133,6 +133,67 @@ fn selfhost_proof_solve_raw_backend_ready %fn SelfhostRawBackendKind fn Selfhost
             selfhost_proof_raw_backend_start SelfhostRawBackendKind::LlvmIr item.span
 
 //: selfhost_proof_solve_raw_backend_transition: raw backend transition obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostProofObligation::RawBackendTransition state` に対して、module item stream 上の raw backend item observation から次の typed raw backend state を返します。
+//: - module checker はこの solver を通じて、`#wasm:` / `#llvmir:` block と raw text item の対応を checker-local な bool や文字列判定ではなく `SelfhostRawBackendState` の遷移として扱います。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostRawBackendState::Normal` では `SelfhostRawBackendItemKind::WasmBlock` / `LlvmIrBlock` だけが raw block を開始し、`SelfhostRawBackendState::OpenEmpty` を返します。
+//: - `SelfhostRawBackendState::Normal` で `SelfhostRawBackendItemKind::WasmText` / `LlvmIrText` を観測した場合、対応する block がないため `SelfhostProofRefutation::RawBackendTextWithoutBlock` を返します。
+//: - `SelfhostRawBackendState::OpenEmpty open_block` では、最初の text が `open_block.kind` と一致した場合だけ `SelfhostRawBackendState::OpenReady open_block.kind` へ進みます。非 raw item、stream end、新しい block item、または backend kind が一致しない text は refutation です。
+//: - `SelfhostRawBackendKind::Wasm` は `SelfhostRawBackendItemKind::WasmText` だけを同じ block の text として受け入れ、`SelfhostRawBackendKind::LlvmIr` は `SelfhostRawBackendItemKind::LlvmIrText` だけを同じ block の text として受け入れます。
+//: - `SelfhostRawBackendState::OpenReady kind` では、同じ backend kind の raw text をいくつでも受け付けます。非 raw item または stream end は raw block を閉じて `SelfhostRawBackendState::Normal` に戻り、新しい raw block item は直前 block を閉じたうえで次の `OpenEmpty` を開始します。
+//:
+//: [現状/げんじょう]:
+//: - typed authority は `SelfhostRawBackendItemFact.kind` / `span` と `SelfhostRawBackendState` です。source text を再読せず、`#wasm:` / `#llvmir:` の spelling 判定は adapter 側で `SelfhostRawBackendItemKind` へ正規化済みであることを前提にします。
+//: - raw block の text が空のまま閉じた場合は `SelfhostProofRefutation::RawBackendBlockEmpty` です。現段階では raw text の backend 内部構文、WAT / LLVM IR の妥当性、backend 固有の symbol 解決はこの proof rule の外側で扱います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Proven`: evidence は `SelfhostProofEvidence::RawBackendTransition` で、payload は次の `SelfhostRawBackendState` です。
+//: - `SelfhostProofResult::Refuted`: raw text が block 外にある場合は `SelfhostProofRefutation::RawBackendTextWithoutBlock`、empty block が閉じられる場合は `SelfhostProofRefutation::RawBackendBlockEmpty` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。1 item と 1 state を固定回数の enum match で検査します。探索範囲は module 全体ではなく、現在の item と raw backend state だけです。
+//:
+//: [使用例/しようれい]:
+//: - 典型例では `SelfhostRawBackendState::Normal` に `SelfhostRawBackendItemKind::WasmBlock` を渡して block を開始し、block 外の `LlvmIrText` が refutation になることを同じ doctest で確認します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/proof" as *
+//:| #import "neplg2/core/proof/solver/module" as *
+//:
+//: fn proof_result_is_proven %fn SelfhostProofResult bool \result:
+//:     match result:
+//:         SelfhostProofResult::Proven _evidence:
+//:             true
+//:         SelfhostProofResult::Refuted _refutation:
+//:             false
+//:
+//: fn proof_result_is_refuted %fn SelfhostProofResult bool \result:
+//:     match result:
+//:         SelfhostProofResult::Proven _evidence:
+//:             false
+//:         SelfhostProofResult::Refuted _refutation:
+//:             true
+//:
+//: fn main %fn void i32 \void:
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 0 0 7
+//:     let wasm_block %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
+//:     let text_without_block %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::LlvmIrText span
+//:     let opens %bool proof_result_is_proven selfhost_proof_solve_raw_backend_transition wasm_block SelfhostRawBackendState::Normal
+//:     let rejects %bool proof_result_is_refuted selfhost_proof_solve_raw_backend_transition text_without_block SelfhostRawBackendState::Normal
+//:     if:
+//:         opens
+//:         then:
+//:             if rejects 0 1
+//:         else:
+//:             1
+//: ```
 pub fn selfhost_proof_solve_raw_backend_transition %fn SelfhostRawBackendItemFact fn SelfhostRawBackendState SelfhostProofResult \item\state:
     match state:
         SelfhostRawBackendState::Normal:
@@ -195,6 +256,65 @@ fn selfhost_proof_solve_module_directive_both_seen %fn SelfhostModuleDirectiveSe
             selfhost_proof_module_directive_duplicate SelfhostModuleDirectiveKind::Target seen.target_span item.span
 
 //: selfhost_proof_solve_module_directive_transition: module directive transition obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostProofObligation::ModuleDirectiveTransition state` に対して、module item stream 上の singleton directive observation から次の typed directive state を返します。
+//: - module checker は `#entry` と `#target` の重複検出を count 後処理にせず、`SelfhostModuleDirectiveState` と typed refutation に閉じ込めます。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostModuleDirectiveState::NoneSeen` で `SelfhostModuleDirectiveKind::Entry` を観測すると `EntrySeen item.span`、`Target` を観測すると `TargetSeen item.span`、`Other` は `NoneSeen` のままです。
+//: - `EntrySeen entry_span` で再び `Entry` を観測すると `SelfhostProofRefutation::ModuleDirectiveDuplicate` を返し、payload は `SelfhostModuleDirectiveDuplicate Entry entry_span item.span` です。`Target` は `EntryAndTargetSeen` へ進みます。
+//: - `TargetSeen target_span` で再び `Target` を観測すると `SelfhostProofRefutation::ModuleDirectiveDuplicate` を返します。`Entry` は `EntryAndTargetSeen` へ進みます。
+//: - `EntryAndTargetSeen seen` では `Other` だけを受け付け、`Entry` / `Target` はそれぞれ保存済み span と現在 span を持つ duplicate refutation になります。
+//:
+//: [現状/げんじょう]:
+//: - typed authority は `SelfhostModuleDirectiveFact.kind` / `span` と `SelfhostModuleDirectiveState` です。directive の spelling や module item kind の網羅変換は adapter 側で完了しているため、この solver は source text を再読しません。
+//: - 現在の singleton 対象は `SelfhostModuleDirectiveKind::Entry` と `SelfhostModuleDirectiveKind::Target` です。singleton directive が増える場合は enum variant、state、duplicate diagnostic を同時に拡張し、match 網羅性検査で更新漏れを表面化させます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Proven`: evidence は `SelfhostProofEvidence::ModuleDirectiveTransition` で、payload は次の `SelfhostModuleDirectiveState` です。
+//: - `SelfhostProofResult::Refuted`: singleton directive が重複した場合だけ `SelfhostProofRefutation::ModuleDirectiveDuplicate` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。1 item と 1 state を固定回数の enum match で検査します。探索範囲は module 全体ではなく、現在の item と singleton directive state だけです。
+//:
+//: [使用例/しようれい]:
+//: - 典型例では最初の `Entry` が `Proven` になり、`EntrySeen` の状態でもう一度 `Entry` を渡すと duplicate refutation になることを確認します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/proof" as *
+//:| #import "neplg2/core/proof/solver/module" as *
+//:
+//: fn proof_result_is_proven %fn SelfhostProofResult bool \result:
+//:     match result:
+//:         SelfhostProofResult::Proven _evidence:
+//:             true
+//:         SelfhostProofResult::Refuted _refutation:
+//:             false
+//:
+//: fn proof_result_is_refuted %fn SelfhostProofResult bool \result:
+//:     match result:
+//:         SelfhostProofResult::Proven _evidence:
+//:             false
+//:         SelfhostProofResult::Refuted _refutation:
+//:             true
+//:
+//: fn main %fn void i32 \void:
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 0 0 11
+//:     let entry %SelfhostModuleDirectiveFact selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Entry span
+//:     let first %bool proof_result_is_proven selfhost_proof_solve_module_directive_transition entry SelfhostModuleDirectiveState::NoneSeen
+//:     let duplicate %bool proof_result_is_refuted selfhost_proof_solve_module_directive_transition entry SelfhostModuleDirectiveState::EntrySeen span
+//:     if:
+//:         first
+//:         then:
+//:             if duplicate 0 1
+//:         else:
+//:             1
+//: ```
 pub fn selfhost_proof_solve_module_directive_transition %fn SelfhostModuleDirectiveFact fn SelfhostModuleDirectiveState SelfhostProofResult \item\state:
     match state:
         SelfhostModuleDirectiveState::NoneSeen:
@@ -573,6 +693,53 @@ fn selfhost_proof_module_declaration_header_proven %fn SelfhostModuleDeclaration
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。1つの fact と 1つの obligation kind を固定回数の enum / option / span / range helper で検査します。
+//:
+//: [使用例/しようれい]:
+//: - 典型例では parser が保持した `SelfhostModuleDeclarationHeader` を `SelfhostModuleDeclarationFact` に入れ、`SelfhostProofEvidence::ModuleDeclarationHeaderAvailable` が返ることを確認します。
+//: - 同じ API で `Option::None` の declaration fact は `SelfhostProofRefutation::ModuleDeclarationHeaderMissing` 側へ進むため、caller は missing / invalid / mismatch を文字列ではなく enum refutation として扱えます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/option" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/proof" as *
+//:| #import "neplg2/core/proof/solver/module" as *
+//:| #import "neplg2/core/syntax/ast/module_ast" as *
+//:
+//: fn proof_result_is_proven %fn SelfhostProofResult bool \result:
+//:     match result:
+//:         SelfhostProofResult::Proven _evidence:
+//:             true
+//:         SelfhostProofResult::Refuted _refutation:
+//:             false
+//:
+//: fn proof_result_is_refuted %fn SelfhostProofResult bool \result:
+//:     match result:
+//:         SelfhostProofResult::Proven _evidence:
+//:             false
+//:         SelfhostProofResult::Refuted _refutation:
+//:             true
+//:
+//: fn main %fn void i32 \void:
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 0 0 30
+//:     let keyword_span %SelfhostSourceSpan source_span_new_unchecked 0 0 2
+//:     let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name source_span_new_unchecked 0 3 7
+//:     let type_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 4 source_span_new_unchecked 0 8 20
+//:     let lambda_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 6 2 source_span_new_unchecked 0 21 27
+//:     let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private span keyword_span some head type_range lambda_range
+//:     let fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some header span
+//:     let missing %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl none span
+//:     let available %bool proof_result_is_proven selfhost_proof_solve_module_declaration_header fact SelfhostModuleDeclarationKind::Function
+//:     let rejected_missing %bool proof_result_is_refuted selfhost_proof_solve_module_declaration_header missing SelfhostModuleDeclarationKind::Function
+//:     if:
+//:         available
+//:         then:
+//:             if rejected_missing 0 1
+//:         else:
+//:             1
+//: ```
 pub fn selfhost_proof_solve_module_declaration_header %fn SelfhostModuleDeclarationFact fn SelfhostModuleDeclarationKind SelfhostProofResult \fact\kind:
     if:
         selfhost_proof_module_declaration_item_kind_supports fact kind
