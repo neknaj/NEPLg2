@@ -270,9 +270,44 @@ fn selfhost_proof_module_declaration_kind_eq %fn SelfhostModuleDeclarationKind f
                 SelfhostModuleDeclarationKind::Trait:
                     false
 
+//: selfhost_proof_span_contains_span: source span の[包含/ほうがん][関係/かんけい]を[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - parser-provided evidence に含まれる `SelfhostSourceSpan` が、同じ file の header span 内に収まっているかを確認します。
+//: - declaration header proof では、keyword span、head span、type annotation range、lambda header range の authority を source text の再読ではなく typed span payload から検査します。
+//:
+//: [契約/けいやく]:
+//: - `outer.file_id` と `inner.file_id` が一致し、`outer.start <= inner.start` かつ `inner.end <= outer.end` のときだけ true を返します。
+//: - この helper は `source_span_is_valid` を呼びません。span 自体の有効性は caller が先に検査し、この関数は包含関係だけを O(1) で確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - true: inner は outer の header authority の内側にあります。
+//: - false: file_id 不一致、開始位置の逆転、終了位置のはみ出しのいずれかがあります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。source text、token stream、collection を走査しません。
 fn selfhost_proof_span_contains_span %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \outer\inner:
     and and eq outer.file_id inner.file_id le outer.start inner.start le inner.end outer.end
 
+//: selfhost_proof_module_declaration_head_allowed: declaration kind ごとの head kind [許可/きょか][条件/じょうけん]を[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleDeclarationKind::Function` / `Struct` / `Enum` / `Trait` / `Impl` が、parser-provided evidence の `SelfhostModuleDeclarationHeadKind` と整合するかを確認します。
+//: - typed enum の match 網羅性検査により、宣言 kind と head kind の追加時に proof rule の更新漏れを検出できる形にします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostModuleDeclarationKind::Function`、`SelfhostModuleDeclarationKind::Struct`、`SelfhostModuleDeclarationKind::Enum`、`SelfhostModuleDeclarationKind::Trait` は `SelfhostModuleDeclarationHeadKind::Name` だけを許可します。
+//: - `SelfhostModuleDeclarationKind::Impl` は、現状の parser header authority として `SelfhostModuleDeclarationHeadKind::Name` と `SelfhostModuleDeclarationHeadKind::TypeLabel` の両方を許可します。
+//:
+//: [現状/げんじょう]:
+//: - `Impl` の `TypeLabel` が指す型の resolve、trait impl の well-formedness、generic overlap はこの helper では検査しません。ここでは module header 上の形だけを判定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - true: declaration kind が受け取れる head kind です。
+//: - false: function / struct / enum / trait に `TypeLabel` が来た場合など、header shape として不正です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。固定個数の enum 分岐だけを評価します。
 fn selfhost_proof_module_declaration_head_allowed %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationHeadKind bool \decl_kind\head_kind:
     match decl_kind:
         SelfhostModuleDeclarationKind::Function:
@@ -328,9 +363,44 @@ fn selfhost_proof_module_declaration_visibility_allowed %fn SelfhostModuleDeclar
                 SelfhostModuleDeclarationKind::Impl:
                     false
 
+//: selfhost_proof_module_declaration_header_spans_valid: declaration header の[基本/きほん] span authority を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleDeclarationHeader.header_span` と `SelfhostModuleDeclarationHeader.keyword_span` が有効で、keyword が header の内側にあることを確認します。
+//: - module checker の diagnostic span は parser-provided evidence の `header.header_span` / `header.keyword_span` を authority にするため、ここで source span の最小不変条件を固定します。
+//:
+//: [契約/けいやく]:
+//: - `source_span_is_valid header.header_span` と `source_span_is_valid header.keyword_span` が true でなければなりません。
+//: - `selfhost_proof_span_contains_span header.header_span header.keyword_span` が true でなければなりません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - true: header span と keyword span は valid で、keyword span は header span 内に閉じています。
+//: - false: span が不正、または keyword が header 外にあります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。`source_span_is_valid` と `selfhost_proof_span_contains_span` の固定回数呼び出しだけです。
 fn selfhost_proof_module_declaration_header_spans_valid %fn SelfhostModuleDeclarationHeader bool \header:
     and and source_span_is_valid header.header_span source_span_is_valid header.keyword_span selfhost_proof_span_contains_span header.header_span header.keyword_span
 
+//: selfhost_proof_module_declaration_header_head_valid: declaration header の head payload を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - parser が `SelfhostModuleDeclarationHeader.head` として渡した `Option::Some head` を、span と kind の両方から検査します。
+//: - header proof は source spelling を再読せず、`head.span`、`head.kind`、`header.kind` の typed payload を authority にします。
+//:
+//: [契約/けいやく]:
+//: - `Option::Some head` の場合、`source_span_is_valid head.span`、`selfhost_proof_span_contains_span header.header_span head.span`、`selfhost_proof_module_declaration_head_allowed header.kind head.kind` のすべてが true でなければなりません。
+//: - `Option::None` は declaration header としての name / type-label authority が不足するため false です。
+//:
+//: [現状/げんじょう]:
+//: - `SelfhostModuleDeclarationHeadKind::Name` の name resolve や `SelfhostModuleDeclarationHeadKind::TypeLabel` の type resolve は後続 stage の責務です。この helper は header 内に head が存在し、declaration kind が受け取れる形かだけを扱います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - true: head payload が存在し、有効な span を持ち、header span 内にあり、kind 規則に合います。
+//: - false: `Option::None`、span 不正、header 外 span、または kind 不一致です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。`Option` と enum の固定分岐だけを評価します。
 fn selfhost_proof_module_declaration_header_head_valid %fn SelfhostModuleDeclarationHeader bool \header:
     match header.head:
         Option::Some head:
@@ -370,6 +440,22 @@ fn selfhost_proof_module_declaration_header_ranges_allowed %fn SelfhostModuleDec
         SelfhostModuleDeclarationKind::Impl:
             and not selfhost_syntax_range_is_nonempty header.type_annotation not selfhost_syntax_range_is_nonempty header.lambda_header
 
+//: selfhost_proof_module_declaration_item_kind_supports: module item kind が requested declaration kind を[支/ささ]えるか[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleDeclarationFact.item_kind` が、`SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind` の kind と同じ declaration item かを確認します。
+//: - parser/proof 境界では `SelfhostModuleItemKind` から declaration kind への変換を `selfhost_module_item_kind_declaration` だけに集約し、source text の再読や token spelling に依存しません。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_module_item_kind_declaration fact.item_kind` が `Option::Some item_kind` を返し、`selfhost_proof_module_declaration_kind_eq item_kind kind` が true のときだけ true です。
+//: - `Option::None` は doc comment、directive、raw backend text など declaration ではない item を表すため false です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - true: fact の item kind は requested `SelfhostModuleDeclarationKind` の header proof 対象です。
+//: - false: item が declaration ではない、または requested kind と異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。`SelfhostModuleItemKind` と `SelfhostModuleDeclarationKind` の固定 enum 変換だけです。
 fn selfhost_proof_module_declaration_item_kind_supports %fn SelfhostModuleDeclarationFact fn SelfhostModuleDeclarationKind bool \fact\kind:
     match selfhost_module_item_kind_declaration fact.item_kind:
         Option::Some item_kind:
@@ -377,6 +463,28 @@ fn selfhost_proof_module_declaration_item_kind_supports %fn SelfhostModuleDeclar
         Option::None:
             false
 
+//: selfhost_proof_module_declaration_header_supports: declaration header evidence が obligation kind を[満/み]たすか[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleDeclarationHeader` が `SelfhostModuleDeclarationKind::Function` / `Struct` / `Enum` / `Trait` / `Impl` の requested kind に対して、typed proof evidence として使えるかを一箇所で確認します。
+//: - module check は parser-provided evidence を受け取り、この proof layer で kind、span、head、range、visibility の authority を固定します。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_proof_module_declaration_kind_eq header.kind kind` が true でなければなりません。
+//: - `selfhost_proof_module_declaration_header_spans_valid`、`selfhost_proof_module_declaration_header_head_valid`、`selfhost_proof_module_declaration_header_ranges_valid`、`selfhost_proof_module_declaration_header_ranges_allowed`、`selfhost_proof_module_declaration_visibility_allowed` のすべてを満たす必要があります。
+//:
+//: [現状/げんじょう]:
+//: - `SelfhostModuleDeclarationKind::Function` は NEPLg2.1 の `%fn ...` type annotation range と lambda header range を required とします。
+//: - `SelfhostModuleDeclarationKind::Struct` / `Enum` / `Trait` / `Impl` は、この header proof stage では type annotation range と lambda header range を受け取りません。
+//: - `SelfhostModuleDeclarationVisibility::Public` は function / struct / enum / trait では許可し、`Impl` では export visibility model が未定義なので拒否します。
+//: - 失敗理由は現状 bool に畳まれ、詳細 reason enum は `SelfhostProofRefutation::ModuleDeclarationHeaderInvalid` の payload には保持しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - true: header は `SelfhostProofEvidence::ModuleDeclarationHeaderAvailable` として返せる形です。
+//: - false: kind、span、head、range、visibility のいずれかが proof contract を満たしません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。固定個数の helper と enum / option / range payload の検査だけで、token stream や module item list を走査しません。
 fn selfhost_proof_module_declaration_header_supports %fn SelfhostModuleDeclarationHeader fn SelfhostModuleDeclarationKind bool \header\kind:
     and:
         selfhost_proof_module_declaration_kind_eq header.kind kind
@@ -388,16 +496,83 @@ fn selfhost_proof_module_declaration_header_supports %fn SelfhostModuleDeclarati
                     selfhost_proof_module_declaration_header_ranges_valid header
                     and selfhost_proof_module_declaration_header_ranges_allowed header selfhost_proof_module_declaration_visibility_allowed header.kind header.visibility
 
+//: selfhost_proof_module_declaration_header_missing: declaration header [欠落/けつらく]を typed refutation に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - declaration item として扱うべき fact に `SelfhostModuleDeclarationHeader` がない場合、`SelfhostProofRefutation::ModuleDeclarationHeaderMissing` を返します。
+//: - missing diagnostic の span authority は fact 側の item span であり、source text を再読して推測しません。
+//:
+//: [契約/けいやく]:
+//: - payload は `SelfhostModuleDeclarationHeaderIssue` で、requested `SelfhostModuleDeclarationKind` と caller が渡した `SelfhostSourceSpan` を保持します。
+//: - この関数は header の妥当性を検査しません。`Option::None` を typed refutation へ畳む小さな constructor です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofResult::Refuted` で、reason は `SelfhostProofRefutation::ModuleDeclarationHeaderMissing` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。payload を構築して proof result に包むだけです。
 fn selfhost_proof_module_declaration_header_missing %fn SelfhostModuleDeclarationKind fn SelfhostSourceSpan SelfhostProofResult \kind\span:
     selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDeclarationHeaderMissing selfhost_module_declaration_header_issue_new kind span
 
+//: selfhost_proof_module_declaration_header_invalid: declaration header [不正/ふせい]を typed refutation に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `Option::Some header` は存在するが、kind、span、head、range、visibility の proof contract を満たさない場合に `SelfhostProofRefutation::ModuleDeclarationHeaderInvalid` を返します。
+//: - invalid diagnostic の span authority は不正な `header.header_span` であり、caller がその span を渡します。
+//:
+//: [契約/けいやく]:
+//: - payload は `SelfhostModuleDeclarationHeaderIssue` で、requested `SelfhostModuleDeclarationKind` と invalid header の `SelfhostSourceSpan` を保持します。
+//: - この helper は詳細 reason を再分類しません。詳細な bool 判定は `selfhost_proof_module_declaration_header_supports` 側で完了しています。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofResult::Refuted` で、reason は `SelfhostProofRefutation::ModuleDeclarationHeaderInvalid` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。payload を構築して proof result に包むだけです。
 fn selfhost_proof_module_declaration_header_invalid %fn SelfhostModuleDeclarationKind fn SelfhostSourceSpan SelfhostProofResult \kind\span:
     selfhost_proof_result_refuted SelfhostProofRefutation::ModuleDeclarationHeaderInvalid selfhost_module_declaration_header_issue_new kind span
 
+//: selfhost_proof_module_declaration_header_proven: declaration header evidence を proven result に[包/つつ]む
+//:
+//: [目的/もくてき]:
+//: - `selfhost_proof_module_declaration_header_supports` で検証済みの `SelfhostModuleDeclarationHeader` を、typed evidence として `SelfhostProofResult::Proven` に変換します。
+//: - module checker はこの evidence を使い、後続 stage へ parser-provided declaration header authority を渡します。
+//:
+//: [契約/けいやく]:
+//: - caller は header が requested `SelfhostModuleDeclarationKind` に対して valid であることを事前に検査している必要があります。
+//: - evidence payload は `SelfhostProofEvidence::ModuleDeclarationHeaderAvailable header` であり、kind / visibility / span / head / range の具体 payload を保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofResult::Proven` で、evidence は `SelfhostProofEvidence::ModuleDeclarationHeaderAvailable` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。header payload を proof result に包むだけです。
 fn selfhost_proof_module_declaration_header_proven %fn SelfhostModuleDeclarationHeader SelfhostProofResult \header:
     selfhost_proof_result_proven SelfhostProofEvidence::ModuleDeclarationHeaderAvailable header
 
 //: selfhost_proof_solve_module_declaration_header: declaration header availability obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind` に対して、observed module item fact から declaration header evidence または typed refutation を返します。
+//: - module checker はこの solver を通じて、function / struct / enum / trait / impl の header が parser-provided evidence として後続 stage に渡せるかを判定します。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_proof_module_declaration_item_kind_supports fact kind` が false の場合は、fact と obligation が対応していないため `SelfhostProofRefutation::FactObligationMismatch` に畳みます。
+//: - `fact.declaration` が `Option::None` の場合は `SelfhostProofRefutation::ModuleDeclarationHeaderMissing` を返します。
+//: - `Option::Some header` で `selfhost_proof_module_declaration_header_supports header kind` が true の場合だけ `SelfhostProofEvidence::ModuleDeclarationHeaderAvailable` を返します。
+//: - `Option::Some header` でも kind、span、head、range、visibility の proof contract を満たさなければ `SelfhostProofRefutation::ModuleDeclarationHeaderInvalid` を返します。
+//:
+//: [現状/げんじょう]:
+//: - この solver は source text を再読せず、`SelfhostModuleDeclarationFact` の `fact.item_kind`、`fact.declaration`、`SelfhostModuleDeclarationHeader.kind`、`visibility`、`header_span`、`keyword_span`、`head`、`type_annotation`、`lambda_header` を authority にします。
+//: - declaration body の typecheck、name resolve、export table 登録、trait impl coherence はこの proof rule の外側で行います。
+//: - match 網羅性検査により、`Option::Some` / `Option::None` と declaration kind の追加が proof rule の更新漏れとして表面化します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Proven`: header は `SelfhostProofEvidence::ModuleDeclarationHeaderAvailable` として利用できます。
+//: - `SelfhostProofResult::Refuted`: mismatch、missing、invalid のいずれかで、`SelfhostProofRefutation::FactObligationMismatch`、`ModuleDeclarationHeaderMissing`、`ModuleDeclarationHeaderInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。1つの fact と 1つの obligation kind を固定回数の enum / option / span / range helper で検査します。
 pub fn selfhost_proof_solve_module_declaration_header %fn SelfhostModuleDeclarationFact fn SelfhostModuleDeclarationKind SelfhostProofResult \fact\kind:
     if:
         selfhost_proof_module_declaration_item_kind_supports fact kind

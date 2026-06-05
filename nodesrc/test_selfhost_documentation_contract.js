@@ -39,6 +39,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/check/expr/call_reduce.nepl",
     "stdlib/neplg2/core/check/module/",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
+    "stdlib/neplg2/core/proof/solver/module.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
@@ -48,6 +49,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/check/module/summary.nepl",
     "stdlib/neplg2/core/check/module/declaration_adapter.nepl",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
+    "stdlib/neplg2/core/proof/solver/module.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
@@ -270,6 +272,89 @@ const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_module_check_item", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast_loop", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast", ["purpose", "returns", "complexity"]),
+    moduleSolverRequirement("selfhost_proof_span_contains_span", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("outer file authority", /\bouter\.file_id\b/),
+        requiredPattern("inner file authority", /\binner\.file_id\b/),
+        requiredPattern("outer start boundary", /\bouter\.start\b/),
+        requiredPattern("inner start boundary", /\binner\.start\b/),
+        requiredPattern("inner end boundary", /\binner\.end\b/),
+        requiredPattern("outer end boundary", /\bouter\.end\b/),
+        requiredPattern("span validity remains caller authority", /\bsource_span_is_valid\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_head_allowed", ["purpose", "contract", "current", "returns", "complexity", "moduleBoundary"], [
+        requiredPattern("function declaration kind", /\bSelfhostModuleDeclarationKind::Function\b/),
+        requiredPattern("struct declaration kind", /\bSelfhostModuleDeclarationKind::Struct\b/),
+        requiredPattern("enum declaration kind", /\bSelfhostModuleDeclarationKind::Enum\b/),
+        requiredPattern("trait declaration kind", /\bSelfhostModuleDeclarationKind::Trait\b/),
+        requiredPattern("impl declaration kind", /\bSelfhostModuleDeclarationKind::Impl\b/),
+        requiredPattern("name head kind", /\bSelfhostModuleDeclarationHeadKind::Name\b/),
+        requiredPattern("type-label head kind", /\bSelfhostModuleDeclarationHeadKind::TypeLabel\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_header_spans_valid", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("header span authority", /\bheader\.header_span\b/),
+        requiredPattern("keyword span authority", /\bheader\.keyword_span\b/),
+        requiredPattern("source span validation", /\bsource_span_is_valid\b/),
+        requiredPattern("span containment helper", /\bselfhost_proof_span_contains_span\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_header_head_valid", ["purpose", "contract", "current", "returns", "complexity", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("head some branch", /\bOption::Some\b/),
+        requiredPattern("head none branch", /\bOption::None\b/),
+        requiredPattern("head span authority", /\bhead\.span\b/),
+        requiredPattern("source span validation", /\bsource_span_is_valid\b/),
+        requiredPattern("span containment helper", /\bselfhost_proof_span_contains_span\b/),
+        requiredPattern("head allowed helper", /\bselfhost_proof_module_declaration_head_allowed\b/),
+        requiredPattern("name head kind", /\bSelfhostModuleDeclarationHeadKind::Name\b/),
+        requiredPattern("type-label head kind", /\bSelfhostModuleDeclarationHeadKind::TypeLabel\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_item_kind_supports", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("fact item kind authority", /\bfact\.item_kind\b/),
+        requiredPattern("obligation kind", /\bSelfhostProofObligation::ModuleDeclarationHeaderAvailable\b/),
+        requiredPattern("module item kind authority", /\bSelfhostModuleItemKind\b/),
+        requiredPattern("item-kind declaration mapper", /\bselfhost_module_item_kind_declaration\b/),
+        requiredPattern("declaration mapping present branch", /\bOption::Some\b/),
+        requiredPattern("declaration mapping absent branch", /\bOption::None\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_header_supports", ["purpose", "contract", "current", "returns", "complexity", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("declaration kind equality", /\bselfhost_proof_module_declaration_kind_eq\b/),
+        requiredPattern("span validity helper", /\bselfhost_proof_module_declaration_header_spans_valid\b/),
+        requiredPattern("head validity helper", /\bselfhost_proof_module_declaration_header_head_valid\b/),
+        requiredPattern("range validity helper", /\bselfhost_proof_module_declaration_header_ranges_valid\b/),
+        requiredPattern("range allowed helper", /\bselfhost_proof_module_declaration_header_ranges_allowed\b/),
+        requiredPattern("visibility allowed helper", /\bselfhost_proof_module_declaration_visibility_allowed\b/),
+        requiredPattern("function requires ranges", /\bSelfhostModuleDeclarationKind::Function\b/),
+        requiredPattern("public visibility branch", /\bSelfhostModuleDeclarationVisibility::Public\b/),
+        requiredPattern("invalid refutation limitation", /\bSelfhostProofRefutation::ModuleDeclarationHeaderInvalid\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_header_missing", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("missing header refutation", /\bSelfhostProofRefutation::ModuleDeclarationHeaderMissing\b/),
+        requiredPattern("header issue payload", /\bSelfhostModuleDeclarationHeaderIssue\b/),
+        requiredPattern("refuted proof result", /\bSelfhostProofResult::Refuted\b/),
+        requiredPattern("none branch source", /\bOption::None\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_header_invalid", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("invalid header refutation", /\bSelfhostProofRefutation::ModuleDeclarationHeaderInvalid\b/),
+        requiredPattern("header issue payload", /\bSelfhostModuleDeclarationHeaderIssue\b/),
+        requiredPattern("header span authority", /\bheader\.header_span\b/),
+        requiredPattern("refuted proof result", /\bSelfhostProofResult::Refuted\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_module_declaration_header_proven", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("declaration header evidence", /\bSelfhostProofEvidence::ModuleDeclarationHeaderAvailable\b/),
+        requiredPattern("proven proof result", /\bSelfhostProofResult::Proven\b/),
+        requiredPattern("declaration header payload", /\bSelfhostModuleDeclarationHeader\b/),
+    ]),
+    moduleSolverRequirement("selfhost_proof_solve_module_declaration_header", ["purpose", "contract", "current", "returns", "complexity", "errorVariant", "authorityBoundary", "moduleBoundary"], [
+        requiredPattern("module declaration header obligation", /\bSelfhostProofObligation::ModuleDeclarationHeaderAvailable\b/),
+        requiredPattern("declaration fact authority", /\bSelfhostModuleDeclarationFact\b/),
+        requiredPattern("fact item kind authority", /\bfact\.item_kind\b/),
+        requiredPattern("fact declaration authority", /\bfact\.declaration\b/),
+        requiredPattern("some declaration branch", /\bOption::Some\b/),
+        requiredPattern("none declaration branch", /\bOption::None\b/),
+        requiredPattern("available header evidence", /\bSelfhostProofEvidence::ModuleDeclarationHeaderAvailable\b/),
+        requiredPattern("mismatch refutation", /\bSelfhostProofRefutation::FactObligationMismatch\b/),
+        requiredPattern("missing refutation", /\bSelfhostProofRefutation::ModuleDeclarationHeaderMissing\b/),
+        requiredPattern("invalid refutation", /\bSelfhostProofRefutation::ModuleDeclarationHeaderInvalid\b/),
+        requiredPattern("match exhaustiveness", /match .*網羅性検査/),
+    ]),
     typeSolverRequirement("selfhost_proof_type_kind_compatible_result", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
         requiredPattern("type kind compatibility evidence", /\bSelfhostProofEvidence::TypeKindCompatible\b/),
         requiredPattern("typed proof result", /\bSelfhostProofResult::Proven\b/),
@@ -555,6 +640,7 @@ const SECTION_PATTERNS = {
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
     typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
+    moduleBoundary: /\b(SelfhostModuleDeclarationKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeadKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationVisibility(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeader|SelfhostModuleDeclarationFact|SelfhostModuleDeclarationHeaderIssue|SelfhostModuleItemKind(?:::)?[A-Za-z0-9_]*|SelfhostSyntaxRange(?:::)?[A-Za-z0-9_]*|SelfhostSourceSpan|SelfhostProofObligation::ModuleDeclarationHeaderAvailable|SelfhostProofEvidence::ModuleDeclarationHeaderAvailable|SelfhostProofRefutation::(ModuleDeclarationHeaderMissing|ModuleDeclarationHeaderInvalid|FactObligationMismatch)|selfhost_module_item_kind_declaration|selfhost_syntax_range_is_(?:valid|nonempty)|selfhost_syntax_range_span_is_inside|source_span_is_valid|selfhost_proof_span_contains_span)\b/,
     ownerBoundary: /\b(owner|cleanup obligation|cleanup|borrow|未処理 owner|owner 変換|解放)\b/,
 };
 
@@ -576,6 +662,12 @@ function resourceSolverRequirement(name, sections, requiredPatterns = []) {
 
 function typeSolverRequirement(name, sections, requiredPatterns = []) {
     return requirement("stdlib/neplg2/core/proof/solver/type.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function moduleSolverRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/proof/solver/module.nepl", name, sections, {
         requiredPatterns,
     });
 }
