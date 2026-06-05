@@ -5,19 +5,87 @@
 //:
 //: [目的/もくてき]:
 //: - 型安全と抽象化機能の整合性を、文字列名や module allowlist ではなく typed arena / relation から証明します。
+//: - type kind compatibility と trait impl coherence を、`SelfhostProofResult::Proven` / `SelfhostProofResult::Refuted` の typed payload として返します。
+//:
+//: [契約/けいやく]:
+//: - type kind は `SelfhostTypeKind` の enum variant を authority とし、source spelling や diagnostic message を読み直しません。
+//: - trait impl coherence は `SelfhostTraitImplRelation` の enum variant を authority とし、trait 名の文字列比較や module allowlist では判定しません。
+//: - solver は diagnostic を作らず、成功時は `SelfhostProofEvidence::*`、失敗時は `SelfhostProofRefutation::*` だけを返します。
+//:
+//: [現状/げんじょう]:
+//: - type kind compatibility は同一 `SelfhostTypeKind` variant だけを成功にします。subtyping、coercion、`SelfhostTypeKind::Never` の特例はまだここへ入れていません。
+//: - trait impl coherence は `SelfhostTraitImplRelation` に事前計算された 2 impl 間の関係を消費します。generic overlap、blanket impl、where 条件、specialization は後続 stage で relation の authority を拡張します。
+//: - どちらの solver も `match` の網羅性検査で variant 追加時の更新漏れを見つける設計です。
+//:
+//: [計算量/けいさんりょう]:
+//: - type kind compatibility は `selfhost_type_kind_eq` の enum match に委譲するため、現在の variant 数に対して固定上限の O(1) です。
+//: - trait impl coherence は fact に事前計算された relation を match するだけなので O(1) です。
 
 #import "neplg2/core/proof/fact" as *
 #import "neplg2/core/proof/query" as *
 #import "neplg2/core/ty/trait_ref" as *
 #import "neplg2/core/ty/ty" as *
 
+//: selfhost_proof_type_kind_compatible_result: type kind compatibility の成功 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - observed kind と expected kind が一致した後の成功 payload 作成を 1 か所へ集約します。
+//: - caller が証明済み type kind を typed evidence として取り出せるよう、`SelfhostProofEvidence::TypeKindCompatible` を保持します。
+//:
+//: [契約/けいやく]:
+//: - 引数 `kind` は、`selfhost_type_kind_eq` で expected と compatible だと確認済みの `SelfhostTypeKind` です。
+//: - この helper は追加検査をせず、`SelfhostProofResult::Proven` と `SelfhostProofEvidence::TypeKindCompatible kind` だけを作ります。
+//: - diagnostic string、span、source text は成功 evidence の authority ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofResult::Proven (SelfhostProofEvidence::TypeKindCompatible kind)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum payload を包むだけなので O(1) です。
 fn selfhost_proof_type_kind_compatible_result %fn SelfhostTypeKind SelfhostProofResult \kind:
     selfhost_proof_result_proven SelfhostProofEvidence::TypeKindCompatible kind
 
+//: selfhost_proof_type_kind_mismatch: type kind compatibility の refutation result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - expected kind と observed kind が一致しない場合を、自由文字列ではなく `SelfhostTypeKindMismatch` payload に保存します。
+//: - diagnostic 生成側が expected / actual / span を typed value として match できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `expected` は obligation 側の要求 `SelfhostTypeKind` です。
+//: - `fact.kind` は type checker が観測した actual `SelfhostTypeKind` です。
+//: - `fact.span` は diagnostic 位置の source evidence であり、互換性判定そのものの authority ではありません。
+//: - 失敗分類は必ず `SelfhostProofRefutation::TypeKindMismatch` に畳みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofResult::Refuted (SelfhostProofRefutation::TypeKindMismatch (SelfhostTypeKindMismatch expected fact.kind fact.span))` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - refutation payload を作るだけなので O(1) です。
 fn selfhost_proof_type_kind_mismatch %fn SelfhostTypeKindFact fn SelfhostTypeKind SelfhostProofResult \fact\expected:
     selfhost_proof_result_refuted SelfhostProofRefutation::TypeKindMismatch selfhost_type_kind_mismatch_new expected fact.kind fact.span
 
 //: selfhost_proof_solve_type_kind_compatible: type kind compatibility obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeKindFact` に記録された observed kind が、obligation 由来の expected kind と compatible かを証明します。
+//: - 型分類の比較を string tag や diagnostic message ではなく、`SelfhostTypeKind` の enum match に集約します。
+//:
+//: [契約/けいやく]:
+//: - 比較 authority は `selfhost_type_kind_eq fact.kind expected` だけです。
+//: - 現在の compatibility は同一 variant のみを成功とします。`SelfhostTypeKind::Error` や `SelfhostTypeKind::Never` に特別な緩和規則はここでは置きません。
+//: - variant 追加時は `selfhost_type_kind_eq` の match の網羅性検査が更新対象になります。この solver は bool 結果を typed proof result へ写像します。
+//:
+//: [現状/げんじょう]:
+//: - `SelfhostTypeKind::Named` と `SelfhostTypeKind::Parameter` は、ここでは構造展開や bound 解決を行わず、kind variant としてだけ比較します。
+//: - 型同一性、trait bound 解決、generic argument の kind 解決はこの solver の責務ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - compatible の場合は `SelfhostProofEvidence::TypeKindCompatible expected` を含む `SelfhostProofResult::Proven` を返します。
+//: - mismatch の場合は `SelfhostProofRefutation::TypeKindMismatch` を含む `SelfhostProofResult::Refuted` を返し、`SelfhostTypeKindMismatch` に expected / actual / span を保持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `SelfhostTypeKind` の variant 数は固定上限であり、現在は O(1) です。
 pub fn selfhost_proof_solve_type_kind_compatible %fn SelfhostTypeKindFact fn SelfhostTypeKind SelfhostProofResult \fact\expected:
     if:
         selfhost_type_kind_eq fact.kind expected
@@ -26,13 +94,70 @@ pub fn selfhost_proof_solve_type_kind_compatible %fn SelfhostTypeKindFact fn Sel
         else:
             selfhost_proof_type_kind_mismatch fact expected
 
+//: selfhost_proof_trait_impl_non_overlapping_result: trait impl non-overlap の成功 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - candidate impl と existing impl が overlap しないと確認された relation を、成功 evidence として保持します。
+//: - relation を bool に潰さず、`DifferentTrait` と `SameTraitDifferentSelfType` のどちらで成功したかを後続 diagnostic / audit が確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 引数 `relation` は `SelfhostTraitImplRelation::DifferentTrait` または `SelfhostTraitImplRelation::SameTraitDifferentSelfType` であることを caller が確認済みです。
+//: - この helper は `SelfhostProofEvidence::TraitImplNonOverlapping relation` を包むだけで、invalid key や duplicate impl を成功に変換しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofResult::Proven (SelfhostProofEvidence::TraitImplNonOverlapping relation)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum payload を包むだけなので O(1) です。
 fn selfhost_proof_trait_impl_non_overlapping_result %fn SelfhostTraitImplRelation SelfhostProofResult \relation:
     selfhost_proof_result_proven SelfhostProofEvidence::TraitImplNonOverlapping relation
 
+//: selfhost_proof_trait_impl_invalid: trait impl coherence の refutation result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - invalid impl key または duplicate impl を、`SelfhostTraitImplCoherenceIssue` payload として保持します。
+//: - candidate / existing / relation / span / reason を typed value に分け、error display と proof 判定を分離します。
+//:
+//: [契約/けいやく]:
+//: - `fact.candidate` と `fact.existing` は coherence 比較対象の impl key です。
+//: - `fact.relation` は `selfhost_trait_impl_relation` で事前計算された `SelfhostTraitImplRelation` です。
+//: - `reason` は relation に対応する `SelfhostTraitImplCoherenceError::InvalidCandidateKey`、`SelfhostTraitImplCoherenceError::InvalidExistingKey`、または `SelfhostTraitImplCoherenceError::DuplicateImpl` です。
+//: - 失敗分類は必ず `SelfhostProofRefutation::TraitImplCoherenceInvalid` に畳みます。
+//: - diagnostic message、source spelling、trait 名の文字列は refutation authority ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofResult::Refuted (SelfhostProofRefutation::TraitImplCoherenceInvalid issue)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - refutation payload を作るだけなので O(1) です。
 fn selfhost_proof_trait_impl_invalid %fn SelfhostTraitImplPairFact fn SelfhostTraitImplCoherenceError SelfhostProofResult \fact\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::TraitImplCoherenceInvalid selfhost_trait_impl_coherence_issue_new fact.candidate fact.existing fact.relation fact.span reason
 
 //: selfhost_proof_solve_trait_impl_non_overlapping: trait impl coherence obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - candidate impl が existing impl と coherence 上 overlap しないことを証明します。
+//: - trait id と self type の関係を `SelfhostTraitImplRelation` として受け取り、文字列名や module allowlist で重複判定しないようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTraitImplRelation::DifferentTrait` は trait id が異なるため non-overlap evidence になります。
+//: - `SelfhostTraitImplRelation::SameTraitDifferentSelfType` は同じ trait でも self type が構造的に異なるため non-overlap evidence になります。
+//: - `SelfhostTraitImplRelation::SameTraitSameSelfType` は duplicate impl として `SelfhostTraitImplCoherenceError::DuplicateImpl` にします。
+//: - `SelfhostTraitImplRelation::InvalidCandidate` は `SelfhostTraitImplCoherenceError::InvalidCandidateKey` にします。
+//: - `SelfhostTraitImplRelation::InvalidExisting` は `SelfhostTraitImplCoherenceError::InvalidExistingKey` にします。
+//: - relation の算出は fact 作成側の authority であり、この solver は relation を match の網羅性検査が効く形で typed proof result へ写像します。
+//:
+//: [現状/げんじょう]:
+//: - overlap 判定そのものはこの関数で arena を再探索せず、`SelfhostTraitImplPairFact.relation` に保存された `SelfhostTraitImplRelation` を消費します。
+//: - generic overlap、blanket impl、where 条件、trait specialization はまだ relation payload に含まれません。
+//: - invalid key は overlap しないものとして成功させず、必ず typed refutation へ落とします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - non-overlap の場合は `SelfhostProofEvidence::TraitImplNonOverlapping` を含む `SelfhostProofResult::Proven` を返します。
+//: - invalid key または duplicate impl の場合は `SelfhostProofRefutation::TraitImplCoherenceInvalid` を含む `SelfhostProofResult::Refuted` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `SelfhostTraitImplRelation` の 1 回の match だけなので O(1) です。
 pub fn selfhost_proof_solve_trait_impl_non_overlapping %fn SelfhostTraitImplPairFact SelfhostProofResult \fact:
     match fact.relation:
         SelfhostTraitImplRelation::InvalidCandidate:

@@ -40,6 +40,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/check/module/",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
+    "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
 ];
 const REQUIRED_SCANNER_SENTINELS = [
@@ -48,6 +49,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/check/module/declaration_adapter.nepl",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
+    "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
 ];
 const DOC_SECTION_REQUIREMENTS = [
@@ -268,6 +270,53 @@ const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_module_check_item", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast_loop", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast", ["purpose", "returns", "complexity"]),
+    typeSolverRequirement("selfhost_proof_type_kind_compatible_result", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("type kind compatibility evidence", /\bSelfhostProofEvidence::TypeKindCompatible\b/),
+        requiredPattern("typed proof result", /\bSelfhostProofResult::Proven\b/),
+    ]),
+    typeSolverRequirement("selfhost_proof_type_kind_mismatch", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("type kind mismatch refutation", /\bSelfhostProofRefutation::TypeKindMismatch\b/),
+        requiredPattern("type kind mismatch payload", /\bSelfhostTypeKindMismatch\b/),
+        requiredPattern("expected type kind", /\bexpected\b/),
+        requiredPattern("actual type kind from fact", /\bfact\.kind\b/),
+    ]),
+    typeSolverRequirement("selfhost_proof_solve_type_kind_compatible", ["purpose", "contract", "current", "returns", "complexity", "errorVariant", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("type kind equality authority", /\bselfhost_type_kind_eq\b/),
+        requiredPattern("type kind enum authority", /\bSelfhostTypeKind\b/),
+        requiredPattern("type kind compatibility evidence", /\bSelfhostProofEvidence::TypeKindCompatible\b/),
+        requiredPattern("type kind mismatch refutation", /\bSelfhostProofRefutation::TypeKindMismatch\b/),
+        requiredPattern("named type current limitation", /\bSelfhostTypeKind::Named\b/),
+        requiredPattern("type parameter current limitation", /\bSelfhostTypeKind::Parameter\b/),
+        requiredPattern("never special case is not implemented here", /\bSelfhostTypeKind::Never\b/),
+        requiredPattern("match exhaustiveness", /match .*網羅性検査/),
+    ]),
+    typeSolverRequirement("selfhost_proof_trait_impl_non_overlapping_result", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("trait impl non-overlap evidence", /\bSelfhostProofEvidence::TraitImplNonOverlapping\b/),
+        requiredPattern("different trait success relation", /\bDifferentTrait\b/),
+        requiredPattern("different self type success relation", /\bSameTraitDifferentSelfType\b/),
+    ]),
+    typeSolverRequirement("selfhost_proof_trait_impl_invalid", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("trait impl coherence refutation", /\bSelfhostProofRefutation::TraitImplCoherenceInvalid\b/),
+        requiredPattern("trait impl coherence issue payload", /\bSelfhostTraitImplCoherenceIssue\b/),
+        requiredPattern("invalid candidate key error", /\bSelfhostTraitImplCoherenceError::InvalidCandidateKey\b/),
+        requiredPattern("invalid existing key error", /\bSelfhostTraitImplCoherenceError::InvalidExistingKey\b/),
+        requiredPattern("duplicate impl error", /\bSelfhostTraitImplCoherenceError::DuplicateImpl\b/),
+    ]),
+    typeSolverRequirement("selfhost_proof_solve_trait_impl_non_overlapping", ["purpose", "contract", "current", "returns", "complexity", "errorVariant", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("invalid candidate relation", /\bSelfhostTraitImplRelation::InvalidCandidate\b/),
+        requiredPattern("invalid existing relation", /\bSelfhostTraitImplRelation::InvalidExisting\b/),
+        requiredPattern("different trait relation", /\bSelfhostTraitImplRelation::DifferentTrait\b/),
+        requiredPattern("same trait different self type relation", /\bSelfhostTraitImplRelation::SameTraitDifferentSelfType\b/),
+        requiredPattern("same trait same self type relation", /\bSelfhostTraitImplRelation::SameTraitSameSelfType\b/),
+        requiredPattern("invalid candidate key error", /\bSelfhostTraitImplCoherenceError::InvalidCandidateKey\b/),
+        requiredPattern("invalid existing key error", /\bSelfhostTraitImplCoherenceError::InvalidExistingKey\b/),
+        requiredPattern("duplicate impl error", /\bSelfhostTraitImplCoherenceError::DuplicateImpl\b/),
+        requiredPattern("trait impl non-overlap evidence", /\bSelfhostProofEvidence::TraitImplNonOverlapping\b/),
+        requiredPattern("trait impl coherence refutation", /\bSelfhostProofRefutation::TraitImplCoherenceInvalid\b/),
+        requiredPattern("generic overlap current limitation", /generic overlap/),
+        requiredPattern("blanket impl current limitation", /blanket impl/),
+        requiredPattern("match exhaustiveness", /match .*網羅性検査/),
+    ]),
     resourceSolverRequirement("selfhost_proof_resource_cell_proven", ["purpose", "contract", "returns", "complexity", "resourceBoundary"], [
         requiredPattern("resource cell transition evidence", /\bSelfhostProofEvidence::ResourceCellTransition\b/),
     ]),
@@ -497,6 +546,7 @@ const DOC_SECTION_REQUIREMENTS = [
 const SECTION_PATTERNS = {
     purpose: /\[目的\/もくてき\]/,
     contract: /\[契約\/けいやく\]/,
+    current: /\[現状\/げんじょう\]/,
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
     doctest: /\bneplg2:test\b/,
@@ -504,6 +554,7 @@ const SECTION_PATTERNS = {
     authorityBoundary: /\b(authority|typed evidence|parser-provided evidence|parser\/proof|proof layer|source spelling|source text|kind stream|message .*authority|diagnostic kind の authority|表示.*authority)\b/,
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
+    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
     ownerBoundary: /\b(owner|cleanup obligation|cleanup|borrow|未処理 owner|owner 変換|解放)\b/,
 };
 
@@ -519,6 +570,12 @@ function requirement(relPath, name, sections, options = {}) {
 
 function resourceSolverRequirement(name, sections, requiredPatterns = []) {
     return requirement("stdlib/neplg2/core/proof/solver/resource.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function typeSolverRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/proof/solver/type.nepl", name, sections, {
         requiredPatterns,
     });
 }
