@@ -1,0 +1,373 @@
+#indent 4
+
+//: # lower/hir/direct_call
+//: checked argument evidence を使って direct call の HIR expression を構築する module です。
+//:
+//: [目的/もくてき]:
+//: - `check/expr` は direct call として縮約できることを証明しますが、HIR record は生成しません。この module は、その checker-side plan と checked argument payload を HIR module の expression table へ落とします。
+//: - 明示 `@ident` argument は `SelfhostCheckedArgumentKind::FunctionValue` として `SelfhostCallableCandidate` を保持しています。この candidate を `lower/hir/function_value.nepl` 経由で `SelfhostHirExprPayload::FnValue` に変換します。
+//: - lowering が prefix token を再読して function identity を探すと、checker が選んだ DefId-linked candidate とずれる危険があります。そのため、ここでは checked argument list と selected candidate table だけを authority とします。
+//:
+//: [契約/けいやく]:
+//: - 入力 module は owner として受け取り、成功時は `SelfhostHirModuleExprAlloc` の中で更新済み owner を返します。
+//: - 失敗時は入力 module owner と、この module が作った一時 Vec owner を解放してから typed error を返します。
+//: - 現 checkpoint では `FunctionValue` argument だけを accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、詳細な literal / nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
+//: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 引数 lowering は checked argument 数を n として O(n) です。
+//: - HIR child table への追加は Vec の償却 O(n)、再確保時は既存 table size に比例します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/argument_payload" as *
+//:| #import "neplg2/core/check/expr/call_candidate" as *
+//:| #import "neplg2/core/check/expr/model" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/lower/hir" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 9 20 30
+//:     let fn_ty %SelfhostTypeId selfhost_type_id_new 3
+//:     let result_ty %SelfhostTypeId selfhost_type_id_new 4
+//:     let arg_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" selfhost_def_id_new 31 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     let callee_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "takes" selfhost_def_id_new 32 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     let checked_arg %SelfhostCheckedArgument selfhost_checked_argument_function_value 1 3 fn_ty span arg_candidate
+//:     let checked_args0 %Vec SelfhostCheckedArgument unwrap_ok v::new
+//:     let checked_args1 %Vec SelfhostCheckedArgument unwrap_ok v::push checked_args0 checked_arg
+//:     let candidates0 %Vec SelfhostCallableCandidate unwrap_ok v::new
+//:     let candidates1 %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 callee_candidate
+//:     let call %SelfhostReducedCall selfhost_reduced_call_new 0 1 result_ty span
+//:     let reduced %SelfhostCallReduceResult SelfhostCallReduceResult::DirectCall call
+//:     match selfhost_hir_module_new:
+//:         Result::Ok module0:
+//:             match selfhost_hir_lower_direct_call_result module0 reduced &checked_args1 &candidates1:
+//:                 Result::Ok alloc:
+//:                     let root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc
+//:                     let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc
+//:                     let checks1 checks_push checks0 check_eq_i32 2 selfhost_hir_module_expr_len &module1
+//:                     let checks2 checks_push checks1 check_eq_i32 1 selfhost_hir_module_child_len &module1
+//:                     match selfhost_hir_module_get_expr &module1 root:
+//:                         Option::Some root_expr:
+//:                             let checks3 checks_push checks2 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &root_expr SelfhostHirExprKind::Call
+//:                             let child_range %SelfhostHirChildRange selfhost_hir_expr_child_range &root_expr
+//:                             let checks4 checks_push checks3 check_eq_i32 1 selfhost_hir_child_range_count child_range
+//:                             match selfhost_hir_module_get_child &module1 child_range 0:
+//:                                 Option::Some child_id:
+//:                                     match selfhost_hir_module_get_expr &module1 child_id:
+//:                                         Option::Some child_expr:
+//:                                             let checks5 checks_push checks4 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &child_expr SelfhostHirExprKind::FnValue
+//:                                             selfhost_hir_module_free module1
+//:                                             v::free checked_args1
+//:                                             v::free candidates1
+//:                                             let shown checks_print_report checks5
+//:                                             checks_exit_code shown
+//:                                         Option::None:
+//:                                             selfhost_hir_module_free module1
+//:                                             v::free checked_args1
+//:                                             v::free candidates1
+//:                                             let checks5 checks_push checks4 Result::Err "missing child expr"
+//:                                             let shown checks_print_report checks5
+//:                                             checks_exit_code shown
+//:                                 Option::None:
+//:                                     selfhost_hir_module_free module1
+//:                                     v::free checked_args1
+//:                                     v::free candidates1
+//:                                     let checks5 checks_push checks4 Result::Err "missing child id"
+//:                                     let shown checks_print_report checks5
+//:                                     checks_exit_code shown
+//:                         Option::None:
+//:                             selfhost_hir_module_free module1
+//:                             v::free checked_args1
+//:                             v::free candidates1
+//:                             let checks3 checks_push checks2 Result::Err "missing root expr"
+//:                             let shown checks_print_report checks3
+//:                             checks_exit_code shown
+//:                 Result::Err _error:
+//:                     v::free checked_args1
+//:                     v::free candidates1
+//:                     let checks1 checks_push checks0 Result::Err "direct call lowering failed"
+//:                     let shown checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             v::free checked_args1
+//:             v::free candidates1
+//:             let checks1 checks_push checks0 Result::Err "module allocation failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/check/expr/argument_payload" as *
+#import "neplg2/core/check/expr/body_line" as *
+#import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/check/expr/model" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "./function_value" as *
+
+//: SelfhostDirectCallLowerErrorKind: direct call HIR lowering の失敗分類
+//:
+//: [目的/もくてき]:
+//: - HIR lowering の失敗を文字列ではなく enum で返し、後続 diagnostic projection が match で網羅できるようにします。
+//: - `FunctionValueFailed` は function value 専用 lowering が generic candidate などを拒否した場合です。
+pub enum SelfhostDirectCallLowerErrorKind:
+    NotDirectCall
+    SelectedCandidateMissing
+    CheckedArgumentCountMismatch
+    CheckedArgumentMissing
+    UnsupportedArgumentKind
+    FunctionValueFailed %SelfhostFunctionValueLowerErrorKind
+    ChildIdsAllocFailed
+    ChildExprAllocFailed
+    ChildIdPushFailed
+    ChildRangeAllocFailed
+    ParentCallAllocFailed
+
+impl Clone for SelfhostDirectCallLowerErrorKind:
+    fn clone %fn &SelfhostDirectCallLowerErrorKind SelfhostDirectCallLowerErrorKind \self:
+        *self
+
+impl Copy for SelfhostDirectCallLowerErrorKind:
+    fn copy_mark %fn SelfhostDirectCallLowerErrorKind SelfhostDirectCallLowerErrorKind \self:
+        self
+
+//: SelfhostDirectCallLowerError: direct call HIR lowering の typed error payload
+//:
+//: [目的/もくてき]:
+//: - error kind と span を一緒に保持し、どの引数または call expression の lowering で失敗したかを診断側へ渡します。
+//: - allocation failure も `StdErrorKind` の表示文字列へ丸めず、direct call lowering のどの owner 境界で失敗したかを分類します。
+pub struct SelfhostDirectCallLowerError:
+    kind %SelfhostDirectCallLowerErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostDirectCallLowerError:
+    fn clone %fn &SelfhostDirectCallLowerError SelfhostDirectCallLowerError \self:
+        *self
+
+impl Copy for SelfhostDirectCallLowerError:
+    fn copy_mark %fn SelfhostDirectCallLowerError SelfhostDirectCallLowerError \self:
+        self
+
+struct SelfhostDirectCallArgumentLowerState:
+    module %SelfhostHirModule
+    child_ids %Vec SelfhostHirExprId
+
+//: selfhost_direct_call_lower_error_new: direct call lowering error を[作/つく]る
+pub fn selfhost_direct_call_lower_error_new %fn SelfhostDirectCallLowerErrorKind fn SelfhostSourceSpan SelfhostDirectCallLowerError \kind\span:
+    SelfhostDirectCallLowerError kind span
+
+//: selfhost_direct_call_lower_error_kind_eq: error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - focused test が表示文言ではなく typed error kind を確認できるようにします。
+pub fn selfhost_direct_call_lower_error_kind_eq %fn SelfhostDirectCallLowerErrorKind fn SelfhostDirectCallLowerErrorKind bool \a\b:
+    match a:
+        SelfhostDirectCallLowerErrorKind::NotDirectCall:
+            match b:
+                SelfhostDirectCallLowerErrorKind::NotDirectCall:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::SelectedCandidateMissing:
+            match b:
+                SelfhostDirectCallLowerErrorKind::SelectedCandidateMissing:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::CheckedArgumentCountMismatch:
+            match b:
+                SelfhostDirectCallLowerErrorKind::CheckedArgumentCountMismatch:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::CheckedArgumentMissing:
+            match b:
+                SelfhostDirectCallLowerErrorKind::CheckedArgumentMissing:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind:
+            match b:
+                SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::FunctionValueFailed a_kind:
+            match b:
+                SelfhostDirectCallLowerErrorKind::FunctionValueFailed b_kind:
+                    selfhost_function_value_lower_error_kind_eq a_kind b_kind
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed:
+            match b:
+                SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed:
+            match b:
+                SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::ChildIdPushFailed:
+            match b:
+                SelfhostDirectCallLowerErrorKind::ChildIdPushFailed:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed:
+            match b:
+                SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed:
+            match b:
+                SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed:
+                    true
+                _:
+                    false
+
+fn selfhost_direct_call_argument_lower_state_new %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId SelfhostDirectCallArgumentLowerState \module\child_ids:
+    SelfhostDirectCallArgumentLowerState module child_ids
+
+fn selfhost_direct_call_lower_free_module_error %impure fn SelfhostHirModule impure fn SelfhostDirectCallLowerErrorKind impure fn SelfhostSourceSpan Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\kind\span:
+    selfhost_hir_module_free module
+    Result::Err selfhost_direct_call_lower_error_new kind span
+
+fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId impure fn SelfhostDirectCallLowerErrorKind impure fn SelfhostSourceSpan Result SelfhostDirectCallArgumentLowerState SelfhostDirectCallLowerError \module\child_ids\kind\span:
+    selfhost_hir_module_free module
+    v::free child_ids
+    Result::Err selfhost_direct_call_lower_error_new kind span
+
+//: selfhost_hir_lower_checked_argument: checked argument を HIR child expression に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - 引数ごとの checked payload を HIR expression record へ変換します。
+//: - 現 checkpoint では `FunctionValue` のみを受理し、DefId-linked candidate を `selfhost_hir_expr_fn_value_from_candidate` へ渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: module に child expression が追加され、`alloc.expr_id` がその child の id です。
+//: - `Err(UnsupportedArgumentKind)`: literal / named value / nested call / block result は、まだ HIR expression tree へ落とせないため拒否しました。
+pub fn selfhost_hir_lower_checked_argument %impure fn SelfhostHirModule impure fn SelfhostCheckedArgument Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\argument:
+    match *field::get_ref &argument "kind":
+        SelfhostCheckedArgumentKind::FunctionValue candidate:
+            match selfhost_hir_expr_fn_value_from_candidate candidate argument.span:
+                Result::Ok expr:
+                    match selfhost_hir_module_add_expr module expr:
+                        Result::Ok alloc:
+                            Result::Ok alloc
+                        Result::Err _e:
+                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err selfhost_direct_call_lower_error_new (SelfhostDirectCallLowerErrorKind::FunctionValueFailed e.kind) argument.span
+        _:
+            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind argument.span
+
+fn selfhost_hir_lower_direct_call_arguments %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId impure fn &Vec SelfhostCheckedArgument impure fn i32 impure fn i32 impure fn SelfhostSourceSpan Result SelfhostDirectCallArgumentLowerState SelfhostDirectCallLowerError \module\child_ids\checked_arguments\argument_count\idx\call_span:
+    if:
+        ge idx argument_count
+        then:
+            Result::Ok selfhost_direct_call_argument_lower_state_new module child_ids
+        else:
+            match v::get checked_arguments idx:
+                Option::Some argument:
+                    match selfhost_hir_lower_checked_argument module argument:
+                        Result::Ok alloc:
+                            let expr_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc
+                            let next_module %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc
+                            match v::push child_ids expr_id:
+                                Result::Ok next_child_ids:
+                                    selfhost_hir_lower_direct_call_arguments next_module next_child_ids checked_arguments argument_count add idx 1 call_span
+                                Result::Err e:
+                                    selfhost_hir_module_free next_module
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildIdPushFailed call_span
+                        Result::Err e:
+                            v::free child_ids
+                            Result::Err e
+                Option::None:
+                    selfhost_direct_call_lower_free_state_error module child_ids SelfhostDirectCallLowerErrorKind::CheckedArgumentMissing call_span
+
+fn selfhost_hir_lower_direct_call_plan %impure fn SelfhostHirModule impure fn SelfhostReducedCall impure fn &Vec SelfhostCheckedArgument impure fn SelfhostCallableCandidate Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\call\checked_arguments\candidate:
+    if:
+        not eq v::len checked_arguments call.argument_count
+        then:
+            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::CheckedArgumentCountMismatch call.span
+        else:
+            let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+            match child_ids_result:
+                Result::Ok child_ids:
+                    match selfhost_hir_lower_direct_call_arguments module child_ids checked_arguments call.argument_count 0 call.span:
+                        Result::Ok state:
+                            let child_module %SelfhostHirModule field::get state "module"
+                            let lowered_child_ids %Vec SelfhostHirExprId field::get state "child_ids"
+                            match selfhost_hir_module_add_child_range child_module lowered_child_ids:
+                                Result::Ok range_alloc:
+                                    let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                                    let parent_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                                    let parent_expr %SelfhostHirExpr selfhost_hir_expr_call call.result_type call.span candidate.name child_range
+                                    match selfhost_hir_module_add_expr parent_module parent_expr:
+                                        Result::Ok alloc:
+                                            Result::Ok alloc
+                                        Result::Err _e:
+                                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed call.span
+                                Result::Err _e:
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed call.span
+                        Result::Err e:
+                            Result::Err e
+                Result::Err _e:
+                    selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed call.span
+
+//: selfhost_hir_lower_direct_call_result: call reduction result を HIR call expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostCallReduceResult::DirectCall` と checked argument list から、HIR child expression 群と parent call expression を作ります。
+//: - selected callee は `call.candidate_index` で candidate table から取得し、source spelling や prefix item を再読しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: module に argument child expressions と parent call expression が追加され、`alloc.expr_id` が parent call の id です。
+//: - `Err(NotDirectCall)`: 現在の result が direct call ではありません。
+//: - `Err(UnsupportedArgumentKind)`: checked argument の中に、現 checkpoint ではまだ HIR lowering できない分類が含まれています。
+pub fn selfhost_hir_lower_direct_call_result %impure fn SelfhostHirModule impure fn SelfhostCallReduceResult impure fn &Vec SelfhostCheckedArgument impure fn &Vec SelfhostCallableCandidate Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\result\checked_arguments\candidates:
+    match result:
+        SelfhostCallReduceResult::DirectCall call:
+            match v::get candidates call.candidate_index:
+                Option::Some candidate:
+                    selfhost_hir_lower_direct_call_plan module call checked_arguments candidate
+                Option::None:
+                    selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::SelectedCandidateMissing call.span
+
+//: selfhost_hir_lower_expression_line_success_direct_call: body_line success を HIR direct call へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `body_line.nepl` が返す owner 付き success payload を borrow し、direct call lowering に必要な reduction result と checked argument list を同じ境界で読みます。
+//: - success payload 自体はこの関数が消費しません。caller は lowering 後に `selfhost_expression_line_check_success_free` などで owner を閉じます。
+pub fn selfhost_hir_lower_expression_line_success_direct_call %impure fn SelfhostHirModule impure fn &SelfhostExpressionLineCheckSuccess impure fn &Vec SelfhostCallableCandidate Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\success\candidates:
+    selfhost_hir_lower_direct_call_result module *selfhost_expression_line_check_success_result success selfhost_expression_line_check_success_checked_arguments success candidates

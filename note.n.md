@@ -1,3 +1,20 @@
+# 2026-06-05 Agent selfhost HIR direct call checked argument lowering checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。
+- subagent review では、`lower/hir` が `SelfhostExpressionLineCheckSuccess` / `SelfhostCallReduceOwnedResult` の checked argument list を消費するべきであり、`check/expr` へ HIR import を入れてはいけないこと、`TypedExpression` は現 payload だけでは literal / var を lower できないため fail-closed にすべきことを確認した。
+- `stdlib/neplg2/core/lower/hir/direct_call.nepl` を追加した。`SelfhostCallReduceResult::DirectCall`、`Vec SelfhostCheckedArgument`、candidate table を受け取り、HIR module に argument child expression と parent call expression を追加する。
+- 現 checkpoint で lower できる checked argument は `FunctionValue(candidate)` だけである。これは `selfhost_hir_expr_fn_value_from_candidate` 経由で HIR `FnValue` child になる。`TypedExpression`、`NestedDirectCall`、`BlockResult` は lowerable payload がまだ不足しているため `UnsupportedArgumentKind` として fail-closed にする。
+- parent call の callee は `SelfhostReducedCall.candidate_index` で candidate table から読み、prefix token spelling、scope lookup、candidate collection を HIR lowering で再実行しない。
+- `nodesrc/test_selfhost_hir_lowering_contract.js` は direct call split module、facade re-export、checked argument count 検査、FunctionValue lowering、prefix token 再読禁止、`check/expr` split 全体の HIR import 禁止を source policy として確認するようにした。
+- `lower/hir/direct_call.nepl` の doctest は `takes @add` 相当の checked argument から HIR parent Call と child FnValue が作られることを確認する。
+- この checkpoint は FunctionValue argument の HIR direct call 初期 lowering までであり、literal / named value / nested direct call / block result の HIR tree lowering、indirect call、`memo_call` Phase 1 は未実装である。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-direct-call-lowering.json`: pass（2/2）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost checked argument payload checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。
