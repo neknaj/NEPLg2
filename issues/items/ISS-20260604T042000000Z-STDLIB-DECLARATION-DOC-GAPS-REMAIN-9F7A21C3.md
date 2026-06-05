@@ -104,6 +104,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の Concat slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=291`、`declarationNoDoc=142`、`declarationNoDoctest=1646`、`publicDeclarationNoDoctest=1493`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`concat_result` の `Result::Ok` / `Result::Err` 境界、`string_alloc_region` / `mem_copy` raw copy 境界、途中まで構築された `str` owner を公開しないこと、`concat` が error reason を捨てて `""` へ落とす互換 fallback であること、`concat3` が `a + b` の中間確保と再コピーを行う現状実装を module 固有にも固定する。ただし string integer / float parse-format、scanner、slice、core/gui render command などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の FloatFormat slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=290`、`declarationNoDoc=141`、`declarationNoDoctest=1642`、`publicDeclarationNoDoctest=1489`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`from_f64_fraction_trim_len` の末尾 0 trim、raw pointer writer helper の invalid trim fail-closed branch、`from_f64_build_fixed_result` の fixed-size allocation / `RegionToken` owner boundary、StringBuilder 非使用、`from_f64_result` の NaN / 6 桁上限 / 非丸め digit 展開、`from_f64` の `"0"` fallback、`from_f32` の f64 共通経路を module 固有にも固定する。Infinity の public contract 未整備は `ISS-20260605T194600610Z-STRING-FLOAT-INFINITY-FORMAT-UNSPECIFIED-A5C2D91E` として分離した。ただし string float parse、integer parse-format、scanner、slice、core/gui render command などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -122,6 +124,7 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/test_stdlib_hash32_doc_report_contract.js`
 - `node nodesrc/test_alloc_string_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/string/concat.nepl --no-tree -o tmp/agent2-string-concat-doc-slice.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/tests.js -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/agent2-string-float-format-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/hash32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/agent2-hash32-doc-smoke-5.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_hash_string_access_boundary.js`
 - `node nodesrc/test_stdlib_hash_nmd_report_contract.js`

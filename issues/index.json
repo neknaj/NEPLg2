@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T19:37:55.740Z",
+  "generated_at": "2026-06-05T19:57:52.436Z",
   "counts": {
-    "total": 1346,
-    "open": 44,
+    "total": 1347,
+    "open": 45,
     "resolved": 1302,
     "by_area": {
       "stdlib": {
-        "total": 352,
-        "open": 11,
+        "total": 353,
+        "open": 12,
         "resolved": 341
       },
       "core": {
@@ -773,6 +773,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260605T181602324Z-MLSTR-TRAILING-WHITESPACE-FIXTURE-DI-5218829A.md"
+    },
+    {
+      "id": "ISS-20260605T194600610Z-STRING-FLOAT-INFINITY-FORMAT-UNSPECIFIED-A5C2D91E",
+      "title": "string float formatter does not define Infinity behavior",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "doc",
+      "created": "2026-06-06",
+      "updated": "2026-06-06",
+      "target": "stdlib/alloc/string/float/format.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260605T194600610Z-STRING-FLOAT-INFINITY-FORMAT-UNSPECIFIED-A5C2D91E.md"
     },
     {
       "id": "ISS-20260604T034257629Z-SELFHOST-PARSER-LOOP-EXPOSES-LONG-ST-D57B1E8E",

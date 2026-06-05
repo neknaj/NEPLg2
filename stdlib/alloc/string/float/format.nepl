@@ -7,7 +7,40 @@
 //:
 //: [注意/ちゅうい]:
 //: - 現在の formatter は指数表記を生成せず、小数部は最大 6 桁です。
+//: - 小数部は丸めず、6 桁まで digit を展開した後に末尾の `0` を trim します。
+//: - `NaN` は `"nan"` を返します。Infinity の public contract は未整備であり、`ISS-20260605T194600610Z-STRING-FLOAT-INFINITY-FORMAT-UNSPECIFIED-A5C2D91E` で追跡します。
 //: - raw store は string_alloc_region で確保した出力 region の中だけに閉じます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_format_module_doc\" count=4 failed=0\nassertion index=0 status=ok kind=str_eq label=\"six digits\" expected=\"0.015625\" actual=\"0.015625\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"non rounded\" expected=\"0.666666\" actual=\"0.666666\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"nan text\" expected=\"nan\" actual=\"nan\" message=\"\"\nassertion index=3 status=ok kind=str_eq label=\"f32 shares f64 path\" expected=\"1.25\" actual=\"1.25\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/float/format" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let one_sixty_fourth %f64 div %f64 cast 1 %f64 cast 64
+//:     let six_digits %str from_f64 one_sixty_fourth
+//:     let two_thirds %f64 div %f64 cast 2 %f64 cast 3
+//:     let non_rounded %str from_f64 two_thirds
+//:     let nan_value %f64 div %f64 cast 0 %f64 cast 0
+//:     let nan_text %str from_f64 nan_value
+//:     let f32_source %f64 div %f64 cast 5 %f64 cast 4
+//:     let f32_value %f32 %f32 cast f32_source
+//:     let f32_text %str from_f32 f32_value
+//:     let report:
+//:         test_report_new "alloc_string_float_format_module_doc"
+//:         |> test_report_push assert_str_eq "six digits" "0.015625" six_digits
+//:         |> test_report_push assert_str_eq "non rounded" "0.666666" non_rounded
+//:         |> test_report_push assert_str_eq "nan text" "nan" nan_text
+//:         |> test_report_push assert_str_eq "f32 shares f64 path" "1.25" f32_text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
@@ -33,9 +66,34 @@
 //:
 //: [注意/ちゅうい]:
 //: - digit は `0..9` の範囲で渡される前提です。
+//: - この helper は丸めを行わず、最後に非 0 が現れる位置だけを返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_fraction_trim_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"all zero\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"first digit\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"fifth digit\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"sixth digit\" expected=\"6\" actual=\"6\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/float/format" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let all_zero %i32 from_f64_fraction_trim_len 0 0 0 0 0 0
+//:     let first_digit %i32 from_f64_fraction_trim_len 7 0 0 0 0 0
+//:     let fifth_digit %i32 from_f64_fraction_trim_len 0 0 0 0 3 0
+//:     let sixth_digit %i32 from_f64_fraction_trim_len 0 0 0 0 0 9
+//:     let report:
+//:         test_report_new "alloc_string_float_fraction_trim_doc"
+//:         |> test_report_push assert_eq_i32 "all zero" 0 all_zero
+//:         |> test_report_push assert_eq_i32 "first digit" 1 first_digit
+//:         |> test_report_push assert_eq_i32 "fifth digit" 5 fifth_digit
+//:         |> test_report_push assert_eq_i32 "sixth digit" 6 sixth_digit
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_f64_fraction_trim_len %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 i32 \d0\d1\d2\d3\d4\d5:
     if:
         ne d5 0
@@ -80,9 +138,34 @@ pub fn from_f64_fraction_trim_len %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 i32
 //:
 //: [注意/ちゅうい]:
 //: - `base_raw + start` から少なくとも trim byte 書ける領域があることは呼び出し側が保証します。
+//: - raw pointer を受け取るため、通常の利用者はこの helper を直接呼ばず `from_f64_build_fixed_result` 以降を使います。
+//: - `trim` が `0..6` 以外なら raw write を行わず `Result::Err "string.float invalid fraction trim"` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_fraction_write_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"invalid trim rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/float/format" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let rejected %bool match from_f64_write_fraction_digits_result 0 0 7 0 0 0 0 0 0:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err e:
+//:             test_str_eq "string.float invalid fraction trim" e
+//:     let report:
+//:         test_report_new "alloc_string_float_fraction_write_doc"
+//:         |> test_report_push assert "invalid trim rejected" rejected
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_f64_write_fraction_digits_result %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result unit str \base_raw\start\trim\d0\d1\d2\d3\d4\d5:
     match trim:
         0:
@@ -134,9 +217,40 @@ pub fn from_f64_write_fraction_digits_result %fn i32 fn i32 fn i32 fn i32 fn i32
 //:
 //: [注意/ちゅうい]:
 //: - fractional digit の一時領域も growable builder も作らず、所有権境界は出力 `RegionToken` 1 つに集約します。
+//: - `Result::Err` の string payload は現状実装の互換境界であり、typed enum error への整理は後続課題です。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(int_s) + trim)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_build_fixed_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"positive fixed\" expected=\"12.34\" actual=\"12.34\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"negative fixed\" expected=\"-0.5\" actual=\"-0.5\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/float/format" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn result_or_marker %fn Result str str str \got:
+//:     match got:
+//:         Result::Ok actual:
+//:             actual
+//:         Result::Err _:
+//:             "<err>"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let positive %Result str str from_f64_build_fixed_result false "12" 2 3 4 0 0 0 0
+//:     let negative %Result str str from_f64_build_fixed_result true "0" 1 5 0 0 0 0 0
+//:     let positive_text %str result_or_marker positive
+//:     let negative_text %str result_or_marker negative
+//:     let report:
+//:         test_report_new "alloc_string_float_build_fixed_doc"
+//:         |> test_report_push assert_str_eq "positive fixed" "12.34" positive_text
+//:         |> test_report_push assert_str_eq "negative fixed" "-0.5" negative_text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result str str \neg\int_s\trim\d0\d1\d2\d3\d4\d5:
     let sign_len %i32 if neg:
         then 1
@@ -183,39 +297,73 @@ pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 f
                 Result::Ok _:
                     Result::Ok string_finish out_region total
 
-//: from_f64_result: f64 を有限値だけ文字列化する
+//: from_f64_result: f64 を固定小数または nan 文字列へ変換する
 //:
 //: [目的/もくてき]:
 //: - `f64` を固定小数の表示用 `str` に変換します。
 //: - 失敗を呼び出し側で扱えるように `Result` で返します。
 //:
+//: [契約/けいやく]:
+//: - finite value は整数部と最大 6 桁の小数部からなる固定小数文字列として返します。
+//: - `NaN` は `Result::Ok "nan"` を返します。
+//: - allocation や固定出力組み立てに失敗した場合は `Result::Err` を返します。
+//: - Infinity はこの関数の public contract としてまだ定義しません。
+//:
 //: [実装/じっそう]:
 //: - 整数部は `from_i64_radix` で 10 進文字列化します。
 //: - 小数部は局所 `i32` digit へ最大 6 桁だけ展開し、末尾の `0` を削ってから固定長の出力領域へ書き込みます。
 //:
+//: [現状/げんじょう]:
+//: - 小数部は丸めず、6 桁まで digit を展開したところで打ち切ります。
+//: - error payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
 //: [注意/ちゅうい]:
 //: - `NaN` は `"nan"` を返します。
+//: - Infinity の public contract は未整備です。現状は `ISS-20260605T194600610Z-STRING-FLOAT-INFINITY-FORMAT-UNSPECIFIED-A5C2D91E` で追跡します。
 //: - 現在は指数表記を生成せず、小数部は最大 6 桁です。
+//: - 小数部は丸めず、6 桁まで digit を展開した後に末尾の `0` を trim します。
+//: - `Result::Err` の `i32` payload は現状実装の互換境界であり、typed enum error への整理は後続課題です。
 //: - `from_f64` は失敗時に `"0"` fallback を返す互換 API です。
 //:
 //: [計算量/けいさんりょう]:
 //: - 整数部の桁数を `d` として O(d)
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_from_f64_result_doc\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"six digit result\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"non rounded result\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"negative trim result\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"nan result\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
-//:| #import "alloc/string" as *
+//:| #import "alloc/string/float/format" as *
+//:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
+//:| #import "std/test" as *
+//: fn result_eq %fn Result str i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _:
+//:             false
+//:
 //: fn main %impure fn void i32 \void:
-//:     let one %f64 %f64 cast 1
-//:     let quartered %f64 div %f64 cast 5 %f64 cast 4
+//:     let one_sixty_fourth %f64 div %f64 cast 1 %f64 cast 64
+//:     let two_thirds %f64 div %f64 cast 2 %f64 cast 3
 //:     let neg_half %f64 div %f64 cast -1 %f64 cast 2
-//:     let ok0 %bool str_eq from_f64 one "1"
-//:     let ok1 %bool str_eq from_f64 quartered "1.25"
-//:     let ok2 %bool str_eq from_f64 neg_half "-0.5"
-//:     if and ok0 and ok1 ok2 1 0
+//:     let nan_value %f64 div %f64 cast 0 %f64 cast 0
+//:     let six_digit_result %Result str i32 from_f64_result one_sixty_fourth
+//:     let non_rounded_result %Result str i32 from_f64_result two_thirds
+//:     let negative_result %Result str i32 from_f64_result neg_half
+//:     let nan_result %Result str i32 from_f64_result nan_value
+//:     let report:
+//:         test_report_new "alloc_string_float_from_f64_result_doc"
+//:         |> test_report_push assert "six digit result" result_eq six_digit_result "0.015625"
+//:         |> test_report_push assert "non rounded result" result_eq non_rounded_result "0.666666"
+//:         |> test_report_push assert "negative trim result" result_eq negative_result "-0.5"
+//:         |> test_report_push assert "nan result" result_eq nan_result "nan"
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn from_f64_result %fn f64 Result str i32 \x:
     if:
@@ -258,6 +406,52 @@ pub fn from_f64_result %fn f64 Result str i32 \x:
                         Result::Err _e:
                             Result::Err 12
 
+//: from_f64: f64 を文字列へ変換し、失敗時は `"0"` に落とす互換 API
+//:
+//: [目的/もくてき]:
+//: - `f64` を表示用 `str` へ変換します。
+//: - 呼び出し側の型を `str` に保つ必要がある既存 API や trait 実装で使います。
+//:
+//: [契約/けいやく]:
+//: - `from_f64_result x` が `Result::Ok text` を返した場合は、その `text` を返します。
+//: - `from_f64_result x` が `Result::Err _` を返した場合は、error reason を捨てて `"0"` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - fallback は互換層のための仕様であり、format 失敗を呼び出し側で扱いたい新規コードでは `from_f64_result` を使ってください。
+//: - NaN は `"nan"` を返します。Infinity は未規定であり、別 issue で扱います。
+//:
+//: [現状/げんじょう]:
+//: - `from_f64_result` の `Result` を `match` し、`Result::Err` だけを `"0"` fallback に畳みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 成功時は `from_f64_result` に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_from_f64_doc\" count=3 failed=0\nassertion index=0 status=ok kind=str_eq label=\"integer text\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"six digit text\" expected=\"0.015625\" actual=\"0.015625\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"nan text\" expected=\"nan\" actual=\"nan\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/float/format" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let one %f64 %f64 cast 1
+//:     let one_sixty_fourth %f64 div %f64 cast 1 %f64 cast 64
+//:     let nan_value %f64 div %f64 cast 0 %f64 cast 0
+//:     let one_text %str from_f64 one
+//:     let six_digit_text %str from_f64 one_sixty_fourth
+//:     let nan_text %str from_f64 nan_value
+//:     let report:
+//:         test_report_new "alloc_string_float_from_f64_doc"
+//:         |> test_report_push assert_str_eq "integer text" "1" one_text
+//:         |> test_report_push assert_str_eq "six digit text" "0.015625" six_digit_text
+//:         |> test_report_push assert_str_eq "nan text" "nan" nan_text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_f64 %fn f64 str \x:
     match from_f64_result x:
         Result::Ok text:
@@ -275,8 +469,31 @@ pub fn from_f64 %fn f64 str \x:
 //:
 //: [注意/ちゅうい]:
 //: - 小数桁数や fallback は `from_f64` と同じです。
+//: - f32 から f64 への拡張後に formatting するため、f32 の丸め済み値を表示します。
 //:
 //: [計算量/けいさんりょう]:
 //: - `from_f64` に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_from_f32_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"f32 text\" expected=\"1.25\" actual=\"1.25\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/float/format" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let value64 %f64 div %f64 cast 5 %f64 cast 4
+//:     let value32 %f32 %f32 cast value64
+//:     let text %str from_f32 value32
+//:     let report:
+//:         test_report_new "alloc_string_float_from_f32_doc"
+//:         |> test_report_push assert_str_eq "f32 text" "1.25" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_f32 %fn f32 str \x:
     from_f64 %f64 cast x
