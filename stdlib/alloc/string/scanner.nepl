@@ -15,43 +15,36 @@
 //: - ここで扱う index は byte index です。Unicode scalar index ではありません。
 //: - `str_find_byte_range` などは ASCII marker や delimiter の探索用であり、UTF-8 文字単位の検索 API ではありません。
 //:
-//: neplg2:test
-//: ret: 0
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_scanner_module_doc\" count=7 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"find clamps range\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"find reversed empty\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"line end\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"next line after lf\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"skip inline spaces\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"word end inline space\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"ascii predicates\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "alloc/string/scanner" as *
 //:| #import "core/math" as *
+//:| #import "std/test" as *
 //: fn main %impure fn void i32 \void:
 //:     let text %str "ab\ncd\r\nef"
-//:     if:
-//:         eq str_find_byte_range "abc" -5 99 'b' 1
-//:         then:
-//:             if:
-//:                 eq str_find_byte_range "abc" 2 1 'b' -1
-//:                 then:
-//:                     if:
-//:                         eq str_line_end text 0 2
-//:                         then:
-//:                             if:
-//:                                 eq str_next_line_pos text str_line_end text 0 3
-//:                                 then:
-//:                                     if:
-//:                                         eq str_skip_inline_space_range " \t\ra" 0 4 3
-//:                                         then:
-//:                                             if:
-//:                                                 eq str_word_end_inline_space_range "ab cd" 0 5 2
-//:                                                 then:
-//:                                                     if:
-//:                                                         and str_byte_is_ascii_alpha 'Z' and str_byte_is_ascii_hex_digit 'f' not str_byte_is_ascii_inline_space '\n'
-//:                                                         then 0
-//:                                                         else 1
-//:                                                 else 1
-//:                                         else 1
-//:                                 else 1
-//:                         else 1
-//:                 else 1
-//:         else 1
+//:     let found %i32 str_find_byte_range "abc" -5 99 'b'
+//:     let reversed %i32 str_find_byte_range "abc" 2 1 'b'
+//:     let end0 %i32 str_line_end text 0
+//:     let next0 %i32 str_next_line_pos text end0
+//:     let skipped %i32 str_skip_inline_space_range " \t\ra" 0 4
+//:     let word_end %i32 str_word_end_inline_space_range "ab cd" 0 5
+//:     let ascii_ok %bool and str_byte_is_ascii_alpha 'Z' and str_byte_is_ascii_hex_digit 'f' not str_byte_is_ascii_inline_space '\n'
+//:     let report:
+//:         test_report_new "alloc_string_scanner_module_doc"
+//:         |> test_report_push assert_eq_i32 "find clamps range" 1 found
+//:         |> test_report_push assert_eq_i32 "find reversed empty" -1 reversed
+//:         |> test_report_push assert_eq_i32 "line end" 2 end0
+//:         |> test_report_push assert_eq_i32 "next line after lf" 3 next0
+//:         |> test_report_push assert_eq_i32 "skip inline spaces" 3 skipped
+//:         |> test_report_push assert_eq_i32 "word end inline space" 2 word_end
+//:         |> test_report_push assert "ascii predicates" ascii_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 
 //: scanner_string_addr: `str` の内部 address を scanner module 内部で読む
@@ -79,18 +72,204 @@ pub fn scanner_str_byte_len %fn str i32 \s:
 fn scanner_string_byte_at_checked_raw %fn str fn i32 i32 \s\idx:
     load_u8 %i32 add scanner_string_addr s %i32 add 4 idx
 
+//: scanner_byte_is_ascii_digit: 内部 scanner 用に ASCII digit byte を判定する
+//:
+//: [目的/もくてき]:
+//: - public wrapper と range scanner が共有する ASCII digit 判定を 1 箇所に集約します。
+//:
+//: [契約/けいやく]:
+//: - `b` が `'0'..'9'` の byte 値なら `true` を返します。
+//: - それ以外の byte 値は `false` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - Unicode digit 判定ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_scanner_ascii_predicates_doc\" count=33 failed=0\nassertion index=0 status=ok kind=bool label=\"digit zero accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"digit nine accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"digit before zero rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"digit after nine rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"upper A accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"upper Z accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"upper before A rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"upper after Z rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"lower a accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"lower z accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"lower before a rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"lower after z rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"alpha upper accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=bool label=\"alpha lower accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"alpha digit rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"alpha underscore rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=bool label=\"alnum digit accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"alnum upper accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"alnum lower accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"alnum underscore rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"alnum hyphen rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"alnum space rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"hex digit accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"hex upper accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"hex lower accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"hex upper G rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"hex lower g rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"hex slash rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"hex colon rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"inline cr accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"inline lf rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=bool label=\"inline nul rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=32 status=ok kind=bool label=\"inline non ascii rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/scanner" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_scanner_ascii_predicates_doc"
+//:         |> test_report_push assert "digit zero accepted" str_byte_is_ascii_digit '0'
+//:         |> test_report_push assert "digit nine accepted" str_byte_is_ascii_digit '9'
+//:         |> test_report_push assert "digit before zero rejected" not str_byte_is_ascii_digit '/'
+//:         |> test_report_push assert "digit after nine rejected" not str_byte_is_ascii_digit ':'
+//:         |> test_report_push assert "upper A accepted" str_byte_is_ascii_upper 'A'
+//:         |> test_report_push assert "upper Z accepted" str_byte_is_ascii_upper 'Z'
+//:         |> test_report_push assert "upper before A rejected" not str_byte_is_ascii_upper '@'
+//:         |> test_report_push assert "upper after Z rejected" not str_byte_is_ascii_upper '['
+//:         |> test_report_push assert "lower a accepted" str_byte_is_ascii_lower 'a'
+//:         |> test_report_push assert "lower z accepted" str_byte_is_ascii_lower 'z'
+//:         |> test_report_push assert "lower before a rejected" not str_byte_is_ascii_lower 96
+//:         |> test_report_push assert "lower after z rejected" not str_byte_is_ascii_lower '{'
+//:         |> test_report_push assert "alpha upper accepted" str_byte_is_ascii_alpha 'Q'
+//:         |> test_report_push assert "alpha lower accepted" str_byte_is_ascii_alpha 'q'
+//:         |> test_report_push assert "alpha digit rejected" not str_byte_is_ascii_alpha '5'
+//:         |> test_report_push assert "alpha underscore rejected" not str_byte_is_ascii_alpha '_'
+//:         |> test_report_push assert "alnum digit accepted" str_byte_is_ascii_alnum '5'
+//:         |> test_report_push assert "alnum upper accepted" str_byte_is_ascii_alnum 'A'
+//:         |> test_report_push assert "alnum lower accepted" str_byte_is_ascii_alnum 'a'
+//:         |> test_report_push assert "alnum underscore rejected" not str_byte_is_ascii_alnum '_'
+//:         |> test_report_push assert "alnum hyphen rejected" not str_byte_is_ascii_alnum '-'
+//:         |> test_report_push assert "alnum space rejected" not str_byte_is_ascii_alnum ' '
+//:         |> test_report_push assert "hex digit accepted" str_byte_is_ascii_hex_digit '9'
+//:         |> test_report_push assert "hex upper accepted" str_byte_is_ascii_hex_digit 'F'
+//:         |> test_report_push assert "hex lower accepted" str_byte_is_ascii_hex_digit 'f'
+//:         |> test_report_push assert "hex upper G rejected" not str_byte_is_ascii_hex_digit 'G'
+//:         |> test_report_push assert "hex lower g rejected" not str_byte_is_ascii_hex_digit 'g'
+//:         |> test_report_push assert "hex slash rejected" not str_byte_is_ascii_hex_digit '/'
+//:         |> test_report_push assert "hex colon rejected" not str_byte_is_ascii_hex_digit ':'
+//:         |> test_report_push assert "inline cr accepted" str_byte_is_ascii_inline_space '\r'
+//:         |> test_report_push assert "inline lf rejected" not str_byte_is_ascii_inline_space '\n'
+//:         |> test_report_push assert "inline nul rejected" not str_byte_is_ascii_inline_space 0
+//:         |> test_report_push assert "inline non ascii rejected" not str_byte_is_ascii_inline_space 195
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn scanner_byte_is_ascii_digit %fn i32 bool \b:
     and ge b '0' le b '9'
 
+//: scanner_byte_is_ascii_upper: 内部 scanner 用に ASCII upper-case byte を判定する
+//:
+//: [契約/けいやく]:
+//: - `b` が `'A'..'Z'` の byte 値なら `true`、それ以外なら `false` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - Unicode の大文字判定や locale 依存判定は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_scanner_ascii_upper_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"upper accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"lower rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/scanner" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_scanner_ascii_upper_doc"
+//:         |> test_report_push assert "upper accepted" str_byte_is_ascii_upper 'A'
+//:         |> test_report_push assert "lower rejected" not str_byte_is_ascii_upper 'z'
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn scanner_byte_is_ascii_upper %fn i32 bool \b:
     and ge b 'A' le b 'Z'
 
+//: scanner_byte_is_ascii_lower: 内部 scanner 用に ASCII lower-case byte を判定する
+//:
+//: [契約/けいやく]:
+//: - `b` が `'a'..'z'` の byte 値なら `true`、それ以外なら `false` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - Unicode の小文字判定や locale 依存判定は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_scanner_ascii_lower_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"lower accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"upper rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/scanner" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_scanner_ascii_lower_doc"
+//:         |> test_report_push assert "lower accepted" str_byte_is_ascii_lower 'z'
+//:         |> test_report_push assert "upper rejected" not str_byte_is_ascii_lower 'A'
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn scanner_byte_is_ascii_lower %fn i32 bool \b:
     and ge b 'a' le b 'z'
 
+//: scanner_byte_is_ascii_alpha: 内部 scanner 用に ASCII alphabet byte を判定する
+//:
+//: [契約/けいやく]:
+//: - `scanner_byte_is_ascii_upper b` または `scanner_byte_is_ascii_lower b` が `true` なら `true` を返します。
+//: - digit、underscore、non-ASCII byte は `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_scanner_ascii_alpha_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"upper alpha\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"lower alpha\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"digit rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/scanner" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_scanner_ascii_alpha_doc"
+//:         |> test_report_push assert "upper alpha" str_byte_is_ascii_alpha 'Q'
+//:         |> test_report_push assert "lower alpha" str_byte_is_ascii_alpha 'q'
+//:         |> test_report_push assert "digit rejected" not str_byte_is_ascii_alpha '8'
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn scanner_byte_is_ascii_alpha %fn i32 bool \b:
     or scanner_byte_is_ascii_upper b scanner_byte_is_ascii_lower b
 
+//: scanner_byte_is_ascii_inline_space: 内部 scanner 用に同一行内空白 byte を判定する
+//:
+//: [契約/けいやく]:
+//: - space、tab、CR は `true` を返します。
+//: - LF は行境界なので `false` を返します。
+//:
+//: [現状/げんじょう]:
+//: - `match` で 3 種類の byte literal だけを列挙します。
+//:
+//: [注意/ちゅうい]:
+//: - CR は CRLF 入力で行末直前に残る byte を inline 空白として扱うために含めます。
+//: - Unicode 空白や form feed などは扱いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_scanner_inline_space_doc\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"space accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"tab accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"cr accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"lf rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/scanner" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_scanner_inline_space_doc"
+//:         |> test_report_push assert "space accepted" str_byte_is_ascii_inline_space ' '
+//:         |> test_report_push assert "tab accepted" str_byte_is_ascii_inline_space '\t'
+//:         |> test_report_push assert "cr accepted" str_byte_is_ascii_inline_space '\r'
+//:         |> test_report_push assert "lf rejected" not str_byte_is_ascii_inline_space '\n'
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn scanner_byte_is_ascii_inline_space %fn i32 bool \b:
     match b:
         ' ':
@@ -103,26 +282,89 @@ pub fn scanner_byte_is_ascii_inline_space %fn i32 bool \b:
             false
 
 //: str_byte_is_ascii_digit: byte が ASCII digit か判定する
+//:
+//: [目的/もくてき]:
+//: - parser / scanner から使う public な ASCII digit 判定です。
+//:
+//: [契約/けいやく]:
+//: - `b` が `'0'..'9'` なら `true`、それ以外なら `false` を返します。
+//:
+//: [現状/げんじょう]:
+//: - 判定本体は `scanner_byte_is_ascii_digit` へ委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力は byte 値です。Unicode scalar や文字列 index ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 pub fn str_byte_is_ascii_digit %fn i32 bool \b:
     scanner_byte_is_ascii_digit b
 
 //: str_byte_is_ascii_upper: byte が ASCII 大文字か判定する
+//:
+//: [契約/けいやく]:
+//: - `b` が `'A'..'Z'` なら `true`、それ以外なら `false` を返します。
+//:
+//: [現状/げんじょう]:
+//: - 判定本体は `scanner_byte_is_ascii_upper` へ委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - Unicode の大文字判定や locale 依存判定は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 pub fn str_byte_is_ascii_upper %fn i32 bool \b:
     scanner_byte_is_ascii_upper b
 
 //: str_byte_is_ascii_lower: byte が ASCII 小文字か判定する
+//:
+//: [契約/けいやく]:
+//: - `b` が `'a'..'z'` なら `true`、それ以外なら `false` を返します。
+//:
+//: [現状/げんじょう]:
+//: - 判定本体は `scanner_byte_is_ascii_lower` へ委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - Unicode の小文字判定や locale 依存判定は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 pub fn str_byte_is_ascii_lower %fn i32 bool \b:
     scanner_byte_is_ascii_lower b
 
 //: str_byte_is_ascii_alpha: byte が ASCII alphabet か判定する
+//:
+//: [契約/けいやく]:
+//: - `str_byte_is_ascii_upper b` または `str_byte_is_ascii_lower b` が `true` なら `true` を返します。
+//: - digit、underscore、non-ASCII byte は `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 pub fn str_byte_is_ascii_alpha %fn i32 bool \b:
     scanner_byte_is_ascii_alpha b
 
 //: str_byte_is_ascii_alnum: byte が ASCII alphabet / digit か判定する
+//:
+//: [契約/けいやく]:
+//: - ASCII alphabet または ASCII digit の byte 値なら `true` を返します。
+//: - underscore や non-ASCII byte は `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 pub fn str_byte_is_ascii_alnum %fn i32 bool \b:
     or scanner_byte_is_ascii_alpha b scanner_byte_is_ascii_digit b
 
 //: str_byte_is_ascii_hex_digit: byte が ASCII 16 進 digit か判定する
+//:
+//: [契約/けいやく]:
+//: - `'0'..'9'`、`'a'..'f'`、`'A'..'F'` の byte 値なら `true` を返します。
+//: - `g`、`G`、prefix 文字、non-ASCII byte は `false` です。
+//:
+//: [現状/げんじょう]:
+//: - lowercase / uppercase の範囲判定を作り、最後に digit 判定と `or` で合成します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 pub fn str_byte_is_ascii_hex_digit %fn i32 bool \b:
     let lower %bool and ge b 'a' le b 'f'
     let upper %bool and ge b 'A' le b 'F'
@@ -237,6 +479,60 @@ pub fn str_next_line_pos %fn str fn i32 i32 \s\line_end:
                         else line_end
 
 //: str_skip_inline_space_range: inline space を読み飛ばした offset を返す
+//:
+//: [目的/もくてき]:
+//: - parser が同一行内の先頭空白を読み飛ばした後の byte offset を求めます。
+//:
+//: [契約/けいやく]:
+//: - `start < 0` は 0 に丸め、`end > len(s)` は `len(s)` に丸めます。
+//: - space、tab、CR は読み飛ばします。
+//: - LF は行境界なので読み飛ばしません。
+//: - 丸めた範囲が空なら、丸め後の `start` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 空白文字全般を読む API ではありません。
+//: - 返り値は byte offset です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_scanner_range_doc\" count=11 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"find clamps negative start\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"find clamps end\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"find empty reversed range\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"line end stops at lf\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"next line consumes lf\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"next line keeps eof\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"skip inline cr\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"skip stops before non-inline\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=8 status=ok kind=eq_i32 label=\"skip keeps lf\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=9 status=ok kind=eq_i32 label=\"word end stops at cr\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"word end keeps lf\" expected=\"5\" actual=\"5\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/scanner" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let found_start %i32 str_find_byte_range "abc" -3 3 'a'
+//:     let found_end %i32 str_find_byte_range "abc" 0 99 'c'
+//:     let found_empty %i32 str_find_byte_range "abc" 3 1 'a'
+//:     let line_end %i32 str_line_end "ab\r\ncd" 0
+//:     let next_from_lf %i32 str_next_line_pos "ab\ncd" 2
+//:     let next_from_eof %i32 str_next_line_pos "ab" 2
+//:     let skip_cr %i32 str_skip_inline_space_range " \t\ra" -4 4
+//:     let skip_non_inline %i32 str_skip_inline_space_range " \tx" 0 3
+//:     let skip_lf %i32 str_skip_inline_space_range "\na" 0 2
+//:     let word_end %i32 str_word_end_inline_space_range "ab\rcd" 0 5
+//:     let word_end_lf %i32 str_word_end_inline_space_range "ab\ncd" 0 5
+//:     let report:
+//:         test_report_new "alloc_string_scanner_range_doc"
+//:         |> test_report_push assert_eq_i32 "find clamps negative start" 0 found_start
+//:         |> test_report_push assert_eq_i32 "find clamps end" 2 found_end
+//:         |> test_report_push assert_eq_i32 "find empty reversed range" -1 found_empty
+//:         |> test_report_push assert_eq_i32 "line end stops at lf" 3 line_end
+//:         |> test_report_push assert_eq_i32 "next line consumes lf" 3 next_from_lf
+//:         |> test_report_push assert_eq_i32 "next line keeps eof" 2 next_from_eof
+//:         |> test_report_push assert_eq_i32 "skip inline cr" 3 skip_cr
+//:         |> test_report_push assert_eq_i32 "skip stops before non-inline" 2 skip_non_inline
+//:         |> test_report_push assert_eq_i32 "skip keeps lf" 0 skip_lf
+//:         |> test_report_push assert_eq_i32 "word end stops at cr" 2 word_end
+//:         |> test_report_push assert_eq_i32 "word end keeps lf" 5 word_end_lf
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_skip_inline_space_range %fn str fn i32 fn i32 i32 \s\start\end:
     let n %i32 scanner_str_byte_len s
     let mut i %i32 start
@@ -259,6 +555,21 @@ pub fn str_skip_inline_space_range %fn str fn i32 fn i32 i32 \s\start\end:
     i
 
 //: str_word_end_inline_space_range: inline space までの word end offset を返す
+//:
+//: [目的/もくてき]:
+//: - parser が空白で区切られた token の終端 byte offset を求めます。
+//:
+//: [契約/けいやく]:
+//: - `start < 0` は 0 に丸め、`end > len(s)` は `len(s)` に丸めます。
+//: - space、tab、CR に到達した位置を返します。
+//: - LF は inline space ではないため、この helper だけでは word boundary としません。
+//: - inline space が見つからない場合は丸め後の `end` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は byte offset です。Unicode scalar index ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
 pub fn str_word_end_inline_space_range %fn str fn i32 fn i32 i32 \s\start\end:
     let n %i32 scanner_str_byte_len s
     let mut i %i32 start

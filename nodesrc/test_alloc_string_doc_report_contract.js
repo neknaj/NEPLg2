@@ -27,10 +27,45 @@ const contracts = [
         count: 2,
     },
     {
+        rel: ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        name: 'alloc_string_scanner_module_doc',
+        count: 7,
+    },
+    {
         rel: ['stdlib', 'alloc', 'string', 'search', 'byte_find.nepl'],
         index: 0,
         name: 'str_find_doc',
         count: 4,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        name: 'alloc_string_scanner_ascii_predicates_doc',
+        count: 33,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        name: 'alloc_string_scanner_ascii_upper_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        name: 'alloc_string_scanner_ascii_lower_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        name: 'alloc_string_scanner_ascii_alpha_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        name: 'alloc_string_scanner_inline_space_doc',
+        count: 4,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        name: 'alloc_string_scanner_range_doc',
+        count: 11,
     },
     {
         rel: ['stdlib', 'alloc', 'string', 'search', 'compare.nepl'],
@@ -326,6 +361,32 @@ for (const { rel, index, name, count } of contracts) {
 }
 
 for (const [rel, snippets] of [
+    [
+        ['stdlib', 'alloc', 'string', 'scanner.nepl'],
+        [
+            'byte offset で読む parser / scanner 向け helper',
+            'Unicode scalar index ではありません',
+            'UTF-8 文字単位の検索 API ではありません',
+            'Unicode digit 判定ではありません',
+            'Unicode の大文字判定や locale 依存判定は行いません',
+            'Unicode の小文字判定や locale 依存判定は行いません',
+            'digit、underscore、non-ASCII byte は `false`',
+            'space、tab、CR は `true` を返します',
+            'LF は行境界なので `false` を返します',
+            'CR は CRLF 入力で行末直前に残る byte',
+            'Unicode 空白や form feed などは扱いません',
+            'inline nul rejected',
+            'hex upper G rejected',
+            '判定本体は `scanner_byte_is_ascii_digit` へ委譲します',
+            'prefix 文字、non-ASCII byte は `false`',
+            '`start < 0` は 0 に丸め',
+            '`end > len(s)` は `len(s)` に丸め',
+            'LF は inline space ではないため、この helper だけでは word boundary としません',
+            'skip stops before non-inline',
+            'word end keeps lf',
+            '返り値は byte offset',
+        ],
+    ],
     [
         ['stdlib', 'alloc', 'string', 'builder', 'append.nepl'],
         [
