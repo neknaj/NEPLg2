@@ -12,13 +12,13 @@ const STDLIB_ROOTS = [
 ];
 
 const BASELINE = {
-    files: 452,
+    files: 456,
     moduleNoDoc: 0,
     moduleNoDoctest: 305,
-    declarations: 2848,
-    declarationNoDoc: 800,
-    declarationNoDoctest: 1708,
-    publicDeclarationNoDoctest: 1549,
+    declarations: 2525,
+    declarationNoDoc: 366,
+    declarationNoDoctest: 1690,
+    publicDeclarationNoDoctest: 1531,
     privateDeclarationNoDoctest: 159,
 };
 
@@ -173,6 +173,10 @@ for (const filePath of STDLIB_ROOTS.flatMap(walkNeplFiles).sort()) {
 }
 
 assert(stats.files >= BASELINE.files, `stdlib file count decreased unexpectedly: ${stats.files} < ${BASELINE.files}`);
+assert(
+    stats.declarations >= BASELINE.declarations,
+    `stdlib declaration count decreased unexpectedly: ${stats.declarations} < ${BASELINE.declarations}`,
+);
 assert(stats.moduleNoDoc === 0, `stdlib module docs must not be missing: ${stats.moduleNoDoc}`);
 assert(
     stats.moduleNoDoctest <= BASELINE.moduleNoDoctest,

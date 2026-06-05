@@ -1,3 +1,15 @@
+# 2026-06-05 Agent Zenn documentation contract baseline checkpoint
+
+- Zenn 記事を再確認し、丁寧なドキュメントコメント、静的検査の正確性、試作段階でも技術的負債を残さない方針を判断基準にした。
+- `nodesrc/test_stdlib_documentation_contract.js` は declaration doc / doctest gap を検出しているが、baseline が過去の `declarationNoDoc=800` のままで、現在の `declarationNoDoc=366` より緩かった。これは既存 gap の悪化を止める検査として不正確なので、現在値まで baseline を締め直す。
+- subagent review で、`BASELINE.declarations` が未使用であるため、宣言検出数が減ると doc gap が隠れる余地があると指摘された。これを受けて、`declarations=2525` も下限として検査し、scanner / regex の退行で declaration doc gap が見えなくなる経路を閉じる。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持し、現在値 `files=456`、`declarations=2525`、`declarationNoDoc=366`、`declarationNoDoctest=1690`、`publicDeclarationNoDoctest=1531` を記録する。baseline 更新は gap 解消ではなく、悪化を止めるための静的検査補正である。
+- 検証済み:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-06-05 Agent source policy Zenn compliance checkpoint
 
 - Zenn 記事を再確認し、静的検査の正確性、enum による診断管理、試作段階でも技術的負債を残さない方針を今回の判断基準にした。
