@@ -21,6 +21,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の AdjacencyMatrix slice で `stdlib/alloc/collections/adjacency_matrix` の facade / type / storage / mutation / diagnostic / observer / update / bulk / cleanup docs と report doctest を追加し、baseline は `moduleNoDoctest=301`、`declarationNoDoc=343`、`declarationNoDoctest=1679`、`publicDeclarationNoDoctest=1520` まで改善した。ただし binary_heap / bloom_filter / btree などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の BinaryHeap slice で `stdlib/alloc/collections/binary_heap` の facade / type invariant / pop result / observer / pop API / storage helper / order helper docs と report doctest を追加し、baseline は `moduleNoDoctest=299`、`declarationNoDoc=332`、`declarationNoDoctest=1671`、`publicDeclarationNoDoctest=1512` まで改善した。ただし bloom_filter / btree などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 対象
 
 - `stdlib/core`
@@ -30,7 +32,7 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 ## 根拠
 
 - `node nodesrc/test_stdlib_documentation_contract.js` の再集計で、current baseline は `files=456`、`declarationNoDoc=361`、`declarationNoDoctest=1690` だった。
-- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだが、sample gaps には `stdlib/alloc/collections/adjacency_matrix/api/*`、`stdlib/alloc/collections/adjacency_matrix/storage.nepl`、`stdlib/alloc/collections/binary_heap/*` などの declaration doc 欠落が残る。
+- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだったが、その後の BitSet / AdjacencyMatrix / BinaryHeap slice により sample gaps は bloom_filter / btree 系へ進んでいる。
 - baseline refresh はこれ以上の悪化を止める regression guard であり、既存 gap を解消したことを意味しない。
 - `stdlib/alloc/collections/bitset` では、owner-backed `BitSetUpdateError` を直接構築する doctest を避け、public `insert` / `remove` の Err 経路から error を取得して `bitset_update_error_diag` と `bitset_update_error_owner` の契約を確認する形にした。
 
@@ -43,6 +45,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 同日 BitSet slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=303`、`declarationNoDoc=350`、`declarationNoDoctest=1686`、`publicDeclarationNoDoctest=1527` である。`nodesrc/test_stdlib_bitset_doc_report_contract.js` により、BitSet の report doctest と owner recovery doc contract は total count だけでなく module 固有にも固定する。
 
 同日 AdjacencyMatrix slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=301`、`declarationNoDoc=343`、`declarationNoDoctest=1679`、`publicDeclarationNoDoctest=1520` である。`nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js` により、AdjacencyMatrix の facade lifecycle、type invariant、typed byte storage、mutation、diagnostic kind、borrowed observer、owner recovery doc contract を module 固有にも固定する。
+
+同日 BinaryHeap slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=299`、`declarationNoDoc=332`、`declarationNoDoctest=1671`、`publicDeclarationNoDoctest=1512` である。`nodesrc/test_stdlib_binary_heap_doc_report_contract.js` により、BinaryHeap の facade lifecycle、type invariant、observer / pop API、`Vec Option .T` storage、index math、swap、sift-up / sift-down、`BinaryHeapPop` owner accessor doc contract を module 固有にも固定する。
 
 ## 影響
 
@@ -61,3 +65,5 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/bitset/types.nepl -i stdlib/alloc/collections/bitset/layout.nepl -i stdlib/alloc/collections/bitset/storage.nepl -i stdlib/alloc/collections/bitset/mutation.nepl -i stdlib/alloc/collections/bitset/api.nepl -i stdlib/alloc/collections/bitset/api/diagnostic.nepl -i stdlib/alloc/collections/bitset/api/create.nepl -i stdlib/alloc/collections/bitset/api/observer.nepl -i stdlib/alloc/collections/bitset/api/update.nepl -i stdlib/alloc/collections/bitset/api/bulk.nepl -i stdlib/alloc/collections/bitset/api/cleanup.nepl -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/agent2-bitset-doc-slice-2.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl -i stdlib/alloc/collections/adjacency_matrix/types.nepl -i stdlib/alloc/collections/adjacency_matrix/layout.nepl -i stdlib/alloc/collections/adjacency_matrix/storage.nepl -i stdlib/alloc/collections/adjacency_matrix/mutation.nepl -i stdlib/alloc/collections/adjacency_matrix/api.nepl -i stdlib/alloc/collections/adjacency_matrix/api/diagnostic.nepl -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl -i stdlib/alloc/collections/adjacency_matrix/api/observer.nepl -i stdlib/alloc/collections/adjacency_matrix/api/update.nepl -i stdlib/alloc/collections/adjacency_matrix/api/bulk.nepl -i stdlib/alloc/collections/adjacency_matrix/api/cleanup.nepl -i tests/stdlib/adjacency_matrix_collections.n.md -i stdlib/tests/adjacency_matrix.n.md --no-tree -o tmp/agent2-adjacency-matrix-doc-slice.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/test_stdlib_binary_heap_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl -i stdlib/alloc/collections/binary_heap/types.nepl -i stdlib/alloc/collections/binary_heap/storage.nepl -i stdlib/alloc/collections/binary_heap/order.nepl -i stdlib/alloc/collections/binary_heap/api.nepl -i stdlib/alloc/collections/binary_heap/api/create.nepl -i stdlib/alloc/collections/binary_heap/api/observer.nepl -i stdlib/alloc/collections/binary_heap/api/push.nepl -i stdlib/alloc/collections/binary_heap/api/pop.nepl -i stdlib/alloc/collections/binary_heap/api/cleanup.nepl -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/binary_heap.n.md --no-tree -o tmp/agent2-binary-heap-doc-slice.json -j 1 --dist web/dist --assert-io`

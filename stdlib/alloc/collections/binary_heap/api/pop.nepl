@@ -20,6 +20,40 @@
 
 //: ## pop_max
 //: [最大/さいだい][要素/ようそ]を[取/と]り[出/だ]し、[更新後/こうしんご]の heap と[値/あたい]を[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_pop_max_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"pop_max returns max item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"pop_max shortens heap\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 2
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 9
+//:     let hp3 %BinaryHeap i32 unwrap_ok push hp2 4
+//:     let popped %BinaryHeapPop i32 pop_max hp3
+//:     let item_ok %bool match binary_heap_pop_item &popped:
+//:         Option::Some value:
+//:             eq value 9
+//:         Option::None:
+//:             false
+//:     let hp4 %BinaryHeap i32 binary_heap_pop_heap popped
+//:     let size %i32 len &hp4
+//:     free hp4
+//:     let report:
+//:         test_report_new "binary_heap_pop_max_doc"
+//:         |> test_report_push assert "pop_max returns max item" item_ok
+//:         |> test_report_push assert_eq_i32 "pop_max shortens heap" 2 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn pop_max <.T: Ord&Copy> %impure fn BinaryHeap .T BinaryHeapPop .T \hp:
     let len0 %i32 *field::get_ref &hp "len"
     let cap0 %i32 *field::get_ref &hp "cap"
@@ -59,6 +93,37 @@ pub fn pop_max <.T: Ord&Copy> %impure fn BinaryHeap .T BinaryHeapPop .T \hp:
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_pop_item_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"item accessor reads max\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 5
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 11
+//:     let popped %BinaryHeapPop i32 pop_max hp2
+//:     let item_ok %bool match binary_heap_pop_item &popped:
+//:         Option::Some value:
+//:             eq value 11
+//:         Option::None:
+//:             false
+//:     let hp3 %BinaryHeap i32 binary_heap_pop_heap popped
+//:     free hp3
+//:     let report:
+//:         test_report_new "binary_heap_pop_item_doc"
+//:         |> test_report_push assert "item accessor reads max" item_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn binary_heap_pop_item <.T: Copy> %fn &BinaryHeapPop .T Option .T \p:
     *field::get_ref p "item"
 
@@ -74,6 +139,31 @@ pub fn binary_heap_pop_item <.T: Copy> %fn &BinaryHeapPop .T Option .T \p:
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_pop_heap_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"heap accessor returns owner\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 5
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 11
+//:     let popped %BinaryHeapPop i32 pop_max hp2
+//:     let hp3 %BinaryHeap i32 binary_heap_pop_heap popped
+//:     let size %i32 len &hp3
+//:     free hp3
+//:     let report:
+//:         test_report_new "binary_heap_pop_heap_doc"
+//:         |> test_report_push assert_eq_i32 "heap accessor returns owner" 1 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn binary_heap_pop_heap <.T: Copy> %fn BinaryHeapPop .T BinaryHeap .T \p:
     field::get p "heap"
 

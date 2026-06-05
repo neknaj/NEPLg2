@@ -18,16 +18,85 @@
 
 //: ## len
 //: heap を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_len_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"len counts pushed items\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 4
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 9
+//:     let size %i32 len &hp2
+//:     free hp2
+//:     let report:
+//:         test_report_new "binary_heap_len_doc"
+//:         |> test_report_push assert_eq_i32 "len counts pushed items" 2 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn len <.T> %fn &BinaryHeap .T i32 \hp:
     *field::get_ref hp "len"
 
 //: ## cap
 //: heap を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_cap_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"with_capacity keeps positive cap\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp %BinaryHeap i32 unwrap_ok with_capacity 4
+//:     let capacity %i32 cap &hp
+//:     free hp
+//:     let report:
+//:         test_report_new "binary_heap_cap_doc"
+//:         |> test_report_push assert_eq_i32 "with_capacity keeps positive cap" 4 capacity
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn cap <.T> %fn &BinaryHeap .T i32 \hp:
     *field::get_ref hp "cap"
 
 //: ## is_empty
 //: heap を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_is_empty_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"new heap is empty\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"pushed heap is not empty\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new
+//:     let empty_before %bool is_empty &hp0
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 1
+//:     let empty_after %bool is_empty &hp1
+//:     free hp1
+//:     let report:
+//:         test_report_new "binary_heap_is_empty_doc"
+//:         |> test_report_push assert "new heap is empty" empty_before
+//:         |> test_report_push assert "pushed heap is not empty" not empty_after
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn is_empty <.T> %fn &BinaryHeap .T bool \hp:
     eq len<.T> hp 0
 

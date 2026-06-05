@@ -21,6 +21,44 @@
 //: - `items.len == cap`
 //: - `0 <= i < len` の slot は `Some`
 //: - `len <= i < cap` の slot は `None`
+//:
+//: ### [契約/けいやく]
+//: - public constructor は `cap >= 1` の owner を返します。
+//: - `.T` は現状 `Copy` payload を前提に public API が構成されています。
+//: - 最大値は `items[0]` の `Some` slot に置かれます。ただし `len == 0` のとき root slot は `None` です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_type_invariant_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"initial len\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"normalized cap\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"root keeps max\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32 unwrap_ok with_capacity 0
+//:     let size0 %i32 len &hp0
+//:     let cap0 %i32 cap &hp0
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 2
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 8
+//:     let root_ok %bool match peek &hp2:
+//:         Option::Some value:
+//:             eq value 8
+//:         Option::None:
+//:             false
+//:     free hp2
+//:     let report:
+//:         test_report_new "binary_heap_type_invariant_doc"
+//:         |> test_report_push assert_eq_i32 "initial len" 0 size0
+//:         |> test_report_push assert_eq_i32 "normalized cap" 1 cap0
+//:         |> test_report_push assert "root keeps max" root_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct BinaryHeap<.T>:
     len %i32
     cap %i32
@@ -109,6 +147,45 @@ pub fn binary_heap_push_error_heap <.T: Copy> %fn BinaryHeapPushError .T BinaryH
 
 //: ## BinaryHeapPop
 //: `pop_max` の[結果/けっか]
+//:
+//: ### [契約/けいやく]
+//: - `heap` は pop 後の owner です。caller は `binary_heap_pop_heap` で取り出して継続使用または `free` します。
+//: - `item` は取り出した最大値です。空 heap からの pop では `Option::None` です。
+//: - owner field を caller が直接 projection せず、accessor で owner flow を明示します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_pop_type_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"pop item is max\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"pop returns shortened heap\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32:
+//:         unwrap_ok new
+//:         |> push 2 |> uwok
+//:         |> push 8 |> uwok
+//:     let popped %BinaryHeapPop i32 pop_max hp0
+//:     let item_ok %bool match binary_heap_pop_item &popped:
+//:         Option::Some value:
+//:             eq value 8
+//:         Option::None:
+//:             false
+//:     let hp1 %BinaryHeap i32 binary_heap_pop_heap popped
+//:     let size %i32 len &hp1
+//:     free hp1
+//:     let report:
+//:         test_report_new "binary_heap_pop_type_doc"
+//:         |> test_report_push assert "pop item is max" item_ok
+//:         |> test_report_push assert_eq_i32 "pop returns shortened heap" 1 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct BinaryHeapPop<.T>:
     heap %BinaryHeap .T
     item %Option .T
