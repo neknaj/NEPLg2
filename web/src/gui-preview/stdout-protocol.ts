@@ -8,6 +8,7 @@ import {
 
 export const GUI_STDOUT_FRAME_BEGIN = 'NEPLG2_GUI_FRAME_BEGIN';
 export const GUI_STDOUT_FILL_RECT = 'NEPLG2_GUI_FILL_RECT';
+export const GUI_STDOUT_RGBA_ROW = 'NEPLG2_GUI_RGBA_ROW';
 export const GUI_STDOUT_TEXT_RUN = 'NEPLG2_GUI_TEXT_RUN';
 export const GUI_STDOUT_ACTION_RECT = 'NEPLG2_GUI_ACTION_RECT';
 export const GUI_STDOUT_SESSION_STATE = 'NEPLG2_GUI_SESSION_STATE';
@@ -18,6 +19,7 @@ export type GuiWebStdoutProtocolErrorKind =
     | 'invalid-frame-begin'
     | 'invalid-frame-state'
     | 'invalid-fill-rect'
+    | 'invalid-rgba-row'
     | 'invalid-text-run'
     | 'invalid-action-rect'
     | 'invalid-session-state'
@@ -118,6 +120,9 @@ export class GuiWebStdoutProtocolParser {
         if (line.startsWith(GUI_STDOUT_FILL_RECT)) {
             return this.handleFillRect(line);
         }
+        if (line.startsWith(GUI_STDOUT_RGBA_ROW)) {
+            return this.handleRgbaRow(line);
+        }
         if (line.startsWith(GUI_STDOUT_TEXT_RUN)) {
             return this.handleTextRun(line);
         }
@@ -204,6 +209,22 @@ export class GuiWebStdoutProtocolParser {
         }
         const tokens = splitFields(line);
         const parsed = parseFillRect(tokens);
+        if (parsed.kind === 'err') {
+            return this.abortFrameWithError(parsed.error);
+        }
+        this.state.commands.push(parsed.value);
+        return [];
+    }
+
+    private handleRgbaRow(line: string): GuiWebStdoutProtocolEvent[] {
+        if (this.state.kind === 'idle') {
+            return [{
+                kind: 'error',
+                error: err('invalid-frame-state', '$', GUI_STDOUT_FRAME_BEGIN, GUI_STDOUT_RGBA_ROW),
+            }];
+        }
+        const tokens = splitFields(line);
+        const parsed = parseRgbaRow(tokens);
         if (parsed.kind === 'err') {
             return this.abortFrameWithError(parsed.error);
         }
@@ -338,6 +359,49 @@ function parseFillRect(tokens: string[]): ProtocolResult<GuiPreviewDrawCommand> 
                 height: height.value,
             },
             color: color.value,
+        },
+    };
+}
+
+function parseRgbaRow(tokens: string[]): ProtocolResult<GuiPreviewDrawCommand> {
+    const x = readInteger(tokens, 1, '$.origin.x', 'invalid-rgba-row');
+    if (x.kind === 'err') return x;
+    const y = readInteger(tokens, 2, '$.origin.y', 'invalid-rgba-row');
+    if (y.kind === 'err') return y;
+    const sampleWidth = readPositiveInteger(tokens, 3, '$.sampleWidth', 'invalid-rgba-row');
+    if (sampleWidth.kind === 'err') return sampleWidth;
+    const cellWidth = readPositiveInteger(tokens, 4, '$.cellWidth', 'invalid-rgba-row');
+    if (cellWidth.kind === 'err') return cellWidth;
+    const cellHeight = readPositiveInteger(tokens, 5, '$.cellHeight', 'invalid-rgba-row');
+    if (cellHeight.kind === 'err') return cellHeight;
+
+    const expectedTokenCount = 6 + sampleWidth.value * 4;
+    if (tokens.length !== expectedTokenCount) {
+        return {
+            kind: 'err',
+            error: err('invalid-rgba-row', '$.pixels', `${sampleWidth.value} rgba8888 pixels`, `${Math.max(0, tokens.length - 6) / 4} pixels`),
+        };
+    }
+
+    const pixels = [];
+    for (let index = 0; index < sampleWidth.value; index += 1) {
+        const color = readColor(tokens, 6 + index * 4);
+        if (color.kind === 'err') return color;
+        pixels.push(color.value);
+    }
+
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'rgba-row',
+            origin: {
+                x: x.value,
+                y: y.value,
+            },
+            sampleWidth: sampleWidth.value,
+            cellWidth: cellWidth.value,
+            cellHeight: cellHeight.value,
+            pixels,
         },
     };
 }

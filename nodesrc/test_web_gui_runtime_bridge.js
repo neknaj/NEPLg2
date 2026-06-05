@@ -112,15 +112,31 @@ async function runWebGuiRuntimeBridgeRegression() {
         },
     });
     assert.equal(pushedText.kind, "ok");
+    const pushedRow = target.neplGuiHost.pushCommand({
+        frameId: beginFrame.value,
+        command: {
+            kind: "rgba-row",
+            origin: { x: 0, y: 32 },
+            sampleWidth: 2,
+            cellWidth: 1,
+            cellHeight: 1,
+            pixels: [
+                { kind: "rgba8888", red: 12, green: 24, blue: 36, alpha: 255 },
+                { kind: "rgba8888", red: 48, green: 60, blue: 72, alpha: 255 },
+            ],
+        },
+    });
+    assert.equal(pushedRow.kind, "ok");
     const streamed = target.neplGuiHost.endFrame({ frameId: beginFrame.value });
     assert.equal(streamed.kind, "ok");
     assert.equal(streamed.value, "gui-window-runtime");
     assert.equal(receivedFrames.length, 3);
     assert.equal(receivedFrames[2].windowId, 12);
     assert.equal(receivedFrames[2].title, "Runtime Stream Frame");
-    assert.equal(receivedFrames[2].commands.length, 2);
+    assert.equal(receivedFrames[2].commands.length, 3);
     assert.equal(receivedFrames[2].commands[0].kind, "fill-rect");
     assert.equal(receivedFrames[2].commands[1].kind, "text-run");
+    assert.equal(receivedFrames[2].commands[2].kind, "rgba-row");
 
     const invalidFrameId = target.neplGuiHost.pushCommand({
         frameId: beginFrame.value,
@@ -235,6 +251,7 @@ async function runWebGuiRuntimeBridgeRegression() {
             "Web GUI runtime bridge installs a global neplGuiHost command surface",
             "Web GUI runtime bridge closes host-frame windows through the presenter",
             "Web GUI runtime bridge supports begin/push/end streaming frames",
+            "Web GUI runtime bridge streams rgba row payload commands through host decode",
             "Web GUI runtime bridge validates pushed commands through host decode logic",
             "Web GUI runtime bridge keeps DOM and Canvas types out of the runtime boundary",
             "Playground panel manager registers the floating GUI window manager as presenter",

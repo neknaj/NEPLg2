@@ -41,6 +41,17 @@ async function runWebGuiHostBridgeRegression() {
                 size: 14,
                 align: "left",
             },
+            {
+                kind: "rgba-row",
+                origin: { x: 0, y: 32 },
+                sampleWidth: 2,
+                cellWidth: 1,
+                cellHeight: 1,
+                pixels: [
+                    { kind: "rgba8888", red: 1, green: 2, blue: 3, alpha: 255 },
+                    { kind: "rgba8888", red: 4, green: 5, blue: 6, alpha: 255 },
+                ],
+            },
         ],
         inputTargets: [
             {
@@ -54,10 +65,12 @@ async function runWebGuiHostBridgeRegression() {
     const decoded = hostBridge.decodeGuiWebHostPresentedFrame(validFrame);
     assert.equal(decoded.kind, "ok");
     assert.equal(decoded.value.windowId, 7);
-    assert.equal(decoded.value.frame.commands.length, 2);
+    assert.equal(decoded.value.frame.commands.length, 3);
     assert.equal(decoded.value.frame.inputTargets.length, 1);
     assert.equal(decoded.value.frame.commands[0].kind, "fill-rect");
     assert.equal(decoded.value.frame.commands[1].kind, "text-run");
+    assert.equal(decoded.value.frame.commands[2].kind, "rgba-row");
+    assert.equal(decoded.value.frame.commands[2].pixels.length, 2);
     assert.equal(decoded.value.frame.inputTargets[0].kind, "action-rect");
     assert.equal(decoded.value.frame.inputTargets[0].actionId, 3);
 
@@ -86,6 +99,25 @@ async function runWebGuiHostBridgeRegression() {
     });
     assert.equal(unsupportedCommand.kind, "err");
     assert.equal(unsupportedCommand.error.kind, "unsupported-command");
+
+    const invalidRgbaRow = hostBridge.decodeGuiWebHostPresentedFrame({
+        ...validFrame,
+        commands: [
+            {
+                kind: "rgba-row",
+                origin: { x: 0, y: 0 },
+                sampleWidth: 2,
+                cellWidth: 1,
+                cellHeight: 1,
+                pixels: [
+                    { kind: "rgba8888", red: 1, green: 2, blue: 3, alpha: 255 },
+                ],
+            },
+        ],
+    });
+    assert.equal(invalidRgbaRow.kind, "err");
+    assert.equal(invalidRgbaRow.error.kind, "invalid-command");
+    assert.equal(invalidRgbaRow.error.path, "$.commands.0.pixels");
 
     const invalidInputTarget = hostBridge.decodeGuiWebHostPresentedFrame({
         ...validFrame,
@@ -116,6 +148,7 @@ async function runWebGuiHostBridgeRegression() {
         ok: true,
         checks: [
             "Web GUI host bridge decodes valid present-commands frames",
+            "Web GUI host bridge decodes rgba row payload commands",
             "Web GUI host bridge rejects invalid color bytes with typed errors",
             "Web GUI host bridge decodes action hit targets as input metadata",
             "Web GUI host bridge rejects unsupported command variants",

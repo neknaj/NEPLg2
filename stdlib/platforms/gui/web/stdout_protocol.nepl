@@ -7,7 +7,7 @@
 //:
 //: ### [契約/けいやく]
 //: - frame は `gui_web_stdout_frame_begin` で開始し、`gui_web_stdout_frame_end` で完了します。
-//: - frame 内では `gui_web_stdout_fill_rect` と `gui_web_stdout_text_run` を使って command を streaming します。
+//: - frame 内では `gui_web_stdout_fill_rect`、`gui_web_stdout_rgba_row_*`、`gui_web_stdout_text_run` を使って command を streaming します。
 //: - button などの入力領域は `gui_web_stdout_action_rect` で drawing command とは別の hit target として出力します。
 //: - animation timer は `gui_web_stdout_animation_timer` で window id と timer id を明示して要求します。
 //: - 色は `Rgba8888` の channel を 0..255 の整数として出力します。
@@ -77,6 +77,12 @@ fn gui_web_stdout_rect_is_invalid %fn &GuiRect bool \rect:
 fn gui_web_stdout_action_is_invalid %fn ActionId bool \action:
     let raw %i32 action_id_raw &action
     le raw 0
+
+fn gui_web_stdout_rgba_row_is_invalid %fn i32 fn i32 fn i32 bool \sample_width\cell_width\cell_height:
+    let invalid_sample_width %bool le sample_width 0
+    let invalid_cell_width %bool le cell_width 0
+    let invalid_cell_height %bool le cell_height 0
+    or invalid_sample_width or invalid_cell_width invalid_cell_height
 
 fn gui_web_stdout_animation_timer_is_invalid %fn i32 fn i32 fn i32 bool \window_id\timer_id\interval_ms:
     let invalid_window %bool le window_id 0
@@ -149,6 +155,61 @@ pub fn gui_web_stdout_fill_rect %impure fn GuiRect impure fn Rgba8888 Result uni
             gui_web_stdout_print_u8 alpha;
             print "\n";
             Result::Ok unit
+
+//: gui_web_stdout_rgba_row_begin: rgba8888 row payload command の開始 field を出力する
+//:
+//: [目的/もくてき]:
+//: - Mandelbrot のような raster workload を cell ごとの `FillRect` command flood にせず、1 row を 1 command として host へ渡します。
+//:
+//: [契約/けいやく]:
+//: - sample_width、cell_width、cell_height は 1 以上です。
+//: - caller はこの関数の後に `sample_width` 個の `gui_web_stdout_rgba_row_pixel` を出力し、最後に `gui_web_stdout_rgba_row_end` を呼びます。
+//: - 個数の不一致は Web host decoder が `invalid-rgba-row` として拒否します。
+//: - この helper は Web stdout fallback 用であり、`core/gui` / `alloc/gui` の標準 command 型には stdout transport を漏らしません。
+pub fn gui_web_stdout_rgba_row_begin %impure fn GuiPoint impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \origin\sample_width\cell_width\cell_height:
+    if:
+        gui_web_stdout_rgba_row_is_invalid sample_width cell_width cell_height
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            let origin_x %i32 gui_point_x &origin
+            let origin_y %i32 gui_point_y &origin
+            print "NEPLG2_GUI_RGBA_ROW ";
+            print_i32 origin_x;
+            print " ";
+            print_i32 origin_y;
+            print " ";
+            print_i32 sample_width;
+            print " ";
+            print_i32 cell_width;
+            print " ";
+            print_i32 cell_height;
+            Result::Ok unit
+
+//: gui_web_stdout_rgba_row_pixel: row payload に rgba8888 pixel を 1 つ追加する
+//:
+//: [契約/けいやく]:
+//: - `gui_web_stdout_rgba_row_begin` と `gui_web_stdout_rgba_row_end` の間だけで使います。
+//: - `Rgba8888` の channel は型で 0..255 に制限されるため、ここでは stdout field への変換だけを行います。
+pub fn gui_web_stdout_rgba_row_pixel %impure fn Rgba8888 Result unit GuiError \color:
+    let red %u8 rgba8888_r &color
+    let green %u8 rgba8888_g &color
+    let blue %u8 rgba8888_b &color
+    let alpha %u8 rgba8888_a &color
+    print " ";
+    gui_web_stdout_print_u8 red;
+    print " ";
+    gui_web_stdout_print_u8 green;
+    print " ";
+    gui_web_stdout_print_u8 blue;
+    print " ";
+    gui_web_stdout_print_u8 alpha;
+    Result::Ok unit
+
+//: gui_web_stdout_rgba_row_end: rgba8888 row payload command を改行で完了する
+pub fn gui_web_stdout_rgba_row_end %impure fn void Result unit GuiError \void:
+    print "\n";
+    Result::Ok unit
 
 //: gui_web_stdout_text_run: text-run command を 1 行で出力する
 //:

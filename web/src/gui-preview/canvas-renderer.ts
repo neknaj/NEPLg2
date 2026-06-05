@@ -62,6 +62,10 @@ function renderGuiPreviewCommand(
         );
         return;
     }
+    if (command.kind === 'rgba-row') {
+        renderGuiPreviewRgbaRow(ctx, command, viewport);
+        return;
+    }
 
     ctx.fillStyle = guiPreviewCanvasColor(command.color);
     ctx.font = `${Math.max(8, command.size * viewport.scale)}px "HackGenConsoleNF", "JetBrains Mono", Consolas, monospace`;
@@ -73,9 +77,39 @@ function renderGuiPreviewCommand(
     );
 }
 
+function renderGuiPreviewRgbaRow(
+    ctx: CanvasRenderingContext2D,
+    command: Extract<GuiPreviewDrawCommand, { kind: 'rgba-row' }>,
+    viewport: GuiPreviewCanvasViewport,
+) {
+    let runStart = 0;
+    while (runStart < command.pixels.length) {
+        const color = command.pixels[runStart];
+        let runEnd = runStart + 1;
+        while (runEnd < command.pixels.length && guiPreviewColorEquals(color, command.pixels[runEnd])) {
+            runEnd += 1;
+        }
+        ctx.fillStyle = guiPreviewCanvasColor(color);
+        ctx.fillRect(
+            viewport.left + (command.origin.x + runStart * command.cellWidth) * viewport.scale,
+            viewport.top + command.origin.y * viewport.scale,
+            Math.max(1, (runEnd - runStart) * command.cellWidth * viewport.scale),
+            Math.max(1, command.cellHeight * viewport.scale),
+        );
+        runStart = runEnd;
+    }
+}
+
 function guiPreviewCanvasColor(color: GuiPreviewColor): string {
     const alpha = Math.max(0, Math.min(1, color.alpha / 255));
     return `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha})`;
+}
+
+function guiPreviewColorEquals(left: GuiPreviewColor, right: GuiPreviewColor): boolean {
+    return left.red === right.red
+        && left.green === right.green
+        && left.blue === right.blue
+        && left.alpha === right.alpha;
 }
 
 function guiPreviewCanvasTextAlign(align: GuiPreviewTextAlign): CanvasTextAlign {

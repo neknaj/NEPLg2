@@ -137,7 +137,10 @@ function decodeGuiWebHostCommand(input: unknown, context: DecodeContext): GuiWeb
     if (kind.value === 'text-run') {
         return decodeGuiWebHostTextRun(command.value, context);
     }
-    return err('unsupported-command', child(context, 'kind'), 'fill-rect or text-run', kind.value);
+    if (kind.value === 'rgba-row') {
+        return decodeGuiWebHostRgbaRow(command.value, context);
+    }
+    return err('unsupported-command', child(context, 'kind'), 'fill-rect, text-run, or rgba-row', kind.value);
 }
 
 function decodeGuiWebHostInputTarget(input: unknown, context: DecodeContext): GuiWebHostResult<GuiPreviewInputTarget> {
@@ -223,6 +226,62 @@ function decodeGuiWebHostTextRun(command: UnknownRecord, context: DecodeContext)
     };
 }
 
+function decodeGuiWebHostRgbaRow(command: UnknownRecord, context: DecodeContext): GuiWebHostResult<GuiPreviewDrawCommand> {
+    const origin = decodeGuiWebHostPointField(command, 'origin', child(context, 'origin'), 'invalid-command');
+    if (origin.kind === 'err') {
+        return origin;
+    }
+    const sampleWidth = readPositiveInteger(command, 'sampleWidth', child(context, 'sampleWidth'), 'invalid-command');
+    if (sampleWidth.kind === 'err') {
+        return sampleWidth;
+    }
+    const cellWidth = readPositiveInteger(command, 'cellWidth', child(context, 'cellWidth'), 'invalid-command');
+    if (cellWidth.kind === 'err') {
+        return cellWidth;
+    }
+    const cellHeight = readPositiveInteger(command, 'cellHeight', child(context, 'cellHeight'), 'invalid-command');
+    if (cellHeight.kind === 'err') {
+        return cellHeight;
+    }
+    const pixelValues = readArray(command, 'pixels', child(context, 'pixels'), 'invalid-command');
+    if (pixelValues.kind === 'err') {
+        return pixelValues;
+    }
+    if (pixelValues.value.length !== sampleWidth.value) {
+        return err(
+            'invalid-command',
+            child(context, 'pixels'),
+            `array length ${sampleWidth.value}`,
+            `array length ${pixelValues.value.length}`,
+        );
+    }
+
+    const pixels: GuiPreviewColor[] = [];
+    for (let index = 0; index < pixelValues.value.length; index += 1) {
+        const color = asRecord(pixelValues.value[index], child(context, `pixels.${index}`), 'invalid-color', 'object color');
+        if (color.kind === 'err') {
+            return color;
+        }
+        const decoded = decodeGuiWebHostColorRecord(color.value, child(context, `pixels.${index}`));
+        if (decoded.kind === 'err') {
+            return decoded;
+        }
+        pixels.push(decoded.value);
+    }
+
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'rgba-row',
+            origin: origin.value,
+            sampleWidth: sampleWidth.value,
+            cellWidth: cellWidth.value,
+            cellHeight: cellHeight.value,
+            pixels,
+        },
+    };
+}
+
 function decodeGuiWebHostRect(record: UnknownRecord, context: DecodeContext): GuiWebHostResult<GuiPreviewRect> {
     const rect = readRecord(record, 'rect', context, 'invalid-rect');
     if (rect.kind === 'err') {
@@ -256,15 +315,24 @@ function decodeGuiWebHostRect(record: UnknownRecord, context: DecodeContext): Gu
 }
 
 function decodeGuiWebHostPoint(record: UnknownRecord, context: DecodeContext): GuiWebHostResult<{ x: number; y: number }> {
-    const point = readRecord(record, 'origin', context, 'invalid-text');
+    return decodeGuiWebHostPointField(record, 'origin', context, 'invalid-text');
+}
+
+function decodeGuiWebHostPointField(
+    record: UnknownRecord,
+    name: string,
+    context: DecodeContext,
+    kind: GuiWebHostDecodeErrorKind,
+): GuiWebHostResult<{ x: number; y: number }> {
+    const point = readRecord(record, name, context, kind);
     if (point.kind === 'err') {
         return point;
     }
-    const x = readNumber(point.value, 'x', child(context, 'x'), 'invalid-text');
+    const x = readNumber(point.value, 'x', child(context, 'x'), kind);
     if (x.kind === 'err') {
         return x;
     }
-    const y = readNumber(point.value, 'y', child(context, 'y'), 'invalid-text');
+    const y = readNumber(point.value, 'y', child(context, 'y'), kind);
     if (y.kind === 'err') {
         return y;
     }
@@ -282,26 +350,30 @@ function decodeGuiWebHostColor(record: UnknownRecord, context: DecodeContext): G
     if (color.kind === 'err') {
         return color;
     }
-    const kind = readString(color.value, 'kind', child(context, 'kind'), 'invalid-color');
+    return decodeGuiWebHostColorRecord(color.value, context);
+}
+
+function decodeGuiWebHostColorRecord(color: UnknownRecord, context: DecodeContext): GuiWebHostResult<GuiPreviewColor> {
+    const kind = readString(color, 'kind', child(context, 'kind'), 'invalid-color');
     if (kind.kind === 'err') {
         return kind;
     }
     if (kind.value !== 'rgba8888') {
         return err('unsupported-command', child(context, 'kind'), 'rgba8888', kind.value);
     }
-    const red = readByte(color.value, 'red', child(context, 'red'));
+    const red = readByte(color, 'red', child(context, 'red'));
     if (red.kind === 'err') {
         return red;
     }
-    const green = readByte(color.value, 'green', child(context, 'green'));
+    const green = readByte(color, 'green', child(context, 'green'));
     if (green.kind === 'err') {
         return green;
     }
-    const blue = readByte(color.value, 'blue', child(context, 'blue'));
+    const blue = readByte(color, 'blue', child(context, 'blue'));
     if (blue.kind === 'err') {
         return blue;
     }
-    const alpha = readByte(color.value, 'alpha', child(context, 'alpha'));
+    const alpha = readByte(color, 'alpha', child(context, 'alpha'));
     if (alpha.kind === 'err') {
         return alpha;
     }

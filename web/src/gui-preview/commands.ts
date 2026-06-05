@@ -40,6 +40,14 @@ export type GuiPreviewDrawCommand =
         color: GuiPreviewColor;
         size: number;
         align: GuiPreviewTextAlign;
+    }
+    | {
+        kind: 'rgba-row';
+        origin: GuiPreviewPoint;
+        sampleWidth: number;
+        cellWidth: number;
+        cellHeight: number;
+        pixels: GuiPreviewColor[];
     };
 
 export type GuiPreviewCommandFrame = {

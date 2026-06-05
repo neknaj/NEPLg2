@@ -21,9 +21,14 @@ function runWebGuiPreviewRendererRegression() {
     const panelManagerSource = readRepoFile("web", "src", "workspace", "panel-manager.ts");
 
     assert.equal(repoPathExists("web", "src", "gui-preview", "renderer.ts"), false);
-    assert.match(commandSource, /GuiPreviewDrawCommand =[\s\S]*kind: 'fill-rect'[\s\S]*kind: 'text-run'/);
+    assert.match(commandSource, /GuiPreviewDrawCommand =/);
+    assert.match(commandSource, /kind: 'fill-rect'/);
+    assert.match(commandSource, /kind: 'rgba-row'/);
+    assert.match(commandSource, /kind: 'text-run'/);
+    assert.match(commandSource, /pixels: GuiPreviewColor\[\]/);
     assert.match(commandSource, /GuiPreviewCommandFrame/);
     assert.match(canvasSource, /renderGuiPreviewFrameToCanvas/);
+    assert.match(canvasSource, /renderGuiPreviewRgbaRow/);
     assert.match(panelSource, /presentHostFrame\(frame: GuiPreviewCommandFrame, windowId: number\)/);
     assert.match(panelSource, /GuiPreviewDebugSink/);
     assert.match(panelSource, /waiting-for-frame/);
@@ -42,7 +47,7 @@ function runWebGuiPreviewRendererRegression() {
         ok: true,
         checks: [
             "old TS GUI example renderer is removed",
-            "Web GUI canvas renderer accepts only host command frames",
+            "Web GUI canvas renderer accepts only typed host command frames including rgba row payloads",
             "Web GUI canvas renderer leaves frame title to the floating window titlebar",
             "Web GUI panel no longer simulates NEPL examples",
             "workspace panel layout no longer exposes GUI preview panes",

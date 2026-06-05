@@ -1,17 +1,22 @@
 //: neplg2:test[gui_mandelbrot, normalize_newlines]
-//: [目的/もくてき]: Mandelbrot preview を NEPL 側の model / update / view から描画し、Web Playground host protocol へ frame を出力できることを確認する
+//: [目的/もくてき]: Mandelbrot preview を NEPL 側の model / update / view から row payload frame として出力できることを確認する
 //: argv: ["--once"]
 //:
-//: gui_mandelbrot: Mandelbrot 集合を HD surface 向けの GUI command stream として描画する例
+//: neplg2:test[gui_mandelbrot_hd_contract, normalize_newlines]
+//: [目的/もくてき]: HD mode が 1280x720 logical frame を row payload で表すことを確認する
+//: argv: ["--test-hd-contract"]
+//: stdout: "mandelbrot hd contract ok\n"
+//:
+//: gui_mandelbrot: Mandelbrot 集合を HD surface 向けの GUI row payload stream として描画する例
 //:
 //: [目的/もくてき]:
-//: - Canvas や DOM に依存せず、NEPL の model から `FillRect` command stream を作ります。
+//: - Canvas や DOM に依存せず、NEPL の model から `rgba-row` payload command stream を作ります。
 //: - button は closure ではなく `ActionId` を持ち、update は action と model から次の model を返します。
-//: - HD button は 1280x720 相当の surface に細かい sample grid を描きます。
+//: - HD button は 1280x720 logical surface に 1 logical pixel per sample の row payload を描きます。
 //:
 //: [実装/じっそう]:
 //: - fixed point scale 100 の i32 計算で escape iteration を求めます。
-//: - frame の論理 surface size と sample count を分け、HD でも 1 pixel ごとの command stream にはしません。
+//: - frame の論理 surface size と sample count を分け、HD でも 1 pixel ごとの `FillRect` command stream にはしません。
 //: - 通常実行は Web input bridge の action event を待ち、action ごとに再描画します。
 //: - 表示解像度と ActionId は enum へ decode し、model/update は raw number を直接分岐しません。
 //:
@@ -118,10 +123,10 @@ fn mandelbrot_model_preview %fn void MandelbrotModel \void:
     mandelbrot_model_new 48 27 8 24 MandelbrotMode::Preview
 
 fn mandelbrot_model_hd %fn void MandelbrotModel \void:
-    mandelbrot_model_new 160 90 8 32 MandelbrotMode::HD
+    mandelbrot_model_new 1280 648 1 64 MandelbrotMode::HD
 
 fn mandelbrot_model_detail %fn void MandelbrotModel \void:
-    mandelbrot_model_new 192 108 6 40 MandelbrotMode::Detail
+    mandelbrot_model_new 1280 648 1 96 MandelbrotMode::Detail
 
 fn mandelbrot_control_height %fn void i32 \void:
     72
@@ -250,29 +255,36 @@ fn mandelbrot_color_text %fn void Rgba8888 \void:
     let a %u8 cast 255
     rgba8888_new r g b a
 
-fn mandelbrot_present_cell %impure fn i32 impure fn i32 impure fn MandelbrotModel Result unit GuiError \x\y\model:
-    let cell_size %i32 mandelbrot_model_cell_size &model
-    let px %i32 mul x cell_size
-    let py %i32 mul y cell_size
-    let rect %GuiRect gui_rect_new px py cell_size cell_size
+fn mandelbrot_present_row_pixel %impure fn i32 impure fn i32 impure fn MandelbrotModel Result unit GuiError \x\y\model:
     let iter %i32 mandelbrot_cell_iter x y model
     let limit %i32 mandelbrot_model_iteration_limit &model
     let color %Rgba8888 mandelbrot_color iter limit
-    gui_web_stdout_fill_rect rect color
+    gui_web_stdout_rgba_row_pixel color
 
-fn mandelbrot_present_row %impure fn i32 impure fn i32 impure fn MandelbrotModel Result unit GuiError \x\y\model:
+fn mandelbrot_present_row_pixels %impure fn i32 impure fn i32 impure fn MandelbrotModel Result unit GuiError \x\y\model:
     let sample_width %i32 mandelbrot_model_sample_width &model
     if:
         ge x sample_width
         then:
-            Result::Ok unit
+            gui_web_stdout_rgba_row_end
         else:
-            match mandelbrot_present_cell x y model:
+            match mandelbrot_present_row_pixel x y model:
                 Result::Ok _:
                     let next_x %i32 add x 1
-                    mandelbrot_present_row next_x y model
+                    mandelbrot_present_row_pixels next_x y model
                 Result::Err err:
                     Result::Err err
+
+fn mandelbrot_present_row %impure fn i32 impure fn MandelbrotModel Result unit GuiError \y\model:
+    let sample_width %i32 mandelbrot_model_sample_width &model
+    let cell_size %i32 mandelbrot_model_cell_size &model
+    let py %i32 mul y cell_size
+    let origin %GuiPoint gui_point_new 0 py
+    match gui_web_stdout_rgba_row_begin origin sample_width cell_size cell_size:
+        Result::Ok _:
+            mandelbrot_present_row_pixels 0 y model
+        Result::Err err:
+            Result::Err err
 
 fn mandelbrot_present_rows %impure fn i32 impure fn MandelbrotModel Result unit GuiError \y\model:
     let sample_height %i32 mandelbrot_model_sample_height &model
@@ -281,7 +293,7 @@ fn mandelbrot_present_rows %impure fn i32 impure fn MandelbrotModel Result unit 
         then:
             Result::Ok unit
         else:
-            match mandelbrot_present_row 0 y model:
+            match mandelbrot_present_row y model:
                 Result::Ok _:
                     let next_y %i32 add y 1
                     mandelbrot_present_rows next_y model
@@ -415,10 +427,8 @@ fn mandelbrot_inside_rows %fn i32 fn MandelbrotModel i32 \y\model:
             add row rest
 
 fn mandelbrot_command_count %fn &MandelbrotModel i32 \model:
-    let sample_width %i32 mandelbrot_model_sample_width model
     let sample_height %i32 mandelbrot_model_sample_height model
-    let cells %i32 mul sample_width sample_height
-    add cells 4
+    add sample_height 10
 
 fn mandelbrot_update_action %fn MandelbrotModel fn ActionId MandelbrotModel \model\action:
     let typed %MandelbrotAction mandelbrot_decode_action action
@@ -461,6 +471,51 @@ fn mandelbrot_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
 fn mandelbrot_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
     mandelbrot_has_once_flag_loop 1 count
+
+fn mandelbrot_has_hd_contract_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--test-hd-contract"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            mandelbrot_has_hd_contract_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    mandelbrot_has_hd_contract_flag_loop next_idx count
+
+fn mandelbrot_has_hd_contract_flag %impure fn void bool \void:
+    let count %i32 cliarg_count
+    mandelbrot_has_hd_contract_flag_loop 1 count
+
+fn mandelbrot_hd_contract_ok %fn void bool \void:
+    let model %MandelbrotModel mandelbrot_model_hd
+    let width_ok %bool eq mandelbrot_frame_width &model 1280
+    let height_ok %bool eq mandelbrot_frame_height &model 720
+    let sample_width_ok %bool eq mandelbrot_model_sample_width &model 1280
+    let sample_height_ok %bool eq mandelbrot_model_sample_height &model 648
+    let cell_size_ok %bool eq mandelbrot_model_cell_size &model 1
+    let row_command_count_ok %bool eq mandelbrot_command_count &model 658
+    let size_ok %bool and width_ok height_ok
+    let sample_ok %bool and sample_width_ok sample_height_ok
+    let pixel_ok %bool and cell_size_ok row_command_count_ok
+    let size_and_sample_ok %bool and size_ok sample_ok
+    and size_and_sample_ok pixel_ok
+
+fn mandelbrot_run_hd_contract_test %impure fn void unit \void:
+    if:
+        mandelbrot_hd_contract_ok
+        then:
+            println "mandelbrot hd contract ok"
+        else:
+            println "mandelbrot hd contract failed"
 
 fn mandelbrot_print_status %impure fn MandelbrotModel unit \model:
     print "mandelbrot commands = "
@@ -508,12 +563,17 @@ fn mandelbrot_event_loop %impure fn MandelbrotModel unit \initial_model:
 fn main %impure fn void unit \void:
     let model0 %MandelbrotModel mandelbrot_model_preview
     if:
-        mandelbrot_has_once_flag
+        mandelbrot_has_hd_contract_flag
         then:
-            mandelbrot_run_once model0
+            mandelbrot_run_hd_contract_test
         else:
-            match mandelbrot_present_frame model0:
-                Result::Ok _:
-                    mandelbrot_event_loop model0
-                Result::Err _:
-                    println "mandelbrot gui protocol error"
+            if:
+                mandelbrot_has_once_flag
+                then:
+                    mandelbrot_run_once model0
+                else:
+                    match mandelbrot_present_frame model0:
+                        Result::Ok _:
+                            mandelbrot_event_loop model0
+                        Result::Err _:
+                            println "mandelbrot gui protocol error"
