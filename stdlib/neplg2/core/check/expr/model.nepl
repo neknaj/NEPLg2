@@ -51,7 +51,7 @@ impl Copy for SelfhostCallReduceResult:
 //: SelfhostCallReduceErrorKind: call reduction の失敗分類
 //:
 //: [目的/もくてき]:
-//: - parser 入力不正、名前解決失敗、callable でない値、partial application、overload、generic、expected type mismatch を enum として分けます。
+//: - parser 入力不正、名前解決失敗、callable でない値、partial application、argument type mismatch、overload、generic、expected type mismatch を enum として分けます。
 //: - display text は別 module の diagnostic projection へ移し、checker 本体はこの分類を返します。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
@@ -59,6 +59,7 @@ pub enum SelfhostCallReduceErrorKind:
     UnresolvedName
     NotCallable
     PartialApplicationRejected
+    ArgumentTypeMismatch
     OverloadNoCandidate
     OverloadAmbiguous
     GenericInferenceEvidenceMissing
@@ -136,6 +137,12 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::PartialApplicationRejected:
             match b:
                 SelfhostCallReduceErrorKind::PartialApplicationRejected:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentTypeMismatch:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentTypeMismatch:
                     true
                 _:
                     false

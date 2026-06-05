@@ -29,20 +29,41 @@
 #import "./model" as *
 #import "./call_reduce" as *
 
+//: selfhost_check_expr_stage0_push_arg_item_kind: fixture 用の argument item を 1 つ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - stage0 fixture が `IntLiteral` だけでなく、意図的な型不一致を作れるよう item kind を明示して push します。
+//: - token index と span は固定 fixture の位置情報であり、diagnostic kind の確認に必要な最小 evidence だけを持たせます。
+fn selfhost_check_expr_stage0_push_arg_item_kind %impure fn Vec SelfhostExprPrefixItem impure fn i32 impure fn SelfhostExprPrefixItemKind Result Vec SelfhostExprPrefixItem StdErrorKind \items\idx\kind:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 add idx 4 add idx 5
+    let item %SelfhostExprPrefixItem selfhost_expr_prefix_item_new kind add idx 1 span
+    match v::push items item:
+        Result::Ok next_items:
+            Result::Ok next_items
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_check_expr_stage0_push_arg_items: `IntLiteral` の fixture 引数列を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `add 1 2` のような通常成功経路を作るため、`n` 個の `IntLiteral` item を prefix list に追加します。
+//: - 実装は `selfhost_check_expr_stage0_push_arg_item_kind` を再利用し、型不一致 fixture と同じ token index / span 規則を使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(items)`: すべての item を追加できました。
+//: - `Err(error)`: Vec push が失敗したため、caller が fixture 構築失敗として扱います。
 fn selfhost_check_expr_stage0_push_arg_items %impure fn Vec SelfhostExprPrefixItem impure fn i32 impure fn i32 Result Vec SelfhostExprPrefixItem StdErrorKind \items\n\idx:
     if:
         ge idx n
         then:
             Result::Ok items
         else:
-            let span %SelfhostSourceSpan source_span_new_unchecked 0 add idx 4 add idx 5
-            let item %SelfhostExprPrefixItem selfhost_expr_prefix_item_new SelfhostExprPrefixItemKind::IntLiteral add idx 1 span
-            match v::push items item:
+            match selfhost_check_expr_stage0_push_arg_item_kind items idx SelfhostExprPrefixItemKind::IntLiteral:
                 Result::Ok next_items:
                     selfhost_check_expr_stage0_push_arg_items next_items n add idx 1
-                Result::Err e:
-                    let error %StdErrorKind field::get e "error"
-                    v::free v::vec_push_error_vec e
+                Result::Err error:
                     Result::Err error
 
 fn selfhost_check_expr_stage0_make_prefix %impure fn i32 Result SelfhostExprPrefixList StdErrorKind \argument_count:
@@ -55,6 +76,38 @@ fn selfhost_check_expr_stage0_make_prefix %impure fn i32 Result SelfhostExprPref
                     match selfhost_check_expr_stage0_push_arg_items items1 argument_count 0:
                         Result::Ok items2:
                             Result::Ok selfhost_expr_prefix_list_new items2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage0_make_prefix_with_first_arg: 先頭実引数だけ型を差し替えた prefix fixture を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `add <first> 1` の形を作り、callee の parameter type と実引数 item kind が食い違う場合の reducer 診断を検査します。
+//: - 2 番目の引数は `IntLiteral` に固定し、失敗原因が先頭引数の型不一致に集中するようにします。
+//:
+//: [所有/しょゆう]:
+//: - 成功時に返す `SelfhostExprPrefixList` は caller が `selfhost_expr_prefix_list_free` で解放します。
+//: - 途中で Vec push が失敗した場合は、push error payload から error kind を取り出して返します。
+fn selfhost_check_expr_stage0_make_prefix_with_first_arg %impure fn SelfhostExprPrefixItemKind Result SelfhostExprPrefixList StdErrorKind \first_arg_kind:
+    let items_result %Result Vec SelfhostExprPrefixItem StdErrorKind v::new
+    match items_result:
+        Result::Ok items0:
+            let head %SelfhostExprPrefixItem selfhost_expr_prefix_item_new SelfhostExprPrefixItemKind::NamedValue 0 source_span_new_unchecked 0 0 3
+            match v::push items0 head:
+                Result::Ok items1:
+                    match selfhost_check_expr_stage0_push_arg_item_kind items1 0 first_arg_kind:
+                        Result::Ok items2:
+                            match selfhost_check_expr_stage0_push_arg_item_kind items2 1 SelfhostExprPrefixItemKind::IntLiteral:
+                                Result::Ok items3:
+                                    Result::Ok selfhost_expr_prefix_list_new items3
+                                Result::Err e:
+                                    Result::Err e
                         Result::Err e:
                             Result::Err e
                 Result::Err e:
@@ -117,6 +170,30 @@ fn selfhost_check_expr_stage0_expected_rejected %impure fn &SelfhostTypeArena im
     let expected %SelfhostTypeExpectation selfhost_type_expectation_new bool_type SelfhostTypeExpectationSource::ExplicitAscription source_span_new_unchecked 0 0 3
     selfhost_check_expr_stage0_error_is (selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::NoneRequired some expected) SelfhostCallReduceErrorKind::ExpectedTypeMismatch
 
+//: selfhost_check_expr_stage0_argument_type_rejected: literal 引数の型不一致が拒否されることを[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `add` 候補が `i32, i32 -> i32` を要求する状況で、先頭実引数を `BoolLiteral` に差し替えます。
+//: - reducer が arity と expected result だけで成功せず、parameter type と argument evidence の不一致を `ArgumentTypeMismatch` として返すことを確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 期待した `ArgumentTypeMismatch` が返りました。
+//: - `false`: fixture 構築、候補構築、または reducer の失敗分類が期待と異なります。
+fn selfhost_check_expr_stage0_argument_type_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
+    match selfhost_check_expr_stage0_make_prefix_with_first_arg SelfhostExprPrefixItemKind::BoolLiteral:
+        Result::Ok prefix:
+            match selfhost_check_expr_stage0_make_candidate_vec add_type SelfhostGenericInferenceState::NoneRequired:
+                Result::Ok candidates:
+                    let result %Result SelfhostCallReduceResult SelfhostCallReduceError selfhost_call_reduce_prefix arena &prefix &candidates none
+                    v::free candidates
+                    selfhost_expr_prefix_list_free prefix
+                    selfhost_check_expr_stage0_error_is result SelfhostCallReduceErrorKind::ArgumentTypeMismatch
+                Result::Err _e:
+                    selfhost_expr_prefix_list_free prefix
+                    false
+        Result::Err _e:
+            false
+
 fn selfhost_check_expr_stage0_generic_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
     match selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::EvidenceMissing none:
         Result::Ok _reduced:
@@ -174,7 +251,7 @@ fn selfhost_check_expr_stage0_add_two_i32_function %impure fn SelfhostTypeArena 
 //: selfhost_check_expr_stage0: expression call reduction の smoke API
 //:
 //: [目的/もくてき]:
-//: - direct call success、partial application rejection、expected type mismatch、generic evidence missing、overload ambiguity を 1 回で確認します。
+//: - direct call success、partial application rejection、argument type mismatch、expected type mismatch、generic evidence missing、overload ambiguity を 1 回で確認します。
 //: - これは public compiler API ではなく、self-host expression checker slice の接続確認用です。
 //:
 //: [戻/もど]り[値/ち]:
@@ -198,10 +275,11 @@ pub fn selfhost_check_expr_stage0 %impure fn void i32 \void:
                                     let ok0 %bool selfhost_check_expr_stage0_direct_ok &arena3 i32_type add_type
                                     let ok1 %bool selfhost_check_expr_stage0_partial_rejected &arena3 add_type
                                     let ok2 %bool selfhost_check_expr_stage0_expected_rejected &arena3 bool_type add_type
-                                    let ok3 %bool selfhost_check_expr_stage0_generic_rejected &arena3 add_type
-                                    let ok4 %bool selfhost_check_expr_stage0_ambiguous_rejected &arena3 add_type
+                                    let ok3 %bool selfhost_check_expr_stage0_argument_type_rejected &arena3 add_type
+                                    let ok4 %bool selfhost_check_expr_stage0_generic_rejected &arena3 add_type
+                                    let ok5 %bool selfhost_check_expr_stage0_ambiguous_rejected &arena3 add_type
                                     selfhost_type_arena_free arena3
-                                    if and ok0 and ok1 and ok2 and ok3 ok4 0 1
+                                    if and ok0 and ok1 and ok2 and ok3 and ok4 ok5 0 1
                                 Result::Err _e:
                                     1
                         Result::Err _e:

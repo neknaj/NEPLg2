@@ -25,7 +25,7 @@
 
 2026-04-26 NEPLg2 Self-host
 
-- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の次 slice として、argument type checking、ascription と外側 expected type の diagnostic 統合、generic instantiation inference を追加する
+- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の次 slice として、nested / ascribed argument expression checking、ascription と外側 expected type の diagnostic 統合、generic instantiation inference を追加する
 - `stdlib/doc-comment-boilerplate` branch で `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` に沿って boilerplate 化した stdlib doc comment を具体的な説明へ置き換える
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
 

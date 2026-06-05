@@ -8,10 +8,11 @@
 //: - full expression checker が未実装の機能は、成功 plan ではなく typed error として返します。
 //:
 //: [契約/けいやく]:
-//: - 先頭 item が `NamedValue` で、候補が 1 つだけで、候補型が function type で、引数数が完全一致し、expected result が一致する場合だけ `DirectCall` を返します。
+//: - 先頭 item が `NamedValue` で、候補が 1 つだけで、候補型が function type で、引数数が完全一致し、各引数の型証拠が parameter type と一致し、expected result が一致する場合だけ `DirectCall` を返します。
 //: - 引数不足は partial application として扱わず、`PartialApplicationRejected` を返します。
 //: - 候補が複数ある場合、この slice では expected type による ambiguity narrowing を行わず `OverloadAmbiguous` を返します。
 //: - generic inference が `EvidenceMissing` / `Conflict` / `Unsupported` の候補は fail-closed にします。
+//: - full expression checker が未実装の引数式は、型が一致したものとして通さず `ArgumentTypeMismatch` として拒否します。
 
 #import "alloc/collections/vec" as v
 #import "core/option" as *
@@ -23,6 +24,7 @@
 #import "./expectation" as *
 #import "./call_candidate" as *
 #import "./model" as *
+#import "./argument" as *
 
 fn selfhost_call_reduce_generic_state_error %fn SelfhostCallableCandidate Result unit SelfhostCallReduceError \candidate:
     match candidate.generic_state:
@@ -53,7 +55,38 @@ fn selfhost_call_reduce_expected_result %fn &SelfhostTypeArena fn SelfhostCallab
         Option::None:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::NotCallable candidate.span
 
-fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn i32 fn SelfhostExprPrefixItem fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError \arena\item_count\head\candidate\expected:
+//: selfhost_call_reduce_argument_type_check_loop: 実引数 item と parameter type を順に[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - arity が完全一致した候補について、prefix list の実引数 item と function type の parameter type を 1 対 1 で検査します。
+//: - argument module が `None` を返す未対応式は成功扱いせず、該当 item の span で `ArgumentTypeMismatch` を返します。
+//:
+//: [契約/けいやく]:
+//: - `arg_count` は事前に `candidate.callable_type` の parameter count と一致している必要があります。
+//: - prefix list の index `0` は callee head であり、実引数 `idx` は prefix index `idx + 1` にあります。
+//: - type arena から parameter type が取り出せない場合は、caller 側の不整合として `InternalInvariant` を返します。
+fn selfhost_call_reduce_argument_type_check_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn i32 fn i32 fn SelfhostExprPrefixItem Result unit SelfhostCallReduceError \arena\prefix\candidate\arg_count\idx\head:
+    if:
+        ge idx arg_count
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_expr_prefix_list_get prefix add idx 1:
+                Option::Some argument_item:
+                    match selfhost_type_arena_function_arg arena candidate.callable_type idx:
+                        Option::Some expected_arg_type:
+                            if:
+                                selfhost_expr_argument_item_matches_type arena argument_item expected_arg_type
+                                then:
+                                    selfhost_call_reduce_argument_type_check_loop arena prefix candidate arg_count add idx 1 head
+                                else:
+                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentTypeMismatch argument_item.span
+                        Option::None:
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn i32 fn SelfhostExprPrefixItem fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError \arena\prefix\item_count\head\candidate\expected:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _:
             match selfhost_type_arena_function_arg_count arena candidate.callable_type:
@@ -69,9 +102,13 @@ fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn i32 fn 
                                 then:
                                     Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadNoCandidate head.span
                                 else:
-                                    match selfhost_call_reduce_expected_result arena candidate expected:
-                                        Result::Ok result_type:
-                                            Result::Ok SelfhostCallReduceResult::DirectCall selfhost_reduced_call_new 0 argument_count result_type head.span
+                                    match selfhost_call_reduce_argument_type_check_loop arena prefix candidate argument_count 0 head:
+                                        Result::Ok _:
+                                            match selfhost_call_reduce_expected_result arena candidate expected:
+                                                Result::Ok result_type:
+                                                    Result::Ok SelfhostCallReduceResult::DirectCall selfhost_reduced_call_new 0 argument_count result_type head.span
+                                                Result::Err e:
+                                                    Result::Err e
                                         Result::Err e:
                                             Result::Err e
                 Option::None:
@@ -79,7 +116,7 @@ fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn i32 fn 
         Result::Err e:
             Result::Err e
 
-fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn SelfhostExprPrefixItem fn i32 Result SelfhostCallReduceResult SelfhostCallReduceError \arena\candidates\expected\head\item_count:
+fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn SelfhostExprPrefixItem fn i32 Result SelfhostCallReduceResult SelfhostCallReduceError \arena\prefix\candidates\expected\head\item_count:
     let candidate_count %i32 v::len candidates
     if:
         eq candidate_count 0
@@ -93,7 +130,7 @@ fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &Vec SelfhostCall
                 else:
                     match v::get candidates 0:
                         Option::Some candidate:
-                            selfhost_call_reduce_single_named_candidate arena item_count head candidate expected
+                            selfhost_call_reduce_single_named_candidate arena prefix item_count head candidate expected
                         Option::None:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
@@ -106,6 +143,7 @@ fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &Vec SelfhostCall
 //: [場合分/ばあいわ]け:
 //: - `Ok(DirectCall)`: named function call が完全飽和し、expected result にも合っています。
 //: - `Err(PartialApplicationRejected)`: 引数不足です。NEPLg2.1 は部分適用を導入しないため、関数値としては返しません。
+//: - `Err(ArgumentTypeMismatch)`: 引数 item の型証拠が parameter type と一致しません。
 //: - `Err(OverloadAmbiguous)`: 候補が複数あり、この slice では narrowing しません。
 //: - `Err(GenericInference*)`: generic solver がこの call を安全に一意化できません。
 pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError \arena\prefix\candidates\expected:
@@ -119,7 +157,7 @@ pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefix
                 Option::Some head:
                     match head.kind:
                         SelfhostExprPrefixItemKind::NamedValue:
-                            selfhost_call_reduce_named_prefix arena candidates expected head item_count
+                            selfhost_call_reduce_named_prefix arena prefix candidates expected head item_count
                         _:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
                 Option::None:
