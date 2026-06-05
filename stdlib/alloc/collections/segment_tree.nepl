@@ -7,6 +7,8 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]は `i32` の[加算/かさん] monoid に[固定/こてい]しています。
+//: - internal storage は typed `Vec i32` owner で、`base` は `n == 0` でも 1、storage length は `2 * base` です。
+//: - `sum_range` は `[l, r)` の[半開/はんかい][区間/くかん]を[扱/あつか]います。
 //: - `replace` / `add` の失敗は owner を失わないように `SegmentTreeUpdateError` で元の `SegmentTree` と `Diag` を返します。
 
 #indent 4
