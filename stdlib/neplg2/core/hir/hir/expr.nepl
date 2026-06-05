@@ -1,4 +1,18 @@
 #indent 4
+
+//: # hir/hir/expr
+//: selfhost compiler の typed HIR expression payload と record を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - checker / lowering が確定した型、span、value identity、function identity、child range を HIR expression として保存します。
+//: - HIR 以降の phase が source token や scope lookup を再実行せず、typed payload だけで同じ expression boundary を参照できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostHirExpr.ty` と identity payload が authority です。payload の文字列や source span から型や定義 identity を推測し直してはいけません。
+//: - 関数値は `SelfhostHirFunctionValueIdentity` によって effect / type / DefId evidence を保持します。`memo_call` や indirect call はこの identity の制約を別 stage で検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - expression record の構築と accessor は O(1) です。child traversal の計算量は child range を消費する後続 stage が持ちます。
 #import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
@@ -11,6 +25,13 @@
 #import "./range" as *
 
 //: SelfhostHirExprKind: S4 初期段階で扱う HIR expression の分類
+//:
+//: [目的/もくてき]:
+//: - HIR expression の payload variant を、数値 tag や文字列ではなく enum として後続 phase に渡します。
+//:
+//: [契約/けいやく]:
+//: - この enum は payload の分類だけを表します。expression type の authority は `SelfhostHirExpr.ty` です。
+//: - variant を追加した場合は、`selfhost_hir_expr_kind_eq` と `selfhost_hir_expr_kind` の match を同時に更新します。
 pub enum SelfhostHirExprKind:
     Error
     Unit
@@ -65,6 +86,10 @@ impl Copy for SelfhostHirFunctionValueIdentity:
 //: [目的/もくてき]:
 //: - `type_arg_count` など、payload の内部不変条件を bool や文字列ではなく enum で報告します。
 //: - caller は `Result` を match し、invalid identity を HIR に入れない fail-closed path を取れます。
+//:
+//: [契約/けいやく]:
+//: - variant は constructor の失敗理由を表します。表示文や diagnostic message は別 layer で決めます。
+//: - generic function value lowering を実装するまでは、負の type argument count だけを構築時の typed error として扱います。
 pub enum SelfhostHirFunctionValueIdentityBuildError:
     NegativeTypeArgCount
 
@@ -76,16 +101,17 @@ impl Copy for SelfhostHirFunctionValueIdentityBuildError:
     fn copy_mark %fn SelfhostHirFunctionValueIdentityBuildError SelfhostHirFunctionValueIdentityBuildError \self:
         self
 
-//: SelfhostHirExpr: HIR expression record
+//: SelfhostHirCallExpr: call payload に保存する callee 名と argument child range
 //:
 //: [目的/もくてき]:
-//: - expression 共通の型 / span と、kind 固有の payload を分けて保持します。
+//: - direct call の表示名と、同じ HIR module arena 内にある argument expression range をまとめます。
 //:
-//: [注意/ちゅうい]:
-//: - child range や literal 値は `SelfhostHirExprPayload` を match した後でだけ読めます。
-//: - 後続の symbol table / string table 導入までは、Call / StrLiteral payload に `str` を直接保持します。
-//: - 変数参照は `str` だけでは identity と proof boundary が不足するため、`SelfhostHirValueIdentity` として保持します。
-//: - 関数値は `str` だけでは identity と proof boundary が不足するため、`SelfhostHirFunctionValueIdentity` として保持します。
+//: [契約/けいやく]:
+//: - `name` は現状の direct call 表示名です。将来の stable callable id 追加後も、型や identity の authority として使ってはいけません。
+//: - `args` は `SelfhostHirModule` arena 内の child range です。range 外参照は module arena 側の invariant で拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record copy と field access は O(1) です。
 pub struct SelfhostHirCallExpr:
     name %str
     args %SelfhostHirChildRange
@@ -109,6 +135,9 @@ impl Copy for SelfhostHirCallExpr:
 //: - `def_id` は name resolver が割り当てた定義 identity です。`Var` payload は DefId のない文字列参照へ戻してはいけません。
 //: - `value_ty` はこの値参照 expression の型であり、`SelfhostHirExpr.ty` と一致していなければなりません。
 //: - `kind` は local / parameter / builtin などの名前空間分類です。後続 phase は kind に応じて capture、local slot、builtin lowering を分けます。
+//:
+//: [計算量/けいさんりょう]:
+//: - identity record の構築、copy、field access は O(1) です。
 pub struct SelfhostHirValueIdentity:
     symbol %str
     def_id %SelfhostDefId
@@ -123,6 +152,15 @@ impl Copy for SelfhostHirValueIdentity:
     fn copy_mark %fn SelfhostHirValueIdentity SelfhostHirValueIdentity \self:
         self
 
+//: SelfhostHirExprPayload: HIR expression の payload 分類
+//:
+//: [目的/もくてき]:
+//: - typed HIR expression が、literal、value reference、function value、call、block、if のどの実体を持つかを enum で表します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostHirExpr.ty` が expression type の authority であり、payload variant だけから型を推測してはいけません。
+//: - `FnValue` と `Var` は DefId-linked identity payload を持ちます。source spelling から identity を再構築してはいけません。
+//: - `Call`、`Block`、`If` は child range を通じて module arena 内の child expression を参照します。
 pub enum SelfhostHirExprPayload:
     Error
     Unit
@@ -143,6 +181,18 @@ impl Copy for SelfhostHirExprPayload:
     fn copy_mark %fn SelfhostHirExprPayload SelfhostHirExprPayload \self:
         self
 
+//: SelfhostHirExpr: 型付き HIR expression record
+//:
+//: [目的/もくてき]:
+//: - HIR lowering が生成した expression の型、source span、payload を 1 つにまとめます。
+//:
+//: [契約/けいやく]:
+//: - `ty` は typecheck / lowering が確定した `SelfhostTypeId` です。payload の literal kind や call name から後で推測し直してはいけません。
+//: - `span` は diagnostic、dump、source map 用の位置情報です。最適化や backend lowering はこの span を意味論の根拠にしてはいけません。
+//: - `payload` は expression の構造情報であり、child id / range は同じ `SelfhostHirModule` arena 内を指します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record copy と field access は O(1) です。
 pub struct SelfhostHirExpr:
     ty %SelfhostTypeId
     span %SelfhostSourceSpan

@@ -12,6 +12,15 @@
 #import "neplg2/core/syntax/lexer/indent" as *
 #import "neplg2/core/syntax/lexer/token_build" as *
 
+//: SelfhostLexerDirectiveKind: `#` directive の lexer-level 分類
+//:
+//: [目的/もくてき]:
+//: - `#entry`、`#target`、`#import`、raw backend directive などを、文字列ではなく enum で分類します。
+//: - token 化ではこの分類を `TokenKind::Dir*` へ写像し、未知 directive は fail-closed に `Unknown` として扱います。
+//:
+//: [契約/けいやく]:
+//: - enum variant は lexer の directive spelling 判定だけを表します。directive の意味検査や重複検査は module checker / proof 層が担当します。
+//: - 新しい directive を追加した場合は、この enum、bucket 分類、token kind 写像を同時に更新します。
 pub enum SelfhostLexerDirectiveKind:
     Entry
     IndentWidth
@@ -39,7 +48,17 @@ impl Copy for SelfhostLexerDirectiveKind:
     fn copy_mark %fn SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind \self:
         self
 
-
+//: lex_directive_word_at: 指定 offset に directive word があり、後続が境界か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `#imported` を `#import` と誤認しないよう、prefix 一致と directive boundary を一緒に検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `word` が `start` にあり、その直後が whitespace、newline、colon、EOF などの directive 境界です。
+//: - `false`: prefix が一致しない、または識別子の続きとして読める byte が続きます。
+//:
+//: [計算量/けいさんりょう]:
+//: - `word` の長さを m として O(m) です。
 pub fn lex_directive_word_at %fn str fn i32 fn i32 fn str bool \source\n\start\word:
     let word_len %i32 string_access::len word
     and string_search::str_starts_with_at source start word lex_directive_boundary source n add start word_len

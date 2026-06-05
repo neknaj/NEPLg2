@@ -1,14 +1,5 @@
 #indent 4
 
-#import "alloc/string" as *
-#import "alloc/string/byte_index" as *
-#import "core/field" as *
-#import "core/math" as *
-#import "core/option" as *
-#import "core/result" as *
-#import "./classify" as *
-#import "./types" as *
-
 //: # args/emit
 //: NEPLg2.0 self-host CLI の emit option と artifact set 操作を[集/あつ]める module です。
 //:
@@ -40,6 +31,36 @@
 //:             2
 //: ```
 
+#import "alloc/string" as *
+#import "alloc/string/byte_index" as *
+#import "core/field" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "./classify" as *
+#import "./types" as *
+
+//: selfhost_cli_emit_set_new: artifact flag から emit set を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - parser と helper が共有する `SelfhostCliEmitSet` record を、field 順序を 1 箇所に集約して作ります。
+//:
+//: [契約/けいやく]:
+//: - 引数は wasm / wat / wat-min / llvm / llvm-min の順に、各 artifact を出力対象に含めるかを表します。
+//: - 新しい artifact field を追加した場合は、この constructor と `SelfhostCliEmitSet` の定義、`selfhost_cli_emit_set_all` を同時に更新します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/cli/args/emit" as *
+//: fn main %fn void i32 \void:
+//:     let emit %SelfhostCliEmitSet selfhost_cli_emit_set_new true false false false false
+//:     if selfhost_cli_emit_is_wasm emit 0 1
+//: ```
 pub fn selfhost_cli_emit_set_new %fn bool fn bool fn bool fn bool fn bool SelfhostCliEmitSet \wasm\wat\wat_min\llvm\llvm_min:
     SelfhostCliEmitSet wasm wat wat_min llvm llvm_min
 
@@ -50,12 +71,43 @@ pub fn selfhost_cli_emit_set_new %fn bool fn bool fn bool fn bool fn bool Selfho
 pub fn selfhost_cli_emit_set_default %fn void SelfhostCliEmitSet \void:
     selfhost_cli_emit_set_new true false false false false
 
+//: selfhost_cli_emit_set_empty: artifact を 1 つも含まない emit set を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `--emit` の comma 区切り parser が、左から要素を畳み込むための初期値を作ります。
+//:
+//: [契約/けいやく]:
+//: - すべての artifact flag は false です。既定値の wasm 出力とは異なり、parser 内部の accumulator 専用です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
 pub fn selfhost_cli_emit_set_empty %fn void SelfhostCliEmitSet \void:
     selfhost_cli_emit_set_new false false false false false
 
+//: selfhost_cli_emit_set_all: すべての artifact を含む emit set を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - CLI の `--emit all` を、個別 artifact field の集合へ展開します。
+//:
+//: [契約/けいやく]:
+//: - wasm / wat / wat-min / llvm / llvm-min の全 field を true にします。新しい artifact を追加した場合は、この関数と `SelfhostCliEmit::All` の展開契約を同時に更新します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
 pub fn selfhost_cli_emit_set_all %fn void SelfhostCliEmitSet \void:
     selfhost_cli_emit_set_new true true true true true
 
+//: selfhost_cli_emit_set_add: emit set に 1 つの artifact 指定を[加/くわ]える
+//:
+//: [目的/もくてき]:
+//: - comma 区切りで読んだ `SelfhostCliEmit` を、累積中の `SelfhostCliEmitSet` に反映します。
+//:
+//: [契約/けいやく]:
+//: - 既存の true field は保持し、指定された artifact の field だけを true にします。
+//: - `SelfhostCliEmit::All` は `selfhost_cli_emit_set_all` と同じ展開を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match と record 構築だけなので O(1) です。
 pub fn selfhost_cli_emit_set_add %fn SelfhostCliEmitSet fn SelfhostCliEmit SelfhostCliEmitSet \emit_set\emit:
     match emit:
         SelfhostCliEmit::Wasm:

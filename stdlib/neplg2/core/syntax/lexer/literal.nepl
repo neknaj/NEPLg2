@@ -6,6 +6,17 @@
 #import "core/math" as *
 #import "neplg2/core/syntax/lexer/byte" as *
 
+//: lex_is_hex_digit: ASCII hexadecimal digit byte か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - hex integer literal と char escape の scanner が共有する byte-level 判定です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `0..9`、`a..f`、`A..F` の ASCII byte です。
+//: - `false`: それ以外の byte または EOF sentinel です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 比較だけなので O(1) です。
 pub fn lex_is_hex_digit %fn i32 bool \ch:
     let digit %bool lex_is_digit ch
     let lower %bool and ge ch 'a' le ch 'f'

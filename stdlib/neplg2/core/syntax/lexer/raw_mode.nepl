@@ -9,6 +9,14 @@
 #import "neplg2/core/syntax/lexer/indent" as *
 #import "neplg2/core/syntax/lexer/token_build" as *
 
+//: SelfhostLexerRawMode: raw backend block の現在 mode
+//:
+//: [目的/もくてき]:
+//: - `#wasm` / `#llvmir` の後続 raw text 行を、通常 NEPL token と混ぜずに backend text token として読むための lexer state です。
+//:
+//: [契約/けいやく]:
+//: - `None` は通常 tokenization、`Wasm` と `LlvmIr` は raw line tokenization を表します。
+//: - raw block の構造的な妥当性は module checker / proof 層が検査します。この enum は lexer state だけを表します。
 pub enum SelfhostLexerRawMode:
     None
     Wasm
@@ -21,10 +29,6 @@ impl Clone for SelfhostLexerRawMode:
 impl Copy for SelfhostLexerRawMode:
     fn copy_mark %fn SelfhostLexerRawMode SelfhostLexerRawMode \self:
         self
-
-//: SelfhostLexerDirectiveKind: `#` directive の分類
-//:
-//: [目的/もくてき]:
 
 //: lex_token_pending_raw_mode: raw block を開始する directive なら mode を[返/かえ]す
 pub fn lex_token_pending_raw_mode %fn SelfhostToken SelfhostLexerRawMode \token:
