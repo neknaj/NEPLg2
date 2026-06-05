@@ -6,6 +6,31 @@
 //:
 //: [注意/ちゅうい]:
 //: - 入力文字列は UTF-8 不変条件を満たす前提で、追加 validation は行いません。
+//: - allocation failure や確保前の長さ不正の error reason が必要な処理では `concat_result` を使います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_concat_module_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"simple concat\" expected=\"hello world\" actual=\"hello world\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"result concat\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/concat" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let result_ok %bool match concat_result "A" "あ":
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok s:
+//:             test_str_eq "Aあ" s
+//:     let report:
+//:         test_report_new "alloc_string_concat_module_doc"
+//:         |> test_report_push assert_str_eq "simple concat" "hello world" concat "hello " "world"
+//:         |> test_report_push assert "result concat" result_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
@@ -30,9 +55,39 @@
 //: [注意/ちゅうい]:
 //: - 入力文字列は UTF-8 不変条件を満たす前提で、追加の validation は行いません。
 //: - `concat` は失敗時に空文字列へ落とす互換 API です。新規コードでは `concat_result` を優先してください。
+//: - `Result::Err` は `string_alloc_region` の確保失敗または確保前の長さ不正をそのまま返します。途中まで構築された `str` owner は公開しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(a) + len(b))
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_concat_result_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"result ascii\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"result utf8\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/concat" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ascii_ok %bool match concat_result "ab" "cd":
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok s:
+//:             test_str_eq "abcd" s
+//:     let utf8_ok %bool match concat_result "あ" "い":
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok s:
+//:             test_str_eq "あい" s
+//:     let report:
+//:         test_report_new "alloc_string_concat_result_doc"
+//:         |> test_report_push assert "result ascii" ascii_ok
+//:         |> test_report_push assert "result utf8" utf8_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn concat_result %fn str fn str Result str str \a\b:
     let la %i32 len a;
     let lb %i32 len b;
@@ -46,6 +101,46 @@ pub fn concat_result %fn str fn str Result str str \a\b:
             mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
             Result::Ok string_finish out_region total
 
+//: concat: 2 つの文字列を連結し、失敗時は空文字列へ落とす互換 API
+//:
+//: [目的/もくてき]:
+//: - 既存の `str` 同士を連結した owned `str` を返します。
+//: - 呼び出し側の型を `str` に保つ必要がある既存 API や診断文組み立てで使います。
+//:
+//: [契約/けいやく]:
+//: - `concat_result a b` が `Result::Ok s` を返した場合は、その `s` を返します。
+//: - `concat_result a b` が `Result::Err _` を返した場合は、error reason を捨てて `""` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - fallback は互換層のための仕様であり、allocation failure を呼び出し側で扱いたい新規コードでは `concat_result` を使ってください。
+//: - 入力文字列は UTF-8 不変条件を満たす前提で、追加 validation は行いません。
+//:
+//: [現状/げんじょう]:
+//: - `concat_result` の `Result` を `match` し、`Result::Err` だけを空文字列 fallback に畳みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 成功時は O(len(a) + len(b))、失敗時は allocation failure の検出までです。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_concat_fallback_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"concat utf8\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"concat empty left\" expected=\"tail\" actual=\"tail\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/concat" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let joined %str concat "hello" "世界"
+//:     let tail %str concat "" "tail"
+//:     let joined_ok %bool test_str_eq "hello世界" joined
+//:     let report:
+//:         test_report_new "alloc_string_concat_fallback_doc"
+//:         |> test_report_push assert "concat utf8" joined_ok
+//:         |> test_report_push assert_str_eq "concat empty left" "tail" tail
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn concat %fn str fn str str \a\b:
     match concat_result a b:
         Result::Ok s:
@@ -62,12 +157,41 @@ pub fn concat %fn str fn str str \a\b:
 //: [実装/じっそう]:
 //: - `concat a b` の結果に `c` を再度 `concat` します。
 //:
+//: [契約/けいやく]:
+//: - 返す文字列の内容は `a`、`b`、`c` の byte 列をこの順に並べたものです。
+//:
+//: [現状/げんじょう]:
+//: - まず `a + b` の中間文字列を 1 つ確保し、その結果と `c` をもう一度連結します。
+//: - 現在の実装では `a + b` の内容が 2 回目の連結時に再コピーされます。
+//:
 //: [注意/ちゅうい]:
 //: - 中間文字列を 1 つ確保します。多数の片を結合する場合は `StringBuilder` を使ってください。
 //: - allocation failure は `concat` と同じく空文字列 fallback に吸収されます。
 //:
 //: [計算量/けいさんりょう]:
-//: - O(len(a) + len(b) + len(c)) ですが、中間 copy が 1 回追加で発生します。
+//: - 契約上の出力サイズは O(len(a) + len(b) + len(c)) です。
+//: - 現在の実装では `a + b` の中間確保と再コピーにより、追加の copy cost が発生します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_concat3_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"concat3 bracket\" expected=\"[ok]\" actual=\"[ok]\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"concat3 utf8\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/concat" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bracketed %str concat3 "[" "ok" "]"
+//:     let utf8 %str concat3 "" "あ" "い"
+//:     let utf8_ok %bool test_str_eq "あい" utf8
+//:     let report:
+//:         test_report_new "alloc_string_concat3_doc"
+//:         |> test_report_push assert_str_eq "concat3 bracket" "[ok]" bracketed
+//:         |> test_report_push assert "concat3 utf8" utf8_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn concat3 %fn str fn str fn str str \a\b\c:
     let ab %str concat a b;
     concat ab c

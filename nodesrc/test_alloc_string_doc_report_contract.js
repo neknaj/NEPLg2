@@ -126,6 +126,26 @@ const contracts = [
         name: 'alloc_string_char_offsets_result_doc',
         count: 5,
     },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'concat.nepl'],
+        name: 'alloc_string_concat_module_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'concat.nepl'],
+        name: 'alloc_string_concat_result_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'concat.nepl'],
+        name: 'alloc_string_concat_fallback_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'concat.nepl'],
+        name: 'alloc_string_concat3_doc',
+        count: 2,
+    },
 ];
 
 for (const { rel, index, name, count } of contracts) {
@@ -203,6 +223,23 @@ for (const [rel, snippets] of [
             '`Result` payload を作らずに 1 回の走査',
             'char は UTF-8 scalar value 単位',
             'continuation byte や不正な leading byte から始まる位置は 0 を返します',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'concat.nepl'],
+        [
+            'root facade から allocation / raw copy の責務を分離します',
+            '入力文字列は UTF-8 不変条件を満たす前提',
+            'allocation failure や確保前の長さ不正の error reason が必要な処理では `concat_result` を使います',
+            '`Result::Err` は `string_alloc_region` の確保失敗または確保前の長さ不正をそのまま返します',
+            '途中まで構築された `str` owner は公開しません',
+            'error reason を捨てて `""` を返します',
+            'fallback は互換層のための仕様',
+            '新規コードでは `concat_result` を使ってください',
+            '`a + b` の中間文字列を 1 つ確保',
+            '`a + b` の内容が 2 回目の連結時に再コピーされます',
+            'string_alloc_region',
+            'mem_copy',
         ],
     ],
 ]) {
