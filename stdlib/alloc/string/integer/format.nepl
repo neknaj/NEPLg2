@@ -4,10 +4,46 @@
 //: [目的/もくてき]:
 //: - i32 / i64 / u128 / i128 の表示用文字列化をまとめます。
 //: - 桁生成と符号付与を parse と分け、formatting 側の ownership と allocation boundary を監査しやすくします。
+//: - integer format は parse と分け、Result API と fallback API の境界を明示します。
 //:
 //: [注意/ちゅうい]:
 //: - 基数は common の validate_radix に従い 2 / 8 / 10 / 16 のみを受理します。
 //: - u128 の桁生成は string region を確保し、末尾から byte を埋めて finalized str にします。
+//: - `from_i32` / `from_i64` / `from_u128` / `from_i128` は失敗時に `"0"` fallback を返す互換 API です。
+//: - `from_i32_radix` / `from_i64_radix` / `from_u128_radix` / `from_i128_radix` は `Result` で失敗理由を返す API です。
+//: - 現状の error payload は `i32` であり、typed enum error ではありません。typed enum error への整理は `ISS-20260605T203044028Z-STRING-INTEGER-FORMAT-ERROR-KIND-COLLAPSED-I32-8C63F92A` で追跡します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_format_module_doc\" count=4 failed=0\nassertion index=0 status=ok kind=str_eq label=\"decimal i32\" expected=\"-42\" actual=\"-42\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"binary i32\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"large u128 hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"negative i128 hex\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/result" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let wide %u128 u128 %i64 cast 1 %i64 cast 0
+//:     let neg %i128 sub %i128 cast 0 %i128 cast 255
+//:     let report:
+//:         test_report_new "alloc_string_integer_format_module_doc"
+//:         |> test_report_push assert_str_eq "decimal i32" "-42" from_i32 -42
+//:         |> test_report_push assert "binary i32" result_str_eq from_i32_radix 10 2 "1010"
+//:         |> test_report_push assert "large u128 hex" result_str_eq from_u128_radix wide 16 "10000000000000000"
+//:         |> test_report_push assert "negative i128 hex" result_str_eq from_i128_radix neg 16 "-ff"
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
@@ -60,22 +96,62 @@ pub fn from_i32 %fn i32 str \x:
         Result::Err _:
             "0"
 
-// from_i32_radix: i32 を指定した基数の文字列へ変換する
-//
-// 目的:
-// - i32 を 2 / 8 / 10 / 16 進の文字列へ変換します。
-// - ログ、テスト、シリアライズで基数を明示した文字列表現が必要な場面に使います。
-//
-// 実装(アルゴリズム):
-// - `i32` を `i64` に符号拡張してから `from_i64_radix` に委譲します。
-// - 桁列生成の本体は i64 共通実装に集約します。
-//
-// 注意(重要):
-// - 対応基数は 2 / 8 / 10 / 16 のみです。
-// - 結果は小文字英字を使うため、16 進では `ff` のような表記になります。
-//
-// 計算量:
-// - O(d)  (d は指定基数での桁数)
+//: from_i32_radix: i32 を指定した基数の文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `i32` を 2 / 8 / 10 / 16 進の文字列へ変換します。
+//: - ログ、テスト、シリアライズで基数を明示した文字列表現が必要な場面に使います。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 の場合は `Result::Ok` で符号付き文字列を返します。
+//: - `radix` がそれ以外の場合は `Result::Err 1` を返します。
+//: - 16 進の英字 digit は `a..f` の小文字です。
+//: - 負数はすべての基数で `-...` の形に統一します。
+//:
+//: [実装/じっそう]:
+//: - `i32` を `i64` に符号拡張してから `from_i64_radix` に委譲します。
+//: - 桁列生成の本体は i64 / i128 共通実装に集約します。
+//:
+//: [現状/げんじょう]:
+//: - error payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d)  (d は指定基数での桁数)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_from_i32_radix_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"binary i32\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative hex i32\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"invalid radix i32\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_err_i32 %fn Result str i32 fn i32 bool \got\expected:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err actual:
+//:             eq expected actual
+//:
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_integer_from_i32_radix_doc"
+//:         |> test_report_push assert "binary i32" result_str_eq from_i32_radix 10 2 "1010"
+//:         |> test_report_push assert "negative hex i32" result_str_eq from_i32_radix -255 16 "-ff"
+//:         |> test_report_push assert "invalid radix i32" result_err_i32 from_i32_radix 7 3 1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_i32_radix %fn i32 fn i32 Result str i32 \x\radix:
     from_i64_radix %i64 cast x radix
 
@@ -100,38 +176,106 @@ pub fn from_i64 %fn i64 str \x:
         Result::Err _:
             "0"
 
-// from_i64_radix: i64 を指定した基数の文字列へ変換する
-//
-// 目的:
-// - i64 を 2 / 8 / 10 / 16 進文字列へ変換します。
-// - 整数の可視化や、基数を固定したテストデータ生成に使います。
-//
-// 実装(アルゴリズム):
-// - `i64` を `i128` に持ち上げ、符号と magnitude の処理を `from_i128_radix` に統一します。
-//
-// 注意(重要):
-// - すべての基数で負数は `-ff` のような符号付き文字列として返します。
-// - 16 進の英字は小文字です。
-// - 基数が不正な場合は `Result::Err 1` を返します。
-//
-// 計算量:
-// - O(d)  (d は指定基数での桁数)
+//: from_i64_radix: i64 を指定した基数の文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `i64` を 2 / 8 / 10 / 16 進文字列へ変換します。
+//: - 整数の可視化や、基数を固定したテストデータ生成に使います。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 の場合は `Result::Ok` で符号付き文字列を返します。
+//: - `radix` がそれ以外の場合は `Result::Err 1` を返します。
+//: - 16 進の英字 digit は `a..f` の小文字です。
+//: - 負数はすべての基数で `-...` の形に統一します。
+//:
+//: [実装/じっそう]:
+//: - `i64` を `i128` に持ち上げ、符号と magnitude の処理を `from_i128_radix` に統一します。
+//: - `i64` 最小値も `i128` 経由で扱うため、符号反転 overflow に依存しません。
+//:
+//: [現状/げんじょう]:
+//: - error payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d)  (d は指定基数での桁数)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_from_i64_radix_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"hex i64\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative hex i64\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"invalid radix i64\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/result" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_err_i32 %fn Result str i32 fn i32 bool \got\expected:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err actual:
+//:             eq expected actual
+//:
+//: fn main %impure fn void i32 \void:
+//:     let neg %i64 sub %i64 cast 0 %i64 cast 255
+//:     let report:
+//:         test_report_new "alloc_string_integer_from_i64_radix_doc"
+//:         |> test_report_push assert "hex i64" result_str_eq from_i64_radix %i64 cast 255 16 "ff"
+//:         |> test_report_push assert "negative hex i64" result_str_eq from_i64_radix neg 16 "-ff"
+//:         |> test_report_push assert "invalid radix i64" result_err_i32 from_i64_radix %i64 cast 7 3 1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_i64_radix %fn i64 fn i32 Result str i32 \x\radix:
     from_i128_radix %i128 cast x radix
 
-// from_u128: u128 を 10 進文字列へ変換する
-//
-// 目的:
-// - `u128` の大きな値を 10 進文字列として可視化します。
-//
-// 実装(アルゴリズム):
-// - `from_u128_radix v 10` に委譲します。
-//
-// 注意(重要):
-// - 返る文字列は常に非負で、負号は付きません。
-//
-// 計算量:
-// - O(d)
+//: from_u128: u128 を 10 進文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `u128` の大きな値を 10 進文字列として可視化します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は非負の 10 進文字列を返し、負号は付きません。
+//: - 内部変換や allocation に失敗した場合は `"0"` fallback を返します。
+//:
+//: [実装/じっそう]:
+//: - `from_u128_radix v 10` に委譲します。
+//:
+//: [現状/げんじょう]:
+//: - error reason を呼び出し側で扱う必要がある場合は `from_u128_radix v 10` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_from_u128_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"zero u128\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"large u128 decimal\" expected=\"18446744073709551616\" actual=\"18446744073709551616\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let zero %u128 u128 %i64 cast 0 %i64 cast 0
+//:     let wide %u128 u128 %i64 cast 1 %i64 cast 0
+//:     let report:
+//:         test_report_new "alloc_string_integer_from_u128_doc"
+//:         |> test_report_push assert_str_eq "zero u128" "0" from_u128 zero
+//:         |> test_report_push assert_str_eq "large u128 decimal" "18446744073709551616" from_u128 wide
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_u128 %fn u128 str \v:
     match from_u128_radix v 10:
         Result::Ok s:
@@ -139,21 +283,67 @@ pub fn from_u128 %fn u128 str \v:
         Result::Err _:
             "0"
 
-// from_u128_radix: u128 を指定基数の文字列へ変換する
-//
-// 目的:
-// - `u128` を 2 / 8 / 10 / 16 進文字列へ変換します。
-//
-// 実装(アルゴリズム):
-// - 小さい基数での `u128_divrem_small` を繰り返し、まず必要な桁数を数えます。
-// - 確保した出力領域を末尾から埋めることで、一時 raw buffer を使わずに確定文字列を作ります。
-//
-// 注意(重要):
-// - 英字桁は小文字です。
-// - 基数が不正な場合は `Result::Err 1` を返します。
-//
-// 計算量:
-// - O(128 * d) だが 128 は固定幅なので、桁数 d に対して実質 O(d)
+//: from_u128_radix: u128 を指定基数の文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `u128` を 2 / 8 / 10 / 16 進文字列へ変換します。
+//: - `i128` の magnitude 生成にも使うため、符号処理とは分けた純粋な非負 digit 生成を担当します。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 の場合は `Result::Ok` で非負文字列を返します。
+//: - `radix` がそれ以外の場合は `Result::Err 1` を返します。
+//: - allocation failure の場合は `Result::Err 12` を返します。
+//: - 英字 digit は `a..f` の小文字です。
+//:
+//: [実装/じっそう]:
+//: - 小さい基数での `u128_divrem_small` を繰り返し、まず必要な桁数を数えます。
+//: - `string_alloc_region digit_count` で確保した出力領域を末尾から埋め、最後に `string_finish` で finalized `str` にします。
+//: - digit reversal 用の scratch raw buffer を作りません。
+//:
+//: [現状/げんじょう]:
+//: - error payload は現状互換の `i32` であり、typed enum error ではありません。
+//: - `Result::Err 1` は invalid radix、`Result::Err 12` は allocation / builder failure の互換境界です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(128 * d) だが 128 は固定幅なので、桁数 d に対して実質 O(d)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_from_u128_radix_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"zero radix\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"large hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"invalid radix\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/result" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_err_i32 %fn Result str i32 fn i32 bool \got\expected:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err actual:
+//:             eq expected actual
+//:
+//: fn main %impure fn void i32 \void:
+//:     let zero %u128 u128 %i64 cast 0 %i64 cast 0
+//:     let wide %u128 u128 %i64 cast 1 %i64 cast 0
+//:     let report:
+//:         test_report_new "alloc_string_integer_from_u128_radix_doc"
+//:         |> test_report_push assert "zero radix" result_str_eq from_u128_radix zero 16 "0"
+//:         |> test_report_push assert "large hex" result_str_eq from_u128_radix wide 16 "10000000000000000"
+//:         |> test_report_push assert "invalid radix" result_err_i32 from_u128_radix wide 3 1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_u128_radix %fn u128 fn i32 Result str i32 \v\radix:
     match validate_radix radix:
         Result::Err e:
@@ -187,19 +377,47 @@ pub fn from_u128_radix %fn u128 fn i32 Result str i32 \v\radix:
                                     set write_n get qr_write "quotient";
                             Result::Ok string_finish out_region digit_count
 
-// from_i128: i128 を 10 進文字列へ変換する
-//
-// 目的:
-// - `i128` を 10 進の符号付き文字列へ変換します。
-//
-// 実装(アルゴリズム):
-// - `from_i128_radix v 10` に委譲します。
-//
-// 注意(重要):
-// - 大きさの処理は `u128` の桁生成へ寄せています。
-//
-// 計算量:
-// - O(d)
+//: from_i128: i128 を 10 進文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `i128` を 10 進の符号付き文字列へ変換します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は符号付き 10 進文字列を返します。
+//: - 内部変換や allocation に失敗した場合は `"0"` fallback を返します。
+//: - `i128` 最小値も `u128` magnitude 経由で扱うため、符号反転 overflow に依存しません。
+//:
+//: [実装/じっそう]:
+//: - `from_i128_radix v 10` に委譲します。
+//: - 大きさの処理は `u128` の桁生成へ寄せています。
+//:
+//: [現状/げんじょう]:
+//: - error reason を呼び出し側で扱う必要がある場合は `from_i128_radix v 10` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_from_i128_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"negative i128\" expected=\"-255\" actual=\"-255\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"large i128 decimal\" expected=\"18446744073709551616\" actual=\"18446744073709551616\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let neg %i128 sub %i128 cast 0 %i128 cast 255
+//:     let wide %i128 i128 %i64 cast 1 %i64 cast 0
+//:     let report:
+//:         test_report_new "alloc_string_integer_from_i128_doc"
+//:         |> test_report_push assert_str_eq "negative i128" "-255" from_i128 neg
+//:         |> test_report_push assert_str_eq "large i128 decimal" "18446744073709551616" from_i128 wide
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_i128 %fn i128 str \v:
     match from_i128_radix v 10:
         Result::Ok s:
@@ -207,20 +425,66 @@ pub fn from_i128 %fn i128 str \v:
         Result::Err _:
             "0"
 
-// from_i128_radix: i128 を指定基数の文字列へ変換する
-//
-// 目的:
-// - `i128` を 2 / 8 / 10 / 16 進の符号付き文字列へ変換します。
-//
-// 実装(アルゴリズム):
-// - 負号の有無だけを `i128` 側で判定し、大きさは `i128_abs_u128` を通して `from_u128_radix` に渡します。
-//
-// 注意(重要):
-// - すべての基数で負数は `-...` の形に統一します。
-// - 16 進英字は小文字です。
-//
-// 計算量:
-// - O(d)
+//: from_i128_radix: i128 を指定基数の文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `i128` を 2 / 8 / 10 / 16 進の符号付き文字列へ変換します。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 の場合は `Result::Ok` で符号付き文字列を返します。
+//: - `radix` がそれ以外の場合は `Result::Err 1` を返します。
+//: - allocation / builder failure の場合は `Result::Err 12` を返します。
+//: - 16 進の英字 digit は `a..f` の小文字です。
+//: - 負数はすべての基数で `-...` の形に統一します。
+//:
+//: [実装/じっそう]:
+//: - 負号の有無だけを `i128` 側で判定し、大きさは `i128_abs_u128` を通して `from_u128_radix` に渡します。
+//: - 負数の場合は `StringBuilder` で `-` と magnitude 文字列を結合し、builder owner API の失敗を `Result::Err 12` に畳みます。
+//:
+//: [現状/げんじょう]:
+//: - error payload は現状互換の `i32` であり、typed enum error ではありません。
+//: - `Result::Err 1` は invalid radix、`Result::Err 12` は allocation / builder failure の互換境界です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_from_i128_radix_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"negative hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"large hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"invalid radix\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/result" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_err_i32 %fn Result str i32 fn i32 bool \got\expected:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err actual:
+//:             eq expected actual
+//:
+//: fn main %impure fn void i32 \void:
+//:     let neg %i128 sub %i128 cast 0 %i128 cast 255
+//:     let wide %i128 i128 %i64 cast 1 %i64 cast 0
+//:     let report:
+//:         test_report_new "alloc_string_integer_from_i128_radix_doc"
+//:         |> test_report_push assert "negative hex" result_str_eq from_i128_radix neg 16 "-ff"
+//:         |> test_report_push assert "large hex" result_str_eq from_i128_radix wide 16 "10000000000000000"
+//:         |> test_report_push assert "invalid radix" result_err_i32 from_i128_radix wide 3 1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn from_i128_radix %fn i128 fn i32 Result str i32 \v\radix:
     let is_negative %bool i128_is_negative v;
     let mag %u128 i128_abs_u128 v;

@@ -101,12 +101,12 @@ ret: 10
 fn main %impure fn void i32 \void:
     let a %i32 match to_bool "true":
         Result::Ok v:
-            cast v
+            if v 1 0
         Result::Err _:
             0
     let b %i32 match to_bool "false":
         Result::Ok v:
-            cast v
+            if v 1 0
         Result::Err _:
             1
     add mul a 10 b
@@ -157,9 +157,11 @@ ret: 2
 #entry main
 #indent 4
 #import "alloc/string" as *
+#import "core/cast" as *
 
 fn main %impure fn void i32 \void:
-    match from_i64_radix %i64 cast 255 16:
+    let v %i64 %i64 cast 255;
+    match from_i64_radix v 16:
         Result::Ok s:
             len s
         Result::Err _:

@@ -108,6 +108,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の FloatParse slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=289`、`declarationNoDoc=140`、`declarationNoDoctest=1640`、`publicDeclarationNoDoctest=1487`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` と `nodesrc/test_stdlib_string_float_boundary.js` により、`float_parse_byte_or_invalid` の `Option` -> `-1` internal sentinel 変換、sentinel を public contract にしないこと、`to_f64` の digit 必須、clean end-of-input、exponent digit 必須、`nan` / `inf` symbolic value rejection、`Result::Err 1` 互換境界、`to_f32` の `to_f64` 結果伝播を module 固有にも固定する。parse error typed enum 未整備は `ISS-20260606T052400000Z-STRING-FLOAT-PARSE-ERROR-KIND-COLLAPSED-I32-4B21D9A7`、parse / format special value policy 未整備は `ISS-20260606T053000000Z-STRING-FLOAT-PARSE-SPECIAL-VALUE-POLICY-MISSING-7C18B2D4` として分離した。ただし string integer parse-format、scanner、slice、core/gui render command などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の IntegerFormat slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=288`、`declarationNoDoc=134`、`declarationNoDoctest=1640`、`publicDeclarationNoDoctest=1487`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`from_i32_radix` / `from_i64_radix` / `from_u128` / `from_u128_radix` / `from_i128` / `from_i128_radix` の report doctest、2 / 8 / 10 / 16 のみの radix contract、lowercase digit、negative sign、`Result::Err 1` invalid radix、`Result::Err 12` allocation / builder failure、`string_alloc_region` / `string_finish` raw storage boundary、scratch raw buffer 非使用、fallback API と Result API の境界を module 固有にも固定する。format error typed enum 未整備は `ISS-20260605T203044028Z-STRING-INTEGER-FORMAT-ERROR-KIND-COLLAPSED-I32-8C63F92A` として分離した。ただし string integer parse、scanner、slice、core/gui render command などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -128,6 +130,7 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/tests.js -i stdlib/alloc/string/concat.nepl --no-tree -o tmp/agent2-string-concat-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/agent2-string-float-format-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/string/float/parse.nepl --no-tree -o tmp/agent2-string-float-parse-doc-slice-module.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/tests.js -i stdlib/alloc/string/integer/format.nepl --no-tree -o tmp/agent2-string-integer-format-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/hash32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/agent2-hash32-doc-smoke-5.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_hash_string_access_boundary.js`
 - `node nodesrc/test_stdlib_hash_nmd_report_contract.js`
