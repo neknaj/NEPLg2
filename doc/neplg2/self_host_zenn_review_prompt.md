@@ -69,7 +69,9 @@ Design docs:
   見ていない範囲は not_reviewed に明記してください。
   review response には、この review を実行した subagent の id を subagent_review_ids に列挙し、件数を subagent_review_count に記録してください。
   `subagent_review_ids` と `subagent_review_count` は、文字列として存在するだけではなく、実際に作業した subagent の id と件数に一致している必要があります。
-  最終受理には 2 件以上の独立 subagent review が必要です。この review はそのうちの 1 件として扱われます。
+  この review response は個別 subagent review として `node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --input <review-response.md>` で検査します。
+  個別 subagent review では、この review を実行した subagent id だけを `subagent_review_ids` に記録し、`subagent_review_count: 1` とします。
+  最終受理には 2 件以上の独立 subagent review が必要です。この review はそのうちの 1 件として扱われます。最終受理では、agent が 2 件以上の個別 response を集約し、`--review-kind final` または既定の final mode で検査します。
   行数制限、ファイル長制限、doc comment 長制限、コメント削減を理由にしないでください。
   source token 再読、scope lookup 再実行、cursor-only evidence loss、owner/free、pure/impure、authority boundary を重点確認してください。
   Blocker は同じ branch 内で修正が必要なものとして分類してください。
@@ -150,8 +152,9 @@ Design docs:
 
 review response を受け取った agent は、次を行う。
 
-- review response を `node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>` または `--stdin` で検査する。
-- commit 前の最終受理では、review response の要約を `note.n.md` または `issues/items/*.md` の関連 issue に記録したうえで、`node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md> --record <note-or-issue.md>` を実行し、review 証跡が durable な記録先にも残っていることを検査する。`--record` に一時ファイルや repo 外ファイルを指定してはならない。
+- 個別 subagent review response は `node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --input <review-response.md>` または `--stdin` で検査する。
+- commit 前の最終受理では、2 件以上の個別 subagent review response を agent が集約し、集約 response の要約を `note.n.md` または `issues/items/*.md` の関連 issue に記録したうえで、`node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --input <aggregate-review-response.md> --record <note-or-issue.md>` を実行し、review 証跡が durable な記録先にも残っていることを検査する。`--record` に一時ファイルや repo 外ファイルを指定してはならない。
+- `--record` は最終集約 review にだけ使う。個別 subagent review 1 件を `--record` で最終受理扱いしてはならない。
 - response checker が失敗した返答は review 記録として扱わず、subagent に不足 section / field の再提出を依頼する。
 - `MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read`、`not_reviewed`、2 件以上の独立 `subagent_review_ids`、`subagent_review_count`、`existing_warnings`、`new_warnings` が記録されている場合だけ受理する。
 - durable record 側にも `policy/spec` と `implementation/test` の両方の `source_policy`、`residual_risk`、`unexecuted_verification`、`existing warnings`、`new warnings` または同等の機械可読 field を残す。`MERGE_APPROVED` の record に `source_policy: required` / `source_policy: follow-up`、残リスク、未実行検証、今回差分由来 warning が残る場合は受理しない。

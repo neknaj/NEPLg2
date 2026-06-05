@@ -1,3 +1,30 @@
+# 2026-06-06 Agent selfhost individual/final Zenn review gate correction checkpoint
+
+- `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T07:51:50+09:00 までに再確認した。AGENTS.md も再確認し、判断基準は、静的検査の正確性、`Option` / `Result`、enum error と表示の分離、match / typed value、pure core と host boundary、authority boundary、owner/free、ゼロコスト抽象化、丁寧な doc comment、実行可能 doctest、試作段階でも品質を落とさないこと、行数制限 / doc comment 長制限を入れないこと。
+- 対象 branch: `selfhost/zenn-review-continuous-subagent-contract-20260606`。initial base commit: `64ae1e42`。remote/main rebase base: `0822cbcd`。head commit: `working-tree-before-commit`。対象 issue / slice: `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` / individual and final selfhost Zenn review gate separation。
+- review_scope branch: `selfhost/zenn-review-continuous-subagent-contract-20260606`, base: `64ae1e42`, head: `working-tree-before-commit`, files_read: `doc/neplg2/self_host_zenn_review_prompt.md; doc/neplg2/self_host_zenn_review_checklist.md; nodesrc/selfhost_zenn_review_packet.js; nodesrc/selfhost_zenn_review_response_check.js; nodesrc/test_selfhost_zenn_review_gate_contract.js; issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md; note.n.md`, not_reviewed: `unrelated selfhost compiler implementation modules outside this review-gate operation slice`。
+- subagent_review_ids:
+  - 019e99f9-6946-7f31-814e-32bfb5715ba9
+  - 019e99f9-86f7-7c92-8af0-0e9f4bd1b7cf
+- subagent_review_count: 2
+- subagent review: 2 件の個別 review を受け、どちらも `node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --stdin` で検査済み。`019e99f9-6946-7f31-814e-32bfb5715ba9` は review gate の個別/最終分離を確認し、初回 Blocker として interim checkpoint が `MERGE_APPROVED pending` 風に見えることと日本語 warning label 不足を指摘した。修正後の再レビューで `MERGE_APPROVED`。`019e99f9-86f7-7c92-8af0-0e9f4bd1b7cf` は documentation/doctest gate と line-count guard を確認し、標準 response 形式の不足を再提出で修正したうえで `MERGE_APPROVED`。
+- review classification labels: `Blocker`, `Non-blocker`, `Question`, `Approve`。今回の根本原因は、prompt が「この review は 2 件中の 1 件」と説明する一方で、response checker が全 response に 2 件以上を要求していたため、個別 subagent review を機械検査できなかったこと。
+- `policy/spec` review は Zenn 記事、AGENTS.md、selfhost review checklist/prompt、doc gap issue を入力にした。classification: Approve; decision: fixed; source_policy: updated; verify: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`。
+- `implementation/test` review は response checker、review packet、prompt/checklist、source policy test を入力にした。classification: Approve; decision: fixed; source_policy: updated; verify: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`。
+- `nodesrc/selfhost_zenn_review_response_check.js` は `--review-kind final|individual` を追加した。既定の final mode は従来通り 2 件以上の独立 `subagent_review_ids` を要求する。individual mode は個別 subagent response 1 件だけを受け付け、`--record` で durable final acceptance として扱う誤用を拒否する。
+- `doc/neplg2/self_host_zenn_review_prompt.md`、`doc/neplg2/self_host_zenn_review_checklist.md`、`nodesrc/selfhost_zenn_review_packet.js` は、個別 review と最終集約 review の境界を明記した。個別 review response は `subagent_review_count: 1` とし、最終受理では agent が 2 件以上を集約する。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` は、individual mode で 1 件の concrete reviewer を受理する正例、既定 final mode で 1 件を拒否する既存負例、individual mode と `--record` の併用を拒否する負例、未知の `--review-kind` を拒否する負例を持つ。これは review authority の source policy であり、行数、file size、comment volume、doc comment length の gate ではない。
+- review summary: decision: `MERGE_APPROVED`; blockers: 0; non_blockers: 0; questions: 0; approve: yes; residual_risk: none; unexecuted_verification: none。
+- blockers: 0
+- questions: 0
+- approve: yes
+- residual_risk: none
+- unexecuted_verification: none
+- 既存 warning / existing warnings: git LF-to-CRLF working-copy warnings may appear; existing documentation gap samples remain tracked by the open issue; Node WASI ExperimentalWarning may appear in doctest/source-policy runs; trunk update and wasm-bindgen version notices appear during `trunk build`
+- 今回差分由来 warning / new warnings: none
+- 検証済み / executed: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`, `node nodesrc/test_source_policy_no_line_count_limits.js`, `node nodesrc/issues.js check --dir issues`, `node nodesrc/run_source_policy_regressions.js --warn-only`, `git diff --check`, `node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --stdin` for each subagent response, final aggregate `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`, `trunk build`, `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-individual-final-review-gate-playground-editor.json`, `Get-Content -TotalCount 50 tmp/selfhost-individual-final-review-gate-playground-editor.json`。playground editor JSON は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- 次 slice は selfhost doc gap の次モジュール、または cold base compile の探索範囲削減。今回の source policy は個別 subagent review と最終 aggregate acceptance の境界だけを fail-closed 化し、コメント量抑制 gate にはしない。
+
 # 2026-06-06 Agent selfhost Zenn review gate and constructor doctest contract checkpoint
 
 - `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T07:36:39+09:00 までに再確認した。AGENTS.md も再確認し、判断基準は、静的検査の正確性、`Option` / `Result`、enum error と表示の分離、match / typed value、pure core と host boundary、authority boundary、owner/free、ゼロコスト抽象化、丁寧な doc comment、実行可能 doctest、試作段階でも品質を落とさないこと、行数制限 / doc comment 長制限を入れないこと。

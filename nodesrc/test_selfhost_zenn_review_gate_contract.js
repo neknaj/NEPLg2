@@ -261,7 +261,8 @@ for (const needle of [
     "`AGENTS.md` の関連方針",
     "今回変更した file list",
     "実行した検証、未実行の検証、既存 warning と今回差分由来の warning の区別",
-    "review response を `nodesrc/selfhost_zenn_review_response_check.js` で検査",
+    "個別 subagent review response を `nodesrc/selfhost_zenn_review_response_check.js --review-kind individual` で検査",
+    "最終受理時は、2 件以上の個別 subagent review response を集約",
     "review の観点が `policy/spec` と `implementation/test` の 2 軸に分かれていること",
     "### review の 2 軸",
     "`policy/spec`",
@@ -290,7 +291,8 @@ for (const needle of [
     "decision: fixed | issue | open | not-applicable",
     "source_policy: added | updated | not-needed | follow-up",
     "AGENTS.md の関連方針を確認した",
-    "subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js` で検査していること",
+    "個別 subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js --review-kind individual` で検査していること",
+    "最終集約 response と durable record を `nodesrc/selfhost_zenn_review_response_check.js --review-kind final --record <note-or-issue.md>` で検査していること",
     "2 件以上の独立 subagent review",
     "`MERGE_APPROVED` は、`blockers` と `questions` が空",
     "source policy 不足、今回差分由来 warning、未実行検証",
@@ -376,7 +378,10 @@ for (const needle of [
     "approve:",
     "residual_risk:",
     "unexecuted_verification:",
-    "node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>",
+    "node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --input <review-response.md>",
+    "node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --input <aggregate-review-response.md> --record <note-or-issue.md>",
+    "--review-kind individual",
+    "--review-kind final",
     "response checker が失敗した返答は review 記録として扱わず",
     "`MERGE_APPROVED` は、`blockers` と `questions` が空",
     "2 件以上の独立 `subagent_review_ids`",
@@ -472,6 +477,7 @@ for (const needle of [
 for (const needle of [
     "--input <review-response.md>",
     "--stdin",
+    "--review-kind final|individual",
     "requiredSections",
     "review_scope",
     "policy/spec",
@@ -490,6 +496,9 @@ for (const needle of [
     "missing_subagent_review_ids",
     "invalid_subagent_review_count",
     "too_few_subagent_reviews",
+    "individual_subagent_review_count",
+    "individual_review_record",
+    "invalid_review_kind",
     "subagent_review_count_mismatch",
     "duplicate_subagent_review_id",
     "missing_record_evidence",
@@ -821,6 +830,73 @@ try {
         responseCheckValidFromNodesrcCwd.status,
         0,
         "selfhost review response checker must validate absolute durable record paths independent of cwd",
+    );
+
+    const individualReviewResponsePath = path.join(responseCheckTempDir, "individual.md");
+    fs.writeFileSync(
+        individualReviewResponsePath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace(
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n  - 019e9936-d0de-75ae-923b-996ad05bf1d3\n- subagent_review_count: 2\n",
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 1\n",
+        ),
+        "utf8",
+    );
+    const responseCheckIndividual = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        individualReviewResponsePath,
+        "--review-kind",
+        "individual",
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.equal(
+        responseCheckIndividual.status,
+        0,
+        "selfhost review response checker must accept one concrete reviewer in individual review mode",
+    );
+
+    const responseCheckIndividualWithRecord = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        individualReviewResponsePath,
+        "--review-kind",
+        "individual",
+        "--record",
+        validReviewRecordPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckIndividualWithRecord.status,
+        0,
+        "selfhost review response checker must not treat a single individual review as final durable acceptance",
+    );
+    assert.ok(
+        responseCheckIndividualWithRecord.stderr.includes("individual_review_record"),
+        "selfhost review response checker must explain individual/final review record separation",
+    );
+
+    const responseCheckInvalidReviewKind = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--review-kind",
+        "summary",
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckInvalidReviewKind.status,
+        0,
+        "selfhost review response checker must reject unknown review kinds",
+    );
+    assert.ok(
+        responseCheckInvalidReviewKind.stderr.includes("invalid_review_kind"),
+        "selfhost review response checker must explain invalid review kinds",
     );
 
     const weakReviewResponsePath = path.join(responseCheckTempDir, "weak.md");

@@ -24,8 +24,9 @@ subagent review を依頼するときは、少なくとも次を渡す。
 - 設計文書、issue、`note.n.md`、source policy の更新箇所。
 - 実行した検証、未実行の検証、既存 warning と今回差分由来の warning の区別。
 - review の観点が `policy/spec` と `implementation/test` の 2 軸に分かれていること。
-- review response を `nodesrc/selfhost_zenn_review_response_check.js` で検査し、必須 section / field が欠けた返答を受理しないこと。
-- 最終受理時は `nodesrc/selfhost_zenn_review_response_check.js --record <note-or-issue.md>` で、response の要約と判断根拠が `note.n.md` または `issues/items/*.md` の関連 issue に残っていることを検査すること。一時ファイルや repo 外ファイルは durable な review 証跡ではない。
+- 個別 subagent review response を `nodesrc/selfhost_zenn_review_response_check.js --review-kind individual` で検査し、必須 section / field が欠けた返答を受理しないこと。
+- 最終受理時は、2 件以上の個別 subagent review response を集約し、`nodesrc/selfhost_zenn_review_response_check.js --review-kind final --record <note-or-issue.md>` で、response の要約と判断根拠が `note.n.md` または `issues/items/*.md` の関連 issue に残っていることを検査すること。一時ファイルや repo 外ファイルは durable な review 証跡ではない。
+- `--record` は最終集約 review だけで使う。個別 subagent review 1 件を durable final acceptance として扱ってはならない。
 - review response と durable record には `subagent_review_ids` と `subagent_review_count` を残すこと。`subagent review` という文字列だけでは、どの独立 review を受理したかの証跡として扱わない。
 - selfhost Zenn 方針の最終受理には、2 件以上の独立 subagent review が必要である。1 件だけの review、同一 subagent id の重複、または件数と id list が一致しない response は受理しない。
 - `source_policy: required` または `source_policy: follow-up` が残る `MERGE_APPROVED` は受理しない。必要な source policy は同じ branch で追加・更新するか、merge 前に `not-needed` の根拠へ落とし込む。
@@ -145,7 +146,8 @@ commit 前に `note.n.md` へ次を記録する。
 - parser / checker / HIR / Resource IR / backend の authority が逆流していないこと。
 - doc comment が目的、契約、戻り値、error variant、計算量、制約、現状説明を保持していること。
 - Zenn review gate と subagent review の証跡が実行計画、設計文書、`note.n.md` に残ること。
-- subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js` で検査していること。
+- 個別 subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js --review-kind individual` で検査していること。
+- 最終集約 response と durable record を `nodesrc/selfhost_zenn_review_response_check.js --review-kind final --record <note-or-issue.md>` で検査していること。
 - selfhost Zenn review の最終受理で 2 件以上の独立 subagent review、具体的な `zenn_check` 根拠、source policy 不足なし、今回差分由来 warning なしを検査していること。
 - 新規 source policy を追加した場合に `nodesrc/run_source_policy_regressions.js` へ登録されていること。
 

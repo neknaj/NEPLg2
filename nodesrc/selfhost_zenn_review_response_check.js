@@ -8,6 +8,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const usage = [
     "usage: node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>",
     "   or: node nodesrc/selfhost_zenn_review_response_check.js --stdin",
+    "  optional: --review-kind final|individual",
     "  optional: --record <note-or-issue.md>",
 ].join("\n");
 
@@ -74,9 +75,17 @@ const sectionFields = new Map([
 try {
     const args = parseArgs(process.argv.slice(2));
     const source = readReviewResponse(args);
-    const errors = validateReviewResponse(source);
+    const errors = [];
+    const reviewKind = reviewKindOption(args, errors);
     const recordPath = args.get("record");
-    if (recordPath) {
+    if (recordPath && reviewKind === "individual") {
+        errors.push(reviewError(
+            "individual_review_record",
+            "--record is only valid for final aggregate review acceptance; store individual reviews first, then validate the aggregate record",
+        ));
+    }
+    errors.push(...validateReviewResponse(source, reviewKind));
+    if (recordPath && reviewKind === "final") {
         const resolvedRecordPath = resolveRecordPath(recordPath, errors);
         if (resolvedRecordPath) {
             const record = fs.readFileSync(resolvedRecordPath, "utf8").replace(/\r\n/g, "\n");
@@ -136,7 +145,19 @@ function readReviewResponse(args) {
     throw new Error(`review response input is required\n${usage}`);
 }
 
-function validateReviewResponse(source) {
+function reviewKindOption(args, errors) {
+    const value = args.get("review-kind") || "final";
+    if (value === "final" || value === "individual") {
+        return value;
+    }
+    errors.push(reviewError(
+        "invalid_review_kind",
+        "--review-kind must be final or individual",
+    ));
+    return "final";
+}
+
+function validateReviewResponse(source, reviewKind = "final") {
     const errors = [];
     const sections = parseSections(source);
     for (const section of requiredSections) {
@@ -158,7 +179,7 @@ function validateReviewResponse(source) {
         }
     }
     validateFilesRead(sections.get("review_scope"), errors);
-    validateSubagentReviewEvidence(sections.get("review_scope"), errors);
+    validateSubagentReviewEvidence(sections.get("review_scope"), reviewKind, errors);
     validateClassificationValue(sections.get("policy/spec"), "policy/spec", errors);
     validateClassificationValue(sections.get("implementation/test"), "implementation/test", errors);
     validateSourcePolicyValue(sections.get("policy/spec"), "policy/spec", errors);
@@ -487,7 +508,7 @@ function validateFilesRead(section, errors) {
     }
 }
 
-function validateSubagentReviewEvidence(section, errors) {
+function validateSubagentReviewEvidence(section, reviewKind, errors) {
     const idsValue = fieldValue(section, "subagent_review_ids");
     const countValue = fieldValue(section, "subagent_review_count");
     const ids = subagentReviewIds(idsValue);
@@ -512,10 +533,19 @@ function validateSubagentReviewEvidence(section, errors) {
         return;
     }
     const count = Number.parseInt(countValue, 10);
-    if (count < 2) {
+    const minimumReviewCount = reviewKind === "individual" ? 1 : 2;
+    if (count < minimumReviewCount) {
         errors.push(reviewError(
             "too_few_subagent_reviews",
-            "## review_scope subagent_review_count must be at least 2 for selfhost Zenn-policy acceptance",
+            reviewKind === "individual"
+                ? "## review_scope subagent_review_count must be at least 1 for an individual selfhost Zenn-policy review"
+                : "## review_scope subagent_review_count must be at least 2 for final selfhost Zenn-policy acceptance",
+        ));
+    }
+    if (reviewKind === "individual" && count !== 1) {
+        errors.push(reviewError(
+            "individual_subagent_review_count",
+            "individual selfhost Zenn-policy review responses must contain exactly one subagent_review_id",
         ));
     }
     if (uniqueIds.size !== count) {
