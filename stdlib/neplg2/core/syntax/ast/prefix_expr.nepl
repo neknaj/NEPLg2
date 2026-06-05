@@ -1,0 +1,587 @@
+#indent 4
+
+//: # prefix_expr
+//: NEPLg2.1 の prefix expression を、型検査前の flat token list として保持するモジュールです。
+//:
+//: [目的/もくてき]:
+//: - NEPLg2.1 の関数呼び出しは前置記法で書かれますが、parser だけでは call boundary を決めません。
+//: - callable candidate、arity、expected type、generic、trait、no partial application の検査が揃ってから、checker が flat list を縮約します。
+//: - この module は、その縮約へ渡す入力境界として token index、source span、式中での役割を保持します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostExprPrefixList` は HIR ではありません。`SelfhostHirExprPayload::Call` のような解決済み call tree をここでは作りません。
+//: - `%T expr` は expression list 内で `TypeAnnotationMarker` から始まる token 列として保持します。`%` marker を捨てるのは type resolver 用の subrange を作る境界であり、この module の責務ではありません。
+//: - `void` は expression start ではありません。list 内に現れた場合も、値ではなく marker token として保持され、後続 checker が位置に応じて拒否します。
+//:
+//: [現状/げんじょう]:
+//: - parser body から expression range を切り出す処理は後続 slice で接続します。
+//: - この module は `SelfhostSyntaxRange` から prefix expression item list を作る純粋なデータ境界と、focused test 用の builder を提供します。
+//:
+//: [計算量/けいさんりょう]:
+//: - syntax range から list を作る処理は range 内 token 数を k として O(k) です。
+//: - list の len / get は Vec の index access なので O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/syntax/ast/module_ast" as *
+//:| #import "neplg2/core/syntax/ast/prefix_expr" as *
+//:| #import "neplg2/core/syntax/lexer" as *
+//:| #import "std/test" as *
+//:
+//: fn check_item %fn &SelfhostExprPrefixList fn i32 fn SelfhostExprPrefixItemKind Result unit str \list\idx\expected:
+//:     match selfhost_expr_prefix_list_get list idx:
+//:         Option::Some item:
+//:             if selfhost_expr_prefix_item_kind_eq item.kind expected Result::Ok unit Result::Err "expr prefix item kind mismatch"
+//:         Option::None:
+//:             Result::Err "expr prefix item missing"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let source %str "add 1 2"
+//:     let checks0 checks_new
+//:     match lex_all source:
+//:         Result::Ok tokens:
+//:             let range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 7
+//:             match selfhost_expr_prefix_list_from_syntax_range &tokens range:
+//:                 Result::Ok list:
+//:                     let checks1 checks_push checks0 check_eq_i32 3 selfhost_expr_prefix_list_len &list
+//:                     let checks2 checks_push checks1 check_item &list 0 SelfhostExprPrefixItemKind::NamedValue
+//:                     let checks3 checks_push checks2 check_item &list 1 SelfhostExprPrefixItemKind::IntLiteral
+//:                     let checks4 checks_push checks3 check_item &list 2 SelfhostExprPrefixItemKind::IntLiteral
+//:                     selfhost_expr_prefix_list_free list
+//:                     v::free tokens
+//:                     let shown checks_print_report checks4
+//:                     checks_exit_code shown
+//:                 Result::Err _e:
+//:                     v::free tokens
+//:                     let checks1 checks_push checks0 Result::Err "expr prefix build failed"
+//:                     let shown checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _diag:
+//:             let checks1 checks_push checks0 Result::Err "lex failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+
+//: SelfhostExprPrefixItemKind: prefix expression list 内の token [役割/やくわり]
+//:
+//: [目的/もくてき]:
+//: - lexer の `TokenKind` をそのまま call reduction の意味として扱わず、式縮約で必要な role を enum として固定します。
+//: - literal、名前、型注釈 marker、lambda marker、control form marker を分けることで、checker が string 判定ではなく match で分岐できます。
+pub enum SelfhostExprPrefixItemKind:
+    TypeAnnotationMarker
+    LambdaMarker
+    FunctionTypeMarker
+    VoidMarker
+    AtMarker
+    PathSeparator
+    MemberMarker
+    BorrowMarker
+    PointerMarker
+    PipeOperator
+    NamedValue
+    UnitValue
+    IntLiteral
+    FloatLiteral
+    BoolLiteral
+    CharLiteral
+    StringLiteral
+    LetMarker
+    MutMarker
+    NoShadowMarker
+    SetMarker
+    IfMarker
+    WhileMarker
+    CondMarker
+    ThenMarker
+    ElseMarker
+    DoMarker
+    MatchMarker
+    BlockMarker
+    TupleTypeMarker
+
+impl Clone for SelfhostExprPrefixItemKind:
+    fn clone %fn &SelfhostExprPrefixItemKind SelfhostExprPrefixItemKind \self:
+        *self
+
+impl Copy for SelfhostExprPrefixItemKind:
+    fn copy_mark %fn SelfhostExprPrefixItemKind SelfhostExprPrefixItemKind \self:
+        self
+
+//: SelfhostExprPrefixItem: prefix expression item の token-derived payload
+//:
+//: [目的/もくてき]:
+//: - item kind、token index、source span を保存し、後続 checker が diagnostic で元位置を説明できるようにします。
+//: - source text や arena-local id は持たず、式縮約前の軽量で再利用しやすい入力値に留めます。
+pub struct SelfhostExprPrefixItem:
+    kind %SelfhostExprPrefixItemKind
+    token_index %i32
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostExprPrefixItem:
+    fn clone %fn &SelfhostExprPrefixItem SelfhostExprPrefixItem \self:
+        *self
+
+impl Copy for SelfhostExprPrefixItem:
+    fn copy_mark %fn SelfhostExprPrefixItem SelfhostExprPrefixItem \self:
+        self
+
+//: SelfhostExprPrefixList: checker が縮約する flat prefix expression item buffer
+//:
+//: [目的/もくてき]:
+//: - parser / focused test 由来の syntax range を、所有 buffer として checker へ渡します。
+//: - caller は使用後に `selfhost_expr_prefix_list_free` で buffer を解放します。
+pub struct SelfhostExprPrefixList:
+    items %Vec SelfhostExprPrefixItem
+
+//: SelfhostExprPrefixBuildErrorKind: prefix expression list 生成の失敗分類
+//:
+//: [目的/もくてき]:
+//: - 空範囲、範囲不正、token table 範囲外、式開始でない token、式 token として不正な token、allocation failure を enum として分けます。
+pub enum SelfhostExprPrefixBuildErrorKind:
+    EmptySyntaxRange
+    InvalidSyntaxRange
+    TokenOutOfBounds
+    MissingExpressionStart
+    InvalidToken
+    OutOfMemory
+
+impl Clone for SelfhostExprPrefixBuildErrorKind:
+    fn clone %fn &SelfhostExprPrefixBuildErrorKind SelfhostExprPrefixBuildErrorKind \self:
+        *self
+
+impl Copy for SelfhostExprPrefixBuildErrorKind:
+    fn copy_mark %fn SelfhostExprPrefixBuildErrorKind SelfhostExprPrefixBuildErrorKind \self:
+        self
+
+//: SelfhostExprPrefixBuildError: prefix expression list 生成失敗の typed payload
+pub struct SelfhostExprPrefixBuildError:
+    kind %SelfhostExprPrefixBuildErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostExprPrefixBuildError:
+    fn clone %fn &SelfhostExprPrefixBuildError SelfhostExprPrefixBuildError \self:
+        *self
+
+impl Copy for SelfhostExprPrefixBuildError:
+    fn copy_mark %fn SelfhostExprPrefixBuildError SelfhostExprPrefixBuildError \self:
+        self
+
+//: selfhost_expr_prefix_item_kind_eq: item kind が同じ分類か[返/かえ]す
+pub fn selfhost_expr_prefix_item_kind_eq %fn SelfhostExprPrefixItemKind fn SelfhostExprPrefixItemKind bool \a\b:
+    match a:
+        SelfhostExprPrefixItemKind::TypeAnnotationMarker:
+            match b:
+                SelfhostExprPrefixItemKind::TypeAnnotationMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::LambdaMarker:
+            match b:
+                SelfhostExprPrefixItemKind::LambdaMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::FunctionTypeMarker:
+            match b:
+                SelfhostExprPrefixItemKind::FunctionTypeMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::VoidMarker:
+            match b:
+                SelfhostExprPrefixItemKind::VoidMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::AtMarker:
+            match b:
+                SelfhostExprPrefixItemKind::AtMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::PathSeparator:
+            match b:
+                SelfhostExprPrefixItemKind::PathSeparator:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::MemberMarker:
+            match b:
+                SelfhostExprPrefixItemKind::MemberMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::BorrowMarker:
+            match b:
+                SelfhostExprPrefixItemKind::BorrowMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::PointerMarker:
+            match b:
+                SelfhostExprPrefixItemKind::PointerMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::PipeOperator:
+            match b:
+                SelfhostExprPrefixItemKind::PipeOperator:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::NamedValue:
+            match b:
+                SelfhostExprPrefixItemKind::NamedValue:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::UnitValue:
+            match b:
+                SelfhostExprPrefixItemKind::UnitValue:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::IntLiteral:
+            match b:
+                SelfhostExprPrefixItemKind::IntLiteral:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::FloatLiteral:
+            match b:
+                SelfhostExprPrefixItemKind::FloatLiteral:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::BoolLiteral:
+            match b:
+                SelfhostExprPrefixItemKind::BoolLiteral:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::CharLiteral:
+            match b:
+                SelfhostExprPrefixItemKind::CharLiteral:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::StringLiteral:
+            match b:
+                SelfhostExprPrefixItemKind::StringLiteral:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::LetMarker:
+            match b:
+                SelfhostExprPrefixItemKind::LetMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::MutMarker:
+            match b:
+                SelfhostExprPrefixItemKind::MutMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::NoShadowMarker:
+            match b:
+                SelfhostExprPrefixItemKind::NoShadowMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::SetMarker:
+            match b:
+                SelfhostExprPrefixItemKind::SetMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::IfMarker:
+            match b:
+                SelfhostExprPrefixItemKind::IfMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::WhileMarker:
+            match b:
+                SelfhostExprPrefixItemKind::WhileMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::CondMarker:
+            match b:
+                SelfhostExprPrefixItemKind::CondMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::ThenMarker:
+            match b:
+                SelfhostExprPrefixItemKind::ThenMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::ElseMarker:
+            match b:
+                SelfhostExprPrefixItemKind::ElseMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::DoMarker:
+            match b:
+                SelfhostExprPrefixItemKind::DoMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::MatchMarker:
+            match b:
+                SelfhostExprPrefixItemKind::MatchMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::BlockMarker:
+            match b:
+                SelfhostExprPrefixItemKind::BlockMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::TupleTypeMarker:
+            match b:
+                SelfhostExprPrefixItemKind::TupleTypeMarker:
+                    true
+                _:
+                    false
+
+//: selfhost_expr_prefix_build_error_kind_eq: build error kind が同じ分類か[返/かえ]す
+pub fn selfhost_expr_prefix_build_error_kind_eq %fn SelfhostExprPrefixBuildErrorKind fn SelfhostExprPrefixBuildErrorKind bool \a\b:
+    match a:
+        SelfhostExprPrefixBuildErrorKind::EmptySyntaxRange:
+            match b:
+                SelfhostExprPrefixBuildErrorKind::EmptySyntaxRange:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixBuildErrorKind::InvalidSyntaxRange:
+            match b:
+                SelfhostExprPrefixBuildErrorKind::InvalidSyntaxRange:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixBuildErrorKind::TokenOutOfBounds:
+            match b:
+                SelfhostExprPrefixBuildErrorKind::TokenOutOfBounds:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixBuildErrorKind::MissingExpressionStart:
+            match b:
+                SelfhostExprPrefixBuildErrorKind::MissingExpressionStart:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixBuildErrorKind::InvalidToken:
+            match b:
+                SelfhostExprPrefixBuildErrorKind::InvalidToken:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixBuildErrorKind::OutOfMemory:
+            match b:
+                SelfhostExprPrefixBuildErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+
+//: selfhost_expr_prefix_item_new: prefix expression item payload を[作/つく]る
+pub fn selfhost_expr_prefix_item_new %fn SelfhostExprPrefixItemKind fn i32 fn SelfhostSourceSpan SelfhostExprPrefixItem \kind\token_index\span:
+    SelfhostExprPrefixItem kind token_index span
+
+//: selfhost_expr_prefix_build_error_new: build error payload を[作/つく]る
+pub fn selfhost_expr_prefix_build_error_new %fn SelfhostExprPrefixBuildErrorKind fn SelfhostSourceSpan SelfhostExprPrefixBuildError \kind\span:
+    SelfhostExprPrefixBuildError kind span
+
+//: selfhost_expr_prefix_list_new: prefix item buffer owner を list に[包/つつ]む
+pub fn selfhost_expr_prefix_list_new %impure fn Vec SelfhostExprPrefixItem SelfhostExprPrefixList \items:
+    SelfhostExprPrefixList items
+
+//: selfhost_expr_prefix_item_kind_from_token: token kind を expression prefix item kind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - expression reduction が受け付ける token だけを `Some` にします。
+//: - `KwFn`、`VoidMarker`、`KwTuple` は expression value ではありませんが、`%` type ascription の内部 token として prefix expression list に現れるため保持します。
+pub fn selfhost_expr_prefix_item_kind_from_token %fn TokenKind Option SelfhostExprPrefixItemKind \kind:
+    match kind:
+        TokenKind::Percent:
+            some SelfhostExprPrefixItemKind::TypeAnnotationMarker
+        TokenKind::Backslash:
+            some SelfhostExprPrefixItemKind::LambdaMarker
+        TokenKind::KwFn:
+            some SelfhostExprPrefixItemKind::FunctionTypeMarker
+        TokenKind::VoidMarker:
+            some SelfhostExprPrefixItemKind::VoidMarker
+        TokenKind::At:
+            some SelfhostExprPrefixItemKind::AtMarker
+        TokenKind::PathSep:
+            some SelfhostExprPrefixItemKind::PathSeparator
+        TokenKind::Dot:
+            some SelfhostExprPrefixItemKind::MemberMarker
+        TokenKind::Ampersand:
+            some SelfhostExprPrefixItemKind::BorrowMarker
+        TokenKind::Star:
+            some SelfhostExprPrefixItemKind::PointerMarker
+        TokenKind::Pipe:
+            some SelfhostExprPrefixItemKind::PipeOperator
+        TokenKind::Ident:
+            some SelfhostExprPrefixItemKind::NamedValue
+        TokenKind::UnitLiteral:
+            some SelfhostExprPrefixItemKind::UnitValue
+        TokenKind::IntLiteral:
+            some SelfhostExprPrefixItemKind::IntLiteral
+        TokenKind::FloatLiteral:
+            some SelfhostExprPrefixItemKind::FloatLiteral
+        TokenKind::BoolLiteral:
+            some SelfhostExprPrefixItemKind::BoolLiteral
+        TokenKind::CharLiteral:
+            some SelfhostExprPrefixItemKind::CharLiteral
+        TokenKind::StringLiteral:
+            some SelfhostExprPrefixItemKind::StringLiteral
+        TokenKind::KwLet:
+            some SelfhostExprPrefixItemKind::LetMarker
+        TokenKind::KwMut:
+            some SelfhostExprPrefixItemKind::MutMarker
+        TokenKind::KwNoShadow:
+            some SelfhostExprPrefixItemKind::NoShadowMarker
+        TokenKind::KwSet:
+            some SelfhostExprPrefixItemKind::SetMarker
+        TokenKind::KwIf:
+            some SelfhostExprPrefixItemKind::IfMarker
+        TokenKind::KwWhile:
+            some SelfhostExprPrefixItemKind::WhileMarker
+        TokenKind::KwCond:
+            some SelfhostExprPrefixItemKind::CondMarker
+        TokenKind::KwThen:
+            some SelfhostExprPrefixItemKind::ThenMarker
+        TokenKind::KwElse:
+            some SelfhostExprPrefixItemKind::ElseMarker
+        TokenKind::KwDo:
+            some SelfhostExprPrefixItemKind::DoMarker
+        TokenKind::KwMatch:
+            some SelfhostExprPrefixItemKind::MatchMarker
+        TokenKind::KwBlock:
+            some SelfhostExprPrefixItemKind::BlockMarker
+        TokenKind::KwTuple:
+            some SelfhostExprPrefixItemKind::TupleTypeMarker
+        _:
+            none
+
+//: selfhost_expr_prefix_item_from_token: token から prefix expression item を[作/つく]る
+pub fn selfhost_expr_prefix_item_from_token %fn SelfhostToken fn i32 Option SelfhostExprPrefixItem \token\token_index:
+    match selfhost_expr_prefix_item_kind_from_token token.kind:
+        Option::Some kind:
+            some selfhost_expr_prefix_item_new kind token_index token.span
+        Option::None:
+            none
+
+//: selfhost_expr_prefix_list_len: prefix expression item 数を[返/かえ]す
+pub fn selfhost_expr_prefix_list_len %fn &SelfhostExprPrefixList i32 \list:
+    let items %&Vec SelfhostExprPrefixItem field::get_ref list "items"
+    v::len items
+
+//: selfhost_expr_prefix_list_get: prefix expression item を index で[返/かえ]す
+pub fn selfhost_expr_prefix_list_get %fn &SelfhostExprPrefixList fn i32 Option SelfhostExprPrefixItem \list\idx:
+    let items %&Vec SelfhostExprPrefixItem field::get_ref list "items"
+    v::get items idx
+
+//: selfhost_expr_prefix_list_free: prefix expression item buffer を[解放/かいほう]する
+pub fn selfhost_expr_prefix_list_free %impure fn SelfhostExprPrefixList unit \list:
+    v::free field::get list "items"
+
+fn selfhost_expr_prefix_list_from_range_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn Vec SelfhostExprPrefixItem Result Vec SelfhostExprPrefixItem SelfhostExprPrefixBuildError \tokens\idx\end\out:
+    if:
+        ge idx end
+        then:
+            Result::Ok out
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match selfhost_expr_prefix_item_from_token token idx:
+                        Option::Some item:
+                            match v::push out item:
+                                Result::Ok next_out:
+                                    selfhost_expr_prefix_list_from_range_loop tokens add idx 1 end next_out
+                                Result::Err e:
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::OutOfMemory token.span
+                        Option::None:
+                            v::free out
+                            Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::InvalidToken token.span
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::TokenOutOfBounds source_span_empty_unchecked 0 0
+
+fn selfhost_expr_prefix_first_token_starts_expr %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
+    match v::get tokens idx:
+        Option::Some token:
+            selfhost_token_is_expr_start token
+        Option::None:
+            false
+
+//: selfhost_expr_prefix_list_from_syntax_range: parser の syntax range から expression prefix list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - parser が切り出した expression range を、後段 checker が縮約できる flat list へ変換します。
+//: - range payload、token table 境界、expression start を先に検査し、不正な入力を HIR へ進めません。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は call boundary を確定しません。`add 1 2` も `%fn i32 i32 add` も、入力順の item list として保持します。
+pub fn selfhost_expr_prefix_list_from_syntax_range %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result SelfhostExprPrefixList SelfhostExprPrefixBuildError \tokens\syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::EmptySyntaxRange source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            if:
+                not selfhost_syntax_range_is_valid syntax_range
+                then:
+                    Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::InvalidSyntaxRange range.span
+                else:
+                    let token_len %i32 v::len tokens
+                    if:
+                        or gt range.first_token token_len gt range.token_count sub token_len range.first_token
+                        then:
+                            Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::TokenOutOfBounds range.span
+                        else:
+                            if:
+                                not selfhost_expr_prefix_first_token_starts_expr tokens range.first_token
+                                then:
+                                    Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::MissingExpressionStart range.span
+                                else:
+                                    let items_result %Result Vec SelfhostExprPrefixItem StdErrorKind v::new
+                                    match items_result:
+                                        Result::Ok items:
+                                            match selfhost_expr_prefix_list_from_range_loop tokens range.first_token add range.first_token range.token_count items:
+                                                Result::Ok built_items:
+                                                    Result::Ok selfhost_expr_prefix_list_new built_items
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err _e:
+                                            Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::OutOfMemory range.span

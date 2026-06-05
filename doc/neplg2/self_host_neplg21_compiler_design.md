@@ -223,6 +223,8 @@ ParsedType:
 
 `%T expr` は expected type boundary として保持する。runtime operation ではない。
 
+現行 self-host 実装では、`stdlib/neplg2/core/syntax/ast/prefix_expr.nepl` が `SelfhostExprPrefixList` を提供する。これは `SelfhostSyntaxRange` から作る pre-HIR の flat expression item list であり、`%` type annotation marker、lambda marker、`@function` marker、literal、identifier、control form marker を token index と span 付きで保持する。`SelfhostExprPrefixList` は HIR ではなく、`SelfhostHirExprPayload::Call` のような解決済み call tree を作らない。body parser から expression range を切り出す接続は次 slice で行う。
+
 `fn void T` は parser/type resolver boundary で `params = []` へ正規化する。`void` は result type、type argument、expression、parameter name として受理しない。
 
 `fn unit T` は `params = [unit]` として扱う。旧構文の `fn unit T \unit` は、0 引数関数のつもりであれば `fn void T \void` を提示する diagnostic にする。
@@ -655,6 +657,7 @@ Performance acceptance:
 - expression と type は flat prefix list として保持し、parser で call boundary を決めない。
 - `%T expr`、`\a\b:`、`\void:`、`fn void T`、`fn unit T` を正規に扱う。
 - module declaration header では、`%` type annotation と lambda header を `SelfhostSyntaxRange` として保持する。これは最終的な型木・式木ではなく、後続 resolver / checker が kind / arity / expected type に基づいて境界を解くための flat token range evidence である。
+- `syntax/ast/prefix_expr.nepl` は `SelfhostSyntaxRange` から `SelfhostExprPrefixList` を作る。expression prefix list は `%` marker を保持し、call boundary、expected type、overload、generic、trait、partial application の判断は Type checker へ渡す。
 - 旧 `()` grouping、angle type、generic postfix は正規 grammar から外し、必要なら migration diagnostic に限定する。
 
 Issue slice:
@@ -732,6 +735,7 @@ Issue slice:
 
 - expected type and `%T` ascription
 - callable candidate collection
+- `SelfhostExprPrefixList` からの expression reduction input validation
 - prefix call reduction stack
 - generic instantiation inference
 - trait bound solving
