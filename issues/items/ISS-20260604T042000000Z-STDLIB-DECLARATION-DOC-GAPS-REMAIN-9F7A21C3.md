@@ -112,6 +112,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の IntegerParse slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=288`、`declarationNoDoc=123`、`declarationNoDoctest=1640`、`publicDeclarationNoDoctest=1487`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`integer_parse_byte_or_invalid` の `Option::None` から内部 sentinel `-1` への変換、`to_i32_radix` / `to_i64_radix` / `to_u128` / `to_u128_radix` / `to_i128` / `to_i128_radix` の radix / digit / overflow / prefix 非対応 contract、`i128_fits_i64` と i128 magnitude helper の signed boundary、signed parse で一時 `str` を作らないこと、`u128_can_mul_add_small` による overflow check を module 固有にも固定する。parse error typed enum 未整備は `ISS-20260606T054938514Z-STRING-INTEGER-PARSE-ERROR-KIND-COLLAPSED-I32-6E8B1A2C` として分離した。ただし scanner、slice、core/gui render command などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の StringScanner slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=288`、`declarationNoDoc=118`、`declarationNoDoctest=1639`、`publicDeclarationNoDoctest=1486`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`scanner_byte_is_ascii_digit` / `upper` / `lower` / `alpha` / `inline_space` と public wrapper の byte 値 contract、Unicode / locale 非対応、CRLF 入力で CR を inline space とし LF を行境界として扱うこと、`str_skip_inline_space_range` / `str_word_end_inline_space_range` の start / end 丸めと byte offset contract を module 固有にも固定する。ただし slice、core/gui render command、core/math convert などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。

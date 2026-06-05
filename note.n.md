@@ -52035,3 +52035,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - final broad verification executed: `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-type-reducer-doc-playground-editor.json`。playground editor JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
 - unexecuted verification after final gate: none for this doc/source-policy slice.
 - next-slice residual work: documentation gaps remain open in `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41`; next likely slices are `stdlib/neplg2/core/resolve/type_resolver/constructor.nepl`, `input.nepl`, `model.nepl`, `resolved.nepl`, `stage0.nepl`, and CLI args / builtins prelude module docs.
+
+## 2026-06-06 Agent2 StringScanner doc report checkpoint
+
+- `agent2/string-scanner-doc-contract` branch で、`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` のうち `stdlib/alloc/string/scanner.nepl` slice を進めた。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、byte scanner の contract / current behavior /注意 /計算量、report doctest、source policy による静的検査補強を今回の変更に反映した。
+- module doctest は旧 `ret: 0` nested-if から canonical `test_report` 形式へ変更した。これは実装変更ではなく、doc test の観測性を report 契約へ合わせる変更である。
+- `scanner_byte_is_ascii_digit` / `upper` / `lower` / `alpha` / `inline_space` と public wrapper の doc comment を拡張した。ASCII byte 値だけを扱い、Unicode scalar / Unicode category / locale 判定ではないこと、CR は CRLF 入力の inline byte として扱い、LF は行境界として扱うことを明文化した。
+- `str_skip_inline_space_range` / `str_word_end_inline_space_range` は start / end の丸め、byte offset、LF と CR の違い、non-inline byte で止まる契約を document し、report doctest で固定した。
+- `nodesrc/test_alloc_string_doc_report_contract.js` を拡張し、StringScanner の report doctest 名、canonical stdout、byte-index contract、private helper / public wrapper boundary、CR / LF 区別、Unicode semantics 非対応を source policy で固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline は `declarationNoDoc=118`、`declarationNoDoctest=1639`、`publicDeclarationNoDoctest=1486`、`privateDeclarationNoDoctest=153` へ締め直した。残件は `stdlib/alloc/string/slice/*.nepl`、`stdlib/core/gui/render_command.nepl`、`stdlib/core/math/convert.nepl` などである。
+- subagent plan review と実装後 review は `019e998b-5016-7840-b3dc-077ab9d28473` で実施し、Blocker なし、`MERGE_APPROVED` と確認した。module doctest の canonical report 化、NUL / non-ASCII / CR / LF / hex / alnum / range clamp cases、非コメント差分確認を反映した。
+- focused verification は `node nodesrc/tests.js -i stdlib/alloc/string/scanner.nepl --no-tree -o tmp/agent2-string-scanner-doc-required.json -j 1 --dist web/dist --assert-io`、`node nodesrc/test_alloc_string_doc_report_contract.js`、`node nodesrc/test_stdlib_documentation_contract.js`、`node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`、`node nodesrc/test_stdlib_string_doc_no_boilerplate.js`、`node nodesrc/issues.js index --dir issues` を通した。
+- `git diff --unified=0 -- stdlib/alloc/string/scanner.nepl | Select-String -Pattern '^[+-](?![+-]|//)'` で非 comment 差分がないことを確認した。実装本体の behavior change は入れていない。
