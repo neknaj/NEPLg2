@@ -1,3 +1,14 @@
+# 2026-06-05 Agent selfhost body segmenter checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser が body を HIR / call tree へ落とさず、typed token range evidence だけを後段へ渡す境界を維持した。
+- `stdlib/neplg2/core/syntax/parser/range.nepl` を追加し、token index 区間から `SelfhostSyntaxRange` を作る helper を module parser 専用から parser 共通 helper へ切り出した。
+- `stdlib/neplg2/core/syntax/parser/body_segmenter.nepl` を追加し、declaration body envelope を `ExpressionLine` と `BlockIntro` の typed segment list へ分解するようにした。
+- `ExpressionLine.head` は `SelfhostExprPrefixList` の入力候補、`BlockIntro.body` は recursive segmenter の入力として分けた。これにより nested block body を flat prefix list に直接渡す誤りを型と source policy で防ぐ。
+- subagent review では、segmenter は `body_range.nepl` へ混ぜず別 module にし、nested block を `Vec SelfhostSyntaxRange` だけで押し切らず typed segment に分けるべきと指摘された。実装では `SelfhostBodySegmentKind::ExpressionLine` / `BlockIntro` として反映した。
+- `tests/stdlib/neplg2_body_segmenter.n.md` を追加し、複数 top-level expression、single-line body、nested `if:` body の segment 化を focused doctest で固定した。
+- `nodesrc/test_selfhost_body_segmenter_contract.js` を追加し、body segmenter が HIR / call reduction / TypeId / DefId allocation を行わず、block intro と nested body range を分離することを source policy として固定した。
+- 検証済み: `node nodesrc\test_selfhost_body_segmenter_contract.js`、`node nodesrc\test_selfhost_module_parser_split_contract.js`、`node nodesrc\test_selfhost_function_body_prefix_range_contract.js`、`node nodesrc\tests.js -i tests\stdlib\neplg2_body_segmenter.n.md -o tmp\selfhost-body-segmenter.json --no-tree -j 1 --assert-io --dist web\dist`、`node nodesrc\tests.js -i tests\stdlib\neplg2_expr_prefix.n.md -o tmp\selfhost-expr-prefix-after-segmenter.json --no-tree -j 1 --assert-io --dist web\dist`。
+
 # 2026-06-05 Agent 2 streamio typed error boundary checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の「error は enum data」「Result / Option と match を使う」「silent no-op を避ける」「doc comment と doctest を整備する」方針に合わせ、`std/streamio` の scanner / writer failure boundary を typed API へ寄せた。

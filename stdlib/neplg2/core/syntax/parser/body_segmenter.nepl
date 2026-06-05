@@ -1,0 +1,551 @@
+#indent 4
+
+//: # parser/body_segmenter
+//: declaration body envelope を top-level expression segment の列へ分解する parser utility です。
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleDeclarationBody.envelope` は declaration body 全体を表しますが、`SelfhostExprPrefixList` は newline、indent、dedent、colon を含む block 全体を受け取りません。
+//: - この module は body envelope を再走査し、flat prefix expression として扱える行と、nested block を持つ block introduction を分けます。
+//: - parser はここでも HIR、call tree、TypeId、DefId を作りません。返すのは後段 checker が解釈する token range evidence だけです。
+//:
+//: [契約/けいやく]:
+//: - `ExpressionLine` は top-level body 直下の 1 expression range です。この range は `selfhost_expr_prefix_list_from_syntax_range` の入力候補になります。
+//: - `BlockIntro` は `if:` や `let x %T:` のように `:` で nested body を導入する segment です。`head` は colon より前の token range、`body` は nested body envelope です。
+//: - `BlockIntro.body` は nested block を含み得るため、flat prefix expression list に直接渡してはいけません。必要なら同じ segmenter を再帰的に適用します。
+//:
+//: [計算量/けいさんりょう]:
+//: - envelope 内の token を左から 1 回走査します。nested block の終端探索も走査位置を前へ戻さないため、対象 token 数を k として O(k) です。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "./range" as *
+
+//: SelfhostBodySegmentKind: body segment の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - flat prefix expression と nested block introduction を型で分け、checker が block body を誤って prefix list 化しないようにします。
+pub enum SelfhostBodySegmentKind:
+    ExpressionLine
+    BlockIntro
+
+impl Clone for SelfhostBodySegmentKind:
+    fn clone %fn &SelfhostBodySegmentKind SelfhostBodySegmentKind \self:
+        *self
+
+impl Copy for SelfhostBodySegmentKind:
+    fn copy_mark %fn SelfhostBodySegmentKind SelfhostBodySegmentKind \self:
+        self
+
+//: SelfhostBodySegment: body 内の 1 top-level segment
+//:
+//: [目的/もくてき]:
+//: - `kind` は segment の解釈方針を示します。
+//: - `head` は expression line または block intro header の token range です。
+//: - `body` は `BlockIntro` の nested body envelope です。`ExpressionLine` では empty range になります。
+pub struct SelfhostBodySegment:
+    kind %SelfhostBodySegmentKind
+    head %SelfhostSyntaxRange
+    body %SelfhostSyntaxRange
+
+impl Clone for SelfhostBodySegment:
+    fn clone %fn &SelfhostBodySegment SelfhostBodySegment \self:
+        *self
+
+impl Copy for SelfhostBodySegment:
+    fn copy_mark %fn SelfhostBodySegment SelfhostBodySegment \self:
+        self
+
+//: SelfhostBodySegmentList: body segment buffer の owner
+//:
+//: [目的/もくてき]:
+//: - segmenter が作った `Vec SelfhostBodySegment` を所有し、checker へ渡せる形にします。
+//: - caller は使用後に `selfhost_body_segment_list_free` で buffer を解放します。
+pub struct SelfhostBodySegmentList:
+    items %Vec SelfhostBodySegment
+
+//: SelfhostBodySegmentErrorKind: body segmenter の失敗分類
+//:
+//: [目的/もくてき]:
+//: - empty envelope、invalid range、token table 境界外、expression start 欠落、layout 破損、allocation failure を enum で分けます。
+pub enum SelfhostBodySegmentErrorKind:
+    EmptyEnvelope
+    InvalidEnvelope
+    TokenOutOfBounds
+    MissingExpressionStart
+    InvalidLayout
+    OutOfMemory
+
+impl Clone for SelfhostBodySegmentErrorKind:
+    fn clone %fn &SelfhostBodySegmentErrorKind SelfhostBodySegmentErrorKind \self:
+        *self
+
+impl Copy for SelfhostBodySegmentErrorKind:
+    fn copy_mark %fn SelfhostBodySegmentErrorKind SelfhostBodySegmentErrorKind \self:
+        self
+
+//: SelfhostBodySegmentError: segmenter 失敗の typed payload
+//:
+//: [目的/もくてき]:
+//: - error kind と source span をまとめ、後続 diagnostic がどの body token で segment 化に失敗したか説明できるようにします。
+pub struct SelfhostBodySegmentError:
+    kind %SelfhostBodySegmentErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostBodySegmentError:
+    fn clone %fn &SelfhostBodySegmentError SelfhostBodySegmentError \self:
+        *self
+
+impl Copy for SelfhostBodySegmentError:
+    fn copy_mark %fn SelfhostBodySegmentError SelfhostBodySegmentError \self:
+        self
+
+//: selfhost_body_segment_kind_eq: segment kind が同じ分類か[返/かえ]す
+pub fn selfhost_body_segment_kind_eq %fn SelfhostBodySegmentKind fn SelfhostBodySegmentKind bool \a\b:
+    match a:
+        SelfhostBodySegmentKind::ExpressionLine:
+            match b:
+                SelfhostBodySegmentKind::ExpressionLine:
+                    true
+                _:
+                    false
+        SelfhostBodySegmentKind::BlockIntro:
+            match b:
+                SelfhostBodySegmentKind::BlockIntro:
+                    true
+                _:
+                    false
+
+//: selfhost_body_segment_error_kind_eq: segment error kind が同じ分類か[返/かえ]す
+pub fn selfhost_body_segment_error_kind_eq %fn SelfhostBodySegmentErrorKind fn SelfhostBodySegmentErrorKind bool \a\b:
+    match a:
+        SelfhostBodySegmentErrorKind::EmptyEnvelope:
+            match b:
+                SelfhostBodySegmentErrorKind::EmptyEnvelope:
+                    true
+                _:
+                    false
+        SelfhostBodySegmentErrorKind::InvalidEnvelope:
+            match b:
+                SelfhostBodySegmentErrorKind::InvalidEnvelope:
+                    true
+                _:
+                    false
+        SelfhostBodySegmentErrorKind::TokenOutOfBounds:
+            match b:
+                SelfhostBodySegmentErrorKind::TokenOutOfBounds:
+                    true
+                _:
+                    false
+        SelfhostBodySegmentErrorKind::MissingExpressionStart:
+            match b:
+                SelfhostBodySegmentErrorKind::MissingExpressionStart:
+                    true
+                _:
+                    false
+        SelfhostBodySegmentErrorKind::InvalidLayout:
+            match b:
+                SelfhostBodySegmentErrorKind::InvalidLayout:
+                    true
+                _:
+                    false
+        SelfhostBodySegmentErrorKind::OutOfMemory:
+            match b:
+                SelfhostBodySegmentErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+
+//: selfhost_body_segment_new: body segment payload を[作/つく]る
+pub fn selfhost_body_segment_new %fn SelfhostBodySegmentKind fn SelfhostSyntaxRange fn SelfhostSyntaxRange SelfhostBodySegment \kind\head\body:
+    SelfhostBodySegment kind head body
+
+//: selfhost_body_segment_error_new: segmenter error payload を[作/つく]る
+pub fn selfhost_body_segment_error_new %fn SelfhostBodySegmentErrorKind fn SelfhostSourceSpan SelfhostBodySegmentError \kind\span:
+    SelfhostBodySegmentError kind span
+
+//: selfhost_body_segment_list_new: segment buffer owner を[作/つく]る
+pub fn selfhost_body_segment_list_new %impure fn Vec SelfhostBodySegment SelfhostBodySegmentList \items:
+    SelfhostBodySegmentList items
+
+//: selfhost_body_segment_list_len: segment 数を[返/かえ]す
+pub fn selfhost_body_segment_list_len %fn &SelfhostBodySegmentList i32 \list:
+    let items %&Vec SelfhostBodySegment field::get_ref list "items"
+    v::len items
+
+//: selfhost_body_segment_list_get: segment を index で[返/かえ]す
+pub fn selfhost_body_segment_list_get %fn &SelfhostBodySegmentList fn i32 Option SelfhostBodySegment \list\idx:
+    let items %&Vec SelfhostBodySegment field::get_ref list "items"
+    v::get items idx
+
+//: selfhost_body_segment_list_free: segment buffer を[解放/かいほう]する
+pub fn selfhost_body_segment_list_free %impure fn SelfhostBodySegmentList unit \list:
+    v::free field::get list "items"
+
+//: selfhost_body_segment_skip_separators: top-level separator を[読/よ]み[飛/と]ばす
+//:
+//: [目的/もくてき]:
+//: - body envelope の top-level expression 間にある newline と semicolon を segment に含めないようにします。
+//: - indent / dedent は structural block boundary なのでここでは読み飛ばさず、後段で layout error として扱います。
+fn selfhost_body_segment_skip_separators %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            selfhost_body_segment_skip_separators tokens n add idx 1 end
+                        TokenKind::Semicolon:
+                            selfhost_body_segment_skip_separators tokens n add idx 1 end
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_body_segment_line_end_loop: top-level segment line の終端を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - newline、semicolon、dedent、EOF、または envelope 終端の直前までを 1 top-level line として扱います。
+//: - nested block の中身は `BlockIntro` の body scan が別に消費するため、この helper は現在行だけを見ます。
+fn selfhost_body_segment_line_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            idx
+                        TokenKind::Semicolon:
+                            idx
+                        TokenKind::Dedent:
+                            idx
+                        TokenKind::Eof:
+                            idx
+                        _:
+                            selfhost_body_segment_line_end_loop tokens n add idx 1 end
+                Option::None:
+                    idx
+
+//: selfhost_body_segment_find_colon_loop: 現在行の top-level colon を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - `:` があれば block introduction segment として扱い、colon より前を `head`、colon 後を nested `body` へ分けます。
+//: - 見つからなかった場合は負の sentinel を返します。sentinel はこの module 内でだけ使います。
+fn selfhost_body_segment_find_colon_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            sub 0 1
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Colon:
+                            idx
+                        _:
+                            selfhost_body_segment_find_colon_loop tokens n add idx 1 end
+                Option::None:
+                    sub 0 1
+
+//: selfhost_body_segment_skip_newlines: colon 後の layout newline を[読/よ]み[飛/と]ばす
+//:
+//: [目的/もくてき]:
+//: - `if:` の次行に nested body がある場合と、colon 後に同じ行の body が続く場合を同じ分岐へ渡します。
+fn selfhost_body_segment_skip_newlines %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            selfhost_body_segment_skip_newlines tokens n add idx 1 end
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_body_segment_has_initial_indent: colon 後 body が indented block か[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - indented block なら matching dedent までを nested body envelope として扱います。
+//: - indent がなければ、同じ top-level line の colon 後を single-line nested body として扱います。
+fn selfhost_body_segment_has_initial_indent %fn &Vec SelfhostToken fn i32 fn i32 fn i32 bool \tokens\n\idx\end:
+    let after_newlines %i32 selfhost_body_segment_skip_newlines tokens n idx end
+    if:
+        or ge after_newlines end ge after_newlines n
+        then:
+            false
+        else:
+            match v::get tokens after_newlines:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            true
+                        _:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_body_segment_nested_body_start: colon 後 body の先頭 token index を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - colon 後の newline 群と、indented block を開始する最初の `Indent` を layout として読み飛ばします。
+//: - 戻り値は nested body の先頭 token、または body が空の場合の終端 index です。
+fn selfhost_body_segment_nested_body_start %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    let after_newlines %i32 selfhost_body_segment_skip_newlines tokens n idx end
+    if:
+        or ge after_newlines end ge after_newlines n
+        then:
+            after_newlines
+        else:
+            match v::get tokens after_newlines:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            add after_newlines 1
+                        _:
+                            after_newlines
+                Option::None:
+                    after_newlines
+
+//: selfhost_body_segment_block_body_end_loop: nested block body の終端を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - nested body の内側にさらに block がある場合でも、`depth` で indent/dedent を追跡し、対応する closing dedent の直前を返します。
+//:
+//: [契約/けいやく]:
+//: - `depth` は initial body indent を消費した直後の depth として caller が渡します。
+//: - 戻り値は closing dedent を含まない after-token index です。
+fn selfhost_body_segment_block_body_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 i32 \tokens\n\idx\end\depth:
+    if:
+        or or ge idx end ge idx n le depth 0
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            selfhost_body_segment_block_body_end_loop tokens n add idx 1 end add depth 1
+                        TokenKind::Dedent:
+                            if:
+                                le depth 1
+                                then:
+                                    idx
+                                else:
+                                    selfhost_body_segment_block_body_end_loop tokens n add idx 1 end sub depth 1
+                        TokenKind::Eof:
+                            idx
+                        _:
+                            selfhost_body_segment_block_body_end_loop tokens n add idx 1 end depth
+                Option::None:
+                    idx
+
+//: selfhost_body_segment_after_closing_dedent: nested block の closing dedent 後へ[進/すす]む
+//:
+//: [目的/もくてき]:
+//: - block body range は closing dedent を含まないため、segment loop の次開始位置だけは dedent の後ろへ進めます。
+fn selfhost_body_segment_after_closing_dedent %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Dedent:
+                            add idx 1
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_body_segment_after_separator: line separator 後へ[進/すす]む
+//:
+//: [目的/もくてき]:
+//: - expression line や single-line block body の終端にある newline / semicolon を次の segment に含めないようにします。
+fn selfhost_body_segment_after_separator %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            add idx 1
+                        TokenKind::Semicolon:
+                            add idx 1
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_body_segment_range_or_empty: token index 区間を syntax range に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - segmenter 内で計算した range を common parser range helper へ渡します。
+//: - 範囲が空の場合は empty range になり、caller が segment kind と合わせて意味を判断します。
+fn selfhost_body_segment_range_or_empty %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
+    selfhost_parser_syntax_range_from_indices tokens n first_token after_token
+
+//: selfhost_body_segment_error_for_token: token 位置付き error を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - token が存在する場合はその span を diagnostic seed として使い、存在しない場合は empty span に落とします。
+fn selfhost_body_segment_error_for_token %fn &Vec SelfhostToken fn i32 fn SelfhostBodySegmentErrorKind SelfhostBodySegmentError \tokens\idx\kind:
+    match v::get tokens idx:
+        Option::Some token:
+            selfhost_body_segment_error_new kind token.span
+        Option::None:
+            selfhost_body_segment_error_new kind source_span_empty_unchecked 0 0
+
+//: selfhost_body_segment_push: segment を buffer へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `Vec::push` の失敗時に返却された owner を必ず解放し、segmenter error へ正規化します。
+fn selfhost_body_segment_push %impure fn Vec SelfhostBodySegment impure fn SelfhostBodySegment Result Vec SelfhostBodySegment SelfhostBodySegmentError \out\segment:
+    match v::push out segment:
+        Result::Ok next_out:
+            Result::Ok next_out
+        Result::Err e:
+            v::free v::vec_push_error_vec e
+            Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+
+//: selfhost_body_segment_line: expression line segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - colon を含まない top-level line を `ExpressionLine` として range 化します。
+fn selfhost_body_segment_line %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostBodySegment \tokens\n\start\line_end:
+    let head %SelfhostSyntaxRange selfhost_body_segment_range_or_empty tokens n start line_end
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
+//: selfhost_body_segment_block_intro: block introduction segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - colon より前を `head`、colon 後の nested block または single-line nested body を `body` として保持します。
+//: - `body` は recursive segmenter の入力候補であり、flat prefix list へ直接渡す対象ではありません。
+fn selfhost_body_segment_block_intro %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 fn i32 SelfhostBodySegment \tokens\n\start\colon_idx\body_start\body_end:
+    let head %SelfhostSyntaxRange selfhost_body_segment_range_or_empty tokens n start colon_idx
+    let body %SelfhostSyntaxRange selfhost_body_segment_range_or_empty tokens n body_start body_end
+    selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
+
+//: selfhost_body_segment_loop: envelope から top-level segment を[列挙/れっきょ]する
+//:
+//: [目的/もくてき]:
+//: - top-level separator を読み飛ばし、現在 token が expression start なら 1 segment を作って buffer に追加します。
+//: - colon を含む line は `BlockIntro` として扱い、nested block の範囲をまとめて消費します。
+fn selfhost_body_segment_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostBodySegment Result Vec SelfhostBodySegment SelfhostBodySegmentError \tokens\n\idx\end\out:
+    let start %i32 selfhost_body_segment_skip_separators tokens n idx end
+    if:
+        ge start end
+        then:
+            Result::Ok out
+        else:
+            match v::get tokens start:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            v::free out
+                            Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::InvalidLayout token.span
+                        TokenKind::Dedent:
+                            v::free out
+                            Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::InvalidLayout token.span
+                        _:
+                            if:
+                                not selfhost_token_is_expr_start token
+                                then:
+                                    v::free out
+                                    Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::MissingExpressionStart token.span
+                                else:
+                                    let line_end %i32 selfhost_body_segment_line_end_loop tokens n start end
+                                    let colon_idx %i32 selfhost_body_segment_find_colon_loop tokens n start line_end
+                                    if:
+                                        lt colon_idx 0
+                                        then:
+                                            let segment %SelfhostBodySegment selfhost_body_segment_line tokens n start line_end
+                                            match selfhost_body_segment_push out segment:
+                                                Result::Ok next_out:
+                                                    let next_idx %i32 selfhost_body_segment_after_separator tokens n line_end end
+                                                    selfhost_body_segment_loop tokens n next_idx end next_out
+                                                Result::Err e:
+                                                    Result::Err e
+                                        else:
+                                            let after_colon %i32 add colon_idx 1
+                                            let body_start %i32 selfhost_body_segment_nested_body_start tokens n after_colon end
+                                            let indented %bool selfhost_body_segment_has_initial_indent tokens n after_colon end
+                                            let body_end %i32:
+                                                if:
+                                                    indented
+                                                    then:
+                                                        selfhost_body_segment_block_body_end_loop tokens n body_start end 1
+                                                    else:
+                                                        line_end
+                                            let segment %SelfhostBodySegment selfhost_body_segment_block_intro tokens n start colon_idx body_start body_end
+                                            match selfhost_body_segment_push out segment:
+                                                Result::Ok next_out:
+                                                    let next_idx %i32:
+                                                        if:
+                                                            indented
+                                                            then:
+                                                                selfhost_body_segment_after_closing_dedent tokens n body_end end
+                                                            else:
+                                                                selfhost_body_segment_after_separator tokens n line_end end
+                                                    selfhost_body_segment_loop tokens n next_idx end next_out
+                                                Result::Err e:
+                                                    Result::Err e
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_body_segment_error_for_token tokens start SelfhostBodySegmentErrorKind::TokenOutOfBounds
+
+//: selfhost_body_segment_list_from_envelope: body envelope から top-level segment list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - declaration body envelope を、checker が順に解釈できる `ExpressionLine` / `BlockIntro` の列に分解します。
+//: - parser range evidence の境界を検査し、不正な token range を HIR へ進めません。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は call boundary を決めません。
+//: - `BlockIntro.body` は nested body envelope なので、flat prefix expression list に直接渡さず、必要に応じてこの segmenter を再帰的に適用します。
+pub fn selfhost_body_segment_list_from_envelope %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result SelfhostBodySegmentList SelfhostBodySegmentError \tokens\envelope:
+    match envelope:
+        SelfhostSyntaxRange::Empty:
+            Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::EmptyEnvelope source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            if:
+                not selfhost_syntax_range_is_valid envelope
+                then:
+                    Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::InvalidEnvelope range.span
+                else:
+                    let token_len %i32 v::len tokens
+                    if:
+                        or gt range.first_token token_len gt range.token_count sub token_len range.first_token
+                        then:
+                            Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::TokenOutOfBounds range.span
+                        else:
+                            let items_result %Result Vec SelfhostBodySegment StdErrorKind v::new
+                            match items_result:
+                                Result::Ok items:
+                                    match selfhost_body_segment_loop tokens token_len range.first_token add range.first_token range.token_count items:
+                                        Result::Ok built_items:
+                                            Result::Ok selfhost_body_segment_list_new built_items
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err _e:
+                                    Result::Err selfhost_body_segment_error_new SelfhostBodySegmentErrorKind::OutOfMemory range.span

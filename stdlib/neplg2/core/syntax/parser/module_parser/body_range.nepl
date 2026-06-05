@@ -20,7 +20,7 @@
 #import "core/option" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/token" as *
-#import "./prefix_range" as *
+#import "../range" as *
 
 //: selfhost_parser_body_missing_index: declaration body scan の missing sentinel を[返/かえ]す
 //:

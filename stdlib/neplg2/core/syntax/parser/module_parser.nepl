@@ -40,6 +40,7 @@
 //: ```
 
 
+pub #import "./range" as *
 pub #import "./module_parser/state" as *
 pub #import "./module_parser/token_role" as *
 pub #import "./module_parser/token_role_header" as *
