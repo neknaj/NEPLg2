@@ -49,54 +49,619 @@
 
 //: ## ByteReader
 //: [生/なま]の[バイト列/ばいとれつ]を[読/よ]み[出/だ]す[能力/のうりょく]
+//:
+//: ### [目的/もくてき]
+//: - platform 依存の read 処理を trait 実装に[閉/と]じ、利用側は `Result ByteBuf StdErrorKind` だけを[扱/あつか]います。
+//:
+//: ### [契約/けいやく]
+//: - `read_all_bytes` は成功時に caller が所有する `ByteBuf` を `Result::Ok` で[返/かえ]します。
+//: - 失敗時は `StdErrorKind` を `Result::Err` で[返/かえ]し、null や sentinel buffer で失敗を[表/あらわ]しません。
+//: - この trait module は raw memory を[扱/あつか]わず、具体的な fd / file / buffer 実装へ委譲します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - default implementation は未対応 stream として `StdErrorKind::IoError` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。default branch は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"byte_reader_read_all_bytes_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"read text\" expected=\"R\" actual=\"R\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "alloc/io/traits" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct ByteReaderFixture:
+//:     value %i32
+//:
+//: impl ByteReader for ByteReaderFixture:
+//:     fn read_all_bytes %impure fn ByteReaderFixture Result ByteBuf StdErrorKind \stream:
+//:         io_bytebuf_from_str_result "R"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let reader %ByteReaderFixture ByteReaderFixture 0
+//:     let text %str match ByteReader::read_all_bytes reader:
+//:         Result::Err _e:
+//:             ""
+//:         Result::Ok bytes:
+//:             match io_bytebuf_to_str_result bytes:
+//:                 Result::Ok s:
+//:                     s
+//:                 Result::Err _e:
+//:                     ""
+//:     let report:
+//:         test_report_new "byte_reader_read_all_bytes_doc"
+//:         |> test_report_push assert_str_eq "read text" "R" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 trait ByteReader:
     fn read_all_bytes %impure fn Self Result ByteBuf StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
 //: ## ByteWriter
 //: [生/なま]の[バイト列/ばいとれつ]を[書/か]き[込/こ]む[能力/のうりょく]
+//:
+//: ### [目的/もくてき]
+//: - byte buffer の所有権消費と stream state の更新を trait 実装に[閉/と]じます。
+//:
+//: ### [契約/けいやく]
+//: - `write_bytes` は成功時に更新後の stream owner を `Result::Ok` で[返/かえ]します。
+//: - 実装は受け取った `ByteBuf` owner を成功/失敗の契約に従って閉じるか、error payload で戻す必要があります。
+//: - 失敗は `StdErrorKind` の `Result::Err` で[表/あらわ]し、silent no-op にしません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - default implementation は未対応 stream として `StdErrorKind::IoError` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。default branch は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"byte_writer_write_bytes_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"write succeeds\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "alloc/io/traits" as *
+//:| #import "core/field" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct ByteWriterFixture:
+//:     total %i32
+//:
+//: impl ByteWriter for ByteWriterFixture:
+//:     fn write_bytes %impure fn ByteWriterFixture impure fn ByteBuf Result ByteWriterFixture StdErrorKind \stream\bytes:
+//:         let n %i32 io_bytebuf_len_ref &bytes
+//:         io_bytebuf_free bytes
+//:         let total %i32 get stream "total"
+//:         let next %ByteWriterFixture ByteWriterFixture add total n
+//:         Result::Ok next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_from_str "AB"
+//:     let writer %ByteWriterFixture ByteWriterFixture 3
+//:     let ok %i32 match ByteWriter::write_bytes writer bytes:
+//:         Result::Ok _stream:
+//:             1
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "byte_writer_write_bytes_doc"
+//:         |> test_report_push assert_eq_i32 "write succeeds" 1 ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 trait ByteWriter:
     fn write_bytes %impure fn Self impure fn ByteBuf Result Self StdErrorKind \stream\bytes:
         Result::Err StdErrorKind::IoError
 
 //: ## TextReader
 //: text として[全体/ぜんたい]を[読/よ]み[出/だ]す[能力/のうりょく]
+//:
+//: ### [目的/もくてき]
+//: - byte transport と text conversion の詳細を trait 実装へ[閉/と]じ、利用側には `Result str StdErrorKind` を[見/み]せます。
+//:
+//: ### [契約/けいやく]
+//: - `read_all_text` は成功時に `Result::Ok text` を[返/かえ]します。
+//: - invalid UTF-8 や I/O 失敗などは `StdErrorKind` の enum 値として `Result::Err` に[載/の]せます。
+//: - text の absence や failure を empty string で[表/あらわ]してはいけません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - default implementation は未対応 stream として `StdErrorKind::IoError` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。default branch は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"text_reader_read_all_text_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"text read\" expected=\"text\" actual=\"text\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct TextReaderFixture:
+//:     value %i32
+//:
+//: impl TextReader for TextReaderFixture:
+//:     fn read_all_text %impure fn TextReaderFixture Result str StdErrorKind \stream:
+//:         Result::Ok "text"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let reader %TextReaderFixture TextReaderFixture 0
+//:     let text %str match TextReader::read_all_text reader:
+//:         Result::Ok s:
+//:             s
+//:         Result::Err _e:
+//:             ""
+//:     let report:
+//:         test_report_new "text_reader_read_all_text_doc"
+//:         |> test_report_push assert_str_eq "text read" "text" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 trait TextReader:
     fn read_all_text %impure fn Self Result str StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
 //: ## TextWriter
 //: text を[書/か]き[込/こ]む[能力/のうりょく]
+//:
+//: ### [目的/もくてき]
+//: - text output の host / stream 依存処理を trait 実装に[閉/と]じます。
+//:
+//: ### [契約/けいやく]
+//: - `write_str` は成功時に更新後の stream owner を `Result::Ok` で[返/かえ]します。
+//: - 失敗時は `StdErrorKind` を `Result::Err` で[返/かえ]します。
+//: - text は `str` として受け取り、trait layer は raw byte pointer を公開しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - default implementation は未対応 stream として `StdErrorKind::IoError` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。default branch は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"text_writer_write_str_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"write called\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct TextWriterFixture:
+//:     called %i32
+//:
+//: impl TextWriter for TextWriterFixture:
+//:     fn write_str %impure fn TextWriterFixture impure fn str Result TextWriterFixture StdErrorKind \stream\text:
+//:         let next %TextWriterFixture TextWriterFixture 1
+//:         Result::Ok next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let writer %TextWriterFixture TextWriterFixture 0
+//:     let called %i32 match TextWriter::write_str writer "hello":
+//:         Result::Ok _stream:
+//:             1
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "text_writer_write_str_doc"
+//:         |> test_report_push assert_eq_i32 "write called" 1 called
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 trait TextWriter:
     fn write_str %impure fn Self impure fn str Result Self StdErrorKind \stream\text:
         Result::Err StdErrorKind::IoError
 
 //: ## Flush
 //: [保留中/ほりゅうちゅう]の[出力/しゅつりょく]を[外部/がいぶ]へ[反映/はんえい]する[能力/のうりょく]
+//:
+//: ### [目的/もくてき]
+//: - buffering を持つ stream の presentation / writeback 境界を、明示的な `impure` operation として[表/あらわ]します。
+//:
+//: ### [契約/けいやく]
+//: - `flush` は成功時に更新後の stream owner を `Result::Ok` で[返/かえ]します。
+//: - flush が未対応または失敗した場合は `StdErrorKind` を `Result::Err` で[返/かえ]します。
+//: - silent no-op は trait contract ではありません。best-effort にする backend は別途その contract を[記述/きじゅつ]します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - default implementation は未対応 stream として `StdErrorKind::IoError` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。default branch は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"flush_trait_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"flushed\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct FlushFixture:
+//:     flushed %i32
+//:
+//: impl Flush for FlushFixture:
+//:     fn flush %impure fn FlushFixture Result FlushFixture StdErrorKind \stream:
+//:         let next %FlushFixture FlushFixture 1
+//:         Result::Ok next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let stream0 %FlushFixture FlushFixture 0
+//:     let flushed %i32 match Flush::flush stream0:
+//:         Result::Ok _stream:
+//:             1
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "flush_trait_doc"
+//:         |> test_report_push assert_eq_i32 "flushed" 1 flushed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 trait Flush:
     fn flush %impure fn Self Result Self StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
 //: ## Close
 //: stream を[閉/と]じる[能力/のうりょく]
+//:
+//: ### [目的/もくてき]
+//: - descriptor / handle / buffer を持つ stream の終了境界を trait として[表/あらわ]します。
+//:
+//: ### [契約/けいやく]
+//: - `close` は成功時に `Result::Ok unit` を[返/かえ]し、stream owner は消費済みです。
+//: - 失敗時は `StdErrorKind` を `Result::Err` で[返/かえ]します。
+//: - close 後に同じ stream owner を再利用してはいけません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - default implementation は未対応 stream として `StdErrorKind::IoError` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。default branch は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"close_trait_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"closed\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct CloseFixture:
+//:     value %i32
+//:
+//: impl Close for CloseFixture:
+//:     fn close %impure fn CloseFixture Result unit StdErrorKind \stream:
+//:         Result::Ok unit
+//:
+//: fn main %impure fn void i32 \void:
+//:     let stream0 %CloseFixture CloseFixture 0
+//:     let closed %i32 match Close::close stream0:
+//:         Result::Ok _:
+//:             1
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "close_trait_doc"
+//:         |> test_report_push assert_eq_i32 "closed" 1 closed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 trait Close:
     fn close %impure fn Self Result unit StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
+//: io_read_all_bytes: `ByteReader` 実装から bytes を[読/よ]む public helper
+//:
+//: ### [目的/もくてき]
+//: - trait method 呼び出しを public helper として[提供/ていきょう]し、call site の型制約を `ByteReader` に[閉/と]じます。
+//:
+//: ### [契約/けいやく]
+//: - 成功/失敗の条件は対象 stream の `ByteReader::read_all_bytes` 実装に従います。
+//: - 戻り値の `Result::Ok` payload は caller が所有する `ByteBuf` です。
+//: - helper 自体は raw memory を[扱/あつか]わず、静的に解決される trait dispatch に委譲します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `ByteReader::read_all_bytes stream` をそのまま呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。helper 自体の追加処理は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_read_all_bytes_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"helper read\" expected=\"B\" actual=\"B\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "alloc/io/traits" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct ReadBytesFixture:
+//:     value %i32
+//:
+//: impl ByteReader for ReadBytesFixture:
+//:     fn read_all_bytes %impure fn ReadBytesFixture Result ByteBuf StdErrorKind \stream:
+//:         io_bytebuf_from_str_result "B"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let reader %ReadBytesFixture ReadBytesFixture 0
+//:     let text %str match io_read_all_bytes reader:
+//:         Result::Ok bytes:
+//:             match io_bytebuf_to_str_result bytes:
+//:                 Result::Ok s:
+//:                     s
+//:                 Result::Err _e:
+//:                     ""
+//:         Result::Err _e:
+//:             ""
+//:     let report:
+//:         test_report_new "io_read_all_bytes_doc"
+//:         |> test_report_push assert_str_eq "helper read" "B" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_read_all_bytes <.T: ByteReader> %impure fn .T Result ByteBuf StdErrorKind \stream:
     ByteReader::read_all_bytes stream
 
+//: io_write_bytes: `ByteWriter` 実装へ `ByteBuf` owner を[書/か]き[込/こ]む public helper
+//:
+//: ### [目的/もくてき]
+//: - stream-specific byte write を `ByteWriter` trait 境界へ委譲します。
+//:
+//: ### [契約/けいやく]
+//: - 成功時は更新後の stream owner を `Result::Ok` で[返/かえ]します。
+//: - `bytes` owner の扱いは trait 実装の契約に従います。単なる raw pointer と length へ分解して public helper から扱いません。
+//: - 失敗は `StdErrorKind` の `Result::Err` として明示します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `ByteWriter::write_bytes stream bytes` をそのまま呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。helper 自体の追加処理は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_write_bytes_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"helper write total\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "alloc/io/traits" as *
+//:| #import "core/field" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct WriteBytesFixture:
+//:     total %i32
+//:
+//: impl ByteWriter for WriteBytesFixture:
+//:     fn write_bytes %impure fn WriteBytesFixture impure fn ByteBuf Result WriteBytesFixture StdErrorKind \stream\bytes:
+//:         let n %i32 io_bytebuf_len_ref &bytes
+//:         io_bytebuf_free bytes
+//:         let total %i32 get stream "total"
+//:         let next %WriteBytesFixture WriteBytesFixture add total n
+//:         Result::Ok next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_from_str "XY"
+//:     let writer %WriteBytesFixture WriteBytesFixture 2
+//:     let total %i32 match io_write_bytes writer bytes:
+//:         Result::Ok stream:
+//:             get stream "total"
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "io_write_bytes_doc"
+//:         |> test_report_push assert_eq_i32 "helper write total" 4 total
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_write_bytes <.T: ByteWriter> %impure fn .T impure fn ByteBuf Result .T StdErrorKind \stream\bytes:
     ByteWriter::write_bytes stream bytes
 
+//: io_read_all_text: `TextReader` 実装から text を[読/よ]む public helper
+//:
+//: ### [目的/もくてき]
+//: - text read の failure を empty string へ潰さず、`Result str StdErrorKind` として[扱/あつか]います。
+//:
+//: ### [契約/けいやく]
+//: - 成功/失敗の条件は対象 stream の `TextReader::read_all_text` 実装に従います。
+//: - invalid UTF-8 や I/O 失敗は `StdErrorKind` enum として[表/あらわ]します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `TextReader::read_all_text stream` をそのまま呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。helper 自体の追加処理は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_read_all_text_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"helper text\" expected=\"hello\" actual=\"hello\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct ReadTextFixture:
+//:     value %i32
+//:
+//: impl TextReader for ReadTextFixture:
+//:     fn read_all_text %impure fn ReadTextFixture Result str StdErrorKind \stream:
+//:         Result::Ok "hello"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let reader %ReadTextFixture ReadTextFixture 0
+//:     let text %str match io_read_all_text reader:
+//:         Result::Ok s:
+//:             s
+//:         Result::Err _e:
+//:             ""
+//:     let report:
+//:         test_report_new "io_read_all_text_doc"
+//:         |> test_report_push assert_str_eq "helper text" "hello" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_read_all_text <.T: TextReader> %impure fn .T Result str StdErrorKind \stream:
     TextReader::read_all_text stream
 
+//: io_write_str: `TextWriter` 実装へ text を[書/か]き[込/こ]む public helper
+//:
+//: ### [目的/もくてき]
+//: - text output の effect を `TextWriter` trait 境界へ委譲します。
+//:
+//: ### [契約/けいやく]
+//: - 成功時は更新後の stream owner を `Result::Ok` で[返/かえ]します。
+//: - 失敗時は `StdErrorKind` を `Result::Err` で[返/かえ]します。
+//: - helper は text を raw byte pointer として公開しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `TextWriter::write_str stream text` をそのまま呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。helper 自体の追加処理は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_write_str_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"helper text write\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct WriteTextFixture:
+//:     called %i32
+//:
+//: impl TextWriter for WriteTextFixture:
+//:     fn write_str %impure fn WriteTextFixture impure fn str Result WriteTextFixture StdErrorKind \stream\text:
+//:         let next %WriteTextFixture WriteTextFixture 1
+//:         Result::Ok next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let writer %WriteTextFixture WriteTextFixture 0
+//:     let called %i32 match io_write_str writer "hello":
+//:         Result::Ok stream:
+//:             get stream "called"
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "io_write_str_doc"
+//:         |> test_report_push assert_eq_i32 "helper text write" 1 called
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_write_str <.T: TextWriter> %impure fn .T impure fn str Result .T StdErrorKind \stream\text:
     TextWriter::write_str stream text
 
+//: io_flush: `Flush` 実装の flush boundary を[呼/よ]ぶ public helper
+//:
+//: ### [目的/もくてき]
+//: - buffering stream の反映処理を明示的な `impure` helper として[呼/よ]びます。
+//:
+//: ### [契約/けいやく]
+//: - 成功時は更新後の stream owner を `Result::Ok` で[返/かえ]します。
+//: - 未対応や失敗は `StdErrorKind` の `Result::Err` として[返/かえ]します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `Flush::flush stream` をそのまま呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。helper 自体の追加処理は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_flush_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"helper flush\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct FlushHelperFixture:
+//:     flushed %i32
+//:
+//: impl Flush for FlushHelperFixture:
+//:     fn flush %impure fn FlushHelperFixture Result FlushHelperFixture StdErrorKind \stream:
+//:         let next %FlushHelperFixture FlushHelperFixture 1
+//:         Result::Ok next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let stream0 %FlushHelperFixture FlushHelperFixture 0
+//:     let flushed %i32 match io_flush stream0:
+//:         Result::Ok stream:
+//:             get stream "flushed"
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "io_flush_doc"
+//:         |> test_report_push assert_eq_i32 "helper flush" 1 flushed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_flush <.T: Flush> %impure fn .T Result .T StdErrorKind \stream:
     Flush::flush stream
 
+//: io_close: `Close` 実装の close boundary を[呼/よ]ぶ public helper
+//:
+//: ### [目的/もくてき]
+//: - stream owner の終了を `Result unit StdErrorKind` として明示的に[扱/あつか]います。
+//:
+//: ### [契約/けいやく]
+//: - 成功時は `Result::Ok unit` を[返/かえ]し、stream owner は消費済みです。
+//: - 失敗時は `StdErrorKind` を `Result::Err` で[返/かえ]します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `Close::close stream` をそのまま呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - trait 実装に依存します。helper 自体の追加処理は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_close_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"helper close\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/traits" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: struct CloseHelperFixture:
+//:     value %i32
+//:
+//: impl Close for CloseHelperFixture:
+//:     fn close %impure fn CloseHelperFixture Result unit StdErrorKind \stream:
+//:         Result::Ok unit
+//:
+//: fn main %impure fn void i32 \void:
+//:     let stream0 %CloseHelperFixture CloseHelperFixture 0
+//:     let closed %i32 match io_close stream0:
+//:         Result::Ok _:
+//:             1
+//:         Result::Err _e:
+//:             0
+//:     let report:
+//:         test_report_new "io_close_doc"
+//:         |> test_report_push assert_eq_i32 "helper close" 1 closed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_close <.T: Close> %impure fn .T Result unit StdErrorKind \stream:
     Close::close stream

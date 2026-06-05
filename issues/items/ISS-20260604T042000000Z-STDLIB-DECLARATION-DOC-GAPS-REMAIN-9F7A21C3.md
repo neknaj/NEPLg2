@@ -43,6 +43,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の Diag slice で `stdlib/alloc/diag/diag.nepl`、`error/diag.nepl`、`error/diags.nepl` の renderer by-value overload / stdio print helper / typed error accessor / `Diags` by-value observer docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=215`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし hash32 / io / string builder などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の Alloc IO slice で `stdlib/alloc/io/bytebuf.nepl`、`bytebuilder/types.nepl`、`traits.nepl` の `ByteBuf` observer / pointer projection / cleanup、`ByteBuilder` pointer projection、stream trait / forwarding helper docs と report doctest を追加した。trait body には現行 NEPLg2 構文上 doc comment を置けないため、`nodesrc/test_stdlib_documentation_contract.js` は trait body method を個別 declaration として数えず、trait declaration doc に contract を集約する形へ修正した。baseline は `declarations=2488`、`declarationNoDoc=162`、`declarationNoDoctest=1662`、`publicDeclarationNoDoctest=1509`、`privateDeclarationNoDoctest=153` まで改善した。ただし hash32 / string builder / string integer などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 対象
 
 - `stdlib/core`
@@ -88,6 +90,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日 Diag slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=215`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_diag_doc_report_contract.js` により、Diag の enum authority と表示文字列の分離、by-value `diags_to_string` の `impure fn` owner cleanup、`Diags` by-value observer の borrowed observation + `diags_free`、`diags_has_errors_loop` の `Vec.get` + exhaustive `DiagLevel` match、stdio print helper の IO boundary を module 固有にも固定する。
 
+同日 Alloc IO slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=295`、`declarationNoDoc=162`、`declarationNoDoctest=1662`、`publicDeclarationNoDoctest=1509`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_stdlib_alloc_io_doc_report_contract.js` により、`ByteBufStorage::Empty` / `Owned RegionToken` owner state、非所有 `MemPtr` view、`Option::Some` / `Option::None` pointer and byte access、`ByteBuf` cleanup、`ByteBuilder` pointer projection、stream trait の `StdErrorKind` / `Result` / `impure` boundary、trait body method を個別 doc 対象にしない scanner contract を module 固有にも固定する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -102,6 +106,11 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - module family ごとの focused doctest
 - 追加される cfg-test-style regular tests
 - `node nodesrc/test_stdlib_diag_doc_report_contract.js`
+- `node nodesrc/test_stdlib_alloc_io_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i stdlib/alloc/io/traits.nepl -i stdlib/alloc/io/bytebuilder/types.nepl --no-tree -o tmp/agent2-alloc-io-doc-smoke-4.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`
+- `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`
 - `node nodesrc/tests.js -i stdlib/alloc/diag/diag.nepl -i stdlib/alloc/diag/error/diag.nepl -i stdlib/alloc/diag/error/diags.nepl --no-tree -o tmp/agent2-diag-doc-smoke-4.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/tests/diag.n.md --no-tree -o tmp/agent2-diag-nmd-after-impure.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent2-collections-diag-after-impure.json -j 1 --dist web/dist --assert-io`

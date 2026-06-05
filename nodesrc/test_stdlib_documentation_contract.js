@@ -15,11 +15,11 @@ const BASELINE = {
     files: 456,
     moduleNoDoc: 0,
     moduleNoDoctest: 295,
-    declarations: 2525,
-    declarationNoDoc: 215,
-    declarationNoDoctest: 1668,
+    declarations: 2488,
+    declarationNoDoc: 162,
+    declarationNoDoctest: 1662,
     publicDeclarationNoDoctest: 1509,
-    privateDeclarationNoDoctest: 159,
+    privateDeclarationNoDoctest: 153,
 };
 
 function assert(condition, message) {
@@ -129,11 +129,13 @@ for (const filePath of STDLIB_ROOTS.flatMap(walkNeplFiles).sort()) {
     }
 
     let implBlockIndent = null;
+    let traitBlockIndent = null;
     for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index];
         const trimmed = line.trim();
         const indentation = indentOf(line);
         const startsImpl = implHeaderAt(line);
+        const startsTraitDeclaration = /^\s*(?:pub\s+)?trait\b/.test(line);
         if (
             implBlockIndent !== null
             && trimmed !== ""
@@ -145,6 +147,18 @@ for (const filePath of STDLIB_ROOTS.flatMap(walkNeplFiles).sort()) {
         }
         if (startsImpl) {
             implBlockIndent = indentation;
+            continue;
+        }
+        if (
+            traitBlockIndent !== null
+            && trimmed !== ""
+            && !trimmed.startsWith("//:")
+            && indentation <= traitBlockIndent
+            && !startsTraitDeclaration
+        ) {
+            traitBlockIndent = null;
+        }
+        if (traitBlockIndent !== null && !startsTraitDeclaration) {
             continue;
         }
         if (implBlockIndent !== null) {
@@ -168,6 +182,9 @@ for (const filePath of STDLIB_ROOTS.flatMap(walkNeplFiles).sort()) {
             } else {
                 stats.privateDeclarationNoDoctest += 1;
             }
+        }
+        if (declaration[1] === "trait") {
+            traitBlockIndent = indentation;
         }
     }
 }
