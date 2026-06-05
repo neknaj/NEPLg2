@@ -16,12 +16,37 @@
 
 セルフホストコンパイラは、Zenn の開発方針で示された試作段階の原則を満たす。特に、次を設計上の制約として扱う。
 
+- 方針確認の authority は `https://zenn.dev/bem130/articles/1b352797de94e7` である。新しい issue、実装 slice、または設計変更に着手する前に、この記事を再確認する。
 - 互換性維持より、正しい仕様境界と根本原因の修正を優先する。
 - core は platform 非依存に保ち、filesystem、stdio、argv、環境変数、時計、乱数などは CLI / host boundary に閉じ込める。
 - 静的検査を省略して高速化したように見せない。高速化は探索範囲、依存関係、cache key、事前検査済み artifact の設計で行う。
 - 失敗は `Option` / `Result` / enum diagnostic として表現し、string 判定や sentinel 値へ依存しない。
 - public API に型名付き重複関数を増やさず、型注釈、期待型、trait / generic 解決で選択する。
 - prototype 段階では大きな再設計を許すが、後続実装へ隠れた技術的負債を渡さない。
+
+## Zenn 方針 review gate
+
+セルフホストコンパイラの実装は、各 slice ごとに Zenn 方針 review gate を通す。ここでの slice は、issue の 1 checkpoint、公開 API の追加、型や診断 enum の追加、Resource proof 境界の追加、または既存 module の責務変更を指す。
+
+review gate は次の順で行う。
+
+1. 作業開始時に Zenn 記事を再確認し、その slice で影響する方針を `note.n.md` または対応 issue に記録する。
+2. 独立した subagent に、設計、実装、ドキュメントコメント、source policy、検証方針をレビューさせる。
+3. Blocker は同じ slice 内で修正する。修正できないものは、原因、影響、完了条件を持つ issue として分離する。
+4. Non-blocker は `note.n.md`、`todo.md`、または対応 issue に残し、次 slice の入口で再確認する。
+5. commit 前に、今回の差分が Zenn 方針 review gate を通ったことを `note.n.md` の checkpoint に記録する。
+
+subagent review は、単に承認を得るためではなく、実装者と独立した観点で次の観点を確認するために使う。
+
+- 失敗経路が `Result` / `Option` / enum error で表現され、表示文字列や sentinel 値で分岐していないこと。
+- `match` の網羅性が効く形で variant が設計され、数値 tag や文字列 tag を公開 API にしていないこと。
+- parser、checker、HIR、Resource IR、backend の authority が混ざっていないこと。
+- pure core と host / CLI boundary が分離され、filesystem、stdio、clock、random などが core に漏れていないこと。
+- 高速化が安全性検査の省略ではなく、探索範囲、依存関係、事前検査済み artifact、cache key の設計で行われていること。
+- ドキュメントコメントが、目的、契約、戻り値や error variant の条件、計算量、制約、典型例、現状の実装詳細と将来も守る契約の区別を説明していること。
+- コメントの量を減らすための行数制限や説明削減の検査が入っていないこと。コメントの丁寧さと契約の明確さを優先する。
+
+source policy regression は、この review gate を支えるために追加する。検査は「コメントが多いこと」を拒否してはならない。検査すべきなのは、方針を守るための構造である。例えば、typed error enum、owner recovery、pure / impure boundary、module split、facade re-export、doc comment の必須項目、review checkpoint の記録を確認する。一方で、実装行数やドキュメントコメントの長さそのものを制限してはならない。
 
 ## NEPLg2.1 構文の前提
 

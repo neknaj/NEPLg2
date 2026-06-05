@@ -51199,3 +51199,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused doctest の初回実行で `argument.nepl` の `&Vec SelfhostToken` が `Vec` constructor を import していないため parse できないことを確認し、`alloc/collections/vec` import を追加した。型名の source spelling を利用する境界では、使用する type constructor を明示 import する必要がある。
 - focused verification は `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_ascribed_argument_source_tests.json`、`node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-review.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存別件の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` の 2 warning が残る。
+
+## 2026-06-05 Agent selfhost Zenn review gate checkpoint
+
+- `selfhost/zenn-review-loop-policy-20260605` branch で、セルフホストコンパイラ開発の Zenn 方針 review gate を文書化し、source policy regression に登録した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、`Option` / `Result` / enum diagnostic、pure core と host boundary の分離、丁寧なドキュメントコメント、試作段階でも技術的負債を残さない方針を今回の運用契約に反映した。
+- subagent review では、既存の selfhost checkpoint は Zenn / subagent review の履歴を残しているが、実行計画と機械検査に恒久 gate として固定されていない点が Blocker とされた。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に `Zenn 方針 review gate` を追加し、新しい issue、実装 slice、公開 API、diagnostic enum、Resource proof 境界、または module 責務変更ごとに、Zenn 再確認、独立 subagent review、Blocker 修正または issue 化、Non-blocker 記録、commit 前の `note.n.md` checkpoint を必須にした。
+- `doc/neplg2/self_host_execution_plan.md` に同じ gate を追加し、作業開始時と commit 前の確認、source policy 更新、コメントを減らすための行数制限や説明削減の検査禁止を実作業手順に入れた。
+- 実行計画に残っていた古い数値目安は、丁寧なドキュメントコメントと責務境界による分割判断に反するため削除し、commit の大きさは行数ではなく責務境界と検証可能性で判断する記述へ置き換えた。
+- `doc/stdlib_doc_comment_policy.md` に、現在の `stdlib/neplg2/` セルフホストコンパイラ実装にも同じ doc comment 水準を適用することを明記した。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` を追加し、Zenn URL、subagent review、Blocker 処理、doc comment 必須項目、行数制限禁止、実行計画側の gate、`stdlib/neplg2` への doc comment policy 適用を検査するようにした。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- subagent review の Non-blocker として、`stdlib/neplg2` 全体の doc comment coverage、error enum chain の完全写像、`check/expr` と `lower/hir` の authority 逆流禁止をより広く検査する提案があった。これは次の selfhost implementation slice で、対象 module に合わせて個別 source policy へ追加する。
