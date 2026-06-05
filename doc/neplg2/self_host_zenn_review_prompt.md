@@ -142,6 +142,7 @@ Design docs:
 review response を受け取った agent は、次を行う。
 
 - review response を `node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>` または `--stdin` で検査する。
+- commit 前の最終受理では、review response の要約を `note.n.md` または `issues/items/*.md` の関連 issue に記録したうえで、`node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md> --record <note-or-issue.md>` を実行し、review 証跡が durable な記録先にも残っていることを検査する。`--record` に一時ファイルや repo 外ファイルを指定してはならない。
 - response checker が失敗した返答は review 記録として扱わず、subagent に不足 section / field の再提出を依頼する。
 - `MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read` と `not_reviewed` が記録されている場合だけ受理する。
 - `Blocker` は同じ branch 内で修正する。
