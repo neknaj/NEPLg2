@@ -4526,8 +4526,8 @@ pub fn prepare_module_for_codegen_with_source_map(
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
 ) -> Result<PreparedProgram, CoreError> {
-    prepare_module_for_codegen_with_source_map_and_test_mode(
-        module, target, profile, false, source_map,
+    prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+        module, target, profile, false, source_map, None,
     )
 }
 

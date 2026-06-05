@@ -92,9 +92,17 @@ assert(
         && prepareDependencyWrapperBody.includes('None'),
     'prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash must keep the cache-free public wrapper',
 );
-const prepareBody = extractFunctionBody(
+const prepareCacheWrapperBody = extractFunctionBody(
     source,
     'prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache',
+);
+assert(
+    prepareCacheWrapperBody.includes('prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal('),
+    'prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache must delegate to the shared internal prepare phase',
+);
+const prepareBody = extractFunctionBody(
+    source,
+    'prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal',
 );
 const resourceTypecheckIndex = prepareBody.indexOf('let resource_tc = run_typecheck(');
 const resourceMonomorphizeIndex = prepareBody.indexOf(

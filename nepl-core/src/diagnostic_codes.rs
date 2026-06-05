@@ -361,6 +361,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowOuterDefinition),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable),
     DiagnosticCode::Type(TypeDiagnosticCode::FunctionValueCapturingUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::FunctionValueUnresolvedIdentity),
     DiagnosticCode::Type(TypeDiagnosticCode::IndirectCallRequiresFunctionValue),
     DiagnosticCode::Type(TypeDiagnosticCode::CallCaptureArityMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::VariableNotCallable),

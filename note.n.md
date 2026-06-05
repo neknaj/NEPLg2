@@ -1,3 +1,19 @@
+# 2026-06-05 Agent source policy Zenn compliance checkpoint
+
+- Zenn 記事を再確認し、静的検査の正確性、enum による診断管理、試作段階でも技術的負債を残さない方針を今回の判断基準にした。
+- 直前 checkpoint で `node nodesrc/run_source_policy_regressions.js --warn-only` の warning を既存扱いで残した判断は誤りだった。`nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` は、現在の compiler / diagnostic registry の契約違反を検出していたため、warning のまま放置せず根本原因を修正する対象に戻した。
+- `prepare_module_for_codegen_with_source_map` は通常 compile path の依存 public surface 境界を明示する wrapper であり、test mode wrapper を経由させると source policy が監視する Resource IR gate order が読めなくなる。通常 path は `prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash` へ直接委譲し、test mode 付き入口は別の薄い wrapper として残した。
+- `nodesrc/test_resource_gate_order.js` は public wrapper の委譲確認と、実際の prepare phase 本体の Resource IR gate order 確認を分けるように修正した。stage timing / artifact option 共有のために本体は `_internal` へ切り出されているため、薄い public wrapper ではなく internal prepare phase の body を検査する。subagent review の指摘に従い、resource summary cache public wrapper が `_internal` へ委譲する契約も source policy に追加した。
+- `TypeDiagnosticCode::FunctionValueUnresolvedIdentity` は enum、serialized name、message には追加済みだったが、`ALL_DIAGNOSTIC_CODES` への登録が漏れていた。診断コードを enum と registry の両方で静的に管理する契約に合わせ、registry へ追加した。
+- 検証済み:
+  - `node nodesrc/test_resource_gate_order.js`: pass
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `cargo test -p nepl-core diagnostic_codes_have_unique_serialized_names`: pass
+  - `cargo test -p nepl-core compiler_boundary_codes_are_registered`: pass
+  - `git diff --check`: pass
+
 # 2026-06-05 Agent selfhost trailing block argument checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事の fail-closed、enum error、責務分割、丁寧なコメント方針に合わせ、BlockIntro を flat prefix item に混ぜず、trailing block argument の専用境界を追加した。
