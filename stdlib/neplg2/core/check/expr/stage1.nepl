@@ -54,23 +54,94 @@ struct SelfhostCheckExprStage1ValueContext:
     value_types %SelfhostValueTypeEvidenceTable
     signatures %SelfhostCallableSignatureTable
 
+//: selfhost_check_expr_stage1_value_context_new: stage1 fixture context owner を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - scope、value type evidence table、callable signature table を 1 つの aggregate にまとめ、source-backed expression checker helper へ同時に渡せるようにします。
+//: - stage1 smoke helper 内の owner 移動を明示し、個別 table を引数列に並べることによる解放漏れを避けます。
+//:
+//: [契約/けいやく]:
+//: - この constructor は渡された 3 つの owner を消費し、返した context owner の一部にします。
+//: - 返した context は caller が `selfhost_check_expr_stage1_value_context_free` で閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 所有済みの stage1 fixture context です。
+//:
+//: [計算量/けいさんりょう]:
+//: - field を束ねるだけなので O(1) です。
 fn selfhost_check_expr_stage1_value_context_new %impure fn SelfhostNameScope impure fn SelfhostValueTypeEvidenceTable impure fn SelfhostCallableSignatureTable SelfhostCheckExprStage1ValueContext \scope\value_types\signatures:
     SelfhostCheckExprStage1ValueContext scope value_types signatures
 
+//: selfhost_check_expr_stage1_value_context_scope: context 内の scope borrow を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `selfhost_check_expr_reduce_body_segment_with_source` へ渡す名前解決 scope を、context owner から借用として取り出します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - context が所有する `SelfhostNameScope` への borrow です。caller は解放してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - field borrow だけなので O(1) です。
 fn selfhost_check_expr_stage1_value_context_scope %fn &SelfhostCheckExprStage1ValueContext &SelfhostNameScope \context:
     field::get_ref context "scope"
 
+//: selfhost_check_expr_stage1_value_context_value_types: context 内の value evidence table borrow を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - named value argument の型証拠を source-backed reducer に渡すため、context 内の table を借用で公開します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - context が所有する `SelfhostValueTypeEvidenceTable` への borrow です。caller は解放してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - field borrow だけなので O(1) です。
 fn selfhost_check_expr_stage1_value_context_value_types %fn &SelfhostCheckExprStage1ValueContext &SelfhostValueTypeEvidenceTable \context:
     field::get_ref context "value_types"
 
+//: selfhost_check_expr_stage1_value_context_signatures: context 内の callable signature table borrow を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - named callable や `@add` function value argument の候補収集で使う signature table を、context から借用で渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - context が所有する `SelfhostCallableSignatureTable` への borrow です。caller は解放してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - field borrow だけなので O(1) です。
 fn selfhost_check_expr_stage1_value_context_signatures %fn &SelfhostCheckExprStage1ValueContext &SelfhostCallableSignatureTable \context:
     field::get_ref context "signatures"
 
+//: selfhost_check_expr_stage1_value_context_free: stage1 fixture context owner を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - source-backed reducer helper の success / failure path で、scope、value evidence table、callable signature table をまとめて解放します。
+//:
+//: [契約/けいやく]:
+//: - `context` owner を消費します。呼び出し後に accessor で中身を借用してはいけません。
+//: - この関数は fixture context 専用の cleanup boundary であり、production checker environment の lifetime 管理は扱いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 各 table の内部 buffer 解放に従います。stage1 fixture では固定小サイズのため O(1) です。
 fn selfhost_check_expr_stage1_value_context_free %impure fn SelfhostCheckExprStage1ValueContext unit \context:
     selfhost_name_scope_free field::get context "scope"
     selfhost_value_type_evidence_table_free field::get context "value_types"
     selfhost_callable_signature_table_free field::get context "signatures"
 
+//: selfhost_check_expr_stage1_empty_value_context: 空の stage1 fixture context を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 名前付き値や関数候補を使わない expression line smoke でも、production API と同じ context 引数を渡せるようにします。
+//:
+//: [契約/けいやく]:
+//: - 成功時は caller が context owner を受け取り、`selfhost_check_expr_stage1_value_context_free` で閉じます。
+//: - 途中の table 作成に失敗した場合、この helper が作成済み owner を閉じてから `StdErrorKind` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(context)`: 空 scope、空 value evidence table、空 signature table を持つ context owner です。
+//: - `Err(error)`: context 構築中の allocation 失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 3 table の作成だけなので O(1) です。
 fn selfhost_check_expr_stage1_empty_value_context %impure fn void Result SelfhostCheckExprStage1ValueContext StdErrorKind \void:
     match selfhost_name_scope_new:
         Result::Ok scope:
@@ -89,6 +160,21 @@ fn selfhost_check_expr_stage1_empty_value_context %impure fn void Result Selfhos
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_value_context_with_binding_only: 型証拠を持たない local binding context を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - scope には名前があるが value type evidence がない場合に、named argument reducer が missing evidence を fail-closed に扱うことを確認します。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_name_scope_add_binding` は入力 scope owner を消費します。失敗時の owner cleanup はその関数の契約に従います。
+//: - table 作成の後段で失敗した場合、この helper が作成済み owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(context)`: `name` の local binding だけを持ち、型証拠を持たない context owner です。
+//: - `Err(error)`: binding 追加または table 作成に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 1 binding と空 table 2 個だけを作るため O(1) です。
 fn selfhost_check_expr_stage1_value_context_with_binding_only %impure fn str impure fn SelfhostSourceSpan Result SelfhostCheckExprStage1ValueContext StdErrorKind \name\span:
     match selfhost_name_scope_new:
         Result::Ok scope0:
@@ -113,6 +199,21 @@ fn selfhost_check_expr_stage1_value_context_with_binding_only %impure fn str imp
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_value_context_with_typed_value: local binding と型証拠を持つ context を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - named value argument が `SelfhostValueTypeEvidenceTable` を通じて expected type と照合される経路を fixture 化します。
+//:
+//: [契約/けいやく]:
+//: - scope へ追加された `DefId` と value evidence の `DefId` は同じものを使います。
+//: - `selfhost_name_scope_add_binding` と evidence table add は入力 owner を消費します。後段失敗時はこの helper が残った owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(context)`: `name` の local binding と `value_type` evidence を持つ context owner です。
+//: - `Err(error)`: binding 追加、evidence 追加、または table 作成に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 1 binding / 1 evidence / 空 signature table だけを作るため O(1) です。
 fn selfhost_check_expr_stage1_value_context_with_typed_value %impure fn str impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostCheckExprStage1ValueContext StdErrorKind \name\value_type\span:
     match selfhost_name_scope_new:
         Result::Ok scope0:
@@ -144,6 +245,25 @@ fn selfhost_check_expr_stage1_value_context_with_typed_value %impure fn str impu
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_value_context_with_function: function binding と callable signature を持つ context を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - named callable reduction と `@name` function value argument が、scope の DefId から signature table へ到達する経路を fixture 化します。
+//:
+//: [契約/けいやく]:
+//: - scope へ追加された function binding の DefId と callable signature の DefId は同じものを使います。
+//: - signature は pure / monomorphic fixture として作ります。generic inference や impure callable の検査はこの helper の責務ではありません。
+//: - `selfhost_name_scope_add_binding` が失敗した場合、入力 scope owner は callee が消費します。
+//: - 成功時は context owner を返し、caller が `selfhost_check_expr_stage1_value_context_free` で scope、value evidence table、signature table を閉じます。
+//: - `selfhost_callable_signature_table_add` が失敗した場合、入力 signature table owner は callee が消費します。この helper は残った value evidence table と scope を閉じます。
+//: - signature table 作成そのものが失敗した場合、この helper が作成済みの value evidence table と scope を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(context)`: `name` の function binding と `callable_type` signature を持つ context owner です。
+//: - `Err(error)`: binding 追加、signature 追加、または table 作成に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 1 binding / 1 signature / 空 value evidence table だけを作るため O(1) です。
 fn selfhost_check_expr_stage1_value_context_with_function %impure fn str impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostCheckExprStage1ValueContext StdErrorKind \name\callable_type\span:
     match selfhost_name_scope_new:
         Result::Ok scope0:
@@ -183,8 +303,16 @@ fn selfhost_check_expr_stage1_value_context_with_function %impure fn str impure 
 //: - 候補収集が `find_kind(Function)` だけで古い function を復活させる退行を、stage1 smoke から検出できるようにします。
 //:
 //: [契約/けいやく]:
-//: - 成功時は scope、value evidence table、callable signature table をまとめた context owner を返します。
-//: - 失敗時は、この helper が作成済み owner をすべて解放してから `StdErrorKind` を返します。
+//: - 成功時は scope、value evidence table、callable signature table をまとめた context owner を返し、caller が `selfhost_check_expr_stage1_value_context_free` で閉じます。
+//: - `selfhost_name_scope_add_binding`、`selfhost_value_type_evidence_table_add`、`selfhost_callable_signature_table_add` が失敗した場合、各 callee が入力 owner を消費します。
+//: - この helper は callee に渡していない残り owner だけを直接閉じます。例えば signature 追加失敗時は残った value evidence table と scope を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(context)`: 同名 function signature と、それを shadow する local value evidence を持つ context owner です。
+//: - `Err(error)`: binding、evidence、signature、または table 作成が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 binding、1 evidence、1 signature だけを作るため O(1) です。
 fn selfhost_check_expr_stage1_value_context_with_shadowed_function_value %impure fn str impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostCheckExprStage1ValueContext StdErrorKind \name\callable_type\value_type\span:
     match selfhost_name_scope_new:
         Result::Ok scope0:
@@ -230,15 +358,23 @@ fn selfhost_check_expr_stage1_value_context_with_shadowed_function_value %impure
         Result::Err e:
             Result::Err e
 
-//: selfhost_check_expr_stage1_make_candidate_vec: ascription smoke 用 callable candidate list を[作/つく]る
+//: selfhost_check_expr_stage1_make_named_candidate_vec: 指定名の callable candidate list を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - `%i32 add 1 2` の ascription projection 後に渡す、最小の callable candidate list を作ります。
+//: - `%i32 add 1 2` の ascription projection 後や named fixture で渡す、最小の callable candidate list を作ります。
 //: - direct expression line の候補収集は `selfhost_check_expr_stage1_collect_candidates_from_fixture_scope` で name scope と signature table を通します。
 //:
 //: [契約/けいやく]:
 //: - 成功時は caller が `Vec SelfhostCallableCandidate` の owner を受け取り、検査後に解放します。
 //: - `v::push` が失敗した場合は中間 vector owner を解放し、`StdErrorKind` だけを返します。
+//: - DefId と generic state は smoke fixture 用の固定値です。module surface や overload indexing の検査はこの helper の責務ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(candidates)`: 指定名の pure monomorphic callable candidate を 1 件だけ持つ vector owner です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 1 件の candidate だけを作るため O(1) です。
 fn selfhost_check_expr_stage1_make_named_candidate_vec %impure fn str impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate StdErrorKind \name\callable_type:
     let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
     match candidates_result:
@@ -254,6 +390,20 @@ fn selfhost_check_expr_stage1_make_named_candidate_vec %impure fn str impure fn 
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_make_candidate_vec: `add` candidate list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 既存 smoke helper が `"add"` 固定候補を簡潔に作れるよう、named helper を薄く包みます。
+//:
+//: [契約/けいやく]:
+//: - owner contract と error contract は `selfhost_check_expr_stage1_make_named_candidate_vec` と同じです。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(candidates)`: `"add"` の pure monomorphic callable candidate を 1 件だけ持つ vector owner です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - named helper を 1 回呼ぶだけなので O(1) です。
 fn selfhost_check_expr_stage1_make_candidate_vec %impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate StdErrorKind \callable_type:
     selfhost_check_expr_stage1_make_named_candidate_vec "add" callable_type
 
@@ -267,6 +417,14 @@ fn selfhost_check_expr_stage1_make_candidate_vec %impure fn SelfhostTypeId Resul
 //: - scope と signature table はこの helper 内で所有し、collection の成功・失敗にかかわらず解放します。
 //: - `Ok(candidates)` の場合だけ caller が candidate vector owner を受け取り、call reduction 後に解放します。
 //: - fixture 構築中の allocation failure は `OutOfMemory`、prefix list 構築失敗は `PrefixBuildFailed` として typed error に落とします。
+//: - `selfhost_name_scope_add_binding` と `selfhost_callable_signature_table_add` が失敗した場合、入力 owner は callee が消費します。この helper は残った owner だけを閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(candidates)`: source-backed candidate collection から得た callable candidate vector owner です。
+//: - `Err(error)`: typed candidate collection error です。allocation と prefix build failure は enum kind で区別されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 1 binding / 1 signature fixture の構築は O(1) です。candidate collection 自体は prefix item 数と同名候補数に従います。
 fn selfhost_check_expr_stage1_collect_candidates_from_fixture_scope %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostBodySegment impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \source\tokens\segment\add_type:
     let span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
     match selfhost_name_scope_new:
@@ -310,7 +468,15 @@ fn selfhost_check_expr_stage1_collect_candidates_from_fixture_scope %impure fn s
 //:
 //: [契約/けいやく]:
 //: - 成功時は `SelfhostTypeArenaAlloc` を返し、caller が `selfhost_type_arena_alloc_into_arena` で arena owner に戻します。
-//: - 途中で parameter vector 追加に失敗した場合は、受け取った arena owner を解放してから error を返します。
+//: - parameter Vec の作成または push が失敗した場合、この helper が入力 arena owner を直接解放します。
+//: - function type allocation が失敗した場合は、`selfhost_type_arena_add_function` が arena owner と parameter Vec owner を消費して閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(allocated)`: `i32, i32 -> i32` の function type を追加した arena allocation owner です。
+//: - `Err(error)`: parameter Vec 構築または arena allocation が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 2 件の固定構築なので O(1) です。
 fn selfhost_check_expr_stage1_add_two_i32_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\i32_type:
     let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match params_result:
@@ -334,6 +500,22 @@ fn selfhost_check_expr_stage1_add_two_i32_function %impure fn SelfhostTypeArena 
             selfhost_type_arena_free arena
             Result::Err e
 
+//: selfhost_check_expr_stage1_add_one_i32_function: `i32 -> i32` の function type を arena に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `@add` function value argument smoke で、引数として渡す単項関数 `add` の型を構築します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `SelfhostTypeArenaAlloc` が arena owner と追加された function type id を保持します。
+//: - parameter Vec の作成または push が失敗した場合、この helper が入力 arena owner を直接解放します。
+//: - function type allocation が失敗した場合は、`selfhost_type_arena_add_function` が arena owner と parameter Vec owner を消費して閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(allocated)`: `i32 -> i32` の function type を追加した arena allocation owner です。
+//: - `Err(error)`: parameter Vec 構築または arena allocation が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 1 件の固定構築なので O(1) です。
 fn selfhost_check_expr_stage1_add_one_i32_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\i32_type:
     let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match params_result:
@@ -350,6 +532,23 @@ fn selfhost_check_expr_stage1_add_one_i32_function %impure fn SelfhostTypeArena 
             selfhost_type_arena_free arena
             Result::Err e
 
+//: selfhost_check_expr_stage1_add_function_value_consumer: function value を 1 個受け取る consumer type を arena に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `takes @add` / `takes add` の smoke で、expected argument type が function type である状況を作ります。
+//: - 明示 `@` 付き function value argument だけを許し、bare function name を部分適用として扱わない規則の検査に使います。
+//:
+//: [契約/けいやく]:
+//: - `function_value_type` と `result_type` は同じ arena 内の type id であることを caller が保証します。
+//: - parameter Vec の作成または push が失敗した場合、この helper が入力 arena owner を直接解放します。
+//: - function type allocation が失敗した場合は、`selfhost_type_arena_add_function` が arena owner と parameter Vec owner を消費して閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(allocated)`: `function_value_type -> result_type` の function type を追加した arena allocation owner です。
+//: - `Err(error)`: parameter Vec 構築または arena allocation が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 1 件の固定構築なので O(1) です。
 fn selfhost_check_expr_stage1_add_function_value_consumer %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\function_value_type\result_type:
     let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match params_result:
@@ -416,10 +615,39 @@ fn selfhost_check_expr_stage1_shadowed_function_argument_segment %fn void Selfho
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 9
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_function_value_argument_segment: `takes @add` の expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `@` marker を持つ明示 function value argument が、expected function type と callable signature の一致で縮約される経路を fixture 化します。
+//:
+//: [契約/けいやく]:
+//: - head range は token buffer の `takes`、`@`、`add` の 3 token 全体を指します。
+//: - body range は空であり、trailing block argument の検査は別 fixture に任せます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `ExpressionLine` kind の body segment です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 range を作るだけなので O(1) です。
 fn selfhost_check_expr_stage1_function_value_argument_segment %fn void SelfhostBodySegment \void:
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 10
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_implicit_function_value_argument_segment: `takes add` の expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - bare function name を function value argument へ暗黙変換しないことを確認する fixture です。
+//: - NEPLg2.1 では部分適用を許さないため、`takes add` は `@add` と同じ扱いになってはいけません。
+//:
+//: [契約/けいやく]:
+//: - head range は token buffer の `takes` と `add` の 2 token だけを指します。
+//: - expected function type は後段の reducer helper が与え、この segment helper は syntax range だけを作ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `ExpressionLine` kind の body segment です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 range を作るだけなので O(1) です。
 fn selfhost_check_expr_stage1_implicit_function_value_argument_segment %fn void SelfhostBodySegment \void:
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 2 source_span_new_unchecked 0 0 9
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
@@ -585,6 +813,22 @@ fn selfhost_check_expr_stage1_make_shadowed_function_argument_tokens %impure fn 
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_make_function_value_argument_tokens: `takes @add` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 明示 function value marker `@` を含む argument token sequence を、lexer に依存しない固定 fixture として作ります。
+//: - `@` token と callable name token を別 item として置くことで、argument matcher が marker 付き function value と通常 named value を区別することを確認します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は caller が token vector owner を受け取り、smoke helper の終了時に `v::free` で閉じます。
+//: - token push 失敗時は `selfhost_check_expr_stage1_push_token` が途中の vector owner を閉じ、`StdErrorKind` だけを返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(tokens)`: `takes`、`@`、`add` の 3 token を持つ vector owner です。
+//: - `Err(error)`: token vector 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 3 token だけを作るため O(1) です。
 fn selfhost_check_expr_stage1_make_function_value_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
     let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
     match tokens_result:
@@ -604,6 +848,22 @@ fn selfhost_check_expr_stage1_make_function_value_argument_tokens %impure fn voi
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_make_implicit_function_value_argument_tokens: `takes add` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `@` marker を持たない bare function name argument を fixture 化し、function value への暗黙変換が起きないことを確認します。
+//: - NEPLg2.1 の no partial application 規則では、`add` が callable であっても `takes add` の argument としては明示 `@add` と同一視しません。
+//:
+//: [契約/けいやく]:
+//: - 成功時は caller が token vector owner を受け取り、smoke helper の終了時に `v::free` で閉じます。
+//: - この helper は token spelling と span だけを固定し、expected type や callable signature の構築は type arena / value context helper に任せます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(tokens)`: `takes` と `add` の 2 token を持つ vector owner です。
+//: - `Err(error)`: token vector 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 token だけを作るため O(1) です。
 fn selfhost_check_expr_stage1_make_implicit_function_value_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
     let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
     match tokens_result:
@@ -1186,6 +1446,14 @@ fn selfhost_check_expr_stage1_trailing_block_argument_result_ok %impure fn Vec S
 //:
 //: [契約/けいやく]:
 //: - `arena`、`tokens`、candidate vector、context は成功・失敗にかかわらずこの helper が閉じます。
+//: - context 構築に失敗した場合、context helper が callee / helper cleanup 分担に従って作成済み owner を閉じます。この helper は残った arena、candidate vector、tokens を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: shadow された function ではなく、最新 local value evidence を使って direct call として成功しました。
+//: - `false`: candidate/context/reducer のいずれかが失敗した、または expected success payload ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token / candidate / context fixture を使うため O(1) です。reducer 内部の探索は prefix item 数と候補数に従います。
 fn selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\add_type\i32_type:
     let segment %SelfhostBodySegment selfhost_check_expr_stage1_shadowed_function_argument_segment
     match selfhost_check_expr_stage1_make_candidate_vec add_type:

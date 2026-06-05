@@ -67,6 +67,23 @@ fn selfhost_check_expr_stage0_push_arg_items %impure fn Vec SelfhostExprPrefixIt
                 Result::Err error:
                     Result::Err error
 
+//: selfhost_check_expr_stage0_make_prefix: `add` head と固定数の実引数 item を持つ prefix list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `selfhost_call_reduce_prefix` へ渡す最小 fixture として、先頭 `NamedValue` と `argument_count` 個の `IntLiteral` を構築します。
+//: - lexer / parser を通さず、call reducer が要求する prefix item evidence だけを直接作ることで、失敗時の原因を call reduction へ集中させます。
+//:
+//: [契約/けいやく]:
+//: - 成功時に返す `SelfhostExprPrefixList` は caller が必ず `selfhost_expr_prefix_list_free` で閉じます。
+//: - Vec push 失敗時は、push error payload から元の Vec owner を回収して解放し、`StdErrorKind` だけを返します。
+//: - `argument_count` は fixture 用の小さい非負値を想定します。負値や極端な値の正規化は、この smoke helper の責務ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(prefix)`: call reducer 入力に使える owner 付き prefix list です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - `argument_count` を n とすると、item 追加は O(n) です。
 fn selfhost_check_expr_stage0_make_prefix %impure fn i32 Result SelfhostExprPrefixList StdErrorKind \argument_count:
     let items_result %Result Vec SelfhostExprPrefixItem StdErrorKind v::new
     match items_result:
@@ -92,9 +109,17 @@ fn selfhost_check_expr_stage0_make_prefix %impure fn i32 Result SelfhostExprPref
 //: - `add <first> 1` の形を作り、callee の parameter type と実引数 item kind が食い違う場合の reducer 診断を検査します。
 //: - 2 番目の引数は `IntLiteral` に固定し、失敗原因が先頭引数の型不一致に集中するようにします。
 //:
-//: [所有/しょゆう]:
+//: [契約/けいやく]:
 //: - 成功時に返す `SelfhostExprPrefixList` は caller が `selfhost_expr_prefix_list_free` で解放します。
-//: - 途中で Vec push が失敗した場合は、push error payload から error kind を取り出して返します。
+//: - 途中で Vec push が失敗した場合は、push error payload から元の Vec owner を回収して解放します。
+//: - この helper は argument type mismatch fixture 専用であり、arbitrary expression kind の型推論は行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(prefix)`: 先頭実引数 kind だけを caller 指定にした owner 付き prefix list です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - head と実引数 2 件だけを作るため O(1) です。
 fn selfhost_check_expr_stage0_make_prefix_with_first_arg %impure fn SelfhostExprPrefixItemKind Result SelfhostExprPrefixList StdErrorKind \first_arg_kind:
     let items_result %Result Vec SelfhostExprPrefixItem StdErrorKind v::new
     match items_result:
@@ -124,8 +149,17 @@ fn selfhost_check_expr_stage0_make_prefix_with_first_arg %impure fn SelfhostExpr
 //: - `add %i32 1 2` に相当する flat prefix item 列を、lexer / parser を通さずに stage0 で構築します。
 //: - 現 checkpoint の `SelfhostExprPrefixList` は token kind と span だけを持ち、`i32` という type token の text を保持しません。そのため、この fixture は `%T literal` の成功ではなく「raw item 数を arity とみなさず、typed unsupported として拒否する」契約を検査します。
 //:
-//: [所有/しょゆう]:
+//: [契約/けいやく]:
 //: - 成功時に返す `SelfhostExprPrefixList` は caller が `selfhost_expr_prefix_list_free` で解放します。
+//: - `%T literal` は 3 個の raw prefix item で表し、reducer が raw item count を直接 arity とみなさないことを検査します。
+//: - この helper は type text や type resolver を持たないため、型注釈の成功 projection は `ascription.nepl` 側の責務です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(prefix)`: ascribed argument unsupported fixture として使う owner 付き prefix list です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - head、type marker、type head、literal 2 件の固定構築なので O(1) です。
 fn selfhost_check_expr_stage0_make_prefix_with_ascribed_first_arg %impure fn void Result SelfhostExprPrefixList StdErrorKind \void:
     let items_result %Result Vec SelfhostExprPrefixItem StdErrorKind v::new
     match items_result:
@@ -157,6 +191,23 @@ fn selfhost_check_expr_stage0_make_prefix_with_ascribed_first_arg %impure fn voi
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage0_make_candidate_vec: `add` callable candidate table を 1 件だけ[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stage0 の reduction smoke が overload candidate collection を経由せず、手組みの候補集合だけで reducer を検査できるようにします。
+//: - `generic_state` を候補 payload に入れ、generic evidence missing の失敗分類も同じ入口で確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 成功時に返す candidate Vec owner は caller が `v::free` で閉じます。
+//: - 候補名は `"add"`、DefId は fixture 固定値です。名前解決や module surface の正しさはこの helper の責務ではありません。
+//: - Vec push 失敗時は push error payload から Vec owner を回収して解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(candidates)`: reducer 入力に使う 1 件の callable candidate Vec です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 1 件の候補だけを作るため O(1) です。
 fn selfhost_check_expr_stage0_make_candidate_vec %impure fn SelfhostTypeId impure fn SelfhostGenericInferenceState Result Vec SelfhostCallableCandidate StdErrorKind \callable_type\generic_state:
     let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
     match candidates_result:
@@ -172,6 +223,23 @@ fn selfhost_check_expr_stage0_make_candidate_vec %impure fn SelfhostTypeId impur
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage0_reduce: prefix fixture と candidate fixture を組み合わせて reducer を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - stage0 smoke の共通入口として、prefix list と candidate Vec の構築、`selfhost_call_reduce_prefix` 呼び出し、owner cleanup を 1 箇所に集めます。
+//: - caller は argument count、generic state、expected result だけを差し替えて、success / partial application / expected mismatch などを検査できます。
+//:
+//: [契約/けいやく]:
+//: - `arena` は borrow で受け取り、この helper は arena owner を消費しません。
+//: - prefix list と candidate Vec はこの helper が生成し、reducer 呼び出し後に必ず解放します。
+//: - fixture 構築失敗は reducer の通常 error と同じ `SelfhostCallReduceError` へ変換し、`OutOfMemory` として返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(result)`: call reducer が返した success payload です。
+//: - `Err(error)`: reducer の typed error、または fixture 構築失敗を表す `OutOfMemory` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - prefix fixture 構築は `argument_count` を n として O(n) です。candidate は固定 1 件です。
 fn selfhost_check_expr_stage0_reduce %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn i32 impure fn SelfhostGenericInferenceState impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError \arena\add_type\argument_count\generic_state\expected:
     match selfhost_check_expr_stage0_make_prefix argument_count:
         Result::Ok prefix:
@@ -187,6 +255,17 @@ fn selfhost_check_expr_stage0_reduce %impure fn &SelfhostTypeArena impure fn Sel
         Result::Err _e:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory source_span_empty_unchecked 0 0
 
+//: selfhost_check_expr_stage0_error_is: reducer 結果が期待 error kind か[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - stage0 smoke が表示文字列ではなく `SelfhostCallReduceErrorKind` の enum で失敗分類を確認できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `result` が `Err` で、error kind が `expected` と一致します。
+//: - `false`: success だった、または error kind が異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum payload 1 個を見るだけなので O(1) です。
 fn selfhost_check_expr_stage0_error_is %fn Result SelfhostCallReduceResult SelfhostCallReduceError fn SelfhostCallReduceErrorKind bool \result\expected:
     match result:
         Result::Ok _reduced:
@@ -194,6 +273,18 @@ fn selfhost_check_expr_stage0_error_is %fn Result SelfhostCallReduceResult Selfh
         Result::Err e:
             selfhost_call_reduce_error_kind_eq e.kind expected
 
+//: selfhost_check_expr_stage0_direct_ok: 2 引数 direct call が成功するか[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `add 1 2` 相当の fixture が partial application や overload error ではなく、`DirectCall` として縮約されることを確認します。
+//: - 返り値 type が fixture の `i32_type` と一致することも同時に確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `DirectCall` で argument count が 2、result type が i32 でした。
+//: - `false`: reducer が error を返した、または success payload が期待と異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 引数 fixture なので O(1) です。
 fn selfhost_check_expr_stage0_direct_ok %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \arena\i32_type\add_type:
     match selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::NoneRequired none:
         Result::Ok reduced:
@@ -203,9 +294,32 @@ fn selfhost_check_expr_stage0_direct_ok %impure fn &SelfhostTypeArena impure fn 
         Result::Err _e:
             false
 
+//: selfhost_check_expr_stage0_partial_rejected: 1 引数不足が partial application として拒否されるか[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - NEPLg2.1 はカリー化風の型表記を使っても部分適用を許さないため、`add 1` 相当を `PartialApplicationRejected` として固定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 期待した partial application rejection でした。
+//: - `false`: success または別 error でした。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 1 引数 fixture なので O(1) です。
 fn selfhost_check_expr_stage0_partial_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
     selfhost_check_expr_stage0_error_is (selfhost_check_expr_stage0_reduce arena add_type 1 SelfhostGenericInferenceState::NoneRequired none) SelfhostCallReduceErrorKind::PartialApplicationRejected
 
+//: selfhost_check_expr_stage0_expected_rejected: 外側 expected result との衝突が拒否されるか[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `add 1 2` は i32 を返すため、外側 expected type として bool を渡した場合に `ExpectedTypeMismatch` になることを確認します。
+//: - expected source は `ExplicitAscription` の固定 span とし、diagnostic 表示ではなく reducer の typed kind を検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: expected type mismatch が返りました。
+//: - `false`: success または別 error でした。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 引数 fixture なので O(1) です。
 fn selfhost_check_expr_stage0_expected_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \arena\bool_type\add_type:
     let expected %SelfhostTypeExpectation selfhost_type_expectation_new bool_type SelfhostTypeExpectationSource::ExplicitAscription source_span_new_unchecked 0 0 3
     selfhost_check_expr_stage0_error_is (selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::NoneRequired some expected) SelfhostCallReduceErrorKind::ExpectedTypeMismatch
@@ -216,9 +330,17 @@ fn selfhost_check_expr_stage0_expected_rejected %impure fn &SelfhostTypeArena im
 //: - `add` 候補が `i32, i32 -> i32` を要求する状況で、先頭実引数を `BoolLiteral` に差し替えます。
 //: - reducer が arity と expected result だけで成功せず、parameter type と argument evidence の不一致を `ArgumentTypeMismatch` として返すことを確認します。
 //:
+//: [契約/けいやく]:
+//: - prefix list と candidate Vec はこの helper が作り、reducer 呼び出し後に必ず解放します。
+//: - `arena` は borrow であり、この helper は type arena owner を消費しません。
+//: - 失敗分類は表示文字列ではなく `SelfhostCallReduceErrorKind::ArgumentTypeMismatch` で確認します。
+//:
 //: [戻/もど]り[値/ち]:
 //: - `true`: 期待した `ArgumentTypeMismatch` が返りました。
 //: - `false`: fixture 構築、候補構築、または reducer の失敗分類が期待と異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 引数・候補 1 件なので O(1) です。
 fn selfhost_check_expr_stage0_argument_type_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
     match selfhost_check_expr_stage0_make_prefix_with_first_arg SelfhostExprPrefixItemKind::BoolLiteral:
         Result::Ok prefix:
@@ -241,9 +363,17 @@ fn selfhost_check_expr_stage0_argument_type_rejected %impure fn &SelfhostTypeAre
 //: - reducer が `item_count - 1` を argument count とみなして `OverloadNoCandidate` を返すと、後続の argument-scope ascription checker を接続できません。
 //: - 現 checkpoint では `%T literal` の型照合に必要な source / token text がないため、正しい失敗は `UnsupportedArgumentExpression` です。
 //:
+//: [契約/けいやく]:
+//: - prefix list と candidate Vec はこの helper が作り、reducer 呼び出し後に必ず解放します。
+//: - `arena` は borrow であり、この helper は type arena owner を消費しません。
+//: - `%T literal` を raw arity error や overload error へ潰さず、typed unsupported argument error として残すことを契約にします。
+//:
 //: [戻/もど]り[値/ち]:
 //: - `true`: ascribed argument が typed unsupported として返りました。
 //: - `false`: raw arity 判定や別 error に潰れています。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 fixture と候補 1 件だけを使うため O(1) です。
 fn selfhost_check_expr_stage0_ascribed_argument_unsupported %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
     match selfhost_check_expr_stage0_make_prefix_with_ascribed_first_arg:
         Result::Ok prefix:
@@ -259,6 +389,18 @@ fn selfhost_check_expr_stage0_ascribed_argument_unsupported %impure fn &Selfhost
         Result::Err _e:
             false
 
+//: selfhost_check_expr_stage0_generic_rejected: generic evidence missing が typed error として残るか[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - candidate payload に `EvidenceMissing` を入れ、reducer が通常の overload failure へ潰さず `GenericInferenceEvidenceMissing` として返すことを確認します。
+//: - error payload 内の generic state も同じ enum value として残ることを確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: error kind と generic state がどちらも期待通りでした。
+//: - `false`: success、別 error、または generic state 欠落です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 引数・候補 1 件なので O(1) です。
 fn selfhost_check_expr_stage0_generic_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
     match selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::EvidenceMissing none:
         Result::Ok _reduced:
@@ -268,6 +410,22 @@ fn selfhost_check_expr_stage0_generic_rejected %impure fn &SelfhostTypeArena imp
                 selfhost_call_reduce_error_kind_eq e.kind SelfhostCallReduceErrorKind::GenericInferenceEvidenceMissing
                 selfhost_generic_inference_state_eq e.generic_state SelfhostGenericInferenceState::EvidenceMissing
 
+//: selfhost_check_expr_stage0_ambiguous_rejected: 同じ call に候補が 2 件ある場合の ambiguity を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - 同じ signature の `add` candidate を 2 件作り、reducer が片方を勝手に選ばず `OverloadAmbiguous` として fail-closed になることを確認します。
+//: - overload 解決の tie-break を fixture 側で暗黙に作らないため、DefId だけを変えた候補を追加します。
+//:
+//: [契約/けいやく]:
+//: - prefix list と candidate Vec はこの helper が作り、成功/失敗のどちらでも解放します。
+//: - `arena` は borrow であり、この helper は type arena owner を消費しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: ambiguity が expected error として返りました。
+//: - `false`: success、別 error、または fixture 構築失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 候補・2 引数なので O(1) です。
 fn selfhost_check_expr_stage0_ambiguous_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
     match selfhost_check_expr_stage0_make_prefix 2:
         Result::Ok prefix:
@@ -290,6 +448,24 @@ fn selfhost_check_expr_stage0_ambiguous_rejected %impure fn &SelfhostTypeArena i
         Result::Err _e:
             false
 
+//: selfhost_check_expr_stage0_add_two_i32_function: `i32, i32 -> i32` の function type を arena に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - stage0 smoke で共有する `add` candidate type を、同じ `SelfhostTypeArena` owner 内に構築します。
+//: - parameter Vec も owner なので、function type allocation へ渡す前の push failure path で arena を漏らさないようにします。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `SelfhostTypeArenaAlloc` が arena owner と追加された function type id を保持します。
+//: - parameter Vec の作成または push が失敗した場合、この helper が入力 arena owner を直接解放します。
+//: - function type allocation が失敗した場合は、`selfhost_type_arena_add_function` が arena owner と parameter Vec owner を消費して閉じます。
+//: - `i32_type` は同じ arena 内に存在する primitive type id であることを caller が保証します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(allocated)`: `i32, i32 -> i32` の function type を追加した arena allocation owner です。
+//: - `Err(error)`: parameter Vec 構築または arena allocation が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 2 件の固定構築なので O(1) です。
 fn selfhost_check_expr_stage0_add_two_i32_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\i32_type:
     let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match params_result:
@@ -319,9 +495,17 @@ fn selfhost_check_expr_stage0_add_two_i32_function %impure fn SelfhostTypeArena 
 //: - direct call success、partial application rejection、argument type mismatch、expected type mismatch、generic evidence missing、overload ambiguity を 1 回で確認します。
 //: - これは public compiler API ではなく、self-host expression checker slice の接続確認用です。
 //:
+//: [契約/けいやく]:
+//: - この smoke API は `SelfhostTypeArena` owner を自分で作り、成功 path ではすべての stage0 check 後に解放します。
+//: - setup 中に primitive type または function type allocation が失敗した場合、owner cleanup は各 allocation helper の owner contract に従います。
+//: - 返り値は runner が扱いやすい `i32` status であり、詳細 diagnostic の表示や永続化はこの API の責務ではありません。
+//:
 //: [戻/もど]り[値/ち]:
 //: - `0`: すべての stage0 checks が期待通りでした。
 //: - `1`: setup または reduction のいずれかが失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の primitive type、function type、fixture reduction だけを実行するため O(1) です。
 pub fn selfhost_check_expr_stage0 %impure fn void i32 \void:
     match selfhost_type_arena_new:
         Result::Ok arena0:
