@@ -1,3 +1,16 @@
+# 2026-06-05 Agent selfhost literal argument type evidence checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の静的検査・enum error・fail-closed・責務分割の方針に沿って、call reducer が arity と expected result だけで direct call を成功させる経路を閉じた。
+- `stdlib/neplg2/core/check/expr/argument.nepl` を追加し、prefix expression item から得られる最小の argument type evidence を `check/expr` 配下へ分離した。parser / prefix expression module は型知識を持たず、checker 側だけが literal item と parameter type を照合する。
+- `UnitValue`、`IntLiteral`、`BoolLiteral`、`CharLiteral`、`StringLiteral` はそれぞれ `unit`、`i32`、`bool`、`char`、`str` の証拠として扱う。`FloatLiteral` は `f32` / `f64` defaulting が未確定なので成功扱いしない。
+- `NamedValue`、nested call、block、lambda、`@function`、borrow、pipe、ascription 付き argument は full expression checker が expected parameter type を使って縮約できるまで `None` とし、call reducer は `ArgumentTypeMismatch` として fail-closed にする。
+- `SelfhostCallReduceErrorKind::ArgumentTypeMismatch` を追加し、`selfhost_call_reduce_argument_type_check_loop` で function parameter type と各 argument item を順に照合するようにした。候補の generic state、arity、argument type evidence、expected result はそれぞれ typed error として分けている。
+- `stage0` smoke helper に `add` が `i32, i32 -> i32` を要求する状況で先頭実引数を `BoolLiteral` に差し替える negative case を追加した。これにより `add true 1` 相当が arity / result 一致だけで `DirectCall` にならないことを確認する。
+- subagent review では、argument type checking は `call_reduce.nepl` に直書きで膨らませず `check/expr/argument_evidence` 相当へ分けるべき、未対応 argument expression は fail-closed にすべき、source policy / doc / issue / todo / note の更新が必要と指摘された。今回の実装では `argument.nepl` に証拠境界を置き、nested / ascribed argument expression checking は残件として分けた。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` を更新し、literal argument evidence checkpoint と残件を明確化した。
+- 検証済み: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_argument_type_tests.json`。
+- 残件は nested / ascribed argument expression checking、ascription と outer expected type の diagnostic 統合、generic instantiation inference、trait solving、`@function` / indirect call、memo_call の Phase 1 境界である。
+
 # 2026-06-05 Agent selfhost callable candidate collection checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser / body segmenter が call boundary や候補解決を所有せず、checker 側で typed evidence を集める境界を進めた。

@@ -1,0 +1,65 @@
+#indent 4
+
+//: # check/expr/argument
+//: prefix expression item から、call argument として使える最小の型証拠を取り出す module です。
+//:
+//: [目的/もくてき]:
+//: - call reducer が function parameter type と実引数 item を照合できるよう、literal item の型を `SelfhostTypeKind` として返します。
+//: - parser や prefix expression module に checker の型知識を持ち込まず、型証拠の責務を `check/expr` 配下に閉じ込めます。
+//: - 未対応の式を「たぶん合っている」として通さず、証拠が取れない場合は `None` を返して caller が fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - `IntLiteral` は現 checkpoint の stage0 fixture と同じく `i32` として扱います。整数 suffix と expected type による numeric literal defaulting は後続 slice の責務です。
+//: - `FloatLiteral` はこの slice では型証拠を返しません。`f32` / `f64` の defaulting が仕様として固定されるまで成功扱いしません。
+//: - `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで `None` にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - item kind の分類と expected kind の比較はいずれも O(1) です。
+
+#import "core/option" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/ty/ty" as *
+
+//: selfhost_expr_argument_item_literal_type_kind: literal item の直接型証拠を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostExprPrefixItemKind` のうち、型検査なしで primitive type が一意に決まるものだけを `Some` にします。
+//: - これにより、call reducer は `add 1 true` のような明白な引数型不一致を HIR 生成前に拒否できます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(kind)`: item 自体から primitive type kind が一意に得られます。
+//: - `None`: full expression checker、numeric defaulting、name resolution、block typing などが必要です。
+pub fn selfhost_expr_argument_item_literal_type_kind %fn SelfhostExprPrefixItem Option SelfhostTypeKind \item:
+    match item.kind:
+        SelfhostExprPrefixItemKind::UnitValue:
+            some SelfhostTypeKind::Unit
+        SelfhostExprPrefixItemKind::IntLiteral:
+            some SelfhostTypeKind::I32
+        SelfhostExprPrefixItemKind::BoolLiteral:
+            some SelfhostTypeKind::Bool
+        SelfhostExprPrefixItemKind::CharLiteral:
+            some SelfhostTypeKind::Char
+        SelfhostExprPrefixItemKind::StringLiteral:
+            some SelfhostTypeKind::Str
+        _:
+            none
+
+//: selfhost_expr_argument_item_matches_type: 実引数 item が expected type と一致するか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - literal item から得た型証拠と、function type に保存された parameter type kind を照合します。
+//: - どちらかの証拠が不足している場合は `false` を返し、未対応式を安全側で拒否します。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は構造的な式全体の型検査ではありません。現段階では prefix item 1 個で表せる literal argument のみを扱います。
+//: - `NamedValue` の型、nested call の result type、ascription 付き argument は後続の expression checker slice で別の evidence source として追加します。
+pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn SelfhostExprPrefixItem fn SelfhostTypeId bool \arena\item\expected_type:
+    match selfhost_expr_argument_item_literal_type_kind item:
+        Option::Some actual_kind:
+            match selfhost_type_arena_get_kind arena expected_type:
+                Option::Some expected_kind:
+                    selfhost_type_kind_eq actual_kind expected_kind
+                Option::None:
+                    false
+        Option::None:
+            false

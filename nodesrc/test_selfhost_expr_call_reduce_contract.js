@@ -93,8 +93,23 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
-    "call reduction errors must distinguish partial application, overload, generic, and expectation failures",
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*ArgumentTypeMismatch[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
+    "call reduction errors must distinguish partial application, argument type, overload, generic, and expectation failures",
+);
+assert.match(
+    source,
+    /# check\/expr\/argument[\s\S]*pub fn selfhost_expr_argument_item_literal_type_kind[\s\S]*pub fn selfhost_expr_argument_item_matches_type/,
+    "argument type evidence must live in its own check/expr split module",
+);
+assert.match(
+    source,
+    /SelfhostExprPrefixItemKind::UnitValue:[\s\S]*SelfhostTypeKind::Unit[\s\S]*SelfhostExprPrefixItemKind::IntLiteral:[\s\S]*SelfhostTypeKind::I32[\s\S]*SelfhostExprPrefixItemKind::BoolLiteral:[\s\S]*SelfhostTypeKind::Bool/,
+    "argument evidence must map simple literal items to typed primitive evidence",
+);
+assert.match(
+    source,
+    /selfhost_type_arena_function_arg arena candidate\.callable_type idx[\s\S]*selfhost_expr_argument_item_matches_type arena argument_item expected_arg_type[\s\S]*SelfhostCallReduceErrorKind::ArgumentTypeMismatch/,
+    "call reduction must check each argument item against the candidate parameter type",
 );
 assert.match(
     source,
@@ -135,6 +150,11 @@ assert.match(
     source,
     /lt argument_count param_count[\s\S]*SelfhostCallReduceErrorKind::PartialApplicationRejected/,
     "argument shortage must reject partial application instead of producing a function value",
+);
+assert.match(
+    source,
+    /SelfhostExprPrefixItemKind::BoolLiteral[\s\S]*SelfhostCallReduceErrorKind::ArgumentTypeMismatch/,
+    "stage0 must include a mismatched literal argument rejection smoke check",
 );
 assert.match(
     source,

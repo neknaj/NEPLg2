@@ -60,8 +60,9 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `check/expr/ascription.nepl` を追加し、`%T expr` を `SelfhostTypeExpectationSource::ExplicitAscription` と内側 `SelfhostSyntaxRange` へ投影する owner 付き入口を実装した。`body_line.nepl` には arena owner を受け取る `selfhost_check_expr_reduce_body_segment_with_arena` を追加し、`%` で始まる expression line は call reduction へ直接渡さず、ascription projection 後の内側 expression だけを縮約する。
 - 2026-06-05: `stage1` smoke helper に `%i32 add 1 2` の固定 token fixture を追加した。lexer / parser の詳細ではなく、type resolver が返す型式消費境界と body line connector の owner 戻しを確認する fixture とした。
 - 2026-06-05: `check/expr/candidate_collection.nepl` を追加し、`ExpressionLine.head` の identifier を `SelfhostNameScope` の function namespace で解決し、DefId に対応する `SelfhostCallableSignatureTable` record から call reducer 用 `SelfhostCallableCandidate` list を構築する初期境界を実装した。名前なしは空候補として reducer の `UnresolvedName` に集約し、DefId / signature 不整合は `PendingBinding` / `MissingSignature` として fail-closed にする。
+- 2026-06-05: `check/expr/argument.nepl` を追加し、literal argument item から得られる型証拠を function parameter type と照合する初期境界を実装した。`UnitValue` / `IntLiteral` / `BoolLiteral` / `CharLiteral` / `StringLiteral` は primitive type evidence として扱い、`FloatLiteral`、`NamedValue`、nested call、block、lambda、`@function`、ascription 付き argument など full expression checker が必要なものは成功扱いせず `ArgumentTypeMismatch` で fail-closed にする。`add true 1` のように arity と expected result だけでは見逃す direct call を拒否する focused smoke と source policy も追加した。
 - 2026-06-05: focused doctest を止めていた既存 effect 境界も修正した。`selfhost_diagnostics_push` / `selfhost_diagnostics_free` / `lex_stack_drop_top` は `Vec` owner の更新または解放を行うため `impure fn` に正規化し、`lex_stack_drop_top` は引き続き public `drop_last` API へ委譲して `Vec` 内部 storage layout へ依存しない。
-- 残件: argument type checking、generic instantiation inference、trait solving、ascription と外側 expected type の diagnostic 統合、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 残件: nested / ascribed argument expression checking、generic instantiation inference、trait solving、ascription と外側 expected type の diagnostic 統合、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -167,6 +168,11 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_selfhost_module_checker_split_contract.js`
 - `node nodesrc/test_selfhost_expr_prefix_contract.js`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_call_reduce.n.md -o tmp\selfhost-call-reduce.json --no-tree -j 1 --assert-io --dist web\dist`
+
+2026-06-05 literal argument type evidence checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_argument_type_tests.json`
 
 2026-06-05 expression line call reduction connector checkpoint:
 
