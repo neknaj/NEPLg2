@@ -70,7 +70,7 @@ fn selfhost_call_reduce_expected_result %fn &SelfhostTypeArena fn SelfhostCallab
 //: - literal decode、named value evidence、function value evidence、ascription failure を、`UnsupportedArgumentExpression` や arity error へ潰さず保持します。
 //:
 //: [契約/けいやく]:
-//: - `LiteralBoolInvalid` / `LiteralI32Invalid` / `LiteralI32RadixUnsupported` / `LiteralStringMalformed` / `LiteralStringEscapeUnsupported` / `LiteralStringSliceFailed` は、対応する `ArgumentLiteral*` error へ 1 対 1 で写像します。
+//: - `LiteralBoolInvalid` / `LiteralI32Invalid` / `LiteralI32RadixUnsupported` / `LiteralString*` / `LiteralChar*` は、対応する `ArgumentLiteral*` error へ 1 対 1 で写像します。
 //: - `MissingArgument` だけは call 全体の head span を使い、partial application rejection として扱います。それ以外は元 error span を保持します。
 //:
 //: [戻/もど]り[値/ち]:
@@ -132,6 +132,14 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported error.span
         SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralCharInvalidScalar:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars error.span
         SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedArgumentExpression error.span
         SelfhostExprArgumentMatchErrorKind::InternalInvariant:

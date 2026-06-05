@@ -12,7 +12,7 @@
 //: - この module は HIR を import しません。出力は `SelfhostCheckedArgument` だけです。
 //: - `IntLiteral` は現 checkpoint では 10 進 i32 だけを accepted payload にします。hex literal は lexer が token 化できても `I32RadixUnsupported` として fail-closed にします。
 //: - `StringLiteral` は escape を含まない literal だけを accepted payload にします。escape decode が self-host 側へ実装されるまでは、raw quoted lexeme を semantic value として扱いません。
-//: - `CharLiteral` は HIR 側に対応 payload がないため、この module では `TypedExpression` のまま返します。char HIR payload は別 slice で扱います。
+//: - `CharLiteral` は Rust lexer と同じく Unicode scalar value として decode し、checked payload には `char` 値だけを保存します。後続 HIR lowering はこの値を i32-backed char literal へ変換します。
 //:
 //: [計算量/けいさんりょう]:
 //: - bool / i32 の lexeme 解析は lexeme 長 n に対して O(n) です。
@@ -20,6 +20,8 @@
 
 #import "alloc/collections/vec" as v
 #import "alloc/string" as string
+#import "core/char" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -43,6 +45,10 @@
 //: - `StringMalformed`: quote 境界を確認できない string literal token です。
 //: - `StringEscapeUnsupported`: escape を含む string literal です。raw lexeme を HIR へ通さないため拒否します。
 //: - `StringSliceFailed`: quote 境界と escape scan は通ったが、UTF-8 boundary に沿った semantic value を作れない string literal です。
+//: - `CharMalformed`: quote 境界、empty body、hex / unicode escape 形式など、char literal の構造が不正です。
+//: - `CharEscapeUnsupported`: Rust 側 lexer と対応していない escape spelling です。
+//: - `CharInvalidScalar`: `\u{...}` が Unicode scalar value ではありません。
+//: - `CharMultipleScalars`: char literal body が 1 scalar value ではありません。
 pub enum SelfhostLiteralArgumentErrorKind:
     TokenOutOfBounds
     BoolInvalid
@@ -51,6 +57,10 @@ pub enum SelfhostLiteralArgumentErrorKind:
     StringMalformed
     StringEscapeUnsupported
     StringSliceFailed
+    CharMalformed
+    CharEscapeUnsupported
+    CharInvalidScalar
+    CharMultipleScalars
 
 impl Clone for SelfhostLiteralArgumentErrorKind:
     fn clone %fn &SelfhostLiteralArgumentErrorKind SelfhostLiteralArgumentErrorKind \self:
@@ -89,6 +99,43 @@ impl Copy for SelfhostLiteralArgumentError:
 //: - 構築は O(1) です。
 pub fn selfhost_literal_argument_error_new %fn SelfhostLiteralArgumentErrorKind fn SelfhostSourceSpan SelfhostLiteralArgumentError \kind\span:
     SelfhostLiteralArgumentError kind span
+
+//: SelfhostLiteralCharDecode: char literal body decode の中間結果
+//:
+//: [目的/もくてき]:
+//: - escape body のように、値と「次に読む byte offset」を同時に返すための内部 record です。
+//: - `value` は checked argument payload に保存する semantic `char`、`next_index` は closing quote の直前まで正しく消費したかを検査するための byte offset です。
+//:
+//: [契約/けいやく]:
+//: - `next_index` は lexeme 内の byte offset です。source 全体の offset ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築と copy は O(1) です。
+struct SelfhostLiteralCharDecode:
+    value %char
+    next_index %i32
+
+impl Clone for SelfhostLiteralCharDecode:
+    fn clone %fn &SelfhostLiteralCharDecode SelfhostLiteralCharDecode \self:
+        *self
+
+impl Copy for SelfhostLiteralCharDecode:
+    fn copy_mark %fn SelfhostLiteralCharDecode SelfhostLiteralCharDecode \self:
+        self
+
+//: selfhost_literal_char_decode_new: char decode の中間結果を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - decode した `char` と消費済み byte offset を 1 つの typed payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `next_index` は char literal lexeme 内の byte offset です。source 全体の byte offset や char index を渡してはいけません。
+//: - `value` は raw byte や code point i32 ではなく、検証済み `char` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_char_decode_new %fn char fn i32 SelfhostLiteralCharDecode \value\next_index:
+    SelfhostLiteralCharDecode value next_index
 
 //: selfhost_literal_argument_bool_from_lexeme: bool literal の lexeme を[意味値/いみち]へ[変換/へんかん]する
 //:
@@ -260,12 +307,325 @@ fn selfhost_literal_argument_string_value_from_lexeme %fn str fn SelfhostSourceS
                         Result::Err _e:
                             Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringSliceFailed span
 
+//: selfhost_literal_argument_hex_digit_value: ASCII hex digit を 0..15 の値へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - char literal の `\xHH` と `\u{...}` escape が、hex digit 判定を文字列 parse に委譲せず byte 単位で処理できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(value)`: `ch` は ASCII hex digit です。
+//: - `None`: `ch` は hex digit ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_hex_digit_value %fn i32 Option i32 \ch:
+    if:
+        and ge ch '0' le ch '9'
+        then:
+            some sub ch '0'
+        else:
+            if:
+                and ge ch 'a' le ch 'f'
+                then:
+                    some add 10 sub ch 'a'
+                else:
+                    if:
+                        and ge ch 'A' le ch 'F'
+                        then:
+                            some add 10 sub ch 'A'
+                        else:
+                            none
+
+//: selfhost_literal_argument_char_quotes_valid: char literal の[引用符/いんようふ]境界を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - char literal token の lexeme が、先頭と末尾に `'` を持つ形かを確認します。
+//: - lexer が token 化した範囲を信頼しきると、selfhost checker の payload と Rust lexer parity の差異を見逃すため、この境界で再検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 長さが 2 以上で、先頭と末尾が `'` です。
+//: - `false`: 長さ不足、または quote 境界がありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭と末尾だけを見るため O(1) です。
+fn selfhost_literal_argument_char_quotes_valid %fn str fn i32 bool \lexeme\n:
+    if:
+        lt n 2
+        then:
+            false
+        else:
+            match string::byte_at lexeme 0:
+                Option::Some first:
+                    match string::byte_at lexeme sub n 1:
+                        Option::Some last:
+                            and eq first '\'' eq last '\''
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_literal_argument_char_decode_from_code: i32 code point を char decode 結果へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `\xHH` と `\u{...}` escape の code point を、Unicode scalar value として検証してから `char` payload へ戻します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: code point は valid scalar value です。
+//: - `Err(CharInvalidScalar)`: surrogate range や `0x10FFFF` 超過など、`char` にできない値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_char_decode_from_code %fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralCharDecode SelfhostLiteralArgumentError \code\next_index\span:
+    match char_from_i32_result code:
+        Result::Ok value:
+            Result::Ok selfhost_literal_char_decode_new value next_index
+        Result::Err _e:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharInvalidScalar span
+
+//: selfhost_literal_argument_char_simple_escape: 1 byte escape を char decode 結果へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - Rust lexer が扱う simple char escape を selfhost checker 側でも同じ semantic `char` へ正規化します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: `\n`、`\r`、`\t`、`\b`、`\f`、`\0`、`\\`、`\'`、`\"` のいずれかです。
+//: - `Err(CharEscapeUnsupported)`: 対応していない escape spelling です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_char_simple_escape %fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralCharDecode SelfhostLiteralArgumentError \esc\next_index\span:
+    match esc:
+        'n':
+            Result::Ok selfhost_literal_char_decode_new '\n' next_index
+        'r':
+            Result::Ok selfhost_literal_char_decode_new '\r' next_index
+        't':
+            Result::Ok selfhost_literal_char_decode_new '\t' next_index
+        'b':
+            selfhost_literal_argument_char_decode_from_code 0x08 next_index span
+        'f':
+            Result::Ok selfhost_literal_char_decode_new '\f' next_index
+        '0':
+            Result::Ok selfhost_literal_char_decode_new '\0' next_index
+        '\\':
+            Result::Ok selfhost_literal_char_decode_new '\\' next_index
+        '\'':
+            Result::Ok selfhost_literal_char_decode_new '\'' next_index
+        '"':
+            Result::Ok selfhost_literal_char_decode_new '"' next_index
+        _:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharEscapeUnsupported span
+
+//: selfhost_literal_argument_char_hex_escape: `\xHH` escape を char decode 結果へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - Rust lexer と同じ 2 桁 hex char escape を decode します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は 2 桁 hex の先頭 byte offset です。
+//: - `end` は closing quote の byte offset です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: 2 桁の hex escape を char value に変換しました。
+//: - `Err(CharMalformed)`: hex digit が不足している、または hex digit ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_char_hex_escape %fn str fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralCharDecode SelfhostLiteralArgumentError \lexeme\idx\end\span:
+    if:
+        gt add idx 2 end
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+        else:
+            match string::byte_at lexeme idx:
+                Option::Some hi_ch:
+                    match string::byte_at lexeme add idx 1:
+                        Option::Some lo_ch:
+                            match selfhost_literal_argument_hex_digit_value hi_ch:
+                                Option::Some hi:
+                                    match selfhost_literal_argument_hex_digit_value lo_ch:
+                                        Option::Some lo:
+                                            selfhost_literal_argument_char_decode_from_code (or shl hi 4 lo) add idx 2 span
+                                        Option::None:
+                                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                                Option::None:
+                                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                        Option::None:
+                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                Option::None:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+
+//: selfhost_literal_argument_char_unicode_digits_loop: `\u{...}` の hex digits を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - Unicode escape の digits を 1..6 桁として読み、closing brace と scalar value 検証を一箇所に閉じ込めます。
+//:
+//: [契約/けいやく]:
+//: - `idx` は最初の hex digit または `}` の位置です。
+//: - `end` は closing quote の byte offset です。unicode escape の `}` は `end` より前に存在しなければなりません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: `value` は valid Unicode scalar value です。
+//: - `Err(CharMalformed)`: digit がない、6 桁を超える、`}` がない、または hex 以外が現れました。
+//: - `Err(CharInvalidScalar)`: code point が Unicode scalar value ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - digit 数を d として O(d) です。仕様上 d は高々 6 です。
+fn selfhost_literal_argument_char_unicode_digits_loop %fn str fn i32 fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralCharDecode SelfhostLiteralArgumentError \lexeme\idx\end\value\digits\span:
+    if:
+        ge idx end
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+        else:
+            match string::byte_at lexeme idx:
+                Option::Some ch:
+                    if:
+                        eq ch '}'
+                        then:
+                            if:
+                                eq digits 0
+                                then:
+                                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                                else:
+                                    selfhost_literal_argument_char_decode_from_code value add idx 1 span
+                        else:
+                            if:
+                                ge digits 6
+                                then:
+                                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                                else:
+                                    match selfhost_literal_argument_hex_digit_value ch:
+                                        Option::Some hex:
+                                            selfhost_literal_argument_char_unicode_digits_loop lexeme add idx 1 end add shl value 4 hex add digits 1 span
+                                        Option::None:
+                                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                Option::None:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+
+//: selfhost_literal_argument_char_unicode_escape: `\u{...}` escape を char decode 結果へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - Unicode scalar value escape を Rust lexer と同じ surface spelling から decode します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は `u` の直後、つまり `{` が来るべき byte offset です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: Unicode escape を char value に変換しました。
+//: - `Err(CharMalformed)`: `{...}` の形ではありません。
+//: - `Err(CharInvalidScalar)`: code point が Unicode scalar value ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - digit 数 d に対して O(d) です。仕様上 d は高々 6 です。
+fn selfhost_literal_argument_char_unicode_escape %fn str fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralCharDecode SelfhostLiteralArgumentError \lexeme\idx\end\span:
+    match string::byte_at lexeme idx:
+        Option::Some open:
+            if:
+                eq open '{'
+                then:
+                    selfhost_literal_argument_char_unicode_digits_loop lexeme add idx 1 end 0 0 span
+                else:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+        Option::None:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+
+//: selfhost_literal_argument_char_escape_from_lexeme: char escape body を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `\` の次から始まる escape spelling を、semantic `char` と消費済み byte offset に変換します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は escape marker `\` の直後です。
+//: - `end` は closing quote の byte offset です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: 対応済み escape を 1 つ decode しました。
+//: - `Err(CharMalformed)`: escape が途中で切れている、または hex / unicode escape の構造が不正です。
+//: - `Err(CharEscapeUnsupported)`: 対応していない escape spelling です。
+//: - `Err(CharInvalidScalar)`: unicode escape が scalar value ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - simple / hex escape は O(1)、unicode escape は digit 数 d に対して O(d) です。
+fn selfhost_literal_argument_char_escape_from_lexeme %fn str fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralCharDecode SelfhostLiteralArgumentError \lexeme\idx\end\span:
+    if:
+        ge idx end
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+        else:
+            match string::byte_at lexeme idx:
+                Option::Some esc:
+                    match esc:
+                        'x':
+                            selfhost_literal_argument_char_hex_escape lexeme add idx 1 end span
+                        'u':
+                            selfhost_literal_argument_char_unicode_escape lexeme add idx 1 end span
+                        _:
+                            selfhost_literal_argument_char_simple_escape esc add idx 1 span
+                Option::None:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+
+//: selfhost_literal_argument_char_value_from_lexeme: char literal を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - quote 付き token spelling から、checked payload に入れる semantic `char` を取り出します。
+//: - 1 scalar value であることを checker 境界で検査し、lowering が source text を再読しない形を保ちます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(value)`: `value` は char literal の semantic value です。
+//: - `Err(CharMalformed)`: quote 境界、empty body、escape の構造、UTF-8 decode が不正です。
+//: - `Err(CharEscapeUnsupported)`: 対応していない escape spelling です。
+//: - `Err(CharInvalidScalar)`: unicode escape が Unicode scalar value ではありません。
+//: - `Err(CharMultipleScalars)`: body に 2 個以上の scalar が含まれています。
+//:
+//: [計算量/けいさんりょう]:
+//: - simple char は O(1)、unicode escape は digit 数 d に対して O(d) です。d は高々 6 です。
+fn selfhost_literal_argument_char_value_from_lexeme %fn str fn SelfhostSourceSpan Result char SelfhostLiteralArgumentError \lexeme\span:
+    let n %i32 string::len lexeme
+    let end %i32 sub n 1
+    if:
+        not selfhost_literal_argument_char_quotes_valid lexeme n
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+        else:
+            if:
+                le end 1
+                then:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                else:
+                    match string::byte_at lexeme 1:
+                        Option::Some first:
+                            let decoded_result %Result SelfhostLiteralCharDecode SelfhostLiteralArgumentError:
+                                if:
+                                    eq first '\\'
+                                    then:
+                                        selfhost_literal_argument_char_escape_from_lexeme lexeme 2 end span
+                                    else:
+                                        match string::str_next_char_result lexeme 1:
+                                            Result::Ok item:
+                                                let value %char field::get item "value"
+                                                let next_index %i32 field::get item "next"
+                                                Result::Ok selfhost_literal_char_decode_new value next_index
+                                            Result::Err _e:
+                                                Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+                            match decoded_result:
+                                Result::Ok decoded:
+                                    if:
+                                        eq decoded.next_index end
+                                        then:
+                                            Result::Ok decoded.value
+                                        else:
+                                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMultipleScalars span
+                                Result::Err e:
+                                    Result::Err e
+                        Option::None:
+                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::CharMalformed span
+
 //: selfhost_literal_argument_checked_from_lexeme: literal kind と lexeme から checked argument を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - prefix item の literal kind ごとに、checker が保存すべき payload variant を選びます。
-//: - bool / i32 / simple string は値 payload にし、値 payload がまだ設計されていない literal は `TypedExpression` として fail-closed lowering に残します。
-//: - `CharLiteral` は検索可能な明示 branch として残します。char payload が入るまでは、後続 lowering が `TypedExpression` を accepted にしないことで fail-closed になります。
+//: - bool / i32 / char / simple string は値 payload にし、値 payload がまだ設計されていない literal は `TypedExpression` として fail-closed lowering に残します。
+//: - `CharLiteral` は semantic `char` payload として保存します。後続 lowering は Rust 実装と同じ i32-backed HIR literal へ変換します。
 //:
 //: [契約/けいやく]:
 //: - caller は、`item` が expected type と一致することを先に確認しています。この関数は型一致ではなく、値 payload の構築だけを担当します。
@@ -300,7 +660,11 @@ fn selfhost_literal_argument_checked_from_lexeme %fn str fn SelfhostExprPrefixIt
                 Result::Err e:
                     Result::Err e
         SelfhostExprPrefixItemKind::CharLiteral:
-            Result::Ok selfhost_checked_argument_typed_expression start_index next_index value_type item.span
+            match selfhost_literal_argument_char_value_from_lexeme lexeme item.span:
+                Result::Ok value:
+                    Result::Ok selfhost_checked_argument_char_literal start_index next_index value_type item.span value
+                Result::Err e:
+                    Result::Err e
         _:
             Result::Ok selfhost_checked_argument_typed_expression start_index next_index value_type item.span
 

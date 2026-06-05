@@ -24,6 +24,25 @@
   - `trunk build`: pass
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-disjoint-set-doc-playground-editor.json`: pass（13/13）
 
+# 2026-06-05 Agent selfhost char literal payload checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査の正確性、enum error、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも設計負債を残さない方針を判断基準にした。
+- subagent review は既存 subagent 3 件へ依頼した。新規 subagent は上限到達済みのため、既存 review agent を再利用して char literal payload の設計、Rust lexer 互換、source policy / doctest coverage の独立確認を依頼した。1 件は専用 HIR `CharLiteral` variant を推奨したが、別 review で Rust 実装の authority が `char` 型 + `HirExprKind::LiteralI32(codepoint)` であることを確認したため、selfhost も現 Rust 互換の i32-backed HIR lowering を採用した。
+- `SelfhostCheckedArgumentKind::CharLiteral` を追加し、source-backed literal argument checker が char literal を semantic `char` payload として保持するようにした。`check/expr` は HIR 型を import せず、source token から一度だけ decode した値と typed error だけを後段へ渡す。
+- `literal_payload.nepl` には char quote 検査、simple escape、`\xHH`、`\u{...}`、scalar validity、複数 scalar 拒否の helper を追加した。失敗は `CharMalformed`、`CharEscapeUnsupported`、`CharInvalidScalar`、`CharMultipleScalars` に分け、argument / call-reduce error へも同じ意味を保って投影する。focused doctest では `'\n'`、`'\u{3042}'`、`'ab'`、`'\q'`、`'\u{110000}'` を使い、accepted payload と 3 種類の char error が潰れないことを確認した。
+- `lower/hir/direct_call.nepl` は `CharLiteral(value)` を Rust 実装と同じ i32-backed char literal として下ろす。`value_type` は `char` のまま保持し、payload だけを `char_to_i32 value` に変換するため、HIR lowering で source token や literal lexeme を再読しない。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` は長い正規表現による backtracking timeout を避け、順序つき presence assertion へ置き換えた。検査の意味は維持しつつ、source policy 自体がコンパイル高速化作業の妨げになる経路を閉じた。
+- 残件は escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` checked tree payload、lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 境界である。char literal payload はこの slice で完了済みに移した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree -o tmp/neplg2-call-reduce-char-payload.json -j 1 --dist web/dist --assert-io`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/direct_call.nepl --no-tree -o tmp/neplg2-lower-hir-direct-call-char-payload.json -j 1 --dist web/dist --assert-io`: pass（1/1）
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent 2 BTreeSet documentation contract checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。
