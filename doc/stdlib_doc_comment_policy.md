@@ -9,6 +9,7 @@
 - stdlib reboot に伴う大規模な API 変更の中で、利用者が各関数・各型の責務と制約をコードから直接理解できるようにする。
 - `nm` 拡張 markdown と doctest を活用しつつ、コメントがソースコードの実体から乖離しない運用を固定する。
 - NEPLg2 の stdlib・examples・将来の selfhost compiler で、機械生成ではない説明責任のある文書化を徹底する。
+- 現在の `stdlib/neplg2/` セルフホストコンパイラ実装にも同じ水準を適用し、compiler 内部 helper であっても目的、契約、戻り値や error variant の条件、計算量、制約、現状の実装詳細を省略しない。
 
 ## 2. 基本原則
 

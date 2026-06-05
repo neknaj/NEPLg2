@@ -29,6 +29,29 @@ NEPLg2.0 self-host は長期作業になるため、作業途中の大きな bra
 
 ---
 
+## 2.1 Zenn 方針 review gate
+
+NEPLg2.1 self-host の各 checkpoint は、Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` と `AGENTS.md` の方針を作業開始時と commit 前に確認する。
+
+新しい issue、実装 slice、公開 API、diagnostic enum、Resource proof 境界、または既存 module の責務変更に着手する場合は、次を必須 gate とする。
+
+1. Zenn 記事を再確認し、今回の slice に関係する方針を `note.n.md` または対応 issue に記録する。
+2. 独立した subagent review を行い、設計、実装、ドキュメントコメント、source policy、検証方針を確認する。
+3. Blocker は同じ branch 内で修正する。修正できない場合は、原因、影響、完了条件を持つ issue へ分離する。
+4. Non-blocker は `note.n.md`、`todo.md`、または issue に残し、次 checkpoint の入口で再確認する。
+5. source policy を追加または更新し、同じ方針違反が戻らないようにする。ただし、コメントを減らすための行数制限や説明削減の検査を入れてはならない。
+
+subagent review では、少なくとも次を確認する。
+
+- 失敗が `Option` / `Result` / enum diagnostic で表され、文字列や sentinel 値で分岐していないこと。
+- `match` の網羅性検査が効く設計であり、公開 API が数値 tag や文字列 tag に依存していないこと。
+- core / CLI boundary、parser / checker / HIR / Resource IR / backend boundary が混ざっていないこと。
+- ドキュメントコメントが目的、契約、戻り値や error variant の条件、計算量、制約、典型例、現状の実装詳細と将来も守る契約の区別を説明していること。
+- 高速化が静的検査を省略する方向ではなく、探索範囲、依存関係、artifact、cache key、事前検査済み summary の設計で行われていること。
+- 暫定実装がある場合、その名前、妥協内容、fail-closed 範囲、解除条件が検索可能な形で記録されていること。
+
+---
+
 ## 3. Branch 命名
 
 | 種別 | 形式 | 例 | 用途 |
@@ -194,8 +217,8 @@ commit は「review 可能で、単独で検証でき、戻す場合も意味が
 | Rust compiler fix | 原因を示す regression test、`nepl-core` / `nepl-cli` 修正、self-host parity への影響記録 | self-host 側 workaround |
 | issue close | 修正、回帰テスト、Issue `status/resolved/updated` 更新、note | 未検証の追加修正 |
 
-1 commit が 500 行を超える場合でも、生成 index や Issue 移行のように機械的で意味が 1 つなら許容する。
-手書き実装が 500 行を超える場合は、まず data model、pure helper、public API、integration の単位へ分割できないか確認する。
+commit の大きさは行数では判定しない。生成 index、Issue 移行、広範囲の機械移行、丁寧なドキュメントコメント整備のように、意味が 1 つで検証可能なら大きな commit でも許容する。
+手書き実装が大きい場合は、行数ではなく責務境界を見る。data model、pure helper、public API、integration、diagnostic projection、source policy のどれが混ざっているかを確認し、review 可能な境界へ分割できるなら分割する。
 
 ---
 

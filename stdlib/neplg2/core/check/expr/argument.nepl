@@ -41,6 +41,7 @@
 #import "./call_candidate" as *
 #import "./candidate_collection" as *
 #import "./argument_payload" as *
+#import "./literal_payload" as *
 
 //: SelfhostExprArgumentMatch: prefix list 上で 1 つの実引数式を消費した結果
 //:
@@ -72,6 +73,7 @@ impl Copy for SelfhostExprArgumentMatch:
 //: - `AscriptionExpectedTypeConflict` は、明示 ascription type と parameter expected type が衝突した場合です。
 //: - `NamedValue*` は、argument position の名前に対する binding / DefId / value type evidence が不足した場合を分けます。
 //: - `FunctionValue*` は、明示 `@ident` argument を function value として扱うための callable identity / signature evidence が不足した場合を分けます。`FunctionValueMissingName` は `@` の直後が存在しない場合と、直後の item が identifier ではない場合の両方を表します。
+//: - `Literal*` は、source-backed literal payload 生成で token 範囲や意味値解析に失敗した場合を分けます。raw lexeme を HIR へ流す fallback は行いません。
 //: - `UnsupportedArgumentExpression` は、name resolution や nested call reduction が必要で、単一 literal item からは型証拠を得られない場合です。
 //: - `MissingArgument` と `InternalInvariant` は caller 側の cursor と prefix list の不整合を区別します。
 pub enum SelfhostExprArgumentMatchErrorKind:
@@ -94,6 +96,13 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     FunctionValueOutOfMemory
     FunctionValueGenericUnsupported
     FunctionValueTypeMismatch
+    LiteralTokenOutOfBounds
+    LiteralBoolInvalid
+    LiteralI32Invalid
+    LiteralI32RadixUnsupported
+    LiteralStringMalformed
+    LiteralStringEscapeUnsupported
+    LiteralStringSliceFailed
     UnsupportedArgumentExpression
     InternalInvariant
 
@@ -247,7 +256,8 @@ pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn Selfho
 //: - HIR lowering はこの payload を使い、source token や lexeme を再読せずに unit expression を構築できます。
 //:
 //: [現状/げんじょう]:
-//: - 数値、bool、char、string literal は値 payload の設計がまだ必要なため、従来どおり `TypedExpression` に留めます。
+//: - 数値、bool、string literal の意味値 payload は source-backed `literal_payload.nepl` が作ります。この helper は source-less なので `unit` 以外を値 payload 化しません。
+//: - char literal は HIR payload が未実装のため、source-backed 経路でも現 checkpoint では `TypedExpression` に留めます。
 //: - named value は source-backed branch が scope と value evidence から `NamedValue` payload を作ります。この helper は source spelling を読めないため扱いません。
 fn selfhost_expr_argument_checked_simple_item %fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId SelfhostCheckedArgument \item\start_index\next_index\value_type:
     match item.kind:
@@ -255,6 +265,64 @@ fn selfhost_expr_argument_checked_simple_item %fn SelfhostExprPrefixItem fn i32 
             selfhost_checked_argument_unit_value start_index next_index value_type item.span
         _:
             selfhost_checked_argument_typed_expression start_index next_index value_type item.span
+
+//: selfhost_expr_argument_match_error_from_literal: literal payload error を argument match error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - source-backed literal decode の失敗を、argument checker の error domain へ移します。
+//: - call reducer は argument match error だけを受け取るため、ここで literal 固有の原因を失わない enum variant に変換します。
+//:
+//: [契約/けいやく]:
+//: - すべての `SelfhostLiteralArgumentErrorKind` は対応する `SelfhostExprArgumentMatchErrorKind::Literal*` に 1 対 1 で写像します。
+//: - この関数は表示文を生成しません。診断表示は call reduction error 以降の report 層が担当します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 返り値の `span` は元の literal error の span と同一です。呼び出し側の head span へ丸めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
+fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentError SelfhostExprArgumentMatchError \error:
+    match error.kind:
+        SelfhostLiteralArgumentErrorKind::TokenOutOfBounds:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds error.span
+        SelfhostLiteralArgumentErrorKind::BoolInvalid:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid error.span
+        SelfhostLiteralArgumentErrorKind::I32Invalid:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid error.span
+        SelfhostLiteralArgumentErrorKind::I32RadixUnsupported:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported error.span
+        SelfhostLiteralArgumentErrorKind::StringMalformed:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed error.span
+        SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported error.span
+        SelfhostLiteralArgumentErrorKind::StringSliceFailed:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed error.span
+
+//: selfhost_expr_argument_match_literal_with_source: source-backed literal payload を持つ argument match を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 型一致が確認済みの literal item から checked payload を構築し、consume-width と arena owner を一緒に返します。
+//: - literal の意味値解析は `literal_payload.nepl` に閉じ、HIR lowering が source/token を再読しない形を保ちます。
+//:
+//: [契約/けいやく]:
+//: - 失敗時には `arena` を解放してから `SelfhostExprArgumentMatchError` を返します。
+//: - `CharLiteral` など HIR payload が未実装の literal は、`literal_payload.nepl` で `TypedExpression` として残り、direct-call HIR lowering 側で fail-closed になります。
+//: - この関数は HIR 型や HIR record を扱いません。source-backed literal decode の結果は `SelfhostCheckedArgument` だけに閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: expected type と一致した literal payload、consume-width、更新済み arena owner を返します。
+//: - `Err(error)`: literal token 参照または意味値解析に失敗しました。arena owner はこの関数内で解放済みです。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 取得と payload record 構築は O(1)、literal lexeme 解析は token spelling 長 n に対して O(n) です。
+fn selfhost_expr_argument_match_literal_with_source %impure fn SelfhostTypeArena impure fn &Vec SelfhostToken impure fn str impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\tokens\source\item\item_index\next_index\expected_type:
+    let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
+    match selfhost_literal_argument_checked_with_source tokens source item item_index next_index expected_type:
+        Result::Ok checked_argument:
+            Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
+        Result::Err literal_error:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_expr_argument_match_error_from_literal literal_error
 
 //: selfhost_expr_argument_named_value_kind_supported: argument value として扱える binding kind かを[返/かえ]す
 //:
@@ -569,9 +637,7 @@ fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec Selfhos
                                         selfhost_expr_argument_item_matches_type &arena expression_item expectation.expected_type
                                         then:
                                             let next_index %i32 add expression_item_index 1
-                                            let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
-                                            let checked_argument %SelfhostCheckedArgument selfhost_expr_argument_checked_simple_item expression_item expression_item_index next_index expectation.expected_type
-                                            Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
+                                            selfhost_expr_argument_match_literal_with_source arena tokens source expression_item expression_item_index next_index expectation.expected_type
                                         else:
                                             selfhost_type_arena_free arena
                                             match selfhost_expr_argument_item_literal_type_kind expression_item:
@@ -635,9 +701,7 @@ pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken
                                 selfhost_expr_argument_item_matches_type &arena item expected_type
                                 then:
                                     let next_index %i32 add item_index 1
-                                    let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
-                                    let checked_argument %SelfhostCheckedArgument selfhost_expr_argument_checked_simple_item item item_index next_index expected_type
-                                    Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
+                                    selfhost_expr_argument_match_literal_with_source arena tokens source item item_index next_index expected_type
                                 else:
                                     selfhost_type_arena_free arena
                                     match selfhost_expr_argument_item_literal_type_kind item:

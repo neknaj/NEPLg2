@@ -108,6 +108,7 @@ pub struct SelfhostCallReduceOwnedResultParts:
 //: - `ArgumentAscriptionProjectionFailed` と `ArgumentAscriptionExpectedTypeConflict` は、argument-scope `%T expr` の型注釈自体の不備と expected parameter type との衝突を分けます。
 //: - `ArgumentNamedValue*` は、argument position の名前が値として解決できない場合と、値は解決できるが型証拠がまだ無い場合を分けます。
 //: - `ArgumentFunctionValue*` は、明示 `@ident` を function value argument として扱うための expected function type、callable identity、signature、monomorphic check、型一致の失敗を分けます。
+//: - `ArgumentLiteral*` は、source-backed literal payload 生成で token 参照や意味値解析に失敗した場合を分けます。literal decode の失敗を unsupported expression へ潰してはいけません。
 //: - `ArgumentNestedCandidate*` は、nested named call argument の head を function candidate として収集する段階の不整合を分けます。
 //: - `TrailingBlockBody*` は、末尾 block argument の nested body を `BlockResult` expectation で検査する前の入力構築失敗を分けます。partial application や raw arity error へ潰してはいけません。
 //: - `UnexpectedTrailingBlockArgument` は、candidate の parameter をすでにすべて消費した後に `BlockIntro.body` が残った場合です。
@@ -134,6 +135,13 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentFunctionValueOutOfMemory
     ArgumentFunctionValueGenericUnsupported
     ArgumentFunctionValueTypeMismatch
+    ArgumentLiteralTokenOutOfBounds
+    ArgumentLiteralBoolInvalid
+    ArgumentLiteralI32Invalid
+    ArgumentLiteralI32RadixUnsupported
+    ArgumentLiteralStringMalformed
+    ArgumentLiteralStringEscapeUnsupported
+    ArgumentLiteralStringSliceFailed
     ArgumentNestedCandidatePendingBinding
     ArgumentNestedCandidateMissingSignature
     ArgumentNestedCandidateHeadTokenOutOfBounds
@@ -366,6 +374,48 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed:
                     true
                 _:
                     false

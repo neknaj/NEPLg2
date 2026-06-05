@@ -1,0 +1,327 @@
+#indent 4
+
+//: # check/expr/literal_payload
+//: source-backed argument checker が literal token から checked payload を作る境界 module です。
+//:
+//: [目的/もくてき]:
+//: - `argument.nepl` は argument の型一致と consume-width を管理します。この module は、その成功済み literal item について、source text から意味値を一度だけ取り出して `SelfhostCheckedArgument` に保存します。
+//: - HIR lowering が token buffer や source text を再読しないよう、bool / i32 / string の値 payload を check/expr 側で確定します。
+//: - literal decode の失敗を `UnsupportedArgumentExpression` や文字列診断に潰さず、enum error として caller へ返します。
+//:
+//: [契約/けいやく]:
+//: - この module は HIR を import しません。出力は `SelfhostCheckedArgument` だけです。
+//: - `IntLiteral` は現 checkpoint では 10 進 i32 だけを accepted payload にします。hex literal は lexer が token 化できても `I32RadixUnsupported` として fail-closed にします。
+//: - `StringLiteral` は escape を含まない literal だけを accepted payload にします。escape decode が self-host 側へ実装されるまでは、raw quoted lexeme を semantic value として扱いません。
+//: - `CharLiteral` は HIR 側に対応 payload がないため、この module では `TypedExpression` のまま返します。char HIR payload は別 slice で扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - bool / i32 の lexeme 解析は lexeme 長 n に対して O(n) です。
+//: - simple string の検査と引用符除去は string token 長 n に対して O(n) です。
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as string
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/ty" as *
+#import "./argument_payload" as *
+
+//: SelfhostLiteralArgumentErrorKind: literal payload 生成の失敗分類
+//:
+//: [目的/もくてき]:
+//: - source-backed literal decode の失敗を、call reducer の typed error へ写像できるようにします。
+//:
+//: [分類/ぶんるい]:
+//: - `TokenOutOfBounds`: prefix item が指す token index が token buffer の範囲外です。
+//: - `BoolInvalid`: bool token の lexeme が `true` / `false` ではありません。
+//: - `I32Invalid`: 10 進 i32 として解析できない integer lexeme です。
+//: - `I32RadixUnsupported`: `0x` / `0X` 形式など、現 checkpoint で未対応の整数基数です。
+//: - `StringMalformed`: quote 境界を確認できない string literal token です。
+//: - `StringEscapeUnsupported`: escape を含む string literal です。raw lexeme を HIR へ通さないため拒否します。
+//: - `StringSliceFailed`: quote 境界と escape scan は通ったが、UTF-8 boundary に沿った semantic value を作れない string literal です。
+pub enum SelfhostLiteralArgumentErrorKind:
+    TokenOutOfBounds
+    BoolInvalid
+    I32Invalid
+    I32RadixUnsupported
+    StringMalformed
+    StringEscapeUnsupported
+    StringSliceFailed
+
+impl Clone for SelfhostLiteralArgumentErrorKind:
+    fn clone %fn &SelfhostLiteralArgumentErrorKind SelfhostLiteralArgumentErrorKind \self:
+        *self
+
+impl Copy for SelfhostLiteralArgumentErrorKind:
+    fn copy_mark %fn SelfhostLiteralArgumentErrorKind SelfhostLiteralArgumentErrorKind \self:
+        self
+
+//: SelfhostLiteralArgumentError: literal payload 生成の typed error
+//:
+//: [目的/もくてき]:
+//: - error kind と span を保持し、argument checker が call reduction error へ正確に写像できるようにします。
+pub struct SelfhostLiteralArgumentError:
+    kind %SelfhostLiteralArgumentErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostLiteralArgumentError:
+    fn clone %fn &SelfhostLiteralArgumentError SelfhostLiteralArgumentError \self:
+        *self
+
+impl Copy for SelfhostLiteralArgumentError:
+    fn copy_mark %fn SelfhostLiteralArgumentError SelfhostLiteralArgumentError \self:
+        self
+
+//: selfhost_literal_argument_error_new: literal payload error を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - literal token の範囲確認や意味値解析に失敗した位置を、後続の argument checker / call reducer が失わない形でまとめます。
+//:
+//: [契約/けいやく]:
+//: - `kind` は表示文ではなく enum payload です。診断表示や翻訳は、この error を受け取る別層で行います。
+//: - `span` は原因となった literal item の span を渡します。caller が別の fallback span を混ぜると、エラー位置が曖昧になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+pub fn selfhost_literal_argument_error_new %fn SelfhostLiteralArgumentErrorKind fn SelfhostSourceSpan SelfhostLiteralArgumentError \kind\span:
+    SelfhostLiteralArgumentError kind span
+
+//: selfhost_literal_argument_bool_from_lexeme: bool literal の lexeme を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - lexer が `BoolLiteral` と分類した token spelling を、HIR へ渡せる `bool` payload に正規化します。
+//: - raw source text を lowering へ渡さないため、checker 境界で `true` / `false` のどちらかへ確定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(true)`: lexeme が `true` です。
+//: - `Ok(false)`: lexeme が `false` です。
+//: - `Err(BoolInvalid)`: token kind と lexeme が矛盾しています。lexer / prefix item 生成の不整合を隠さず fail-closed にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定文字列との比較だけなので、lexeme 長 n に対して O(n) です。
+fn selfhost_literal_argument_bool_from_lexeme %fn str fn SelfhostSourceSpan Result bool SelfhostLiteralArgumentError \lexeme\span:
+    if:
+        string::str_eq lexeme "true"
+        then:
+            Result::Ok true
+        else:
+            if:
+                string::str_eq lexeme "false"
+                then:
+                    Result::Ok false
+                else:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::BoolInvalid span
+
+//: selfhost_literal_argument_i32_has_unsupported_radix: 現 checkpoint で未対応の整数基数か[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - `string::to_i32` へ渡す前に、`0x` / `0X` 形式を明示的に拒否します。
+//: - radix 対応を暗黙の parse 失敗に丸めると、将来 hex / binary / suffix を実装するときに診断と仕様境界が曖昧になります。
+//:
+//: [契約/けいやく]:
+//: - この関数は「整数として不正か」ではなく「10 進 i32 payload slice では扱わない基数か」だけを判定します。
+//: - `true` を返した場合、caller は `I32RadixUnsupported` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭 2 byte だけを見るため O(1) です。
+fn selfhost_literal_argument_i32_has_unsupported_radix %fn str bool \lexeme:
+    if:
+        lt string::len lexeme 2
+        then:
+            false
+        else:
+            match string::byte_at lexeme 0:
+                Option::Some first:
+                    match string::byte_at lexeme 1:
+                        Option::Some second:
+                            let first_is_zero %bool eq first '0'
+                            let second_is_radix_marker %bool or eq second 'x' eq second 'X'
+                            and first_is_zero second_is_radix_marker
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_literal_argument_i32_from_lexeme: 10 [進/しん] i32 literal を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - type checker が expected type として i32 を確認した literal を、HIR `I32Literal` payload に渡せる値へ変換します。
+//: - numeric suffix、基数、defaulting を lowering へ持ち込まず、未実装の構文は typed error として分けます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(value)`: lexeme は現 checkpoint で扱う 10 進 i32 として解析できました。
+//: - `Err(I32RadixUnsupported)`: `0x` / `0X` 形式など、今は受理しない基数です。
+//: - `Err(I32Invalid)`: 10 進 i32 として解析できない spelling です。
+//:
+//: [計算量/けいさんりょう]:
+//: - radix prefix 判定は O(1)、10 進 parse は lexeme 長 n に対して O(n) です。
+fn selfhost_literal_argument_i32_from_lexeme %fn str fn SelfhostSourceSpan Result i32 SelfhostLiteralArgumentError \lexeme\span:
+    if:
+        selfhost_literal_argument_i32_has_unsupported_radix lexeme
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32RadixUnsupported span
+        else:
+            match string::to_i32 lexeme:
+                Result::Ok value:
+                    Result::Ok value
+                Result::Err _e:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+
+//: selfhost_literal_argument_lexeme_contains_byte_loop: lexeme 範囲に byte が[含/ふく]まれるか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - string literal の body 部分に escape marker `\\` があるかを、引用符を除いた範囲で調べます。
+//: - escape decode が未実装の間、raw lexeme を semantic string value と誤認して HIR へ渡す経路を閉じます。
+//:
+//: [契約/けいやく]:
+//: - `idx` は調査開始位置、`end` は半開区間の終端です。
+//: - `string::byte_at` が範囲外を返した場合は、scanner helper として `false` に倒します。quote 境界の不正は別関数が先に検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 調査範囲長 n に対して O(n) です。追加の owner allocation は行いません。
+fn selfhost_literal_argument_lexeme_contains_byte_loop %fn str fn i32 fn i32 fn i32 bool \lexeme\needle\idx\end:
+    if:
+        ge idx end
+        then:
+            false
+        else:
+            match string::byte_at lexeme idx:
+                Option::Some ch:
+                    if:
+                        eq ch needle
+                        then:
+                            true
+                        else:
+                            selfhost_literal_argument_lexeme_contains_byte_loop lexeme needle add idx 1 end
+                Option::None:
+                    false
+
+//: selfhost_literal_argument_string_quotes_valid: string literal の[引用符/いんようふ]境界を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - string literal token の lexeme が、先頭と末尾に `"` を持つ形かを確認します。
+//: - quote 境界が壊れた token を slice すると、payload の意味値と span 診断が壊れるため、値抽出前に検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 長さが 2 以上で、先頭と末尾が `"` です。
+//: - `false`: 長さ不足、または quote 境界がありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭と末尾だけを見るため O(1) です。
+fn selfhost_literal_argument_string_quotes_valid %fn str fn i32 bool \lexeme\n:
+    if:
+        lt n 2
+        then:
+            false
+        else:
+            match string::byte_at lexeme 0:
+                Option::Some first:
+                    match string::byte_at lexeme sub n 1:
+                        Option::Some last:
+                            and eq first '"' eq last '"'
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_literal_argument_string_value_from_lexeme: simple string literal を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - quote 付き token spelling から、HIR `StrLiteral` payload に入れる quote なし semantic string value を取り出します。
+//: - escape decode が selfhost 側に入るまでは、escape marker を含む literal を明示的に拒否します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(value)`: `value` は引用符を含まない文字列です。
+//: - `Err(StringMalformed)`: quote 境界が不正です。
+//: - `Err(StringEscapeUnsupported)`: literal body に `\\` があり、現 checkpoint では semantic value を確定できません。
+//: - `Err(StringSliceFailed)`: quote と escape の事前条件は通ったが、UTF-8 boundary に沿った owned string を構築できませんでした。
+//:
+//: [計算量/けいさんりょう]:
+//: - quote 検査は O(1)、escape scan と slice は token 長 n に対して O(n) です。
+fn selfhost_literal_argument_string_value_from_lexeme %fn str fn SelfhostSourceSpan Result str SelfhostLiteralArgumentError \lexeme\span:
+    let n %i32 string::len lexeme
+    if:
+        not selfhost_literal_argument_string_quotes_valid lexeme n
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringMalformed span
+        else:
+            if:
+                selfhost_literal_argument_lexeme_contains_byte_loop lexeme '\\' 1 sub n 1
+                then:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported span
+                else:
+                    match string::str_slice_result lexeme 1 sub n 1:
+                        Result::Ok value:
+                            Result::Ok value
+                        Result::Err _e:
+                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringSliceFailed span
+
+//: selfhost_literal_argument_checked_from_lexeme: literal kind と lexeme から checked argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - prefix item の literal kind ごとに、checker が保存すべき payload variant を選びます。
+//: - bool / i32 / simple string は値 payload にし、値 payload がまだ設計されていない literal は `TypedExpression` として fail-closed lowering に残します。
+//: - `CharLiteral` は検索可能な明示 branch として残します。char payload が入るまでは、後続 lowering が `TypedExpression` を accepted にしないことで fail-closed になります。
+//:
+//: [契約/けいやく]:
+//: - caller は、`item` が expected type と一致することを先に確認しています。この関数は型一致ではなく、値 payload の構築だけを担当します。
+//: - `lexeme` は `item.token_index` から復元した token spelling です。別 token の lexeme を渡してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(argument)`: checked argument payload を構築できました。
+//: - `Err(error)`: literal spelling を意味値にできません。caller は owner を解放し、call reduction error へ写像します。
+//:
+//: [計算量/けいさんりょう]:
+//: - Unit / unsupported literal は O(1)、bool / i32 / string は lexeme 長 n に対して O(n) です。
+fn selfhost_literal_argument_checked_from_lexeme %fn str fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId Result SelfhostCheckedArgument SelfhostLiteralArgumentError \lexeme\item\start_index\next_index\value_type:
+    match item.kind:
+        SelfhostExprPrefixItemKind::UnitValue:
+            Result::Ok selfhost_checked_argument_unit_value start_index next_index value_type item.span
+        SelfhostExprPrefixItemKind::BoolLiteral:
+            match selfhost_literal_argument_bool_from_lexeme lexeme item.span:
+                Result::Ok value:
+                    Result::Ok selfhost_checked_argument_bool_literal start_index next_index value_type item.span value
+                Result::Err e:
+                    Result::Err e
+        SelfhostExprPrefixItemKind::IntLiteral:
+            match selfhost_literal_argument_i32_from_lexeme lexeme item.span:
+                Result::Ok value:
+                    Result::Ok selfhost_checked_argument_i32_literal start_index next_index value_type item.span value
+                Result::Err e:
+                    Result::Err e
+        SelfhostExprPrefixItemKind::StringLiteral:
+            match selfhost_literal_argument_string_value_from_lexeme lexeme item.span:
+                Result::Ok value:
+                    Result::Ok selfhost_checked_argument_str_literal start_index next_index value_type item.span value
+                Result::Err e:
+                    Result::Err e
+        SelfhostExprPrefixItemKind::CharLiteral:
+            Result::Ok selfhost_checked_argument_typed_expression start_index next_index value_type item.span
+        _:
+            Result::Ok selfhost_checked_argument_typed_expression start_index next_index value_type item.span
+
+//: selfhost_literal_argument_checked_with_source: literal item から checked payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-backed argument checker が型一致を確認した後で呼び、実値が必要な literal だけを typed payload へ変換します。
+//: - token buffer の範囲確認、lexeme 復元、literal 値解析をこの境界にまとめ、lower/hir 側へ source 依存を漏らしません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(argument)`: HIR lowering に渡せる checked argument payload です。
+//: - `Err(error)`: token 参照または literal decode が失敗しました。caller は arena owner を解放して typed call-reduction error へ写像します。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 取得は O(1) です。
+//: - lexeme 復元と literal 値解析は token spelling 長 n に対して O(n) です。
+//: - HIR record や name scope は参照しないため、この境界で追加の探索空間を増やしません。
+pub fn selfhost_literal_argument_checked_with_source %fn &Vec SelfhostToken fn str fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId Result SelfhostCheckedArgument SelfhostLiteralArgumentError \tokens\source\item\start_index\next_index\value_type:
+    match v::get tokens item.token_index:
+        Option::Some token:
+            let lexeme %str selfhost_token_lexeme source token
+            selfhost_literal_argument_checked_from_lexeme lexeme item start_index next_index value_type
+        Option::None:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::TokenOutOfBounds item.span

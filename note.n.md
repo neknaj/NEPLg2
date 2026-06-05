@@ -1,3 +1,40 @@
+# 2026-06-05 Agent Zenn policy compliance review checkpoint
+
+- Zenn 記事を再確認した。特に、Option / Result と enum による失敗表現、エラーと表示の分離、目的・契約・戻り値条件・計算量を含む丁寧な doc comment、責務分割、試作段階でも技術的負債を残さない方針を今回の修正基準にした。
+- 既存 subagent 2 つに、直近 selfhost literal payload 変更を Zenn 方針と AGENTS.md のコメント方針に照らして独立レビューさせた。新規 subagent は上限到達のため作成できず、既存 subagent を再利用した。
+- 指摘に基づき、`literal_payload.nepl` の private helper 群へ関数単位の日本語 doc comment を追加した。目的、契約、戻り値 / エラー条件、計算量を明示し、char literal は明示 branch で `TypedExpression` に残すようにした。
+- `string::str_slice` の空文字 fallback を使わず、`string::str_slice_result` の失敗を `StringSliceFailed` / `LiteralStringSliceFailed` / `ArgumentLiteralStringSliceFailed` として typed error に写すようにした。
+- radix 判定を `first_is_zero` と `second_is_radix_marker` に分け、`0x` / `0X` の未対応基数だけを明示的に拒否する読みやすい形へ直した。
+- `check/expr.nepl` と `lower/hir/direct_call.nepl` のコメントを更新し、escape 付き string は lower まで到達せず checker 側の typed error で止まること、lower 側で fail-closed に残るのは `TypedExpression` / `NestedDirectCall` / `BlockResult` などであることを分けて書いた。
+- source policy に、`literal_payload.nepl` の helper doc comment が `[目的]` と `[計算量]`、必要な関数では `[戻り値]` / `[契約]` を持つこと、`str_slice_result` と `StringSliceFailed` を使うこと、char literal が明示 fail-closed branch であることを追加した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-zenn-comment-compliance.json`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-zenn-comment-compliance.json`: pass（2/2）
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
+# 2026-06-05 Agent selfhost literal value payload checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも技術的負債を残さない方針を判断基準にした。
+- subagent review では、literal 値を `lower/hir/direct_call.nepl` で source token から再解析するのは退行であり、source-backed `check/expr` で意味値 payload を保存するべきだと確認した。特に string は raw quoted lexeme と semantic value を混同してはいけないため、escape decode が未実装の間は simple string だけ accepted にする方針を採用した。
+- `stdlib/neplg2/core/check/expr/literal_payload.nepl` を追加した。bool literal は `true` / `false` を semantic bool payload へ、10 進 int literal は `string::to_i32` で i32 payload へ、escape を含まない string literal は quote を除いた semantic string payload へ変換する。
+- `SelfhostCheckedArgumentKind` に `BoolLiteral %bool`、`I32Literal %i32`、`StrLiteral %str` を追加した。`check/expr` は HIR を import せず、`lower/hir/direct_call.nepl` がこれらを HIR `BoolLiteral` / `I32Literal` / `StrLiteral` child へ変換する。
+- hex integer は `ArgumentLiteralI32RadixUnsupported`、不正 bool は `ArgumentLiteralBoolInvalid`、不正 i32 は `ArgumentLiteralI32Invalid`、quote 境界不正 string は `ArgumentLiteralStringMalformed`、escape 付き string は `ArgumentLiteralStringEscapeUnsupported` として typed error にした。これらを `UnsupportedArgumentExpression` へ潰さない。
+- `CharLiteral` は HIR payload がまだ無いため今回の accepted lowering には入れていない。char literal、escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` の checked tree payload は次 slice の残件として `todo.md` と issue に残した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-literal-payload.json`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-literal-lowering.json`: pass（2/2）
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost NamedValue HIR variable identity checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも技術的負債を残さない方針を判断基準にした。
@@ -51173,3 +51210,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused doctest の初回実行で `argument.nepl` の `&Vec SelfhostToken` が `Vec` constructor を import していないため parse できないことを確認し、`alloc/collections/vec` import を追加した。型名の source spelling を利用する境界では、使用する type constructor を明示 import する必要がある。
 - focused verification は `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_ascribed_argument_source_tests.json`、`node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-review.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存別件の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` の 2 warning が残る。
+
+## 2026-06-05 Agent selfhost Zenn review gate checkpoint
+
+- `selfhost/zenn-review-loop-policy-20260605` branch で、セルフホストコンパイラ開発の Zenn 方針 review gate を文書化し、source policy regression に登録した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、`Option` / `Result` / enum diagnostic、pure core と host boundary の分離、丁寧なドキュメントコメント、試作段階でも技術的負債を残さない方針を今回の運用契約に反映した。
+- subagent review では、既存の selfhost checkpoint は Zenn / subagent review の履歴を残しているが、実行計画と機械検査に恒久 gate として固定されていない点が Blocker とされた。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に `Zenn 方針 review gate` を追加し、新しい issue、実装 slice、公開 API、diagnostic enum、Resource proof 境界、または module 責務変更ごとに、Zenn 再確認、独立 subagent review、Blocker 修正または issue 化、Non-blocker 記録、commit 前の `note.n.md` checkpoint を必須にした。
+- `doc/neplg2/self_host_execution_plan.md` に同じ gate を追加し、作業開始時と commit 前の確認、source policy 更新、コメントを減らすための行数制限や説明削減の検査禁止を実作業手順に入れた。
+- 実行計画に残っていた古い数値目安は、丁寧なドキュメントコメントと責務境界による分割判断に反するため削除し、commit の大きさは行数ではなく責務境界と検証可能性で判断する記述へ置き換えた。
+- `doc/stdlib_doc_comment_policy.md` に、現在の `stdlib/neplg2/` セルフホストコンパイラ実装にも同じ doc comment 水準を適用することを明記した。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` を追加し、Zenn URL、subagent review、Blocker 処理、doc comment 必須項目、行数制限禁止、実行計画側の gate、`stdlib/neplg2` への doc comment policy 適用を検査するようにした。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- subagent review の Non-blocker として、`stdlib/neplg2` 全体の doc comment coverage、error enum chain の完全写像、`check/expr` と `lower/hir` の authority 逆流禁止をより広く検査する提案があった。これは次の selfhost implementation slice で、対象 module に合わせて個別 source policy へ追加する。

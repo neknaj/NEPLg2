@@ -16,12 +16,37 @@
 
 セルフホストコンパイラは、Zenn の開発方針で示された試作段階の原則を満たす。特に、次を設計上の制約として扱う。
 
+- 方針確認の authority は `https://zenn.dev/bem130/articles/1b352797de94e7` である。新しい issue、実装 slice、または設計変更に着手する前に、この記事を再確認する。
 - 互換性維持より、正しい仕様境界と根本原因の修正を優先する。
 - core は platform 非依存に保ち、filesystem、stdio、argv、環境変数、時計、乱数などは CLI / host boundary に閉じ込める。
 - 静的検査を省略して高速化したように見せない。高速化は探索範囲、依存関係、cache key、事前検査済み artifact の設計で行う。
 - 失敗は `Option` / `Result` / enum diagnostic として表現し、string 判定や sentinel 値へ依存しない。
 - public API に型名付き重複関数を増やさず、型注釈、期待型、trait / generic 解決で選択する。
 - prototype 段階では大きな再設計を許すが、後続実装へ隠れた技術的負債を渡さない。
+
+## Zenn 方針 review gate
+
+セルフホストコンパイラの実装は、各 slice ごとに Zenn 方針 review gate を通す。ここでの slice は、issue の 1 checkpoint、公開 API の追加、型や診断 enum の追加、Resource proof 境界の追加、または既存 module の責務変更を指す。
+
+review gate は次の順で行う。
+
+1. 作業開始時に Zenn 記事を再確認し、その slice で影響する方針を `note.n.md` または対応 issue に記録する。
+2. 独立した subagent に、設計、実装、ドキュメントコメント、source policy、検証方針をレビューさせる。
+3. Blocker は同じ slice 内で修正する。修正できないものは、原因、影響、完了条件を持つ issue として分離する。
+4. Non-blocker は `note.n.md`、`todo.md`、または対応 issue に残し、次 slice の入口で再確認する。
+5. commit 前に、今回の差分が Zenn 方針 review gate を通ったことを `note.n.md` の checkpoint に記録する。
+
+subagent review は、単に承認を得るためではなく、実装者と独立した観点で次の観点を確認するために使う。
+
+- 失敗経路が `Result` / `Option` / enum error で表現され、表示文字列や sentinel 値で分岐していないこと。
+- `match` の網羅性が効く形で variant が設計され、数値 tag や文字列 tag を公開 API にしていないこと。
+- parser、checker、HIR、Resource IR、backend の authority が混ざっていないこと。
+- pure core と host / CLI boundary が分離され、filesystem、stdio、clock、random などが core に漏れていないこと。
+- 高速化が安全性検査の省略ではなく、探索範囲、依存関係、事前検査済み artifact、cache key の設計で行われていること。
+- ドキュメントコメントが、目的、契約、戻り値や error variant の条件、計算量、制約、典型例、現状の実装詳細と将来も守る契約の区別を説明していること。
+- コメントの量を減らすための行数制限や説明削減の検査が入っていないこと。コメントの丁寧さと契約の明確さを優先する。
+
+source policy regression は、この review gate を支えるために追加する。検査は「コメントが多いこと」を拒否してはならない。検査すべきなのは、方針を守るための構造である。例えば、typed error enum、owner recovery、pure / impure boundary、module split、facade re-export、doc comment の必須項目、review checkpoint の記録を確認する。一方で、実装行数やドキュメントコメントの長さそのものを制限してはならない。
 
 ## NEPLg2.1 構文の前提
 
@@ -313,6 +338,8 @@ type checker は prefix call reduction を担当する。
 2026-06-05 HIR direct call checked argument lowering checkpoint では、`lower/hir/direct_call.nepl` を追加した。この module は `SelfhostCallReduceResult::DirectCall`、`Vec SelfhostCheckedArgument`、candidate table を受け取り、HIR module に argument child expression と parent call expression を追加する。callee は `SelfhostReducedCall.candidate_index` で candidate table から得るため、prefix token spelling や scope lookup を lowering で再実行しない。現 checkpoint で HIR child にできる argument kind は `UnitValue`、`NamedValue(identity)`、`FunctionValue(candidate)` である。`UnitValue` は HIR `Unit`、`NamedValue` は `SelfhostHirValueIdentity` を持つ HIR `Var`、`FunctionValue` は `lower/hir/function_value.nepl` の `selfhost_hir_expr_fn_value_from_candidate` を通る HIR `FnValue` になる。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、literal value payload / nested tree / block tree の lowerable payload がまだ足りないため `UnsupportedArgumentKind` として fail-closed にする。`SelfhostExpressionLineCheckSuccess` を borrow する facade も用意したが、success owner は caller が閉じる。これにより、checked argument payload transport は HIR direct call の最初の消費点まで接続された。
 
 2026-06-05 named value HIR identity checkpoint では、`SelfhostHirExprPayload::Var` を `str` payload から `SelfhostHirValueIdentity` payload へ変更した。value identity は diagnostic / dump 用の `symbol`、name resolver が割り当てた `SelfhostDefId`、checker が照合した `SelfhostTypeId`、`Local` / `Param` / `Builtin` などの `SelfhostDefKind` を持つ。`argument.nepl` は `name -> latest binding -> DefId -> value type evidence` の成功時に `SelfhostCheckedArgumentKind::NamedValue` を作り、`lower/hir/direct_call.nepl` はその payload だけを使って HIR `Var` child を作る。lowering は source token、scope lookup、value evidence lookup を再実行しない。数値、bool、char、string literal は実際の値 payload と literal parser、`NestedDirectCall` と `BlockResult` は内側の checked tree がまだ不足しているため、引き続き fail-closed にする。
+
+2026-06-05 literal value payload checkpoint では、`check/expr/literal_payload.nepl` を追加し、source-backed argument checker が bool / i32 / simple string literal の意味値を checked payload として保存する境界を作った。`SelfhostCheckedArgumentKind::BoolLiteral`、`I32Literal`、`StrLiteral` は HIR を import せず、source token から一度だけ解析した値だけを保持する。`lower/hir/direct_call.nepl` はこれらを `SelfhostHirExprPayload::BoolLiteral`、`I32Literal`、`StrLiteral` の child expression へ変換し、literal lexeme や source text を再読しない。i32 は現 checkpoint では 10 進 `i32` のみ accepted とし、`0x` / `0X` 形式は `ArgumentLiteralI32RadixUnsupported` として fail-closed にする。string は escape を含まない literal だけを accepted とし、quote を除いた semantic value を payload に入れる。escape 付き string は `ArgumentLiteralStringEscapeUnsupported`、quote 不整合は `ArgumentLiteralStringMalformed` として拒否する。`CharLiteral` は HIR payload がまだ無いため `TypedExpression` に残り、direct call HIR lowering では `UnsupportedArgumentKind` のまま fail-closed になる。
 
 2026-06-05 ascription expected conflict checkpoint では、`%T expr` が作る `ExplicitAscription` expectation と外側 context から渡る `SelfhostTypeExpectation` を `body_line.nepl` の owner 付き入口で照合するようにした。両者の `expected_type` が同じ `SelfhostTypeArena` 内で構造一致しない場合、内側 expression の call reduction へ進まず `SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict` を返す。これにより、`%i32 expr` が `bool` expected の位置にあるような入力を candidate / arity / argument type error へ誤分類しない。`SelfhostTypeExpectation.expected_type` は arena-local なので、失敗 payload は arena 解放後も安全に読める source / span evidence だけを保持する。型そのものの安定表示は canonical type key / diagnostic projection の後続 slice で接続する。
 
@@ -933,7 +960,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 / Phase 7 | 2026-06-05 checkpoint で declaration header、type prefix reduction、generic type parameter environment、pre-HIR `SelfhostExprPrefixList`、body segmenter、`check/expr` call reduction、argument-scope ascription、DefId-linked callable candidate collection、literal argument type evidence、`NamedValue` / `%T NamedValue` value evidence、nested named call argument、明示 `@ident` function value argument、HIR `FnValue` identity、checked argument payload transport を接続した。さらに `UnitValue` checked payload を HIR `Unit` child、`NamedValue` checked payload を DefId-linked HIR `Var` child、`FunctionValue(candidate)` を HIR `FnValue` child へ消費する direct call lowering を追加した。残件は block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、数値 / bool / char / string literal value payload、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 / Phase 7 | 2026-06-05 checkpoint で declaration header、type prefix reduction、generic type parameter environment、pre-HIR `SelfhostExprPrefixList`、body segmenter、`check/expr` call reduction、argument-scope ascription、DefId-linked callable candidate collection、literal argument type evidence、`NamedValue` / `%T NamedValue` value evidence、nested named call argument、明示 `@ident` function value argument、HIR `FnValue` identity、checked argument payload transport を接続した。さらに `UnitValue` checked payload を HIR `Unit` child、`NamedValue` checked payload を DefId-linked HIR `Var` child、`FunctionValue(candidate)` を HIR `FnValue` child、bool / i32 / simple string literal payload を対応する HIR literal child へ消費する direct call lowering を追加した。残件は block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、char literal payload、escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |
