@@ -76,6 +76,11 @@ impl Copy for SelfhostExprArgumentMatch:
 //: - `Literal*` は、source-backed literal payload 生成で token 範囲や意味値解析に失敗した場合を分けます。raw lexeme を HIR へ流す fallback は行いません。
 //: - `UnsupportedArgumentExpression` は、name resolution や nested call reduction が必要で、単一 literal item からは型証拠を得られない場合です。
 //: - `MissingArgument` と `InternalInvariant` は caller 側の cursor と prefix list の不整合を区別します。
+//:
+//: [契約/けいやく]:
+//: - この enum は実引数検査の失敗理由の authority です。表示文字列や一時的な diagnostic 文言をここへ混ぜません。
+//: - 呼び出し境界の推論で探索を広げられない場合は、unsupported / ambiguous / missing evidence を別 variant として返し、型不一致へ潰しません。
+//: - source-backed API が token/span を持つ場合は、token 範囲外、literal 解析失敗、candidate 収集失敗をそれぞれ静的に区別できる variant へ写像します。
 pub enum SelfhostExprArgumentMatchErrorKind:
     MissingArgument
     TypeMismatch
@@ -123,6 +128,10 @@ impl Copy for SelfhostExprArgumentMatchErrorKind:
 //: [目的/もくてき]:
 //: - reducer が unsupported expression と type mismatch を同じ string 診断へ潰さず、後続の diagnostic projection で別々に表示できるようにします。
 //: - `span` は、失敗した argument expression の先頭 item を指します。missing / invariant の場合は caller が渡した fallback span を使います。
+//:
+//: [契約/けいやく]:
+//: - `kind` は必ず `SelfhostExprArgumentMatchErrorKind` の variant で保持し、表示層へ渡す前に文字列化しません。
+//: - `span` は error の観測位置を表します。source-backed helper では可能な限り実際の token/span を使い、fallback span は missing/invariant のような caller 不整合だけに使います。
 pub struct SelfhostExprArgumentMatchError:
     kind %SelfhostExprArgumentMatchErrorKind
     span %SelfhostSourceSpan
@@ -153,24 +162,71 @@ pub fn selfhost_expr_argument_match_error_new %fn SelfhostExprArgumentMatchError
 //: - `match_value.next_index` は次の prefix argument item index です。
 //: - `checked_argument` は、この実引数式から得た typed evidence です。特に明示 `@ident` は、候補の DefId を後続 lowering へ渡すため `FunctionValue` payload を持ちます。
 //: - 失敗時、この module は受け取った arena owner を解放してから error を返します。caller は失敗後に同じ arena を使いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - record の生成と field 読み出しは O(1) です。arena owner の解放コストは arena の内容に依存します。
 pub struct SelfhostExprArgumentOwnedMatch:
     arena %SelfhostTypeArena
     match_value %SelfhostExprArgumentMatch
     checked_argument %SelfhostCheckedArgument
 
 //: selfhost_expr_argument_owned_match_new: owner 付き argument match を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checked argument evidence、consume-width、更新済み type arena owner を 1 つの成功 payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `arena` の所有権は返り値へ移ります。caller は返り値から `into_arena` するか、上位の owner cleanup 経路へ渡します。
+//: - `checked_argument` は同じ実引数式に対する evidence であり、`match_value.next_index` と矛盾しないことを caller が保証します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostExprArgumentOwnedMatch`: arena owner と checked payload を保持する成功 record です。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
 pub fn selfhost_expr_argument_owned_match_new %impure fn SelfhostTypeArena impure fn SelfhostExprArgumentMatch impure fn SelfhostCheckedArgument SelfhostExprArgumentOwnedMatch \arena\match_value\checked_argument:
     SelfhostExprArgumentOwnedMatch arena match_value checked_argument
 
 //: selfhost_expr_argument_owned_match_match: consume-width payload を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - owner 付き match から、次に読む prefix item index を含む Copy payload を取り出します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostExprArgumentMatch`: 実引数式の consume-width を表す値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - field 読み出しだけなので O(1) です。
 pub fn selfhost_expr_argument_owned_match_match %fn &SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatch \matched:
     *field::get_ref matched "match_value"
 
 //: selfhost_expr_argument_owned_match_checked_argument: checked argument evidence を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - owner 付き match から、HIR lowering へ渡す checked argument evidence を読み出します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostCheckedArgument`: literal、named value、function value、nested call などの検査済み payload です。
+//:
+//: [計算量/けいさんりょう]:
+//: - field 読み出しだけなので O(1) です。
 pub fn selfhost_expr_argument_owned_match_checked_argument %fn &SelfhostExprArgumentOwnedMatch SelfhostCheckedArgument \matched:
     *field::get_ref matched "checked_argument"
 
 //: selfhost_expr_argument_owned_match_into_arena: updated arena owner を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - owner 付き match を消費し、次の argument check や上位 reducer に渡す updated type arena owner を取り出します。
+//:
+//: [契約/けいやく]:
+//: - `matched` は消費されます。この関数を呼んだ後に `checked_argument` や `match_value` を読むことはできません。
+//: - caller は必要な Copy payload を先に読み出してから、この関数で arena owner を取り出します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeArena`: argument checker が更新した arena owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - owner field の取り出しだけなので O(1) です。
 pub fn selfhost_expr_argument_owned_match_into_arena %impure fn SelfhostExprArgumentOwnedMatch SelfhostTypeArena \matched:
     field::get matched "arena"
 
@@ -435,6 +491,18 @@ fn selfhost_expr_argument_match_named_value_with_source %impure fn SelfhostTypeA
             selfhost_type_arena_free arena
             Result::Err e
 
+//: selfhost_expr_argument_expected_type_is_function: expected type が function value 型かを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 明示 `@ident` argument は、parameter が function type を期待している場合だけ検査対象にします。
+//: - expected type が見つからない場合は成功扱いせず、`false` へ倒して caller が typed error を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `expected_type` の kind が `Function` です。
+//: - `false`: arena lookup に失敗した、または function kind ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena kind lookup 1 回なので O(1) です。
 fn selfhost_expr_argument_expected_type_is_function %fn &SelfhostTypeArena fn SelfhostTypeId bool \arena\expected_type:
     match selfhost_type_arena_get_kind arena expected_type:
         Option::Some kind:
@@ -442,6 +510,18 @@ fn selfhost_expr_argument_expected_type_is_function %fn &SelfhostTypeArena fn Se
         Option::None:
             false
 
+//: selfhost_expr_argument_function_value_error_from_candidate_collect: callable candidate 収集 error を argument error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - `@ident` argument の候補収集失敗を、argument checker の error domain へ移します。
+//: - pending binding、signature 欠落、head token 範囲外、OOM を 1 つの unsupported error へ潰さず保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 対応する `SelfhostExprArgumentMatchErrorKind::FunctionValue*` を持つ error です。
+//: - 未分類の候補収集 error は `InternalInvariant` として扱い、成功扱いしません。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
 fn selfhost_expr_argument_function_value_error_from_candidate_collect %fn SelfhostCallableCandidateCollectError SelfhostExprArgumentMatchError \error:
     match error.kind:
         SelfhostCallableCandidateCollectErrorKind::PendingBinding:
@@ -455,6 +535,18 @@ fn selfhost_expr_argument_function_value_error_from_candidate_collect %fn Selfho
         _:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant error.span
 
+//: selfhost_expr_argument_function_value_candidate_is_monomorphic: function value candidate が単相化済みかを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `@ident` は function value そのものを渡す構文であり、この slice では generic function value の型引数推論を成功扱いしません。
+//: - generic state を明示的に見て、未解決 generic を `FunctionValueGenericUnsupported` へ落とします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: candidate が追加の generic inference を必要としません。
+//: - `false`: generic inference state が残っており、この argument checker では fail-closed です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
 fn selfhost_expr_argument_function_value_candidate_is_monomorphic %fn SelfhostCallableCandidate bool \candidate:
     match candidate.generic_state:
         SelfhostGenericInferenceState::NoneRequired:
@@ -462,6 +554,23 @@ fn selfhost_expr_argument_function_value_candidate_is_monomorphic %fn SelfhostCa
         _:
             false
 
+//: selfhost_expr_argument_match_function_value_candidate: 1 つの `@ident` candidate を expected function type と[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - 候補が単相化済みで、candidate callable type が expected parameter type と一致する場合だけ function value argument として受理します。
+//: - 成功時は callable candidate を checked payload に保存し、HIR lowering が scope lookup や overload 解決を再実行しないようにします。
+//:
+//: [契約/けいやく]:
+//: - 失敗時はこの関数が `arena` owner を解放します。
+//: - generic candidate、型不一致 candidate はいずれも typed error へ変換し、別候補の推測や部分適用として扱いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: `@ident` の 2 item を消費した function value checked payload です。
+//: - `Err(FunctionValueGenericUnsupported)`: generic state が残っています。
+//: - `Err(FunctionValueTypeMismatch)`: candidate callable type と expected type が一致しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - generic state check と arena type equality だけなので、型比較の実コストは対象型 tree の大きさに依存します。
 fn selfhost_expr_argument_match_function_value_candidate %impure fn SelfhostTypeArena impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidate\start_index\next_index\expected_type\span:
     if:
         not selfhost_expr_argument_function_value_candidate_is_monomorphic candidate
@@ -479,6 +588,25 @@ fn selfhost_expr_argument_match_function_value_candidate %impure fn SelfhostType
                     selfhost_type_arena_free arena
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueTypeMismatch span
 
+//: selfhost_expr_argument_match_function_value_candidates: `@ident` の候補集合を 1 候補へ[絞/しぼ]る
+//:
+//: [目的/もくてき]:
+//: - callable candidate collection の結果を、function value argument として使える 1 候補へ縮約します。
+//: - 候補なしや複数候補は、暗黙に推測せず typed error として返します。
+//:
+//: [契約/けいやく]:
+//: - `candidates` owner はこの関数内で必ず解放します。
+//: - 成功時でも candidate は Copy payload として取り出し、候補 Vec owner は残しません。
+//: - 失敗時は `arena` owner も解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: 1 候補だけがあり、expected type と一致した function value argument です。
+//: - `Err(FunctionValueUnresolved)`: 候補が 0 件です。
+//: - `Err(FunctionValueAmbiguous)`: 候補が複数件です。
+//: - `Err(InternalInvariant)`: count と `get` の結果が矛盾しています。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate count 取得と先頭取得は O(1) です。型一致の実コストは `selfhost_expr_argument_match_function_value_candidate` に従います。
 fn selfhost_expr_argument_match_function_value_candidates %impure fn SelfhostTypeArena impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidates\start_index\next_index\expected_type\span:
     let candidate_count %i32 v::len &candidates
     if:
@@ -504,6 +632,23 @@ fn selfhost_expr_argument_match_function_value_candidates %impure fn SelfhostTyp
                             selfhost_type_arena_free arena
                             Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant span
 
+//: selfhost_expr_argument_match_function_value_with_source: source-backed に `@ident` argument を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `@` item の次にある `NamedValue` を function namespace の candidate として集め、expected function type と照合します。
+//: - source/token/scope/signature table を権威にして candidate を作り、文字列名だけの後続再解決を避けます。
+//:
+//: [契約/けいやく]:
+//: - expected type が function でない場合は `FunctionValueExpectedFunctionType` を返し、`@ident` を通常値として扱い直しません。
+//: - `@` の後ろに name item がない、または name でない場合は `FunctionValueMissingName` です。
+//: - 候補収集や候補照合で失敗した場合、この関数または下位 helper が `arena` owner を解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: `@ident` 2 item を消費し、callable candidate evidence を含む checked payload です。
+//: - `Err(error)`: expected type、name token、candidate collection、generic/overload/type mismatch のいずれかの typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - name item 取得は O(1) です。candidate collection の実コストは scope/signature table lookup に依存します。
 fn selfhost_expr_argument_match_function_value_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\signatures\item_index\item_count\expected_type\at_item:
     if:
         not selfhost_expr_argument_expected_type_is_function &arena expected_type
@@ -571,6 +716,18 @@ pub fn selfhost_expr_argument_match_at %fn &SelfhostTypeArena fn &SelfhostExprPr
                 Option::None:
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant source_span_empty_unchecked 0 0
 
+//: selfhost_expr_argument_range_from_prefix: prefix item 範囲を source token range へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - argument-scope `%T expr` の型式境界を解くため、prefix item index の範囲から source token range を作ります。
+//: - source token range を ascription projector に渡すことで、type prefix reducer が token spelling と constructor arity を権威として使えます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(range)`: `item_index` から `item_count - 1` までを覆う token range です。
+//: - `Err(InternalInvariant)`: prefix item が存在しない、または末尾 item が取れない状態です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭と末尾 item を読むだけなので O(1) です。
 fn selfhost_expr_argument_range_from_prefix %fn &SelfhostExprPrefixList fn i32 fn i32 Result SelfhostSyntaxRange SelfhostExprArgumentMatchError \prefix\item_index\item_count:
     match selfhost_expr_prefix_list_get prefix item_index:
         Option::Some first_item:
@@ -584,6 +741,19 @@ fn selfhost_expr_argument_range_from_prefix %fn &SelfhostExprPrefixList fn i32 f
         Option::None:
             Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant source_span_empty_unchecked 0 0
 
+//: selfhost_expr_argument_find_prefix_item_by_token_loop: token index に対応する prefix item を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - ascription projector が返す source token index を、argument checker が消費する prefix item index へ戻します。
+//: - source token index と prefix item index を混同しないため、この変換境界を明示します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(index)`: `token_index` を持つ prefix item の index です。
+//: - `Err(UnsupportedArgumentExpression)`: 対応する prefix item が見つかりません。
+//: - `Err(InternalInvariant)`: 走査中に prefix item lookup が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - `idx` から `item_count` まで線形に見るため O(n) です。
 fn selfhost_expr_argument_find_prefix_item_by_token_loop %fn &SelfhostExprPrefixList fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostExprArgumentMatchError \prefix\idx\item_count\token_index\fallback_span:
     if:
         ge idx item_count
@@ -601,9 +771,32 @@ fn selfhost_expr_argument_find_prefix_item_by_token_loop %fn &SelfhostExprPrefix
                 Option::None:
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant fallback_span
 
+//: selfhost_expr_argument_find_prefix_item_by_token: token index に対応する prefix item index を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - argument-scope ascription の `expression_first_token` を、実際に検査する prefix item index へ変換します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(index)`: `start_idx` 以降で対応 token を持つ prefix item index です。
+//: - `Err(error)`: 対応 item 欠落または prefix list 不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 残り prefix item 数を n として O(n) です。
 fn selfhost_expr_argument_find_prefix_item_by_token %fn &SelfhostExprPrefixList fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostExprArgumentMatchError \prefix\start_idx\item_count\token_index\fallback_span:
     selfhost_expr_argument_find_prefix_item_by_token_loop prefix start_idx item_count token_index fallback_span
 
+//: selfhost_expr_argument_validate_ascription_expected: `%T` と parameter expected type の一致を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - 明示 ascription が outer parameter type と矛盾していないことを確認します。
+//: - 矛盾を overload failure や arity failure へ丸めず、`AscriptionExpectedTypeConflict` として保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(unit)`: ascription type と expected type が同じ arena 内で一致します。
+//: - `Err(AscriptionExpectedTypeConflict)`: 明示注釈と parameter type が一致しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 型比較の実コストは比較対象の型 tree の大きさに依存します。
 fn selfhost_expr_argument_validate_ascription_expected %fn &SelfhostTypeArena fn SelfhostTypeExpectation fn SelfhostTypeId Result unit SelfhostExprArgumentMatchError \arena\ascription_expectation\expected_type:
     if:
         selfhost_type_arena_types_equal arena ascription_expectation.expected_type expected_type
@@ -612,6 +805,17 @@ fn selfhost_expr_argument_validate_ascription_expected %fn &SelfhostTypeArena fn
         else:
             Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict ascription_expectation.span
 
+//: selfhost_expr_argument_span_from_ascription_error: ascription error の代表 span を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - ascription projector の typed error を argument match error に包むとき、元原因の span を失わないようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - range error や missing tail は保持している `SelfhostSourceSpan` を返します。
+//: - build/reduce/project error は、それぞれ sub-error の span を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match と field 読み出しだけなので O(1) です。
 fn selfhost_expr_argument_span_from_ascription_error %fn SelfhostExprAscriptionError SelfhostSourceSpan \error:
     match error:
         SelfhostExprAscriptionError::EmptyExpressionRange span:
@@ -629,6 +833,23 @@ fn selfhost_expr_argument_span_from_ascription_error %fn SelfhostExprAscriptionE
         SelfhostExprAscriptionError::MissingExpressionTail span:
             span
 
+//: selfhost_expr_argument_match_ascribed_with_projection: `%T` 投影後の 1 argument expression を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - head projection が示す expected type と expression token index を使い、`%T expr` の `expr` だけを 1 実引数式として検査します。
+//: - literal、NamedValue、`@ident` を同じ source-backed evidence 境界へ接続します。
+//:
+//: [契約/けいやく]:
+//: - projection はこの関数が消費し、arena owner を取り出します。
+//: - `%T` と outer expected type が不一致なら、inner expression を読まずに arena を解放して typed error を返します。
+//: - 失敗時にはこの関数または下位 helper が arena owner を解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: ascription と inner expression の両方が expected type に一致した checked argument です。
+//: - `Err(error)`: ascription conflict、対応 prefix item 欠落、literal/name/function value の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - token index から prefix item を探す部分は O(n)、inner expression の検査は扱う payload に依存します。
 fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostExprAscriptionHeadProjection impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\scope\value_types\signatures\projection\prefix\item_index\item_count\expected_type:
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_head_projection_expectation &projection
     let expression_token %i32 selfhost_expr_ascription_head_projection_expression_first_token &projection
@@ -667,6 +888,22 @@ fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec Selfhos
             selfhost_type_arena_free arena
             Result::Err e
 
+//: selfhost_expr_argument_match_ascribed_at_with_source: `%T expr` argument の source-backed 入口
+//:
+//: [目的/もくてき]:
+//: - prefix list 上の `%` item から source token range を作り、ascription projector で head projection へ変換します。
+//: - projection 後は `selfhost_expr_argument_match_ascribed_with_projection` に委譲し、型注釈と inner expression を同じ arena owner で検査します。
+//:
+//: [契約/けいやく]:
+//: - `arena` owner は成功時に返り値へ移り、失敗時はこの関数または下位 helper が解放します。
+//: - ascription projection 失敗は `AscriptionProjectionFailed` として包み、元 span を保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: `%T expr` 全体を 1 argument expression として消費した checked payload です。
+//: - `Err(error)`: prefix range 作成、type projection、inner expression 検査のいずれかの typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - range 作成は O(1)、type projection は型式 token 数と型 tree に比例し、inner expression item 探索は O(n) です。
 fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type:
     match selfhost_expr_argument_range_from_prefix prefix item_index item_count:
         Result::Ok syntax_range:
@@ -692,6 +929,13 @@ fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec Selfhost
 //: - 明示 function value は `@ident` の 2 item だけを受理します。対象名は function namespace の候補収集と callable signature table を通し、generic / overload 未解決は成功扱いしません。
 //: - `%T` と expected parameter type が同じ arena 内で一致しない場合は `AscriptionExpectedTypeConflict` として返し、arity / overload 失敗へ潰しません。
 //: - 失敗時は、この関数が受け取った arena owner を解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: 1 つの argument expression を消費し、updated arena owner と checked argument evidence を返します。
+//: - `Err(error)`: missing argument、type mismatch、unsupported expression、ascription conflict、named value/function value/literal decode の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 単一 literal/name/function value は lookup と型比較に比例します。`%T expr` は型式 token 数と prefix item 探索範囲に比例します。
 pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type:
     if:
         ge item_index item_count

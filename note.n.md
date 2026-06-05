@@ -1,3 +1,22 @@
+# 2026-06-06 Agent selfhost expr argument/call_reduce documentation contract checkpoint
+
+- `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:41:36+09:00 に再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と現状説明の分離、計算量、丁寧な doc comment、試作段階でも品質を落とさない方針を今回の判断基準にした。
+- subagent review では、`stdlib/neplg2/core/check/expr/argument.nepl` と `call_reduce.nepl` の typed error authority、owner-returning payload、function value candidate evidence、ascription projection、nested direct call、source-backed reducer entry が Zenn 方針の固定検査から外れていることが blocker として確認された。
+- `argument.nepl` では `SelfhostExprArgumentMatchErrorKind` / `SelfhostExprArgumentMatchError`、`SelfhostExprArgumentOwnedMatch` 系 API、function value argument helper、ascription projection helper、source-backed argument match entry の doc comment を補強した。文字列 diagnostic ではなく enum kind を authority にすること、source/token/span の権威、DefId / callable candidate evidence、generic unsupported / ambiguity / missing evidence の fail-closed 条件、arena owner の移動と解放、探索範囲と計算量を明記した。
+- `call_reduce.nepl` では generic state check、expected result check、owner cleanup helper、argument check state、checked argument push、nested direct call reducer、named candidate reducer、source-backed public entry の doc comment を補強した。partial application rejection、candidate 0/1/複数、trailing block argument、checked argument evidence Vec、success path と failure path の owner 契約、支配的な探索範囲と計算量を明記した。
+- `nodesrc/test_selfhost_documentation_contract.js` は、public/private の別に関係なく固定 slice の宣言名ごとに `[目的]`、`[契約]`、`[戻り値]`、`[計算量]` を要求できる `DOC_SECTION_REQUIREMENTS` へ整理した。行数、文字数、doc comment 長による制限は追加していない。
+- doctest debt counter は report-only とし、no-doc counter だけを fail-closed にした。これは、未コメント宣言へ丁寧な doc comment を追加すると「doc はあるが doctest は未整備」の数が一時的に増えるためであり、コメント増加を妨げる検査を入れてはならないという指示を満たすための修正である。残る doctest debt は issue に可視化し続ける。
+- `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` は open のまま維持し、no-doc baseline と no-doctest report-only debt の違い、`argument.nepl` / `call_reduce.nepl` の固定 slice 追加、Zenn 方針に基づく owner/evidence/error/complexity section requirement を追記した。
+- 最終 subagent review 3件では Blocker なし。no-doc fail-closed と no-doctest report-only の分離、行数・文字数・コメント長制限を追加していないこと、owner/evidence/error 境界と source token authority の節固定が Zenn 方針に合うことを確認した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_documentation_contract.js`: pass（declarationNoDoc 304 -> 269、privateNoDoc 253 -> 218。no-doctest counters は report-only debt として表示）
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass（既存 documentation gap samples と Node WASI ExperimentalWarning は非回帰）
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent 2 SparseSet documentation contract checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。

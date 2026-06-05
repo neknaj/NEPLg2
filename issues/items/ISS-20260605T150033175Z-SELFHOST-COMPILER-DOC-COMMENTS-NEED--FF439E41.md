@@ -15,9 +15,9 @@ target: "stdlib/neplg2/**, nodesrc/test_selfhost_documentation_contract.js"
 
 ## 概要
 
-stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=77, moduleNoDoctest=60, declarationNoDoc=304, declarationNoDoctest=1434, publicNoDoc=51, publicNoDoctest=1239, privateNoDoc=253, privateNoDoctest=195. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents increases but does not by itself prove that each public declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy.
+stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=77, moduleNoDoctest=60, declarationNoDoc=304, declarationNoDoctest=1434, publicNoDoc=51, publicNoDoctest=1239, privateNoDoc=253, privateNoDoctest=195. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents no-doc increases but does not by itself prove that each fixed declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy.
 
-This baseline is not an accepted quality level. It is a fail-closed debt boundary: the counts must not increase, every newly fixed slice must receive section-level checks, and the remaining gaps stay open in this issue until they are either fixed or split into narrower root-cause issues. The gate must not use file count, declaration count, line count, or doc-comment length limits as a substitute for checking module boundaries and documentation contracts.
+This baseline is not an accepted quality level. It is a fail-closed debt boundary for missing module/declaration comments: the no-doc counters must not increase, every newly fixed slice must receive section-level checks, and the remaining gaps stay open in this issue until they are either fixed or split into narrower root-cause issues. The no-doctest counters remain visible report-only debt because adding a careful doc comment to a previously undocumented declaration can temporarily increase the "doc exists but doctest is absent" count. The gate must not use file count, declaration count, line count, doc-comment length limits, or no-doctest count increases as a substitute for checking module boundaries and documentation contracts.
 
 ## 対象
 
@@ -32,7 +32,7 @@ This baseline is not an accepted quality level. It is a fail-closed debt boundar
 
 ## 問題
 
-stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=77, moduleNoDoctest=60, declarationNoDoc=304, declarationNoDoctest=1434, publicNoDoc=51, publicNoDoctest=1239, privateNoDoc=253, privateNoDoctest=195. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents increases but does not by itself prove that each public declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy.
+stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=77, moduleNoDoctest=60, declarationNoDoc=304, declarationNoDoctest=1434, publicNoDoc=51, publicNoDoctest=1239, privateNoDoc=253, privateNoDoctest=195. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents no-doc increases but does not by itself prove that each public declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy. A no-doctest counter can increase when a declaration moves from "no doc" to "doc without runnable example", so that counter is tracked as visible debt rather than used to block documentation growth.
 
 ## 影響
 
@@ -40,11 +40,13 @@ Selfhost compiler implementation can appear source-policy clean while important 
 
 ## 修正方針
 
-Expand nodesrc/test_selfhost_documentation_contract.js slice by slice. For each touched stdlib/neplg2 module, require public declarations to carry the relevant Zenn-policy sections such as purpose, contract, return/error cases, complexity, and doctest/report examples. Keep baseline counts decreasing and record accepted remaining gaps until they reach zero or are split into narrower issues.
+Expand nodesrc/test_selfhost_documentation_contract.js slice by slice. For each touched stdlib/neplg2 module, require public declarations and high-risk private helper boundaries to carry the relevant Zenn-policy sections such as purpose, contract, return/error cases, complexity, and doctest/report examples where the API is stable enough for runnable examples. Keep no-doc baseline counts decreasing and record accepted remaining gaps until they reach zero or are split into narrower issues. Keep no-doctest counters visible, but do not let them block adding careful comments to previously undocumented declarations.
 
 Do not treat the raw number of files, declarations, lines, or doc comment lines as a quality proxy. A refactor that removes a public helper or folds a private helper into a clearer authority boundary should be judged by the resulting documentation contract and source-policy coverage, not by size preservation.
 
 The 2026-06-06 correction expands the fixed slice to `stdlib/neplg2/core/check/expr/ascription.nepl`, requiring public ascription projection APIs to document purpose, owner contract, return/error conditions, and complexity.
+
+The later 2026-06-06 correction expands the fixed slice to `stdlib/neplg2/core/check/expr/argument.nepl` and `stdlib/neplg2/core/check/expr/call_reduce.nepl`. It requires typed error authorities, owner-returning payloads, source-backed argument reducers, nested direct call reducers, and call reduction entries to document purpose, owner/evidence contract, Result/enum return conditions, and complexity. It also changes the documentation contract test so no-doctest counters are report-only debt, preserving the instruction that checks must not discourage adding detailed comments.
 
 ## 検証
 
