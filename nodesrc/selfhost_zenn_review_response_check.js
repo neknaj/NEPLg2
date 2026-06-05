@@ -160,7 +160,13 @@ function validateReviewResponse(source) {
     validateClassificationValue(sections.get("implementation/test"), "implementation/test", errors);
     validateSourcePolicyValue(sections.get("policy/spec"), "policy/spec", errors);
     validateSourcePolicyValue(sections.get("implementation/test"), "implementation/test", errors);
-    validateMergeApproval(sections.get("decision"), sections.get("summary"), errors);
+    validateMergeApproval(
+        sections.get("decision"),
+        sections.get("summary"),
+        sections.get("policy/spec"),
+        sections.get("implementation/test"),
+        errors,
+    );
     validateReviewDoesNotAcceptWarnings(sections.get("summary"), errors);
     return errors;
 }
@@ -360,7 +366,7 @@ function validateFilesRead(section, errors) {
     }
 }
 
-function validateMergeApproval(decisionSection, summarySection, errors) {
+function validateMergeApproval(decisionSection, summarySection, policySection, implementationSection, errors) {
     if (!/\bMERGE_APPROVED\b/.test(decisionSection)) {
         return;
     }
@@ -372,6 +378,24 @@ function validateMergeApproval(decisionSection, summarySection, errors) {
     }
     if (!isAffirmative(fieldValue(summarySection, "approve"))) {
         errors.push(reviewError("missing_approval_summary", "MERGE_APPROVED responses must have an affirmative approve summary"));
+    }
+    for (const [sectionName, section] of [
+        ["policy/spec", policySection],
+        ["implementation/test", implementationSection],
+    ]) {
+        const classification = fieldValue(section, "classification");
+        if (/^Blocker\b/.test(classification)) {
+            errors.push(reviewError(
+                "approved_with_blocker_classification",
+                `MERGE_APPROVED responses must not leave ## ${sectionName} classified as Blocker`,
+            ));
+        }
+        if (/^Question\b/.test(classification)) {
+            errors.push(reviewError(
+                "approved_with_question_classification",
+                `MERGE_APPROVED responses must not leave ## ${sectionName} classified as Question`,
+            ));
+        }
     }
 }
 

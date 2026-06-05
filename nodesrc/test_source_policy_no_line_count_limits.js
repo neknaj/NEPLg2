@@ -14,6 +14,8 @@ const extraScanFiles = [
     "nodesrc/run_source_policy_regressions.js",
     "nodesrc/selfhost_zenn_review_packet.js",
     "nodesrc/selfhost_zenn_review_response_check.js",
+    "doc/neplg2/self_host_zenn_review_checklist.md",
+    "doc/neplg2/self_host_zenn_review_prompt.md",
 ];
 
 function read(relPath) {
@@ -77,6 +79,16 @@ const forbidden = [
     /\bfs\.statSync\s*\([\s\S]{0,80}\)\.size\s*(?:<=|>=|<|>)\s*\d+/,
     /\.split\(["']\\n["']\)\.length\s*<=/,
     /\d+\s*行以内/,
+    /\d+\s*行以下/,
+    /最大\s*\d+\s*行/,
+    /(?:コメント|ドキュメントコメント|doc comment)[^。\n]{0,40}\d+\s*行まで/i,
+    /(?:コメント|ドキュメントコメント|doc comment)[^。\n]{0,40}\d+\s*行以下/i,
+    /(?:コメント|ドキュメントコメント|doc comment)[^。\n]{0,40}最大\s*\d+\s*行/i,
+    /(?:コメント|ドキュメントコメント|doc comment)[^。\n]{0,40}\d+\s*(?:文字|byte|bytes|バイト)まで/i,
+    /(?:コメント|ドキュメントコメント|doc comment)[^。\n]{0,40}\d+\s*(?:文字|byte|bytes|バイト)以下/i,
+    /(?:ファイルサイズ|ファイル容量|file size)[^。\n]{0,40}\d+\s*(?:byte|bytes|バイト|KB|MB)まで/i,
+    /(?:ファイルサイズ|ファイル容量|file size)[^。\n]{0,40}\d+\s*(?:byte|bytes|バイト|KB|MB)以下/i,
+    /(?:ファイルサイズ|ファイル容量|file size)[^。\n]{0,40}最大\s*\d+\s*(?:byte|bytes|バイト|KB|MB)/i,
     /(?:within|under|below|less than|fewer than)\s+\d+\s+lines/i,
     /(?:within|under|below|less than|fewer than)\s+\d+\s+bytes/i,
     /line budget/i,
@@ -110,6 +122,14 @@ const forbiddenSelfCheckSamples = [
     "const maxDocCommentLength = 6000",
     "doc comment budget",
     "file size limit",
+    "500行以下",
+    "最大500行",
+    "コメントは100行まで",
+    "doc commentは80行まで",
+    "ドキュメントコメントは最大40行",
+    "コメントは600文字以下",
+    "ファイルサイズは64KB以下",
+    "ファイルサイズは最大64KB",
 ];
 
 for (const sample of forbiddenSelfCheckSamples) {
