@@ -1073,18 +1073,66 @@ fn selfhost_check_expr_stage1_block_intro_rejected %impure fn &Vec SelfhostToken
         Result::Err e:
             selfhost_expression_line_check_error_is_not_expression_line e
 
+//: selfhost_check_expr_stage1_success_is_two_arg_direct_call: reducer success が2引数 direct call か[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - stage1 fixture が返した `SelfhostExpressionLineCheckSuccess` の本体だけを観測し、prefix call reducer が2個の実引数を消費したことを確認します。
+//: - smoke entry 側の判定を enum payload への pattern match に閉じ、文字列 diagnostic や表示文言を判定の authority にしないための helper です。
+//:
+//: [契約/けいやく]:
+//: - `success` は borrow で受け取り、この helper は success payload を解放しません。
+//: - `DirectCall` 以外の success kind は現時点の fixture では不合格として扱います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: success payload が `DirectCall` で、`argument_count` が 2 です。
+//: - `false`: success kind が違う、または direct call の引数数が違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - success payload の1回の pattern match だけを行うため O(1) です。
 fn selfhost_check_expr_stage1_success_is_two_arg_direct_call %fn &SelfhostExpressionLineCheckSuccess bool \success:
     let reduced %&SelfhostCallReduceResult selfhost_expression_line_check_success_result success
     match *reduced:
         SelfhostCallReduceResult::DirectCall call:
             eq call.argument_count 2
 
+//: selfhost_check_expr_stage1_success_is_one_arg_direct_call: reducer success が1引数 direct call か[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - function value argument fixture など、外側 call が1つの checked argument だけを消費する経路を確認します。
+//: - call reduction の成功判定を `SelfhostCallReduceResult` の enum payload に固定し、表示用 message に依存しない smoke assertion にします。
+//:
+//: [契約/けいやく]:
+//: - `success` は borrow であり、所有権や内部 Vec をこの helper が閉じることはありません。
+//: - `DirectCall` 以外は、将来別の success kind が増えてもこの fixture の期待から外れるため `false` にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: success payload が `DirectCall` で、`argument_count` が 1 です。
+//: - `false`: success kind または引数数が fixture の期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - success payload の先頭 variant と引数数だけを見るため O(1) です。
 fn selfhost_check_expr_stage1_success_is_one_arg_direct_call %fn &SelfhostExpressionLineCheckSuccess bool \success:
     let reduced %&SelfhostCallReduceResult selfhost_expression_line_check_success_result success
     match *reduced:
         SelfhostCallReduceResult::DirectCall call:
             eq call.argument_count 1
 
+//: selfhost_check_expr_stage1_success_has_function_value_argument: checked argument が function value として[記録/きろく]されたか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `takes @add` のような明示 function value argument が、通常の named value や partial application ではなく `FunctionValue` argument として保存されたことを確認します。
+//: - 高階関数境界の smoke test が、単に call が成功しただけでなく、argument evidence の種類まで検査するようにします。
+//:
+//: [契約/けいやく]:
+//: - `success` 内の checked argument Vec は borrow で観測するだけで、この helper は要素 owner を移動しません。
+//: - stage1 の対象 fixture は1引数 consumer なので、checked argument 数が1でない場合は失敗とします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: checked argument が1件だけあり、その payload が function value evidence です。
+//: - `false`: checked argument 数が違う、Vec access に失敗した、または payload kind が違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - Vec length と index 0 の1回の観測だけなので O(1) です。
 fn selfhost_check_expr_stage1_success_has_function_value_argument %fn &SelfhostExpressionLineCheckSuccess bool \success:
     let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
     if:
@@ -1098,6 +1146,22 @@ fn selfhost_check_expr_stage1_success_has_function_value_argument %fn &SelfhostE
                 Option::None:
                     false
 
+//: selfhost_check_expr_stage1_segment_span: body segment の代表 span を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - setup 失敗を call reduction error へ畳むときに、fixture segment 由来の span を error payload へ入れます。
+//: - span の authority を source text ではなく `SelfhostBodySegment.head` に置き、empty segment だけを明示的な空 span にします。
+//:
+//: [契約/けいやく]:
+//: - `segment` は値渡しで受けますが、payload owner を保持する型ではないため追加 cleanup はありません。
+//: - `SelfhostSyntaxRange::Empty` は本来 fixture setup で避けるべき状態ですが、out-of-memory error を作るための defensive fallback として空 span を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Range`: range に記録されている source span。
+//: - `Empty`: `source_span_empty_unchecked 0 0` による空 span。
+//:
+//: [計算量/けいさんりょう]:
+//: - segment head の1回の pattern match だけなので O(1) です。
 fn selfhost_check_expr_stage1_segment_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
     match segment.head:
         SelfhostSyntaxRange::Range range:
@@ -1105,6 +1169,24 @@ fn selfhost_check_expr_stage1_segment_span %fn SelfhostBodySegment SelfhostSourc
         SelfhostSyntaxRange::Empty:
             source_span_empty_unchecked 0 0
 
+//: selfhost_check_expr_stage1_reduce_body_segment_with_value_context: value context owner を reducer に[渡/わた]して expression segment を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - scope、value type evidence、callable signature table を持つ stage1 fixture context から borrow を取り出し、source-backed body segment reducer へ渡します。
+//: - reducer 実行後に context owner を必ず閉じ、fixture が owner を残さないことを smoke test 側で保証します。
+//:
+//: [契約/けいやく]:
+//: - `context` owner はこの helper が消費し、成功・失敗どちらでも `selfhost_check_expr_stage1_value_context_free` で閉じます。
+//: - `arena` owner は reducer 側へ渡します。成功時は `SelfhostExpressionLineCheckSuccess` が arena owner を保持し、caller が success free で閉じます。
+//: - 失敗時は reducer が arena owner を解放済みであり、返る typed error payload は arena owner を保持しません。
+//: - `tokens`、`source`、`candidates` は borrow として渡すだけで、この helper は閉じません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Ok success`: expression segment reduction が成功し、checked argument evidence を持つ success payload を返します。
+//: - `Result::Err error`: call reduction または expression line check の typed error payload を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - wrapper 自体は O(1) です。支配的な計算量は reducer 内部の prefix item 数、candidate 数、nested argument 探索に従います。
 fn selfhost_check_expr_stage1_reduce_body_segment_with_value_context %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn SelfhostCheckExprStage1ValueContext impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\context\candidates\expected:
     let scope %&SelfhostNameScope selfhost_check_expr_stage1_value_context_scope &context
     let value_types %&SelfhostValueTypeEvidenceTable selfhost_check_expr_stage1_value_context_value_types &context
@@ -1113,6 +1195,24 @@ fn selfhost_check_expr_stage1_reduce_body_segment_with_value_context %impure fn 
     selfhost_check_expr_stage1_value_context_free context
     result
 
+//: selfhost_check_expr_stage1_reduce_block_intro_with_value_context: value context owner を reducer に[渡/わた]して block-intro segment を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - 末尾 block argument を持つ `BlockIntro` segment が、外側 call の不足引数を `BlockResult` expectation として満たせるか確認する経路へ接続します。
+//: - expression line reducer と同じ value context を使い、scope / value evidence / callable signature の authority を一箇所に揃えます。
+//:
+//: [契約/けいやく]:
+//: - `context` owner はこの helper が必ず閉じます。
+//: - `arena` owner は block-intro reducer 側へ渡します。成功時は `SelfhostExpressionLineCheckSuccess` が arena owner を保持し、caller が success free で閉じます。
+//: - 失敗時は reducer が arena owner を解放済みであり、返る typed error payload は arena owner を保持しません。
+//: - `tokens`、`source`、`candidates` は borrow であり、caller 側の cleanup 契約を変えません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Ok success`: trailing block argument を含む reduction が成功しました。
+//: - `Result::Err error`: block-intro が expression として不正、または argument / expected type 検査に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - wrapper 自体は O(1) です。支配的な計算量は block body segment 数、prefix item 数、candidate 数に従います。
 fn selfhost_check_expr_stage1_reduce_block_intro_with_value_context %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn SelfhostCheckExprStage1ValueContext impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\context\candidates\expected:
     let scope %&SelfhostNameScope selfhost_check_expr_stage1_value_context_scope &context
     let value_types %&SelfhostValueTypeEvidenceTable selfhost_check_expr_stage1_value_context_value_types &context
@@ -1121,6 +1221,23 @@ fn selfhost_check_expr_stage1_reduce_block_intro_with_value_context %impure fn &
     selfhost_check_expr_stage1_value_context_free context
     result
 
+//: selfhost_check_expr_stage1_reduce_body_segment_with_empty_values: value evidence なしの expression reducer fixture を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - local value evidence が不要な fixture で、空 scope / 空 value type table / 空 signature table を用意して expression segment reducer を呼びます。
+//: - setup failure を typed `CallReduceFailed` error へ変換し、panic や未初期化 owner ではなく Result で失敗を返します。
+//:
+//: [契約/けいやく]:
+//: - empty context 作成に失敗した場合、この helper が `arena` owner を閉じます。
+//: - context 作成に成功した場合、context owner は value-context wrapper が閉じます。
+//: - `tokens` と `candidates` は borrow であり、この helper は所有しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Ok success`: 空 value context で expression segment が縮約できました。
+//: - `Result::Err error`: reducer error、または context setup の out-of-memory error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - context 初期化は O(1) です。支配的な計算量は expression reducer に渡した prefix item 数と candidate 数に従います。
 fn selfhost_check_expr_stage1_reduce_body_segment_with_empty_values %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\candidates\expected:
     match selfhost_check_expr_stage1_empty_value_context:
         Result::Ok context:
@@ -1130,6 +1247,23 @@ fn selfhost_check_expr_stage1_reduce_body_segment_with_empty_values %impure fn &
             let error %SelfhostCallReduceError selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory selfhost_check_expr_stage1_segment_span segment
             Result::Err SelfhostExpressionLineCheckError::CallReduceFailed error
 
+//: selfhost_check_expr_stage1_reduce_block_intro_with_empty_values: value evidence なしの block-intro reducer fixture を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - local value evidence を使わない trailing block fixture で、空 context を作って block-intro reducer に渡します。
+//: - context setup の失敗も typed error に畳み、stage1 smoke API が setup failure と semantic failure を Result と status code で扱えるようにします。
+//:
+//: [契約/けいやく]:
+//: - empty context 作成失敗時は、この helper が `arena` owner を閉じます。
+//: - context 作成成功後の context owner は value-context wrapper が閉じます。
+//: - token buffer と candidate vector は caller が管理する borrow です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Ok success`: block-intro segment が trailing block argument として縮約できました。
+//: - `Result::Err error`: reducer error、または context setup の out-of-memory error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - context 初期化は O(1) です。支配的な計算量は block body segment 数、prefix item 数、candidate 数に従います。
 fn selfhost_check_expr_stage1_reduce_block_intro_with_empty_values %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\candidates\expected:
     match selfhost_check_expr_stage1_empty_value_context:
         Result::Ok context:
@@ -1482,6 +1616,23 @@ fn selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence %im
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_function_value_argument_ok_with_scope: 明示 `@add` が function value argument として[通/とお]るか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `takes @add` の `@add` を、scope 上の monomorphic function と callable signature evidence から作った function value argument として検査します。
+//: - NEPLg2.1 の高階関数境界では、function value は明示 `@` によって渡され、通常の bare name や部分適用とは区別されることを固定します。
+//:
+//: [契約/けいやく]:
+//: - `arena`、`tokens`、candidate vector、value context は成功・失敗にかかわらずこの helper が閉じます。
+//: - success payload は direct call であることと、checked argument が function value evidence であることの両方を満たす必要があります。
+//: - `add_type` と `takes_type` は固定 fixture の monomorphic function type であり、generic function value はこの helper の対象外です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `takes` call が1引数 direct call として成功し、その引数が function value として記録されました。
+//: - `false`: setup、candidate collection、reducer、または success payload のいずれかが期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - helper の fixture setup は O(1) です。reducer 内部は prefix item 数、candidate 数、function value candidate 照合に従います。
 fn selfhost_check_expr_stage1_function_value_argument_ok_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\add_type\takes_type:
     let segment %SelfhostBodySegment selfhost_check_expr_stage1_function_value_argument_segment
     match selfhost_check_expr_stage1_make_named_candidate_vec "takes" takes_type:
@@ -1510,6 +1661,23 @@ fn selfhost_check_expr_stage1_function_value_argument_ok_with_scope %impure fn V
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_bare_function_value_argument_rejected: bare function name が暗黙 function value にならないことを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `takes add` の `add` を expected function type の位置に置いても、NEPLg2.1 の no partial application 規則により拒否されることを確認します。
+//: - `@add` を使った明示 function value argument と、bare name による direct call / partial application を混同しないための negative fixture です。
+//:
+//: [契約/けいやく]:
+//: - `arena`、`tokens`、candidate vector、value context は成功・失敗にかかわらずこの helper が閉じます。
+//: - 期待する失敗は `SelfhostCallReduceErrorKind::PartialApplicationRejected` であり、単なる unresolved name や generic evidence missing ではありません。
+//: - reducer が成功した場合は、暗黙 function value を許した退行なので `false` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: bare function name が `PartialApplicationRejected` として拒否されました。
+//: - `false`: setup 失敗、別 error、または誤って reducer が成功した場合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - helper の fixture setup は O(1) です。支配的な計算量は reducer の prefix item / candidate 探索です。
 fn selfhost_check_expr_stage1_bare_function_value_argument_rejected %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\add_type\takes_type:
     let segment %SelfhostBodySegment selfhost_check_expr_stage1_implicit_function_value_argument_segment
     match selfhost_check_expr_stage1_make_named_candidate_vec "takes" takes_type:
@@ -1546,6 +1714,13 @@ fn selfhost_check_expr_stage1_bare_function_value_argument_rejected %impure fn V
 //: [契約/けいやく]:
 //: - 成功・失敗どちらの経路でも candidate vector、type arena、token vector を解放します。
 //: - 戻り値は CLI や doctest で扱いやすい status code とし、`0` だけを成功とします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: direct call success と block-intro rejection の両方が期待通りでした。
+//: - `1`: candidate setup、direct call、block-intro rejection のいずれかが失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。2回の reducer 呼び出しが支配的で、それぞれ prefix item 数と candidate 数に従います。
 fn selfhost_check_expr_stage1_run_with_candidate %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\add_type:
     let segment %SelfhostBodySegment selfhost_check_expr_stage1_expression_segment
     match selfhost_check_expr_stage1_collect_candidates_from_fixture_scope "add 1 2" &tokens segment add_type:
@@ -1569,6 +1744,13 @@ fn selfhost_check_expr_stage1_run_with_candidate %impure fn Vec SelfhostToken im
 //: [契約/けいやく]:
 //: - function type allocation が成功した場合は、arena owner を次の helper へ渡します。
 //: - 失敗時は token owner を解放し、status `1` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: `i32, i32 -> i32` の `add` type を作り、base smoke helper が成功しました。
+//: - `1`: function type allocation または base smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - function type fixture の追加は固定個数の型 item を扱うため O(1) です。後続 reducer の計算量は base smoke helper に従います。
 fn selfhost_check_expr_stage1_run_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1579,6 +1761,21 @@ fn selfhost_check_expr_stage1_run_with_i32 %impure fn Vec SelfhostToken impure f
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascription_with_i32: `%i32 add 1 2` の成功 smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - primitive `i32` を持つ arena に `add : i32 -> i32 -> i32` の型を追加し、line-head ascription が expected result type として働くことを確認します。
+//:
+//: [契約/けいやく]:
+//: - function type allocation 成功後の arena owner と token owner は `selfhost_check_expr_stage1_ascription_ok_with_candidate` へ渡します。
+//: - allocation 失敗時はこの helper が token owner を閉じ、status `1` に畳みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: line-head ascription の success fixture が通りました。
+//: - `1`: setup または ascription fixture が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。支配的な計算量は ascription projection と reducer の prefix item / candidate 探索です。
 fn selfhost_check_expr_stage1_run_ascription_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1589,6 +1786,22 @@ fn selfhost_check_expr_stage1_run_ascription_with_i32 %impure fn Vec SelfhostTok
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascription_conflict_with_types: line-head ascription の型衝突 smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `%i32 add 1 2` を外側 expected `bool` の文脈に置いた fixture で、line-head ascription が作る expected `i32` と outer expected `bool` の衝突が typed error として拒否されることを確認します。
+//: - この fixture の衝突は call result と explicit `bool` の比較ではなく、ascription expectation と outer expectation の比較で発生します。
+//:
+//: [契約/けいやく]:
+//: - `i32_type` は `add` function type の構築に使い、`bool_type` は expected result conflict の authority として使います。
+//: - token owner と arena owner は success / failure fixture に移動し、function type allocation に失敗した場合だけこの helper が token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: ascription conflict が期待した typed rejection として観測されました。
+//: - `1`: setup 失敗、別 error、または誤って成功した場合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。reducer 内部は prefix item 数と candidate 数に従います。
 fn selfhost_check_expr_stage1_run_ascription_conflict_with_types %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId i32 \tokens\arena\i32_type\bool_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1599,6 +1812,21 @@ fn selfhost_check_expr_stage1_run_ascription_conflict_with_types %impure fn Vec 
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascribed_argument_with_i32: argument ascription success smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `add %i32 1 2` のように第1引数へ explicit ascription が付いたとき、argument expected type と ascription type が一致して direct call へ進むことを確認します。
+//:
+//: [契約/けいやく]:
+//: - `arena` は `add` function type を追加した後、argument ascription fixture へ移動します。
+//: - allocation 失敗時は token owner をこの helper が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: ascribed argument success fixture が通りました。
+//: - `1`: setup または reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。ascription projection と reducer の探索が支配的です。
 fn selfhost_check_expr_stage1_run_ascribed_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1609,6 +1837,21 @@ fn selfhost_check_expr_stage1_run_ascribed_argument_with_i32 %impure fn Vec Self
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_i32: argument ascription conflict smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - argument position の `%bool` などが expected `i32` と衝突したとき、call reduction が success に進まず typed rejection になることを確認します。
+//:
+//: [契約/けいやく]:
+//: - token owner と arena owner は conflict fixture へ移動し、setup 失敗時だけこの helper が token owner を閉じます。
+//: - この smoke entry は失敗分類を status `0/1` に畳みますが、分類の authority は下位 helper の enum error check です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: argument ascription conflict が期待通り拒否されました。
+//: - `1`: setup 失敗、別 error、または誤って成功した場合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。reducer 内部は prefix item 数と candidate 数に従います。
 fn selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1626,6 +1869,13 @@ fn selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_i32 %impure fn
 //:
 //: [契約/けいやく]:
 //: - arena 初期化や primitive 追加が失敗した場合でも、受け取った token owner は解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: arena / primitive setup と base smoke helper が成功しました。
+//: - `1`: setup または base smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena と primitive type の setup は O(1) です。後続の支配的な計算量は base smoke helper に従います。
 fn selfhost_check_expr_stage1_run_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1641,6 +1891,21 @@ fn selfhost_check_expr_stage1_run_with_tokens %impure fn Vec SelfhostToken i32 \
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascription_with_tokens: token owner から line-head ascription success smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - line-head ascription 用 token buffer に対して、arena と primitive `i32` fixture を用意し、`%i32 add 1 2` の成功経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - arena 初期化または primitive 追加に失敗した場合、この helper が token owner を閉じます。
+//: - setup 成功後の token owner と arena owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: line-head ascription success smoke が通りました。
+//: - `1`: setup または下位 smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 helper の ascription projection と reducer 探索が支配的です。
 fn selfhost_check_expr_stage1_run_ascription_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1656,6 +1921,21 @@ fn selfhost_check_expr_stage1_run_ascription_with_tokens %impure fn Vec Selfhost
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascription_conflict_with_tokens: token owner から line-head ascription conflict smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `i32` と `bool` の primitive fixture を同じ arena に用意し、line-head ascription の result type conflict を検査します。
+//:
+//: [契約/けいやく]:
+//: - setup のいずれかに失敗した場合、この helper が token owner を閉じます。
+//: - `bool` primitive 追加後の arena owner は conflict helper へ移動し、下位 helper の cleanup 契約に従います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: ascription conflict が期待通り拒否されました。
+//: - `1`: setup または下位 smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive fixture は固定2件なので O(1) です。下位 reducer 探索が支配的です。
 fn selfhost_check_expr_stage1_run_ascription_conflict_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1678,6 +1958,21 @@ fn selfhost_check_expr_stage1_run_ascription_conflict_with_tokens %impure fn Vec
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascribed_argument_with_tokens: token owner から argument ascription success smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - argument ascription 用 token buffer に primitive `i32` arena fixture を結びつけ、`add %i32 1 2` の成功経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功時は token owner と arena owner を i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: argument ascription success smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の prefix item / candidate 探索が支配的です。
 fn selfhost_check_expr_stage1_run_ascribed_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1693,6 +1988,21 @@ fn selfhost_check_expr_stage1_run_ascribed_argument_with_tokens %impure fn Vec S
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_tokens: token owner から argument ascription conflict smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - argument ascription の explicit type が expected parameter type と衝突したときに、下位 reducer が typed rejection を返すことを確認します。
+//:
+//: [契約/けいやく]:
+//: - arena / primitive setup の失敗では token owner をこの helper が閉じます。
+//: - setup 成功後は token owner と arena owner を i32-level conflict helper へ渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: argument ascription conflict が期待通り拒否されました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer 探索が支配的です。
 fn selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1708,6 +2018,21 @@ fn selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_tokens %impure
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_named_argument_with_i32: named value argument success smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `add x 2` のような named value argument が、scope binding と value type evidence の両方を持つときだけ direct call の引数として通ることを確認します。
+//:
+//: [契約/けいやく]:
+//: - `add` function type 追加に成功した場合、arena owner と token owner は named argument fixture へ移動します。
+//: - setup 失敗時はこの helper が token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: named argument success fixture が通りました。
+//: - `1`: setup または下位 fixture が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer は prefix item 数、candidate 数、value evidence lookup に従います。
 fn selfhost_check_expr_stage1_run_named_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1718,6 +2043,21 @@ fn selfhost_check_expr_stage1_run_named_argument_with_i32 %impure fn Vec Selfhos
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_named_argument_missing_evidence_with_i32: named value evidence 欠落の拒否 smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - scope binding だけがあり、value type evidence がない名前を argument として使ったときに、checker が fail-closed に拒否することを確認します。
+//:
+//: [契約/けいやく]:
+//: - 失敗分類の authority は下位 helper の enum error check であり、この entry は結果を status `0/1` に畳みます。
+//: - setup 成功後の owner は missing-evidence fixture へ移動し、setup 失敗時だけ token owner をここで閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: evidence 欠落が期待通り拒否されました。
+//: - `1`: setup 失敗、別 error、または誤って成功した場合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の名前解決と evidence lookup が支配的です。
 fn selfhost_check_expr_stage1_run_named_argument_missing_evidence_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1728,6 +2068,21 @@ fn selfhost_check_expr_stage1_run_named_argument_missing_evidence_with_i32 %impu
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascribed_named_argument_with_i32: ascribed named value argument smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `%i32 x` のような ascribed named argument で、explicit type、parameter expected type、value evidence が同じ型を指すときに成功することを確認します。
+//:
+//: [契約/けいやく]:
+//: - `i32_type` は argument ascription と value evidence の両方の fixture authority です。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時だけ token owner をこの helper が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: ascribed named argument success fixture が通りました。
+//: - `1`: setup または下位 reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer は ascription projection、name evidence lookup、candidate matching に従います。
 fn selfhost_check_expr_stage1_run_ascribed_named_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1738,6 +2093,21 @@ fn selfhost_check_expr_stage1_run_ascribed_named_argument_with_i32 %impure fn Ve
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_nested_call_argument_with_i32: nested named call argument smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `add add 1 2 3` で内側 `add 1 2` を第1引数として縮約し、残る `3` を外側 call の第2引数として使えることを確認します。
+//:
+//: [契約/けいやく]:
+//: - nested call の候補は scope と callable signature table から下位 fixture が収集します。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時は token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: nested call argument fixture が通りました。
+//: - `1`: setup、candidate collection、または reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer は outer / inner prefix item と candidate 探索に従います。
 fn selfhost_check_expr_stage1_run_nested_call_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1748,6 +2118,21 @@ fn selfhost_check_expr_stage1_run_nested_call_argument_with_i32 %impure fn Vec S
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_trailing_block_argument_with_i32: trailing block argument smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `add 1:` の block body が外側 call の残り引数を満たす `BlockResult` として扱われることを確認します。
+//:
+//: [契約/けいやく]:
+//: - block body を flat expression line に潰さず、BlockIntro 専用 reducer を通すことが下位 fixture の契約です。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時は token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: trailing block argument fixture が通りました。
+//: - `1`: setup または block-intro reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer は block body segment 数と candidate 探索に従います。
 fn selfhost_check_expr_stage1_run_trailing_block_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1758,6 +2143,21 @@ fn selfhost_check_expr_stage1_run_trailing_block_argument_with_i32 %impure fn Ve
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32: shadowed function name の value fallback smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - 同名 local value が function binding を shadow しているとき、old function candidate を復活させず value evidence を使うことを確認します。
+//:
+//: [契約/けいやく]:
+//: - `i32_type` は shadow した local value evidence の型 authority です。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時だけ token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: shadowed function name が value argument として扱われました。
+//: - `1`: setup または下位 reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の name lookup と candidate 探索が支配的です。
 fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1768,6 +2168,21 @@ fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32 %impure fn
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_function_value_argument_with_i32: explicit function value argument smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `add : i32 -> i32` と `takes : fn i32 i32 -> i32` の fixture type を作り、`takes @add` が高階関数引数として成功することを確認します。
+//:
+//: [契約/けいやく]:
+//: - one-argument `add` type と function-value consumer type の allocation がどちらも成功した場合だけ、下位 fixture へ owner を渡します。
+//: - 途中の setup 失敗は status `1` へ畳み、token owner はこの helper が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: explicit function value argument fixture が通りました。
+//: - `1`: setup または下位 fixture が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - type fixture setup は固定個数なので O(1) です。下位 function value matching と reducer 探索が支配的です。
 fn selfhost_check_expr_stage1_run_function_value_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1785,6 +2200,21 @@ fn selfhost_check_expr_stage1_run_function_value_argument_with_i32 %impure fn Ve
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_bare_function_value_argument_with_i32: bare function value rejection smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `takes add` が暗黙 function value や partial application として通らず、`PartialApplicationRejected` になることを確認します。
+//:
+//: [契約/けいやく]:
+//: - `add` と `takes` の fixture type setup は explicit function value success smoke と同じです。
+//: - 下位 negative fixture が enum error kind を確認し、この entry は結果だけを status `0/1` に畳みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: bare function name が期待通り拒否されました。
+//: - `1`: setup 失敗、別 error、または誤って成功した場合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - type fixture setup は O(1) です。下位 reducer の探索が支配的です。
 fn selfhost_check_expr_stage1_run_bare_function_value_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
         Result::Ok add_alloc:
@@ -1802,6 +2232,21 @@ fn selfhost_check_expr_stage1_run_bare_function_value_argument_with_i32 %impure 
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_function_value_argument_with_tokens: token owner から explicit function value smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `takes @add` 用 token buffer に primitive `i32` arena fixture を付け、function value success の i32-level helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - arena setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は下位 helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: explicit function value smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 helper の function value matching が支配的です。
 fn selfhost_check_expr_stage1_run_function_value_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1817,6 +2262,21 @@ fn selfhost_check_expr_stage1_run_function_value_argument_with_tokens %impure fn
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_bare_function_value_argument_with_tokens: token owner から bare function rejection smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `takes add` 用 token buffer に primitive `i32` arena fixture を付け、bare function name rejection の i32-level helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は下位 helper へ移動し、下位 helper が `PartialApplicationRejected` の enum kind を確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: bare function name が期待通り拒否されました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の prefix item / candidate 探索が支配的です。
 fn selfhost_check_expr_stage1_run_bare_function_value_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1832,6 +2292,21 @@ fn selfhost_check_expr_stage1_run_bare_function_value_argument_with_tokens %impu
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_named_argument_with_tokens: token owner から named argument success smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - named argument token buffer に primitive `i32` arena fixture を付け、scope binding と value type evidence の成功経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: named argument success smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の name evidence lookup が支配的です。
 fn selfhost_check_expr_stage1_run_named_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1847,6 +2322,21 @@ fn selfhost_check_expr_stage1_run_named_argument_with_tokens %impure fn Vec Self
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_named_argument_missing_evidence_with_tokens: token owner から named evidence 欠落 smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - scope binding だけを持つ named argument token buffer に primitive `i32` fixture を付け、value type evidence 欠落の拒否経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - 下位 helper が失敗分類を enum error として確認し、この helper は status code だけを返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: evidence 欠落が期待通り拒否されました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の value evidence lookup が支配的です。
 fn selfhost_check_expr_stage1_run_named_argument_missing_evidence_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1862,6 +2352,21 @@ fn selfhost_check_expr_stage1_run_named_argument_missing_evidence_with_tokens %i
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_ascribed_named_argument_with_tokens: token owner から ascribed named argument smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - ascribed named argument token buffer に primitive `i32` arena fixture を付け、explicit type と value evidence が一致する成功経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: ascribed named argument success smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の ascription projection と name evidence lookup が支配的です。
 fn selfhost_check_expr_stage1_run_ascribed_named_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1877,6 +2382,21 @@ fn selfhost_check_expr_stage1_run_ascribed_named_argument_with_tokens %impure fn
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_nested_call_argument_with_tokens: token owner から nested call argument smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - nested named call token buffer に primitive `i32` arena fixture を付け、inner call の消費後 index を outer call が使う経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: nested call argument smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の outer / inner prefix 探索が支配的です。
 fn selfhost_check_expr_stage1_run_nested_call_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1892,6 +2412,21 @@ fn selfhost_check_expr_stage1_run_nested_call_argument_with_tokens %impure fn Ve
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_trailing_block_argument_with_tokens: token owner から trailing block argument smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - trailing block token buffer に primitive `i32` arena fixture を付け、BlockIntro 専用 reducer の経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: trailing block argument smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 block-intro reducer の block body segment 探索が支配的です。
 fn selfhost_check_expr_stage1_run_trailing_block_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1907,6 +2442,21 @@ fn selfhost_check_expr_stage1_run_trailing_block_argument_with_tokens %impure fn
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens: token owner から shadowed function smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - shadowed function argument token buffer に primitive `i32` arena fixture を付け、同名 local value evidence が function binding より優先される経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: shadowed function name が value evidence として扱われました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。下位 reducer の name lookup と candidate 探索が支配的です。
 fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1922,6 +2472,22 @@ fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens %impure
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_ascription_body_line: line-head ascription smoke 群を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `%i32 add 1 2` の成功経路と、explicit result type が衝突する拒否経路を続けて確認します。
+//: - public smoke entry の中で、line-head ascription に関する failure を一つの status code に畳む境界です。
+//:
+//: [契約/けいやく]:
+//: - 各 token buffer owner は対応する `run_*_with_tokens` helper へ移動します。
+//: - token 作成に失敗した場合は status `1` を返し、作成済み owner はありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: success fixture と conflict fixture がどちらも期待通りでした。
+//: - `1`: token setup またはいずれかの smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を2回作るため setup は O(1) です。支配的な計算量は各 reducer 呼び出しです。
 fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_ascribed_tokens:
         Result::Ok tokens:
@@ -1939,6 +2505,21 @@ fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_ascribed_argument_body_line: argument ascription smoke 群を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - argument position の explicit ascription について、success と conflict の両方を確認します。
+//:
+//: [契約/けいやく]:
+//: - token buffer owner は各 `run_*_with_tokens` helper へ移動します。
+//: - conflict fixture は success fixture が通った後だけ実行し、最初の失敗を status `1` として返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: argument ascription success と conflict rejection が期待通りでした。
+//: - `1`: token setup またはいずれかの smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は下位 reducer です。
 fn selfhost_check_expr_stage1_ascribed_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_ascribed_argument_i32_tokens:
         Result::Ok tokens:
@@ -1956,6 +2537,21 @@ fn selfhost_check_expr_stage1_ascribed_argument_body_line %impure fn void i32 \v
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_named_argument_body_line: named argument smoke 群を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - named value argument の成功、value evidence 欠落の拒否、ascribed named argument の成功を同じ body-line slice として確認します。
+//:
+//: [契約/けいやく]:
+//: - 各 token buffer owner は対応する runner へ移動し、runner が cleanup を担当します。
+//: - evidence 欠落の negative case が通った場合だけ ascribed named argument success を確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: named value success、missing evidence rejection、ascribed named success がすべて期待通りでした。
+//: - `1`: token setup またはいずれかの smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を最大3回作るため setup は O(1) です。支配的な計算量は下位 reducer の name evidence 探索です。
 fn selfhost_check_expr_stage1_named_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_named_argument_tokens:
         Result::Ok tokens:
@@ -1983,6 +2579,21 @@ fn selfhost_check_expr_stage1_named_argument_body_line %impure fn void i32 \void
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_nested_call_argument_body_line: nested call と shadowed function smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - nested named call argument が cursor を正しく返すことと、同名 local value が function binding を shadow することを同じ body-line slice で確認します。
+//:
+//: [契約/けいやく]:
+//: - nested call success が通った後だけ shadowing regression check を実行します。
+//: - token buffer owner は各 runner へ移動し、runner が cleanup を担当します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: nested call argument と shadowed function value evidence が期待通りでした。
+//: - `1`: token setup またはいずれかの smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は下位 reducer の nested call 探索です。
 fn selfhost_check_expr_stage1_nested_call_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_nested_call_argument_tokens:
         Result::Ok tokens:
@@ -2000,6 +2611,22 @@ fn selfhost_check_expr_stage1_nested_call_argument_body_line %impure fn void i32
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_function_value_argument_body_line: function value argument smoke 群を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - 明示 `@add` の function value success と、bare `add` の partial application rejection を続けて確認します。
+//: - NEPLg2.1 の「記法はカリー化風だが部分適用は不可」という契約を body-line smoke に固定します。
+//:
+//: [契約/けいやく]:
+//: - token buffer owner は各 runner へ移動し、runner が cleanup を担当します。
+//: - bare function rejection は success case が通った後だけ実行し、高階関数境界の positive / negative を同じ slice で比較します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: explicit function value success と bare function rejection が期待通りでした。
+//: - `1`: token setup またはいずれかの smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は function value candidate matching と reducer 探索です。
 fn selfhost_check_expr_stage1_function_value_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_function_value_argument_tokens:
         Result::Ok tokens:
@@ -2017,6 +2644,21 @@ fn selfhost_check_expr_stage1_function_value_argument_body_line %impure fn void 
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_trailing_block_argument_body_line: trailing block argument smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - public body-line smoke entry から最後に呼ばれる block-intro regression check として、末尾 block が outer call の残り引数を満たすことを確認します。
+//:
+//: [契約/けいやく]:
+//: - token buffer owner は trailing block runner へ移動し、runner が cleanup を担当します。
+//: - token setup に失敗した場合は status `1` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: trailing block argument smoke が通りました。
+//: - `1`: token setup または block-intro reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - setup は O(1) です。支配的な計算量は block body segment 数と nested reducer 探索に従います。
 fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_trailing_block_argument_tokens:
         Result::Ok tokens:
@@ -2040,6 +2682,14 @@ fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void 
 //: [戻/もど]り[値/ち]:
 //: - `0`: expression line reduction と block intro rejection が期待通りでした。
 //: - `1`: setup または検査のいずれかが失敗しました。
+//:
+//: [契約/けいやく]:
+//: - この public smoke API は詳細な typed error を返さず、selfhost compiler の縦切り regression を `0/1` status に畳みます。
+//: - 下位 helper は token owner、arena owner、candidate vector、value context の cleanup をそれぞれの契約に従って行います。
+//: - ここで実行する fixture は固定の `i32` / `bool` / `add` / `takes` を使う focused smoke であり、stdlib 全体の overload / generic / impure callable 検査を置き換えるものではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - この entry 自身は固定個数の smoke helper を順に呼ぶため O(1) 個の reducer 呼び出しです。各 reducer の支配的な計算量は prefix item 数、candidate 数、block body segment 数に従います。
 pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_tokens:
         Result::Ok tokens:

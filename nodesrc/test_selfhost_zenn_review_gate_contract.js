@@ -471,6 +471,8 @@ for (const needle of [
     "--record <note-or-issue.md>",
     "approved_with_blockers",
     "approved_with_questions",
+    "approved_with_blocker_classification",
+    "approved_with_question_classification",
     "weak_approval",
     "selfhost Zenn review response contract passed",
 ]) {
@@ -898,6 +900,108 @@ try {
     assert.ok(
         responseCheckApprovedWithBlocker.stderr.includes("approved_with_blockers"),
         "selfhost review response checker must explain approval/blocker conflicts",
+    );
+
+    const approvedWithBlockerClassificationPath = path.join(responseCheckTempDir, "approved-with-blocker-classification.md");
+    fs.writeFileSync(
+        approvedWithBlockerClassificationPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- classification: Approve", "- classification: Blocker"),
+        "utf8",
+    );
+    const responseCheckApprovedWithBlockerClassification = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithBlockerClassificationPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithBlockerClassification.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED responses with Blocker classification",
+    );
+    assert.ok(
+        responseCheckApprovedWithBlockerClassification.stderr.includes("approved_with_blocker_classification"),
+        "selfhost review response checker must explain approval/classification conflicts",
+    );
+
+    const approvedWithQuestionClassificationPath = path.join(responseCheckTempDir, "approved-with-question-classification.md");
+    fs.writeFileSync(
+        approvedWithQuestionClassificationPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- classification: Approve", "- classification: Question"),
+        "utf8",
+    );
+    const responseCheckApprovedWithQuestionClassification = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithQuestionClassificationPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithQuestionClassification.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED responses with Question classification",
+    );
+    assert.ok(
+        responseCheckApprovedWithQuestionClassification.stderr.includes("approved_with_question_classification"),
+        "selfhost review response checker must explain approval/question classification conflicts",
+    );
+
+    const approvedWithImplementationBlockerClassificationPath = path.join(responseCheckTempDir, "approved-with-implementation-blocker-classification.md");
+    fs.writeFileSync(
+        approvedWithImplementationBlockerClassificationPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace(
+            "- classification: Approve\n- file/function: nodesrc/selfhost_zenn_review_response_check.js",
+            "- classification: Blocker\n- file/function: nodesrc/selfhost_zenn_review_response_check.js",
+        ),
+        "utf8",
+    );
+    const responseCheckApprovedWithImplementationBlockerClassification = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithImplementationBlockerClassificationPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithImplementationBlockerClassification.status,
+        0,
+        "selfhost review response checker must reject implementation/test Blocker classification under MERGE_APPROVED",
+    );
+    assert.ok(
+        responseCheckApprovedWithImplementationBlockerClassification.stderr.includes("approved_with_blocker_classification"),
+        "selfhost review response checker must cover implementation/test approval/classification conflicts",
+    );
+
+    const approvedWithImplementationQuestionClassificationPath = path.join(responseCheckTempDir, "approved-with-implementation-question-classification.md");
+    fs.writeFileSync(
+        approvedWithImplementationQuestionClassificationPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace(
+            "- classification: Approve\n- file/function: nodesrc/selfhost_zenn_review_response_check.js",
+            "- classification: Question\n- file/function: nodesrc/selfhost_zenn_review_response_check.js",
+        ),
+        "utf8",
+    );
+    const responseCheckApprovedWithImplementationQuestionClassification = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithImplementationQuestionClassificationPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithImplementationQuestionClassification.status,
+        0,
+        "selfhost review response checker must reject implementation/test Question classification under MERGE_APPROVED",
+    );
+    assert.ok(
+        responseCheckApprovedWithImplementationQuestionClassification.stderr.includes("approved_with_question_classification"),
+        "selfhost review response checker must cover implementation/test approval/question conflicts",
     );
 } finally {
     fs.rmSync(responseCheckTempDir, { recursive: true, force: true });
