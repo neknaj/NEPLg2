@@ -210,7 +210,7 @@ fn gui_event_action_value %fn Option GuiEvent i32 \event:
         Option::None:
             0
 
-fn run_case %fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let parent_id %WidgetId widget_id 2
     let nested_id %WidgetId widget_id 3
@@ -290,7 +290,7 @@ fn is_none_event %fn Option GuiEvent bool \value:
         Option::None:
             true
 
-fn run_case %fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let disabled_id %WidgetId widget_id 2
     let missing_id %WidgetId widget_id 3

@@ -12,6 +12,7 @@ export const GUI_WEB_EVENT_KIND_POINTER = 2;
 export const GUI_WEB_EVENT_KIND_KEYBOARD = 3;
 export const GUI_WEB_EVENT_KIND_TEXT_INPUT = 4;
 export const GUI_WEB_EVENT_KIND_WINDOW = 5;
+export const GUI_WEB_EVENT_KIND_TIMER = 6;
 export const GUI_WEB_EVENT_POLL_UNSUPPORTED = -1;
 export const GUI_WEB_EVENT_POLL_INVALID = -2;
 export const GUI_WEB_EVENT_QUEUE_READ_INDEX = 0;
@@ -92,6 +93,12 @@ export type GuiWebSharedInputEventRecord =
         windowKind: GuiWebWindowEventKind;
         width: number;
         height: number;
+    }
+    | {
+        kind: 'timer';
+        windowId: number;
+        timerId: number;
+        tick: number;
     };
 
 export type GuiWebSharedInputEventTakeResult =
@@ -141,7 +148,10 @@ export function writeGuiWebSharedInputEvent(
     if (event.kind === 'window') {
         return writeGuiWebSharedWindowEvent(buffer, event);
     }
-    return err('unsupported-event-kind', '$.kind', 'action, pointer, keyboard, text-input, or window', String(event));
+    if (event.kind === 'timer') {
+        return writeGuiWebSharedTimerEvent(buffer, event);
+    }
+    return err('unsupported-event-kind', '$.kind', 'action, pointer, keyboard, text-input, window, or timer', String(event));
 }
 
 export function takeGuiWebSharedActionId(buffer: SharedArrayBuffer): number {
@@ -263,6 +273,20 @@ export function takeGuiWebSharedInputEvent(buffer: SharedArrayBuffer): GuiWebSha
                 windowKind: windowKind.value,
                 width: value1,
                 height: value2,
+            },
+        };
+    }
+    if (kind === GUI_WEB_EVENT_KIND_TIMER) {
+        if (value0 <= 0 || value1 < 0) {
+            return { kind: 'invalid', rawKind: kind };
+        }
+        return {
+            kind: 'event',
+            event: {
+                kind: 'timer',
+                windowId,
+                timerId: value0,
+                tick: value1,
             },
         };
     }
@@ -496,6 +520,35 @@ function writeGuiWebSharedWindowEvent(
     return { kind: 'ok', value: 'queued' };
 }
 
+function writeGuiWebSharedTimerEvent(
+    buffer: SharedArrayBuffer,
+    event: Extract<GuiWebInputEvent, { kind: 'timer' }>,
+): GuiWebSharedEventQueueResult<'queued'> {
+    const queue = new Int32Array(buffer);
+    const replacement = guiWebSharedFindTimerSlot(queue, event);
+    const eventWrite = replacement.kind === 'found'
+        ? { kind: 'ok' as const, value: { writeIndex: replacement.index, nextWriteIndex: replacement.index } }
+        : guiWebSharedEventWritePlan(queue);
+    if (eventWrite.kind === 'err') {
+        return eventWrite;
+    }
+
+    const base = guiWebSharedEventSlotBase(eventWrite.value.writeIndex);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_KIND, GUI_WEB_EVENT_KIND_TIMER);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID, event.windowId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE0, event.timerId);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_X_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_POINT_Y_MILLI, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE1, event.tick);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE2, 0);
+    Atomics.store(queue, base + GUI_WEB_EVENT_SLOT_VALUE3, 0);
+    if (replacement.kind === 'missing') {
+        Atomics.store(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, eventWrite.value.nextWriteIndex);
+    }
+    Atomics.notify(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    return { kind: 'ok', value: 'queued' };
+}
+
 function guiWebSharedEventWritePlan(queue: Int32Array): GuiWebSharedEventQueueResult<{ writeIndex: number; nextWriteIndex: number }> {
     const readIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_READ_INDEX);
     const writeIndex = Atomics.load(queue, GUI_WEB_EVENT_QUEUE_WRITE_INDEX);
@@ -552,6 +605,25 @@ function guiWebSharedFindWindowStateSlot(
         && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID) === event.windowId
         && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE0) === windowKind
         && windowKind !== GUI_WEB_WINDOW_KIND_CLOSE_REQUESTED
+    ) {
+        return latestSlot;
+    }
+    return { kind: 'missing' };
+}
+
+function guiWebSharedFindTimerSlot(
+    queue: Int32Array,
+    event: Extract<GuiWebInputEvent, { kind: 'timer' }>,
+): GuiWebSharedQueueSlotLookup {
+    const latestSlot = guiWebSharedFindLatestEventSlot(queue);
+    if (latestSlot.kind === 'missing') {
+        return latestSlot;
+    }
+    const base = guiWebSharedEventSlotBase(latestSlot.index);
+    if (
+        Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_KIND) === GUI_WEB_EVENT_KIND_TIMER
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_WINDOW_ID) === event.windowId
+        && Atomics.load(queue, base + GUI_WEB_EVENT_SLOT_VALUE0) === event.timerId
     ) {
         return latestSlot;
     }

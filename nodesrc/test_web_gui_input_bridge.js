@@ -259,6 +259,69 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(takenWindow.value[0].size.width, 640);
     assert.equal(takenWindow.value[0].size.height, 480);
 
+    const queuedTimer = inputBridge.queueGuiWebInputEvent({
+        kind: "timer",
+        windowId: 3,
+        timerId: 2,
+        tick: 15,
+    });
+    assert.equal(queuedTimer.kind, "ok");
+    assert.equal(observed.length, observedBeforeKeyboard + 5);
+    assert.equal(observed[observedBeforeKeyboard + 4].kind, "timer");
+    assert.equal(observed[observedBeforeKeyboard + 4].timerId, 2);
+    const takenTimer = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenTimer.kind, "ok");
+    assert.equal(takenTimer.value.length, 1);
+    assert.equal(takenTimer.value[0].kind, "timer");
+    assert.equal(takenTimer.value[0].windowId, 3);
+    assert.equal(takenTimer.value[0].timerId, 2);
+    assert.equal(takenTimer.value[0].tick, 15);
+
+    inputBridge.queueGuiWebInputEvent({
+        kind: "timer",
+        windowId: 3,
+        timerId: 2,
+        tick: 16,
+    });
+    inputBridge.queueGuiWebInputEvent({
+        kind: "timer",
+        windowId: 3,
+        timerId: 2,
+        tick: 17,
+    });
+    const takenCoalescedTimer = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenCoalescedTimer.kind, "ok");
+    assert.equal(takenCoalescedTimer.value.length, 1);
+    assert.equal(takenCoalescedTimer.value[0].kind, "timer");
+    assert.equal(takenCoalescedTimer.value[0].tick, 17);
+
+    inputBridge.queueGuiWebInputEvent({
+        kind: "timer",
+        windowId: 3,
+        timerId: 2,
+        tick: 18,
+    });
+    inputBridge.queueGuiWebInputEvent({
+        kind: "action",
+        windowId: 3,
+        actionId: 8,
+        point: { x: 2, y: 3 },
+    });
+    inputBridge.queueGuiWebInputEvent({
+        kind: "timer",
+        windowId: 3,
+        timerId: 2,
+        tick: 19,
+    });
+    const takenTimerBarrier = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenTimerBarrier.kind, "ok");
+    assert.equal(takenTimerBarrier.value.length, 3);
+    assert.equal(takenTimerBarrier.value[0].kind, "timer");
+    assert.equal(takenTimerBarrier.value[0].tick, 18);
+    assert.equal(takenTimerBarrier.value[1].kind, "action");
+    assert.equal(takenTimerBarrier.value[2].kind, "timer");
+    assert.equal(takenTimerBarrier.value[2].tick, 19);
+
     const invalidAction = inputBridge.queueGuiWebInputEvent({
         kind: "action",
         windowId: 3,
@@ -331,18 +394,32 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(invalidWindowHeight.error.kind, "invalid-window-event");
     assert.equal(invalidWindowHeight.error.path, "$.size.height");
 
+    const invalidTimerTick = inputBridge.queueGuiWebInputEvent({
+        kind: "timer",
+        windowId: 3,
+        timerId: 2,
+        tick: -1,
+    });
+    assert.equal(invalidTimerTick.kind, "err");
+    assert.equal(invalidTimerTick.error.kind, "invalid-timer-event");
+    assert.equal(invalidTimerTick.error.path, "$.tick");
+
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'action'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'pointer'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'keyboard'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'text-input'/);
     assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'window'/);
+    assert.match(inputBridgeSource, /GuiWebInputEvent =[\s\S]*kind: 'timer'/);
     assert.match(inputBridgeSource, /GuiWebInputResult<Value> =[\s\S]*kind: 'ok'[\s\S]*kind: 'err'/);
     assert.match(inputBridgeSource, /decodeGuiWebInputEvent/);
     assert.match(inputBridgeSource, /decodeGuiWebWindowInputEvent/);
+    assert.match(inputBridgeSource, /decodeGuiWebTimerInputEvent/);
     assert.match(inputBridgeSource, /readWindowKind/);
     assert.match(inputBridgeSource, /readSize/);
     assert.match(inputBridgeSource, /invalid-window-event/);
+    assert.match(inputBridgeSource, /invalid-timer-event/);
     assert.match(inputBridgeSource, /guiWebInputEventsWithPointerMove/);
+    assert.match(inputBridgeSource, /guiWebInputEventsWithTimer/);
     assert.match(inputBridgeSource, /isUnicodeScalarValue/);
     assert.match(inputBridgeSource, /registerGuiWebInputEventListener/);
     assert.match(panelSource, /queueGuiWebInputEvent/);
@@ -387,6 +464,7 @@ async function runWebGuiInputBridgeRegression() {
             "Web GUI input bridge queues keyboard events as typed values",
             "Web GUI input bridge queues Unicode scalar text input events as typed values",
             "Web GUI input bridge queues window events as typed values",
+            "Web GUI input bridge queues timer events and preserves event ordering barriers",
             "Web GUI floating windows publish host-frame resize and close requests through the input queue",
             "Web GUI input bridge notifies typed listeners without app-state simulation",
             "Web GUI input bridge exposes take/reset event boundaries",

@@ -1,12 +1,12 @@
 //: neplg2:test[gui_breakout, normalize_newlines]
-//: [目的/もくてき]: ブロック崩し GUI app が ActionId と timeout tick で interactive game loop を構成できることを確認する
+//: [目的/もくてき]: ブロック崩し GUI app が ActionId と Timer event で interactive game loop を構成できることを確認する
 //: argv: ["--once"]
 //:
 //: gui_breakout: The Elm Architecture 風の小さな game example
 //:
 //: [目的/もくてき]:
 //: - game model、update、view を分け、host event loop から受けた action と tick で model を進めます。
-//: - stdout fallback では timer event の代わりに `gui_web_wait_event_result` の timeout を animation tick として扱います。
+//: - animation は timeout `None` ではなく、host scheduler から戻る `GuiEvent::Timer` だけで進めます。
 //:
 //: [実装/じっそう]:
 //: - `BreakoutModel` は packed i32 ではなく field と enum で状態を保持します。
@@ -124,6 +124,15 @@ fn breakout_action_animate %fn void ActionId \void:
 
 fn breakout_action_reset %fn void ActionId \void:
     action_id 5
+
+fn breakout_animation_timer_id %fn void i32 \void:
+    1
+
+fn breakout_animation_interval_ms %fn void i32 \void:
+    33
+
+fn breakout_idle_wait_ms %fn void i32 \void:
+    60000
 
 fn breakout_action_raw %fn ActionId i32 \action:
     action_id_value action
@@ -279,12 +288,27 @@ fn breakout_update_action %fn BreakoutModel fn ActionId BreakoutModel \model\act
         BreakoutAction::Unknown:
             model
 
+fn breakout_update_timer %fn BreakoutModel fn TimerEvent BreakoutModel \model\timer:
+    let timer_id %i32 timer_event_timer_id &timer
+    let is_animation_timer %bool eq timer_id breakout_animation_timer_id
+    let should_tick %bool and is_animation_timer breakout_animate &model
+    if:
+        should_tick
+        then:
+            breakout_tick model
+        else:
+            model
+
 fn breakout_update_event %fn BreakoutModel fn GuiWebEvent BreakoutModel \model\web_event:
     match gui_web_event_action &web_event:
         Option::Some action:
             breakout_update_action model action
         Option::None:
-            model
+            match gui_web_event_timer &web_event:
+                Option::Some timer:
+                    breakout_update_timer model timer
+                Option::None:
+                    model
 
 fn breakout_color_background %fn void Rgba8888 \void:
     let r %u8 cast 8
@@ -454,6 +478,18 @@ fn breakout_present_status %impure fn BreakoutModel Result unit GuiError \model:
     let origin %GuiPoint gui_point_new 462 392
     gui_web_stdout_text_i32 origin 13 GuiWebTextAlign::Center breakout_color_text breakout_destroyed &model
 
+fn breakout_timer_interval_for_model %fn &BreakoutModel i32 \model:
+    if:
+        breakout_animate model
+        then:
+            breakout_animation_interval_ms
+        else:
+            0
+
+fn breakout_present_timer %impure fn BreakoutModel Result unit GuiError \model:
+    let interval_ms %i32 breakout_timer_interval_for_model &model
+    gui_web_stdout_animation_timer 13 breakout_animation_timer_id interval_ms
+
 fn breakout_present_frame %impure fn BreakoutModel Result unit GuiError \model:
     match gui_web_stdout_frame_begin 13 494 420 "NEPLg2 Breakout":
         Result::Ok _:
@@ -473,7 +509,11 @@ fn breakout_present_frame %impure fn BreakoutModel Result unit GuiError \model:
                                                         Result::Ok _:
                                                             match breakout_present_status model:
                                                                 Result::Ok _:
-                                                                    gui_web_stdout_frame_end
+                                                                    match gui_web_stdout_frame_end:
+                                                                        Result::Ok _:
+                                                                            breakout_present_timer model
+                                                                        Result::Err error:
+                                                                            Result::Err error
                                                                 Result::Err error:
                                                                     Result::Err error
                                                         Result::Err error:
@@ -535,9 +575,7 @@ fn breakout_event_loop %impure fn BreakoutModel unit \initial_model:
     let mut running %bool true
     while running:
         do:
-            let animate %bool breakout_animate &model
-            let timeout_ms %i32 if animate 33 60000
-            match gui_web_wait_event_result timeout_ms:
+            match gui_web_wait_event_result breakout_idle_wait_ms:
                 Result::Ok event_result:
                     match event_result:
                         Option::Some web_event:
@@ -549,18 +587,7 @@ fn breakout_event_loop %impure fn BreakoutModel unit \initial_model:
                                     println "breakout gui protocol error";
                                     set running false
                         Option::None:
-                            if:
-                                animate
-                                then:
-                                    set model breakout_tick model
-                                    match breakout_present_frame model:
-                                        Result::Ok _:
-                                            unit
-                                        Result::Err _:
-                                            println "breakout gui protocol error";
-                                            set running false
-                                else:
-                                    unit
+                            unit
                 Result::Err _:
                     println "breakout gui input unsupported";
                     set running false

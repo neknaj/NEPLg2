@@ -161,7 +161,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn run_case %fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -229,7 +229,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn run_case %fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_hint %LayoutHint layout_hint_fixed 8 1
     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -288,7 +288,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn run_case %fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 4
     let root %LayoutNode layout_node root_id root_bounds
@@ -343,7 +343,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn run_case %fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let root_bounds %GuiRect gui_rect_new 0 0 10 4
     let root %LayoutNode layout_node root_id root_bounds
