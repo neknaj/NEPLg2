@@ -82,6 +82,21 @@ assert.match(
     /fn\s+to_f64[\s\S]*let\s+mut\s+has_digit\s+<i32>\s+0[\s\S]*eq\s+has_digit\s+0[\s\S]*set\s+parse_ok\s+0/,
     'to_f64 must reject strings without any digit',
 );
+assert.match(
+    parseCode,
+    /fn\s+float_parse_byte_or_invalid[\s\S]*checked_string_byte_at[\s\S]*Option::Some[\s\S]*Option::None:[\s\S]*-1/,
+    'float parse byte helper must convert checked byte access through Option instead of unchecked string indexing',
+);
+assert.match(
+    parseSrc,
+    /整数部と小数部を合わせて少なくとも 1 桁の digit が必要です[\s\S]*末尾に未消費 byte が残る入力は `Result::Err` とします[\s\S]*`nan` \/ `inf` などの記号名は `Result::Err` とします/,
+    'float parser docs must pin digit, clean end-of-input, and symbolic-value rejection contracts',
+);
+assert.match(
+    parseSrc,
+    /ISS-20260606T052400000Z-STRING-FLOAT-PARSE-ERROR-KIND-COLLAPSED-I32-4B21D9A7[\s\S]*ISS-20260606T053000000Z-STRING-FLOAT-PARSE-SPECIAL-VALUE-POLICY-MISSING-7C18B2D4/,
+    'float parser docs must track typed error and special-value policy debt as issues',
+);
 assert.match(formatCode, /\b(?:mem_ptr_addr|store_u8|mem_copy|RegionToken)\b/, 'string/float/format must carry source-level raw memory evidence');
 assert.doesNotMatch(floatCode, /\b(?:mem_ptr_addr|store_u8|load_u8|mem_copy|RegionToken)\b/, 'string/float facade must not carry direct raw memory evidence');
 

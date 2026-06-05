@@ -47,6 +47,21 @@ const contracts = [
         rel: ['stdlib', 'alloc', 'string', 'float', 'parse.nepl'],
         index: 0,
         name: 'string_float_parse_doc',
+        count: 5,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'float', 'parse.nepl'],
+        name: 'alloc_string_float_parse_byte_or_invalid_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'float', 'parse.nepl'],
+        name: 'alloc_string_float_to_f64_doc',
+        count: 8,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'float', 'parse.nepl'],
+        name: 'alloc_string_float_to_f32_doc',
         count: 2,
     },
     {
@@ -300,6 +315,24 @@ for (const [rel, snippets] of [
             'string_alloc_region',
             'mem_copy',
             'string_finish',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'float', 'parse.nepl'],
+        [
+            'byte scanner と exponent 処理に責務を集中します',
+            '整数部と小数部を合わせて少なくとも 1 桁の digit が必要です',
+            '指数 marker がある場合、指数部にも少なくとも 1 桁の digit が必要です',
+            '末尾に未消費 byte が残る入力は `Result::Err` とします',
+            '`nan` / `inf` などの記号名は `Result::Err` とします',
+            'parse error の payload は現状互換の `i32`',
+            'すべての parse error は `Result::Err 1` に畳まれます',
+            'ISS-20260606T052400000Z-STRING-FLOAT-PARSE-ERROR-KIND-COLLAPSED-I32-4B21D9A7',
+            'ISS-20260606T053000000Z-STRING-FLOAT-PARSE-SPECIAL-VALUE-POLICY-MISSING-7C18B2D4',
+            '範囲外 byte access を scanner 用 sentinel へ変換する',
+            '`Option::None` の理由は保持せず、`-1` sentinel に畳みます',
+            'sentinel を public contract として公開しない',
+            '`to_f64 s` が `Result::Ok v64` なら、`v64` を `f32` へ cast',
         ],
     ],
 ]) {

@@ -106,6 +106,7 @@ const requiredPhrases = [
     [splitRelPath, splitSrc, 'split scanner byte-scan contract', 'str_split_next: allocation \u306a\u3057\u3067\u6b21\u306e split range \u3092\u8fd4\u3059'],
     [integerParseRelPath, integerParseSrc, 'i32 parse overflow contract', 'to_i32: 10 \u9032\u6587\u5b57\u5217\u3092 i32 \u3068\u3057\u3066\u89e3\u6790\u3059\u308b'],
     [floatFormatRelPath, floatFormatSrc, 'f64 formatting contract', 'from_f64_result: f64 \u3092\u56fa\u5b9a\u5c0f\u6570\u307e\u305f\u306f nan \u6587\u5b57\u5217\u3078\u5909\u63db\u3059\u308b'],
+    [floatParseRelPath, floatParseSrc, 'f64 parse clean-input contract', '\u672b\u5c3e\u306b\u672a\u6d88\u8cbb byte \u304c\u6b8b\u308b\u5165\u529b\u306f `Result::Err` \u3068\u3057\u307e\u3059'],
     [findRelPath, findSrc, 'find byte-index contract', 'find: \u6700\u521d\u306b\u4e00\u81f4\u3057\u305f byte index \u3092\u8fd4\u3059'],
     [accessRelPath, accessSrc, 'UTF-8 byte-length note', 'UTF-8 \u306e byte \u9577\u3067\u3042\u308a'],
     [builderTypesRelPath, builderTypesSrc, 'allocation failure Result guidance', 'allocation failure \u3092\u6271\u3046\u51e6\u7406\u3067\u306f'],

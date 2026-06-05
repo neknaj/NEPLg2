@@ -8,29 +8,16 @@
 //: [注意/ちゅうい]:
 //: - 少なくとも 1 桁の digit が必要です。
 //: - nan / inf などの記号名は解析しません。
-
-#indent 4
-
-#import "core/result" as *
-#import "core/math" as *
-#import "core/cast" as *
-#import "core/char" as *
-#import "core/option" as *
-#import "alloc/string/access" as *
-#import "alloc/string/byte_index" as *
-
-fn float_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
-    match checked_string_byte_at s idx:
-        Option::Some b:
-            b
-        Option::None:
-            -1
-
+//: - parse error の詳細分類は現状 `Result::Err 1` に畳まれます。
+//: - typed enum error への整理は `ISS-20260606T052400000Z-STRING-FLOAT-PARSE-ERROR-KIND-COLLAPSED-I32-4B21D9A7` で追跡します。
+//: - format 側の `NaN -> "nan"` と parse 側の特殊値非対応の round-trip 方針は `ISS-20260606T053000000Z-STRING-FLOAT-PARSE-SPECIAL-VALUE-POLICY-MISSING-7C18B2D4` で追跡します。
+//:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
-//: stdout: "test_report name=\"string_float_parse_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"parse scientific\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"reject dot only\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: stdout: "test_report name=\"string_float_parse_doc\" count=5 failed=0\nassertion index=0 status=ok kind=bool label=\"parse scientific\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"parse negative exponent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"parse positive sign\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"reject dot only\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"reject symbolic nan\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
+//:| #indent 4
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
@@ -52,30 +39,178 @@ fn float_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:             assert label true
 //:
 //: fn main %impure fn void i32 \void:
-//:     let expected %f64 %f64 cast 125
+//:     let scientific %Result f64 i32 to_f64 "1.25e2"
+//:     let negative_exp %Result f64 i32 to_f64 "1e-2"
+//:     let positive_sign %Result f64 i32 to_f64 "+2.5"
+//:     let dot_only %Result f64 i32 to_f64 "."
+//:     let symbolic_nan %Result f64 i32 to_f64 "nan"
+//:     let scientific_expected %f64 %f64 cast 125
+//:     let negative_exp_expected %f64 div %f64 cast 1 %f64 cast 100
+//:     let positive_sign_expected %f64 div %f64 cast 5 %f64 cast 2
 //:     let report:
 //:         test_report_new "string_float_parse_doc"
-//:         |> test_report_push assert_f64_ok "parse scientific" (to_f64 "1.25e2") expected
-//:         |> test_report_push assert_f64_err "reject dot only" (to_f64 ".")
+//:         |> test_report_push assert_f64_ok "parse scientific" scientific scientific_expected
+//:         |> test_report_push assert_f64_ok "parse negative exponent" negative_exp negative_exp_expected
+//:         |> test_report_push assert_f64_ok "parse positive sign" positive_sign positive_sign_expected
+//:         |> test_report_push assert_f64_err "reject dot only" dot_only
+//:         |> test_report_push assert_f64_err "reject symbolic nan" symbolic_nan
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
+
+#indent 4
+
+#import "core/result" as *
+#import "core/math" as *
+#import "core/cast" as *
+#import "core/char" as *
+#import "core/option" as *
+#import "alloc/string/access" as *
+#import "alloc/string/byte_index" as *
+
+//: float_parse_byte_or_invalid: 範囲外 byte access を scanner 用 sentinel へ変換する
+//:
+//: [目的/もくてき]:
+//: - `checked_string_byte_at` の `Option` を、float parser 内部の byte scanner が扱う `i32` byte 値へ変換します。
+//: - 範囲外は ASCII digit や記号と一致しない `-1` に畳み、caller 側の clean end-of-input 検査で拒否できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `idx` が `s` の byte 範囲内なら、その byte 値を返します。
+//: - `idx` が範囲外なら `-1` を返します。
+//: - この helper は `str` owner を作らず、入力を借用して読むだけです。
+//:
+//: [現状/げんじょう]:
+//: - `Option::None` の理由は保持せず、`-1` sentinel に畳みます。
+//:
+//: [注意/ちゅうい]:
+//: - public API の error payload はこの helper の sentinel ではなく、`to_f64` / `to_f32` の `Result::Err 1` です。
+//: - sentinel を public contract として公開しないため、通常の利用者はこの helper を直接呼びません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_parse_byte_or_invalid_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"clean byte accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"trailing byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string/float/parse" as *
+//: fn assert_f64_ok_any %fn str fn Result f64 i32 TestAssertion \label\got:
+//:     match got:
+//:         Result::Ok _:
+//:             assert label true
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "float parse failed unexpectedly"
+//:
+//: fn assert_f64_err %fn str fn Result f64 i32 TestAssertion \label\got:
+//:     match got:
+//:         Result::Ok _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "invalid float accepted unexpectedly"
+//:         Result::Err _:
+//:             assert label true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let clean %Result f64 i32 to_f64 "12"
+//:     let trailing %Result f64 i32 to_f64 "12x"
+//:     let report:
+//:         test_report_new "alloc_string_float_parse_byte_or_invalid_doc"
+//:         |> test_report_push assert_f64_ok_any "clean byte accepted" clean
+//:         |> test_report_push assert_f64_err "trailing byte rejected" trailing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+fn float_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
+    match checked_string_byte_at s idx:
+        Option::Some b:
+            b
+        Option::None:
+            -1
 
 //: to_f64: 10 進浮動小数文字列を f64 として解析する
 //:
 //: [目的/もくてき]:
 //: - `123`、`-1.5`、`1e3` のような文字列を `f64` に変換します。
 //:
+//: [契約/けいやく]:
+//: - 先頭の `+` / `-`、整数部、小数部、`e` / `E` による指数部を受理します。
+//: - 整数部と小数部を合わせて少なくとも 1 桁の digit が必要です。
+//: - 指数 marker がある場合、指数部にも少なくとも 1 桁の digit が必要です。
+//: - 末尾に未消費 byte が残る入力は `Result::Err` とします。
+//: - `nan` / `inf` などの記号名は `Result::Err` とします。
+//:
 //: [実装/じっそう]:
 //: - 符号、整数部、小数部、指数部を byte 走査で読み取り、10 倍/10 分の 1 を繰り返して値を組み立てます。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は現状互換の `i32` であり、typed enum error ではありません。
+//: - すべての parse error は `Result::Err 1` に畳まれます。
 //:
 //: [注意/ちゅうい]:
 //: - 少なくとも 1 桁の digit が必要です。
 //: - `nan` / `inf` などの記号名は解析しません。
 //: - overflow / underflow は backend の `f64` 演算に従います。
+//: - typed enum error への整理は `ISS-20260606T052400000Z-STRING-FLOAT-PARSE-ERROR-KIND-COLLAPSED-I32-4B21D9A7` で追跡します。
+//: - special value の parse / format round-trip 方針は `ISS-20260606T053000000Z-STRING-FLOAT-PARSE-SPECIAL-VALUE-POLICY-MISSING-7C18B2D4` で追跡します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + |exponent|)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_to_f64_doc\" count=8 failed=0\nassertion index=0 status=ok kind=bool label=\"integer\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"leading fraction\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"negative exponent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"positive sign\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"empty rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"missing exponent rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"trailing byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"inf rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string/float/parse" as *
+//:| #import "core/math" as *
+//:| #import "core/cast" as *
+//: fn assert_f64_ok %fn str fn Result f64 i32 fn f64 TestAssertion \label\got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             assert label eq actual expected
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "float parse failed unexpectedly"
+//:
+//: fn assert_f64_err %fn str fn Result f64 i32 TestAssertion \label\got:
+//:     match got:
+//:         Result::Ok _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "invalid float accepted unexpectedly"
+//:         Result::Err _:
+//:             assert label true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let integer %Result f64 i32 to_f64 "123"
+//:     let leading_fraction %Result f64 i32 to_f64 ".5"
+//:     let negative_exp %Result f64 i32 to_f64 "1e-2"
+//:     let positive_sign %Result f64 i32 to_f64 "+2.5"
+//:     let empty %Result f64 i32 to_f64 ""
+//:     let missing_exp %Result f64 i32 to_f64 "1e"
+//:     let trailing %Result f64 i32 to_f64 "1.2x"
+//:     let inf_text %Result f64 i32 to_f64 "inf"
+//:     let expected_integer %f64 %f64 cast 123
+//:     let expected_leading_fraction %f64 div %f64 cast 1 %f64 cast 2
+//:     let expected_negative_exp %f64 div %f64 cast 1 %f64 cast 100
+//:     let expected_positive_sign %f64 div %f64 cast 5 %f64 cast 2
+//:     let report:
+//:         test_report_new "alloc_string_float_to_f64_doc"
+//:         |> test_report_push assert_f64_ok "integer" integer expected_integer
+//:         |> test_report_push assert_f64_ok "leading fraction" leading_fraction expected_leading_fraction
+//:         |> test_report_push assert_f64_ok "negative exponent" negative_exp expected_negative_exp
+//:         |> test_report_push assert_f64_ok "positive sign" positive_sign expected_positive_sign
+//:         |> test_report_push assert_f64_err "empty rejected" empty
+//:         |> test_report_push assert_f64_err "missing exponent rejected" missing_exp
+//:         |> test_report_push assert_f64_err "trailing byte rejected" trailing
+//:         |> test_report_push assert_f64_err "inf rejected" inf_text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_f64 %fn str Result f64 i32 \s:
     let n %i32 len s;
     let mut i %i32 0;
@@ -289,14 +424,61 @@ pub fn to_f64 %fn str Result f64 i32 \s:
 //: [目的/もくてき]:
 //: - `to_f64` と同じ表記を受理し、結果を `f32` に縮小します。
 //:
+//: [契約/けいやく]:
+//: - `to_f64 s` が `Result::Ok v64` なら、`v64` を `f32` へ cast して `Result::Ok` で返します。
+//: - `to_f64 s` が `Result::Err e` なら、同じ `e` を `Result::Err` で返します。
+//:
 //: [実装/じっそう]:
 //: - `to_f64` による解析結果を `f32` に cast します。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は `to_f64` と同じく現状互換の `i32` です。
+//: - typed enum error への整理は `ISS-20260606T052400000Z-STRING-FLOAT-PARSE-ERROR-KIND-COLLAPSED-I32-4B21D9A7` で追跡します。
 //:
 //: [注意/ちゅうい]:
 //: - `f32` への丸めや overflow は backend の cast に従います。
 //:
 //: [計算量/けいさんりょう]:
 //: - `to_f64` に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_float_to_f32_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"f32 ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"f32 err\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string/float/parse" as *
+//:| #import "core/math" as *
+//:| #import "core/cast" as *
+//: fn assert_f32_ok %fn str fn Result f32 i32 fn f32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             assert label eq actual expected
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "float parse failed unexpectedly"
+//:
+//: fn assert_f32_err %fn str fn Result f32 i32 TestAssertion \label\got:
+//:     match got:
+//:         Result::Ok _:
+//:             test_assertion_failed AssertionKind::Bool label "true" "false" "invalid float accepted unexpectedly"
+//:         Result::Err _:
+//:             assert label true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let ok_value %Result f32 i32 to_f32 "1.25"
+//:     let err_value %Result f32 i32 to_f32 "1e"
+//:     let expected64 %f64 div %f64 cast 5 %f64 cast 4
+//:     let expected32 %f32 %f32 cast expected64
+//:     let report:
+//:         test_report_new "alloc_string_float_to_f32_doc"
+//:         |> test_report_push assert_f32_ok "f32 ok" ok_value expected32
+//:         |> test_report_push assert_f32_err "f32 err" err_value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_f32 %fn str Result f32 i32 \s:
     match to_f64 s:
         Result::Ok v64:
