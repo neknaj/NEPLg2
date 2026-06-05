@@ -1,8 +1,13 @@
 //: neplg2:test[gui_life, normalize_newlines]
-//: [目的/もくてき]: Life pattern を NEPL 側の model / update / view から描画し、Web Playground host protocol へ frame を出力できることを確認する
+//: [目的/もくてき]: Life board を NEPL 側の model / update / view から描画し、Web Playground host protocol へ frame を出力できることを確認する
 //: argv: ["--once"]
 //:
-//: gui_life: Conway の Life pattern を HD surface 上に描画する GUI app model の例
+//: neplg2:test[gui_life_blinker_next, normalize_newlines]
+//: [目的/もくてき]: stored BitSet board から Conway の blinker が 1 step で vertical pattern へ進むことを確認する
+//: argv: ["--test-blinker-next"]
+//: stdout: "life board test ok\n"
+//:
+//: gui_life: Conway の Life board を HD surface 上に描画する GUI app model の例
 //:
 //: [目的/もくてき]:
 //: - game state、update、描画を分け、backend なしでも状態遷移を追える形にします。
@@ -10,18 +15,18 @@
 //: - cell size を変えることで 1280x640 の board surface を粗い表示から HD 相当の細かい表示へ切り替えます。
 //:
 //: [実装/じっそう]:
-//: - 盤面は 1280x640 logical px に固定し、model の cell size から cell count を決めます。
-//: - `step` から glider / blinker pattern の位置を計算し、live cell だけを command として出力します。
-//: - 通常実行では full `GuiWebEvent` を待ち、Action event だけを update message として扱います。
-//: - host の raw `ActionId` は `LifeAction` へ decode し、update は enum と `match` で遷移します。
+//: - `LifeModel` は generation / animate / cell_size だけを持つ Copy な TEA model です。
+//: - board storage は `BitSet` owner として event loop が明示的に保持します。
+//: - Conway rule は `LifeCellState` と neighbour count の `match` で表し、timer event だけで animation を進めます。
 //:
 //: [注意/ちゅうい]:
-//: - この example は描画・event loop・TEA 形の確認用であり、任意サイズ盤面の完全保存 model は後続の `alloc/gui` collection 安定化後に追加します。
+//: - owner-backed aggregate を user source の struct に埋め込むことは resource checker が禁止するため、board owner は裸の `BitSet` として扱います。
 //: - Web stdout protocol は `platforms/gui/web` の fallback transport であり、正式 host import ABI へ置き換える予定です。
 #entry main
 #indent 4
 #target std
 
+#import "alloc/collections/bitset" as bitset
 #import "alloc/gui/app" as *
 #import "alloc/string" as *
 #import "core/cast" as *
@@ -36,7 +41,7 @@
 #import "std/stdio" as *
 
 struct LifeModel:
-    step %i32
+    generation %i32
     animate %bool
     cell_size %i32
 
@@ -53,6 +58,10 @@ enum LifeAction:
     HD
     Unknown
 
+enum LifeCellState:
+    Dead
+    Alive
+
 impl Clone for LifeAction:
     fn clone %fn &LifeAction LifeAction \action:
         *action
@@ -60,6 +69,14 @@ impl Clone for LifeAction:
 impl Copy for LifeAction:
     fn copy_mark %fn LifeAction LifeAction \action:
         action
+
+impl Clone for LifeCellState:
+    fn clone %fn &LifeCellState LifeCellState \state:
+        *state
+
+impl Copy for LifeCellState:
+    fn copy_mark %fn LifeCellState LifeCellState \state:
+        state
 
 impl Clone for LifeModel:
     fn clone %fn &LifeModel LifeModel \model:
@@ -69,11 +86,11 @@ impl Copy for LifeModel:
     fn copy_mark %fn LifeModel LifeModel \model:
         model
 
-fn life_model_new %fn i32 fn bool fn i32 LifeModel \step\animate\cell_size:
-    LifeModel step animate cell_size
+fn life_model_new %fn i32 fn bool fn i32 LifeModel \generation\animate\cell_size:
+    LifeModel generation animate cell_size
 
-fn life_model_step %fn &LifeModel i32 \model:
-    *field::get_ref model "step"
+fn life_model_generation %fn &LifeModel i32 \model:
+    *field::get_ref model "generation"
 
 fn life_model_animate %fn &LifeModel bool \model:
     *field::get_ref model "animate"
@@ -137,6 +154,18 @@ fn life_resolution_up_action %fn void ActionId \void:
 fn life_hd_action %fn void ActionId \void:
     action_id 5
 
+fn life_animation_timer_id %fn void i32 \void:
+    1
+
+fn life_animation_interval_ms %fn void i32 \void:
+    250
+
+fn life_idle_wait_ms %fn void i32 \void:
+    60000
+
+fn life_neighbor_scan_start %fn void i32 \void:
+    sub 0 1
+
 fn life_decode_action %fn ActionId LifeAction \action:
     let raw %i32 action_id_value action
     match raw:
@@ -153,37 +182,386 @@ fn life_decode_action %fn ActionId LifeAction \action:
         _:
             LifeAction::Unknown
 
-fn life_wrap_positive %fn i32 fn i32 i32 \value\limit:
-    let shifted %i32 add value limit
-    rem_s shifted limit
+fn life_cell_state_from_alive %fn bool LifeCellState \alive:
+    if alive LifeCellState::Alive LifeCellState::Dead
 
-fn life_glider_origin %fn i32 fn i32 fn i32 i32 \offset\shift\limit:
-    let safe_limit %i32 sub limit 4
+fn life_cell_state_is_alive %fn LifeCellState bool \state:
+    match state:
+        LifeCellState::Alive:
+            true
+        LifeCellState::Dead:
+            false
+
+fn life_cell_next_state %fn LifeCellState fn i32 LifeCellState \state\neighbors:
+    match state:
+        LifeCellState::Alive:
+            if:
+                or eq neighbors 2 eq neighbors 3
+                then:
+                    LifeCellState::Alive
+                else:
+                    LifeCellState::Dead
+        LifeCellState::Dead:
+            if:
+                eq neighbors 3
+                then:
+                    LifeCellState::Alive
+                else:
+                    LifeCellState::Dead
+
+fn life_cell_next_alive %fn bool fn i32 bool \alive\neighbors:
+    let state %LifeCellState life_cell_state_from_alive alive
+    let next_state %LifeCellState life_cell_next_state state neighbors
+    life_cell_state_is_alive next_state
+
+fn life_board_cell_index %fn i32 fn i32 fn i32 Option i32 \cell_size\x\y:
+    let width %i32 life_board_width cell_size
+    let height %i32 life_board_height cell_size
+    let x_inside %bool and ge x 0 lt x width
+    let y_inside %bool and ge y 0 lt y height
     if:
-        le safe_limit 1
+        and x_inside y_inside
         then:
-            offset
+            let row %i32 mul y width
+            let idx %i32 add row x
+            Option::Some idx
         else:
-            let moved %i32 add offset shift
-            life_wrap_positive moved safe_limit
+            Option::None
 
-fn life_phase %fn i32 i32 \step:
-    rem_s step 4
+fn life_board_alloc_empty %impure fn i32 Result BitSet GuiError \cell_size:
+    let width %i32 life_board_width cell_size
+    let height %i32 life_board_height cell_size
+    if:
+        or le width 0 le height 0
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            let area %i32 mul width height
+            match bitset::new area:
+                Result::Ok cells:
+                    Result::Ok cells
+                Result::Err _:
+                    Result::Err GuiError::ResourceExhausted
 
-fn life_shift %fn i32 i32 \step:
-    div_s step 4
+fn life_board_set_cell_alive %impure fn BitSet impure fn i32 impure fn i32 impure fn i32 Result BitSet BitSetUpdateError \cells\cell_size\x\y:
+    match life_board_cell_index cell_size x y:
+        Option::Some idx:
+            bitset::insert cells idx
+        Option::None:
+            Result::Ok cells
+
+fn life_board_contains_index %impure fn &BitSet impure fn i32 Result bool GuiError \cells\idx:
+    match bitset::contains cells idx:
+        Result::Ok alive:
+            Result::Ok alive
+        Result::Err _:
+            Result::Err GuiError::InvalidCommand
+
+fn life_board_cell_alive %impure fn &BitSet impure fn i32 impure fn i32 impure fn i32 Result bool GuiError \cells\cell_size\x\y:
+    match life_board_cell_index cell_size x y:
+        Option::Some idx:
+            life_board_contains_index cells idx
+        Option::None:
+            Result::Ok false
+
+fn life_board_neighbor_value %impure fn &BitSet impure fn i32 impure fn i32 impure fn i32 Result i32 GuiError \cells\cell_size\x\y:
+    match life_board_cell_alive cells cell_size x y:
+        Result::Ok alive:
+            if:
+                alive
+                then:
+                    Result::Ok 1
+                else:
+                    Result::Ok 0
+        Result::Err err:
+            Result::Err err
+
+fn life_board_neighbor_count_dx_loop %impure fn &BitSet impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result i32 GuiError \cells\cell_size\x\y\dy\dx:
+    if:
+        gt dx 1
+        then:
+            Result::Ok 0
+        else:
+            let is_self %bool and eq dx 0 eq dy 0
+            let next_dx %i32 add dx 1
+            if:
+                is_self
+                then:
+                    life_board_neighbor_count_dx_loop cells cell_size x y dy next_dx
+                else:
+                    let nx %i32 add x dx
+                    let ny %i32 add y dy
+                    match life_board_neighbor_value cells cell_size nx ny:
+                        Result::Ok value:
+                            match life_board_neighbor_count_dx_loop cells cell_size x y dy next_dx:
+                                Result::Ok rest:
+                                    let neighbor_count %i32 add value rest
+                                    Result::Ok neighbor_count
+                                Result::Err err:
+                                    Result::Err err
+                        Result::Err err:
+                            Result::Err err
+
+fn life_board_neighbor_count_y_loop %impure fn &BitSet impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result i32 GuiError \cells\cell_size\x\y\dy:
+    if:
+        gt dy 1
+        then:
+            Result::Ok 0
+        else:
+            match life_board_neighbor_count_dx_loop cells cell_size x y dy life_neighbor_scan_start:
+                Result::Ok row:
+                    let next_dy %i32 add dy 1
+                    match life_board_neighbor_count_y_loop cells cell_size x y next_dy:
+                        Result::Ok rest:
+                            let neighbor_count %i32 add row rest
+                            Result::Ok neighbor_count
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+
+fn life_board_neighbor_count %impure fn &BitSet impure fn i32 impure fn i32 impure fn i32 Result i32 GuiError \cells\cell_size\x\y:
+    life_board_neighbor_count_y_loop cells cell_size x y life_neighbor_scan_start
+
+fn life_glider_dx %fn i32 i32 \idx:
+    match idx:
+        0:
+            1
+        1:
+            2
+        2:
+            0
+        3:
+            1
+        _:
+            2
+
+fn life_glider_dy %fn i32 i32 \idx:
+    match idx:
+        0:
+            0
+        1:
+            1
+        _:
+            2
+
+fn life_seed_glider_loop %impure fn BitSet impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result BitSet BitSetUpdateError \cells\cell_size\origin_x\origin_y\idx:
+    if:
+        ge idx 5
+        then:
+            Result::Ok cells
+        else:
+            let x %i32 add origin_x life_glider_dx idx
+            let y %i32 add origin_y life_glider_dy idx
+            match life_board_set_cell_alive cells cell_size x y:
+                Result::Ok updated:
+                    let next_idx %i32 add idx 1
+                    life_seed_glider_loop updated cell_size origin_x origin_y next_idx
+                Result::Err err:
+                    Result::Err err
+
+fn life_seed_glider %impure fn BitSet impure fn i32 impure fn i32 impure fn i32 Result BitSet BitSetUpdateError \cells\cell_size\origin_x\origin_y:
+    life_seed_glider_loop cells cell_size origin_x origin_y 0
+
+fn life_seed_blinker_loop %impure fn BitSet impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result BitSet BitSetUpdateError \cells\cell_size\origin_x\origin_y\idx:
+    if:
+        ge idx 3
+        then:
+            Result::Ok cells
+        else:
+            let x %i32 add origin_x idx
+            match life_board_set_cell_alive cells cell_size x origin_y:
+                Result::Ok updated:
+                    let next_idx %i32 add idx 1
+                    life_seed_blinker_loop updated cell_size origin_x origin_y next_idx
+                Result::Err err:
+                    Result::Err err
+
+fn life_seed_blinker %impure fn BitSet impure fn i32 impure fn i32 impure fn i32 Result BitSet BitSetUpdateError \cells\cell_size\origin_x\origin_y:
+    life_seed_blinker_loop cells cell_size origin_x origin_y 0
+
+fn life_seed_default %impure fn BitSet impure fn i32 Result BitSet BitSetUpdateError \cells\cell_size:
+    match life_seed_glider cells cell_size 2 2:
+        Result::Ok cells1:
+            match life_seed_glider cells1 cell_size 16 8:
+                Result::Ok cells2:
+                    match life_seed_glider cells2 cell_size 28 3:
+                        Result::Ok cells3:
+                            life_seed_blinker cells3 cell_size 7 14
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
+
+fn life_board_new_seeded %impure fn i32 Result BitSet GuiError \cell_size:
+    match life_board_alloc_empty cell_size:
+        Result::Ok cells:
+            match life_seed_default cells cell_size:
+                Result::Ok seeded:
+                    Result::Ok seeded
+                Result::Err update_error:
+                    let recovered %BitSet bitset::bitset_update_error_owner update_error
+                    bitset::free recovered
+                    Result::Err GuiError::InvalidCommand
+        Result::Err err:
+            Result::Err err
+
+fn life_board_new_test_blinker %impure fn i32 Result BitSet GuiError \cell_size:
+    match life_board_alloc_empty cell_size:
+        Result::Ok cells:
+            match life_seed_blinker cells cell_size 4 5:
+                Result::Ok seeded:
+                    Result::Ok seeded
+                Result::Err update_error:
+                    let recovered %BitSet bitset::bitset_update_error_owner update_error
+                    bitset::free recovered
+                    Result::Err GuiError::InvalidCommand
+        Result::Err err:
+            Result::Err err
+
+fn life_board_next_cell %impure fn &BitSet impure fn BitSet impure fn i32 impure fn i32 impure fn i32 Result BitSet GuiError \source\next_cells\cell_size\x\y:
+    match life_board_cell_alive source cell_size x y:
+        Result::Ok alive:
+            match life_board_neighbor_count source cell_size x y:
+                Result::Ok neighbors:
+                    let next_alive %bool life_cell_next_alive alive neighbors
+                    if:
+                        next_alive
+                        then:
+                            match life_board_set_cell_alive next_cells cell_size x y:
+                                Result::Ok updated:
+                                    Result::Ok updated
+                                Result::Err update_error:
+                                    let recovered %BitSet bitset::bitset_update_error_owner update_error
+                                    bitset::free recovered
+                                    Result::Err GuiError::InvalidCommand
+                        else:
+                            Result::Ok next_cells
+                Result::Err err:
+                    bitset::free next_cells
+                    Result::Err err
+        Result::Err err:
+            bitset::free next_cells
+            Result::Err err
+
+fn life_board_next_x_loop %impure fn &BitSet impure fn BitSet impure fn i32 impure fn i32 impure fn i32 Result BitSet GuiError \source\next_cells\cell_size\y\x:
+    let width %i32 life_board_width cell_size
+    if:
+        ge x width
+        then:
+            Result::Ok next_cells
+        else:
+            match life_board_next_cell source next_cells cell_size x y:
+                Result::Ok updated:
+                    let next_x %i32 add x 1
+                    life_board_next_x_loop source updated cell_size y next_x
+                Result::Err err:
+                    Result::Err err
+
+fn life_board_next_y_loop %impure fn &BitSet impure fn BitSet impure fn i32 impure fn i32 Result BitSet GuiError \source\next_cells\cell_size\y:
+    let height %i32 life_board_height cell_size
+    if:
+        ge y height
+        then:
+            Result::Ok next_cells
+        else:
+            match life_board_next_x_loop source next_cells cell_size y 0:
+                Result::Ok row_done:
+                    let next_y %i32 add y 1
+                    life_board_next_y_loop source row_done cell_size next_y
+                Result::Err err:
+                    Result::Err err
+
+fn life_board_next_generation %impure fn &BitSet impure fn i32 Result BitSet GuiError \source\cell_size:
+    match life_board_alloc_empty cell_size:
+        Result::Ok next_cells:
+            life_board_next_y_loop source next_cells cell_size 0
+        Result::Err err:
+            Result::Err err
+
+fn life_board_live_count_x_loop %impure fn &BitSet impure fn i32 impure fn i32 impure fn i32 Result i32 GuiError \cells\cell_size\y\x:
+    let width %i32 life_board_width cell_size
+    if:
+        ge x width
+        then:
+            Result::Ok 0
+        else:
+            match life_board_cell_alive cells cell_size x y:
+                Result::Ok alive:
+                    let current %i32 if alive 1 0
+                    let next_x %i32 add x 1
+                    match life_board_live_count_x_loop cells cell_size y next_x:
+                        Result::Ok rest:
+                            let live_count %i32 add current rest
+                            Result::Ok live_count
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+
+fn life_board_live_count_y_loop %impure fn &BitSet impure fn i32 impure fn i32 Result i32 GuiError \cells\cell_size\y:
+    let height %i32 life_board_height cell_size
+    if:
+        ge y height
+        then:
+            Result::Ok 0
+        else:
+            match life_board_live_count_x_loop cells cell_size y 0:
+                Result::Ok row:
+                    let next_y %i32 add y 1
+                    match life_board_live_count_y_loop cells cell_size next_y:
+                        Result::Ok rest:
+                            let live_count %i32 add row rest
+                            Result::Ok live_count
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+
+fn life_board_live_count %impure fn &BitSet impure fn i32 Result i32 GuiError \cells\cell_size:
+    life_board_live_count_y_loop cells cell_size 0
+
+fn life_check_cell %impure fn &BitSet impure fn i32 impure fn i32 impure fn i32 impure fn bool Result bool GuiError \cells\cell_size\x\y\expected:
+    match life_board_cell_alive cells cell_size x y:
+        Result::Ok alive:
+            let matches %bool if expected alive not alive
+            Result::Ok matches
+        Result::Err err:
+            Result::Err err
+
+fn life_check_blinker_next %impure fn &BitSet impure fn i32 Result bool GuiError \cells\cell_size:
+    match life_check_cell cells cell_size 5 4 true:
+        Result::Ok c0:
+            match life_check_cell cells cell_size 5 5 true:
+                Result::Ok c1:
+                    match life_check_cell cells cell_size 5 6 true:
+                        Result::Ok c2:
+                            match life_check_cell cells cell_size 4 5 false:
+                                Result::Ok c3:
+                                    match life_check_cell cells cell_size 6 5 false:
+                                        Result::Ok c4:
+                                            let left %bool and c0 c1
+                                            let mid %bool and c2 c3
+                                            let right %bool and mid c4
+                                            let all %bool and left right
+                                            Result::Ok all
+                                        Result::Err err:
+                                            Result::Err err
+                                Result::Err err:
+                                    Result::Err err
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
 
 fn life_live_color %fn void Rgba8888 \void:
     let r %u8 cast 36
     let g %u8 cast 220
     let b %u8 cast 184
-    let a %u8 cast 255
-    rgba8888_new r g b a
-
-fn life_live_color_alt %fn void Rgba8888 \void:
-    let r %u8 cast 146
-    let g %u8 cast 222
-    let b %u8 cast 92
     let a %u8 cast 255
     rgba8888_new r g b a
 
@@ -229,176 +607,51 @@ fn life_present_live_cell %impure fn i32 impure fn i32 impure fn i32 impure fn R
     let rect %GuiRect gui_rect_new px py draw_size draw_size
     gui_web_stdout_fill_rect rect color
 
-fn life_present_glider_phase0 %impure fn i32 impure fn i32 impure fn i32 impure fn Rgba8888 Result unit GuiError \ox\oy\cell_size\color:
-    let x1 %i32 add ox 1
-    let x2 %i32 add ox 2
-    let y1 %i32 add oy 1
-    let y2 %i32 add oy 2
-    match life_present_live_cell x1 oy cell_size color:
-        Result::Ok _:
-            match life_present_live_cell x2 y1 cell_size color:
-                Result::Ok _:
-                    match life_present_live_cell ox y2 cell_size color:
-                        Result::Ok _:
-                            match life_present_live_cell x1 y2 cell_size color:
-                                Result::Ok _:
-                                    life_present_live_cell x2 y2 cell_size color
-                                Result::Err err:
-                                    Result::Err err
-                        Result::Err err:
-                            Result::Err err
-                Result::Err err:
-                    Result::Err err
-        Result::Err err:
-            Result::Err err
-
-fn life_present_glider_phase1 %impure fn i32 impure fn i32 impure fn i32 impure fn Rgba8888 Result unit GuiError \ox\oy\cell_size\color:
-    let x1 %i32 add ox 1
-    let x2 %i32 add ox 2
-    let y1 %i32 add oy 1
-    let y2 %i32 add oy 2
-    let y3 %i32 add oy 3
-    match life_present_live_cell ox y1 cell_size color:
-        Result::Ok _:
-            match life_present_live_cell x2 y1 cell_size color:
-                Result::Ok _:
-                    match life_present_live_cell x1 y2 cell_size color:
-                        Result::Ok _:
-                            match life_present_live_cell x2 y2 cell_size color:
-                                Result::Ok _:
-                                    life_present_live_cell x1 y3 cell_size color
-                                Result::Err err:
-                                    Result::Err err
-                        Result::Err err:
-                            Result::Err err
-                Result::Err err:
-                    Result::Err err
-        Result::Err err:
-            Result::Err err
-
-fn life_present_glider_phase2 %impure fn i32 impure fn i32 impure fn i32 impure fn Rgba8888 Result unit GuiError \ox\oy\cell_size\color:
-    let x1 %i32 add ox 1
-    let x2 %i32 add ox 2
-    let y1 %i32 add oy 1
-    let y2 %i32 add oy 2
-    let y3 %i32 add oy 3
-    match life_present_live_cell x2 y1 cell_size color:
-        Result::Ok _:
-            match life_present_live_cell ox y2 cell_size color:
-                Result::Ok _:
-                    match life_present_live_cell x2 y2 cell_size color:
-                        Result::Ok _:
-                            match life_present_live_cell x1 y3 cell_size color:
-                                Result::Ok _:
-                                    life_present_live_cell x2 y3 cell_size color
-                                Result::Err err:
-                                    Result::Err err
-                        Result::Err err:
-                            Result::Err err
-                Result::Err err:
-                    Result::Err err
-        Result::Err err:
-            Result::Err err
-
-fn life_present_glider_phase3 %impure fn i32 impure fn i32 impure fn i32 impure fn Rgba8888 Result unit GuiError \ox\oy\cell_size\color:
-    let x1 %i32 add ox 1
-    let x2 %i32 add ox 2
-    let x3 %i32 add ox 3
-    let y1 %i32 add oy 1
-    let y2 %i32 add oy 2
-    let y3 %i32 add oy 3
-    match life_present_live_cell x1 y1 cell_size color:
-        Result::Ok _:
-            match life_present_live_cell x2 y2 cell_size color:
-                Result::Ok _:
-                    match life_present_live_cell x3 y2 cell_size color:
-                        Result::Ok _:
-                            match life_present_live_cell x1 y3 cell_size color:
-                                Result::Ok _:
-                                    life_present_live_cell x2 y3 cell_size color
-                                Result::Err err:
-                                    Result::Err err
-                        Result::Err err:
-                            Result::Err err
-                Result::Err err:
-                    Result::Err err
-        Result::Err err:
-            Result::Err err
-
-fn life_present_glider %impure fn LifeModel impure fn i32 impure fn i32 impure fn i32 impure fn Rgba8888 Result unit GuiError \model\offset_x\offset_y\shift_bias\color:
-    let step %i32 life_model_step &model
-    let cell_size %i32 life_model_cell_size &model
-    let board_width %i32 life_board_width cell_size
-    let board_height %i32 life_board_height cell_size
-    let base_shift %i32 life_shift step
-    let shift %i32 add base_shift shift_bias
-    let ox %i32 life_glider_origin offset_x shift board_width
-    let oy %i32 life_glider_origin offset_y shift board_height
-    let phase %i32 life_phase step
-    if:
-        eq phase 0
-        then:
-            life_present_glider_phase0 ox oy cell_size color
-        else:
+fn life_present_board_cell %impure fn &LifeModel impure fn &BitSet impure fn i32 impure fn i32 Result unit GuiError \model\cells\x\y:
+    let cell_size %i32 life_model_cell_size model
+    match life_board_cell_alive cells cell_size x y:
+        Result::Ok alive:
             if:
-                eq phase 1
+                alive
                 then:
-                    life_present_glider_phase1 ox oy cell_size color
+                    life_present_live_cell x y cell_size life_live_color
                 else:
-                    if:
-                        eq phase 2
-                        then:
-                            life_present_glider_phase2 ox oy cell_size color
-                        else:
-                            life_present_glider_phase3 ox oy cell_size color
-
-fn life_present_blinker %impure fn LifeModel impure fn i32 impure fn i32 Result unit GuiError \model\ox\oy:
-    let step %i32 life_model_step &model
-    let phase %i32 rem_s step 2
-    let cell_size %i32 life_model_cell_size &model
-    let color %Rgba8888 life_live_color_alt
-    if:
-        eq phase 0
-        then:
-            let x1 %i32 add ox 1
-            let x2 %i32 add ox 2
-            match life_present_live_cell ox oy cell_size color:
-                Result::Ok _:
-                    match life_present_live_cell x1 oy cell_size color:
-                        Result::Ok _:
-                            life_present_live_cell x2 oy cell_size color
-                        Result::Err err:
-                            Result::Err err
-                Result::Err err:
-                    Result::Err err
-        else:
-            let y1 %i32 add oy 1
-            let y2 %i32 add oy 2
-            match life_present_live_cell ox oy cell_size color:
-                Result::Ok _:
-                    match life_present_live_cell ox y1 cell_size color:
-                        Result::Ok _:
-                            life_present_live_cell ox y2 cell_size color
-                        Result::Err err:
-                            Result::Err err
-                Result::Err err:
-                    Result::Err err
-
-fn life_present_patterns %impure fn LifeModel Result unit GuiError \model:
-    let color %Rgba8888 life_live_color
-    match life_present_glider model 2 2 0 color:
-        Result::Ok _:
-            match life_present_glider model 16 8 5 color:
-                Result::Ok _:
-                    match life_present_glider model 28 3 11 color:
-                        Result::Ok _:
-                            life_present_blinker model 7 14
-                        Result::Err err:
-                            Result::Err err
-                Result::Err err:
-                    Result::Err err
+                    Result::Ok unit
         Result::Err err:
             Result::Err err
+
+fn life_present_board_x_loop %impure fn &LifeModel impure fn &BitSet impure fn i32 impure fn i32 Result unit GuiError \model\cells\y\x:
+    let cell_size %i32 life_model_cell_size model
+    let width %i32 life_board_width cell_size
+    if:
+        ge x width
+        then:
+            Result::Ok unit
+        else:
+            match life_present_board_cell model cells x y:
+                Result::Ok _:
+                    let next_x %i32 add x 1
+                    life_present_board_x_loop model cells y next_x
+                Result::Err err:
+                    Result::Err err
+
+fn life_present_board_y_loop %impure fn &LifeModel impure fn &BitSet impure fn i32 Result unit GuiError \model\cells\y:
+    let cell_size %i32 life_model_cell_size model
+    let height %i32 life_board_height cell_size
+    if:
+        ge y height
+        then:
+            Result::Ok unit
+        else:
+            match life_present_board_x_loop model cells y 0:
+                Result::Ok _:
+                    let next_y %i32 add y 1
+                    life_present_board_y_loop model cells next_y
+                Result::Err err:
+                    Result::Err err
+
+fn life_present_board %impure fn &LifeModel impure fn &BitSet Result unit GuiError \model\cells:
+    life_present_board_y_loop model cells 0
 
 fn life_button_next_rect %fn void GuiRect \void:
     let y %i32 add life_board_height_px 16
@@ -441,22 +694,27 @@ fn life_present_button %impure fn GuiRect impure fn ActionId impure fn str impur
         Result::Err err:
             Result::Err err
 
-fn life_present_status %impure fn LifeModel Result unit GuiError \model:
+fn life_present_status %impure fn &LifeModel impure fn &BitSet Result unit GuiError \model\cells:
     let y %i32 add life_board_height_px 62
-    let step_origin %GuiPoint gui_point_new 70 y
-    match gui_web_stdout_text_i32 step_origin 14 GuiWebTextAlign::Center life_color_text life_model_step &model:
+    let generation_origin %GuiPoint gui_point_new 70 y
+    match gui_web_stdout_text_i32 generation_origin 14 GuiWebTextAlign::Center life_color_text life_model_generation model:
         Result::Ok _:
             let cell_origin %GuiPoint gui_point_new 170 y
-            match gui_web_stdout_text_i32 cell_origin 14 GuiWebTextAlign::Center life_color_text life_model_cell_size &model:
+            match gui_web_stdout_text_i32 cell_origin 14 GuiWebTextAlign::Center life_color_text life_model_cell_size model:
                 Result::Ok _:
-                    let width_origin %GuiPoint gui_point_new 284 y
-                    gui_web_stdout_text_i32 width_origin 14 GuiWebTextAlign::Center life_color_text life_board_width life_model_cell_size &model
+                    let live_origin %GuiPoint gui_point_new 284 y
+                    let cell_size %i32 life_model_cell_size model
+                    match life_board_live_count cells cell_size:
+                        Result::Ok live_count:
+                            gui_web_stdout_text_i32 live_origin 14 GuiWebTextAlign::Center life_color_text live_count
+                        Result::Err err:
+                            Result::Err err
                 Result::Err err:
                     Result::Err err
         Result::Err err:
             Result::Err err
 
-fn life_present_controls %impure fn LifeModel Result unit GuiError \model:
+fn life_present_controls %impure fn &LifeModel impure fn &BitSet Result unit GuiError \model\cells:
     match life_present_button life_button_next_rect life_next_action "Next" life_color_button:
         Result::Ok _:
             match life_present_button life_button_animate_rect life_animate_action "Animate" life_color_button_alt:
@@ -467,7 +725,7 @@ fn life_present_controls %impure fn LifeModel Result unit GuiError \model:
                                 Result::Ok _:
                                     match life_present_button life_button_hd_rect life_hd_action "HD" life_color_button_alt:
                                         Result::Ok _:
-                                            life_present_status model
+                                            life_present_status model cells
                                         Result::Err err:
                                             Result::Err err
                                 Result::Err err:
@@ -479,7 +737,19 @@ fn life_present_controls %impure fn LifeModel Result unit GuiError \model:
         Result::Err err:
             Result::Err err
 
-fn life_present_frame %impure fn LifeModel Result unit GuiError \model:
+fn life_timer_interval_for_model %fn &LifeModel i32 \model:
+    if:
+        life_model_animate model
+        then:
+            life_animation_interval_ms
+        else:
+            0
+
+fn life_present_timer %impure fn &LifeModel Result unit GuiError \model:
+    let interval_ms %i32 life_timer_interval_for_model model
+    gui_web_stdout_animation_timer 2 life_animation_timer_id interval_ms
+
+fn life_present_frame %impure fn &LifeModel impure fn &BitSet Result unit GuiError \model\cells:
     match gui_web_stdout_frame_begin 2 life_frame_width life_frame_height "NEPLg2 Life":
         Result::Ok _:
             let board_rect %GuiRect gui_rect_new 0 0 life_board_width_px life_board_height_px
@@ -488,11 +758,15 @@ fn life_present_frame %impure fn LifeModel Result unit GuiError \model:
                     let control_rect %GuiRect gui_rect_new 0 life_board_height_px life_board_width_px life_control_height
                     match gui_web_stdout_fill_rect control_rect life_color_grid:
                         Result::Ok _:
-                            match life_present_patterns model:
+                            match life_present_board model cells:
                                 Result::Ok _:
-                                    match life_present_controls model:
+                                    match life_present_controls model cells:
                                         Result::Ok _:
-                                            gui_web_stdout_frame_end
+                                            match life_present_timer model:
+                                                Result::Ok _:
+                                                    gui_web_stdout_frame_end
+                                                Result::Err err:
+                                                    Result::Err err
                                         Result::Err err:
                                             Result::Err err
                                 Result::Err err:
@@ -504,8 +778,22 @@ fn life_present_frame %impure fn LifeModel Result unit GuiError \model:
         Result::Err err:
             Result::Err err
 
-fn life_next_step %fn i32 i32 \step:
-    add step 1
+fn life_model_for_cell_size %fn i32 fn bool LifeModel \cell_size\animate:
+    life_model_new 0 animate cell_size
+
+fn life_model_next_generation %fn LifeModel LifeModel \model:
+    let generation %i32 life_model_generation &model
+    let animate %bool life_model_animate &model
+    let cell_size %i32 life_model_cell_size &model
+    let next_generation %i32 add generation 1
+    life_model_new next_generation animate cell_size
+
+fn life_model_toggle_animate %fn LifeModel LifeModel \model:
+    let generation %i32 life_model_generation &model
+    let animate %bool life_model_animate &model
+    let cell_size %i32 life_model_cell_size &model
+    let next_animate %bool not animate
+    life_model_new generation next_animate cell_size
 
 fn life_smaller_cell_size %fn i32 i32 \cell_size:
     if:
@@ -523,44 +811,7 @@ fn life_larger_cell_count_size %fn i32 i32 \cell_size:
         else:
             sub cell_size 8
 
-fn life_update_action %fn LifeModel fn ActionId LifeModel \model\action:
-    let step %i32 life_model_step &model
-    let animate %bool life_model_animate &model
-    let cell_size %i32 life_model_cell_size &model
-    let typed %LifeAction life_decode_action action
-    match typed:
-        LifeAction::Next:
-            let next_step %i32 life_next_step step
-            life_model_new next_step animate cell_size
-        LifeAction::Animate:
-            let next_animate %bool not animate
-            life_model_new step next_animate cell_size
-        LifeAction::ResolutionDown:
-            let next_size %i32 life_smaller_cell_size cell_size
-            life_model_new step animate next_size
-        LifeAction::ResolutionUp:
-            let next_size %i32 life_larger_cell_count_size cell_size
-            life_model_new step animate next_size
-        LifeAction::HD:
-            life_model_new step animate life_hd_cell_size
-        LifeAction::Unknown:
-            model
-
-fn life_update_event %fn LifeModel fn GuiWebEvent LifeModel \model\web_event:
-    match gui_web_event_action &web_event:
-        Option::Some action:
-            life_update_action model action
-        Option::None:
-            model
-
-fn life_animation_tick %fn LifeModel LifeModel \model:
-    let step %i32 life_model_step &model
-    let animate %bool life_model_animate &model
-    let cell_size %i32 life_model_cell_size &model
-    let next_step %i32 life_next_step step
-    life_model_new next_step animate cell_size
-
-fn life_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+fn life_has_flag_loop %impure fn i32 impure fn i32 impure fn str bool \idx\count\flag:
     if:
         ge idx count
         then:
@@ -569,87 +820,232 @@ fn life_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
             match cliarg_get idx:
                 Option::Some arg:
                     if:
-                        str_eq arg "--once"
+                        str_eq arg flag
                         then:
                             true
                         else:
                             let next_idx %i32 add idx 1
-                            life_has_once_flag_loop next_idx count
+                            life_has_flag_loop next_idx count flag
                 Option::None:
                     let next_idx %i32 add idx 1
-                    life_has_once_flag_loop next_idx count
+                    life_has_flag_loop next_idx count flag
 
 fn life_has_once_flag %impure fn void bool \void:
     let count %i32 cliarg_count
-    life_has_once_flag_loop 1 count
+    life_has_flag_loop 1 count "--once"
 
-fn life_live_count %fn void i32 \void:
-    18
+fn life_has_blinker_test_flag %impure fn void bool \void:
+    let count %i32 cliarg_count
+    life_has_flag_loop 1 count "--test-blinker-next"
 
-fn life_print_status %impure fn LifeModel unit \model:
+fn life_print_status %impure fn &LifeModel impure fn &BitSet unit \model\cells:
     print "life live cells = "
-    println_i32 life_live_count
-    print "life step = "
-    let step %i32 life_model_step &model
-    println_i32 step
+    let cell_size %i32 life_model_cell_size model
+    match life_board_live_count cells cell_size:
+        Result::Ok live_count:
+            println_i32 live_count
+        Result::Err _:
+            println "unknown"
+    print "life generation = "
+    let generation %i32 life_model_generation model
+    println_i32 generation
     print "life cell size = "
-    let cell_size %i32 life_model_cell_size &model
     println_i32 cell_size
     print "life board width = "
     let board_width %i32 life_board_width cell_size
     println_i32 board_width
 
-fn life_run_once %impure fn LifeModel unit \model:
-    match life_present_frame model:
+fn life_run_once %impure fn LifeModel impure fn BitSet unit \model\cells:
+    match life_present_frame &model &cells:
         Result::Ok _:
-            life_print_status model
+            life_print_status &model &cells
+            bitset::free cells
         Result::Err _:
             println "life gui protocol error"
+            bitset::free cells
 
-fn life_event_loop %impure fn LifeModel unit \initial_model:
+fn life_run_blinker_next_test %impure fn void unit \void:
+    let cell_size %i32 life_default_cell_size
+    match life_board_new_test_blinker cell_size:
+        Result::Ok cells0:
+            match life_board_next_generation &cells0 cell_size:
+                Result::Ok cells1:
+                    bitset::free cells0
+                    match life_check_blinker_next &cells1 cell_size:
+                        Result::Ok ok:
+                            if:
+                                ok
+                                then:
+                                    println "life board test ok"
+                                    bitset::free cells1
+                                else:
+                                    println "life board test failed"
+                                    bitset::free cells1
+                        Result::Err _:
+                            println "life board test failed"
+                            bitset::free cells1
+                Result::Err _:
+                    println "life board test failed"
+                    bitset::free cells0
+        Result::Err _:
+            println "life board test failed"
+
+fn life_event_loop %impure fn LifeModel impure fn BitSet unit \initial_model\initial_cells:
     let mut model %LifeModel initial_model
+    let mut cells %BitSet initial_cells
     let mut running %bool true
     while running:
         do:
-            let animate %bool life_model_animate &model
-            let timeout_ms %i32 if animate 250 60000
-            match gui_web_wait_event_result timeout_ms:
+            match gui_web_wait_event_result life_idle_wait_ms:
                 Result::Ok event_result:
                     match event_result:
                         Option::Some web_event:
-                            let next_model %LifeModel life_update_event model web_event
-                            match life_present_frame next_model:
-                                Result::Ok _:
-                                    set model next_model
-                                Result::Err _:
-                                    println "life gui protocol error";
-                                    set running false
+                            match gui_web_event_action &web_event:
+                                Option::Some action:
+                                    let typed %LifeAction life_decode_action action
+                                    match typed:
+                                        LifeAction::Next:
+                                            let cell_size %i32 life_model_cell_size &model
+                                            match life_board_next_generation &cells cell_size:
+                                                Result::Ok next_cells:
+                                                    bitset::free cells;
+                                                    set cells next_cells;
+                                                    set model life_model_next_generation model;
+                                                    match life_present_frame &model &cells:
+                                                        Result::Ok _:
+                                                            unit
+                                                        Result::Err _:
+                                                            println "life gui protocol error";
+                                                            set running false
+                                                Result::Err _:
+                                                    println "life update error";
+                                                    set running false
+                                        LifeAction::Animate:
+                                            set model life_model_toggle_animate model;
+                                            match life_present_frame &model &cells:
+                                                Result::Ok _:
+                                                    unit
+                                                Result::Err _:
+                                                    println "life gui protocol error";
+                                                    set running false
+                                        LifeAction::ResolutionDown:
+                                            let cur_size %i32 life_model_cell_size &model
+                                            let next_size %i32 life_smaller_cell_size cur_size
+                                            if:
+                                                eq cur_size next_size
+                                                then:
+                                                    unit
+                                                else:
+                                                    match life_board_new_seeded next_size:
+                                                        Result::Ok next_cells:
+                                                            let animate %bool life_model_animate &model
+                                                            bitset::free cells;
+                                                            set cells next_cells;
+                                                            set model life_model_for_cell_size next_size animate;
+                                                            match life_present_frame &model &cells:
+                                                                Result::Ok _:
+                                                                    unit
+                                                                Result::Err _:
+                                                                    println "life gui protocol error";
+                                                                    set running false
+                                                        Result::Err _:
+                                                            println "life board allocation failed";
+                                                            set running false
+                                        LifeAction::ResolutionUp:
+                                            let cur_size %i32 life_model_cell_size &model
+                                            let next_size %i32 life_larger_cell_count_size cur_size
+                                            if:
+                                                eq cur_size next_size
+                                                then:
+                                                    unit
+                                                else:
+                                                    match life_board_new_seeded next_size:
+                                                        Result::Ok next_cells:
+                                                            let animate %bool life_model_animate &model
+                                                            bitset::free cells;
+                                                            set cells next_cells;
+                                                            set model life_model_for_cell_size next_size animate;
+                                                            match life_present_frame &model &cells:
+                                                                Result::Ok _:
+                                                                    unit
+                                                                Result::Err _:
+                                                                    println "life gui protocol error";
+                                                                    set running false
+                                                        Result::Err _:
+                                                            println "life board allocation failed";
+                                                            set running false
+                                        LifeAction::HD:
+                                            let next_size %i32 life_hd_cell_size
+                                            match life_board_new_seeded next_size:
+                                                Result::Ok next_cells:
+                                                    let animate %bool life_model_animate &model
+                                                    bitset::free cells;
+                                                    set cells next_cells;
+                                                    set model life_model_for_cell_size next_size animate;
+                                                    match life_present_frame &model &cells:
+                                                        Result::Ok _:
+                                                            unit
+                                                        Result::Err _:
+                                                            println "life gui protocol error";
+                                                            set running false
+                                                Result::Err _:
+                                                    println "life board allocation failed";
+                                                    set running false
+                                        LifeAction::Unknown:
+                                            unit
+                                Option::None:
+                                    match gui_web_event_timer &web_event:
+                                        Option::Some timer:
+                                            let timer_id %i32 timer_event_timer_id &timer
+                                            let should_tick %bool and eq timer_id life_animation_timer_id life_model_animate &model
+                                            if:
+                                                should_tick
+                                                then:
+                                                    let cell_size %i32 life_model_cell_size &model
+                                                    match life_board_next_generation &cells cell_size:
+                                                        Result::Ok next_cells:
+                                                            bitset::free cells;
+                                                            set cells next_cells;
+                                                            set model life_model_next_generation model;
+                                                            match life_present_frame &model &cells:
+                                                                Result::Ok _:
+                                                                    unit
+                                                                Result::Err _:
+                                                                    println "life gui protocol error";
+                                                                    set running false
+                                                        Result::Err _:
+                                                            println "life update error";
+                                                            set running false
+                                                else:
+                                                    unit
+                                        Option::None:
+                                            unit
                         Option::None:
-                            if:
-                                animate
-                                then:
-                                    let next_model %LifeModel life_animation_tick model
-                                    match life_present_frame next_model:
-                                        Result::Ok _:
-                                            set model next_model
-                                        Result::Err _:
-                                            println "life gui protocol error";
-                                            set running false
-                                else:
-                                    unit
+                            unit
                 Result::Err _:
                     println "life gui input unsupported";
                     set running false
+    bitset::free cells
 
 fn main %impure fn void unit \void:
-    let model0 %LifeModel life_model_new 0 false life_default_cell_size
     if:
-        life_has_once_flag
+        life_has_blinker_test_flag
         then:
-            life_run_once model0
+            life_run_blinker_next_test
         else:
-            match life_present_frame model0:
-                Result::Ok _:
-                    life_event_loop model0
+            let model0 %LifeModel life_model_for_cell_size life_default_cell_size false
+            match life_board_new_seeded life_default_cell_size:
+                Result::Ok cells0:
+                    if:
+                        life_has_once_flag
+                        then:
+                            life_run_once model0 cells0
+                        else:
+                            match life_present_frame &model0 &cells0:
+                                Result::Ok _:
+                                    life_event_loop model0 cells0
+                                Result::Err _:
+                                    println "life gui protocol error"
+                                    bitset::free cells0
                 Result::Err _:
-                    println "life gui protocol error"
+                    println "life board allocation failed"
