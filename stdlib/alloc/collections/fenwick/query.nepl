@@ -12,6 +12,52 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
+//: ## fenwick_sum_prefix_storage
+//: 1-indexed storage から `[0, r)` の prefix sum を `Option` として[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `bit` owner は[消費/しょうひ]しません。
+//: - public API は `0 <= r <= len` を検査してからこの helper を呼びます。
+//: - traversal 中に必要な cell がすべて読めた場合は `Option::Some acc` を返します。
+//: - missing cell は storage invariant failure として `Option::None` を返し、API 層で typed `Diag` に変換します。
+//: - 現行実装は `i & -i` の lowbit で index を減らします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid Fenwick storage では O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fenwick_sum_prefix_storage_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads prefix\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing cell is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/fenwick/query" as *
+//:| #import "alloc/collections/fenwick/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bit %Vec i32 unwrap_ok fenwick_alloc_bit 5
+//:     fenwick_store_owned &bit 4 10
+//:     let total %i32 match fenwick_sum_prefix_storage &bit 4:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing %bool match fenwick_sum_prefix_storage &bit 8:
+//:         Option::Some _v:
+//:             false
+//:         Option::None:
+//:             true
+//:     fenwick_free_bit bit
+//:     let report:
+//:         test_report_new "fenwick_sum_prefix_storage_doc"
+//:         |> test_report_push assert_eq_i32 "reads prefix" 10 total
+//:         |> test_report_push assert "missing cell is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn fenwick_sum_prefix_storage %fn &Vec i32 fn i32 Option i32 \bit\r:
     let mut i %i32 r
     let mut acc %i32 0
