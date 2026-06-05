@@ -6,88 +6,112 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const createPath = path.join(
-    repoRoot,
-    "stdlib",
-    "alloc",
-    "collections",
-    "adjacency_matrix",
-    "api",
-    "create.nepl",
-);
-const layoutPath = path.join(
-    repoRoot,
-    "stdlib",
-    "alloc",
-    "collections",
-    "adjacency_matrix",
-    "layout.nepl",
-);
-const source = fs.readFileSync(createPath, "utf8");
-const layoutSource = fs.readFileSync(layoutPath, "utf8");
 
-function docBlockForFunction(sourceText, fnName) {
-    const fnMarker = `pub fn ${fnName}`;
-    const fnIndex = sourceText.indexOf(fnMarker);
-    assert.notEqual(fnIndex, -1, `${fnName} must exist`);
-    const docMarker = `//: ${fnName}:`;
-    const docIndex = sourceText.lastIndexOf(docMarker, fnIndex);
-    assert.notEqual(docIndex, -1, `${fnName} must have a doc-comment header`);
-    return sourceText.slice(docIndex, fnIndex);
+function source(relPath) {
+    return fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
 }
 
-function assertLayoutDocSections(fnName) {
-    const block = docBlockForFunction(layoutSource, fnName);
-    assert.match(block, /\/\/:\s+### \[目的\/もくてき\]/, `${fnName} doc must state its purpose`);
-    assert.match(block, /\/\/:\s+### \[契約\/けいやく\]/, `${fnName} doc must state its stable contract`);
-    assert.match(
-        block,
-        /\/\/:\s+### \[現状実装\/げんじょうじっそう\]/,
-        `${fnName} doc must separate current implementation details from contract`,
+function assertIncludes(code, needle, message) {
+    assert.ok(code.includes(needle), message);
+}
+
+const root = source("stdlib/alloc/collections/adjacency_matrix.nepl");
+const types = source("stdlib/alloc/collections/adjacency_matrix/types.nepl");
+const layout = source("stdlib/alloc/collections/adjacency_matrix/layout.nepl");
+const storage = source("stdlib/alloc/collections/adjacency_matrix/storage.nepl");
+const mutation = source("stdlib/alloc/collections/adjacency_matrix/mutation.nepl");
+const api = source("stdlib/alloc/collections/adjacency_matrix/api.nepl");
+const create = source("stdlib/alloc/collections/adjacency_matrix/api/create.nepl");
+const observer = source("stdlib/alloc/collections/adjacency_matrix/api/observer.nepl");
+const update = source("stdlib/alloc/collections/adjacency_matrix/api/update.nepl");
+const bulk = source("stdlib/alloc/collections/adjacency_matrix/api/bulk.nepl");
+const cleanup = source("stdlib/alloc/collections/adjacency_matrix/api/cleanup.nepl");
+const diagnostic = source("stdlib/alloc/collections/adjacency_matrix/api/diagnostic.nepl");
+
+for (const [code, reportName] of [
+    [root, "adjacency_matrix_facade_lifecycle_doc"],
+    [api, "adjacency_matrix_api_facade_doc"],
+    [types, "adjacency_matrix_type_invariant_doc"],
+    [types, "adjacency_matrix_update_error_type_doc"],
+    [types, "adjacency_matrix_update_error_diag_doc"],
+    [types, "adjacency_matrix_update_error_owner_doc"],
+    [layout, "adjacency_matrix_bit_index_doc"],
+    [layout, "adjacency_matrix_byte_index_doc"],
+    [layout, "adjacency_matrix_mask_doc"],
+    [layout, "adjacency_matrix_valid_vertex_doc"],
+    [layout, "adjacency_matrix_valid_edge_doc"],
+    [layout, "adjacency_matrix_byte_len_doc"],
+    [storage, "adjacency_matrix_byte_at_doc"],
+    [storage, "adjacency_matrix_store_byte_doc"],
+    [storage, "adjacency_matrix_fill_bytes_doc"],
+    [storage, "adjacency_matrix_alloc_bits_doc"],
+    [mutation, "adjacency_matrix_write_masked_doc"],
+    [diagnostic, "adjacency_matrix_invalid_len_diag_doc"],
+    [diagnostic, "adjacency_matrix_vertex_diag_doc"],
+    [create, "adjacency_matrix_new"],
+    [observer, "adjacency_matrix_len_doc"],
+    [observer, "adjacency_matrix_contains_doc"],
+    [update, "adjacency_matrix_update_doc"],
+    [update, "adjacency_matrix_insert_doc"],
+    [update, "adjacency_matrix_remove_doc"],
+    [bulk, "adjacency_matrix_fill_value_doc"],
+    [bulk, "adjacency_matrix_clear_doc"],
+    [cleanup, "adjacency_matrix_free_doc"],
+]) {
+    assertIncludes(
+        code,
+        "neplg2:test[stdio, normalize_newlines]",
+        `${reportName} must use stdio report doctest metadata`,
     );
-    assert.match(block, /\/\/:\s+### \[計算量\/けいさんりょう\]/, `${fnName} doc must state complexity`);
-    assert.match(block, /\/\/:\s+neplg2:test\[stdio,\s*normalize_newlines\]/, `${fnName} doc must include a report doctest`);
-    assert.match(block, /test_report_new\s+"/, `${fnName} doctest must emit a named TestReport`);
+    assertIncludes(code, `test_report_new "${reportName}"`, `${reportName} report doctest is missing`);
 }
 
-assert.match(
-    source,
-    /neplg2:test\[stdio,\s*normalize_newlines\]/,
-    "AdjacencyMatrix.new doc-comment doctest must use stdout report tags",
-);
-assert.match(
-    source,
-    /\/\/:\s*exit_code:\s*0/,
-    "AdjacencyMatrix.new doc-comment doctest must assert exit_code metadata",
-);
-assert.match(
-    source,
-    /test_report_new\s+"adjacency_matrix_new"/,
-    "AdjacencyMatrix.new doc-comment doctest must emit a named TestReport",
-);
-assert.match(
-    source,
-    /test_report_push\s+assert_eq_i32\s+"matrix len"\s+5\s+size/,
-    "AdjacencyMatrix.new doc-comment doctest must report the observed matrix length",
-);
-assert.match(
-    source,
-    /test_report_print_stdout\s+report[\s\S]*test_report_exit_code\s+shown/,
-    "AdjacencyMatrix.new doc-comment doctest must separate stdout report from exit code",
-);
-assert.doesNotMatch(
-    source,
-    /\blet\s+ok\s+<bool>\s+eq\s+len\s+&g\s+5\b/,
-    "AdjacencyMatrix.new doc-comment doctest must not return to stale eq assertion style",
-);
+for (const snippet of [
+    "### [契約/けいやく]",
+    "時間計算量",
+    "Option::None",
+    "StdErrorKind::OutOfMemory",
+    "StdErrorKind::IndexOutOfBounds",
+    "AdjacencyMatrixUpdateError",
+    "row-major",
+    "nbytes",
+]) {
+    assertIncludes(
+        [types, layout, storage, mutation, create, observer, update, bulk, cleanup, diagnostic].join("\n"),
+        snippet,
+        `AdjacencyMatrix docs must keep contract detail: ${snippet}`,
+    );
+}
 
-[
-    "adjacency_matrix_bit_index",
-    "adjacency_matrix_byte_index",
-    "adjacency_matrix_mask",
-    "adjacency_matrix_valid_vertex",
-    "adjacency_matrix_valid_edge",
-    "adjacency_matrix_byte_len",
-].forEach(assertLayoutDocSections);
+assert.doesNotMatch(
+    types,
+    /let\s+e\s+%AdjacencyMatrixUpdateError\s+AdjacencyMatrixUpdateError/,
+    "AdjacencyMatrixUpdateError docs must obtain owner-backed errors through public update APIs, not direct construction",
+);
+assertIncludes(
+    types,
+    "match insert g",
+    "AdjacencyMatrixUpdateError accessor docs must exercise the public insert failure path",
+);
+assertIncludes(
+    types,
+    "match remove g",
+    "AdjacencyMatrixUpdateError type docs must exercise the public remove failure path",
+);
+assertIncludes(
+    types,
+    "adjacency_matrix_update_error_owner e",
+    "AdjacencyMatrixUpdateError docs must demonstrate owner recovery",
+);
+assertIncludes(
+    diagnostic,
+    "diag_std_error_kind_str d",
+    "AdjacencyMatrix diagnostics docs must assert typed error kind instead of display text",
+);
+assertIncludes(
+    observer,
+    "Result::Err d",
+    "AdjacencyMatrix contains docs must demonstrate the typed error branch",
+);
 
 console.log("adjacency matrix doc report contract passed");

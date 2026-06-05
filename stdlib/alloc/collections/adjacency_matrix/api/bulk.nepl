@@ -16,6 +16,38 @@
 
 //: ## adjacency_matrix_fill_value
 //: [内部/ないぶ] byte storage を[指定/してい] byte で[埋/う]める
+//:
+//: ### [契約/けいやく]
+//: - `AdjacencyMatrix` owner を受け取り、同じ owner の storage 全 byte を `byte_value` で更新して返します。
+//: - `byte_value` は storage byte として扱うため、caller は 0 から 255 の範囲を渡します。
+//:
+//: ### [現状実装/げんじょうじっそう]
+//: - `nbytes` と `bits` を owner から取り出し、`adjacency_matrix_fill_bytes` へ委譲します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は O(nbytes)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_fill_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"fill makes edge visible\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let g0 %AdjacencyMatrix unwrap_ok new 3
+//:     let g1 %AdjacencyMatrix adjacency_matrix_fill_value g0 255
+//:     let present %bool unwrap_ok contains &g1 2 2
+//:     free g1
+//:     let report:
+//:         test_report_new "adjacency_matrix_fill_value_doc"
+//:         |> test_report_push assert "fill makes edge visible" present
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_fill_value %impure fn AdjacencyMatrix impure fn i32 AdjacencyMatrix \g\byte_value:
     let nbytes %i32 *field::get_ref &g "nbytes"
     let bits %&Vec u8 field::get_ref &g "bits"
@@ -25,10 +57,20 @@ pub fn adjacency_matrix_fill_value %impure fn AdjacencyMatrix impure fn i32 Adja
 //: ## clear
 //: [全/すべ]ての edge を 0 に[戻/もど]す
 //:
-//: neplg2:test
+//: ### [契約/けいやく]
+//: - 全 edge bit を 0 にし、同じ owner を返します。
+//: - vertex 数や byte 長は変えません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は O(nbytes)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_clear_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"clear removes edge\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"clear keeps len\" expected=\"4\" actual=\"4\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
@@ -38,9 +80,15 @@ pub fn adjacency_matrix_fill_value %impure fn AdjacencyMatrix impure fn i32 Adja
 //:         unwrap_ok new 4
 //:         |> insert 0 1 |> uwok
 //:         |> clear
-//:     let ok %bool unwrap_ok contains &g 0 1;
+//:     let absent %bool not unwrap_ok contains &g 0 1
+//:     let size %i32 len &g
 //:     free g
-//:     if not ok 1 0
+//:     let report:
+//:         test_report_new "adjacency_matrix_clear_doc"
+//:         |> test_report_push assert "clear removes edge" absent
+//:         |> test_report_push assert_eq_i32 "clear keeps len" 4 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn clear %impure fn AdjacencyMatrix AdjacencyMatrix \g:
     adjacency_matrix_fill_value g 0

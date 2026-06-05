@@ -5,6 +5,33 @@
 //: - `new` / `len` / `contains` / `insert` / `remove` / `clear` / `free` の public path を維持します。
 //: - 診断生成、構築、借用 observer、owner-consuming update、bulk reset、cleanup を submodule に分けます。
 //: - API facade に実装本体を戻さず、matrix storage owner を動かす操作と借用で読む操作の境界を見える形に保ちます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_api_facade_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"length\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"removed edge absent\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/types" as *
+//:| #import "alloc/collections/adjacency_matrix/api" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let g0 %AdjacencyMatrix unwrap_ok new 4
+//:     let g1 %AdjacencyMatrix unwrap_ok insert g0 1 2
+//:     let g2 %AdjacencyMatrix unwrap_ok remove g1 1 2
+//:     let size %i32 len &g2
+//:     let absent %bool not unwrap_ok contains &g2 1 2
+//:     free g2
+//:     let report:
+//:         test_report_new "adjacency_matrix_api_facade_doc"
+//:         |> test_report_push assert_eq_i32 "length" 4 size
+//:         |> test_report_push assert "removed edge absent" absent
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 

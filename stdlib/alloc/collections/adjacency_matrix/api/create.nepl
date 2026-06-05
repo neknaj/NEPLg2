@@ -18,6 +18,17 @@
 //: ## new
 //: [空/から]の[隣接行列/りんせつぎょうれつ]を[作/つく]る
 //:
+//: ### [契約/けいやく]
+//: - `nverts > 0` のとき、頂点数 `nverts`、byte 長 `ceil nverts * nverts / 8`、全 edge 0 の `AdjacencyMatrix` owner を返します。
+//: - `nverts <= 0` は `StdErrorKind::CapacityExceeded` の `Diag` として返し、trap しません。
+//: - storage allocation 失敗は `StdErrorKind::OutOfMemory` の `Diag` として返します。
+//:
+//: ### [現状実装/げんじょうじっそう]
+//: - `adjacency_matrix_byte_len` で byte 長を計算し、`adjacency_matrix_alloc_bits` で 0 初期化した `Vec u8` を確保します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量と空間計算量は O(nbytes) です。
+//:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
 //: stdout: "test_report name=\"adjacency_matrix_new\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"matrix len\" expected=\"5\" actual=\"5\" message=\"\"\n"

@@ -25,6 +25,51 @@
 //: ### [目的/もくてき]
 //: - `insert` と `remove` の共通本体です。
 //: - storage 欠損や vertex 範囲外は owner-preserving error に変換します。
+//:
+//: ### [契約/けいやく]
+//: - 成功時は edge bit を `set_edge` に従って更新した `AdjacencyMatrix` owner を返します。
+//: - `from` / `to` が範囲外、または storage byte が見つからない場合は `AdjacencyMatrixUpdateError` を返します。
+//: - 失敗時の error は元の owner と typed `Diag` を保持し、caller は `adjacency_matrix_update_error_owner` で回収できます。
+//:
+//: ### [現状実装/げんじょうじっそう]
+//: - vertex validation 後に row-major bit index、byte index、mask を計算し、`adjacency_matrix_write_masked` へ委譲します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_update_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"update writes edge\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"error returns owner\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let g0 %AdjacencyMatrix unwrap_ok new 4
+//:     let g1 %AdjacencyMatrix unwrap_ok adjacency_matrix_update g0 2 1 true
+//:     let wrote %bool unwrap_ok contains &g1 2 1
+//:     free g1
+//:     let g2 %AdjacencyMatrix unwrap_ok new 4
+//:     let recovered_len %i32:
+//:         match adjacency_matrix_update g2 4 0 true:
+//:             Result::Ok next:
+//:                 free next
+//:                 0
+//:             Result::Err e:
+//:                 let recovered %AdjacencyMatrix adjacency_matrix_update_error_owner e
+//:                 let size %i32 len &recovered
+//:                 free recovered
+//:                 size
+//:     let report:
+//:         test_report_new "adjacency_matrix_update_doc"
+//:         |> test_report_push assert "update writes edge" wrote
+//:         |> test_report_push assert_eq_i32 "error returns owner" 4 recovered_len
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure fn i32 impure fn bool Result AdjacencyMatrix AdjacencyMatrixUpdateError \g\from\to\set_edge:
     let nverts %i32 *field::get_ref &g "nverts"
     if:
@@ -55,19 +100,45 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
 //: ## insert
 //: directed edge を 1 に[設定/せってい]する
 //:
-//: neplg2:test
+//: ### [契約/けいやく]
+//: - 成功時は `from -> to` edge を 1 にした owner を返します。
+//: - 範囲外 vertex では `AdjacencyMatrixUpdateError` を返し、元 owner を失いません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_insert_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"inserted edge present\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"invalid insert kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let g %AdjacencyMatrix unwrap_ok new 4;
-//:     let g1 %AdjacencyMatrix unwrap_ok insert g 2 0;
-//:     let ok %bool unwrap_ok contains &g1 2 0;
+//:     let g %AdjacencyMatrix unwrap_ok new 4
+//:     let g1 %AdjacencyMatrix unwrap_ok insert g 2 0
+//:     let present %bool unwrap_ok contains &g1 2 0
 //:     free g1
-//:     if ok 1 0
+//:     let g2 %AdjacencyMatrix unwrap_ok new 4
+//:     let invalid_kind %str:
+//:         match insert g2 4 0:
+//:             Result::Ok next:
+//:                 free next
+//:                 "unexpected"
+//:             Result::Err e:
+//:                 let name %str diag_std_error_kind_str adjacency_matrix_update_error_diag &e
+//:                 let recovered %AdjacencyMatrix adjacency_matrix_update_error_owner e
+//:                 free recovered
+//:                 name
+//:     let report:
+//:         test_report_new "adjacency_matrix_insert_doc"
+//:         |> test_report_push assert "inserted edge present" present
+//:         |> test_report_push assert_str_eq "invalid insert kind" "IndexOutOfBounds" invalid_kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result AdjacencyMatrix AdjacencyMatrixUpdateError \g\from\to:
     adjacency_matrix_update g from to true
@@ -75,10 +146,21 @@ pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result Adja
 //: ## remove
 //: directed edge を 0 に[戻/もど]す
 //:
-//: neplg2:test
+//: ### [契約/けいやく]
+//: - 成功時は `from -> to` edge を 0 にした owner を返します。
+//: - 存在しない edge の remove は成功し、状態を 0 のまま保ちます。
+//: - 範囲外 vertex では `AdjacencyMatrixUpdateError` を返し、元 owner を失いません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_remove_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"removed edge absent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"invalid remove recovers owner\" expected=\"4\" actual=\"4\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
@@ -88,9 +170,25 @@ pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result Adja
 //:         unwrap_ok new 4
 //:         |> insert 2 0 |> uwok
 //:         |> remove 2 0 |> uwok
-//:     let ok %bool unwrap_ok contains &g 2 0;
+//:     let absent %bool not unwrap_ok contains &g 2 0
 //:     free g
-//:     if not ok 1 0
+//:     let g2 %AdjacencyMatrix unwrap_ok new 4
+//:     let recovered_len %i32:
+//:         match remove g2 0 4:
+//:             Result::Ok next:
+//:                 free next
+//:                 0
+//:             Result::Err e:
+//:                 let recovered %AdjacencyMatrix adjacency_matrix_update_error_owner e
+//:                 let size %i32 len &recovered
+//:                 free recovered
+//:                 size
+//:     let report:
+//:         test_report_new "adjacency_matrix_remove_doc"
+//:         |> test_report_push assert "removed edge absent" absent
+//:         |> test_report_push assert_eq_i32 "invalid remove recovers owner" 4 recovered_len
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn remove %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result AdjacencyMatrix AdjacencyMatrixUpdateError \g\from\to:
     adjacency_matrix_update g from to false

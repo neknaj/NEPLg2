@@ -15,6 +15,41 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
+//: ## adjacency_matrix_byte_at
+//: typed byte storage から 1 byte を[借用/しゃくよう][読/よ]みする
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]しません。
+//: - `byte_idx` が storage [範囲/はんい][外/がい]なら `Option::None` を返し、sentinel 数値へ[潰/つぶ]しません。
+//: - 戻り値の byte は `i32` に[拡張/かくちょう]して返します。時間計算量は `Vec.get` と同じ O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_byte_at_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads initialized byte\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok adjacency_matrix_alloc_bits 2 7
+//:     let observed %i32:
+//:         match adjacency_matrix_byte_at &bits 0:
+//:             Option::Some byte:
+//:                 byte
+//:             Option::None:
+//:                 0
+//:     vec::free bits
+//:     let report:
+//:         test_report_new "adjacency_matrix_byte_at_doc"
+//:         |> test_report_push assert_eq_i32 "reads initialized byte" 7 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
     match vec::get bits byte_idx:
         Option::Some byte:
@@ -23,10 +58,82 @@ pub fn adjacency_matrix_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
         Option::None:
             none
 
+//: ## adjacency_matrix_store_byte
+//: typed byte storage の 1 byte を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]せず、指定 slot だけを[更新/こうしん]します。
+//: - `byte_value` は `u8` に cast して保存します。caller は matrix storage の byte 値として妥当な値を渡します。
+//: - index validation は呼び出し側の責務です。public API では `adjacency_matrix_write_masked` / update 層を通します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_store_byte_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores byte\" expected=\"33\" actual=\"33\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok adjacency_matrix_alloc_bits 2 0
+//:     adjacency_matrix_store_byte &bits 1 33
+//:     let observed %i32:
+//:         match adjacency_matrix_byte_at &bits 1:
+//:             Option::Some byte:
+//:                 byte
+//:             Option::None:
+//:                 0
+//:     vec::free bits
+//:     let report:
+//:         test_report_new "adjacency_matrix_store_byte_doc"
+//:         |> test_report_push assert_eq_i32 "stores byte" 33 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_store_byte %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\byte_idx\byte_value:
     let byte %u8 cast byte_value
     vec::replace bits byte_idx byte
 
+//: ## adjacency_matrix_fill_bytes
+//: typed byte storage の先頭 `nbytes` byte を同じ値で[埋/う]める
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]しません。
+//: - `0 <= nbytes <= storage length` は caller の責務です。
+//: - 時間計算量は O(nbytes) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_fill_bytes_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fills byte range\" expected=\"255\" actual=\"255\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok adjacency_matrix_alloc_bits 3 0
+//:     adjacency_matrix_fill_bytes &bits 3 255
+//:     let observed %i32:
+//:         match adjacency_matrix_byte_at &bits 2:
+//:             Option::Some byte:
+//:                 byte
+//:             Option::None:
+//:                 0
+//:     vec::free bits
+//:     let report:
+//:         test_report_new "adjacency_matrix_fill_bytes_doc"
+//:         |> test_report_push assert_eq_i32 "fills byte range" 255 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\nbytes\byte_value:
     let mut i %i32 0
     while lt i nbytes:
@@ -34,6 +141,47 @@ pub fn adjacency_matrix_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i3
             adjacency_matrix_store_byte bits i byte_value
             set i add i 1
 
+//: ## adjacency_matrix_alloc_bits
+//: 初期値つきの typed byte storage を[確保/かくほ]する
+//:
+//: ### [契約/けいやく]
+//: - 成功時は長さ `nbytes` の `Vec u8` owner を返します。
+//: - 確保失敗は `Diag` の `StdErrorKind::OutOfMemory` として返し、trap や raw pointer sentinel を使いません。
+//: - 時間計算量と空間計算量は O(nbytes) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_alloc_bits_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"alloc initializes byte\" expected=\"12\" actual=\"12\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let result %Result Vec u8 Diag adjacency_matrix_alloc_bits 1 12
+//:     let observed %i32:
+//:         match result:
+//:             Result::Ok bits:
+//:                 let value %i32:
+//:                     match adjacency_matrix_byte_at &bits 0:
+//:                         Option::Some byte:
+//:                             byte
+//:                         Option::None:
+//:                             0
+//:                 vec::free bits
+//:                 value
+//:             Result::Err _d:
+//:                 0
+//:     let report:
+//:         test_report_new "adjacency_matrix_alloc_bits_doc"
+//:         |> test_report_push assert_eq_i32 "alloc initializes byte" 12 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes\byte_value:
     let byte %u8 cast byte_value
     match vec::filled nbytes byte:
