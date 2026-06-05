@@ -51222,3 +51222,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/self_host_neplg21_compiler_design.md` と `doc/neplg2/self_host_execution_plan.md` から checklist を参照し、詳細な review 入力、確認項目、指摘分類、`note.n.md` 記録形式は checklist を正とした。
 - `nodesrc/test_selfhost_zenn_review_gate_contract.js` を更新し、checklist の章、review 入力、2 軸 review、doc comment 項目、performance 項目、指摘分類、指摘別 field、行数制限禁止、source policy regression 登録確認を検査するようにした。
 - Non-blocker として、実装 slice ごとの個別 source policy で `check/expr` から HIR への逆依存禁止、`lower/hir` の source/token 再読禁止、error enum chain の完全写像、`TypedExpression` の accepted lowering 禁止をより広く固定する提案が残る。これは対象 module を触る slice で追加する。
+
+## 2026-06-05 Agent selfhost Zenn review prompt checkpoint
+
+- `selfhost/zenn-review-prompt-20260605` branch で、Zenn 方針 review checklist を実際の subagent 依頼に落とすための標準 prompt / response template を追加した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` と `AGENTS.md` の関連方針を再確認し、静的検査、`Option` / `Result` / enum diagnostic、core / host boundary、丁寧な doc comment、performance の探索範囲削減、試作段階でも技術的負債を残さない方針を template に反映した。
+- subagent review 3 件では、checklist だけでは依頼文と返答形式が agent ごとに揺れるため、標準 prompt、response field、files_read / not_reviewed、source policy 不要理由、residual risk、unexecuted verification を必須にするべきと指摘された。
+- `doc/neplg2/self_host_zenn_review_prompt.md` を追加し、対象 branch / base / head / issue / file list、Zenn URL、`AGENTS.md`、checklist、検証、既存 warning / 新規 warning、`policy/spec` と `implementation/test` の 2 軸、review_scope、decision、zenn_check、evidence_to_record、summary を標準化した。
+- prompt では `Approve` だけの短文を禁止し、`files_read`、`not_reviewed`、`zenn_check`、`residual_risk`、`unexecuted_verification` が空の場合は review 記録として扱わないことを明記した。
+- `source_policy: not-needed` でも理由を要求し、Blocker は同じ branch 内で修正、修正できない場合は原因、影響、完了条件、検証予定を持つ issue へ分離する形へ固定した。
+- `doc/neplg2/self_host_zenn_review_checklist.md` から prompt template を参照し、`nodesrc/test_selfhost_zenn_review_gate_contract.js` で prompt の必須項目と禁止事項を検査するようにした。
+- Non-blocker として、将来の実装 slice では `note.n.md` または issue 完了記録が prompt response field を満たしているかを対象 issue 単位で検査する source policy を追加する余地がある。

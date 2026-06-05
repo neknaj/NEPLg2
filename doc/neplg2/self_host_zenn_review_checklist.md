@@ -6,7 +6,7 @@
 
 この文書は、`stdlib/neplg2/` セルフホストコンパイラの各実装 slice で、Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` の方針を subagent review によって継続確認するための checklist である。
 
-`doc/neplg2/self_host_neplg21_compiler_design.md` は設計 authority、`doc/neplg2/self_host_execution_plan.md` は作業手順 authority、この文書は subagent review に渡す確認項目 authority とする。
+`doc/neplg2/self_host_neplg21_compiler_design.md` は設計 authority、`doc/neplg2/self_host_execution_plan.md` は作業手順 authority、この文書は subagent review に渡す確認項目 authority とする。subagent へ渡す標準依頼文と標準 response 形式は `doc/neplg2/self_host_zenn_review_prompt.md` を正とする。
 
 この checklist は、レビューの回数を増やすためだけの文書ではない。レビューごとに同じ観点を確認し、Blocker を同じ branch 内で修正するか、原因、影響、完了条件を持つ issue へ分離するための文書である。
 
@@ -14,6 +14,7 @@
 
 subagent review を依頼するときは、少なくとも次を渡す。
 
+- `doc/neplg2/self_host_zenn_review_prompt.md` の request template。
 - 対象 branch と対象 commit。
 - 対象 issue または実装 slice の目的。
 - Zenn 記事 URL。

@@ -14,6 +14,7 @@ function read(relPath) {
 const design = read("doc/neplg2/self_host_neplg21_compiler_design.md");
 const executionPlan = read("doc/neplg2/self_host_execution_plan.md");
 const checklist = read("doc/neplg2/self_host_zenn_review_checklist.md");
+const prompt = read("doc/neplg2/self_host_zenn_review_prompt.md");
 const docCommentPolicy = read("doc/stdlib_doc_comment_policy.md");
 
 function assertIncludes(needle, message) {
@@ -152,6 +153,8 @@ for (const needle of [
 
 for (const needle of [
     "対象 branch と対象 commit",
+    "self_host_zenn_review_prompt.md",
+    "`doc/neplg2/self_host_zenn_review_prompt.md` の request template",
     "`AGENTS.md` の関連方針",
     "今回変更した file list",
     "実行した検証、未実行の検証、既存 warning と今回差分由来の warning の区別",
@@ -193,5 +196,84 @@ assert.doesNotMatch(
     /行数制限、ファイル長制限、doc comment 長制限は source policy に入れない。[\s\S]*500 行/,
     "selfhost checklist must reject line-count limits without introducing numeric size thresholds",
 );
+
+for (const needle of [
+    "## review request template",
+    "## response の扱い",
+    "## 禁止事項",
+    "Repository:",
+    "対象 branch:",
+    "base commit:",
+    "head commit:",
+    "対象 issue / slice:",
+    "変更 file list:",
+    "変更目的:",
+    "今回 accepted にした範囲:",
+    "fail-closed に残した範囲:",
+    "Zenn policy:",
+    "https://zenn.dev/bem130/articles/1b352797de94e7",
+    "Repo policy:",
+    "AGENTS.md",
+    "Review checklist:",
+    "doc/neplg2/self_host_zenn_review_checklist.md",
+    "編集しないでレビューのみ行ってください",
+    "policy/spec と implementation/test の 2 軸",
+    "files_read",
+    "not_reviewed",
+    "行数制限、ファイル長制限、doc comment 長制限、コメント削減を理由にしないでください",
+    "source token 再読",
+    "scope lookup 再実行",
+    "cursor-only evidence loss",
+    "## review_scope",
+    "## decision",
+    "MERGE_APPROVED | BLOCKED | QUESTION",
+    "## policy/spec",
+    "## implementation/test",
+    "classification:",
+    "file/function:",
+    "finding:",
+    "root_cause:",
+    "reason:",
+    "recommended_fix:",
+    "source_policy:",
+    "source_policy_reason:",
+    "doc_issue_note:",
+    "verify:",
+    "## zenn_check",
+    "Result/Option:",
+    "enum error/display separation:",
+    "match exhaustiveness:",
+    "pure/impure boundary:",
+    "authority boundary:",
+    "owner/free:",
+    "zero-cost/performance:",
+    "prototype/fail-closed:",
+    "## evidence_to_record",
+    "## summary",
+    "blockers:",
+    "non_blockers:",
+    "questions:",
+    "approve:",
+    "residual_risk:",
+    "unexecuted_verification:",
+]) {
+    assert.ok(prompt.includes(needle), `selfhost review prompt must include ${needle}`);
+}
+
+for (const needle of [
+    "Blocker` は同じ branch 内で修正する",
+    "同じ branch 内で修正できない `Blocker` は、原因、影響、完了条件、検証予定を持つ issue へ分離する",
+    "`Question` は仕様確認として扱い、勝手な回避実装で進めない",
+    "`Approve` があっても、`files_read`、`not_reviewed`、`zenn_check`、`residual_risk`、`unexecuted_verification` が空の場合は review 記録として扱わない",
+    "`source_policy: not-needed` の場合も、`source_policy_reason` に理由を残す",
+    "Zenn 記事 URL、`AGENTS.md`、checklist、対象 branch / commit / issue を省いた依頼を出してはならない",
+    "`policy/spec` と `implementation/test` のどちらか片方だけで approve してはならない",
+    "`files_read` と `not_reviewed` を省いてはならない",
+    "`source_policy: not-needed` の理由を省いてはならない",
+    "行数制限、ファイル長制限、doc comment 長制限を review 条件にしてはならない",
+    "warning を既存か今回差分由来か分けずに扱ってはならない",
+]) {
+    assert.ok(prompt.includes(needle), `selfhost review prompt must enforce ${needle}`);
+}
 
 console.log("selfhost Zenn review gate contract passed");
