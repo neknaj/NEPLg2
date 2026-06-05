@@ -120,6 +120,18 @@ pub fn selfhost_block_body_result_input_free %impure fn SelfhostBlockBodyResultI
     selfhost_expr_prefix_list_free field::get input "prefix"
     v::free field::get input "candidates"
 
+//: selfhost_block_body_result_segment_span: body segment の head span を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - nested block body が unsupported などの error になった場合でも、diagnostic が segment head の位置を指せるようにします。
+//: - empty head は成功対象ではありませんが、defensive fallback として empty span を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Range` の場合は segment head の span です。
+//: - `Empty` の場合は unchecked empty span です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match と field 取得だけなので O(1) です。
 fn selfhost_block_body_result_segment_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
     match segment.head:
         SelfhostSyntaxRange::Range range:
@@ -127,6 +139,24 @@ fn selfhost_block_body_result_segment_span %fn SelfhostBodySegment SelfhostSourc
         SelfhostSyntaxRange::Empty:
             source_span_empty_unchecked 0 0
 
+//: selfhost_block_body_result_from_expression_segment: 単一 expression segment を reducer input owner へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` の中にある単一 `ExpressionLine` を、source-backed call reducer が受け取れる prefix list と candidate list に変換します。
+//: - prefix build と candidate collection の失敗を別 error kind へ分け、block body がなぜ使えないかを保持します。
+//:
+//: [契約/けいやく]:
+//: - prefix list 構築後に candidate collection が失敗した場合、この関数が prefix owner を解放します。
+//: - 成功時は `SelfhostBlockBodyResultInput` が prefix/candidates の owner を保持します。
+//: - この関数は expression の型検査を行いません。call reduction と expected type check は caller 側で行います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(input)`: block result expression の reducer input owner です。
+//: - `Err(PrefixBuildFailed)`: segment head から prefix list を作れませんでした。
+//: - `Err(CandidateCollectFailed)`: head の callable candidate 収集に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - head token 数を k とすると prefix build は O(k) です。candidate collection は scope/signature table の大きさに依存します。
 fn selfhost_block_body_result_from_expression_segment %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostBodySegment Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\segment:
     match selfhost_expr_prefix_list_from_syntax_range tokens segment.head:
         Result::Ok prefix:
@@ -139,6 +169,23 @@ fn selfhost_block_body_result_from_expression_segment %impure fn &Vec SelfhostTo
         Result::Err prefix_error:
             Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::PrefixBuildFailed prefix_error.span
 
+//: selfhost_block_body_result_from_single_segment: 1 segment が block result expression として使えるかを[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - block body が 1 segment だけである場合に、それが `ExpressionLine` なら reducer input へ進め、`BlockIntro` なら未対応として拒否します。
+//: - nested block を暗黙に flat prefix list へ潰さないための境界です。
+//:
+//: [契約/けいやく]:
+//: - `ExpressionLine` だけを成功候補にします。
+//: - `BlockIntro` は `NestedBlockUnsupported` として fail-closed にし、body を再帰的に式として成功扱いしません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(input)`: expression line から作った reducer input owner です。
+//: - `Err(NestedBlockUnsupported)`: segment が nested block intro でした。
+//: - その他の `Err`: expression segment の prefix/candidate 構築失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - kind 判定は O(1) です。ExpressionLine の場合の支配的コストは input 構築に従います。
 fn selfhost_block_body_result_from_single_segment %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostBodySegment Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\segment:
     match segment.kind:
         SelfhostBodySegmentKind::ExpressionLine:
@@ -146,6 +193,25 @@ fn selfhost_block_body_result_from_single_segment %impure fn &Vec SelfhostToken 
         SelfhostBodySegmentKind::BlockIntro:
             Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::NestedBlockUnsupported selfhost_block_body_result_segment_span segment
 
+//: selfhost_block_body_result_from_segment_list: body segment list を単一 block result input へ[畳/たた]む
+//:
+//: [目的/もくてき]:
+//: - nested body envelope の top-level segment 数を確認し、ちょうど 1 個の expression line だけを block result として受理します。
+//: - 空 body と複数 segment を別 error として返し、call reducer の arity error へ潰さないようにします。
+//:
+//: [契約/けいやく]:
+//: - `segments` owner は成功/失敗にかかわらずこの関数が解放します。
+//: - segment が 1 個でも、それが `BlockIntro` なら nested block unsupported として拒否します。
+//: - segment list の長さと index 取得が矛盾した場合は `InternalInvariant` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(input)`: single expression body から作った reducer input owner です。
+//: - `Err(EmptyBody)`: block body に expression がありません。
+//: - `Err(MultipleSegments)`: top-level expression が複数あります。
+//: - `Err(error)`: single segment の入力構築失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - segment 数判定は O(1) です。1 segment の場合の支配的コストは input 構築に従います。
 fn selfhost_block_body_result_from_segment_list %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostBodySegmentList impure fn SelfhostSourceSpan Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\segments\span:
     let count %i32 selfhost_body_segment_list_len &segments
     if:

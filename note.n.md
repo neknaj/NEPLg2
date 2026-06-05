@@ -1,3 +1,19 @@
+# 2026-06-06 Agent selfhost ascription/block body documentation correction checkpoint
+
+- `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:56:07+09:00 に再確認し、doc comment には目的、contract、Result / Option / enum の場合分け、計算量、典型例または実行可能な doc test、契約と現状の分離が必要であることを今回の判断基準にした。
+- subagent review では、`stdlib/neplg2/core/check/expr/ascription.nepl` の private helper が fixed slice に入っているのに section requirement から漏れており、`%T expr` の token range authority、type prefix item 収集、arena owner cleanup、typed enum error 境界が baseline に埋もれていることが Blocker として確認された。
+- `selfhost_expr_ascription_error_from_build` は未使用 helper だったため、doc comment で覆って温存せず削除した。これは Zenn 方針の「暫定の雑設計を残さない」に合わせた修正である。
+- `ascription.nepl` では type prefix item loop、range validation、tail/head token projection、resolved type tree projection の private helper に `[目的]`、`[契約]`、`[戻り値]`、`[計算量]` を追加した。source token index と prefix item index を混同しないこと、`MissingExpressionTail` / `InvalidExpressionRange` / `TypeProjectFailed` の条件、success/failure path の owner 移動を明記した。
+- 追加 subagent review では、public ascription projection の doctest が単なる `neplg2:test` marker に見え、対象 API の代表利用を説明していないこと、`TypeProjectFailed` 分岐で arena owner を誰が閉じるかが曖昧であることが Blocker として指摘された。
+- `selfhost_expr_ascription_project_reduced` / `selfhost_expr_ascription_project_head_reduced` には、tail/head range 失敗ではこの helper が arena を閉じ、type projection 失敗では `selfhost_type_project_root_into_arena` が arena を閉じる分担を明記した。
+- `selfhost_expr_ascription_project_expectation` / `selfhost_expr_ascription_project_head_expectation` の doctest は、stage1 全体の smoke API 呼び出しから、対象 API を直接呼ぶ小さい例へ置き換えた。token buffer、source text、type arena owner、syntax range を fixture として揃え、成功時の tail/head projection と owner cleanup を例示する。line-head tail の exact range assertion は `SelfhostSyntaxRangeItems` の private field に踏み込むため、この slice では public `selfhost_syntax_range_is_nonempty` に留めた。
+- `nodesrc/test_selfhost_documentation_contract.js` は `doctestUses` を追加し、代表 doctest section が対象 projection API、projection accessor、projection free API を含まない場合に fail するようにした。これは doctest marker の存在だけで通す抜け道を閉じる検査であり、行数、文字数、doc comment 長の制限ではない。
+- `block_body.nepl` と `body_line.nepl` では trailing block body result、single expression body、`%T` head detection、projected ascription reducer の helper doc を補強した。nested block を flat prefix list へ潰さないこと、block body segment list owner の解放、outer expected type と explicit ascription の衝突を call reduction error へ潰さないことを明記した。
+- `nodesrc/test_selfhost_documentation_contract.js` は fixed private helper の section requirement を追加し、さらに代表的な public ascription projection entry だけに `doctest` section requirement を追加した。no-doctest baseline は report-only のまま維持し、コメント追加を阻害する広域 gate には戻していない。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_documentation_contract.js`: pass（declarationNoDoc 304 -> 251、privateNoDoc 253 -> 200。代表 ascription entry の `doctest` section も検査）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/ascription.nepl --no-tree -o tmp/selfhost-ascription-doc-tests.json -j 1 --dist web/dist --assert-io`: pass（2/2、Node WASI ExperimentalWarning は非回帰。stage1 wrapper 版は 60s timeout することがあったため、対象 API を直接呼ぶ軽量 doctest へ置き換えた）
+
 # 2026-06-06 Agent selfhost expr argument/call_reduce documentation contract checkpoint
 
 - `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:41:36+09:00 に再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と現状説明の分離、計算量、丁寧な doc comment、試作段階でも品質を落とさない方針を今回の判断基準にした。
