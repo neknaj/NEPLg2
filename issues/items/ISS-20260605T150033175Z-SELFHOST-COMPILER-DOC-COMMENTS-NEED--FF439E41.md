@@ -54,6 +54,8 @@ The later 2026-06-06 stage0 correction expands the fixed slice to `stdlib/neplg2
 
 The stage0 review found that the first pass still missed typed failure boundary helpers and the public smoke API from fixed section checks, and that function type allocation failure cleanup was described too broadly. The corrected slice now gates the argument type mismatch fixture, ascribed argument unsupported fixture, their prefix fixture builders, and `selfhost_check_expr_stage0` itself. It also documents that parameter Vec failures are cleaned by the stage0 helper, while `selfhost_type_arena_add_function` consumes and closes the arena/parameter owners on function type allocation failure.
 
+The later 2026-06-06 stage1 correction expands the fixed slice to the stage1 value context and function value argument fixture boundary in `stdlib/neplg2/core/check/expr/stage1.nepl`. It requires the value context constructor/accessors/free path, binding-only / typed-value / function context fixtures, candidate Vec wrappers, one-argument function type fixture, function-value consumer type fixture, and `takes @add` / `takes add` segment/token fixtures to document purpose, owner/borrow contracts, Result branches, explicit `@` function value semantics, no-partial-application rejection, and complexity. Remaining stage1 reducer/run/body-line smoke gaps stay open for a later slice.
+
 ## 検証
 
 node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/run_source_policy_regressions.js --warn-only; node nodesrc/issues.js check --dir issues
