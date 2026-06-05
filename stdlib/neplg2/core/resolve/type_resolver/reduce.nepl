@@ -1,5 +1,28 @@
 #indent 4
 
+//: # type_resolver/reduce: NEPLg2.1 prefix type list の縮約
+//:
+//: [目的/もくてき]:
+//: - `%` の後ろに並ぶ flat な `SelfhostTypePrefixList` を、`SelfhostResolvedTypeTreeRoot` または先頭 1 型式の `SelfhostTypePrefixReducePrefixResult` へ変換します。
+//: - NEPLg2.1 では parser が type application の括弧で境界を確定できないため、この module が `fn void T`、`fn A T`、`Result T E`、type parameter `T` の境界を typed plan として確定します。
+//: - `SelfhostTypeReducePlan` は source spelling と primitive / function / void / named dispatch を固定し、`SelfhostTypeBoundPlan` は constructor table と type parameter environment を照合した authority boundary になります。
+//:
+//: [契約/けいやく]:
+//: - `void` は型でも値でもなく、`fn void T` の 0 引数 marker としてだけ扱います。`unit` は通常の unit 型・unit 値なので、`fn unit T` は unit 型の引数を 1 個取る function type です。
+//: - constructor-aware path は `SelfhostTypeConstructorKind::TypeConstructor` の arity に従って型引数 subtree をちょうど消費し、不足時は `SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing`、余りは whole-list entry で `TrailingItems` として返します。
+//: - type parameter と constructor の同名衝突は片方を優先せず、`SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict` として fail-closed にします。
+//: - `SelfhostTypeReduceBuildState`、`Vec SelfhostResolvedTypeNodeId`、`SelfhostTypeReducePlan`、`SelfhostTypeBoundPlan` の owner は、成功時に返却 payload へ移動し、失敗時に該当 helper が解放します。
+//:
+//: [現状/げんじょう]:
+//: - plain reducer は constructor table を持たないため、named item を未解決 `SelfhostResolvedTypeNode::Named` として保持し、projection stage が unsupported named type を fail-closed にします。
+//: - constructor / type parameter lookup は bound plan 作成時に行い、validate / build は source text や import graph を再探索しません。
+//: - runnable doctest は stable public projection API 側で固定し、この module の private helper 群は section-level source policy で owner と error contract を固定します。
+//:
+//: [計算量/けいさんりょう]:
+//: - plain validate/build は対象 type subtree の item 数を `n` として `O(n)` です。
+//: - constructor / type parameter aware path は named item ごとに constructor / parameter lookup を行うため、現在は `O(n * (c + p))` です。`c` は constructor 数、`p` は type parameter 数です。
+//: - build 中の `Vec` 追加は amortized `O(1)` で、function argument flattening と generic argument copy は対象 argument 数に比例します。
+
 #import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/math" as *
@@ -19,19 +42,71 @@
 //: [目的/もくてき]:
 //: - constructor arity に従って読んだ型引数 node id と、そこまで進んだ build state / next index を一緒に運びます。
 //: - owner を含むため、この構造は constructor-aware reducer 内部の一時 payload としてだけ使います。
+//:
+//: [契約/けいやく]:
+//: - `state` と `params` は同時に移動する owner payload です。成功 path では caller が `field::get` で取り出し、次の loop または applied node build へ移します。
+//: - この struct 自体は cleanup 関数を持たないため、失敗 path では `selfhost_type_reduce_generic_arg_build_fail` または caller が `SelfhostTypeReduceBuildState` と `Vec SelfhostResolvedTypeNodeId` を閉じます。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload をまとめるだけなので `O(1)` です。
 struct SelfhostTypeReduceGenericArgBuild:
     state %SelfhostTypeReduceBuildState
     params %Vec SelfhostResolvedTypeNodeId
     next_index %i32
 
+//: selfhost_type_reduce_generic_arg_build_new: generic argument build payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeReduceBuildState`、型引数 node id vector、次に読む index を 1 つの owner payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `state` と `params` の owner は返却される `SelfhostTypeReduceGenericArgBuild` へ移動します。
+//: - この関数は検査や allocation を行わず、caller がすでに保証した constructor arity と `next_index` を保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `state`、`params`、`next_index` を持つ `SelfhostTypeReduceGenericArgBuild` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_reduce_generic_arg_build_new %impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn i32 SelfhostTypeReduceGenericArgBuild \state\params\next_index:
     SelfhostTypeReduceGenericArgBuild state params next_index
 
+//: selfhost_type_reduce_generic_arg_build_fail: generic argument build の owner を[閉/と]じて typed error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 型引数 build 中に `GenericTypeArgumentMissing` などの `SelfhostTypeReduceErrorKind` が確定したとき、保持している owner をすべて解放して `Result::Err` に変換します。
+//:
+//: [契約/けいやく]:
+//: - `state` は `selfhost_type_reduce_build_state_free` で閉じます。
+//: - `params` は `v::free` で閉じます。
+//: - error の表示文言はこの関数では作らず、typed `SelfhostTypeReduceErrorKind` と `SelfhostSourceSpan` だけを保存します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `Result::Err SelfhostTypeReduceError` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - cleanup 対象の vector owner に比例します。error payload 作成自体は `O(1)` です。
 fn selfhost_type_reduce_generic_arg_build_fail %impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostTypeReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeReduceGenericArgBuild SelfhostTypeReduceError \state\params\kind\span:
     selfhost_type_reduce_build_state_free state
     v::free params
     Result::Err selfhost_type_reduce_error_new kind span
 
+//: selfhost_type_reduce_generic_arg_push: 型引数 node id を generic argument vector へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - constructor-aware build が 1 個の型引数 subtree を resolved node として構築したあと、その root node id を型引数 vector へ追加します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `state` と push 済み `params` を `SelfhostTypeReduceGenericArgBuild` へ移します。
+//: - `v::push` が失敗した場合は、push error が返す vector owner、`state`、既存 `params` owner を閉じ、`SelfhostTypeReduceErrorKind::OutOfMemory` を返します。
+//: - push error vector cleanup は `v::vec_push_error_vec` から回収した owner に対して行います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok`: 追加後の owner payload と `next_index` です。
+//: - `Err(OutOfMemory)`: vector 追加に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - `v::push` は amortized `O(1)` です。失敗時 cleanup は vector owner の解放に比例します。
 fn selfhost_type_reduce_generic_arg_push %impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeReduceGenericArgBuild SelfhostTypeReduceError \state\params\node_id\next_index\span:
     match v::push params node_id:
         Result::Ok next_params:
@@ -41,6 +116,23 @@ fn selfhost_type_reduce_generic_arg_push %impure fn SelfhostTypeReduceBuildState
             selfhost_type_reduce_build_state_free state
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory span
 
+//: selfhost_type_reduce_push_node_with_state: resolved node を build state に[追加/ついか]して step を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeNode::{Primitive, Named, Parameter, Applied, Function}` を node table へ追加し、その node id と次に読む prefix index を `SelfhostTypeReduceStep` として返します。
+//: - 代表的な variant は `SelfhostResolvedTypeNode::Applied` と `SelfhostResolvedTypeNode::Function` で、どちらも同じ node table owner に保存されます。
+//:
+//: [契約/けいやく]:
+//: - `state` owner は成功時に新しい `SelfhostTypeReduceStep` へ移動します。
+//: - push 失敗時は `function_args` と `type_args` を閉じ、push error の node vector owner も閉じます。`nodes` は push error payload から回収されます。
+//: - `SelfhostResolvedTypeNodeId` は追加前の node table 長から作るため、caller は同じ state を別経路へ二重に渡してはなりません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: 追加した node id と更新後 state です。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: node table の拡張に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - node 追加は amortized `O(1)` です。失敗時 cleanup は保持中 vector owner の長さに比例します。
 fn selfhost_type_reduce_push_node_with_state %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNode impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\node\span\next_index:
     let node_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_node_id_new selfhost_type_reduce_build_state_node_len &state
     let nodes %Vec SelfhostResolvedTypeNode field::get state "nodes"
@@ -55,6 +147,24 @@ fn selfhost_type_reduce_push_node_with_state %impure fn SelfhostTypeReduceBuildS
             v::free type_args
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory span
 
+//: selfhost_type_reduce_copy_applied_args: applied type argument node id を type-arg table へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - temporary `params` に集めた generic argument node id を、resolved tree 全体の `type_args` table へ順序を保ってコピーします。
+//: - `Vec SelfhostResolvedTypeNodeId` の owner を受け取り、applied type argument table へコピーした owner を返します。
+//:
+//: [契約/けいやく]:
+//: - `out` はこの関数が owner として受け取り、成功時は追加後 vector として返します。
+//: - `params` は借用で読み、ここでは解放しません。caller が成功・失敗に応じて閉じます。
+//: - `Option::None` は caller の arity / index invariant 破れなので、`StdErrorKind::IndexOutOfBounds` として fail-closed にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(out)`: `n` 個の node id を追加した vector です。
+//: - `Err(OutOfMemory)`: `v::push` が失敗しました。
+//: - `Err(IndexOutOfBounds)`: `params` の expected range が存在しませんでした。
+//:
+//: [計算量/けいさんりょう]:
+//: - コピーする argument 数を `n` として `O(n)` です。
 fn selfhost_type_reduce_copy_applied_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
     if:
         ge idx n
@@ -74,6 +184,23 @@ fn selfhost_type_reduce_copy_applied_args %impure fn Vec SelfhostResolvedTypeNod
                     v::free out
                     Result::Err StdErrorKind::IndexOutOfBounds
 
+//: selfhost_type_reduce_add_applied_named_from_params: generic type application node を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - constructor-aware reducer が集めた型引数 node id list を `SelfhostResolvedAppliedTypeArgRange` に固定し、`SelfhostResolvedTypeNode::Applied` を build state へ追加します。
+//:
+//: [契約/けいやく]:
+//: - `params` は temporary owner として受け取り、成功時は global `type_args` table へコピーした後に閉じます。
+//: - `arg_count <= 0` は arity > 0 constructor path からだけ呼ばれる契約に反するため、`SelfhostTypeReduceErrorKind::InternalInvariant` として fail-closed にします。
+//: - copy 失敗時は `nodes`、`function_args`、`params` を閉じ、`SelfhostTypeReduceErrorKind::OutOfMemory` に畳みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: `SelfhostResolvedTypeNode::Applied` を追加した step です。
+//: - `Err(InternalInvariant)`: 空の type argument list が渡されました。
+//: - `Err(OutOfMemory)`: type argument table へのコピーまたは node 追加に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 型引数数を `a` として `O(a)` です。node 追加は amortized `O(1)` です。
 fn selfhost_type_reduce_add_applied_named_from_params %impure fn SelfhostTypeReduceBuildState impure fn SelfhostNamedTypeId impure fn SelfhostSourceSpan impure fn Vec SelfhostResolvedTypeNodeId impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\nominal_id\span\params\next_index:
     let first_arg %i32 selfhost_type_reduce_build_state_type_arg_len &state
     let arg_count %i32 v::len &params
@@ -219,10 +346,18 @@ fn selfhost_type_prefix_list_validate_function_bound %fn &SelfhostTypeBoundPlan 
 //: [目的/もくてき]:
 //: - binding phase が作った `SelfhostTypeBoundPlan` だけを読み、source string や constructor table を再探索せずに type expression 境界を決めます。
 //:
-//: [場合分/ばあいわ]け:
-//: - primitive / type parameter / named type / applied named type / function type をそれぞれの subtree 消費規則で検査します。
-//: - index が範囲外なら `UnexpectedEnd` を返します。
-//: - dispatch kind が type expression として不正なら対応する typed error を返します。
+//: [契約/けいやく]:
+//: - `SelfhostTypeBoundPlan` は constructor arity と type parameter lookup 済みの authority です。この関数は source text、constructor table、type parameter environment を再探索しません。
+//: - `void` marker は型ではないため、top-level や返り値位置で読むと `SelfhostTypeReduceErrorKind::VoidAsType` へ進みます。
+//: - `fn void T` は 0 引数 function として検査し、`fn unit T` は `unit` 型の引数を 1 つ持つ function として検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_index)`: primitive / type parameter / named type / applied named type / function type subtree を 1 つ消費しました。
+//: - `Err(SelfhostTypeReduceErrorKind::UnexpectedEnd)`: index が範囲外、または function / generic argument の途中で入力が尽きました。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)`: `void` marker が型式として現れました。
+//: - `Err(SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing)`: constructor arity が要求する型引数が足りません。
+//: - `Err(SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict)`: 同じ spelling が constructor と type parameter の両方に束縛されました。
+//: - `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: function type の引数 marker / result type が不足しました。
 //:
 //: [計算量/けいさんりょう]:
 //: - 消費する subtree の item 数に対して `O(n)` です。lookup は含みません。
@@ -347,6 +482,18 @@ fn selfhost_type_prefix_list_build_bound_named %impure fn &SelfhostTypeBoundPlan
 //: [契約/けいやく]:
 //: - `state` owner は成功時に `SelfhostTypeReduceStep` へ移動します。
 //: - 失敗時は `selfhost_type_reduce_fail` 系 helper が state owner を閉じます。
+//: - caller は同じ index に対して `selfhost_type_prefix_list_validate_at_bound` を先に通してから呼びます。それでも defensive error path は owner を閉じて typed error を返します。
+//: - `SelfhostTypeBoundPlan` は constructor arity と type parameter lookup の authority であり、この関数は bound item payload だけを読みます。
+//: - `SelfhostTypeBoundPlan` の `Constructor(TypeConstructor(n))` は `SelfhostResolvedTypeNode::Applied`、`TypeParameter` は `SelfhostResolvedTypeNode::Parameter`、0 引数 function は `SelfhostResolvedFunctionArgRange::Empty` に変換します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: 構築した subtree root node id、更新後 `SelfhostTypeReduceBuildState` owner、次 index を含みます。
+//: - `Err(SelfhostTypeReduceErrorKind::UnexpectedEnd)`: index が範囲外です。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)`: `void` marker が通常型式位置に現れました。
+//: - `Err(SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing)`: applied type の型引数が不足しました。
+//: - `Err(SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict)`: constructor と type parameter が同名です。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: node table、function argument table、type argument table の拡張に失敗しました。
+//: - `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: validate 済み input と bound plan の構造が矛盾しました。
 //:
 //: [計算量/けいさんりょう]:
 //: - 構築する subtree の node 数に対して `O(n)` です。
@@ -442,6 +589,25 @@ fn selfhost_type_prefix_reduce_step_into_prefix_result %impure fn SelfhostTypeRe
     let root %SelfhostResolvedTypeTreeRoot selfhost_resolved_type_tree_root_new result_tree root_id
     selfhost_type_prefix_reduce_prefix_result_new root next_index
 
+//: selfhost_type_prefix_list_reduce_prefix_from_plan: plain plan の先頭 1 型式を prefix result へ[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_prefix_list_reduce_prefix` の validate/build 共通部分を、`SelfhostTypeReducePlan` を借用する形に分離します。
+//: - type ascription の直後に expression token が続く場合でも、先頭 type subtree の `next_index` だけを返します。
+//:
+//: [契約/けいやく]:
+//: - `plan` は借用で受け取り、この関数は解放しません。
+//: - `SelfhostTypeReducePlan` owner の解放は caller が行います。この関数は borrowed plan から `SelfhostTypePrefixReducePrefixResult` owner を作るだけです。
+//: - `selfhost_type_prefix_list_validate_at` で先頭 subtree が有効であることを確認してから build state を作ります。
+//: - `TrailingItems` は whole-list reducer の責務なので、ここでは後続 item の存在を失敗にしません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypePrefixReducePrefixResult)`: resolved root と消費済み `next_index` です。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: 初期 tree allocation に失敗しました。
+//: - その他の `Err(SelfhostTypeReduceError)`: validate/build helper が返した typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭 type subtree の item 数を `k` として `O(k)` です。
 fn selfhost_type_prefix_list_reduce_prefix_from_plan %impure fn &SelfhostTypeReducePlan Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \plan:
     match selfhost_type_prefix_list_validate_at plan 0:
         Result::Ok _validated_next:
@@ -458,6 +624,24 @@ fn selfhost_type_prefix_list_reduce_prefix_from_plan %impure fn &SelfhostTypeRed
         Result::Err e:
             Result::Err e
 
+//: selfhost_type_prefix_list_reduce_prefix_from_bound_plan: bound plan の先頭 1 型式を prefix result へ[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - constructor / type parameter lookup 済みの `SelfhostTypeBoundPlan` を使い、先頭 type subtree だけを resolved tree へ build します。
+//: - `%Result T E expr` のような ascription で、generic argument と type parameter の境界を後続 expression へ漏らさないようにします。
+//:
+//: [契約/けいやく]:
+//: - `plan` は借用で受け取り、この関数は解放しません。
+//: - `SelfhostTypeBoundPlan` owner の解放は caller が行います。この関数は borrowed bound plan から result owner を作ります。
+//: - `void` marker は `fn void T` の空 parameter list としてだけ消費し、`SelfhostResolvedTypeNode` には `void` 専用 node を作りません。
+//: - `SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing`、`SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict`、`SelfhostTypeReduceErrorKind::VoidAsType` などの fail-closed error は validate/build helper からそのまま返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypePrefixReducePrefixResult)`: resolved root と消費済み `next_index` です。
+//: - `Err(SelfhostTypeReduceError)`: bound validate/build/初期 tree allocation の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - bound plan 作成後は先頭 type subtree の item 数を `k` として `O(k)` です。
 fn selfhost_type_prefix_list_reduce_prefix_from_bound_plan %impure fn &SelfhostTypeBoundPlan Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \plan:
     match selfhost_type_prefix_list_validate_at_bound plan 0:
         Result::Ok _validated_next:
@@ -480,9 +664,25 @@ fn selfhost_type_prefix_list_reduce_prefix_from_bound_plan %impure fn &SelfhostT
 //: - `%` を除いた prefix item list を、TypeId 割当前の node tree に変換します。
 //: - `fn i32 fn i32 i32` は nonempty function 引数列として flatten し、`fn void fn unit unit` は 0 引数 function が function を返す形のまま保持します。
 //:
+//: [契約/けいやく]:
+//: - `source` と `list` は借用で読みます。返却される `SelfhostResolvedTypeTreeRoot` は caller が projection 後に解放する owner です。
+//: - この entry は constructor table を使わないため、named type は未解決 named node として残し、後続 projection が `UnsupportedNamedType` などの診断へ進めます。
+//: - 型式全体を消費する entry なので、先頭型式の後に item が残った場合は `SelfhostTypeReduceErrorKind::TrailingItems` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostResolvedTypeTreeRoot)`: flat prefix list 全体を 1 つの resolved type tree に縮約しました。
+//: - `Err(SelfhostTypeReduceErrorKind::EmptyInput)`: list が空です。
+//: - `Err(SelfhostTypeReduceErrorKind::TrailingItems)`: 1 つの型式を縮約した後に余分な item が残りました。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)`: `void` marker が `fn` の第 1 引数位置以外で使われました。
+//: - `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: function type の構成要素が不足しました。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)` / `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: build state owner の構築または defensive invariant に失敗しました。
+//:
 //: [注意/ちゅうい]:
 //: - `void` は型ではないため、top-level や戻り値位置に現れた場合は `VoidAsType` を返します。
 //: - primitive 判定は token に文字列を保存せず、source text と item span から必要な境界でだけ lexeme を切り出します。
+//:
+//: [計算量/けいさんりょう]:
+//: - prefix item 数を `n`、primitive 判定に使う span 長合計を `s` として `O(n + s)` です。constructor lookup は行いません。
 pub fn selfhost_type_prefix_list_reduce %impure fn str impure fn &SelfhostTypePrefixList Result SelfhostResolvedTypeTreeRoot SelfhostTypeReduceError \source\list:
     let n %i32 selfhost_type_prefix_list_len list
     if:
@@ -536,6 +736,14 @@ pub fn selfhost_type_prefix_list_reduce %impure fn str impure fn &SelfhostTypePr
 //: [契約/けいやく]:
 //: - `TrailingItems` は返しません。先頭 1 型式を読めれば、後続 item は expression 側へ残します。
 //: - `next_index` は `%` を除いた type prefix list 内の消費済み item 数です。
+//: - `root` owner は caller が projection 後に `selfhost_type_prefix_reduce_prefix_result_free` で閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypePrefixReducePrefixResult)`: 先頭型式の resolved tree owner と次 index です。
+//: - `Err(SelfhostTypeReduceErrorKind::EmptyInput)`: list が空です。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)`: `void` marker が通常型式として現れました。
+//: - `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: function type が途中で終わりました。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)` / `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: resolved tree owner の構築に失敗しました。
 //:
 //: [計算量/けいさんりょう]:
 //: - 先頭型式の subtree item 数を k とすると、validate と build は `O(k)` です。後続 expression token の数には比例しません。
@@ -562,8 +770,24 @@ pub fn selfhost_type_prefix_list_reduce_prefix %impure fn str impure fn &Selfhos
 //:
 //: [契約/けいやく]:
 //: - constructor table に存在する arity > 0 の named type は、直後から arity 個の型式を再帰的に消費します。
+//: - `SelfhostTypeConstructorTable` が named type の arity authority です。
 //: - 型引数が不足した場合は `GenericTypeArgumentMissing` を返します。
 //: - constructor table に存在しない named type は旧 reducer と同じ未解決 named type として保持します。
+//: - `SelfhostTypeReducePlan` は bound plan 作成後すぐに解放し、`SelfhostTypeBoundPlan` は validate/build の完了後に `selfhost_type_bound_plan_free` で必ず解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostResolvedTypeTreeRoot)`: list 全体を constructor-aware resolved tree owner へ縮約しました。
+//: - `Err(SelfhostTypeReduceErrorKind::EmptyInput)`: list が空です。
+//: - `Err(SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing)`: constructor arity に対して型引数が不足しました。
+//: - `Err(SelfhostTypeReduceErrorKind::TrailingItems)`: 1 型式の後に余分な item が残りました。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: prefix type grammar に違反しました。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)` / `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: bound plan または resolved tree owner の構築に失敗しました。
+//:
+//: [現状/げんじょう]:
+//: - constructor lookup は `SelfhostTypeConstructorTable` の線形検索です。将来は public signature table の stable index で高速化できます。
+//:
+//: [計算量/けいさんりょう]:
+//: - prefix item 数を `n`、constructor 数を `c` として、bound plan 作成は `O(n * c)`、validate/build は subtree item 数に比例します。
 pub fn selfhost_type_prefix_list_reduce_with_constructors %impure fn str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypePrefixList Result SelfhostResolvedTypeTreeRoot SelfhostTypeReduceError \source\constructors\list:
     let n %i32 selfhost_type_prefix_list_len list
     if:
@@ -620,8 +844,23 @@ pub fn selfhost_type_prefix_list_reduce_with_constructors %impure fn str impure 
 //: - `%Result i32 str expr` のような generic type ascription で、constructor arity に基づき `Result i32 str` だけを型式として消費します。
 //: - 後続 expression の先頭を `next_index` で返し、`Result i32` のような不足は `GenericTypeArgumentMissing` として fail-closed にします。
 //:
+//: [契約/けいやく]:
+//: - `TrailingItems` は返さず、先頭 1 型式だけを縮約します。
+//: - `SelfhostTypeConstructorTable` が named type の arity authority です。
+//: - `SelfhostTypeBoundPlan` は prefix result を作った直後に解放します。返却される `root` owner は caller が解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypePrefixReducePrefixResult)`: constructor-aware な先頭型式と次 index です。
+//: - `Err(SelfhostTypeReduceErrorKind::EmptyInput)`: list が空です。
+//: - `Err(SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing)`: constructor arity に対して型引数が不足しました。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: prefix type grammar に違反しました。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)` / `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: owner 構築や defensive invariant に失敗しました。
+//:
+//: [現状/げんじょう]:
+//: - constructor lookup は bound plan 作成時にまとめて行い、validate/build は lookup 済み payload だけを読みます。
+//:
 //: [計算量/けいさんりょう]:
-//: - 先頭型式に含まれる named item 数 m について、bound plan 作成時に constructor lookup を行います。
+//: - 先頭型式に含まれる named item 数を `m`、constructor 数を `c` として `O(m * c)` です。
 pub fn selfhost_type_prefix_list_reduce_prefix_with_constructors %impure fn str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypePrefixList Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \source\constructors\list:
     let n %i32 selfhost_type_prefix_list_len list
     if:
@@ -650,9 +889,20 @@ pub fn selfhost_type_prefix_list_reduce_prefix_with_constructors %impure fn str 
 //: - `Result T E` のような型では、constructor table が `Result` の arity を決め、各 type argument の中で type parameter lookup を行います。
 //:
 //: [契約/けいやく]:
+//: - `SelfhostTypeConstructorTable` は named constructor arity の authority、`SelfhostTypeParameterEnv` は binder-local type parameter の authority です。
 //: - primitive type は type parameter lookup より先に primitive node へ縮約します。`unit` などの予約名は parameter environment 作成時にも拒否されます。
 //: - 同じ source spelling が constructor table と type parameter environment の両方にある場合は、曖昧なまま片方を優先せず `TypeParameterConstructorNameConflict` を返します。
 //: - constructor table に存在しない named type は、従来どおり未解決 named type として保持します。
+//: - list 全体を 1 型式として消費する entry なので、余りがあれば `SelfhostTypeReduceErrorKind::TrailingItems` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostResolvedTypeTreeRoot)`: constructor と type parameter を反映した resolved tree owner です。
+//: - `Err(SelfhostTypeReduceErrorKind::EmptyInput)`: list が空です。
+//: - `Err(SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing)`: constructor arity に対して型引数が不足しました。
+//: - `Err(SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict)`: constructor と type parameter が同名です。
+//: - `Err(SelfhostTypeReduceErrorKind::TrailingItems)`: 全体 entry で余分な item が残りました。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: prefix type grammar に違反しました。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)` / `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: bound plan または resolved tree owner の構築に失敗しました。
 //:
 //: [現状/げんじょう]:
 //: - `SelfhostTypeParameterId` は resolver-local identity です。後続の永続 artifact では binder path と signature hash に正規化する必要があります。
@@ -717,8 +967,24 @@ pub fn selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters %i
 //: - `next_index` を返すことで、ascription checker が内側 expression range を安全に切り出せるようにします。
 //:
 //: [契約/けいやく]:
+//: - `SelfhostTypeConstructorTable` は named constructor arity の authority、`SelfhostTypeParameterEnv` は binder-local type parameter の authority です。
 //: - 同名の type parameter と constructor がある場合は、全体 reducer と同じく `TypeParameterConstructorNameConflict` を返します。
 //: - この関数は型式の trailing item を検査しません。後続 token は expression checker が扱います。
+//: - 返却される `SelfhostTypePrefixReducePrefixResult` は resolved tree owner を含むため、caller が projection 後に解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypePrefixReducePrefixResult)`: constructor / type parameter を反映した先頭型式と次 index です。
+//: - `Err(SelfhostTypeReduceErrorKind::EmptyInput)`: list が空です。
+//: - `Err(SelfhostTypeReduceErrorKind::GenericTypeArgumentMissing)`: constructor arity に対して型引数が不足しました。
+//: - `Err(SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict)`: constructor と type parameter が同名です。
+//: - `Err(SelfhostTypeReduceErrorKind::VoidAsType)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)` / `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: prefix type grammar に違反しました。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)` / `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: owner 構築や defensive invariant に失敗しました。
+//:
+//: [現状/げんじょう]:
+//: - type parameter lookup は `SelfhostTypeParameterEnv` の線形検索です。将来は binder-local stable index へ置換できます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭型式の named item 数を `m`、constructor 数を `c`、type parameter 数を `p` として `O(m * (c + p))` です。
 pub fn selfhost_type_prefix_list_reduce_prefix_with_constructors_and_type_parameters %impure fn str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostTypeParameterEnv impure fn &SelfhostTypePrefixList Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError \source\constructors\type_parameters\list:
     let n %i32 selfhost_type_prefix_list_len list
     if:

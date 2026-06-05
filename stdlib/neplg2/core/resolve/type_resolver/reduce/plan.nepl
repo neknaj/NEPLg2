@@ -1,5 +1,25 @@
 #indent 4
 
+//: # type_resolver/reduce/plan: source-dependent type reduce plan
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypePrefixList` と source text から、validate/build が共有する `SelfhostTypeReducePlan` と `SelfhostTypeBoundPlan` を作ります。
+//: - primitive type name の判定、`void` marker の分類、constructor / type parameter lookup はこの phase に閉じ込め、build 層が source text や import graph を再探索しないようにします。
+//:
+//: [契約/けいやく]:
+//: - `unit` は primitive type として `SelfhostPrimitiveTypeKind::Unit` に分類します。`void` は `SelfhostTypeReduceDispatchKind::VoidMarker` であり、通常型としては `SelfhostTypeReduceErrorKind::VoidAsType` に進みます。
+//: - constructor-aware path は `SelfhostTypeConstructorTable` を、generic binder path は `SelfhostTypeParameterEnv` をこの boundary でだけ参照します。
+//: - 同じ spelling が constructor と type parameter の両方に見つかる場合は `SelfhostTypeBoundName::Conflict` に固定し、validate/build が `SelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict` へ進みます。
+//: - plan owner は `selfhost_type_reduce_plan_free`、bound plan owner は `selfhost_type_bound_plan_free` で閉じます。
+//:
+//: [現状/げんじょう]:
+//: - primitive 判定は source span を `str_slice` して固定文字列と比較します。後続の build 層は `SelfhostTypeReducePlanItem` の Copy payload だけを読みます。
+//: - constructor / type parameter lookup は線形検索です。高速化する場合も、この module の lookup boundary を保ったまま table index 化します。
+//:
+//: [計算量/けいさんりょう]:
+//: - plain plan 作成は item 数を `m` として `O(m)` です。
+//: - constructor-aware plan 作成は `O(m * c)`、type parameter-aware plan 作成は `O(m * (c + p))` です。`c` は constructor 数、`p` は type parameter 数です。
+
 #import "alloc/collections/vec" as v
 #import "alloc/string/search" as string_search
 #import "alloc/string/slice" as string_slice
@@ -15,6 +35,20 @@
 #import "../typeparam" as *
 #import "./model" as *
 
+//: selfhost_type_reduce_dispatch_kind: prefix item kind を reducer dispatch kind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - parser/tokenizer 由来の `SelfhostTypePrefixItemKind` を reducer 内部の `SelfhostTypeReduceDispatchKind` に正規化します。
+//:
+//: [契約/けいやく]:
+//: - `FunctionMarker` は function type の先頭、`SelfhostTypeReduceDispatchKind::VoidMarker` は `fn void T` の 0 引数 marker、`NamedType` は primitive または named constructor 候補です。
+//: - それ以外は `SelfhostTypeReduceDispatchKind::UnsupportedTypePrefixItem` として保持し、validate が typed error に変換します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - reducer の dispatch kind です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_reduce_dispatch_kind %fn SelfhostTypePrefixItemKind SelfhostTypeReduceDispatchKind \kind:
     match kind:
         SelfhostTypePrefixItemKind::FunctionMarker:
@@ -26,6 +60,21 @@ fn selfhost_type_reduce_dispatch_kind %fn SelfhostTypePrefixItemKind SelfhostTyp
         _:
             SelfhostTypeReduceDispatchKind::UnsupportedTypePrefixItem
 
+//: selfhost_type_reduce_primitive_from_lexeme: type name lexeme を primitive type kind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - `unit`、`bool`、`i32` などの予約 primitive type name を `SelfhostPrimitiveTypeKind` に変換します。
+//:
+//: [契約/けいやく]:
+//: - `unit` は通常の primitive type として `SelfhostPrimitiveTypeKind::Unit` を返します。
+//: - `void` は primitive type ではないため、この関数では `None` です。`VoidMarker` は prefix item kind で別管理します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(kind)`: primitive type name です。
+//: - `None`: named type / constructor / type parameter 候補です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 現在の固定 primitive 名数に対して `O(1)` です。
 fn selfhost_type_reduce_primitive_from_lexeme %fn str Option SelfhostPrimitiveTypeKind \name:
     if:
         string_search::str_eq name "unit"
@@ -79,14 +128,59 @@ fn selfhost_type_reduce_primitive_from_lexeme %fn str Option SelfhostPrimitiveTy
                                                                                 else:
                                                                                     none
 
+//: selfhost_type_reduce_primitive_from_span: source span から primitive type kind を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypePrefixItem` の span で source text を切り出し、primitive type name かどうかを判定します。
+//:
+//: [契約/けいやく]:
+//: - source text を読むのは plan phase の authority boundary です。build phase はこの関数を呼びません。
+//: - 戻り値の `SelfhostPrimitiveTypeKind` は、この span が primitive type かどうかについての typed authority です。
+//: - span の妥当性は `SelfhostTypePrefixList` 作成側の責務です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(kind)`: span が primitive type name です。
+//: - `None`: primitive ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - span の byte 長に対して slice が `O(k)`、primitive 判定は固定名数で `O(1)` です。
 fn selfhost_type_reduce_primitive_from_span %fn &str fn SelfhostSourceSpan Option SelfhostPrimitiveTypeKind \source\span:
     let source_view %str Clone::clone source
     let name %str string_slice::str_slice source_view span.start span.end
     selfhost_type_reduce_primitive_from_lexeme name
 
+//: selfhost_type_reduce_plan_item_new: reduce plan item payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - dispatch kind、span、primitive hint、分類 bool を 1 つの Copy payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - この関数は owner を持たず、source lookup も行いません。caller が分類済み payload を渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeReducePlanItem` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_reduce_plan_item_new %fn SelfhostTypeReduceDispatchKind fn SelfhostSourceSpan fn SelfhostPrimitiveTypeKind fn bool fn bool fn bool fn bool SelfhostTypeReducePlanItem \dispatch_kind\span\primitive\is_function\is_void\is_primitive\is_named:
     SelfhostTypeReducePlanItem dispatch_kind span primitive is_function is_void is_primitive is_named
 
+//: selfhost_type_reduce_plan_item_from_prefix_item: prefix item を reduce plan item へ[分類/ぶんるい]する
+//:
+//: [目的/もくてき]:
+//: - 1 個の prefix item について、function / void / primitive / named / unsupported の reducer 分類を作ります。
+//:
+//: [契約/けいやく]:
+//: - `NamedType` item は source span を読んで primitive type か named type かを分けます。
+//: - source spelling authority はこの関数で `SelfhostTypeReducePlanItem` に閉じ込めます。
+//: - `VoidMarker` は `is_void = true` の item にし、primitive や named type にはしません。
+//: - unsupported item は span と dispatch kind を保持し、validate が `SelfhostTypeReduceErrorKind::UnsupportedTypePrefixItem` へ変換します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 1 item 分の `SelfhostTypeReducePlanItem` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive 判定の source slice 長を `k` として `O(k)` です。
 fn selfhost_type_reduce_plan_item_from_prefix_item %fn &str fn SelfhostTypePrefixItem SelfhostTypeReducePlanItem \source\item:
     let span %SelfhostSourceSpan item.span
     let dispatch_kind %SelfhostTypeReduceDispatchKind selfhost_type_reduce_dispatch_kind item.kind
@@ -104,16 +198,51 @@ fn selfhost_type_reduce_plan_item_from_prefix_item %fn &str fn SelfhostTypePrefi
         _:
             selfhost_type_reduce_plan_item_new dispatch_kind span SelfhostPrimitiveTypeKind::Error false false false false
 
+//: selfhost_type_reduce_plan_new: reduce plan owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `items` owner は返却 plan へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeReducePlan` owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_plan_new %impure fn Vec SelfhostTypeReducePlanItem SelfhostTypeReducePlan \items:
     SelfhostTypeReducePlan items
 
+//: selfhost_type_reduce_plan_free: reduce plan owner を[解放/かいほう]する
+//:
+//: [契約/けいやく]:
+//: - `plan` owner を消費し、item vector を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `unit` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - item vector owner の解放に比例します。
 pub fn selfhost_type_reduce_plan_free %impure fn SelfhostTypeReducePlan unit \plan:
     v::free field::get plan "items"
 
+//: selfhost_type_reduce_plan_len: reduce plan item 数を[返/かえ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - plan item vector の長さです。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_plan_len %fn &SelfhostTypeReducePlan i32 \plan:
     let items %&Vec SelfhostTypeReducePlanItem field::get_ref plan "items"
     v::len items
 
+//: selfhost_type_reduce_plan_get: reduce plan item を index で[返/かえ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(item)`: `idx` が範囲内です。
+//: - `None`: `idx` が負または範囲外です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_plan_get %fn &SelfhostTypeReducePlan fn i32 Option SelfhostTypeReducePlanItem \plan\idx:
     let items %&Vec SelfhostTypeReducePlanItem field::get_ref plan "items"
     v::get items idx
@@ -154,6 +283,9 @@ impl Copy for SelfhostTypeBoundName:
 //: [契約/けいやく]:
 //: - `is_named == true` の item だけが `Constructor` / `TypeParameter` / `Conflict` / `Unresolved` を持ちます。
 //: - primitive は source spelling lookup を終えた後なので、constructor や type parameter より先に primitive として処理されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - Copy payload であり、access と clone は `O(1)` です。lookup 自体の計算量は bound plan 作成関数の契約に属します。
 pub struct SelfhostTypeBoundPlanItem:
     dispatch_kind %SelfhostTypeReduceDispatchKind
     span %SelfhostSourceSpan
@@ -177,6 +309,14 @@ impl Copy for SelfhostTypeBoundPlanItem:
 //: [目的/もくてき]:
 //: - prefix item 列を validate/build が共有する bound item table として保持します。
 //: - source text、constructor table、type parameter environment は binding phase でだけ参照し、後段へ探索範囲を広げません。
+//:
+//: [契約/けいやく]:
+//: - `items` owner は `selfhost_type_bound_plan_new` でこの plan へ移動し、`selfhost_type_bound_plan_free` で閉じます。
+//: - `SelfhostTypeBoundPlan` は constructor arity と type parameter 衝突判定の authority です。validate/build は同じ bound item を読むため、境界検査と node 構築の判断がずれません。
+//: - この型は source text や constructor table owner を保持しません。lookup 後の Copy payload だけを保持するため、後続 stage の依存範囲を `SelfhostTypeBoundPlanItem` vector に閉じます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 長さ取得と index access は `O(1)` です。作成時の lookup 計算量は constructor 数 `c` と type parameter 数 `p` に比例します。
 pub struct SelfhostTypeBoundPlan:
     items %Vec SelfhostTypeBoundPlanItem
 
@@ -389,6 +529,23 @@ pub fn selfhost_type_bound_plan_from_reduce_plan_with_constructors_and_type_para
         Result::Err _e:
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
 
+//: selfhost_type_reduce_plan_from_prefix_list_loop: prefix list から reduce plan item vector を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypePrefixList` の各 item を `SelfhostTypeReducePlanItem` に分類し、validate/build が共有する plan item vector を作ります。
+//:
+//: [契約/けいやく]:
+//: - `out` は owner として受け取り、成功時は追加後 vector を返します。
+//: - source text から primitive 判定を行うのはこの loop であり、build 層には source string を渡しません。
+//: - `selfhost_type_prefix_list_get` が `None` を返した場合は `out` を解放し、`SelfhostTypeReduceErrorKind::UnexpectedEnd` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(out)`: 全 item を分類した vector owner です。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: vector 追加に失敗しました。
+//: - `Err(SelfhostTypeReduceErrorKind::UnexpectedEnd)`: input list の長さと item 取得が矛盾しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - item 数を `m`、primitive 判定に使う span 長合計を `s` として `O(m + s)` です。
 fn selfhost_type_reduce_plan_from_prefix_list_loop %impure fn &str impure fn &SelfhostTypePrefixList impure fn i32 impure fn i32 impure fn Vec SelfhostTypeReducePlanItem Result Vec SelfhostTypeReducePlanItem SelfhostTypeReduceError \source\list\idx\n\out:
     if:
         ge idx n
@@ -408,6 +565,23 @@ fn selfhost_type_reduce_plan_from_prefix_list_loop %impure fn &str impure fn &Se
                     v::free out
                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
 
+//: selfhost_type_reduce_plan_from_prefix_list: prefix list 全体の reduce plan owner を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-dependent primitive / void / named classification を先に済ませ、後続 validate/build が同じ `SelfhostTypeReducePlan` を読むようにします。
+//:
+//: [契約/けいやく]:
+//: - `source` と `list` は借用で読み、owner は移動しません。
+//: - source text authority は返却される `SelfhostTypeReducePlan` の item payload に固定されます。
+//: - 成功時の plan owner は caller が `selfhost_type_reduce_plan_free` で閉じます。
+//: - allocation 失敗は `SelfhostTypeReduceErrorKind::OutOfMemory` として返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReducePlan)`: classified item vector owner です。
+//: - `Err(SelfhostTypeReduceError)`: plan item vector allocation / push / defensive index error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(m + s)` です。`m` は item 数、`s` は primitive 判定の span 長合計です。
 pub fn selfhost_type_reduce_plan_from_prefix_list %impure fn &str impure fn &SelfhostTypePrefixList Result SelfhostTypeReducePlan SelfhostTypeReduceError \source\list:
     let n %i32 selfhost_type_prefix_list_len list
     let items_result %Result Vec SelfhostTypeReducePlanItem StdErrorKind v::new
@@ -421,6 +595,23 @@ pub fn selfhost_type_reduce_plan_from_prefix_list %impure fn &str impure fn &Sel
         Result::Err _e:
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory selfhost_type_reduce_empty_span
 
+//: selfhost_type_prefix_list_validate_at: plain reduce plan の index から型式を 1 つ[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeReducePlan` の分類済み item を使い、1 個の type expression subtree がどこで終わるかを検査します。
+//:
+//: [契約/けいやく]:
+//: - primitive / named item は 1 item を消費します。
+//: - function marker は `selfhost_type_prefix_list_validate_function` が `fn void T` と `fn A T` を分けて処理します。
+//: - `void` が function argument marker 以外に出た場合は `SelfhostTypeReduceErrorKind::VoidAsType` へ変換します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_idx)`: type subtree を消費した後の index です。
+//: - `Err(SelfhostTypeReduceErrorKind::UnexpectedEnd)`: index が範囲外です。
+//: - その他の `Err(SelfhostTypeReduceError)`: dispatch kind に対応する typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 消費する subtree item 数を `n` として `O(n)` です。
 pub fn selfhost_type_prefix_list_validate_at %fn &SelfhostTypeReducePlan fn i32 Result i32 SelfhostTypeReduceError \plan\idx:
     let n %i32 selfhost_type_reduce_plan_len plan
     if:
@@ -445,6 +636,22 @@ pub fn selfhost_type_prefix_list_validate_at %fn &SelfhostTypeReducePlan fn i32 
                 Option::None:
                     Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
 
+//: selfhost_type_prefix_list_validate_function_nonvoid_arg: non-void 引数 function type を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `fn A B` の `A` を通常の type expression subtree として検査し、その直後に result type があることを確認します。
+//:
+//: [契約/けいやく]:
+//: - void marker ではない argument item だけを対象にします。
+//: - argument subtree の直後に result type がなければ `SelfhostTypeReduceErrorKind::FunctionMissingResult` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_idx)`: result subtree まで消費した後の index です。
+//: - `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: result type がありません。
+//: - その他の `Err(SelfhostTypeReduceError)`: argument/result subtree の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - argument subtree と result subtree の item 数に比例します。
 fn selfhost_type_prefix_list_validate_function_nonvoid_arg %fn &SelfhostTypeReducePlan fn i32 fn SelfhostSourceSpan Result i32 SelfhostTypeReduceError \plan\arg_idx\fn_span:
     let n %i32 selfhost_type_reduce_plan_len plan
     match selfhost_type_prefix_list_validate_at plan arg_idx:
@@ -458,6 +665,23 @@ fn selfhost_type_prefix_list_validate_function_nonvoid_arg %fn &SelfhostTypeRedu
         Result::Err e:
             Result::Err e
 
+//: selfhost_type_prefix_list_validate_function: plain reduce plan の function type を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `fn void T` と `fn A T` を区別し、function type subtree の終端 index を決めます。
+//:
+//: [契約/けいやく]:
+//: - `void` marker は `fn` の第 1 引数位置でだけ 0 引数 marker として消費します。
+//: - `unit` は `void` ではないため、`fn unit T` は unit 型の引数を 1 個取る function type として検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_idx)`: function type subtree 全体を消費しました。
+//: - `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)`: `fn` の直後に argument marker / argument type がありません。
+//: - `Err(SelfhostTypeReduceErrorKind::FunctionMissingResult)`: argument marker / argument type の後に result type がありません。
+//: - その他の `Err(SelfhostTypeReduceError)`: argument/result subtree の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - function type subtree の item 数に比例します。
 fn selfhost_type_prefix_list_validate_function %fn &SelfhostTypeReducePlan fn SelfhostSourceSpan fn i32 Result i32 SelfhostTypeReduceError \plan\fn_span\idx:
     let n %i32 selfhost_type_reduce_plan_len plan
     let arg_idx %i32 add idx 1

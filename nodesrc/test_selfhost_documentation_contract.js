@@ -10,14 +10,14 @@ const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
 const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    moduleNoDoc: 75,
-    moduleNoDoctest: 61,
-    declarationNoDoc: 111,
-    declarationNoDoctest: 1621,
-    publicNoDoc: 51,
-    publicNoDoctest: 1234,
-    privateNoDoc: 60,
-    privateNoDoctest: 387,
+    moduleNoDoc: 71,
+    moduleNoDoctest: 65,
+    declarationNoDoc: 64,
+    declarationNoDoctest: 1668,
+    publicNoDoc: 28,
+    publicNoDoctest: 1257,
+    privateNoDoc: 36,
+    privateNoDoctest: 411,
 };
 const HARD_DOC_BASELINE_KEYS = [
     "moduleNoDoc",
@@ -44,6 +44,10 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
 ];
 const REQUIRED_SCANNER_SENTINELS = [
@@ -56,6 +60,10 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
 ];
 const MODULE_DOC_SECTION_REQUIREMENTS = [
@@ -87,6 +95,56 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("fail-closed project error", /\bSelfhostTypeProjectErrorKind\b/),
             requiredPattern("current binder depth limitation", /\bbinder_depth = 0\b/),
             requiredPattern("no import graph scan", /import graph/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], {
+        requiredPatterns: [
+            requiredPattern("plain reduce plan boundary", /\bSelfhostTypeReducePlan\b/),
+            requiredPattern("bound reduce plan boundary", /\bSelfhostTypeBoundPlan\b/),
+            requiredPattern("resolved tree root output", /\bSelfhostResolvedTypeTreeRoot\b/),
+            requiredPattern("zero-argument void marker", /fn void T|void.*0 引数 marker/),
+            requiredPattern("unit remains type and value", /unit.*型.*値|unit 型.*unit 値/),
+            requiredPattern("generic argument missing error", /\bSelfhostTypeReduceErrorKind::GenericTypeArgumentMissing\b/),
+            requiredPattern("constructor type parameter conflict", /\bSelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict\b/),
+            requiredPattern("trailing items error", /\bTrailingItems\b/),
+            requiredPattern("no import graph scan", /import graph/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl", ["purpose", "contract", "current", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], {
+        requiredPatterns: [
+            requiredPattern("reduce build state owner", /\bSelfhostTypeReduceBuildState\b/),
+            requiredPattern("reduce step owner result", /\bSelfhostTypeReduceStep\b/),
+            requiredPattern("function argument range", /\bSelfhostResolvedFunctionArgRange\b/),
+            requiredPattern("empty function argument range", /\bSelfhostResolvedFunctionArgRange::Empty\b/),
+            requiredPattern("void marker is not node", /void.*型 node ではない/),
+            requiredPattern("unit remains normal type", /unit.*通常の型/),
+            requiredPattern("internal invariant or out of memory", /\bSelfhostTypeReduceErrorKind::(?:InternalInvariant|OutOfMemory)\b/),
+            requiredPattern("source text is not reread", /source text を読まず/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl", ["purpose", "contract", "current", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], {
+        requiredPatterns: [
+            requiredPattern("typed reduce error enum", /\bSelfhostTypeReduceErrorKind\b/),
+            requiredPattern("all reduce error variants", /\bEmptyInput\b[\s\S]*\bUnexpectedEnd\b[\s\S]*\bVoidAsType\b[\s\S]*\bFunctionMissingArgument\b[\s\S]*\bFunctionMissingResult\b[\s\S]*\bGenericTypeArgumentMissing\b[\s\S]*\bTypeParameterConstructorNameConflict\b[\s\S]*\bUnsupportedTypePrefixItem\b[\s\S]*\bTrailingItems\b[\s\S]*\bOutOfMemory\b[\s\S]*\bInternalInvariant\b/),
+            requiredPattern("build state owner payload", /\bSelfhostTypeReduceBuildState\b/),
+            requiredPattern("type args owner", /\btype_args\b/),
+            requiredPattern("build state cleanup helper", /\bselfhost_type_reduce_build_state_free\b/),
+            requiredPattern("reduce fail helper", /\bselfhost_type_reduce_fail\b/),
+            requiredPattern("void is not type", /void.*型ではない|VoidAsType/),
+            requiredPattern("unit remains ordinary type", /unit.*通常|unit.*型/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], {
+        requiredPatterns: [
+            requiredPattern("reduce plan owner", /\bSelfhostTypeReducePlan\b/),
+            requiredPattern("bound plan owner", /\bSelfhostTypeBoundPlan\b/),
+            requiredPattern("constructor table authority", /\bSelfhostTypeConstructorTable\b/),
+            requiredPattern("type parameter environment authority", /\bSelfhostTypeParameterEnv\b/),
+            requiredPattern("void marker classification", /\bSelfhostTypeReduceDispatchKind::VoidMarker\b/),
+            requiredPattern("void as type error", /\bSelfhostTypeReduceErrorKind::VoidAsType\b/),
+            requiredPattern("unit primitive kind", /\bSelfhostPrimitiveTypeKind::Unit\b/),
+            requiredPattern("conflict bound name", /\bSelfhostTypeBoundName::Conflict\b/),
+            requiredPattern("linear lookup current implementation", /線形検索/),
         ],
     }),
 ];
@@ -177,6 +235,282 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("constructor table public boundary", /\bSelfhostTypeConstructorTable\b/),
         requiredPattern("applied type record", /\bSelfhostTypeRecord::Applied\b/),
         requiredPattern("no full module scan", /全module探索|import graph/),
+    ]),
+    typeReduceModelRequirement("SelfhostTypeReduceErrorKind", ["purpose", "contract", "complexity", "errorVariant", "typeBoundary"], [
+        requiredPattern("empty input error", /\bEmptyInput\b/),
+        requiredPattern("unexpected end error", /\bUnexpectedEnd\b/),
+        requiredPattern("void as type error", /\bVoidAsType\b/),
+        requiredPattern("function missing argument error", /\bFunctionMissingArgument\b/),
+        requiredPattern("function missing result error", /\bFunctionMissingResult\b/),
+        requiredPattern("generic type argument missing error", /\bGenericTypeArgumentMissing\b/),
+        requiredPattern("type parameter constructor conflict error", /\bTypeParameterConstructorNameConflict\b/),
+        requiredPattern("unsupported type prefix item error", /\bUnsupportedTypePrefixItem\b/),
+        requiredPattern("trailing items error", /\bTrailingItems\b/),
+        requiredPattern("out of memory error", /\bOutOfMemory\b/),
+        requiredPattern("internal invariant error", /\bInternalInvariant\b/),
+        requiredPattern("display layer separation", /表示文言|message string/),
+    ]),
+    typeReduceModelRequirement("SelfhostTypeReduceError", ["purpose", "contract", "complexity", "errorVariant"], [
+        requiredPattern("typed error kind", /\bSelfhostTypeReduceErrorKind\b/),
+        requiredPattern("source span payload", /\bSelfhostSourceSpan\b/),
+    ]),
+    typeReduceModelRequirement("SelfhostTypeReduceBuildState", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("node owner table", /\bnodes\b/),
+        requiredPattern("function args owner table", /\bfunction_args\b/),
+        requiredPattern("type args owner table", /\btype_args\b/),
+        requiredPattern("applied arg range", /\bSelfhostResolvedAppliedTypeArgRange\b/),
+        requiredPattern("function arg range", /\bSelfhostResolvedFunctionArgRange\b/),
+        requiredPattern("build state cleanup helper", /\bselfhost_type_reduce_build_state_free\b/),
+        requiredPattern("reduce fail cleanup helper", /\bselfhost_type_reduce_fail\b/),
+    ]),
+    typeReduceModelRequirement("SelfhostTypeReduceStep", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("node id boundary", /\bSelfhostResolvedTypeNodeId\b/),
+        requiredPattern("next index boundary", /\bnext_index\b/),
+        requiredPattern("into tree owner move", /\bselfhost_type_reduce_step_into_tree\b/),
+        requiredPattern("into build state owner move", /\bselfhost_type_reduce_step_into_build_state\b/),
+    ]),
+    typeReduceModelRequirement("SelfhostTypeReducePlan", ["purpose", "contract", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("plan free owner", /\bselfhost_type_reduce_plan_free\b/),
+        requiredPattern("source text authority", /source text|source string/),
+        requiredPattern("plan item payload", /\bSelfhostTypeReducePlanItem\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_error_kind_eq", ["purpose", "contract", "returns", "complexity", "errorVariant"], [
+        requiredPattern("all variants in match", /\bEmptyInput\b[\s\S]*\bUnexpectedEnd\b[\s\S]*\bVoidAsType\b[\s\S]*\bFunctionMissingArgument\b[\s\S]*\bFunctionMissingResult\b[\s\S]*\bGenericTypeArgumentMissing\b[\s\S]*\bTypeParameterConstructorNameConflict\b[\s\S]*\bUnsupportedTypePrefixItem\b[\s\S]*\bTrailingItems\b[\s\S]*\bOutOfMemory\b[\s\S]*\bInternalInvariant\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_error_new", ["purpose", "contract", "returns", "complexity", "errorVariant"]),
+    typeReduceModelRequirement("selfhost_type_reduce_build_state_new", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("type args owner", /\btype_args\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_build_state_from_tree", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("resolved tree owner", /\bSelfhostResolvedTypeTree\b/),
+        requiredPattern("type args owner", /\btype_args\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_build_state_free", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("nodes cleanup", /\bnodes\b/),
+        requiredPattern("function args cleanup", /\bfunction_args\b/),
+        requiredPattern("type args cleanup", /\btype_args\b/),
+        requiredPattern("applied arg range", /\bSelfhostResolvedAppliedTypeArgRange\b/),
+        requiredPattern("function arg range", /\bSelfhostResolvedFunctionArgRange\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_build_state_function_arg", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("empty function arg range branch", /\bSelfhostResolvedFunctionArgRange::Empty\b/),
+        requiredPattern("range branch", /\bSelfhostResolvedFunctionArgRange::Range\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_step_into_tree", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("resolved tree owner", /\bSelfhostResolvedTypeTree\b/),
+        requiredPattern("type args owner", /\btype_args\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_step_into_build_state", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("build state owner", /\bSelfhostTypeReduceBuildState\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_prefix_reduce_prefix_result_free", ["contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("resolved tree root free", /\bselfhost_resolved_type_tree_root_free\b|\bSelfhostResolvedTypeTreeRoot\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_fail", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("build state cleanup helper", /\bselfhost_type_reduce_build_state_free\b/),
+        requiredPattern("typed reduce error kind", /\bSelfhostTypeReduceErrorKind\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_empty_span", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("empty source span", /\bsource_span_empty_unchecked\b/),
+    ]),
+    typeReduceModelRequirement("selfhost_type_reduce_dispatch_kind_error", ["purpose", "contract", "returns", "complexity", "errorVariant", "typeBoundary"], [
+        requiredPattern("void marker maps to void as type", /\bSelfhostTypeReduceDispatchKind::VoidMarker\b[\s\S]*\bSelfhostTypeReduceErrorKind::VoidAsType\b/),
+        requiredPattern("unsupported item maps to unsupported error", /\bUnsupportedTypePrefixItem\b/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_reduce_dispatch_kind", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("void marker dispatch", /\bSelfhostTypeReduceDispatchKind::VoidMarker\b/),
+        requiredPattern("unsupported dispatch", /\bSelfhostTypeReduceDispatchKind::UnsupportedTypePrefixItem\b/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_reduce_primitive_from_lexeme", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("unit primitive", /\bSelfhostPrimitiveTypeKind::Unit\b/),
+        requiredPattern("void is not primitive", /void.*primitive type ではない/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_reduce_primitive_from_span", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("source read boundary", /source text を読む/),
+        requiredPattern("primitive type kind", /\bSelfhostPrimitiveTypeKind\b/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_reduce_plan_item_from_prefix_item", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("void marker item", /\bVoidMarker\b/),
+        requiredPattern("unsupported type prefix item", /\bSelfhostTypeReduceErrorKind::UnsupportedTypePrefixItem\b|\bUnsupportedTypePrefixItem\b/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_reduce_plan_from_prefix_list_loop", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "errorVariant", "typeBoundary"], [
+        requiredPattern("source primitive authority", /source text から primitive 判定/),
+        requiredPattern("unexpected end error", /\bSelfhostTypeReduceErrorKind::UnexpectedEnd\b/),
+        requiredPattern("out of memory error", /\bSelfhostTypeReduceErrorKind::OutOfMemory\b/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_reduce_plan_from_prefix_list", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "errorVariant", "typeBoundary"], [
+        requiredPattern("reduce plan owner", /\bSelfhostTypeReducePlan\b/),
+        requiredPattern("reduce plan free", /\bselfhost_type_reduce_plan_free\b/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_prefix_list_validate_at", ["purpose", "contract", "returns", "complexity", "typeBoundary", "errorVariant"], [
+        requiredPattern("void as type error", /\bSelfhostTypeReduceErrorKind::VoidAsType\b/),
+        requiredPattern("unexpected end error", /\bSelfhostTypeReduceErrorKind::UnexpectedEnd\b/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_prefix_list_validate_function_nonvoid_arg", ["purpose", "contract", "returns", "complexity", "typeBoundary", "errorVariant"], [
+        requiredPattern("function missing result", /\bSelfhostTypeReduceErrorKind::FunctionMissingResult\b/),
+        requiredPattern("non void argument", /void marker ではない/),
+    ]),
+    typeReducePlanRequirement("selfhost_type_prefix_list_validate_function", ["purpose", "contract", "returns", "complexity", "typeBoundary", "errorVariant"], [
+        requiredPattern("void function marker", /\bfn void T\b/),
+        requiredPattern("unit argument function", /\bfn unit T\b/),
+        requiredPattern("function missing argument", /\bSelfhostTypeReduceErrorKind::FunctionMissingArgument\b/),
+        requiredPattern("function missing result", /\bSelfhostTypeReduceErrorKind::FunctionMissingResult\b/),
+    ]),
+    typeReducePlanRequirement("SelfhostTypeBoundPlanItem", ["purpose", "contract", "complexity", "typeBoundary"], [
+        requiredPattern("constructor branch", /\bConstructor\b/),
+        requiredPattern("type parameter branch", /\bTypeParameter\b/),
+        requiredPattern("conflict branch", /\bConflict\b/),
+        requiredPattern("unresolved branch", /\bUnresolved\b/),
+    ]),
+    typeReducePlanRequirement("SelfhostTypeBoundPlan", ["purpose", "contract", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("bound plan free owner", /\bselfhost_type_bound_plan_free\b/),
+        requiredPattern("bound item payload", /\bSelfhostTypeBoundPlanItem\b/),
+        requiredPattern("constructor authority", /constructor arity/),
+        requiredPattern("type parameter authority", /type parameter/),
+    ]),
+    typeReduceRequirement("SelfhostTypeReduceGenericArgBuild", ["purpose", "contract", "complexity", "ownerBoundary"], [
+        requiredPattern("reduce build state owner payload", /\bSelfhostTypeReduceBuildState\b/),
+        requiredPattern("generic arg vector owner payload", /\bVec SelfhostResolvedTypeNodeId\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_reduce_generic_arg_build_new", ["purpose", "contract", "returns", "complexity", "ownerBoundary"]),
+    typeReduceRequirement("selfhost_type_reduce_generic_arg_build_fail", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("state cleanup helper", /\bselfhost_type_reduce_build_state_free\b/),
+        requiredPattern("generic argument vector cleanup", /\bv::free\b/),
+        requiredPattern("typed reduce error kind", /\bSelfhostTypeReduceErrorKind\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_reduce_generic_arg_push", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("out of memory branch", /\bSelfhostTypeReduceErrorKind::OutOfMemory\b/),
+        requiredPattern("push error vector cleanup", /\bvec_push_error_vec\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_reduce_push_node_with_state", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("resolved node variants", /\bSelfhostResolvedTypeNode::\{Primitive, Named, Parameter, Applied, Function\}\b|\bSelfhostResolvedTypeNode::(?:Applied|Function)\b/),
+        requiredPattern("node id from table length", /\bSelfhostResolvedTypeNodeId\b/),
+        requiredPattern("out of memory branch", /\bSelfhostTypeReduceErrorKind::OutOfMemory\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_reduce_copy_applied_args", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("index out of bounds branch", /\bStdErrorKind::IndexOutOfBounds\b/),
+        requiredPattern("applied arg vector owner", /\bVec SelfhostResolvedTypeNodeId\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_reduce_add_applied_named_from_params", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("applied type arg range", /\bSelfhostResolvedAppliedTypeArgRange\b/),
+        requiredPattern("applied node variant", /\bSelfhostResolvedTypeNode::Applied\b/),
+        requiredPattern("internal invariant branch", /\bSelfhostTypeReduceErrorKind::InternalInvariant\b/),
+        requiredPattern("out of memory branch", /\bSelfhostTypeReduceErrorKind::OutOfMemory\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce_prefix_from_plan", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("plain plan borrow boundary", /\bSelfhostTypeReducePlan\b/),
+        requiredPattern("prefix reduce result", /\bSelfhostTypePrefixReducePrefixResult\b/),
+        requiredPattern("trailing items not checked", /\bTrailingItems\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce_prefix_from_bound_plan", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("bound plan borrow boundary", /\bSelfhostTypeBoundPlan\b/),
+        requiredPattern("void marker no resolved node", /void.*SelfhostResolvedTypeNode/),
+        requiredPattern("generic and conflict errors", /\bSelfhostTypeReduceErrorKind::(?:GenericTypeArgumentMissing|TypeParameterConstructorNameConflict|VoidAsType)\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_validate_at_bound", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("bound plan authority", /\bSelfhostTypeBoundPlan\b/),
+        requiredPattern("void marker error", /\bSelfhostTypeReduceErrorKind::VoidAsType\b/),
+        requiredPattern("generic missing error", /\bSelfhostTypeReduceErrorKind::GenericTypeArgumentMissing\b/),
+        requiredPattern("conflict error", /\bSelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict\b/),
+        requiredPattern("void function marker", /\bfn void T\b/),
+        requiredPattern("unit argument function", /\bfn unit T\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_build_at_bound", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("bound plan authority", /\bSelfhostTypeBoundPlan\b/),
+        requiredPattern("reduce step owner", /\bSelfhostTypeReduceStep\b/),
+        requiredPattern("applied node", /\bSelfhostResolvedTypeNode::Applied\b/),
+        requiredPattern("parameter node", /\bSelfhostResolvedTypeNode::Parameter\b/),
+        requiredPattern("empty function arg range", /\bSelfhostResolvedFunctionArgRange::Empty\b/),
+        requiredPattern("out of memory error", /\bSelfhostTypeReduceErrorKind::OutOfMemory\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("resolved root owner", /\bSelfhostResolvedTypeTreeRoot\b/),
+        requiredPattern("trailing items error", /\bSelfhostTypeReduceErrorKind::TrailingItems\b/),
+        requiredPattern("empty input error", /\bSelfhostTypeReduceErrorKind::EmptyInput\b/),
+        requiredPattern("void as type error", /\bSelfhostTypeReduceErrorKind::VoidAsType\b/),
+        requiredPattern("no constructor lookup", /constructor lookup は行いません/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce_prefix", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("prefix result owner", /\bSelfhostTypePrefixReducePrefixResult\b/),
+        requiredPattern("prefix result free", /\bselfhost_type_prefix_reduce_prefix_result_free\b/),
+        requiredPattern("trailing items not returned", /\bTrailingItems\b/),
+        requiredPattern("next index boundary", /\bnext_index\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce_with_constructors", ["purpose", "contract", "current", "returns", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("constructor table boundary", /\bSelfhostTypeConstructorTable\b/),
+        requiredPattern("bound plan owner free", /\bselfhost_type_bound_plan_free\b/),
+        requiredPattern("generic argument missing", /\bSelfhostTypeReduceErrorKind::GenericTypeArgumentMissing\b/),
+        requiredPattern("linear constructor lookup", /線形検索/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce_prefix_with_constructors", ["purpose", "contract", "current", "returns", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("constructor table boundary", /\bSelfhostTypeConstructorTable\b/),
+        requiredPattern("prefix result owner", /\bSelfhostTypePrefixReducePrefixResult\b/),
+        requiredPattern("generic argument missing", /\bSelfhostTypeReduceErrorKind::GenericTypeArgumentMissing\b/),
+        requiredPattern("trailing items not returned", /\bTrailingItems\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce_with_constructors_and_type_parameters", ["purpose", "contract", "current", "returns", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("constructor table boundary", /\bSelfhostTypeConstructorTable\b/),
+        requiredPattern("type parameter env boundary", /\bSelfhostTypeParameterEnv\b/),
+        requiredPattern("conflict error", /\bSelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict\b/),
+        requiredPattern("trailing items error", /\bSelfhostTypeReduceErrorKind::TrailingItems\b/),
+        requiredPattern("resolver local id current", /\bSelfhostTypeParameterId\b/),
+    ]),
+    typeReduceRequirement("selfhost_type_prefix_list_reduce_prefix_with_constructors_and_type_parameters", ["purpose", "contract", "current", "returns", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("constructor table boundary", /\bSelfhostTypeConstructorTable\b/),
+        requiredPattern("type parameter env boundary", /\bSelfhostTypeParameterEnv\b/),
+        requiredPattern("prefix result owner", /\bSelfhostTypePrefixReducePrefixResult\b/),
+        requiredPattern("conflict error", /\bSelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict\b/),
+        requiredPattern("linear type parameter lookup", /線形検索/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_build_state_push_node", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("build state owner", /\bSelfhostTypeReduceBuildState\b/),
+        requiredPattern("reduce step owner", /\bSelfhostTypeReduceStep\b/),
+        requiredPattern("out of memory branch", /\bSelfhostTypeReduceErrorKind::OutOfMemory\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_single_param_vec", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("single param vector", /\bVec SelfhostResolvedTypeNodeId\b/),
+        requiredPattern("push error vector cleanup", /\bvec_push_error_vec\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_append_inner_args_loop", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("inner function arg range", /inner function.*argument range|function argument range/),
+        requiredPattern("index out of bounds branch", /\bStdErrorKind::IndexOutOfBounds\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_copy_function_args", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("function arg table", /function argument table/),
+        requiredPattern("index out of bounds branch", /\bStdErrorKind::IndexOutOfBounds\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_add_function_from_params", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("function type payload", /\bSelfhostResolvedFunctionType\b/),
+        requiredPattern("function node variant", /\bSelfhostResolvedTypeNode::Function\b/),
+        requiredPattern("empty range for void function", /\bSelfhostResolvedFunctionArgRange::Empty\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_add_function_empty_params", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("zero argument function", /0 引数 function|fn void T/),
+        requiredPattern("void marker no type node", /void.*型 node ではなく/),
+        requiredPattern("out of memory branch", /\bSelfhostTypeReduceErrorKind::OutOfMemory\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_add_function_nonempty_params", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("function flattening", /flatten/),
+        requiredPattern("nested void result not flattened", /fn A fn void C|flatten せず/),
+        requiredPattern("internal invariant branch", /\bSelfhostTypeReduceErrorKind::InternalInvariant\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_reduce_atom_node_unchecked", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("primitive node", /\bSelfhostResolvedTypeNode::Primitive\b/),
+        requiredPattern("named node", /\bSelfhostResolvedTypeNode::Named\b/),
+        requiredPattern("plan authority", /\bSelfhostTypeReducePlanItem\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_prefix_list_build_at", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("plain plan input", /\bSelfhostTypeReducePlan\b/),
+        requiredPattern("validate before build", /\bselfhost_type_prefix_list_validate_at\b/),
+        requiredPattern("unexpected end error", /\bSelfhostTypeReduceErrorKind::UnexpectedEnd\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_prefix_list_build_function_nonvoid_arg", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("non-void argument", /non-void|void でない/),
+        requiredPattern("function flattening helper", /\bselfhost_type_reduce_add_function_nonempty_params\b/),
+    ]),
+    typeReduceBuildRequirement("selfhost_type_prefix_list_build_function", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("void function split", /\bfn void T\b|void.*argument subtree/),
+        requiredPattern("function missing argument", /\bSelfhostTypeReduceErrorKind::FunctionMissingArgument\b/),
     ]),
     requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentMatchErrorKind", ["purpose", "contract"]),
     requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentMatchError", ["purpose", "contract"]),
@@ -793,11 +1127,11 @@ const SECTION_PATTERNS = {
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
     doctest: /\bneplg2:test\b/,
-    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostTypeProjectErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
+    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostTypeProjectErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeReduceErrorKind(?:::[A-Za-z0-9_]+)?|StdErrorKind::[A-Za-z0-9_]+|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
     authorityBoundary: /\b(authority|typed evidence|parser-provided evidence|parser\/proof|proof layer|source spelling|source text|kind stream|message .*authority|diagnostic kind の authority|表示.*authority)\b/,
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
-    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTypeRecord(?:::)?[A-Za-z0-9_]*|SelfhostTypeArenaAlloc|SelfhostTypeArena|SelfhostTypeId|SelfhostTypeParameterBinding|SelfhostResolvedTypeNode(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeTreeRoot|SelfhostTypeConstructorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTable|SelfhostTypeProjectErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
+    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTypeRecord(?:::)?[A-Za-z0-9_]*|SelfhostTypeArenaAlloc|SelfhostTypeArena|SelfhostTypeId|SelfhostTypeParameterBinding|SelfhostTypeParameterEnv|SelfhostPrimitiveTypeKind(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeNode(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeTreeRoot|SelfhostResolvedTypeTree|SelfhostResolvedTypeNodeId|SelfhostResolvedAppliedType|SelfhostResolvedAppliedTypeArgRange|SelfhostResolvedFunctionType|SelfhostResolvedFunctionArgRange(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTable|SelfhostTypeProjectErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceDispatchKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReducePlan|SelfhostTypeReducePlanItem|SelfhostTypeBoundPlan|SelfhostTypeBoundPlanItem|SelfhostTypeReduceBuildState|SelfhostTypeReduceStep|SelfhostTypePrefixReducePrefixResult|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
     rawBoundary: /\b(SelfhostRawBackendKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemFact|SelfhostRawBackendState(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendOpenBlock|SelfhostProofObligation::RawBackendTransition|SelfhostProofEvidence::RawBackendTransition|SelfhostProofRefutation::(RawBackendTextWithoutBlock|RawBackendBlockEmpty)|selfhost_raw_backend_text_matches)\b/,
     directiveBoundary: /\b(SelfhostModuleDirectiveKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveFact|SelfhostModuleDirectiveState(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveSeenBoth|SelfhostModuleDirectiveDuplicate|SelfhostProofObligation::ModuleDirectiveTransition|SelfhostProofEvidence::ModuleDirectiveTransition|SelfhostProofRefutation::ModuleDirectiveDuplicate)\b/,
     moduleBoundary: /\b(SelfhostModuleDeclarationKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeadKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationVisibility(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeader|SelfhostModuleDeclarationFact|SelfhostModuleDeclarationHeaderIssue|SelfhostModuleItemKind(?:::)?[A-Za-z0-9_]*|SelfhostSyntaxRange(?:::)?[A-Za-z0-9_]*|SelfhostSourceSpan|SelfhostProofObligation::ModuleDeclarationHeaderAvailable|SelfhostProofEvidence::ModuleDeclarationHeaderAvailable|SelfhostProofRefutation::(ModuleDeclarationHeaderMissing|ModuleDeclarationHeaderInvalid|FactObligationMismatch)|selfhost_module_item_kind_declaration|selfhost_syntax_range_is_(?:valid|nonempty)|selfhost_syntax_range_span_is_inside|source_span_is_valid|selfhost_proof_span_contains_span)\b/,
@@ -837,6 +1171,30 @@ function typeSolverRequirement(name, sections, requiredPatterns = []) {
 
 function typeProjectRequirement(name, sections, requiredPatterns = []) {
     return requirement("stdlib/neplg2/core/resolve/type_resolver/project.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function typeReduceModelRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function typeReduceRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/resolve/type_resolver/reduce.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function typeReducePlanRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function typeReduceBuildRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl", name, sections, {
         requiredPatterns,
     });
 }

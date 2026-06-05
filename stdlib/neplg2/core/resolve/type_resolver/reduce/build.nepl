@@ -1,5 +1,27 @@
 #indent 4
 
+//: # type_resolver/reduce/build: resolved type tree build helper
+//:
+//: [目的/もくてき]:
+//: - validate 済みの `SelfhostTypeReducePlan` から `SelfhostResolvedTypeTree` の node table と argument table を構築します。
+//: - plain reducer 用の build 層であり、constructor / type parameter の authority は上位の bound plan 側にあります。この module は plan item の dispatch payload と `SelfhostTypeReduceBuildState` owner だけを消費します。
+//: - `fn void T` は `SelfhostResolvedFunctionArgRange::Empty`、`fn A fn B C` は multi-argument function type として flatten し、`fn A fn void C` は result が 0 引数 function である nested function type として保持します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeReduceBuildState` は node table、function argument table、type argument table の owner をまとめます。成功時は `SelfhostTypeReduceStep` へ移動し、失敗時は `selfhost_type_reduce_fail` またはこの module の cleanup path が閉じます。
+//: - `void` marker は型 node ではないため、通常 node builder には渡しません。`unit` は通常の型として `SelfhostResolvedTypeNode::Named` または projection 後の unit type record へ進みます。
+//: - `StdErrorKind::IndexOutOfBounds` は validate 済み input では到達しない internal invariant であり、public `SelfhostTypeReduceErrorKind::InternalInvariant` または `OutOfMemory` に畳んで返します。
+//:
+//: [現状/げんじょう]:
+//: - この module は source text を読まず、primitive / named / function / void の判定は `SelfhostTypeReducePlanItem` に保存された payload を信頼します。
+//: - generic application の build は `../reduce.nepl` の bound-plan path が担当し、この plain build helper は function flattening と atom node build に集中します。
+//: - runnable doctest は public reducer entry 側で固定し、この module の private helper 群は documentation contract で owner/error/complexity を検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - build 対象 subtree の item 数を `n` として基本は `O(n)` です。
+//: - function flattening は nested function argument 数をコピーするため、flatten 対象 argument 数に比例します。
+//: - node / argument table への `Vec` 追加は amortized `O(1)` です。
+
 #import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/math" as *
@@ -11,6 +33,22 @@
 #import "./model" as *
 #import "./plan" as *
 
+//: selfhost_type_reduce_build_state_push_node: build state に resolved node を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeNode` を node table に追加し、追加された `SelfhostResolvedTypeNodeId` と更新後 state を `SelfhostTypeReduceStep` として返します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeReduceBuildState` owner は成功時に `SelfhostTypeReduceStep` へ移ります。
+//: - node table への `v::push` が失敗した場合、push error payload の node vector と、既に取り出した `function_args` / `type_args` owner を閉じます。
+//: - `node_id` は追加前の node table 長から作るため、この関数へ渡した state を caller が再利用してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: node id、更新後 state、次 index を含みます。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: node table の拡張に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 追加は amortized `O(1)` です。失敗時 cleanup は保持中 vector owner の長さに比例します。
 fn selfhost_type_reduce_build_state_push_node %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNode impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\node\span\next_index:
     let node_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_node_id_new selfhost_type_reduce_build_state_node_len &state
     let nodes %Vec SelfhostResolvedTypeNode field::get state "nodes"
@@ -25,6 +63,21 @@ fn selfhost_type_reduce_build_state_push_node %impure fn SelfhostTypeReduceBuild
             v::free type_args
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory span
 
+//: selfhost_type_reduce_single_param_vec: 1 個の function argument id を持つ vector を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - non-void function type の先頭 argument を、function argument table へコピーする前の temporary vector に入れます。
+//:
+//: [契約/けいやく]:
+//: - 成功時は caller が owner となる `Vec SelfhostResolvedTypeNodeId` を返します。
+//: - `v::push` 失敗時は `v::vec_push_error_vec` から回収した push error vector owner を閉じ、`StdErrorKind` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(params)`: `param` だけを含む vector です。
+//: - `Err(StdErrorKind::OutOfMemory)`: vector 確保または追加に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_reduce_single_param_vec %impure fn SelfhostResolvedTypeNodeId Result Vec SelfhostResolvedTypeNodeId StdErrorKind \param:
     let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
     match params_result:
@@ -39,6 +92,23 @@ fn selfhost_type_reduce_single_param_vec %impure fn SelfhostResolvedTypeNodeId R
         Result::Err e:
             Result::Err e
 
+//: selfhost_type_reduce_append_inner_args_loop: nested function の argument id を temporary vector へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `fn A fn B C` のような型を multi-argument function type として扱うため、inner function node が持つ argument range を outer temporary vector へ追加します。
+//:
+//: [契約/けいやく]:
+//: - `params` は owner として受け取り、成功時は追加後 vector を返します。
+//: - `state` は借用で読み、解放しません。
+//: - inner function の `SelfhostResolvedFunctionArgRange` が欠けている場合は validate/build invariant の破れなので、`params` を閉じて `StdErrorKind::IndexOutOfBounds` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(params)`: inner argument をすべて追加した vector です。
+//: - `Err(StdErrorKind::OutOfMemory)`: vector 追加に失敗しました。
+//: - `Err(StdErrorKind::IndexOutOfBounds)`: inner function argument range が壊れていました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 追加する inner argument 数を `n` として `O(n)` です。
 fn selfhost_type_reduce_append_inner_args_loop %impure fn Vec SelfhostResolvedTypeNodeId impure fn &SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \params\state\inner\idx\n:
     if:
         ge idx n
@@ -58,6 +128,23 @@ fn selfhost_type_reduce_append_inner_args_loop %impure fn Vec SelfhostResolvedTy
                     v::free params
                     Result::Err StdErrorKind::IndexOutOfBounds
 
+//: selfhost_type_reduce_copy_function_args: temporary parameter vector を function argument table へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - function node が参照する argument range を作るため、temporary `params` の node id を build state の `function_args` table へ順序どおり追加します。
+//:
+//: [契約/けいやく]:
+//: - `out` は owner として受け取り、成功時は追加後 owner を返します。
+//: - `params` は借用で読み、ここでは解放しません。caller が成功・失敗に応じて閉じます。
+//: - `Option::None` は caller が渡した `n` と `params` の不整合なので、`StdErrorKind::IndexOutOfBounds` として fail-closed にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(out)`: `n` 個の argument id を追加した vector です。
+//: - `Err(StdErrorKind::OutOfMemory)`: vector 追加に失敗しました。
+//: - `Err(StdErrorKind::IndexOutOfBounds)`: temporary parameter range が壊れていました。
+//:
+//: [計算量/けいさんりょう]:
+//: - コピーする argument 数を `n` として `O(n)` です。
 fn selfhost_type_reduce_copy_function_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
     if:
         ge idx n
@@ -77,6 +164,22 @@ fn selfhost_type_reduce_copy_function_args %impure fn Vec SelfhostResolvedTypeNo
                     v::free out
                     Result::Err StdErrorKind::IndexOutOfBounds
 
+//: selfhost_type_reduce_add_function_from_params: function node を argument vector から[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - temporary parameter vector と result node id から `SelfhostResolvedFunctionType` を作り、`SelfhostResolvedTypeNode::Function` として node table へ追加します。
+//:
+//: [契約/けいやく]:
+//: - `params` はこの関数が owner として受け取り、成功時は function argument table へコピーした後に閉じます。
+//: - copy 失敗時は `nodes`、`type_args`、`params` を閉じます。`function_args` owner は copy helper 側で `out` として閉じられます。
+//: - `arg_count == 0` は `SelfhostResolvedFunctionArgRange::Empty` として保存し、`fn void T` と `fn unit T` を区別します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: function node を追加した step です。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: function argument table copy または node 追加に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - argument 数を `a` として `O(a)` です。node 追加は amortized `O(1)` です。
 fn selfhost_type_reduce_add_function_from_params %impure fn SelfhostTypeReduceBuildState impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\params\result\span\next_index:
     let first_arg %i32 selfhost_type_reduce_build_state_function_arg_len &state
     let arg_count %i32 v::len &params
@@ -96,6 +199,21 @@ fn selfhost_type_reduce_add_function_from_params %impure fn SelfhostTypeReduceBu
             v::free params
             Result::Err selfhost_type_reduce_error_new SelfhostTypeReduceErrorKind::OutOfMemory span
 
+//: selfhost_type_reduce_add_function_empty_params: 0 引数 function node を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `fn void T` の build 結果として、空 argument range を持つ `SelfhostResolvedTypeNode::Function` を追加します。
+//:
+//: [契約/けいやく]:
+//: - `void` は型 node ではなく、この関数では empty parameter list の証拠としてだけ扱います。
+//: - temporary parameter vector の確保に失敗した場合は `selfhost_type_reduce_fail` が `state` owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: 0 引数 function node を追加した step です。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: temporary vector 確保または node 追加に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - empty vector と node 追加だけなので `O(1)` です。
 pub fn selfhost_type_reduce_add_function_empty_params %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\result\span\next_index:
     let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
     match params_result:
@@ -104,6 +222,23 @@ pub fn selfhost_type_reduce_add_function_empty_params %impure fn SelfhostTypeRed
         Result::Err _e:
             selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory span
 
+//: selfhost_type_reduce_add_function_nonempty_params: non-void function node を flatten 規則で[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `fn A B` の `A` を先頭 argument として追加し、result が non-empty function node の場合は `fn A fn B C` を `[A, B] -> C` として flatten します。
+//:
+//: [契約/けいやく]:
+//: - `param` は既に build 済みの argument node id、`result` は build 済みの result node id です。
+//: - result が `SelfhostResolvedTypeNode::Function` でも argument count が 0 の場合、`fn A fn void C` は flatten せず、`A -> (void -> C)` として保持します。
+//: - inner function node から result または argument range を読めない場合は、`SelfhostTypeReduceErrorKind::InternalInvariant` として `state` owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: nonempty function node を追加した step です。
+//: - `Err(SelfhostTypeReduceErrorKind::OutOfMemory)`: temporary vector 確保または function argument table 追加に失敗しました。
+//: - `Err(SelfhostTypeReduceErrorKind::InternalInvariant)`: result node の function payload が壊れていました。
+//:
+//: [計算量/けいさんりょう]:
+//: - flatten する inner argument 数を `a` として `O(a)` です。flatten しない場合は `O(1)` です。
 pub fn selfhost_type_reduce_add_function_nonempty_params %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedTypeNodeId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\param\result\span\next_index:
     match selfhost_type_reduce_build_state_function_arg_count &state result:
         Option::Some inner_count:
@@ -136,6 +271,20 @@ pub fn selfhost_type_reduce_add_function_nonempty_params %impure fn SelfhostType
                 Result::Err _e:
                     selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::OutOfMemory span
 
+//: selfhost_type_reduce_atom_node_unchecked: primitive / named atom node を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeReducePlanItem` が保持する primitive 判定から、plain reducer 用の atom node を作ります。
+//:
+//: [契約/けいやく]:
+//: - `is_primitive` と `primitive` の整合は plan 作成時の authority です。この helper は再検査しません。
+//: - `is_primitive == false` の場合は named type reference を span だけで保持し、projection stage が constructor table なしなら `UnsupportedNamedType` として fail-closed にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedTypeNode::Primitive` または `SelfhostResolvedTypeNode::Named` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_reduce_atom_node_unchecked %fn bool fn SelfhostSourceSpan fn SelfhostPrimitiveTypeKind SelfhostResolvedTypeNode \is_primitive\span\primitive:
     if:
         is_primitive
@@ -144,6 +293,22 @@ fn selfhost_type_reduce_atom_node_unchecked %fn bool fn SelfhostSourceSpan fn Se
         else:
             SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef span
 
+//: selfhost_type_prefix_list_build_at: plain plan の index から resolved subtree を 1 つ[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeReducePlan` の item を dispatch し、primitive / named atom または function type subtree を `SelfhostResolvedTypeTree` に追加します。
+//:
+//: [契約/けいやく]:
+//: - caller は `selfhost_type_prefix_list_validate_at` で同じ subtree を事前検査してから呼びます。
+//: - それでも範囲外 index や不正 dispatch に到達した場合は、`SelfhostTypeReduceErrorKind::UnexpectedEnd`、`SelfhostTypeReduceErrorKind::VoidAsType`、`SelfhostTypeReduceErrorKind::InternalInvariant` など plan dispatch に対応した typed error へ fail-closed にします。
+//: - `state` owner は成功時に step へ移り、失敗時は `selfhost_type_reduce_fail` が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: 構築した subtree root node と次 index です。
+//: - `Err(SelfhostTypeReduceError)`: typed reduce error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築する subtree の item 数を `n` として `O(n)` です。
 pub fn selfhost_type_prefix_list_build_at %impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\idx\state:
     match selfhost_type_reduce_plan_get plan idx:
         Option::Some item:
@@ -163,6 +328,23 @@ pub fn selfhost_type_prefix_list_build_at %impure fn &SelfhostTypeReducePlan imp
         Option::None:
             selfhost_type_reduce_fail state SelfhostTypeReduceErrorKind::UnexpectedEnd selfhost_type_reduce_empty_span
 
+//: selfhost_type_prefix_list_build_function_nonvoid_arg: non-void 引数 function type を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - `fn A B` の argument subtree と result subtree を順に構築し、function flattening helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `arg_idx` は validate 済みの argument subtree 先頭です。
+//: - argument build 成功後の state owner は result build へ移り、result build 成功後の state owner は `selfhost_type_reduce_add_function_nonempty_params` へ移ります。
+//: - build 中のどの error でも、下位 helper が state owner を閉じた状態で typed error を返します。
+//: - typed error は `SelfhostTypeReduceErrorKind::OutOfMemory` や `SelfhostTypeReduceErrorKind::InternalInvariant` を含み得ます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: nonempty function node を追加した step です。
+//: - `Err(SelfhostTypeReduceError)`: argument build、result build、function node build の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - argument subtree と result subtree の item 数、および flatten する inner argument 数に比例します。
 fn selfhost_type_prefix_list_build_function_nonvoid_arg %impure fn &SelfhostTypeReducePlan impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\arg_idx\fn_span\state:
     match selfhost_type_prefix_list_build_at plan arg_idx state:
         Result::Ok param_step:
@@ -180,6 +362,23 @@ fn selfhost_type_prefix_list_build_function_nonvoid_arg %impure fn &SelfhostType
         Result::Err e:
             Result::Err e
 
+//: selfhost_type_prefix_list_build_function: plain plan の function type を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - `fn void T` と `fn A T` を分岐し、0 引数 function と nonempty function を別の helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `void` marker は argument subtree を作らず、`result_idx = idx + 2` から result type を構築します。
+//: - `void` でない item は通常の type expression subtree として `selfhost_type_prefix_list_build_function_nonvoid_arg` が構築します。
+//: - `arg_idx` が存在しない場合は validate 前提が壊れているため、`SelfhostTypeReduceErrorKind::FunctionMissingArgument` として `state` owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(SelfhostTypeReduceStep)`: function node を追加した step です。
+//: - `Err(SelfhostTypeReduceErrorKind::FunctionMissingArgument)`: function marker の直後に argument marker / argument type がありません。
+//: - その他の `Err(SelfhostTypeReduceError)`: result build、node build の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `fn void T` は result subtree の item 数、`fn A T` は argument/result subtree と flatten argument 数に比例します。
 fn selfhost_type_prefix_list_build_function %impure fn &SelfhostTypeReducePlan impure fn SelfhostSourceSpan impure fn i32 impure fn SelfhostTypeReduceBuildState Result SelfhostTypeReduceStep SelfhostTypeReduceError \plan\fn_span\idx\state:
     let arg_idx %i32 add idx 1
     match selfhost_type_reduce_plan_get plan arg_idx:
