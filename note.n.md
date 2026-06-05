@@ -50682,6 +50682,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `tests/stdlib/neplg2_type_resolver_type_parameters.n.md` は parser / reducer 経由の parameter resolution と、resolved tree 直接構築による TypeArena projection を別 doctest に分けた。これにより 1 つの doctest に lexer / parser / resolver / TypeArena projection をまとめて cold compile timeout を起こす構造を避けた。
 - focused verification は type record / key / type resolver / numeric kind source policy、`tests/stdlib/neplg2_type_arena.n.md`、`tests/stdlib/neplg2_type_key.n.md`、`tests/stdlib/neplg2_type_resolver_type_parameters.n.md`、`tests/stdlib/neplg2_type_proof.n.md` を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存 main / 別タスク由来の 2 warning が残る。残件は user-defined generic type constructor kind validation、prefix expression AST、expected type / overload / generic / no partial application call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity である。
 
+## 2026-06-05 Agent2 raw memory effect boundary checkpoint
+
+- `agent2/raw-memory-effect-boundary` branch で、`ISS-20260604T034124436Z-RAW-MEMORY-ALLOCATOR-AND-COLLECTION--C8833FBA` を解決した。`plan.md` は確認のみで変更していない。
+- Zenn 記事の純粋性・静的検査方針と `doc/compare/memory_model.md` の `InternalAlloc -> Pure` 境界を再確認し、raw memory / allocator helper は surface signature だけを impure にせず、Resource IR が普通の source 使用を拒否する compiler-known proof boundary として文書化した。
+- 外部から観測できる所有者 mutation / cleanup は `impure fn` に揃えた。対象は `Vec` push / pop / clear / free、owner を消費または中間 owner を cleanup する Vec transform、by-value `Diags` / `Outcome` wrapper、各 collection の `free` / storage cleanup helper である。
+- source-policy regression は、古い pure cleanup signature ではなく impure owner-consuming signature を固定するよう更新した。BinaryHeap、Queue / Deque、RingBuffer、Stack、AdjacencyMatrix、BitSet、DisjointSet、SegmentTree、SparseSet、BloomFilter、CountingBloomFilter、Fenwick、BTreeMap / BTreeSet、HashMap、HashSet の個別 policy を通した。
+- subagent review では、raw helper を compiler-known boundary として残す設計は許容可能だが、source-policy の pure 期待値が残っているため Blocker とされた。その指摘に従い、全対象 policy を impure 契約へ更新した。
+- focused verification は core mem / Vec / List / Diag policy、collection cleanup policy、broad source policy、Vec mutation doctest 14/14、Vec transform doctest 12/12、Vec / collection cleanup suite 63/63 を通した。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存別件の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` の 2 warning が残る。
+
 ## 2026-06-05 Agent selfhost type constructor kind validation checkpoint
 
 - `selfhost/generic-kind-validation-20260605` branch で、self-host compiler Phase 5 の user-defined type constructor kind validation と bound reduce plan を進めた。`plan.md` は確認のみで変更していない。

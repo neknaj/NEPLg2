@@ -211,6 +211,6 @@ pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H
 //:     free bf;
 //:     0
 //: ```
-pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn BloomFilter .T .H unit \bf:
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H unit \bf:
     let bits %Vec u8 field::get bf "bits"
     bloom_free_bits bits

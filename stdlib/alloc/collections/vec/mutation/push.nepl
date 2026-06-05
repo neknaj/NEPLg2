@@ -6,6 +6,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - この module は typed `alloc_region` / `RegionToken` based grow を[使/つか]い、raw address を free owner として[扱/あつか]いません。
+//: - grow と slot initialization は backing storage を変更するため、Copy/Drop payload のどちらでも `impure fn` として表します。
 
 #indent 4
 
@@ -30,7 +31,7 @@
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。`collection_slot_*` marker authority は direct import 可能な public helper として[公開/こうかい]せず、public collection API の内部実装だけが使います。
 //: - `byte_off` の bounds / alignment と、`len` / `cap` との対応は caller 側の `VecCopyInvariant` と capacity proof が[担/にな]います。
-fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \storage\byte_off\item:
+fn vec_push_slot_store_initialized <.T> %impure fn &RegionToken .T impure fn i32 impure fn .T unit \storage\byte_off\item:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -110,6 +111,19 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \s
 //: fn main %impure fn void i32 \void:
 //:     let v0 %Vec PlainPayload vec_empty<PlainPayload>
 //:     let _v1 %Vec PlainPayload unwrap_ok push v0 (PlainPayload 7)
+//:     0
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: effect.pure.calls_impure
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "alloc/collections/vec" as *
+//: fn pure_push %fn Vec i32 unit \v:
+//:     let _result push v 1
+//:     unit
+//: fn main %fn void i32 \void:
 //:     0
 //: ```
 //:
@@ -255,7 +269,7 @@ fn vec_next_capacity <.T> %fn i32 Result i32 StdErrorKind \cap0:
 //: ### [注意/ちゅうい]
 //: - 成功時は返った token が storage owner です。失敗時は旧 token が `VecReallocRegionError.region` に[戻/もど]ります。
 //: - payload の raw load / raw store は行いません。この helper は storage owner の再確保境界だけを扱うため、`.T: Copy` を要求しません。
-fn vec_realloc_region_or_keep <.T> %fn RegionToken .T fn i32 Result RegionToken .T VecReallocRegionError .T \region\new_cap:
+fn vec_realloc_region_or_keep <.T> %impure fn RegionToken .T impure fn i32 Result RegionToken .T VecReallocRegionError .T \region\new_cap:
     let elem_size %i32 size_of %.T
     if:
         or le new_cap 0 le elem_size 0
@@ -284,7 +298,7 @@ fn vec_realloc_region_or_keep <.T> %fn RegionToken .T fn i32 Result RegionToken 
 //:
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。public overload が型境界を[選/えら]び、この helper が private lifecycle proof boundary を[使/つか]います。
-fn vec_push_storage_checked <.T> %fn Vec .T fn .T Result Vec .T VecPushError .T \v\item:
+fn vec_push_storage_checked <.T> %impure fn Vec .T impure fn .T Result Vec .T VecPushError .T \v\item:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let v_len %i32 *field::get_ref v_buffer_ref "len"
     let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
@@ -339,8 +353,8 @@ fn vec_push_storage_checked <.T> %fn Vec .T fn .T Result Vec .T VecPushError .T 
                             vec_push_slot_store_initialized<.T> &v_region byte_off item
                             Result::Ok Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
 
-pub fn push <.T: Copy> %fn Vec .T fn .T Result Vec .T VecPushError .T \v\item:
+pub fn push <.T: Copy> %impure fn Vec .T impure fn .T Result Vec .T VecPushError .T \v\item:
     vec_push_storage_checked<.T> v item
 
-pub fn push <.T: Drop> %fn Vec .T fn .T Result Vec .T VecPushError .T \v\item:
+pub fn push <.T: Drop> %impure fn Vec .T impure fn .T Result Vec .T VecPushError .T \v\item:
     vec_push_storage_checked<.T> v item

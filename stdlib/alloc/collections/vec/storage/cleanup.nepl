@@ -6,6 +6,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - backing buffer の[解放/かいほう]は typed owner-consuming `dealloc_region` を[通/とお]します。
+//: - storage-only release は Resource IR の owner proof boundary として扱います。
 
 #indent 4
 

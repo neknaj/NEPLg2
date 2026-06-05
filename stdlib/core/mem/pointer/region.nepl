@@ -5,6 +5,7 @@
 //: 目的:
 //: - allocator storage を `RegionToken .T` として扱い、bounds 付き pointer projection を提供します。
 //: - `RegionToken .T` は free obligation owner であり、`MemPtr .T` とは責務を分けます。
+//: - allocation / reallocation / deallocation は Resource IR の owner proof boundary として扱います。
 //:
 //: neplg2:test
 //: ```neplg2

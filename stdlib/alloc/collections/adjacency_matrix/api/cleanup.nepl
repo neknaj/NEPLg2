@@ -32,6 +32,6 @@
 //:     free g
 //:     0
 //: ```
-pub fn free %fn AdjacencyMatrix unit \g:
+pub fn free %impure fn AdjacencyMatrix unit \g:
     let bits %Vec u8 field::get g "bits"
     vec::free bits

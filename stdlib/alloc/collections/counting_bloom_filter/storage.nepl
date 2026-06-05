@@ -42,5 +42,5 @@ pub fn counting_bloom_alloc_counters %impure fn i32 impure fn i32 Result Vec u8 
         Result::Err _e:
             diag_err diag_out_of_memory
 
-pub fn counting_bloom_free_counters %fn Vec u8 unit \counters:
+pub fn counting_bloom_free_counters %impure fn Vec u8 unit \counters:
     vec::free counters

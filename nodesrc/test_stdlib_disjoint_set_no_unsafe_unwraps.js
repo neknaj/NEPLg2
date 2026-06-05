@@ -80,7 +80,7 @@ assert.match(apiObserverCode, /fn\s+size\s+<\(&DisjointSet,i32\)\*>Result<i32,\s
 assert.match(apiMutationCode, /fn\s+union\s+<\(DisjointSet,i32,i32\)\*>Result<DisjointSet,\s*DisjointSetUpdateError>>\s+\(dsu,\s*a,\s*b\):/, 'DisjointSet.union must return an owner-carrying error type');
 assert.doesNotMatch(apiMutationCode, /fn\s+union\s+<\(DisjointSet,i32,i32\)\*>Result<DisjointSet,\s*Diag>>/, 'DisjointSet.union must not lose the owner through Err(Diag)');
 assert.match(apiMutationCode, /let\s+e\s+<DisjointSetUpdateError>\s+DisjointSetUpdateError\s+dsu\s+d[\s\S]*err\s+e/, 'DisjointSet.union Err path must return the input owner in DisjointSetUpdateError');
-assert.match(apiCleanupCode, /fn\s+free\s+<\(DisjointSet\)->unit>\s+\(dsu\):[\s\S]*field::get\s+dsu\s+"parent"[\s\S]*field::get\s+dsu\s+"sizes"[\s\S]*vec::free\s+parent[\s\S]*vec::free\s+sizes/, 'DisjointSet.free must consume and close typed Vec<i32> storage');
+assert.match(apiCleanupCode, /fn\s+free\s+<\(DisjointSet\)\*>unit>\s+\(dsu\):[\s\S]*field::get\s+dsu\s+"parent"[\s\S]*field::get\s+dsu\s+"sizes"[\s\S]*vec::free\s+parent[\s\S]*vec::free\s+sizes/, 'DisjointSet.free must consume and close typed Vec<i32> storage through an impure owner-consuming boundary');
 assert.doesNotMatch(apiCleanupCode, /fn\s+free\s+<\(DisjointSet\)->unit>\s+\(dsu\):[\s\S]*field::get_ref\s+&dsu\s+"(?:parent|sizes)"/, 'DisjointSet.free must not borrow-read owned array fields');
 
 assert.doesNotMatch(apiCode, /DisjointSet\s+0\s+mem_ptr_wrap\s+0\s+mem_ptr_wrap\s+0/, 'DisjointSet.new must not encode empty storage with null raw pointers');

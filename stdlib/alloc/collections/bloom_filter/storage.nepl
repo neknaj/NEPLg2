@@ -42,5 +42,5 @@ pub fn bloom_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes\
         Result::Err _e:
             diag_err diag_out_of_memory
 
-pub fn bloom_free_bits %fn Vec u8 unit \bits:
+pub fn bloom_free_bits %impure fn Vec u8 unit \bits:
     vec::free bits

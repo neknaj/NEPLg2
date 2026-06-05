@@ -52,7 +52,7 @@ pub fn push <.T: Copy> %impure fn List .T impure fn .T Result List .T ListPushEr
 //:
 //: ### [実装/じっそう]
 //: - 論理先頭は storage 末尾なので、`Vec.pop` で先頭を[取/と]り[除/のぞ]きます。
-pub fn tail <.T: Copy> %fn List .T Option List .T \lst:
+pub fn tail <.T: Copy> %impure fn List .T Option List .T \lst:
     let items %Vec .T field::get lst "items"
     if:
         eq vec::len &items 0
@@ -78,5 +78,5 @@ pub fn reverse <.T: Copy> %impure fn List .T List .T \lst:
     List<.T> items
 
 //: free: Copy-only list storage owner を[閉/と]じる
-pub fn free <.T: Copy> %fn List .T unit \lst:
+pub fn free <.T: Copy> %impure fn List .T unit \lst:
     list_free_items<.T> lst

@@ -123,7 +123,7 @@ pub fn hashmap_store_tombstone <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K
 //:
 //: ### [目的/もくてき]
 //: - states / keys / values の 3 本の Vec owner を[閉/と]じます。
-pub fn hashmap_free_storage <.K: Copy,.V: Copy> %fn HashMapStorage .K .V unit \storage:
+pub fn hashmap_free_storage <.K: Copy,.V: Copy> %impure fn HashMapStorage .K .V unit \storage:
     let states %Vec HashMapBucketState field::get storage "states"
     let keys %Vec Option .K field::get storage "keys"
     let values %Vec Option .V field::get storage "values"

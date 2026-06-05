@@ -25,7 +25,7 @@ pub fn list_physical_index %fn i32 fn i32 i32 \len0\idx:
     sub sub len0 1 idx
 
 //: list_free_items: Copy-only List から storage owner を[取/と]り[出/だ]して[解放/かいほう]する
-pub fn list_free_items <.T: Copy> %fn List .T unit \lst:
+pub fn list_free_items <.T: Copy> %impure fn List .T unit \lst:
     let items %Vec .T field::get lst "items"
     vec::free items
 

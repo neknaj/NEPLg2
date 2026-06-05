@@ -226,5 +226,5 @@ pub fn clear <.T: Copy> %impure fn Deque .T Deque .T \dq:
 
 //: ## free
 //: deque が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn Deque .T unit \dq:
+pub fn free <.T: Copy> %impure fn Deque .T unit \dq:
     vec::free field::get dq "items"

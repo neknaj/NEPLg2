@@ -6,6 +6,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - この module は typed `alloc_region` / `store` を[使/つか]うため exact raw-memory boundary です。
+//: - raw store は `RegionToken` owner proof と slot initialization marker の boundary 内に閉じます。
 
 #indent 4
 

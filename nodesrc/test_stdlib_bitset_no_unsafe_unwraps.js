@@ -101,7 +101,7 @@ assert.match(apiUpdateCode, /let\s+e\s+<BitSetUpdateError>\s+BitSetUpdateError\s
 assert.match(apiBulkCode, /fn\s+bitset_fill_value\s+<\(BitSet,i32\)\*>BitSet>[\s\S]*bitset_fill_bytes\s+bits\s+nbytes\s+byte_value/, 'BitSet bulk module must centralize byte fill updates');
 assert.match(apiBulkCode, /fn\s+clear\s+<\(BitSet\)\*>BitSet>\s+\(bs\):[\s\S]*bitset_fill_value\s+bs\s+0/, 'BitSet.clear must use the bulk fill helper');
 assert.match(apiBulkCode, /fn\s+fill\s+<\(BitSet\)\*>BitSet>\s+\(bs\):[\s\S]*bitset_fill_value\s+bs\s+255/, 'BitSet.fill must use the bulk fill helper');
-assert.match(apiCleanupCode, /fn\s+free\s+<\(BitSet\)->unit>[\s\S]*field::get\s+bs\s+"bits"[\s\S]*vec::free\s+bits/, 'BitSet.free must consume and close typed Vec<u8> storage');
+assert.match(apiCleanupCode, /fn\s+free\s+<\(BitSet\)\*>unit>[\s\S]*field::get\s+bs\s+"bits"[\s\S]*vec::free\s+bits/, 'BitSet.free must consume and close typed Vec<u8> storage through an impure owner-consuming boundary');
 
 assert.doesNotMatch(code, /\bMemPtr\b/, 'BitSet must not expose raw MemPtr storage');
 assert.doesNotMatch(code, /\bmem_ptr_wrap\b/, 'BitSet must not use raw pointer arithmetic');

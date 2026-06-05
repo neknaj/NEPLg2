@@ -64,7 +64,7 @@ assert.match(code, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>\)->Option<\.T>>\s
 assert.match(code, /fn\s+get\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>,i32\)->Option<\.T>>\s+\(stk,\s*idx\):/, 'Stack.get must borrow the owner');
 assert.doesNotMatch(code, /fn\s+(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, 'Stack must not keep duplicate *_ref observer surfaces');
 assert.doesNotMatch(code, /fn\s+(?:len|is_empty|peek|get)\s+<[^>]+>\s+<\(Stack<\.T>\)/, 'Stack observers must not consume the owner');
-assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)->unit>[\s\S]*let\s+items\s+<Vec<Option<\.T>>>\s+field::get\s+stk\s+"items"[\s\S]*vec_cleanup::free\s+items/, 'Stack.free must move the Copy-only Vec<Option<T>> owner into a typed local and close it through the narrow Vec cleanup module');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)\*>unit>[\s\S]*let\s+items\s+<Vec<Option<\.T>>>\s+field::get\s+stk\s+"items"[\s\S]*vec_cleanup::free\s+items/, 'Stack.free must move the Copy-only Vec<Option<T>> owner into a typed local and close it through the narrow impure Vec cleanup module');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'Stack must not reintroduce raw header or raw element storage');
 
 for (const testPath of [

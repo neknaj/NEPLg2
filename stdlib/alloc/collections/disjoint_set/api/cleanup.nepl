@@ -34,7 +34,7 @@
 //:     free dsu;
 //:     0
 //: ```
-pub fn free %fn DisjointSet unit \dsu:
+pub fn free %impure fn DisjointSet unit \dsu:
     let parent %Vec i32 field::get dsu "parent"
     let sizes %Vec i32 field::get dsu "sizes"
     vec::free parent

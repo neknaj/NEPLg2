@@ -7,6 +7,7 @@
 //: ### [注意/ちゅうい]
 //: - この module は typed `alloc_region` を[使/つか]い、free obligation owner を `RegionToken` に[集約/しゅうやく]します。
 //: - public constructor は `storage/api` が[所有/しょゆう]し、この helper を[明示的/めいじてき]に[呼/よ]びます。
+//: - constructor helper は抽象 `Vec` 値を作る boundary であり、raw allocation は `RegionToken` owner proof 内に閉じます。
 
 #indent 4
 

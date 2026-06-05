@@ -245,8 +245,8 @@ assert.match(
 
 assert.match(
     freeSection,
-    /fn\s+free\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>\)->unit>/,
-    'HashSet.free must expose the Copy-only key/hasher cleanup contract',
+    /fn\s+free\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>\)\*>unit>/,
+    'HashSet.free must expose the Copy-only key/hasher impure cleanup contract',
 );
 
 assert.match(

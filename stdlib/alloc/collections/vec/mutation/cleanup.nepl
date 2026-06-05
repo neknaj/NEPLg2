@@ -3,6 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - owner cleanup と length reset をまとめ、initialized prefix と storage dealloc の Resource IR lifecycle proof をこの implementation 境界に[閉/と]じます。
+//: - cleanup は slot lifecycle または allocator state を変更するため、Copy payload の path も含めて `impure fn` として表します。
 
 #indent 4
 
@@ -26,7 +27,7 @@
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。lifecycle marker authority は collection implementation file 内だけで[扱/あつか]います。
 //: - non-Copy payload では Drop 実行の証明が必要なので、この helper は `.T: Copy` に[限定/げんてい]します。
-fn vec_cleanup_copy_initialized_prefix <.T: Copy> %fn &RegionToken .T fn i32 unit \storage\initialized_len:
+fn vec_cleanup_copy_initialized_prefix <.T: Copy> %impure fn &RegionToken .T impure fn i32 unit \storage\initialized_len:
     let data %MemPtr .T region_ptr storage
     let mut i %i32 0
     while lt i initialized_len:
@@ -70,7 +71,7 @@ fn vec_cleanup_drop_initialized_prefix <.T: Drop> %impure fn &RegionToken .T imp
 //:
 //: ### [注意/ちゅうい]
 //: - caller は事前に initialized prefix cleanup を完了してからこの helper を[呼/よ]びます。
-fn vec_cleanup_release_storage <.T> %fn RegionToken .T unit \region:
+fn vec_cleanup_release_storage <.T> %impure fn RegionToken .T unit \region:
     let raw %i32 field::get region "raw"
     let total_size %i32 field::get region "size"
     allocator::dealloc_raw raw total_size
@@ -110,7 +111,7 @@ fn vec_cleanup_release_storage <.T> %fn RegionToken .T unit \region:
 //:     free v2;
 //:     if ok 0 1
 //: ```
-pub fn clear <.T: Copy> %fn Vec .T Vec .T \v:
+pub fn clear <.T: Copy> %impure fn Vec .T Vec .T \v:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
     let v_cap %i32 *field::get_ref v_buffer_ref "cap"
@@ -180,7 +181,19 @@ pub fn clear <.T: Drop> %impure fn Vec .T Vec .T \v:
 //:     free v;
 //:     0
 //: ```
-pub fn free <.T: Copy> %fn Vec .T unit \v:
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: effect.pure.calls_impure
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "alloc/collections/vec" as *
+//: fn pure_free %fn Vec i32 unit \v:
+//:     free v
+//: fn main %fn void i32 \void:
+//:     0
+//: ```
+pub fn free <.T: Copy> %impure fn Vec .T unit \v:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
     let v_buffer %OwnedBuffer .T field::get v "buffer"

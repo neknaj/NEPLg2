@@ -75,6 +75,7 @@ assertMatch(internal, /pub\s+fn\s+mem_ptr_addr\b/, "mem/internal must own MemPtr
 assertMatch(internal, /pub\s+fn\s+region_token_raw_ref\b/, "mem/internal must own RegionToken raw owner identity helper");
 assertMatch(internal, /pub\s+fn\s+region_new\b/, "mem/internal must own RegionToken construction helper");
 assertMatch(raw, /pub\s+fn\s+load\s+<\.T>\s+<\(i32\)->\.T>/, "mem/raw must own generic raw load");
+assertMatch(raw, /pub\s+fn\s+store\s+<\.T>\s+<\(i32,\.T\)->unit>/, "mem/raw generic store must stay behind the Resource IR raw boundary");
 assertMatch(raw, /#intrinsic\s+"store"/, "mem/raw must own generic raw store intrinsic");
 assertNoMatch(raw, /pub\s+fn\s+size_of\b/, "mem/raw must not own public layout helper");
 assertNoMatch(raw, /pub\s+fn\s+align_of\b/, "mem/raw must not own public layout helper");

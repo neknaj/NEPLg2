@@ -5,6 +5,7 @@
 //: 目的:
 //: - `MemPtr i32` / `MemPtr u8` の scalar load/store を `Option` / `Result` で検査付き API にします。
 //: - raw address の取り出しと raw load/store 呼び出しはこの implementation module に閉じます。
+//: - store API は Resource IR raw boundary 内でだけ使う checked wrapper として扱います。
 //:
 //: neplg2:test
 //: ```neplg2

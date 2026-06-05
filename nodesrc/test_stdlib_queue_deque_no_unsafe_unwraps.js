@@ -70,7 +70,7 @@ assert.match(queue, /fn\s+push\s+<\.T:\s*Copy>\s+<\(Queue<\.T>,\.T\)\*>Result<Qu
 assert.match(queue, /fn\s+push\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*(?:Result::Err<Queue<\.T>,\s*QueuePushError<\.T>>|Result::Err)\s+QueuePushError<\.T>\s+\(Queue<\.T>\s+len0\s+cap0\s+head0\s+items\)\s+d/, 'Queue push grow failure must return the consumed queue owner in QueuePushError');
 assert.doesNotMatch(queue, /Result::Err\s+d:[\s\S]{0,120}vec::free\s+items[\s\S]{0,120}err<Queue<\.T>,\s*Diag>\s+d/, 'Queue push grow failure must not destroy the consumed owner and return Diag only');
 assert.match(queue, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(Queue<\.T>\)\*>QueuePop<\.T>>[\s\S]*queue_store_slot<\.T>\s+&items\s+head0\s+none(?:<\.T>)?[\s\S]*QueuePop<\.T>/, 'Queue pop_front must clear the consumed slot and return the updated owner');
-assert.match(queue, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Queue<\.T>\)->(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+q\s+"items"/, 'Queue.free must close the Copy-only Vec<Option<T>> owner');
+assert.match(queue, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Queue<\.T>\)\*>(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+q\s+"items"/, 'Queue.free must close the Copy-only Vec<Option<T>> owner through an impure owner-consuming boundary');
 assert.doesNotMatch(queue, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b/, 'Queue must not reintroduce raw header or raw element storage');
 
 const dequeRoot = implementationCode('stdlib/alloc/collections/deque.nepl');
@@ -110,7 +110,7 @@ assert.match(deque, /fn\s+push_front\s+<\.T:\s*Copy>[\s\S]*deque_prev_index[\s\S
 assert.match(deque, /fn\s+push_back\s+<\.T:\s*Copy>[\s\S]*deque_tail_index[\s\S]*deque_store_slot<\.T>\s+&items\s+tail\s+some(?:<\.T>)?\s+item/, 'Deque push_back must write a typed Some slot at the tail');
 assert.match(deque, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)\*>DequePop<\.T>>[\s\S]*deque_store_slot<\.T>\s+&items\s+head0\s+none(?:<\.T>)?[\s\S]*DequePop<\.T>/, 'Deque pop_front must clear the consumed front slot and return the updated owner');
 assert.match(deque, /fn\s+pop_back\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)\*>DequePop<\.T>>[\s\S]*deque_back_index[\s\S]*deque_store_slot<\.T>\s+&items\s+back\s+none(?:<\.T>)?[\s\S]*DequePop<\.T>/, 'Deque pop_back must clear the consumed back slot and return the updated owner');
-assert.match(deque, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)->(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+dq\s+"items"/, 'Deque.free must close the Copy-only Vec<Option<T>> owner');
+assert.match(deque, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Deque<\.T>\)\*>(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+dq\s+"items"/, 'Deque.free must close the Copy-only Vec<Option<T>> owner through an impure owner-consuming boundary');
 assert.doesNotMatch(deque, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b/, 'Deque must not reintroduce raw header or raw element storage');
 
 for (const testPath of [

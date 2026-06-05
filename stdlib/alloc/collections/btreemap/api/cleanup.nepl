@@ -28,6 +28,6 @@
 //:     free hm;
 //:     0
 //: ```
-pub fn free <.K: Copy,.V: Copy> %fn BTreeMap .K .V unit \hm:
+pub fn free <.K: Copy,.V: Copy> %impure fn BTreeMap .K .V unit \hm:
     let storage %BTreeMapStorage .K .V field::get hm "storage"
     btreemap_free_storage<.K,.V> storage

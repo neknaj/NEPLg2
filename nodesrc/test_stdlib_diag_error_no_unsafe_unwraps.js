@@ -41,7 +41,7 @@ function assertDiagsByValueObserverClosesOwner(name, valueType) {
     const escapedValueType = escapeRegExp(valueType);
     const ident = '([A-Za-z_][A-Za-z0-9_]*)';
     const pattern = new RegExp(
-        String.raw`fn\s+${escapedName}\s+<\(Diags\)->${escapedValueType}>\s+\(ds\):[\s\S]*?let\s+${ident}\s+<${escapedValueType}>\s+${escapedName}\s+&ds[\s\S]*?diags_free\s+ds[\s\S]*?\b\1\b`,
+        String.raw`fn\s+${escapedName}\s+<\(Diags\)\*>${escapedValueType}>\s+\(ds\):[\s\S]*?let\s+${ident}\s+<${escapedValueType}>\s+${escapedName}\s+&ds[\s\S]*?diags_free\s+ds[\s\S]*?\b\1\b`,
     );
 
     assert.match(
@@ -118,7 +118,7 @@ assert.match(code.diag, /fn\s+diag_capacity_exceeded\s+<\(\)\*>Diag>\s+\(\):\s+d
 assert.match(code.diag, /fn\s+diag_key_not_found\s+<\(\)\*>Diag>\s+\(\):\s+diag_error\s+StdErrorKind::KeyNotFound\s+"key not found"/, 'diag_key_not_found must be zero-argument and static-message based');
 
 assert.match(code.diags, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+vec_view::vec_empty\b/, 'Diags allocation fallback must use typed empty Vec storage');
-assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->unit>\s+\(ds\):\s+vec_cleanup::free\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
+assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)\*>unit>\s+\(ds\):\s+vec_cleanup::free\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit impure by-value consumption helper');
 assertDiagsByValueObserverClosesOwner('diags_len', 'i32');
 assertDiagsByValueObserverClosesOwner('diags_has_errors', 'bool');
 assert.match(code.diags, /match\s+level:[\s\S]*DiagLevel::Error:[\s\S]*DiagLevel::Log:[\s\S]*DiagLevel::Info:[\s\S]*DiagLevel::Warn:/, 'diags_has_errors_loop must branch by exhaustive DiagLevel match arms');
@@ -126,6 +126,11 @@ assert.match(code.diags, /fn\s+diags_one\s+<\(Diag\)\*>Diags>\s+\(d\):[\s\S]*mat
 assertDiagsPushClosesRecoveredVecOwner();
 
 assert.match(code.outcome, /struct\s+Outcome<\.T,\s*\.E>:[\s\S]*result\s+<Result<\.T,\s*\.E>>[\s\S]*diags\s+<Option<Diags>>/, 'Outcome must keep result and Diags as separate axes');
+assert.match(code.outcome, /fn\s+outcome_with_diags\s+<\.T,\s*\.E>\s+<impure fn Outcome \.T \.E impure fn Diags Outcome \.T \.E>/, 'outcome_with_diags must be impure because it closes replaced Diags owners');
+assert.match(code.outcome, /fn\s+outcome_result\s+<\.T,\s*\.E>\s+<impure fn Outcome \.T \.E Result \.T \.E>/, 'by-value outcome_result must be impure because it closes the Diags axis');
+assert.match(code.outcome, /fn\s+result_like_result\s+<\.T,\s*\.E>\s+<impure fn Outcome \.T \.E Result \.T \.E>/, 'by-value result_like_result must preserve the Outcome cleanup effect');
+assert.match(code.outcome, /fn\s+result_like_is_ok\s+<\.T,\s*\.E>\s+<impure fn Outcome \.T \.E bool>/, 'by-value result_like_is_ok must preserve the Outcome cleanup effect');
+assert.match(code.outcome, /fn\s+result_like_is_err\s+<\.T,\s*\.E>\s+<impure fn Outcome \.T \.E bool>/, 'by-value result_like_is_err must preserve the Outcome cleanup effect');
 assert.match(code.outcome, /fn\s+outcome_with_diags[\s\S]*Option::Some\s+old_ds:[\s\S]*diags_free\s+old_ds/, 'outcome_with_diags must close any replaced Diags owner');
 assert.match(code.outcome, /fn\s+outcome_result[\s\S]*field::get\s+o\s+"diags":[\s\S]*Option::Some\s+ds:[\s\S]*diags_free\s+ds/, 'by-value outcome_result must close the Diags axis before returning Result');
 assert.doesNotMatch(code.outcome, /fn\s+diag_level_str/, 'DiagLevel stringification belongs to the enum/types module');

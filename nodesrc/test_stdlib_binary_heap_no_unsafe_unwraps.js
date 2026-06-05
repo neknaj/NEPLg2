@@ -95,7 +95,7 @@ assert.match(apiPopCode, /fn\s+pop_max\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>\
 assert.match(apiPopCode, /fn\s+binary_heap_pop_item\s+<\.T:\s*Copy>\s+<\(&BinaryHeapPop<\.T>\)->Option<\.T>>[\s\S]*field::get_ref\s+p\s+"item"/, 'BinaryHeapPop item access must be a public borrowed accessor');
 assert.match(apiPopCode, /fn\s+binary_heap_pop_heap\s+<\.T:\s*Copy>\s+<\(BinaryHeapPop<\.T>\)->BinaryHeap<\.T>>[\s\S]*field::get\s+p\s+"heap"/, 'BinaryHeapPop heap extraction must be a public consuming accessor');
 assert.match(apiPopCode, /fn\s+pop\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>\)\*>Option<\.T>>[\s\S]*binary_heap_pop_item<\.T>\s+&p[\s\S]*free<\.T>\s+binary_heap_pop_heap<\.T>\s+p/, 'BinaryHeap.pop must clean up the updated heap owner through the public accessor');
-assert.match(apiCleanupCode, /fn\s+free\s+<\.T:\s*Copy>\s+<\(BinaryHeap<\.T>\)->(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Copy-only Vec<Option<T>> owner');
+assert.match(apiCleanupCode, /fn\s+free\s+<\.T:\s*Copy>\s+<\(BinaryHeap<\.T>\)\*>(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Copy-only Vec<Option<T>> owner through an impure owner-consuming boundary');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'BinaryHeap must not reintroduce raw header or raw element storage');
 
 const binaryHeapStdlibTests = fs.readFileSync(path.join(repoRoot, 'stdlib/tests/binary_heap.n.md'), 'utf8');

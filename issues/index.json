@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-04T23:54:32.933Z",
+  "generated_at": "2026-06-05T00:55:30.406Z",
   "counts": {
     "total": 1343,
-    "open": 48,
-    "resolved": 1295,
+    "open": 47,
+    "resolved": 1296,
     "by_area": {
       "stdlib": {
         "total": 350,
-        "open": 11,
-        "resolved": 339
+        "open": 10,
+        "resolved": 340
       },
       "core": {
         "total": 665,
@@ -623,21 +623,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md"
-    },
-    {
-      "id": "ISS-20260604T034124436Z-RAW-MEMORY-ALLOCATOR-AND-COLLECTION--C8833FBA",
-      "title": "raw memory allocator and collection mutation APIs are exposed as pure functions",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "stdlib/core/mem/raw.nepl, stdlib/core/mem/allocator.nepl, stdlib/alloc/collections/vec/storage/api.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034124436Z-RAW-MEMORY-ALLOCATOR-AND-COLLECTION--C8833FBA.md"
     },
     {
       "id": "ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3",
@@ -16013,6 +15998,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T033842259Z-STREAMIO-SCANNER-AND-WRITER-APIS-STI-EFC1568E.md"
+    },
+    {
+      "id": "ISS-20260604T034124436Z-RAW-MEMORY-ALLOCATOR-AND-COLLECTION--C8833FBA",
+      "title": "raw memory allocator and collection mutation APIs are exposed as pure functions",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "stdlib/core/mem/raw.nepl, stdlib/core/mem/allocator.nepl, stdlib/alloc/collections/vec/storage/api.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034124436Z-RAW-MEMORY-ALLOCATOR-AND-COLLECTION--C8833FBA.md"
     },
     {
       "id": "ISS-20260604T034124823Z-HASHMAP-AND-HASHSET-PROBE-PATHS-USE--2A6F7DD4",
