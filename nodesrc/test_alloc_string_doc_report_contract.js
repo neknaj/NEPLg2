@@ -39,8 +39,72 @@ const contracts = [
     },
     {
         rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
-        index: 0,
+        name: 'string_integer_parse_module_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
         name: 'string_integer_parse_doc',
+        count: 6,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_parse_byte_or_invalid_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_to_i32_radix_doc',
+        count: 5,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_i128_fits_i64_doc',
+        count: 4,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_to_i64_radix_doc',
+        count: 5,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_to_u128_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_to_u128_radix_doc',
+        count: 5,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'string_integer_parse_digit_window_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_i128_positive_magnitude_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_i128_negative_magnitude_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_i128_magnitude_doc',
+        count: 4,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_to_i128_doc',
+        count: 4,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        name: 'alloc_string_integer_to_i128_radix_doc',
         count: 6,
     },
     {
@@ -325,6 +389,28 @@ for (const [rel, snippets] of [
             '`a + b` の内容が 2 回目の連結時に再コピーされます',
             'string_alloc_region',
             'mem_copy',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'integer', 'parse.nepl'],
+        [
+            'str を i32 / i64 / u128 / i128 として解析する API と範囲検査 helper をまとめます',
+            '現状の parse error payload は `i32` であり、typed enum error ではありません',
+            'ISS-20260606T054938514Z-STRING-INTEGER-PARSE-ERROR-KIND-COLLAPSED-I32-6E8B1A2C',
+            '`Option::None` の理由は保持せず、内部 sentinel `-1` に畳みます',
+            'public API の error payload はこの sentinel ではなく',
+            '接頭辞 `0b` / `0o` / `0x` は解釈しません',
+            'invalid radix、無効 digit、空入力、表現域外入力はいずれも `Result::Err 1`',
+            '`to_i64_radix` で共通解析を行い',
+            '`i128_fits_i64` で符号拡張 bit pattern を確認',
+            '更新前に `u128_max / radix` の商と余りで範囲を確認し、ラップする入力を拒否します',
+            'signed parse では先頭 `-` を消すための一時 `str` を作らず',
+            '`2^127 - 1` は正数として受理し、`2^127` は正数として拒否します',
+            '`-2^127` は負数として受理し、`-(2^127 + 1)` は拒否します',
+            'Result::Err 1',
+            'parse_u128_radix_digits_from',
+            'u128_can_mul_add_small',
+            'i128_magnitude_allowed',
         ],
     ],
     [
