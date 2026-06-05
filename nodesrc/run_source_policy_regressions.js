@@ -81,6 +81,7 @@ const checks = [
     "nodesrc/test_web_gui_runtime_bridge.js",
     "nodesrc/test_web_gui_input_bridge.js",
     "nodesrc/test_web_gui_shared_event_queue.js",
+    "nodesrc/test_web_gui_example_button_helper_contract.js",
     "nodesrc/test_web_gui_paint_model_contract.js",
     "nodesrc/test_web_gui_life_model_contract.js",
     "nodesrc/test_web_gui_mandelbrot_transport_contract.js",

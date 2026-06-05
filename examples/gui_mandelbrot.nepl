@@ -312,26 +312,9 @@ fn mandelbrot_button_detail_rect %fn i32 GuiRect \grid_height:
     let y %i32 add grid_height 14
     gui_rect_new 238 y 112 32
 
-fn mandelbrot_present_text %impure fn GuiPoint impure fn i32 impure fn str Result unit GuiError \origin\size\text:
-    gui_web_stdout_text_run origin size GuiWebTextAlign::Center mandelbrot_color_text text
-
 fn mandelbrot_present_button %impure fn GuiRect impure fn ActionId impure fn str impure fn Rgba8888 Result unit GuiError \rect\action\label\color:
-    match gui_web_stdout_fill_rect rect color:
-        Result::Ok _:
-            let x %i32 gui_rect_x &rect
-            let y %i32 gui_rect_y &rect
-            let w %i32 gui_rect_width &rect
-            let half_w %i32 div_s w 2
-            let text_x %i32 add x half_w
-            let text_y %i32 add y 9
-            let origin %GuiPoint gui_point_new text_x text_y
-            match mandelbrot_present_text origin 12 label:
-                Result::Ok _:
-                    gui_web_stdout_action_rect rect action
-                Result::Err err:
-                    Result::Err err
-        Result::Err err:
-            Result::Err err
+    let config %GuiWebButtonConfig gui_web_button_config rect action label color mandelbrot_color_text 12 9
+    gui_web_stdout_button config
 
 fn mandelbrot_present_status %impure fn MandelbrotModel Result unit GuiError \model:
     let grid_height %i32 mandelbrot_grid_height &model

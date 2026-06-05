@@ -179,31 +179,20 @@ fn counter_color_text %fn void Rgba8888 \void:
 fn counter_present_frame_end %impure fn void Result unit GuiError \void:
     gui_web_stdout_frame_end
 
-fn counter_present_action_rect %impure fn GuiRect Result unit GuiError \button_rect:
+fn counter_present_button %impure fn GuiRect impure fn Rgba8888 impure fn Rgba8888 Result unit GuiError \button_rect\button_color\text_color:
     let action %ActionId counter_increment_action
-    gui_web_stdout_action_rect button_rect action
+    let config %GuiWebButtonConfig gui_web_button_config button_rect action "Increment" button_color text_color 14 9
+    gui_web_stdout_button config
 
-fn counter_present_button_label %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 Result unit GuiError \button_rect\button_origin\text_color:
-    match gui_web_stdout_text_run button_origin 14 GuiWebTextAlign::Center text_color "Increment":
-        Result::Ok _:
-            counter_present_action_rect button_rect
-        Result::Err err:
-            Result::Err err
-
-fn counter_present_value %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn i32 Result unit GuiError \button_rect\value_origin\text_color\value:
+fn counter_present_value %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn Rgba8888 impure fn i32 Result unit GuiError \button_rect\value_origin\button_color\text_color\value:
     match gui_web_stdout_text_i32 value_origin 28 GuiWebTextAlign::Center text_color value:
         Result::Ok _:
-            let button_origin %GuiPoint gui_point_new 110 97
-            counter_present_button_label button_rect button_origin text_color
+            counter_present_button button_rect button_color text_color
         Result::Err err:
             Result::Err err
 
 fn counter_present_button_rect %impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn Rgba8888 impure fn i32 Result unit GuiError \button_rect\value_origin\button_color\text_color\value:
-    match gui_web_stdout_fill_rect button_rect button_color:
-        Result::Ok _:
-            counter_present_value button_rect value_origin text_color value
-        Result::Err err:
-            Result::Err err
+    counter_present_value button_rect value_origin button_color text_color value
 
 fn counter_present_value_rect %impure fn GuiRect impure fn GuiRect impure fn GuiPoint impure fn Rgba8888 impure fn Rgba8888 impure fn Rgba8888 impure fn i32 Result unit GuiError \value_rect\button_rect\value_origin\panel_color\button_color\text_color\value:
     match gui_web_stdout_fill_rect value_rect panel_color:

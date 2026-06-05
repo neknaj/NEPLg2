@@ -384,20 +384,8 @@ fn sci_present_button %impure fn i32 Result unit GuiError \index:
                 sci_color_function
             else:
                 sci_color_button
-    match gui_web_stdout_fill_rect rect color:
-        Result::Ok _:
-            let x %i32 gui_rect_x &rect
-            let y %i32 gui_rect_y &rect
-            let text_x %i32 add x 38
-            let text_y %i32 add y 13
-            let origin %GuiPoint gui_point_new text_x text_y
-            match gui_web_stdout_text_run origin 13 GuiWebTextAlign::Center sci_color_text label:
-                Result::Ok _:
-                    gui_web_stdout_action_rect rect action
-                Result::Err error:
-                    Result::Err error
-        Result::Err error:
-            Result::Err error
+    let config %GuiWebButtonConfig gui_web_button_config rect action label color sci_color_text 13 13
+    gui_web_stdout_button config
 
 fn sci_present_buttons %impure fn i32 Result unit GuiError \index:
     if:

@@ -536,12 +536,12 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(lifeSource, /life_animate_action/);
     assert.match(lifeSource, /life_resolution_down_action/);
     assert.match(lifeSource, /life_resolution_up_action/);
-    assert.match(lifeSource, /gui_web_stdout_action_rect/);
+    assert.match(lifeSource, /gui_web_stdout_button/);
     assert.match(mandelbrotSource, /gui_web_wait_event_result/);
     assert.match(mandelbrotSource, /mandelbrot_preview_action/);
     assert.match(mandelbrotSource, /mandelbrot_hd_action/);
     assert.match(mandelbrotSource, /mandelbrot_detail_action/);
-    assert.match(mandelbrotSource, /gui_web_stdout_action_rect/);
+    assert.match(mandelbrotSource, /gui_web_stdout_button/);
     assert.match(calculatorSource, /gui_web_wait_event_result/);
     assert.match(calculatorSource, /calculator_update_action/);
     assert.match(calculatorSource, /calculator_action_eq/);

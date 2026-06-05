@@ -446,20 +446,8 @@ fn breakout_present_control %impure fn i32 Result unit GuiError \index:
     let rect %GuiRect breakout_control_rect index
     let label %str breakout_control_label index
     let action %ActionId breakout_control_action index
-    match gui_web_stdout_fill_rect rect breakout_color_button:
-        Result::Ok _:
-            let x %i32 gui_rect_x &rect
-            let y %i32 gui_rect_y &rect
-            let origin_x %i32 add x 41
-            let origin_y %i32 add y 10
-            let origin %GuiPoint gui_point_new origin_x origin_y
-            match gui_web_stdout_text_run origin 12 GuiWebTextAlign::Center breakout_color_text label:
-                Result::Ok _:
-                    gui_web_stdout_action_rect rect action
-                Result::Err error:
-                    Result::Err error
-        Result::Err error:
-            Result::Err error
+    let config %GuiWebButtonConfig gui_web_button_config rect action label breakout_color_button breakout_color_text 12 10
+    gui_web_stdout_button config
 
 fn breakout_present_controls %impure fn i32 Result unit GuiError \index:
     if:

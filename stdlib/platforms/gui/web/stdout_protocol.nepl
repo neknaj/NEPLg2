@@ -19,6 +19,7 @@
 #indent 4
 
 #import "core/cast" as *
+#import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/result" as *
@@ -33,6 +34,26 @@ pub enum GuiWebTextAlign:
     Left
     Center
     Right
+
+//: GuiWebButtonConfig: stdout fallback で button command を[出力/しゅつりょく]するための typed config
+//:
+//: [目的/もくてき]:
+//: - GUI example が fill rect、label、action hit target をそれぞれ手書きして drift することを避けます。
+//: - button の意味は `ActionId` と label に閉じ、host backend detail は stdout protocol helper に閉じます。
+//:
+//: [契約/けいやく]:
+//: - rect の width / height は `gui_web_stdout_fill_rect` と `gui_web_stdout_action_rect` の contract に従います。
+//: - action id は 1 以上です。0 は invalid geometry として helper 内で拒否されます。
+//: - text_size は 1 以上です。0 以下なら `GuiError::InvalidGeometry` を返します。
+//: - label_y_offset は rect の y から label baseline までの logical px です。中央寄せ x は rect から計算します。
+pub struct GuiWebButtonConfig:
+    rect %GuiRect
+    action %ActionId
+    label %str
+    fill_color %Rgba8888
+    text_color %Rgba8888
+    text_size %i32
+    label_y_offset %i32
 
 impl Clone for GuiWebTextAlign:
     fn clone %fn &GuiWebTextAlign GuiWebTextAlign \align:
@@ -51,6 +72,41 @@ pub fn gui_web_text_align_label %fn GuiWebTextAlign str \align:
             "center"
         GuiWebTextAlign::Right:
             "right"
+
+//: gui_web_button_config: stdout fallback button config を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - example 側では geometry、action、label、色だけを指定し、protocol emission の順序を共通 helper に任せます。
+pub fn gui_web_button_config %fn GuiRect fn ActionId fn str fn Rgba8888 fn Rgba8888 fn i32 fn i32 GuiWebButtonConfig \rect\action\label\fill_color\text_color\text_size\label_y_offset:
+    GuiWebButtonConfig rect action label fill_color text_color text_size label_y_offset
+
+//: gui_web_button_config_rect: button config の rect を[読/よ]む
+pub fn gui_web_button_config_rect %fn &GuiWebButtonConfig GuiRect \config:
+    *field::get_ref config "rect"
+
+//: gui_web_button_config_action: button config の action id を[読/よ]む
+pub fn gui_web_button_config_action %fn &GuiWebButtonConfig ActionId \config:
+    *field::get_ref config "action"
+
+//: gui_web_button_config_label: button config の label を[読/よ]む
+pub fn gui_web_button_config_label %fn &GuiWebButtonConfig str \config:
+    *field::get_ref config "label"
+
+//: gui_web_button_config_fill_color: button config の fill color を[読/よ]む
+pub fn gui_web_button_config_fill_color %fn &GuiWebButtonConfig Rgba8888 \config:
+    *field::get_ref config "fill_color"
+
+//: gui_web_button_config_text_color: button config の text color を[読/よ]む
+pub fn gui_web_button_config_text_color %fn &GuiWebButtonConfig Rgba8888 \config:
+    *field::get_ref config "text_color"
+
+//: gui_web_button_config_text_size: button config の text size を[読/よ]む
+pub fn gui_web_button_config_text_size %fn &GuiWebButtonConfig i32 \config:
+    *field::get_ref config "text_size"
+
+//: gui_web_button_config_label_y_offset: button config の label y offset を[読/よ]む
+pub fn gui_web_button_config_label_y_offset %fn &GuiWebButtonConfig i32 \config:
+    *field::get_ref config "label_y_offset"
 
 //: gui_web_stdout_print_u8: u8 channel を 10 進整数として stdout に出力する
 //:
@@ -324,6 +380,72 @@ pub fn gui_web_stdout_action_rect %impure fn GuiRect impure fn ActionId Result u
                     print " ";
                     println_i32 action_raw;
                     Result::Ok unit
+
+//: gui_web_stdout_button_text_origin: button label の text origin を[計算/けいさん]する
+//:
+//: [目的/もくてき]:
+//: - label の x は rect 中央、y は caller 指定 offset として扱い、各 example の重複計算を 1 箇所へ集めます。
+fn gui_web_stdout_button_text_origin %fn &GuiWebButtonConfig GuiPoint \config:
+    let rect %GuiRect gui_web_button_config_rect config
+    let x %i32 gui_rect_x &rect
+    let y %i32 gui_rect_y &rect
+    let width %i32 gui_rect_width &rect
+    let half_width %i32 div_s width 2
+    let origin_x %i32 add x half_width
+    let offset %i32 gui_web_button_config_label_y_offset config
+    let origin_y %i32 add y offset
+    gui_point_new origin_x origin_y
+
+//: gui_web_stdout_button_config_is_invalid: button helper が stdout を[出力/しゅつりょく]する[前/まえ]に config を[検証/けんしょう]する
+//:
+//: [目的/もくてき]:
+//: - `gui_web_stdout_button` が途中まで protocol を出した後に error を返すことを防ぎます。
+//:
+//: [契約/けいやく]:
+//: - rect の width / height が負、action id が 0 以下、text_size が 0 以下なら true を返します。
+fn gui_web_stdout_button_config_is_invalid %fn &GuiWebButtonConfig bool \config:
+    let rect %GuiRect gui_web_button_config_rect config
+    let action %ActionId gui_web_button_config_action config
+    let text_size %i32 gui_web_button_config_text_size config
+    let rect_invalid %bool gui_web_stdout_rect_is_invalid &rect
+    let action_invalid %bool gui_web_stdout_action_is_invalid action
+    let text_invalid %bool le text_size 0
+    let semantic_invalid %bool or action_invalid text_invalid
+    or rect_invalid semantic_invalid
+
+//: gui_web_stdout_button: fill、label、action hit target を 1 つの typed button command として[出力/しゅつりょく]する
+//:
+//: [目的/もくてき]:
+//: - GUI examples で繰り返されていた `fill_rect -> text_run -> action_rect` の protocol emission を共通化します。
+//: - example は application model / update / geometry に集中し、stdout fallback の command ordering はこの helper が保持します。
+//:
+//: [契約/けいやく]:
+//: - `gui_web_stdout_fill_rect`、`gui_web_stdout_text_run`、`gui_web_stdout_action_rect` の順に出力します。
+//: - rect、action id、text_size は stdout へ 1 command も出す前に検証します。
+//: - invalid config は `GuiError::InvalidGeometry` として返し、partial button output を残しません。
+//: - Canvas や DOM には依存せず、Web stdout fallback の line protocol だけを扱います。
+pub fn gui_web_stdout_button %impure fn GuiWebButtonConfig Result unit GuiError \config:
+    if:
+        gui_web_stdout_button_config_is_invalid &config
+        then:
+            Result::Err GuiError::InvalidGeometry
+        else:
+            let rect %GuiRect gui_web_button_config_rect &config
+            let fill_color %Rgba8888 gui_web_button_config_fill_color &config
+            match gui_web_stdout_fill_rect rect fill_color:
+                Result::Ok fill_ok:
+                    let origin %GuiPoint gui_web_stdout_button_text_origin &config
+                    let text_size %i32 gui_web_button_config_text_size &config
+                    let text_color %Rgba8888 gui_web_button_config_text_color &config
+                    let button_label %str gui_web_button_config_label &config
+                    match gui_web_stdout_text_run origin text_size GuiWebTextAlign::Center text_color button_label:
+                        Result::Ok text_ok:
+                            let action %ActionId gui_web_button_config_action &config
+                            gui_web_stdout_action_rect rect action
+                        Result::Err error:
+                            Result::Err error
+                Result::Err error:
+                    Result::Err error
 
 //: gui_web_stdout_animation_timer: animation timer request を 1 行で出力する
 //:
