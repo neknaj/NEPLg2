@@ -16,9 +16,76 @@
 #import "./types" as *
 #import "core/field" as *
 
+//: ## heap_normalize_capacity
+//: initial capacity を heap storage が[扱/あつか]える[最小/さいしょう]値へ[丸/まる]める
+//:
+//: ### [契約/けいやく]
+//: - `cap < 1` のとき 1 を返します。
+//: - `cap >= 1` のとき `cap` をそのまま返します。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_normalize_capacity_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"zero becomes one\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"positive is kept\" expected=\"8\" actual=\"8\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "binary_heap_normalize_capacity_doc"
+//:         |> test_report_push assert_eq_i32 "zero becomes one" 1 heap_normalize_capacity 0
+//:         |> test_report_push assert_eq_i32 "positive is kept" 8 heap_normalize_capacity 8
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_normalize_capacity %fn i32 i32 \cap:
     if lt cap 1 1 cap
 
+//: ## heap_item_at
+//: `Vec Option .T` storage から live slot の[値/あたい]を[借用/しゃくよう][読/よ]みする
+//:
+//: ### [契約/けいやく]
+//: - `items` owner は[消費/しょうひ]しません。
+//: - storage 範囲外または empty slot は `Option::None` を返します。
+//: - live slot は `Option::Some value` を返します。sentinel 数値は使いません。
+//: - 時間計算量は `Vec.get` と同じ O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_item_at_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"reads stored item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"empty slot is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec Option i32 unwrap_ok heap_alloc_slots 2
+//:     heap_store_slot &items 0 some 42
+//:     let has_value %bool match heap_item_at &items 0:
+//:         Option::Some value:
+//:             eq value 42
+//:         Option::None:
+//:             false
+//:     let empty %bool match heap_item_at &items 1:
+//:         Option::Some _value:
+//:             false
+//:         Option::None:
+//:             true
+//:     vec::free items
+//:     let report:
+//:         test_report_new "binary_heap_item_at_doc"
+//:         |> test_report_push assert "reads stored item" has_value
+//:         |> test_report_push assert "empty slot is none" empty
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
     match vec::get items idx:
         Option::Some item:
@@ -26,9 +93,84 @@ pub fn heap_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
         Option::None:
             none
 
+//: ## heap_store_slot
+//: `Vec Option .T` storage の 1 slot を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `items` owner は[消費/しょうひ]せず、指定 slot だけを更新します。
+//: - `Option::Some value` は live slot、`Option::None` は unused slot を表します。
+//: - index validation は呼び出し側の責務です。public API は heap invariant に基づく index だけを渡します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_store_slot_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"stores option value\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec Option i32 unwrap_ok heap_alloc_slots 1
+//:     heap_store_slot &items 0 some 7
+//:     let stored %bool match heap_item_at &items 0:
+//:         Option::Some value:
+//:             eq value 7
+//:         Option::None:
+//:             false
+//:     vec::free items
+//:     let report:
+//:         test_report_new "binary_heap_store_slot_doc"
+//:         |> test_report_push assert "stores option value" stored
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \items\idx\item:
     vec::replace items idx item
 
+//: ## heap_alloc_slots
+//: empty slot で[満/み]たした backing storage を[確保/かくほ]する
+//:
+//: ### [契約/けいやく]
+//: - 成功時は長さ `cap` の `Vec Option .T` owner を返し、全 slot は `Option::None` です。
+//: - 確保失敗は `StdErrorKind::OutOfMemory` の `Diag` として返します。
+//: - 時間計算量と空間計算量は O(cap) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_alloc_slots_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"alloc initializes none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let result %Result Vec Option i32 Diag heap_alloc_slots 2
+//:     let initialized %bool match result:
+//:         Result::Ok items:
+//:             let empty %bool match heap_item_at &items 0:
+//:                 Option::Some _value:
+//:                     false
+//:                 Option::None:
+//:                     true
+//:             vec::free items
+//:             empty
+//:         Result::Err _d:
+//:             false
+//:     let report:
+//:         test_report_new "binary_heap_alloc_slots_doc"
+//:         |> test_report_push assert "alloc initializes none" initialized
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap:
     match vec::filled cap none:
         Result::Ok items:
@@ -36,6 +178,46 @@ pub fn heap_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap
         Result::Err _e:
             diag_err diag_out_of_memory
 
+//: ## heap_copy_live_slots
+//: live prefix を別 storage へ[複写/ふくしゃ]する
+//:
+//: ### [契約/けいやく]
+//: - `src` と `dst` owner は[消費/しょうひ]しません。
+//: - `0 <= len0 <= src.len` かつ `len0 <= dst.len` は caller の責務です。
+//: - `0 <= i < len0` の slot を `src` から読み、同じ index の `dst` へ書きます。
+//: - 時間計算量は O(len0)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_copy_live_slots_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"copy preserves live value\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let src %Vec Option i32 unwrap_ok heap_alloc_slots 2
+//:     let dst %Vec Option i32 unwrap_ok heap_alloc_slots 2
+//:     heap_store_slot &src 0 some 11
+//:     heap_copy_live_slots &src &dst 1
+//:     let copied %bool match heap_item_at &dst 0:
+//:         Option::Some value:
+//:             eq value 11
+//:         Option::None:
+//:             false
+//:     vec::free src
+//:     vec::free dst
+//:     let report:
+//:         test_report_new "binary_heap_copy_live_slots_doc"
+//:         |> test_report_push assert "copy preserves live value" copied
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 unit \src\dst\len0:
     let mut i %i32 0
     while lt i len0:

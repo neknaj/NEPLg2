@@ -51188,6 +51188,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、stdout fallback の row payload checkpoint と formal host import ABI / native `GuiHost.present` の残件を分けて更新した。
 - merge 前 subagent review は 2 件とも Approve で、Blocker はなかった。Non-blocker として formal ABI 未完了の negative source policy を強める提案があり、`nodesrc/test_web_gui_mandelbrot_transport_contract.js` に docs の未実装 contract を直接検査する assertion を追加した。
 
+## 2026-06-05 Agent2 BinaryHeap doc report checkpoint
+
+- `agent2/binary-heap-doc-contract` branch で、`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` のうち `stdlib/alloc/collections/binary_heap` slice を進めた。`plan.md` は確認のみで変更していない。
+- Zenn 記事の doc comment / static checking 方針を再確認し、`BinaryHeap` の `len` / `cap` / `Vec Option .T` storage invariant、live prefix `Some`、unused suffix `None`、max-heap root、`BinaryHeapPop` owner accessor、storage / order helper complexity を宣言近傍に記録した。
+- `binary_heap.nepl` と `binary_heap/api.nepl` に facade lifecycle report doctest を追加し、`types.nepl` では type invariant と pop result owner flow、`api/observer.nepl` と `api/pop.nepl` では observer / pop API の owner flow を report doctest にした。
+- `storage.nepl` と `order.nepl` の helper docs を追加し、capacity normalization、Option slot read/write/allocation/copy、index math、swap、sift-up / sift-down を report doctest で固定した。
+- `nodesrc/test_stdlib_binary_heap_doc_report_contract.js` を追加し、BinaryHeap doc report names、observer / pop API report、Option slot state、no numeric sentinel、missing slot handling、BinaryHeapPop accessor doc contract を source-policy で固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline は `moduleNoDoctest=299`、`declarationNoDoc=332`、`declarationNoDoctest=1671`、`publicDeclarationNoDoctest=1512` へ締め直した。残件は bloom_filter / btree 系などである。
+- subagent review では order helper doc gaps と report doctest 化が優先と確認した。今回の checkpoint では root/api facade、types、storage、order を対応した。
+- focused verification は BinaryHeap doctest 38/38、documentation contract、BinaryHeap source-policy / unsafe unwrap policy を通した。
+
 ## 2026-06-05 Agent selfhost source-backed ascribed argument checkpoint
 
 - `selfhost/ascribed-argument-source-check-20260605` branch で、self-host compiler Phase 6 の argument-scope `%T literal` 検査を source / token backed owner API として追加した。`plan.md` は確認のみで変更していない。

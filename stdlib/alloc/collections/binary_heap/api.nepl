@@ -5,6 +5,37 @@
 //: - `new` / `with_capacity` / `push` / `peek` / `pop_max` / `pop` / observers / `free` の public path を維持します。
 //: - 構築、借用 observer、push grow、pop、cleanup を submodule に分けます。
 //: - API facade に実装本体を戻さず、owner-moving 操作と borrowed observer の境界を見える形に保ちます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_api_facade_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"capacity is normalized\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"pop returns max\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/types" as *
+//:| #import "alloc/collections/binary_heap/api" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp0 %BinaryHeap i32 unwrap_ok with_capacity 0
+//:     let normalized %i32 cap &hp0
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 7
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 3
+//:     let popped_is_max %bool match pop hp2:
+//:         Option::Some value:
+//:             eq value 7
+//:         Option::None:
+//:             false
+//:     let report:
+//:         test_report_new "binary_heap_api_facade_doc"
+//:         |> test_report_push assert_eq_i32 "capacity is normalized" 1 normalized
+//:         |> test_report_push assert "pop returns max" popped_is_max
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 

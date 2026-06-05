@@ -9,6 +9,39 @@
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には heap payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
 //: - `peek` / `len` / `cap` / `is_empty` は heap を[借用/しゃくよう]して[観測/かんそく]します。
 //: - `pop_max` は[更新後/こうしんご]の owner と[取/と]り[出/だ]した `Option .T` を[同時/どうじ]に[返/かえ]します。結果は `binary_heap_pop_item` / `binary_heap_pop_heap` で[分解/ぶんかい]します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_facade_lifecycle_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"len after pushes\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"peek sees max\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let hp %BinaryHeap i32:
+//:         unwrap_ok new
+//:         |> push 4 |> uwok
+//:         |> push 9 |> uwok
+//:         |> push 1 |> uwok
+//:     let size %i32 len &hp
+//:     let max_seen %bool match peek &hp:
+//:         Option::Some value:
+//:             eq value 9
+//:         Option::None:
+//:             false
+//:     free hp
+//:     let report:
+//:         test_report_new "binary_heap_facade_lifecycle_doc"
+//:         |> test_report_push assert_eq_i32 "len after pushes" 3 size
+//:         |> test_report_push assert "peek sees max" max_seen
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 #import "core/math" as *

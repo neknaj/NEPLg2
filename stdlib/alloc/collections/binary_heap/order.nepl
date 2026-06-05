@@ -14,21 +14,178 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
+//: ## heap_parent
+//: heap array index の parent index を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `idx > 0` の child index に対して `floor((idx - 1) / 2)` を返します。
+//: - root index 0 は caller が渡しません。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_parent_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"left child parent\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"right child parent\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/order" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "binary_heap_parent_doc"
+//:         |> test_report_push assert_eq_i32 "left child parent" 0 heap_parent 1
+//:         |> test_report_push assert_eq_i32 "right child parent" 1 heap_parent 4
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_parent %fn i32 i32 \idx:
     div_s sub idx 1 2
 
+//: ## heap_left
+//: heap array index の left child index を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - 返り値は `idx * 2 + 1` です。
+//: - 範囲検査は行いません。caller が `len` と比較します。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_left_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"left child\" expected=\"5\" actual=\"5\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/order" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "binary_heap_left_doc"
+//:         |> test_report_push assert_eq_i32 "left child" 5 heap_left 2
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_left %fn i32 i32 \idx:
     add mul idx 2 1
 
+//: ## heap_right
+//: heap array index の right child index を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - 返り値は `idx * 2 + 2` です。
+//: - 範囲検査は行いません。caller が `len` と比較します。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_right_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"right child\" expected=\"6\" actual=\"6\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/order" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "binary_heap_right_doc"
+//:         |> test_report_push assert_eq_i32 "right child" 6 heap_right 2
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_right %fn i32 i32 \idx:
     add mul idx 2 2
 
+//: ## heap_swap_slots
+//: `Vec Option .T` storage の 2 slot を[交換/こうかん]する
+//:
+//: ### [契約/けいやく]
+//: - `items` owner は[消費/しょうひ]しません。
+//: - `a` と `b` の slot state を `Option` のまま交換します。empty slot も `Option::None` として保持します。
+//: - `a` と `b` が storage 範囲内であることは caller の責務です。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_swap_slots_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"first slot gets old second\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"second slot gets old first\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/order" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec Option i32 unwrap_ok heap_alloc_slots 2
+//:     heap_store_slot &items 0 some 3
+//:     heap_store_slot &items 1 some 8
+//:     heap_swap_slots &items 0 1
+//:     let first_ok %bool match heap_item_at &items 0:
+//:         Option::Some value:
+//:             eq value 8
+//:         Option::None:
+//:             false
+//:     let second_ok %bool match heap_item_at &items 1:
+//:         Option::Some value:
+//:             eq value 3
+//:         Option::None:
+//:             false
+//:     vec::free items
+//:     let report:
+//:         test_report_new "binary_heap_swap_slots_doc"
+//:         |> test_report_push assert "first slot gets old second" first_ok
+//:         |> test_report_push assert "second slot gets old first" second_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_swap_slots <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 unit \items\a\b:
     let av %Option .T heap_item_at<.T> items a
     let bv %Option .T heap_item_at<.T> items b
     heap_store_slot<.T> items a bv
     heap_store_slot<.T> items b av
 
+//: ## heap_sift_up
+//: start slot の値を parent と比較しながら max-heap invariant へ[戻/もど]す
+//:
+//: ### [契約/けいやく]
+//: - `0 <= start < live len` の live slot を caller が渡します。
+//: - parent が child より小さい間だけ slot を交換します。
+//: - missing slot を見つけた場合は storage invariant failure とみなし、そこで停止します。
+//: - 時間計算量は O(log n)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_sift_up_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"largest moves to root\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/order" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec Option i32 unwrap_ok heap_alloc_slots 3
+//:     heap_store_slot &items 0 some 5
+//:     heap_store_slot &items 1 some 1
+//:     heap_store_slot &items 2 some 9
+//:     heap_sift_up &items 2
+//:     let root_ok %bool match heap_item_at &items 0:
+//:         Option::Some value:
+//:             eq value 9
+//:         Option::None:
+//:             false
+//:     vec::free items
+//:     let report:
+//:         test_report_new "binary_heap_sift_up_doc"
+//:         |> test_report_push assert "largest moves to root" root_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_sift_up <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 unit \items\start:
     let mut idx %i32 start
     let mut done %bool false
@@ -51,6 +208,47 @@ pub fn heap_sift_up <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 unit 
                 Option::None:
                     set done true
 
+//: ## heap_sift_down
+//: root 側の値を child と比較しながら max-heap invariant へ[戻/もど]す
+//:
+//: ### [契約/けいやく]
+//: - `len0` は live prefix 長で、`0 <= start < len0` の slot から開始します。
+//: - 大きい child と交換し、parent が両 child 以上になった時点で停止します。
+//: - missing slot を見つけた場合は storage invariant failure とみなし、そこで停止します。
+//: - 時間計算量は O(log n)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"binary_heap_sift_down_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"largest child moves to root\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/binary_heap/order" as *
+//:| #import "alloc/collections/binary_heap/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec Option i32 unwrap_ok heap_alloc_slots 3
+//:     heap_store_slot &items 0 some 1
+//:     heap_store_slot &items 1 some 9
+//:     heap_store_slot &items 2 some 5
+//:     heap_sift_down &items 3 0
+//:     let root_ok %bool match heap_item_at &items 0:
+//:         Option::Some value:
+//:             eq value 9
+//:         Option::None:
+//:             false
+//:     vec::free items
+//:     let report:
+//:         test_report_new "binary_heap_sift_down_doc"
+//:         |> test_report_push assert "largest child moves to root" root_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn heap_sift_down <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 unit \items\len0\start:
     let mut idx %i32 start
     let mut done %bool false

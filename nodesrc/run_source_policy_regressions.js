@@ -96,6 +96,7 @@ const checks = [
     "nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js",
     "nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_binary_heap_doc_report_contract.js",
     "nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_btree_borrowed_observers.js",
     "nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js",
