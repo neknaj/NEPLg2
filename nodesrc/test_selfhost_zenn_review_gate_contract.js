@@ -356,7 +356,9 @@ assert.ok(
     "selfhost review packet helper must report the first missing required review context",
 );
 
-const untrackedProbe = path.join(repoRoot, "nodesrc", "__selfhost_zenn_review_packet_contract_untracked__.tmp");
+const untrackedProbeName = `__selfhost_zenn_review_packet_contract_untracked_${process.pid}.probe`;
+const untrackedProbeRelPath = path.posix.join("nodesrc", untrackedProbeName);
+const untrackedProbe = path.join(repoRoot, "nodesrc", untrackedProbeName);
 try {
     fs.writeFileSync(untrackedProbe, "review packet contract probe\n", "utf8");
     const helperPacket = spawnSync(process.execPath, [
@@ -395,7 +397,7 @@ try {
         "staged files:",
         "unstaged files:",
         "untracked files:",
-        "nodesrc/__selfhost_zenn_review_packet_contract_untracked__.tmp",
+        untrackedProbeRelPath,
         "今回 accepted にした範囲:",
         "fail-closed に残した範囲:",
         "existing warnings:",

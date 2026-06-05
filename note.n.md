@@ -1,3 +1,18 @@
+# 2026-06-05 Agent selfhost Zenn review gate re-audit checkpoint
+
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回も、静的検査の正確性、Result / Option / enum による失敗表現、pure core と host boundary、丁寧な doc comment、行数制限ではなく責務境界を検査する方針、試作段階でも技術的負債を残さない方針を判断基準にした。
+- 現行 `main` の selfhost Zenn review gate 一式を subagent 3 件で再監査した。対象は `doc/neplg2/self_host_zenn_review_checklist.md`、`doc/neplg2/self_host_zenn_review_prompt.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`doc/neplg2/self_host_execution_plan.md`、`nodesrc/selfhost_zenn_review_packet.js`、`nodesrc/test_selfhost_zenn_review_gate_contract.js` である。
+- subagent review では Blocker は出なかった。Non-blocker として、`zenn_checked_at` の日付形式検査、長い検証 command の comma 区切り以外の入力形式、将来的な note checkpoint 検査の強化が挙がったが、現行 gate の merge / 運用を妨げるものではない。
+- ローカル検証中に、`nodesrc/test_selfhost_zenn_review_gate_contract.js` の untracked probe file 名が固定であり、同じ contract test を並列実行した場合に干渉し得ることを確認した。これは review gate の検査信頼性に関わるため、process 固有の probe 名へ変更した。
+- 追加差分は subagent 2 件へ短い再レビューを依頼した。2 件とも Blocker なしで、固定 probe 名の衝突を根本から避ける妥当な source policy 信頼性向上として approve した。
+- 現時点の検証:
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js` を並列 2 本で実行: pass
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+- 次回以降も、selfhost 実装 slice では `nodesrc/selfhost_zenn_review_packet.js` で packet を生成し、subagent review response と Blocker 修正結果を `note.n.md` に残す。
+
 # 2026-06-05 Agent selfhost Zenn review packet helper checkpoint
 
 - Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の判断基準は、静的検査を活用すること、Result / Option / enum による失敗表現、pure core と host boundary の分離、責務分割、丁寧なドキュメントコメント、試作段階でも技術的負債を残さないこと、性能改善では探索範囲と計算量を明示的に扱うことである。
