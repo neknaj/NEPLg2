@@ -1,0 +1,51 @@
+#indent 4
+
+//: # parser/range
+//: token index 区間を `SelfhostSyntaxRange` へ正規化する parser 共通 helper です。
+//:
+//: [目的/もくてき]:
+//: - module parser、body segmenter、将来の block parser が同じ token range evidence を作れるようにします。
+//: - `SelfhostSyntaxRange` は HIR や型検査済みノードではなく、parser が観測した token stream 上の連続範囲です。
+//:
+//: [契約/けいやく]:
+//: - 入力は `[first_token, after_token)` の half-open range です。
+//: - 空範囲、逆順、または token buffer 外の範囲は invalid payload にせず `SelfhostSyntaxRange::Empty` へ落とします。
+//: - caller は必須 range か任意 range かを後段の checker / proof obligation で判断します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭 token と末尾 token だけを参照するため O(1) です。
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+
+//: selfhost_parser_syntax_range_from_indices: token index 区間を `SelfhostSyntaxRange` に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - parser が計算した `[first_token, after_token)` を、token index、token count、source span を持つ range evidence へ変換します。
+//: - source span は先頭 token の開始位置から末尾 token の終了位置までを結合して作ります。
+//:
+//: [契約/けいやく]:
+//: - `after_token` は範囲に含まれない token index です。
+//: - structural token も token stream 上の範囲としては扱えますが、後段の prefix expression builder が受け付けるかどうかは別の責務です。
+pub fn selfhost_parser_syntax_range_from_indices %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
+    if:
+        or le after_token first_token or lt first_token 0 gt after_token n
+        then:
+            selfhost_syntax_range_empty
+        else:
+            match v::get tokens first_token:
+                Option::Some first:
+                    match v::get tokens sub after_token 1:
+                        Option::Some last:
+                            let first_span %SelfhostSourceSpan first.span
+                            let last_span %SelfhostSourceSpan last.span
+                            let span %SelfhostSourceSpan source_span_new_unchecked first_span.file_id first_span.start last_span.end
+                            selfhost_syntax_range_new_unchecked first_token sub after_token first_token span
+                        Option::None:
+                            selfhost_syntax_range_empty
+                Option::None:
+                    selfhost_syntax_range_empty

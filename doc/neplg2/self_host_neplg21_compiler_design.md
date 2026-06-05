@@ -223,7 +223,7 @@ ParsedType:
 
 `%T expr` は expected type boundary として保持する。runtime operation ではない。
 
-現行 self-host 実装では、`stdlib/neplg2/core/syntax/ast/prefix_expr.nepl` が `SelfhostExprPrefixList` を提供する。これは `SelfhostSyntaxRange` から作る pre-HIR の flat expression item list であり、`%` type annotation marker、lambda marker、`@function` marker、literal、identifier、control form marker を token index と span 付きで保持する。`SelfhostExprPrefixList` は HIR ではなく、`SelfhostHirExprPayload::Call` のような解決済み call tree を作らない。body parser は `module_parser/body_range.nepl` で declaration body envelope と first expression segment を `SelfhostSyntaxRange` として切り出し、単純な function body についてはその first expression range から `SelfhostExprPrefixList` を構築できる。
+現行 self-host 実装では、`stdlib/neplg2/core/syntax/ast/prefix_expr.nepl` が `SelfhostExprPrefixList` を提供する。これは `SelfhostSyntaxRange` から作る pre-HIR の flat expression item list であり、`%` type annotation marker、lambda marker、`@function` marker、literal、identifier、control form marker を token index と span 付きで保持する。`SelfhostExprPrefixList` は HIR ではなく、`SelfhostHirExprPayload::Call` のような解決済み call tree を作らない。body parser は `module_parser/body_range.nepl` で declaration body envelope と first expression segment を `SelfhostSyntaxRange` として切り出す。`parser/body_segmenter.nepl` は body envelope を top-level segment 列へ分解し、flat prefix expression にできる `ExpressionLine` と nested body を持つ `BlockIntro` を型で分ける。`BlockIntro.body` は recursive segmenter の入力であり、`SelfhostExprPrefixList` へ直接渡さない。
 
 `fn void T` は parser/type resolver boundary で `params = []` へ正規化する。`void` は result type、type argument、expression、parameter name として受理しない。
 
@@ -659,6 +659,7 @@ Performance acceptance:
 - module declaration header では、`%` type annotation と lambda header を `SelfhostSyntaxRange` として保持する。これは最終的な型木・式木ではなく、後続 resolver / checker が kind / arity / expected type に基づいて境界を解くための flat token range evidence である。
 - `syntax/ast/prefix_expr.nepl` は `SelfhostSyntaxRange` から `SelfhostExprPrefixList` を作る。expression prefix list は `%` marker を保持し、call boundary、expected type、overload、generic、trait、partial application の判断は Type checker へ渡す。
 - `module_parser/body_range.nepl` は declaration body block の envelope と first expression segment を `SelfhostSyntaxRange` として保持する。複数式 body や nested block は envelope を後段 segmenter が扱い、`first_expression` は初期 call reduction 入力のための bounded expression range として使う。
+- `syntax/parser/body_segmenter.nepl` は body envelope を `ExpressionLine` / `BlockIntro` の typed segment list へ分解する。`ExpressionLine.head` は `SelfhostExprPrefixList` の入力候補であり、`BlockIntro.body` は nested body envelope として再帰的に segmenter へ渡す。
 - 旧 `()` grouping、angle type、generic postfix は正規 grammar から外し、必要なら migration diagnostic に限定する。
 
 Issue slice:
@@ -737,7 +738,6 @@ Issue slice:
 - expected type and `%T` ascription
 - callable candidate collection
 - `SelfhostExprPrefixList` からの expression reduction input validation
-- declaration body envelope からの expression segmenter
 - prefix call reduction stack
 - generic instantiation inference
 - trait bound solving
@@ -879,7 +879,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor kind に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction、binder-indexed type parameter の arena/key projection、constructor kind validation と bound plan、pre-HIR `SelfhostExprPrefixList`、declaration body envelope / first expression range 抽出を追加した。残件は expression segmenter、call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor kind に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction、binder-indexed type parameter の arena/key projection、constructor kind validation と bound plan、pre-HIR `SelfhostExprPrefixList`、declaration body envelope / first expression range 抽出、body envelope からの `ExpressionLine` / `BlockIntro` segmenter を追加した。残件は call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |

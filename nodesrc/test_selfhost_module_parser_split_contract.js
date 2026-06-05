@@ -24,6 +24,7 @@ assert.doesNotMatch(
 for (const relPath of MODULE_PARSER_SPLIT_FILES) {
     const importPath = relPath
         .replace(/^stdlib\/neplg2\/core\/syntax\/parser\/module_parser\//, "./module_parser/")
+        .replace(/^stdlib\/neplg2\/core\/syntax\/parser\//, "./")
         .replace(/\.nepl$/, "");
     assert.match(
         facade,

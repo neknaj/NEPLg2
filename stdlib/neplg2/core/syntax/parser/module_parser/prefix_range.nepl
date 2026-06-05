@@ -7,6 +7,7 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/token" as *
+pub #import "../range" as *
 
 //: SelfhostParserPrefixRangeTokenRole: declaration header 内の prefix range 抽出に必要な token [役割/やくわり]
 //:
@@ -183,30 +184,6 @@ fn selfhost_parser_prefix_range_token_role %fn TokenKind SelfhostParserPrefixRan
             SelfhostParserPrefixRangeTokenRole::HeaderTerminator
         TokenKind::Unknown:
             SelfhostParserPrefixRangeTokenRole::HeaderTerminator
-
-//: selfhost_parser_syntax_range_from_indices: token index 区間を `SelfhostSyntaxRange` に[変換/へんかん]する
-//:
-//: [目的/もくてき]:
-//: - `[first_token, after_token)` の token span を結合し、後段 checker に渡す range evidence を作ります。
-//: - token buffer 境界から外れた場合は invalid payload を作らず `Empty` に落とし、function 宣言の必須 range 検査で拒否されるようにします。
-pub fn selfhost_parser_syntax_range_from_indices %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
-    if:
-        or le after_token first_token or lt first_token 0 gt after_token n
-        then:
-            selfhost_syntax_range_empty
-        else:
-            match v::get tokens first_token:
-                Option::Some first:
-                    match v::get tokens sub after_token 1:
-                        Option::Some last:
-                            let first_span %SelfhostSourceSpan first.span
-                            let last_span %SelfhostSourceSpan last.span
-                            let span %SelfhostSourceSpan source_span_new_unchecked first_span.file_id first_span.start last_span.end
-                            selfhost_syntax_range_new_unchecked first_token sub after_token first_token span
-                        Option::None:
-                            selfhost_syntax_range_empty
-                Option::None:
-                    selfhost_syntax_range_empty
 
 //: selfhost_parser_type_annotation_end_loop: `%` type annotation range の終端 token index を[探/さが]す
 //:
