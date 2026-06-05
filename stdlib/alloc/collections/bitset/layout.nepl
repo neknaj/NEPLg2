@@ -8,14 +8,116 @@
 
 #import "core/math" as *
 
+//: ## bitset_byte_index
+//: bit index が[属/ぞく]する byte index を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `bit_idx` は API 層で[検証/けんしょう]済みの非負 index として扱います。
+//: - 計算は `bit_idx / 8` の整数除算で、時間計算量は O(1) です。
+//:
+//: ### [現状/げんじょう]の実装
+//: - `core/math.div_s` を使い、byte storage の layout 規則をここに閉じ込めます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_byte_index_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"first byte\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"same byte end\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"next byte\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset/layout" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "bitset_byte_index_doc"
+//:         |> test_report_push assert_eq_i32 "first byte" 0 bitset_byte_index 0
+//:         |> test_report_push assert_eq_i32 "same byte end" 0 bitset_byte_index 7
+//:         |> test_report_push assert_eq_i32 "next byte" 1 bitset_byte_index 8
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bitset_byte_index %fn i32 i32 \bit_idx:
     div_s bit_idx 8
 
+//: ## bitset_mask
+//: byte [内/ない]の bit 位置を[表/あらわ]す mask を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `bit_idx` の下位 3 bit だけを byte 内 offset として使います。
+//: - 戻り値は `1`, `2`, `4`, ..., `128` のいずれかです。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_mask_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"low bit\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"high bit\" expected=\"128\" actual=\"128\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"wrapped bit\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset/layout" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "bitset_mask_doc"
+//:         |> test_report_push assert_eq_i32 "low bit" 1 bitset_mask 0
+//:         |> test_report_push assert_eq_i32 "high bit" 128 bitset_mask 7
+//:         |> test_report_push assert_eq_i32 "wrapped bit" 1 bitset_mask 8
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bitset_mask %fn i32 i32 \bit_idx:
     shl 1 rem_s bit_idx 8
 
+//: ## bitset_valid_index
+//: `idx` が bitset の[範囲/はんい][内/ない]かを[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `0 <= idx < nbits` のときだけ `true` を返します。
+//: - この関数は診断を作りません。診断への変換は API 層の責務です。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_valid_index_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"inside\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=ne_bool label=\"upper bound\" expected=\"different\" actual=\"true vs false\" message=\"\"\nassertion index=2 status=ok kind=ne_bool label=\"above upper bound\" expected=\"different\" actual=\"true vs false\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset/layout" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "bitset_valid_index_doc"
+//:         |> test_report_push assert "inside" bitset_valid_index 3 4
+//:         |> test_report_push assert_ne "upper bound" true bitset_valid_index 4 4
+//:         |> test_report_push assert_ne "above upper bound" true bitset_valid_index 5 4
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bitset_valid_index %fn i32 fn i32 bool \idx\nbits:
     and le 0 idx lt idx nbits
 
+//: ## bitset_byte_len
+//: bit [長/ちょう]を[保持/ほじ]するための byte [長/ちょう]を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `nbits` は public `new` で正の値に検証済みとして扱います。
+//: - 端数 bit は 1 byte に切り上げます。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_byte_len_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"one bit\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"one full byte\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"rounded byte\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset/layout" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "bitset_byte_len_doc"
+//:         |> test_report_push assert_eq_i32 "one bit" 1 bitset_byte_len 1
+//:         |> test_report_push assert_eq_i32 "one full byte" 1 bitset_byte_len 8
+//:         |> test_report_push assert_eq_i32 "rounded byte" 2 bitset_byte_len 9
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bitset_byte_len %fn i32 i32 \nbits:
     div_s add nbits 7 8

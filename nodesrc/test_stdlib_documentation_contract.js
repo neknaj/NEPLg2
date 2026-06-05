@@ -14,11 +14,11 @@ const STDLIB_ROOTS = [
 const BASELINE = {
     files: 456,
     moduleNoDoc: 0,
-    moduleNoDoctest: 305,
+    moduleNoDoctest: 303,
     declarations: 2525,
-    declarationNoDoc: 361,
-    declarationNoDoctest: 1690,
-    publicDeclarationNoDoctest: 1531,
+    declarationNoDoc: 350,
+    declarationNoDoctest: 1686,
+    publicDeclarationNoDoctest: 1527,
     privateDeclarationNoDoctest: 159,
 };
 
