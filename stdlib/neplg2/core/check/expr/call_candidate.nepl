@@ -10,10 +10,11 @@
 //: [契約/けいやく]:
 //: - `callable_type` は function type であることをこの module の constructor では仮定しません。reduction 側が arena record を確認し、function でなければ `NotCallable` として拒否します。
 //: - generic inference state は候補ごとに保持します。未対応 generic を monomorphic な成功として扱うことは禁止です。
-//: - candidate identity は当面 name 文字列と候補 index で表します。stable function identity / imported interface identity は後続の signature artifact slice で置き換えます。
+//: - candidate identity は name 文字列だけではなく `SelfhostDefId` を保持します。HIR function value identity lowering や `memo_call` は、この DefId evidence がない candidate を accepted path に入れてはいけません。
 
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty" as *
 
@@ -40,10 +41,12 @@ impl Copy for SelfhostGenericInferenceState:
 //: SelfhostCallableCandidate: overload reduction に渡す callable 候補
 //:
 //: [目的/もくてき]:
-//: - 候補名、function type であるべき TypeId、surface effect、generic inference state、span をまとめます。
+//: - 候補名、DefId、function type であるべき TypeId、surface effect、generic inference state、span をまとめます。
 //: - reduction は `callable_type` の arena record を確認してから arity / expected result を検査します。
+//: - `def_id` は直接呼び出しだけでなく、明示 `@ident` から HIR `FnValue` identity を作る後続 slice の authority です。
 pub struct SelfhostCallableCandidate:
     name %str
+    def_id %SelfhostDefId
     callable_type %SelfhostTypeId
     effect %SelfhostEffectKind
     generic_state %SelfhostGenericInferenceState
@@ -95,8 +98,8 @@ impl Copy for SelfhostOverloadCandidateRejection:
         self
 
 //: selfhost_callable_candidate_new: callable candidate payload を[作/つく]る
-pub fn selfhost_callable_candidate_new %fn str fn SelfhostTypeId fn SelfhostEffectKind fn SelfhostGenericInferenceState fn SelfhostSourceSpan SelfhostCallableCandidate \name\callable_type\effect\generic_state\span:
-    SelfhostCallableCandidate name callable_type effect generic_state span
+pub fn selfhost_callable_candidate_new %fn str fn SelfhostDefId fn SelfhostTypeId fn SelfhostEffectKind fn SelfhostGenericInferenceState fn SelfhostSourceSpan SelfhostCallableCandidate \name\def_id\callable_type\effect\generic_state\span:
+    SelfhostCallableCandidate name def_id callable_type effect generic_state span
 
 //: selfhost_overload_candidate_rejection_new: overload rejection payload を[作/つく]る
 pub fn selfhost_overload_candidate_rejection_new %fn SelfhostOverloadCandidateRejectionKind fn i32 fn SelfhostSourceSpan SelfhostOverloadCandidateRejection \kind\candidate_index\span:

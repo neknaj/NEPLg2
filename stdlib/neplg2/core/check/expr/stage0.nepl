@@ -21,6 +21,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty" as *
@@ -160,7 +161,7 @@ fn selfhost_check_expr_stage0_make_candidate_vec %impure fn SelfhostTypeId impur
     let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
     match candidates_result:
         Result::Ok candidates0:
-            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" callable_type SelfhostEffectKind::Pure generic_state source_span_new_unchecked 0 0 3
+            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" selfhost_def_id_new 0 callable_type SelfhostEffectKind::Pure generic_state source_span_new_unchecked 0 0 3
             match v::push candidates0 candidate:
                 Result::Ok candidates1:
                     Result::Ok candidates1
@@ -272,7 +273,7 @@ fn selfhost_check_expr_stage0_ambiguous_rejected %impure fn &SelfhostTypeArena i
         Result::Ok prefix:
             match selfhost_check_expr_stage0_make_candidate_vec add_type SelfhostGenericInferenceState::NoneRequired:
                 Result::Ok candidates1:
-                    let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" add_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
+                    let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" selfhost_def_id_new 1 add_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
                     match v::push candidates1 candidate:
                         Result::Ok candidates2:
                             let result %Result SelfhostCallReduceResult SelfhostCallReduceError selfhost_call_reduce_prefix arena &prefix &candidates2 none

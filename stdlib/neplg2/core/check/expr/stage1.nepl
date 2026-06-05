@@ -242,7 +242,7 @@ fn selfhost_check_expr_stage1_make_named_candidate_vec %impure fn str impure fn 
     let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
     match candidates_result:
         Result::Ok candidates0:
-            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new name callable_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
+            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new name selfhost_def_id_new 0 callable_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
             match v::push candidates0 candidate:
                 Result::Ok candidates1:
                     Result::Ok candidates1

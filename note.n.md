@@ -1,3 +1,17 @@
+# 2026-06-05 Agent selfhost callable candidate DefId evidence checkpoint
+
+- `SelfhostCallableSignature` は DefId-linked signature evidence を保持していたが、reducer 用 `SelfhostCallableCandidate` に変換する時点で DefId を落としていた。このままでは HIR `FnValue` identity lowering が name string と function type だけへ戻るため、Zenn 記事の typed data / static check 方針に反する。
+- `stdlib/neplg2/core/check/expr/call_candidate.nepl` の `SelfhostCallableCandidate` に `def_id %SelfhostDefId` を追加し、`selfhost_callable_candidate_new` も DefId を必須引数にした。
+- `candidate_collection.nepl` は `SelfhostCallableSignature` から candidate を作る際に `signature.def_id` を保持するようにした。stage0 / stage1 の手作り fixture も `selfhost_def_id_new` を明示して candidate を作る。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` は candidate payload が `SelfhostDefId` を持つこと、signature から candidate へ DefId を渡すことを検査する。
+- この checkpoint は HIR lowering 本体ではない。次は DefId 付き candidate から `SelfhostHirFunctionValueIdentity` と `SelfhostHirExprPayload::FnValue` を作る owner boundary を追加する。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-candidate-defid.json`: pass（3/3）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost HIR function value identity model checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。

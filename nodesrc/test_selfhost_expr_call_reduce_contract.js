@@ -58,6 +58,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostCallableCandidate:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*callable_type %SelfhostTypeId[\s\S]*effect %SelfhostEffectKind[\s\S]*generic_state %SelfhostGenericInferenceState[\s\S]*span %SelfhostSourceSpan/,
+    "call reducer candidates must preserve DefId evidence for later HIR function value identity lowering",
+);
+assert.match(
+    source,
     /pub struct SelfhostTrailingBlockArgument:[\s\S]*body %SelfhostSyntaxRange[\s\S]*span %SelfhostSourceSpan/,
     "trailing block arguments must be represented as body-envelope evidence instead of prefix items",
 );
@@ -113,8 +118,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_callable_candidate_new name signature\.callable_type signature\.effect signature\.generic_state signature\.span/,
-    "callable candidate collection must build reducer candidates from signature records",
+    /selfhost_callable_candidate_new name signature\.def_id signature\.callable_type signature\.effect signature\.generic_state signature\.span/,
+    "callable candidate collection must build reducer candidates from signature records without dropping DefId evidence",
 );
 assert.match(
     source,

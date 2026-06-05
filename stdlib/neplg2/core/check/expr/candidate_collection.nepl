@@ -193,7 +193,7 @@ fn selfhost_callable_candidates_empty %impure fn SelfhostSourceSpan Result Vec S
 //: - DefId で復元した callable signature を、call reducer が扱う candidate payload へ変換します。
 //: - `Vec::push` 失敗時は戻された vector owner を解放し、allocation failure を collection error へ正規化します。
 fn selfhost_callable_candidates_push_signature %impure fn Vec SelfhostCallableCandidate impure fn str impure fn SelfhostCallableSignature impure fn SelfhostSourceSpan Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \out\name\signature\head_span:
-    let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new name signature.callable_type signature.effect signature.generic_state signature.span
+    let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new name signature.def_id signature.callable_type signature.effect signature.generic_state signature.span
     match v::push out candidate:
         Result::Ok next_out:
             Result::Ok next_out
