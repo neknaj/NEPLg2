@@ -1,3 +1,25 @@
+# 2026-06-05 Agent BloomFilter documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、契約と現状実装の分離、Option / Result と enum error による失敗表現、doc test と詳細テストの分離、責務分割、静的検査で退行を止める方針を判断基準にした。
+- subagent review では、`stdlib/alloc/collections/bloom_filter` の helper 14件、facade、type invariant、public API の doc / report doctest gap が blocker として指摘された。特に `BloomFilter` の `nbits > 0`、`nbytes == bloom_byte_len nbits`、`Vec u8` owner、false positive / false negative、`free` lifecycle、invalid length の typed error kind を contract として明示する必要があると確認した。
+- `bloom_filter.nepl` facade、`types.nepl`、`hash.nepl`、`layout.nepl`、`storage.nepl`、`mutation.nepl`、`api.nepl` に日本語 doc comment と `test_report` 形式の doctest を追加した。helper の invalid index / missing byte path は public API が valid probe index を渡す前提の fail-closed path として説明し、存在しない error contract を捏造しないようにした。
+- `nodesrc/test_stdlib_bloom_filter_doc_report_contract.js` を追加し、BloomFilter 固有の report doctest 名、type invariant、invalid length error、borrowed observer、false positive / false negative、storage / mutation / hash / layout helper contract を source policy として固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline を実測値に締め直した。新しい悪化防止ラインは `moduleNoDoctest=297`、`declarationNoDoc=318`、`declarationNoDoctest=1670`、`publicDeclarationNoDoctest=1511` である。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。BloomFilter slice は閉じたが、sample gaps は btreemap / btreeset / counting_bloom_filter 系へ進んでいる。
+- 最終 subagent review では、generic `BloomFilter` の `insert` / `contains` / `bloom_hash1` が O(1) と断定している点を blocker として指摘された。probe 数は固定だが hash / `HashKey` 実装に依存するため、固定長 key は O(1)、`str` は文字列長に比例する contract へ修正し、source policy にも再発防止条件を追加した。
+- subagent 再レビューでは、計算量 contract と `nbits <= 0` 文言の修正により blocker は解消済みで、source policy の固定粒度も妥当、remote/main merge に進めてよいと確認された。
+- 現時点の検証済み:
+  - `node nodesrc/test_stdlib_bloom_filter_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_bloom_filter_borrowed_observers.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl -i stdlib/alloc/collections/bloom_filter/types.nepl -i stdlib/alloc/collections/bloom_filter/hash.nepl -i stdlib/alloc/collections/bloom_filter/layout.nepl -i stdlib/alloc/collections/bloom_filter/storage.nepl -i stdlib/alloc/collections/bloom_filter/mutation.nepl -i stdlib/alloc/collections/bloom_filter/api.nepl -i stdlib/tests/bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/agent2-bloom-filter-doc-slice-fourth.json -j 1 --dist web/dist --assert-io`: pass（27/27）
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-bloom-filter-doc-playground-editor.json`: pass（13/13）
+
 # 2026-06-05 Agent Zenn policy compliance review checkpoint
 
 - Zenn 記事を再確認した。特に、Option / Result と enum による失敗表現、エラーと表示の分離、目的・契約・戻り値条件・計算量を含む丁寧な doc comment、責務分割、試作段階でも技術的負債を残さない方針を今回の修正基準にした。

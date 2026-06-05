@@ -15,6 +15,47 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
+//: ## bloom_byte_at
+//: `Vec u8` storage から byte を `i32` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]しません。
+//: - 範囲内 byte は `Option::Some value` を返し、範囲外 byte は `Option::None` を返します。
+//: - storage helper は raw pointer や raw byte load を使わず、typed `Vec u8` の `get` に委譲します。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_byte_at_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads initialized byte\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing byte is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bloom_alloc_bits 1 7
+//:     let observed %i32 match bloom_byte_at &bits 0:
+//:         Option::Some value:
+//:             value
+//:         Option::None:
+//:             -1
+//:     let missing %bool match bloom_byte_at &bits 1:
+//:         Option::Some _value:
+//:             false
+//:         Option::None:
+//:             true
+//:     bloom_free_bits bits
+//:     let report:
+//:         test_report_new "bloom_filter_byte_at_doc"
+//:         |> test_report_push assert_eq_i32 "reads initialized byte" 7 observed
+//:         |> test_report_push assert "missing byte is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
     match vec::get bits byte_idx:
         Option::Some byte:
@@ -23,10 +64,81 @@ pub fn bloom_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
         Option::None:
             none
 
+//: ## bloom_store_byte
+//: `Vec u8` storage の 1 byte を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]せず、指定 byte だけを更新します。
+//: - `byte_value` は `u8` へ cast して保存します。caller は Bloom Filter の byte 値として妥当な範囲を渡します。
+//: - invalid index を error として返しません。public API は valid probe から導いた byte index だけを渡します。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_store_byte_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores byte\" expected=\"33\" actual=\"33\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bloom_alloc_bits 1 0
+//:     bloom_store_byte &bits 0 33
+//:     let observed %i32 match bloom_byte_at &bits 0:
+//:         Option::Some value:
+//:             value
+//:         Option::None:
+//:             -1
+//:     bloom_free_bits bits
+//:     let report:
+//:         test_report_new "bloom_filter_store_byte_doc"
+//:         |> test_report_push assert_eq_i32 "stores byte" 33 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_store_byte %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\byte_idx\byte_value:
     let byte %u8 cast byte_value
     vec::replace bits byte_idx byte
 
+//: ## bloom_fill_bytes
+//: byte storage の先頭 `nbytes` byte を同じ値で[埋/う]める
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]しません。
+//: - `0 <= i < nbytes` の byte だけを `byte_value` にします。
+//: - 時間計算量は O(nbytes)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_fill_bytes_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fills byte range\" expected=\"255\" actual=\"255\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bloom_alloc_bits 2 0
+//:     bloom_fill_bytes &bits 2 255
+//:     let observed %i32 match bloom_byte_at &bits 1:
+//:         Option::Some value:
+//:             value
+//:         Option::None:
+//:             -1
+//:     bloom_free_bits bits
+//:     let report:
+//:         test_report_new "bloom_filter_fill_bytes_doc"
+//:         |> test_report_push assert_eq_i32 "fills byte range" 255 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\nbytes\byte_value:
     let mut i %i32 0
     while lt i nbytes:
@@ -34,6 +146,40 @@ pub fn bloom_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bit
             bloom_store_byte bits i byte_value
             set i add i 1
 
+//: ## bloom_alloc_bits
+//: initialized byte storage を[確保/かくほ]する
+//:
+//: ### [契約/けいやく]
+//: - 成功時は長さ `nbytes` の `Vec u8` owner を返し、全 byte を `byte_value` で初期化します。
+//: - 確保失敗は現状 `diag_out_of_memory` に[正規化/せいきか]して返します。
+//: - 時間計算量は O(nbytes)、追加の空間計算量は返す `Vec u8` の storage 分です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_alloc_bits_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"alloc initializes byte\" expected=\"12\" actual=\"12\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bloom_alloc_bits 2 12
+//:     let observed %i32 match bloom_byte_at &bits 0:
+//:         Option::Some value:
+//:             value
+//:         Option::None:
+//:             -1
+//:     bloom_free_bits bits
+//:     let report:
+//:         test_report_new "bloom_filter_alloc_bits_doc"
+//:         |> test_report_push assert_eq_i32 "alloc initializes byte" 12 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes\byte_value:
     let byte %u8 cast byte_value
     match vec::filled nbytes byte:
@@ -42,5 +188,33 @@ pub fn bloom_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes\
         Result::Err _e:
             diag_err diag_out_of_memory
 
+//: ## bloom_free_bits
+//: byte storage owner を[解放/かいほう]する
+//:
+//: ### [契約/けいやく]
+//: - `Vec u8` owner を[消費/しょうひ]し、内部 storage を閉じます。
+//: - caller は[解放後/かいほうご]の owner を[再利用/さいりよう]してはいけません。
+//: - 時間計算量は `Vec.free` と同じです。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_free_bits_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free completes\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bloom_alloc_bits 1 0
+//:     bloom_free_bits bits
+//:     let report:
+//:         test_report_new "bloom_filter_free_bits_doc"
+//:         |> test_report_push assert "free completes" true
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_free_bits %impure fn Vec u8 unit \bits:
     vec::free bits

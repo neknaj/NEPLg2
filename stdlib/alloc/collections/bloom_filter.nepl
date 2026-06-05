@@ -7,6 +7,35 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `len` / `contains` は `&BloomFilter` を[受/う]け[取/と]り、bit array owner を[移動/いどう]せずに[観察/かんさつ]します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_facade_lifecycle_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"contains inserted item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"facade len\" expected=\"64\" actual=\"64\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"clear resets probes\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/hash" as *
+//: fn main %impure fn void i32 \void:
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7
+//:     let inserted %bool contains &bf1 7
+//:     let size %i32 len &bf1
+//:     let bf2 %BloomFilter i32 DefaultHash32 clear bf1
+//:     let cleared %bool not contains &bf2 7
+//:     free bf2
+//:     let report:
+//:         test_report_new "bloom_filter_facade_lifecycle_doc"
+//:         |> test_report_push assert "contains inserted item" inserted
+//:         |> test_report_push assert_eq_i32 "facade len" 64 size
+//:         |> test_report_push assert "clear resets probes" cleared
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 

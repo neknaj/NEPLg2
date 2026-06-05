@@ -8,11 +8,86 @@
 
 #import "core/math" as *
 
+//: ## bloom_byte_len
+//: bit [長/ちょう]から必要な byte [長/ちょう]を[求/もと]める
+//:
+//: ### [契約/けいやく]
+//: - `ceil nbits / 8` を返します。
+//: - public API からは `nbits > 0` の値だけが渡されます。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_byte_len_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"one bit uses one byte\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"eight bits use one byte\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"nine bits use two bytes\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/layout" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "bloom_filter_byte_len_doc"
+//:         |> test_report_push assert_eq_i32 "one bit uses one byte" 1 bloom_byte_len 1
+//:         |> test_report_push assert_eq_i32 "eight bits use one byte" 1 bloom_byte_len 8
+//:         |> test_report_push assert_eq_i32 "nine bits use two bytes" 2 bloom_byte_len 9
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_byte_len %fn i32 i32 \nbits:
     div_s add nbits 7 8
 
+//: ## bloom_byte_index
+//: bit index が[属/ぞく]する byte index を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `bit_idx / 8` の切り捨て値を返します。
+//: - 範囲検査は行いません。public API は `nbits` に基づく probe index だけを渡します。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_byte_index_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"first byte start\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"first byte end\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"second byte start\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/layout" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "bloom_filter_byte_index_doc"
+//:         |> test_report_push assert_eq_i32 "first byte start" 0 bloom_byte_index 0
+//:         |> test_report_push assert_eq_i32 "first byte end" 0 bloom_byte_index 7
+//:         |> test_report_push assert_eq_i32 "second byte start" 1 bloom_byte_index 8
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_byte_index %fn i32 i32 \bit_idx:
     div_s bit_idx 8
 
+//: ## bloom_bit_mask
+//: byte [内/ない]の bit 位置に対応する mask を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `1 << (bit_idx % 8)` を返します。
+//: - 範囲検査は行いません。byte selection は `bloom_byte_index` が担当します。
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_bit_mask_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"low bit\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"high bit\" expected=\"128\" actual=\"128\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"wrapped low bit\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/layout" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "bloom_filter_bit_mask_doc"
+//:         |> test_report_push assert_eq_i32 "low bit" 1 bloom_bit_mask 0
+//:         |> test_report_push assert_eq_i32 "high bit" 128 bloom_bit_mask 7
+//:         |> test_report_push assert_eq_i32 "wrapped low bit" 1 bloom_bit_mask 8
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_bit_mask %fn i32 i32 \bit_idx:
     shl 1 rem_s bit_idx 8

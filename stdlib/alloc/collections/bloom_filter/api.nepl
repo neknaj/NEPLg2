@@ -4,6 +4,33 @@
 //: ### [目的/もくてき]
 //: - `new` / `len` / `insert` / `contains` / `clear` / `free` を提供します。
 //: - update API は owner を消費して返し、query API は owner を借用して読み取ります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_api_facade_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"api len\" expected=\"64\" actual=\"64\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"api contains inserted item\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/types" as *
+//:| #import "alloc/collections/bloom_filter/api" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/hash" as *
+//: fn main %impure fn void i32 \void:
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 5
+//:     let size %i32 len &bf1
+//:     let inserted %bool contains &bf1 5
+//:     free bf1
+//:     let report:
+//:         test_report_new "bloom_filter_api_facade_doc"
+//:         |> test_report_push assert_eq_i32 "api len" 64 size
+//:         |> test_report_push assert "api contains inserted item" inserted
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
@@ -22,30 +49,74 @@
 #import "./mutation" as *
 #import "core/field" as *
 
+//: ## bloom_invalid_len_diag
+//: 0 以下の bit [長/ちょう]を[拒否/きょひ]する diagnostic を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `new` が owner を[作/つく]る前に invalid length を検出したときの `Diag` を返します。
+//: - error kind は `StdErrorKind::CapacityExceeded` です。
+//: - error 表示文字列ではなく、typed error kind を[契約/けいやく]とします。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_invalid_len_diag_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"invalid len kind\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/api" as *
+//:| #import "alloc/diag/error" as *
+//: fn main %impure fn void i32 \void:
+//:     let diag %Diag bloom_invalid_len_diag
+//:     let kind %str diag_std_error_kind_str diag
+//:     let report:
+//:         test_report_new "bloom_filter_invalid_len_diag_doc"
+//:         |> test_report_push assert_str_eq "invalid len kind" "CapacityExceeded" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_invalid_len_diag %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "invalid bloom filter bit length"
 
 //: ## new
 //: [空/から]の Bloom Filter を[作/つく]る
 //:
+//: ### [契約/けいやく]
+//: - `nbits <= 0` は owner を作らず、`Result::Err Diag` を返します。
+//: - 成功時は `bits` bit の空 filter owner を返し、storage はすべて 0 で初期化されます。
+//: - 確保失敗は `bloom_alloc_bits` から返る `Diag` をそのまま返します。
+//:
 //: ### [計算量/けいさんりょう]
 //: - bit [長/ちょう]を n とすると O(n/8) です。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_new_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"new len\" expected=\"64\" actual=\"64\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"invalid len kind\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
-//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let observed_len %i32 len &bf;
-//:     let ok %bool eq observed_len 64;
+//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64
+//:     let observed_len %i32 len &bf
 //:     free bf
-//:     if ok 1 0
+//:     let bad %Result BloomFilter i32 DefaultHash32 Diag new DefaultHash32 0
+//:     let invalid_kind %str match bad:
+//:         Result::Ok unexpected:
+//:             free unexpected
+//:             "unexpected"
+//:         Result::Err diag:
+//:             diag_std_error_kind_str diag
+//:     let report:
+//:         test_report_new "bloom_filter_new_doc"
+//:         |> test_report_push assert_eq_i32 "new len" 64 observed_len
+//:         |> test_report_push assert_str_eq "invalid len kind" "CapacityExceeded" invalid_kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Result BloomFilter .T .H Diag \hasher\nbits:
     if:
@@ -63,21 +134,31 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Re
 //: ## len
 //: bit [長/ちょう]を[返/かえ]す
 //:
-//: neplg2:test
+//: ### [契約/けいやく]
+//: - `BloomFilter` owner を[借用/しゃくよう]し、storage と hasher を[移動/いどう]しません。
+//: - key 型や hasher 型の payload を[読/よ]まない metadata-only observer なので、`.T` / `.H` に `Copy` や hash trait bound を[要求/ようきゅう]しません。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_len_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"borrowed len keeps owner\" expected=\"32\" actual=\"32\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
-//:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 32;
-//:     let observed_len %i32 len &bf;
-//:     let ok %bool eq observed_len 32;
+//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 32
+//:     let observed_len %i32 len &bf
 //:     free bf
-//:     if ok 1 0
+//:     let report:
+//:         test_report_new "bloom_filter_len_doc"
+//:         |> test_report_push assert_eq_i32 "borrowed len keeps owner" 32 observed_len
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn len <.T,.H> %fn &BloomFilter .T .H i32 \bf:
     *field::get_ref bf "nbits"
@@ -85,24 +166,38 @@ pub fn len <.T,.H> %fn &BloomFilter .T .H i32 \bf:
 //: ## insert
 //: [要素/ようそ]を[登録/とうろく]する
 //:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
+//: ### [契約/けいやく]
+//: - `BloomFilter` owner を[消費/しょうひ]し、3 probe の bit を 1 にした新しい owner を返します。
+//: - `new` により `nbits > 0` が[保証/ほしょう]された owner だけを受け取る前提です。
+//: - 挿入済み key に対する `contains` は false negative を返しません。
 //:
-//: neplg2:test
+//: ### [計算量/けいさんりょう]
+//: - probe 数は 3 で固定です。時間計算量は `Hasher` / `HashKey` 実装に[依存/いぞん]し、固定長 key では O(1)、`str` では文字列長に比例します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_insert_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"inserted item is visible\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"insert keeps len\" expected=\"64\" actual=\"64\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7;
-//:     let ok %bool contains &bf1 7;
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7
+//:     let visible %bool contains &bf1 7
+//:     let size %i32 len &bf1
 //:     free bf1
-//:     if ok 1 0
+//:     let report:
+//:         test_report_new "bloom_filter_insert_doc"
+//:         |> test_report_push assert "inserted item is visible" visible
+//:         |> test_report_push assert_eq_i32 "insert keeps len" 64 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H impure fn .T BloomFilter .T .H \bf\key:
     let nbits %i32 field::get bf "nbits"
@@ -122,27 +217,39 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .
 //: ## contains
 //: [要素/ようそ]が[登録済/とうろくず]みかを[近似/きんじ][判定/はんてい]する
 //:
+//: ### [契約/けいやく]
+//: - `BloomFilter` owner を[借用/しゃくよう]し、storage と hasher を[移動/いどう]しません。
+//: - 3 probe の bit がすべて 1 なら `true`、どれか 1 つでも 0 なら `false` を返します。
+//: - `insert` 済み key については false negative を返しません。
+//:
 //: ### [注意/ちゅうい]
 //: - true でも[実際/じっさい]には[入/はい]っていない false positive がありえます。
 //:
 //: ### [計算量/けいさんりょう]
-//: - O(1)
+//: - probe 数は 3 で固定です。時間計算量は `Hasher` / `HashKey` 実装に[依存/いぞん]し、固定長 key では O(1)、`str` では文字列長に比例します。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_contains_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"borrowed contains sees inserted item\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7;
-//:     let bf2 %BloomFilter i32 DefaultHash32 insert bf1 12;
-//:     let ok %bool contains &bf2 7;
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7
+//:     let bf2 %BloomFilter i32 DefaultHash32 insert bf1 12
+//:     let ok %bool contains &bf2 7
 //:     free bf2
-//:     if ok 1 0
+//:     let report:
+//:         test_report_new "bloom_filter_contains_doc"
+//:         |> test_report_push assert "borrowed contains sees inserted item" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &BloomFilter .T .H fn .T bool \bf\key:
     let nbits %i32 *field::get_ref bf "nbits"
@@ -161,25 +268,38 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &BloomFilter .T .H fn
 //: ## clear
 //: [全/すべ]ての bit を 0 に[戻/もど]す
 //:
+//: ### [契約/けいやく]
+//: - `BloomFilter` owner を[消費/しょうひ]し、同じ bit [長/ちょう]と hasher を持つ owner を返します。
+//: - storage の全 byte を 0 にするため、直前に挿入した key も `contains` で `false` になります。
+//:
 //: ### [計算量/けいさんりょう]
 //: - byte [長/ちょう]を m として O(m)
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_clear_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"clear removes inserted item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"clear keeps len\" expected=\"64\" actual=\"64\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7;
-//:     let bf2 %BloomFilter i32 DefaultHash32 clear bf1;
-//:     let ok %bool contains &bf2 7;
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7
+//:     let bf2 %BloomFilter i32 DefaultHash32 clear bf1
+//:     let removed %bool not contains &bf2 7
+//:     let size %i32 len &bf2
 //:     free bf2
-//:     if ok 0 1
+//:     let report:
+//:         test_report_new "bloom_filter_clear_doc"
+//:         |> test_report_push assert "clear removes inserted item" removed
+//:         |> test_report_push assert_eq_i32 "clear keeps len" 64 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H BloomFilter .T .H \bf:
     let nbits %i32 field::get bf "nbits"
@@ -198,18 +318,25 @@ pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H
 //: - 現行 collection cleanup は element / field の Drop traversal を[持/も]たないため、key と hasher は `Copy` に[限/かぎ]ります。
 //: - caller は `free` [後/ご]の `BloomFilter` を[再利用/さいりよう]してはいけません。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_free_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free completes\" expected=\"true\" actual=\"true\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/bloom_filter" as *
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     free bf;
-//:     0
+//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64
+//:     free bf
+//:     let report:
+//:         test_report_new "bloom_filter_free_doc"
+//:         |> test_report_push assert "free completes" true
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H unit \bf:
     let bits %Vec u8 field::get bf "bits"

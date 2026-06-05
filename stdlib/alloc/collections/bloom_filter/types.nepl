@@ -11,9 +11,43 @@
 //: ## BloomFilter
 //: bitset と hasher を[保持/ほじ]する[所有者/しょゆうしゃ]
 //:
+//: ### [目的/もくてき]
+//: - bit [長/ちょう]、byte [長/ちょう]、typed byte storage owner、hasher を 1 つの owner [値/あたい]として[扱/あつか]います。
+//:
+//: ### [契約/けいやく]
+//: - public constructor `new` が[返/かえ]す値では `nbits > 0` です。
+//: - `nbytes` は `ceil nbits / 8` で、`bits` は長さ `nbytes` の `Vec u8` owner です。
+//: - bit storage は false positive を[許/ゆる]す近似 membership test の状態です。false negative を[作/つく]らないため、`insert` は 3 probe の bit をすべて 1 にします。
+//: - `len` と `contains` は owner を[借用/しゃくよう]し、`insert` / `clear` / `free` は owner を[消費/しょうひ]します。
+//:
 //: ### [注意/ちゅうい]
 //: - bitset [領域/りょういき]の[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
 //: - key 型 `.T` と hasher 型 `.H` は、複数 probe の[計算/けいさん]で[繰/く]り[返/かえ]し[読/よ]むため標準 `Copy` を impl する[必要/ひつよう]があります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_type_invariant_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"bit length\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"rounded byte length\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//:| #import "core/traits/hash" as *
+//: fn main %impure fn void i32 \void:
+//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 9
+//:     let nbits %i32 *field::get_ref &bf "nbits"
+//:     let nbytes %i32 *field::get_ref &bf "nbytes"
+//:     free bf
+//:     let report:
+//:         test_report_new "bloom_filter_type_invariant_doc"
+//:         |> test_report_push assert_eq_i32 "bit length" 9 nbits
+//:         |> test_report_push assert_eq_i32 "rounded byte length" 2 nbytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct BloomFilter<.T,.H>:
     nbits %i32
     nbytes %i32

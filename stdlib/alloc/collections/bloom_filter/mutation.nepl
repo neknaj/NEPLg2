@@ -12,6 +12,43 @@
 #import "./layout" as *
 #import "./storage" as *
 
+//: ## bloom_set_bit
+//: 指定 bit を 1 に[設定/せってい]する
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]せず、対象 byte を read-modify-write します。
+//: - public API は `0 <= bit_idx < nbits` の probe index だけを渡します。
+//: - 現状実装では missing byte を見つけた場合、storage invariant failure とみなし no-op で止まります。error は返しません。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_set_bit_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"sets requested bit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing byte is no-op\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/mutation" as *
+//:| #import "alloc/collections/bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bloom_alloc_bits 1 0
+//:     bloom_set_bit &bits 2
+//:     bloom_set_bit &bits 8
+//:     let set_ok %bool bloom_test_bit &bits 2
+//:     let missing_ok %bool not bloom_test_bit &bits 8
+//:     bloom_free_bits bits
+//:     let report:
+//:         test_report_new "bloom_filter_set_bit_doc"
+//:         |> test_report_push assert "sets requested bit" set_ok
+//:         |> test_report_push assert "missing byte is no-op" missing_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_set_bit %impure fn &Vec u8 impure fn i32 unit \bits\bit_idx:
     let byte_idx %i32 bloom_byte_index bit_idx
     let mask %i32 bloom_bit_mask bit_idx
@@ -21,6 +58,43 @@ pub fn bloom_set_bit %impure fn &Vec u8 impure fn i32 unit \bits\bit_idx:
         Option::None:
             unit
 
+//: ## bloom_test_bit
+//: 指定 bit が 1 かどうかを[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]しません。
+//: - 範囲内で bit が 1 なら `true`、0 なら `false` を返します。
+//: - 現状実装では missing byte を `false` として扱います。public API は valid probe index だけを渡すため、missing byte は internal invariant failure の fail-closed path です。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bloom_filter_test_bit_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"set bit is true\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"unset bit is false\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"missing byte is false\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bloom_filter/mutation" as *
+//:| #import "alloc/collections/bloom_filter/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bloom_alloc_bits 1 0
+//:     bloom_set_bit &bits 3
+//:     let set_ok %bool bloom_test_bit &bits 3
+//:     let unset_ok %bool not bloom_test_bit &bits 4
+//:     let missing_ok %bool not bloom_test_bit &bits 8
+//:     bloom_free_bits bits
+//:     let report:
+//:         test_report_new "bloom_filter_test_bit_doc"
+//:         |> test_report_push assert "set bit is true" set_ok
+//:         |> test_report_push assert "unset bit is false" unset_ok
+//:         |> test_report_push assert "missing byte is false" missing_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bloom_test_bit %fn &Vec u8 fn i32 bool \bits\bit_idx:
     let byte_idx %i32 bloom_byte_index bit_idx
     let mask %i32 bloom_bit_mask bit_idx
