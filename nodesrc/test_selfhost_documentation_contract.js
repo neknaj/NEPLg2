@@ -10,14 +10,14 @@ const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
 const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    moduleNoDoc: 76,
-    moduleNoDoctest: 60,
-    declarationNoDoc: 304,
-    declarationNoDoctest: 1434,
+    moduleNoDoc: 75,
+    moduleNoDoctest: 61,
+    declarationNoDoc: 111,
+    declarationNoDoctest: 1621,
     publicNoDoc: 51,
-    publicNoDoctest: 1239,
-    privateNoDoc: 253,
-    privateNoDoctest: 195,
+    publicNoDoctest: 1234,
+    privateNoDoc: 60,
+    privateNoDoctest: 387,
 };
 const HARD_DOC_BASELINE_KEYS = [
     "moduleNoDoc",
@@ -43,6 +43,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/proof/solver/module.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
 ];
 const REQUIRED_SCANNER_SENTINELS = [
@@ -54,6 +55,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/proof/solver/module.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
 ];
 const MODULE_DOC_SECTION_REQUIREMENTS = [
@@ -77,12 +79,105 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("no checker-local allowlist proof substitute", /allowlist 判定/),
         ],
     }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/project.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], {
+        requiredPatterns: [
+            requiredPattern("resolved tree root projection", /\bSelfhostResolvedTypeTreeRoot\b/),
+            requiredPattern("arena allocation return boundary", /\bSelfhostTypeArenaAlloc\b/),
+            requiredPattern("constructor table authority", /\bSelfhostTypeConstructorTable\b/),
+            requiredPattern("fail-closed project error", /\bSelfhostTypeProjectErrorKind\b/),
+            requiredPattern("current binder depth limitation", /\bbinder_depth = 0\b/),
+            requiredPattern("no import graph scan", /import graph/),
+        ],
+    }),
 ];
 const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_new", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_empty", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_all", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_add", ["purpose", "contract", "complexity"]),
+    typeProjectRequirement("SelfhostTypeProjectErrorKind", ["purpose", "contract", "complexity", "errorVariant", "authorityBoundary"], [
+        requiredPattern("missing node error", /\bSelfhostTypeProjectErrorKind::MissingResolvedNode\b|`MissingResolvedNode`/),
+        requiredPattern("unsupported named type error", /\bSelfhostTypeProjectErrorKind::UnsupportedNamedType\b|`UnsupportedNamedType`/),
+        requiredPattern("unknown named type error", /\bSelfhostTypeProjectErrorKind::UnknownNamedType\b|`UnknownNamedType`/),
+        requiredPattern("generic constructor needs args error", /\bSelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments\b|`GenericConstructorNeedsArguments`/),
+        requiredPattern("generic constructor arity error", /\bSelfhostTypeProjectErrorKind::GenericConstructorArgumentArityMismatch\b|`GenericConstructorArgumentArityMismatch`/),
+        requiredPattern("out of memory error", /\bSelfhostTypeProjectErrorKind::OutOfMemory\b|`OutOfMemory`/),
+        requiredPattern("internal invariant error", /\bSelfhostTypeProjectErrorKind::InternalInvariant\b|`InternalInvariant`/),
+        requiredPattern("display layer separation", /表示文言/),
+    ]),
+    typeProjectRequirement("SelfhostTypeProjectError", ["purpose", "contract", "complexity", "errorVariant", "authorityBoundary"], [
+        requiredPattern("typed project error kind", /\bSelfhostTypeProjectErrorKind\b/),
+        requiredPattern("diagnostic span payload", /\bSelfhostSourceSpan\b/),
+    ]),
+    typeProjectRequirement("SelfhostTypeProjectArgBuild", ["purpose", "contract", "complexity", "ownerBoundary"], [
+        requiredPattern("arena owner payload", /\bSelfhostTypeArena\b/),
+        requiredPattern("parameter vector owner payload", /\bVec SelfhostTypeId\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_error_kind_eq", ["purpose", "returns", "complexity", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_error_new", ["purpose", "contract", "returns", "complexity", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_empty_span", ["purpose", "contract", "returns", "complexity", "authorityBoundary"]),
+    typeProjectRequirement("selfhost_type_project_arg_build_new", ["purpose", "contract", "returns", "complexity", "ownerBoundary"]),
+    typeProjectRequirement("selfhost_type_project_arg_build_free", ["purpose", "contract", "returns", "complexity", "ownerBoundary"]),
+    typeProjectRequirement("selfhost_type_project_fail", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_fail_with_params", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_std_error_kind", ["purpose", "returns", "complexity", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_push_arg_id", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_alloc_function_type", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant", "typeBoundary"], [
+        requiredPattern("function arena add consumes params", /\bselfhost_type_arena_add_function\b/),
+        requiredPattern("function record type", /\bSelfhostTypeRecord::Function\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_parameter_binding_for_current_binder", ["purpose", "current", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("binder depth current limitation", /\bbinder_depth = 0\b/),
+        requiredPattern("type parameter binding", /\bSelfhostTypeParameterBinding\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_parameter", ["purpose", "contract", "returns", "complexity", "typeBoundary", "errorVariant"], [
+        requiredPattern("parameter node projection", /\bSelfhostResolvedTypeNode::Parameter\b/),
+        requiredPattern("type parameter record", /\bSelfhostTypeRecord::Parameter\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_function_args_loop", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_function_args", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_function", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"]),
+    typeProjectRequirement("selfhost_type_project_node", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("primitive node branch", /\bSelfhostResolvedTypeNode::Primitive\b/),
+        requiredPattern("parameter node branch", /\bSelfhostResolvedTypeNode::Parameter\b/),
+        requiredPattern("function node branch", /\bSelfhostResolvedTypeNode::Function\b/),
+        requiredPattern("named node rejected without constructors", /\bSelfhostResolvedTypeNode::Named\b/),
+        requiredPattern("applied node rejected without constructors", /\bSelfhostResolvedTypeNode::Applied\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_applied_args_loop_with_constructors", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "authorityBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_applied_args_with_constructors", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"]),
+    typeProjectRequirement("selfhost_type_project_applied_constructor_arg_count_is_valid", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("type constructor kind", /\bSelfhostTypeConstructorKind::TypeConstructor\b|TypeConstructor/),
+        requiredPattern("bare type is not applied", /\bSelfhostTypeConstructorKind::Type\b|`Type` constructor/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_applied_with_constructors", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("constructor table lookup", /\bselfhost_type_constructor_table_get\b|\bSelfhostTypeConstructorTable\b/),
+        requiredPattern("applied record", /\bSelfhostTypeRecord::Applied\b/),
+        requiredPattern("unknown named type error", /\bSelfhostTypeProjectErrorKind::UnknownNamedType\b|\bUnknownNamedType\b/),
+        requiredPattern("arity mismatch error", /\bSelfhostTypeProjectErrorKind::GenericConstructorArgumentArityMismatch\b|\bGenericConstructorArgumentArityMismatch\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_named_with_constructors", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("span lookup authority", /\bselfhost_type_constructor_table_find_span\b/),
+        requiredPattern("named record", /\bSelfhostTypeRecord::Named\b/),
+        requiredPattern("generic constructor needs arguments", /\bSelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments\b|\bGenericConstructorNeedsArguments\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_function_args_loop_with_constructors", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "authorityBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_function_args_with_constructors", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"]),
+    typeProjectRequirement("selfhost_type_project_function_with_constructors", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"]),
+    typeProjectRequirement("selfhost_type_project_node_with_constructors", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("constructor-aware named branch", /\bSelfhostResolvedTypeNode::Named\b/),
+        requiredPattern("constructor-aware applied branch", /\bSelfhostResolvedTypeNode::Applied\b/),
+        requiredPattern("missing node error", /\bSelfhostTypeProjectErrorKind::MissingResolvedNode\b|\bMissingResolvedNode\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_root_into_arena", ["purpose", "contract", "current", "returns", "complexity", "ownerBoundary", "errorVariant", "typeBoundary"], [
+        requiredPattern("root projection without constructors", /\bSelfhostResolvedTypeTreeRoot\b/),
+        requiredPattern("unsupported named type fail closed", /\bUnsupportedNamedType\b/),
+    ]),
+    typeProjectRequirement("selfhost_type_project_root_with_constructors_into_arena", ["purpose", "contract", "current", "returns", "complexity", "authorityBoundary", "ownerBoundary", "errorVariant", "typeBoundary"], [
+        requiredPattern("constructor table public boundary", /\bSelfhostTypeConstructorTable\b/),
+        requiredPattern("applied type record", /\bSelfhostTypeRecord::Applied\b/),
+        requiredPattern("no full module scan", /全module探索|import graph/),
+    ]),
     requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentMatchErrorKind", ["purpose", "contract"]),
     requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentMatchError", ["purpose", "contract"]),
     requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentOwnedMatch", ["purpose", "contract", "complexity"]),
@@ -698,11 +793,11 @@ const SECTION_PATTERNS = {
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
     doctest: /\bneplg2:test\b/,
-    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
+    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostTypeProjectErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
     authorityBoundary: /\b(authority|typed evidence|parser-provided evidence|parser\/proof|proof layer|source spelling|source text|kind stream|message .*authority|diagnostic kind の authority|表示.*authority)\b/,
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
-    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
+    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTypeRecord(?:::)?[A-Za-z0-9_]*|SelfhostTypeArenaAlloc|SelfhostTypeArena|SelfhostTypeId|SelfhostTypeParameterBinding|SelfhostResolvedTypeNode(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeTreeRoot|SelfhostTypeConstructorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTable|SelfhostTypeProjectErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
     rawBoundary: /\b(SelfhostRawBackendKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemFact|SelfhostRawBackendState(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendOpenBlock|SelfhostProofObligation::RawBackendTransition|SelfhostProofEvidence::RawBackendTransition|SelfhostProofRefutation::(RawBackendTextWithoutBlock|RawBackendBlockEmpty)|selfhost_raw_backend_text_matches)\b/,
     directiveBoundary: /\b(SelfhostModuleDirectiveKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveFact|SelfhostModuleDirectiveState(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveSeenBoth|SelfhostModuleDirectiveDuplicate|SelfhostProofObligation::ModuleDirectiveTransition|SelfhostProofEvidence::ModuleDirectiveTransition|SelfhostProofRefutation::ModuleDirectiveDuplicate)\b/,
     moduleBoundary: /\b(SelfhostModuleDeclarationKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeadKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationVisibility(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeader|SelfhostModuleDeclarationFact|SelfhostModuleDeclarationHeaderIssue|SelfhostModuleItemKind(?:::)?[A-Za-z0-9_]*|SelfhostSyntaxRange(?:::)?[A-Za-z0-9_]*|SelfhostSourceSpan|SelfhostProofObligation::ModuleDeclarationHeaderAvailable|SelfhostProofEvidence::ModuleDeclarationHeaderAvailable|SelfhostProofRefutation::(ModuleDeclarationHeaderMissing|ModuleDeclarationHeaderInvalid|FactObligationMismatch)|selfhost_module_item_kind_declaration|selfhost_syntax_range_is_(?:valid|nonempty)|selfhost_syntax_range_span_is_inside|source_span_is_valid|selfhost_proof_span_contains_span)\b/,
@@ -736,6 +831,12 @@ function resourceSolverRequirement(name, sections, requiredPatterns = []) {
 
 function typeSolverRequirement(name, sections, requiredPatterns = []) {
     return requirement("stdlib/neplg2/core/proof/solver/type.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function typeProjectRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/resolve/type_resolver/project.nepl", name, sections, {
         requiredPatterns,
     });
 }

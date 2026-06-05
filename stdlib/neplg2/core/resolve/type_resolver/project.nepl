@@ -1,5 +1,25 @@
 #indent 4
 
+//: # type_resolver/project
+//: resolved type tree を `SelfhostTypeArena` の typed record へ[投影/とうえい]する module です。
+//:
+//: [目的/もくてき]:
+//: - prefix type resolver が作った `SelfhostResolvedTypeTreeRoot` を、type checker / HIR / Resource IR が共有できる `SelfhostTypeId` と arena owner に変換します。
+//: - `Named` / `Applied` node は constructor table を authority として解決し、source spelling の文字列判定だけで type identity を作らないようにします。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `SelfhostTypeArenaAlloc` が更新後 arena owner と root `SelfhostTypeId` を返します。
+//: - 失敗時はこの module の helper が入力 arena や途中の `Vec SelfhostTypeId` owner を閉じ、caller に dangling owner を残しません。
+//: - user-defined type constructor の arity、unknown name、generic constructor の裸使用は `SelfhostTypeProjectErrorKind` で fail-closed に表します。
+//:
+//: [現状/げんじょう]:
+//: - generic type parameter は現在の binder を `binder_depth = 0` として投影します。nested binder depth と stable interface artifact identity は後続段階で拡張します。
+//: - constructor table は caller が事前に構築して渡す前提であり、この module は import graph や module surface を探索しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 投影は resolved tree の到達 node 数と function/applied type argument 数に比例します。
+//: - constructor lookup の計算量は `SelfhostTypeConstructorTable` の lookup 実装に従います。この module 自体は追加の全module探索を行いません。
+
 #import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/math" as *
@@ -18,11 +38,21 @@
 //: - `SelfhostResolvedTypeTree` は named type と applied named type を保持できます。
 //: - constructor table がない投影経路では user-defined type constructor を primitive に丸めず、typed error として fail-closed にします。
 //:
+//: [契約/けいやく]:
+//: - error は表示文言ではなく enum variant で保持します。diagnostic rendering は別層が `SelfhostTypeProjectErrorKind` と `SelfhostSourceSpan` から作ります。
+//: - `UnsupportedNamedType` は constructor table を持たない API の authority boundary、`UnknownNamedType` は constructor table lookup failure を表します。
+//:
 //: [場合分/ばあいわ]け:
+//: - `MissingResolvedNode`: root や child range が指す node が `SelfhostResolvedTypeTree` に存在しません。
+//: - `UnsupportedNamedType`: constructor table なしの projection 経路で `Named` または `Applied` node が現れました。
 //: - `UnknownNamedType`: constructor table に存在しない named identity です。
 //: - `GenericConstructorNeedsArguments`: 型引数を要求する constructor が bare named type として使われています。
 //: - `GenericConstructorArgumentArityMismatch`: public resolved tree constructor などから作られた applied node の型引数数が constructor kind と一致しません。
+//: - `OutOfMemory`: arena または argument vector の確保に失敗しました。
 //: - `InternalInvariant`: resolved tree の range 不整合など、通常の source reduction を通る限り起きない内部不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - variant の保持と比較は `O(1)` です。
 pub enum SelfhostTypeProjectErrorKind:
     MissingResolvedNode
     UnsupportedNamedType
@@ -41,6 +71,16 @@ impl Copy for SelfhostTypeProjectErrorKind:
         self
 
 //: SelfhostTypeProjectError: TypeId 投影失敗の typed diagnostic payload
+//:
+//: [目的/もくてき]:
+//: - projection stage の失敗分類と source span をまとめ、後続の diagnostic layer が表示文言や色に依存せず扱える payload にします。
+//:
+//: [契約/けいやく]:
+//: - `kind` は `SelfhostTypeProjectErrorKind` の網羅的な分類であり、文字列 message を authority にしません。
+//: - `span` は `SelfhostSourceSpan` payload です。source backed node が存在する場合はその node の span、内部不整合だけの場合は `selfhost_type_project_empty_span` の空 span です。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload の生成と copy は `O(1)` です。
 pub struct SelfhostTypeProjectError:
     kind %SelfhostTypeProjectErrorKind
     span %SelfhostSourceSpan
@@ -58,11 +98,28 @@ impl Copy for SelfhostTypeProjectError:
 //: [目的/もくてき]:
 //: - function 引数の TypeId vector と、そこまで進んだ arena owner を一緒に運びます。
 //: - owner を含むため、この構造は projection module 内部の一時 payload としてだけ使います。
+//:
+//: [契約/けいやく]:
+//: - `arena` は `SelfhostTypeArena` owner、`params` は `Vec SelfhostTypeId` owner です。
+//: - `arena` と `params` は一体の owner 境界です。成功時は次の projection step へ渡し、失敗時は helper が両方を閉じます。
+//: - public API の戻り値には出さず、`SelfhostTypeArenaAlloc` または `SelfhostTypeProjectError` に正規化して境界外へ返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload 自体の生成は `O(1)` です。保持している vector の解放は要素数に比例します。
 struct SelfhostTypeProjectArgBuild:
     arena %SelfhostTypeArena
     params %Vec SelfhostTypeId
 
 //: selfhost_type_project_error_kind_eq: project error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeProjectErrorKind` を enum の網羅的な `match` で比較し、source policy や tests が typed error classification を使えるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `MissingResolvedNode` / `UnsupportedNamedType` / `UnknownNamedType` / `GenericConstructorNeedsArguments` / `GenericConstructorArgumentArityMismatch` / `OutOfMemory` / `InternalInvariant` が同じ variant のときだけ `true` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_project_error_kind_eq %fn SelfhostTypeProjectErrorKind fn SelfhostTypeProjectErrorKind bool \a\b:
     match a:
         SelfhostTypeProjectErrorKind::MissingResolvedNode:
@@ -109,28 +166,116 @@ pub fn selfhost_type_project_error_kind_eq %fn SelfhostTypeProjectErrorKind fn S
                     false
 
 //: selfhost_type_project_error_new: project error payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stage 内の helper が、失敗分類と span を同じ payload 形式で返せるようにします。
+//:
+//: [契約/けいやく]:
+//: - 表示 message はここでは作りません。`SelfhostTypeProjectErrorKind` と `SelfhostSourceSpan` をそのまま保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeProjectError kind span` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_project_error_new %fn SelfhostTypeProjectErrorKind fn SelfhostSourceSpan SelfhostTypeProjectError \kind\span:
     SelfhostTypeProjectError kind span
 
+//: selfhost_type_project_empty_span: 内部投影 error 用の空 span を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - primitive allocation failure や root node missing など、resolved node 自体に source span が無い失敗を typed error payload に載せられるようにします。
+//:
+//: [契約/けいやく]:
+//: - この span は diagnostic authority ではありません。source backed node が span を持つ場合は、その node の span を優先してください。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `source_span_empty_unchecked 0 0` による空 span を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_project_empty_span %fn void SelfhostSourceSpan \void:
     source_span_empty_unchecked 0 0
 
+//: selfhost_type_project_arg_build_new: 引数投影中の arena owner と parameter id vector を[束/たば]ねる
+//:
+//: [目的/もくてき]:
+//: - function / applied type argument を順に投影するとき、更新後 arena と途中まで集めた `Vec SelfhostTypeId` を一緒に返します。
+//:
+//: [契約/けいやく]:
+//: - `arena` と `params` の owner はこの payload に移ります。caller は成功時にそれぞれ取り出し、失敗時は `selfhost_type_project_arg_build_free` または専用 fail helper で閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - owner を保持する `SelfhostTypeProjectArgBuild` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_project_arg_build_new %impure fn SelfhostTypeArena impure fn Vec SelfhostTypeId SelfhostTypeProjectArgBuild \arena\params:
     SelfhostTypeProjectArgBuild arena params
 
+//: selfhost_type_project_arg_build_free: 引数投影途中 payload の owner を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - caller が `SelfhostTypeProjectArgBuild` を採用しない経路で、arena と parameter vector を漏らさず解放します。
+//:
+//: [契約/けいやく]:
+//: - この関数へ渡した `build` の arena / params owner は消費されます。呼び出し後に同じ owner を再利用してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `unit` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena / vector の解放に比例します。
 fn selfhost_type_project_arg_build_free %impure fn SelfhostTypeProjectArgBuild unit \build:
     selfhost_type_arena_free field::get build "arena"
     v::free field::get build "params"
 
+//: selfhost_type_project_fail: arena owner を閉じて投影 error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - node lookup failure や unsupported named type など、parameter vector をまだ持たない失敗を一箇所で typed error に変換します。
+//:
+//: [契約/けいやく]:
+//: - 入力 `arena` はこの helper が必ず解放します。caller は `Result::Err` 受け取り後に同じ arena を使えません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Err (SelfhostTypeProjectError kind span)` を返します。`kind` は `SelfhostTypeProjectErrorKind` の具体 variant です。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena 解放の計算量に従います。
 fn selfhost_type_project_fail %impure fn SelfhostTypeArena impure fn SelfhostTypeProjectErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\kind\span:
     selfhost_type_arena_free arena
     Result::Err selfhost_type_project_error_new kind span
 
+//: selfhost_type_project_fail_with_params: arena と parameter vector を閉じて投影 error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function / applied argument list の途中で resolved tree invariant が壊れた場合に、arena と `params` の両方を閉じます。
+//:
+//: [契約/けいやく]:
+//: - `arena` と `params` はこの helper が消費して解放します。`Result::Err` の payload は cleanup 済みの error だけを保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Err (SelfhostTypeProjectError kind span)` を返します。`kind` は `SelfhostTypeProjectErrorKind` の具体 variant です。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena と vector 解放の計算量に従います。
 fn selfhost_type_project_fail_with_params %impure fn SelfhostTypeArena impure fn Vec SelfhostTypeId impure fn SelfhostTypeProjectErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\params\kind\span:
     selfhost_type_arena_free arena
     v::free params
     Result::Err selfhost_type_project_error_new kind span
 
+//: selfhost_type_project_std_error_kind: stdlib allocation error を投影 error kind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - `Vec::push` や type arena allocation が返す `StdErrorKind` を、type projection stage の typed diagnostic enum に正規化します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `StdErrorKind::OutOfMemory` は `SelfhostTypeProjectErrorKind::OutOfMemory` へ写します。
+//: - それ以外は、projection stage の通常契約では起きない失敗として `InternalInvariant` へ写します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_project_std_error_kind %fn StdErrorKind SelfhostTypeProjectErrorKind \kind:
     match kind:
         StdErrorKind::OutOfMemory:
@@ -138,6 +283,20 @@ fn selfhost_type_project_std_error_kind %fn StdErrorKind SelfhostTypeProjectErro
         _:
             SelfhostTypeProjectErrorKind::InternalInvariant
 
+//: selfhost_type_project_push_arg_id: projected type argument id を parameter vector へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - 子 node を arena へ投影して得た `SelfhostTypeId` を、function / applied type の argument list として蓄積します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `SelfhostTypeProjectArgBuild` が arena と更新後 params owner を返します。
+//: - `v::push` 失敗時は push error が返した vector、入力 arena をこの helper が解放し、typed `SelfhostTypeProjectError` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `Result::Ok SelfhostTypeProjectArgBuild`、失敗時は `SelfhostTypeProjectErrorKind::OutOfMemory` または `SelfhostTypeProjectErrorKind::InternalInvariant` の `Result::Err` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 通常は `Vec::push` の償却 `O(1)`、再確保時は params 長に比例します。
 fn selfhost_type_project_push_arg_id %impure fn SelfhostTypeArena impure fn Vec SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\params\type_id\span:
     match v::push params type_id:
         Result::Ok next_params:
@@ -148,6 +307,20 @@ fn selfhost_type_project_push_arg_id %impure fn SelfhostTypeArena impure fn Vec 
             selfhost_type_arena_free arena
             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind error) span
 
+//: selfhost_type_project_alloc_function_type: function type record を arena へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - 投影済み parameter id vector と result type id から `SelfhostTypeRecord::Function` を作ります。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_type_arena_add_function` が `params` を消費し、成功・失敗どちらでも params owner を閉じます。
+//: - allocation failure は `SelfhostTypeProjectErrorKind::OutOfMemory` として返し、表示文言には変換しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は function type の `SelfhostTypeId` を含む `SelfhostTypeArenaAlloc`、失敗時は typed project error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - function 引数数に比例して arena の argument table へ複製します。
 fn selfhost_type_project_alloc_function_type %impure fn SelfhostTypeArena impure fn Vec SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\params\result\span:
     match selfhost_type_arena_add_function arena params result:
         Result::Ok allocated:
@@ -155,9 +328,37 @@ fn selfhost_type_project_alloc_function_type %impure fn SelfhostTypeArena impure
         Result::Err e:
             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) span
 
+//: selfhost_type_project_parameter_binding_for_current_binder: resolved parameter を現在 binder の arena binding へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - resolved tree に保存された type parameter id を、`SelfhostTypeRecord::Parameter` へ保存できる binding に変換します。
+//:
+//: [現状/げんじょう]:
+//: - selfhost stage0 では現在の binder だけを扱うため、`binder_depth = 0` とします。nested generic binder は後続の signature / interface artifact 設計で拡張します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `parameter.parameter_id` の index を持つ `SelfhostTypeParameterBinding` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 fn selfhost_type_project_parameter_binding_for_current_binder %fn SelfhostResolvedTypeParameterRef SelfhostTypeParameterBinding \parameter:
     selfhost_type_parameter_binding_new_unchecked 0 selfhost_type_parameter_id_index parameter.parameter_id
 
+//: selfhost_type_project_parameter: generic type parameter node を arena へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeNode::Parameter` を named type へ丸めず、type parameter record として保存します。
+//: - arena 側では `SelfhostTypeRecord::Parameter` として表現します。
+//:
+//: [契約/けいやく]:
+//: - binding validation と arena owner cleanup は `selfhost_type_arena_add_type_parameter` の契約に従います。
+//: - 失敗時は `parameter.span` を diagnostic span として保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は parameter type id の arena allocation、失敗時は `SelfhostTypeProjectErrorKind::OutOfMemory` または `SelfhostTypeProjectErrorKind::InternalInvariant` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 通常は arena record push の償却 `O(1)` です。
 fn selfhost_type_project_parameter %impure fn SelfhostTypeArena impure fn SelfhostResolvedTypeParameterRef Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\parameter:
     let binding %SelfhostTypeParameterBinding selfhost_type_project_parameter_binding_for_current_binder parameter
     match selfhost_type_arena_add_type_parameter arena binding:
@@ -166,6 +367,21 @@ fn selfhost_type_project_parameter %impure fn SelfhostTypeArena impure fn Selfho
         Result::Err e:
             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) parameter.span
 
+//: selfhost_type_project_function_args_loop: constructor table なしで function 引数 node を順に[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeNode::Function` の argument range を先頭から辿り、各 child node を `SelfhostTypeId` に変換して `params` に蓄積します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は更新後 arena owner と completed params vector を `SelfhostTypeProjectArgBuild` として返します。
+//: - child projection が失敗した場合は、この loop が未採用の `params` owner を解放してから、その child error を返します。
+//: - range が指す child node を取り出せない場合は `SelfhostTypeProjectErrorKind::InternalInvariant` として fail-closed にし、arena と params を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - すべての引数を投影できたら `Result::Ok SelfhostTypeProjectArgBuild`、途中失敗では typed `Result::Err` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - function 引数数と各引数 subtree の投影 cost の合計に比例します。`Vec::push` の再確保時は途中 params 長に比例します。
 fn selfhost_type_project_function_args_loop %impure fn SelfhostTypeArena impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 impure fn Vec SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\tree\fn_node_id\idx\n\params\span:
     if:
         ge idx n
@@ -191,6 +407,20 @@ fn selfhost_type_project_function_args_loop %impure fn SelfhostTypeArena impure 
                 Option::None:
                     selfhost_type_project_fail_with_params arena params SelfhostTypeProjectErrorKind::InternalInvariant span
 
+//: selfhost_type_project_function_args: function 引数 vector を[作/つく]って loop 投影を[開始/かいし]する
+//:
+//: [目的/もくてき]:
+//: - function type の parameter id list 用 `Vec SelfhostTypeId` を確保し、`selfhost_type_project_function_args_loop` に owner を渡します。
+//:
+//: [契約/けいやく]:
+//: - vector allocation に失敗した場合は入力 arena を解放し、`SelfhostTypeProjectErrorKind::OutOfMemory` または `InternalInvariant` を返します。
+//: - 成功後の params owner は loop 側に移り、caller は `SelfhostTypeProjectArgBuild` として受け取ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 引数列の projection payload、または cleanup 済みの typed error を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 初期確保は通常 `O(1)`、全体は loop の計算量に従います。
 fn selfhost_type_project_function_args %impure fn SelfhostTypeArena impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\tree\fn_node_id\n\span:
     let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match params_result:
@@ -200,6 +430,20 @@ fn selfhost_type_project_function_args %impure fn SelfhostTypeArena impure fn &S
             selfhost_type_arena_free arena
             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) span
 
+//: selfhost_type_project_function: constructor table なしで function type node を arena record へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - resolved function node の引数列と戻り値を同じ arena へ順に投影し、`SelfhostTypeRecord::Function` を作ります。
+//:
+//: [契約/けいやく]:
+//: - 引数列 projection の成功後、戻り値 projection に失敗した場合は未採用の params vector をこの関数が解放します。
+//: - `selfhost_type_arena_add_function` が成功・失敗どちらでも params owner を消費するため、呼び出し後に params を再利用しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は function type id の `SelfhostTypeArenaAlloc`、失敗時は owner cleanup 済みの `SelfhostTypeProjectError` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - function 引数 subtree と result subtree の投影 cost、および arena への function record 追加 cost の合計です。
 fn selfhost_type_project_function %impure fn SelfhostTypeArena impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedFunctionType impure fn SelfhostSourceSpan Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\tree\fn_node_id\function\span:
     let arg_count %i32 selfhost_resolved_function_arg_range_count function.args
     match selfhost_type_project_function_args arena tree fn_node_id arg_count span:
@@ -217,6 +461,23 @@ fn selfhost_type_project_function %impure fn SelfhostTypeArena impure fn &Selfho
         Result::Err e:
             Result::Err e
 
+//: selfhost_type_project_node: constructor table なしで resolved type node を TypeArena へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - primitive / parameter / function node を arena record に変換し、constructor identity が必要な node は安全側に倒して拒否します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostResolvedTypeNode::Primitive` は `selfhost_type_arena_add_primitive` へ渡します。
+//: - `SelfhostResolvedTypeNode::Parameter` は現在 binder の `SelfhostTypeRecord::Parameter` へ投影します。
+//: - `SelfhostResolvedTypeNode::Function` は引数列と戻り値を再帰的に投影します。
+//: - `SelfhostResolvedTypeNode::Named` と `SelfhostResolvedTypeNode::Applied` は constructor table なしでは authority を持てないため、`UnsupportedNamedType` を返します。
+//: - node id が tree に存在しない場合は `MissingResolvedNode` を返し、入力 arena を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は node に対応する `SelfhostTypeId` を含む allocation、失敗時は `SelfhostTypeProjectErrorKind` を持つ cleanup 済み typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 対象 node の subtree size に比例します。constructor table lookup は行いません。
 fn selfhost_type_project_node %impure fn SelfhostTypeArena impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -238,6 +499,20 @@ fn selfhost_type_project_node %impure fn SelfhostTypeArena impure fn &SelfhostRe
         Option::None:
             selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::MissingResolvedNode selfhost_type_project_empty_span
 
+//: selfhost_type_project_applied_args_loop_with_constructors: constructor table ありで applied type 引数 node を順に[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - applied named type の type argument range を辿り、constructor-aware projection で各 argument を `SelfhostTypeId` に変換します。
+//:
+//: [契約/けいやく]:
+//: - child projection は `selfhost_type_project_node_with_constructors` を使い、nested `Named` / `Applied` も同じ constructor table authority で解決します。
+//: - child projection 失敗時は未採用の params owner を解放し、range 不整合は `SelfhostTypeProjectErrorKind::InternalInvariant` で返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は completed params と arena owner、失敗時は cleanup 済み typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - applied argument 数と各 argument subtree projection の合計に比例します。各 named lookup は constructor table 実装に従います。
 fn selfhost_type_project_applied_args_loop_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 impure fn Vec SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\applied_node_id\idx\n\params\span:
     if:
         ge idx n
@@ -263,6 +538,20 @@ fn selfhost_type_project_applied_args_loop_with_constructors %impure fn Selfhost
                 Option::None:
                     selfhost_type_project_fail_with_params arena params SelfhostTypeProjectErrorKind::InternalInvariant span
 
+//: selfhost_type_project_applied_args_with_constructors: applied type 引数 vector を[作/つく]って constructor-aware loop を[開始/かいし]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeRecord::Applied` に渡す projected type argument list の owner を作り、loop に移します。
+//:
+//: [契約/けいやく]:
+//: - vector allocation に失敗した場合は入力 arena を解放します。
+//: - 成功後の `params` owner は loop に移り、最終的には `selfhost_type_arena_add_applied_named` が消費します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - projected argument list payload、または cleanup 済み typed error を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 初期確保は通常 `O(1)`、全体は constructor-aware loop の計算量に従います。
 fn selfhost_type_project_applied_args_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\applied_node_id\n\span:
     let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match params_result:
@@ -282,12 +571,32 @@ fn selfhost_type_project_applied_args_with_constructors %impure fn SelfhostTypeA
 //: - `TypeConstructor(n)` かつ `applied_arg_count == n` のときだけ true を返します。
 //: - `Type` constructor を `Applied` node として投影することは、引数数が 0 でも受理しません。bare type は `Named` node を使う必要があります。
 //:
+//: [戻/もど]り[値/ち]:
+//: - constructor kind が `SelfhostTypeConstructorKind::TypeConstructor` 相当で、要求する type argument 数と `applied_arg_count` が一致する場合だけ `true` です。
+//: - `SelfhostTypeConstructorKind::Type` や arity mismatch では `false` です。
+//:
 //: [計算量/けいさんりょう]:
 //: - `O(1)` です。
 fn selfhost_type_project_applied_constructor_arg_count_is_valid %fn SelfhostTypeConstructor fn i32 bool \constructor\applied_arg_count:
     let expected_arg_count %i32 selfhost_type_constructor_kind_arg_count constructor.kind
     and gt expected_arg_count 0 eq expected_arg_count applied_arg_count
 
+//: selfhost_type_project_applied_with_constructors: applied named type を constructor table authority で TypeArena へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - resolved tree の `SelfhostResolvedTypeNode::Applied` を、constructor identity と projected type arguments を持つ `SelfhostTypeRecord::Applied` へ変換します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeConstructorTable` に `applied.nominal_id` が存在しない場合は `SelfhostTypeProjectErrorKind::UnknownNamedType` で fail-closed にします。
+//: - constructor kind が要求する arity と applied argument 数が一致しない場合は `SelfhostTypeProjectErrorKind::GenericConstructorArgumentArityMismatch` を返します。
+//: - `selfhost_type_arena_add_applied_named` は params owner を成功・失敗どちらでも消費します。この関数は add 後に params を再利用しません。
+//: - `source` は nested named lookup のために子 projection へ渡します。この関数自体は raw source spelling から type identity を作りません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostTypeRecord::Applied` の `SelfhostTypeId` を含む allocation、失敗時は typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor lookup と type argument subtree projection の合計です。argument vector の arena 取り込みは type argument 数に比例します。
 fn selfhost_type_project_applied_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedAppliedType Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\tree\node_id\applied:
     let arg_count %i32 selfhost_resolved_applied_type_arg_range_count applied.args
     match selfhost_type_constructor_table_get constructors applied.nominal_id:
@@ -311,6 +620,21 @@ fn selfhost_type_project_applied_with_constructors %impure fn SelfhostTypeArena 
         Option::None:
             selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnknownNamedType applied.span
 
+//: selfhost_type_project_named_with_constructors: bare named type を constructor table authority で TypeArena へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - resolved tree の `SelfhostResolvedTypeNode::Named` を、source span と constructor table から nominal id へ解決し `SelfhostTypeRecord::Named` として保存します。
+//:
+//: [契約/けいやく]:
+//: - source spelling lookup は `selfhost_type_constructor_table_find_span` に閉じます。この projection helper は文字列 allowlist や ad hoc な name 分岐を持ちません。
+//: - constructor が見つからない場合は `SelfhostTypeProjectErrorKind::UnknownNamedType` を返します。
+//: - arity 0 の constructor だけを bare named type として受理し、generic constructor の裸使用は `GenericConstructorNeedsArguments` として拒否します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostTypeRecord::Named` の allocation、失敗時は cleanup 済み typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor table の span lookup と arena record 追加の計算量に従います。
 fn selfhost_type_project_named_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn SelfhostResolvedNamedTypeRef Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\named:
     match selfhost_type_constructor_table_find_span constructors source named.span:
         Option::Some constructor:
@@ -328,6 +652,22 @@ fn selfhost_type_project_named_with_constructors %impure fn SelfhostTypeArena im
         Option::None:
             selfhost_type_project_fail arena SelfhostTypeProjectErrorKind::UnknownNamedType named.span
 
+//: selfhost_type_project_function_args_loop_with_constructors: constructor table ありで function 引数 node を順に[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - function type の argument range を、nested named / applied type を解決できる constructor-aware path で投影します。
+//:
+//: [契約/けいやく]:
+//: - child projection は必ず `selfhost_type_project_node_with_constructors` を使い、constructor table authority を保ったまま処理します。
+//: - plain path による `SelfhostTypeProjectErrorKind::UnsupportedNamedType` へ戻さないようにします。
+//: - child projection 失敗時は未採用 params owner をこの loop が解放します。
+//: - range 不整合は `SelfhostTypeProjectErrorKind::InternalInvariant` で返し、arena と params を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - projected argument ids と更新後 arena owner、または cleanup 済み typed error を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - function 引数数、各引数 subtree、constructor lookup の合計に比例します。
 fn selfhost_type_project_function_args_loop_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 impure fn Vec SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\fn_node_id\idx\n\params\span:
     if:
         ge idx n
@@ -353,6 +693,20 @@ fn selfhost_type_project_function_args_loop_with_constructors %impure fn Selfhos
                 Option::None:
                     selfhost_type_project_fail_with_params arena params SelfhostTypeProjectErrorKind::InternalInvariant span
 
+//: selfhost_type_project_function_args_with_constructors: constructor-aware function 引数 vector を[作/つく]って loop を[開始/かいし]する
+//:
+//: [目的/もくてき]:
+//: - function type の parameter list を保存する `Vec SelfhostTypeId` を作り、constructor-aware loop に渡します。
+//:
+//: [契約/けいやく]:
+//: - vector allocation 失敗時は入力 arena を解放し、`SelfhostTypeProjectErrorKind::OutOfMemory` または `InternalInvariant` を返します。
+//: - 成功後の params owner は loop と `selfhost_type_project_alloc_function_type` の契約で閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - function argument projection payload、または cleanup 済み typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 初期確保は通常 `O(1)`、全体は constructor-aware loop の計算量に従います。
 fn selfhost_type_project_function_args_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeProjectArgBuild SelfhostTypeProjectError \arena\source\constructors\tree\fn_node_id\n\span:
     let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match params_result:
@@ -362,6 +716,20 @@ fn selfhost_type_project_function_args_with_constructors %impure fn SelfhostType
             selfhost_type_arena_free arena
             Result::Err selfhost_type_project_error_new (selfhost_type_project_std_error_kind e) span
 
+//: selfhost_type_project_function_with_constructors: constructor-aware path で function type node を arena record へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - function argument と result type の両方を constructor-aware path で投影し、named / applied type を含む function type を `SelfhostTypeRecord::Function` にします。
+//:
+//: [契約/けいやく]:
+//: - result projection に失敗した場合は、argument projection で作った params vector をこの関数が解放します。
+//: - function record 追加時の params owner cleanup は `selfhost_type_project_alloc_function_type` と `selfhost_type_arena_add_function` の契約に従います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は function type allocation、失敗時は cleanup 済み typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - argument subtree、result subtree、constructor lookup、function record 追加の合計です。
 fn selfhost_type_project_function_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId impure fn SelfhostResolvedFunctionType impure fn SelfhostSourceSpan Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\tree\fn_node_id\function\span:
     let arg_count %i32 selfhost_resolved_function_arg_range_count function.args
     match selfhost_type_project_function_args_with_constructors arena source constructors tree fn_node_id arg_count span:
@@ -379,6 +747,23 @@ fn selfhost_type_project_function_with_constructors %impure fn SelfhostTypeArena
         Result::Err e:
             Result::Err e
 
+//: selfhost_type_project_node_with_constructors: constructor table authority で resolved type node を TypeArena へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - primitive / parameter / function に加えて、named / applied named type を caller 提供の `SelfhostTypeConstructorTable` に基づいて arena record へ変換します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostResolvedTypeNode::Named` は `selfhost_type_project_named_with_constructors` で bare named type として検査します。
+//: - `SelfhostResolvedTypeNode::Applied` は `selfhost_type_project_applied_with_constructors` で constructor kind と arity を再検査します。
+//: - `SelfhostResolvedTypeNode::Function` の子 node も constructor-aware path で再帰投影します。
+//: - `SelfhostResolvedTypeNode::Primitive` と `SelfhostResolvedTypeNode::Parameter` は plain path と同じ arena record へ投影します。
+//: - node id が tree に存在しない場合は `SelfhostTypeProjectErrorKind::MissingResolvedNode` を返し、入力 arena を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は対象 node に対応する allocation、失敗時は cleanup 済み typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 対象 subtree size と constructor table lookup の合計に比例します。この関数は import graph や module surface を追加探索しません。
 fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -403,6 +788,7 @@ fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena imp
 //: selfhost_type_project_root_into_arena: resolved type tree root を TypeArena へ[投影/とうえい]する
 //:
 //: [目的/もくてき]:
+//: - 入力 `root` は `SelfhostResolvedTypeTreeRoot` です。
 //: - prefix type resolver が作った TypeId 割当前の tree を、後続の type checker / HIR が共有する `SelfhostTypeArena` へ追加します。
 //: - primitive と function type は arena record へ投影し、root node に対応する `SelfhostTypeId` を返します。
 //:
@@ -411,6 +797,15 @@ fn selfhost_type_project_node_with_constructors %impure fn SelfhostTypeArena imp
 //: - 失敗時はこの関数が入力 arena を解放します。caller は失敗後に同じ arena owner を使えません。
 //: - named type / applied named type は constructor table なしでは定義 identity を確定できないため、`UnsupportedNamedType` として fail-closed にします。
 //: - generic type parameter は現在の binder を `binder_depth = 0` とする `SelfhostTypeRecord::Parameter` へ投影します。
+//:
+//: [現状/げんじょう]:
+//: - primitive / function / parameter の最小投影 API です。user-defined named type を使う呼び出し元は constructor-aware API を使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は root type id の allocation、失敗時は `SelfhostTypeProjectErrorKind::UnsupportedNamedType` / `MissingResolvedNode` / `OutOfMemory` / `InternalInvariant` などの typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - root から到達する primitive / parameter / function subtree size に比例します。
 pub fn selfhost_type_project_root_into_arena %impure fn SelfhostTypeArena impure fn &SelfhostResolvedTypeTreeRoot Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\root:
     let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root
     let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id root
@@ -424,10 +819,21 @@ pub fn selfhost_type_project_root_into_arena %impure fn SelfhostTypeArena impure
 //:
 //: [契約/けいやく]:
 //: - primitive / function type は既存 projection と同じ形で arena record へ投影します。
+//: - 成功時は `SelfhostTypeArenaAlloc` が arena owner と root `SelfhostTypeId` を所有します。
+//: - 失敗時は helper が入力 arena や途中の params owner を解放します。caller は失敗後に同じ owner を使えません。
 //: - named type は arity 0 の constructor だけを bare named type として受理します。
 //: - applied named type は constructor identity と projected type arguments を `SelfhostTypeRecord::Applied` として arena に保存します。
-//: - unknown named type と generic constructor の裸使用は typed error として fail-closed にします。
+//: - unknown named type と generic constructor の裸使用は `SelfhostTypeProjectErrorKind` の typed error として fail-closed にします。
 //: - generic type parameter は constructor table とは別に、現在の binder を `binder_depth = 0` とする `SelfhostTypeRecord::Parameter` へ投影します。
+//:
+//: [現状/げんじょう]:
+//: - constructor table は caller が module header / local type declaration から事前構築します。この関数は table を authority として参照するだけです。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は root type id の allocation、失敗時は `SelfhostTypeProjectErrorKind::UnknownNamedType` / `SelfhostTypeProjectErrorKind::GenericConstructorNeedsArguments` / `SelfhostTypeProjectErrorKind::GenericConstructorArgumentArityMismatch` / `SelfhostTypeProjectErrorKind::MissingResolvedNode` などの typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - root から到達する subtree size と constructor table lookup の合計に比例します。追加の全module探索は行いません。
 pub fn selfhost_type_project_root_with_constructors_into_arena %impure fn SelfhostTypeArena impure fn &str impure fn &SelfhostTypeConstructorTable impure fn &SelfhostResolvedTypeTreeRoot Result SelfhostTypeArenaAlloc SelfhostTypeProjectError \arena\source\constructors\root:
     let tree %&SelfhostResolvedTypeTree selfhost_resolved_type_tree_root_tree root
     let root_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_root_id root
