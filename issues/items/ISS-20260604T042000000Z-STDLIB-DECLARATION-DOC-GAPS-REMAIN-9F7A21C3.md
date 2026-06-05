@@ -33,6 +33,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の DisjointSet slice で `stdlib/alloc/collections/disjoint_set/api/diagnostic.nepl`、`storage.nepl`、`query.nepl` の diagnostic / typed storage / borrowed query helper docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=266`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし fenwick / segment_tree / sparse_set などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の Fenwick slice で `stdlib/alloc/collections/fenwick/api/diagnostic.nepl`、`storage.nepl`、`query.nepl`、`mutation.nepl` の diagnostic / typed storage / borrowed prefix query / point update helper docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=257`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし segment_tree / sparse_set / vec などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 対象
 
 - `stdlib/core`
@@ -42,7 +44,7 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 ## 根拠
 
 - `node nodesrc/test_stdlib_documentation_contract.js` の再集計で、current baseline は `files=456`、`declarationNoDoc=361`、`declarationNoDoctest=1690` だった。
-- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだったが、その後の BitSet / AdjacencyMatrix / BinaryHeap / BloomFilter / CountingBloomFilter / BTreeMap / BTreeSet / DisjointSet slice により sample gaps は fenwick / segment_tree / sparse_set 系へ進んでいる。
+- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだったが、その後の BitSet / AdjacencyMatrix / BinaryHeap / BloomFilter / CountingBloomFilter / BTreeMap / BTreeSet / DisjointSet / Fenwick slice により sample gaps は segment_tree / sparse_set / vec 系へ進んでいる。
 - baseline refresh はこれ以上の悪化を止める regression guard であり、既存 gap を解消したことを意味しない。
 - `stdlib/alloc/collections/bitset` では、owner-backed `BitSetUpdateError` を直接構築する doctest を避け、public `insert` / `remove` の Err 経路から error を取得して `bitset_update_error_diag` と `bitset_update_error_owner` の契約を確認する形にした。
 
@@ -67,6 +69,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 同日 BTreeSet slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=272`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_btree_search_doc_report_contract.js` と `nodesrc/test_stdlib_btreeset_storage_doc_report_contract.js` により、BTreeSet の lower_bound / is_at、`Vec Option .T` key-only storage、`Option::Some key` / `Option::None` slot state、`diag_out_of_memory`、`BTreeSetInsertError` owner recovery、旧 storage free、old last slot clear、storage invariant failure、Copy boundary、O(cap) / O(len0) contract を module 固有にも固定する。
 
 同日 DisjointSet slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=266`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_disjoint_set_doc_report_contract.js` により、DisjointSet の storage invariant、diagnostic enum kind、typed `Vec i32` storage boundary、`Option::Some` / `Option::None` query contract、path compression なしの borrowed observer、`DisjointSetUpdateError` による owner recovery、union-by-size、O(log n) / O(n) / O(1) contract を module 固有にも固定する。
+
+同日 Fenwick slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=257`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_fenwick_doc_report_contract.js` により、Fenwick の `n + 1` 1-indexed storage invariant、sentinel cell、diagnostic enum kind、typed `Vec i32` storage boundary、`Option::Some` / `Option::None` prefix query contract、owner-preserving `FenwickAddError`、storage invariant failure で rollback を契約しないこと、O(log n) / O(1) / O(bit_len) contract を module 固有にも固定する。
 
 ## 影響
 
@@ -99,3 +103,5 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset/search.nepl -i stdlib/alloc/collections/btreeset/storage.nepl -i stdlib/tests/btreeset.n.md --no-tree -o tmp/agent2-btreeset-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_disjoint_set_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/disjoint_set/types.nepl -i stdlib/alloc/collections/disjoint_set/storage.nepl -i stdlib/alloc/collections/disjoint_set/query.nepl -i stdlib/alloc/collections/disjoint_set/api.nepl -i stdlib/alloc/collections/disjoint_set/api/diagnostic.nepl -i stdlib/alloc/collections/disjoint_set/api/create.nepl -i stdlib/alloc/collections/disjoint_set/api/observer.nepl -i stdlib/alloc/collections/disjoint_set/api/mutation.nepl -i stdlib/alloc/collections/disjoint_set/api/cleanup.nepl -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/agent2-disjoint-set-doc-slice.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/test_stdlib_fenwick_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/fenwick/types.nepl -i stdlib/alloc/collections/fenwick/storage.nepl -i stdlib/alloc/collections/fenwick/query.nepl -i stdlib/alloc/collections/fenwick/mutation.nepl -i stdlib/alloc/collections/fenwick/api.nepl -i stdlib/alloc/collections/fenwick/api/diagnostic.nepl -i stdlib/alloc/collections/fenwick/api/create.nepl -i stdlib/alloc/collections/fenwick/api/observer.nepl -i stdlib/alloc/collections/fenwick/api/query.nepl -i stdlib/alloc/collections/fenwick/api/update.nepl -i stdlib/alloc/collections/fenwick/api/cleanup.nepl -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/agent2-fenwick-doc-slice.json -j 1 --dist web/dist --assert-io`

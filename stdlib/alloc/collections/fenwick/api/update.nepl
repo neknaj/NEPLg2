@@ -31,9 +31,15 @@ pub fn fenwick_add_err %fn Fenwick fn Diag Result Fenwick FenwickAddError \fw\d:
 //: ## add
 //: `idx` に `delta` を[加算/かさん]する
 //:
+//: ### [契約/けいやく]
+//: - 成功時は更新後の `Fenwick` owner を `Result::Ok` で返します。
+//: - 失敗時は `Result::Err` の `FenwickAddError` から `add_error_tree` で owner を回収します。
+//: - 範囲外 index は storage update 前に拒否するため、返る owner は変更前の `Fenwick` です。
+//: - storage invariant failure では cleanup 用 owner を返しますが、部分更新の rollback は契約しません。
+//:
 //: ### [注意/ちゅうい]
 //: - [範囲外/はんいがい] index は `Result::Err FenwickAddError` です。
-//: - `Err` には[変更前/へんこうまえ]の `Fenwick` owner が[入/はい]るので、caller は owner を[回収/かいしゅう]して `free` できます。
+//: - `Err` には cleanup 可能な `Fenwick` owner が[入/はい]るので、caller は owner を[回収/かいしゅう]して `free` できます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(log n)

@@ -13,12 +13,134 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
+//: ## fenwick_load_owned
+//: typed `Vec i32` の 1-indexed storage cell を `Option` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `bit` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内なら `Option::Some value` を返します。
+//: - `idx` が範囲外なら `Option::None` を返します。
+//: - raw pointer や sentinel value は使わず、`Vec.get` の `Option` を Fenwick の storage boundary にします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.get` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fenwick_load_owned_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads cell\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing cell is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/fenwick/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bit %Vec i32 unwrap_ok fenwick_alloc_bit 3
+//:     fenwick_store_owned &bit 1 11
+//:     let value %i32 match fenwick_load_owned &bit 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing %bool match fenwick_load_owned &bit 9:
+//:         Option::Some _v:
+//:             false
+//:         Option::None:
+//:             true
+//:     fenwick_free_bit bit
+//:     let report:
+//:         test_report_new "fenwick_load_owned_doc"
+//:         |> test_report_push assert_eq_i32 "reads cell" 11 value
+//:         |> test_report_push assert "missing cell is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn fenwick_load_owned %fn &Vec i32 fn i32 Option i32 \bit\idx:
     vec::get bit idx
 
+//: ## fenwick_store_owned
+//: typed `Vec i32` storage の 1 cell を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `bit` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内であることは caller の責務です。
+//: - `value` は Fenwick Tree の lowbit interval sum です。
+//: - raw pointer 書き込みではなく `Vec.replace` に集約します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.replace` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fenwick_store_owned_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores cell\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/fenwick/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bit %Vec i32 unwrap_ok fenwick_alloc_bit 2
+//:     fenwick_store_owned &bit 1 7
+//:     let value %i32 match fenwick_load_owned &bit 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     fenwick_free_bit bit
+//:     let report:
+//:         test_report_new "fenwick_store_owned_doc"
+//:         |> test_report_push assert_eq_i32 "stores cell" 7 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn fenwick_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \bit\idx\value:
     vec::replace bit idx value
 
+//: ## fenwick_alloc_bit
+//: 0 [初期化/しょきか]された Fenwick internal storage を[確保/かくほ]する
+//:
+//: ### [契約/けいやく]
+//: - caller は logical length `n` から `bit_len = n + 1` を計算して渡します。
+//: - 成功時は長さ `bit_len` の typed `Vec i32` owner を `Result::Ok` で返します。
+//: - allocation failure は `diag_out_of_memory` の `Diag` を `Result::Err` で返します。
+//: - raw allocation は使わず、`Vec.filled` に確保と 0 初期化を集約します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.filled` に従い O(bit_len) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fenwick_alloc_bit_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"allocated len\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"zero initialized\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/fenwick/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bit %Vec i32 unwrap_ok fenwick_alloc_bit 4
+//:     let n %i32 vec::len &bit
+//:     let first %i32 match fenwick_load_owned &bit 0:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     fenwick_free_bit bit
+//:     let report:
+//:         test_report_new "fenwick_alloc_bit_doc"
+//:         |> test_report_push assert_eq_i32 "allocated len" 4 n
+//:         |> test_report_push assert_eq_i32 "zero initialized" 0 first
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
     match vec::filled bit_len 0:
         Result::Err _e:
@@ -26,5 +148,35 @@ pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
         Result::Ok bit:
             ok bit
 
+//: ## fenwick_free_bit
+//: Fenwick internal storage owner を[閉/と]じる
+//:
+//: ### [契約/けいやく]
+//: - `bit` owner を[消費/しょうひ]し、内部の `Vec i32` storage を解放します。
+//: - caller は `Fenwick` owner から `bit` を取り出した後にこの helper を呼びます。
+//: - cleanup boundary をここに集約し、query / update helper から owner-consuming free を分離します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.free` に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fenwick_free_bit_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free completed\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/fenwick/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bit %Vec i32 unwrap_ok fenwick_alloc_bit 2
+//:     fenwick_free_bit bit
+//:     let report:
+//:         test_report_new "fenwick_free_bit_doc"
+//:         |> test_report_push assert "free completed" true
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn fenwick_free_bit %impure fn Vec i32 unit \bit:
     vec::free bit
