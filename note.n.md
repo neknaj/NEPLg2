@@ -51288,3 +51288,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `source_policy: not-needed` でも理由を要求し、Blocker は同じ branch 内で修正、修正できない場合は原因、影響、完了条件、検証予定を持つ issue へ分離する形へ固定した。
 - `doc/neplg2/self_host_zenn_review_checklist.md` から prompt template を参照し、`nodesrc/test_selfhost_zenn_review_gate_contract.js` で prompt の必須項目と禁止事項を検査するようにした。
 - Non-blocker として、将来の実装 slice では `note.n.md` または issue 完了記録が prompt response field を満たしているかを対象 issue 単位で検査する source policy を追加する余地がある。
+
+## 2026-06-05 Agent selfhost Zenn review response validation checkpoint
+
+- `selfhost/zenn-review-response-validation-20260605` branch で、セルフホストコンパイラ開発の subagent review response を機械検査してから review 記録として扱う gate を追加した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、明示的な失敗、構造化データ、試作段階でも雑設計を残さない方針を review response 受理条件に反映した。
+- `nodesrc/selfhost_zenn_review_response_check.js` を追加し、`--input` または `--stdin` の review response に対して、`review_scope`、`decision`、`policy/spec`、`implementation/test`、`zenn_check`、`evidence_to_record`、`summary` の必須 section と必須 field を検査するようにした。
+- checker は `Approve` だけの弱い返答、空の `files_read`、不正な `classification` / `source_policy`、`MERGE_APPROVED` と残存 `blockers` / `questions` の矛盾、空の `unexecuted_verification` を fail-closed に拒否する。
+- `doc/neplg2/self_host_zenn_review_prompt.md`、`self_host_zenn_review_checklist.md`、`self_host_neplg21_compiler_design.md`、`self_host_execution_plan.md` は、review response checker を gate に組み込み、checker が失敗した返答を review 記録として扱わないことを明記した。
+- `nodesrc/selfhost_zenn_review_packet.js` は、subagent への依頼文に response checker で返答を検査することを含めるようにした。
+- subagent review では初回 2 件が「response 受理側の機械検査不足」を Blocker とした。今回の checker と docs / source policy 更新後の最終 review 2 件では Blocker なし、`MERGE_APPROVED` と確認した。
+- Non-blocker として、今後 `note.n.md` に残る review evidence 自体を future marker 付きで検査する source policy、また checker の各 error code に対する追加負例を広げる余地が残る。
+- focused verification は `node nodesrc/test_selfhost_zenn_review_gate_contract.js` を通した。broad verification は `node nodesrc/test_source_policy_no_line_count_limits.js`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `git diff --check` では空白エラーはなく、Windows の改行変換 warning だけが表示された。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存の documentation gap sample と Node WASI ExperimentalWarning が表示された。

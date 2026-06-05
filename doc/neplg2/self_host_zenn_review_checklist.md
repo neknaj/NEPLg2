@@ -24,6 +24,7 @@ subagent review を依頼するときは、少なくとも次を渡す。
 - 設計文書、issue、`note.n.md`、source policy の更新箇所。
 - 実行した検証、未実行の検証、既存 warning と今回差分由来の warning の区別。
 - review の観点が `policy/spec` と `implementation/test` の 2 軸に分かれていること。
+- review response を `nodesrc/selfhost_zenn_review_response_check.js` で検査し、必須 section / field が欠けた返答を受理しないこと。
 
 ## 必須確認項目
 
@@ -100,6 +101,8 @@ source_policy: added | updated | not-needed | follow-up
 verify: <実行した検証、または未実行理由>
 ```
 
+`MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read` と `not_reviewed` が記録されている場合だけ受理する。`nodesrc/selfhost_zenn_review_response_check.js` は、この最小条件と必須 section / field を検査する。
+
 ## note checkpoint 形式
 
 commit 前に `note.n.md` へ次を記録する。
@@ -131,6 +134,7 @@ commit 前に `note.n.md` へ次を記録する。
 - parser / checker / HIR / Resource IR / backend の authority が逆流していないこと。
 - doc comment が目的、契約、戻り値、error variant、計算量、制約、現状説明を保持していること。
 - Zenn review gate と subagent review の証跡が実行計画、設計文書、`note.n.md` に残ること。
+- subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js` で検査していること。
 - 新規 source policy を追加した場合に `nodesrc/run_source_policy_regressions.js` へ登録されていること。
 
 行数制限、ファイル長制限、doc comment 長制限は source policy に入れない。大きさの問題は、責務混在、依存方向、facade への実装流入、テスト不能な単位、review 不能な境界として検査する。

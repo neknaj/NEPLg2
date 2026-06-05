@@ -127,6 +127,7 @@ function buildPacket(parsed) {
         "  Non-blocker は次 slice または issue へ残す改善として分類してください。",
         "  Question は仕様判断や優先順位確認が必要なものとして分類してください。",
         "  Approve は Blocker がない場合だけ出してください。",
+        "  返答は `nodesrc/selfhost_zenn_review_response_check.js` で検査します。",
         "",
         "必ず `doc/neplg2/self_host_zenn_review_prompt.md` の response 形式で返してください。",
     ].join("\n");

@@ -73,6 +73,7 @@ Design docs:
   Non-blocker は次 slice または issue へ残す改善として分類してください。
   Question は仕様判断や優先順位確認が必要なものとして分類してください。
   Approve は Blocker がない場合だけ出してください。
+  返答は `nodesrc/selfhost_zenn_review_response_check.js` で検査します。
 
 必ず次の形式で返してください。
 
@@ -140,6 +141,9 @@ Design docs:
 
 review response を受け取った agent は、次を行う。
 
+- review response を `node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>` または `--stdin` で検査する。
+- response checker が失敗した返答は review 記録として扱わず、subagent に不足 section / field の再提出を依頼する。
+- `MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read` と `not_reviewed` が記録されている場合だけ受理する。
 - `Blocker` は同じ branch 内で修正する。
 - 同じ branch 内で修正できない `Blocker` は、原因、影響、完了条件、検証予定を持つ issue へ分離する。
 - `Non-blocker` は `note.n.md`、`todo.md`、または対応 issue に残す。
