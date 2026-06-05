@@ -15,7 +15,8 @@
 #import "./storage" as *
 #import "core/math" as *
 
-//: btreemap_key_eq: Copy key の順序比較から同値性を判定する
+//: ## btreemap_key_eq
+//: Copy key の[順序/じゅんじょ][比較/ひかく]から[同値性/どうちせい]を[判定/はんてい]する
 //:
 //: ### [目的/もくてき]
 //: - `a < b` と `b < a` がどちらも false なら、map 上は同じ key とみなします。
@@ -45,6 +46,48 @@
 pub fn btreemap_key_eq <.K: Ord&Copy> %fn .K fn .K bool \a\b:
     and not ord_lt a b not ord_lt b a
 
+//: ## btreemap_lower_bound
+//: sorted key prefix の中で key を入れる[位置/いち]を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `keys` の `low <= i < high` が key の sorted live prefix であることを caller が[保証/ほしょう]します。
+//: - 戻り値は `low <= result <= high` を満たします。
+//: - `key` 以上の最初の index を返し、すべての live key が `key` より小さい場合は `high` を返します。
+//: - live prefix 内に `Option::None` を見つけた場合は storage invariant failure とみなし、その index を返して停止します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - live prefix の長さを n とすると O(log n) です。追加の空間計算量は再帰深さ O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreemap_lower_bound_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"existing key position\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"between keys position\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/collections/btreemap/storage" as *
+//:| #import "alloc/collections/btreemap/search" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeMapStorage i32 i32 unwrap_ok btreemap_alloc_storage 4
+//:     btreemap_store_key_slot &storage 0 some 1
+//:     btreemap_store_key_slot &storage 1 some 3
+//:     btreemap_store_key_slot &storage 2 some 7
+//:     let keys %&Vec Option i32 btreemap_storage_keys &storage
+//:     let existing %i32 btreemap_lower_bound keys 3 0 3
+//:     let between %i32 btreemap_lower_bound keys 4 0 3
+//:     btreemap_free_storage storage
+//:     let report:
+//:         test_report_new "btreemap_lower_bound_doc"
+//:         |> test_report_push assert_eq_i32 "existing key position" 1 existing
+//:         |> test_report_push assert_eq_i32 "between keys position" 2 between
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreemap_lower_bound <.K: Ord&Copy> %fn &Vec Option .K fn .K fn i32 fn i32 i32 \keys\key\low\high:
     if:
         lt low high
@@ -60,6 +103,46 @@ pub fn btreemap_lower_bound <.K: Ord&Copy> %fn &Vec Option .K fn .K fn i32 fn i3
                     mid
         else low
 
+//: ## btreemap_is_at
+//: sorted key prefix の index が key と[一致/いっち]するか[調/しら]べる
+//:
+//: ### [契約/けいやく]
+//: - `idx < len0` かつ slot が `Option::Some saved` で、`saved` と `key` が `btreemap_key_eq` なら `true` を返します。
+//: - `idx >= len0`、範囲外 slot、または `Option::None` slot は `false` を返します。
+//: - `keys` owner は[消費/しょうひ]しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.get` と `Ord` 比較 2 回で O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreemap_is_at_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"key is at index\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing index is false\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/collections/btreemap/storage" as *
+//:| #import "alloc/collections/btreemap/search" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeMapStorage i32 i32 unwrap_ok btreemap_alloc_storage 2
+//:     btreemap_store_key_slot &storage 0 some 5
+//:     let keys %&Vec Option i32 btreemap_storage_keys &storage
+//:     let present %bool btreemap_is_at keys 1 0 5
+//:     let absent %bool not btreemap_is_at keys 1 1 5
+//:     btreemap_free_storage storage
+//:     let report:
+//:         test_report_new "btreemap_is_at_doc"
+//:         |> test_report_push assert "key is at index" present
+//:         |> test_report_push assert "missing index is false" absent
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreemap_is_at <.K: Ord&Copy> %fn &Vec Option .K fn i32 fn i32 fn .K bool \keys\len0\idx\key:
     if:
         lt idx len0
@@ -71,8 +154,82 @@ pub fn btreemap_is_at <.K: Ord&Copy> %fn &Vec Option .K fn i32 fn i32 fn .K bool
                     false
         else false
 
+//: ## btreemap_lower_bound_storage
+//: storage wrapper から key view を[借用/しゃくよう]して lower_bound を[実行/じっこう]する
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - `btreemap_storage_keys` で key storage だけを借用し、戻り値条件は `btreemap_lower_bound` と同じです。
+//: - `.V: Copy` は現行 `BTreeMapStorage` の typed value storage view と cleanup contract に合わせるための境界です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - live prefix の長さを n とすると O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreemap_lower_bound_storage_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"storage lower bound\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/collections/btreemap/storage" as *
+//:| #import "alloc/collections/btreemap/search" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeMapStorage i32 i32 unwrap_ok btreemap_alloc_storage 3
+//:     btreemap_store_key_slot &storage 0 some 2
+//:     btreemap_store_key_slot &storage 1 some 6
+//:     let idx %i32 btreemap_lower_bound_storage &storage 5 0 2
+//:     btreemap_free_storage storage
+//:     let report:
+//:         test_report_new "btreemap_lower_bound_storage_doc"
+//:         |> test_report_push assert_eq_i32 "storage lower bound" 1 idx
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreemap_lower_bound_storage <.K: Ord&Copy,.V: Copy> %fn &BTreeMapStorage .K .V fn .K fn i32 fn i32 i32 \storage\key\low\high:
     btreemap_lower_bound<.K> btreemap_storage_keys<.K,.V> storage key low high
 
+//: ## btreemap_is_at_storage
+//: storage wrapper から key view を[借用/しゃくよう]して index の key [一致/いっち]を[調/しら]べる
+//:
+//: ### [契約/けいやく]
+//: - `storage` owner は[消費/しょうひ]しません。
+//: - `idx` の戻り値条件は `btreemap_is_at` と同じで、missing slot と `idx >= len0` は `false` です。
+//: - `.V: Copy` は現行 `BTreeMapStorage` の typed value storage view と cleanup contract に合わせるための境界です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"btreemap_is_at_storage_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"storage key is at index\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"storage missing index is false\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/collections/btreemap/storage" as *
+//:| #import "alloc/collections/btreemap/search" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let storage %BTreeMapStorage i32 i32 unwrap_ok btreemap_alloc_storage 2
+//:     btreemap_store_key_slot &storage 0 some 8
+//:     let present %bool btreemap_is_at_storage &storage 1 0 8
+//:     let absent %bool not btreemap_is_at_storage &storage 1 1 8
+//:     btreemap_free_storage storage
+//:     let report:
+//:         test_report_new "btreemap_is_at_storage_doc"
+//:         |> test_report_push assert "storage key is at index" present
+//:         |> test_report_push assert "storage missing index is false" absent
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn btreemap_is_at_storage <.K: Ord&Copy,.V: Copy> %fn &BTreeMapStorage .K .V fn i32 fn i32 fn .K bool \storage\len0\idx\key:
     btreemap_is_at<.K> btreemap_storage_keys<.K,.V> storage len0 idx key

@@ -1,3 +1,28 @@
+# 2026-06-05 Agent 2 BTreeMap documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。
+- subagent review では、`stdlib/alloc/collections/btreemap/search.nepl` と `storage.nepl` の lower_bound / is_at / owner-backed storage helper に declaration doc gap が残ることが blocker として指摘された。特に `low <= result <= high`、`Option::None` の storage invariant failure、`idx >= len0`、`storage` owner 非消費、`Vec Option .K` / `Vec Option .V`、partial allocation cleanup、grow 失敗時の owner recovery、旧 storage free、Copy 境界、O(log n) / O(1) / O(cap) / O(len0) を contract として明示する必要があると確認した。
+- `search.nepl` では `btreemap_key_eq` に加えて `btreemap_lower_bound`、`btreemap_is_at`、`btreemap_lower_bound_storage`、`btreemap_is_at_storage` の日本語 doc comment と `test_report` 形式の doctest を追加した。`Option::None` は public normal case ではなく storage invariant failure として扱い、missing slot と `idx >= len0` は `false` になることを明記した。
+- `storage.nepl` では key / value slot accessor、store helper、borrowed slot view、alloc/free、copy/clear/shift/grow helper に日本語 doc comment と `test_report` 形式の doctest を追加した。value storage 確保失敗時は先に確保した key storage を free すること、grow 失敗時は `BTreeMapInsertError` で元 map owner を返すこと、grow 成功時は旧 storage owner を free することを契約として固定した。
+- `nodesrc/test_stdlib_btreemap_storage_doc_report_contract.js` を追加し、`nodesrc/test_stdlib_btree_search_doc_report_contract.js` を BTreeMap search の複数 doctest に対応させた。BTreeSet は次 slice まで現行 key equality doctest のみを固定し、BTreeMap と BTreeSet の進捗を混同しないようにした。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline を実測値に締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=287`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。BTreeMap slice は進んだが、sample gaps は btreeset / disjoint_set / fenwick 系へ残っている。
+- 初回の最終 subagent review では、BTreeMap docs / source policy の内容には semantic blocker はない一方、新規 source policy ファイルが未追跡であることと、この `note.n.md` checkpoint 未記録が merge blocker として指摘された。どちらも今回 checkpoint 内で修正し、再レビュー対象にした。
+- subagent 再レビューでは Blocker なし。残る BTreeSet / disjoint_set / fenwick / segment_tree の doc gaps は今回の BTreeMap slice 外の後続 issue でよく、`MERGE_APPROVED` と判定された。
+- 現時点の検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap/search.nepl -i stdlib/alloc/collections/btreemap/storage.nepl -i stdlib/tests/btreemap.n.md --no-tree -o tmp/agent2-btreemap-doc-slice.json -j 1 --dist web/dist --assert-io`: pass（27/27）
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/test_stdlib_btree_search_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_btreemap_storage_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-btreemap-doc-playground-editor.json`: pass（13/13）
+
 # 2026-06-05 Agent 2 CountingBloomFilter documentation contract checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Result / Option と enum error による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。

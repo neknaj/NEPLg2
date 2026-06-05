@@ -234,6 +234,7 @@ const checks = [
     "nodesrc/test_stdlib_pipe_collections_report_contract.js",
     "nodesrc/test_stdlib_traits_serde_report_contract.js",
     "nodesrc/test_stdlib_btree_search_doc_report_contract.js",
+    "nodesrc/test_stdlib_btreemap_storage_doc_report_contract.js",
     "nodesrc/test_string_trim_doc_report_contract.js",
     "nodesrc/test_alloc_string_doc_report_contract.js",
     "nodesrc/test_stdlib_string_report_contract.js",
