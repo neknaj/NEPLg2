@@ -10,7 +10,7 @@ const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
 const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    moduleNoDoc: 77,
+    moduleNoDoc: 76,
     moduleNoDoctest: 60,
     declarationNoDoc: 304,
     declarationNoDoctest: 1434,
@@ -39,6 +39,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/check/expr/call_reduce.nepl",
     "stdlib/neplg2/core/check/module/",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
+    "stdlib/neplg2/core/proof.nepl",
     "stdlib/neplg2/core/proof/solver/module.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
@@ -49,10 +50,33 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/check/module/summary.nepl",
     "stdlib/neplg2/core/check/module/declaration_adapter.nepl",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
+    "stdlib/neplg2/core/proof.nepl",
     "stdlib/neplg2/core/proof/solver/module.nepl",
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
+];
+const MODULE_DOC_SECTION_REQUIREMENTS = [
+    moduleRequirement("stdlib/neplg2/core/proof.nepl", ["purpose", "contract", "current", "complexity", "doctest", "authorityBoundary"], {
+        doctestUses: [
+            "selfhost_proof_source_span_valid",
+            "SelfhostProofResult",
+            "Result::Ok",
+            "Result::Err",
+        ],
+        requiredPatterns: [
+            requiredPattern("typed fact model", /\bSelfhostProofFact\b/),
+            requiredPattern("typed obligation model", /\bSelfhostProofObligation\b/),
+            requiredPattern("typed proof evidence", /\bSelfhostProofEvidence\b/),
+            requiredPattern("typed proof refutation", /\bSelfhostProofRefutation\b/),
+            requiredPattern("typed proof result", /\bSelfhostProofResult\b/),
+            requiredPattern("solver implementation boundary", /\bproof\/solver\b/),
+            requiredPattern("public API wrapper boundary", /\bproof\/api\b/),
+            requiredPattern("facade re-export boundary", /\bre-export\b/),
+            requiredPattern("no source text reread in facade", /source text の再読/),
+            requiredPattern("no checker-local allowlist proof substitute", /allowlist 判定/),
+        ],
+    }),
 ];
 const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_new", ["purpose", "contract", "complexity"]),
@@ -695,6 +719,15 @@ function requirement(relPath, name, sections, options = {}) {
     };
 }
 
+function moduleRequirement(relPath, sections, options = {}) {
+    return {
+        relPath,
+        sections,
+        doctestUses: options.doctestUses || [],
+        requiredPatterns: options.requiredPatterns || [],
+    };
+}
+
 function resourceSolverRequirement(name, sections, requiredPatterns = []) {
     return requirement("stdlib/neplg2/core/proof/solver/resource.nepl", name, sections, {
         requiredPatterns,
@@ -730,6 +763,9 @@ function docHasSection(docLines, section) {
 
 const docSectionRequirementByKey = new Map(
     DOC_SECTION_REQUIREMENTS.map((item) => [sectionRequirementKey(item.relPath, item.name), item]),
+);
+const moduleDocSectionRequirementByPath = new Map(
+    MODULE_DOC_SECTION_REQUIREMENTS.map((item) => [item.relPath, item]),
 );
 
 function walkNeplFiles(dir) {
@@ -824,6 +860,7 @@ const publicDocRequiredPrefixGaps = [];
 const moduleDocRequiredPrefixGaps = [];
 const docSectionGaps = [];
 const seenDocSectionRequirementKeys = new Set();
+const seenModuleDocSectionRequirementPaths = new Set();
 const seenRepoPaths = new Set();
 
 function sample(message) {
@@ -847,6 +884,29 @@ for (const filePath of walkNeplFiles(selfhostRoot).sort()) {
         }
     } else if (!hasDoctest(moduleDoc)) {
         stats.moduleNoDoctest += 1;
+    }
+    const moduleSectionRequirement = moduleDocSectionRequirementByPath.get(repoPath);
+    if (moduleSectionRequirement) {
+        seenModuleDocSectionRequirementPaths.add(repoPath);
+        if (moduleDoc.length === 0) {
+            docSectionGaps.push(`${repoPath}: module doc is missing for fixed Zenn-policy slice`);
+        } else {
+            for (const section of moduleSectionRequirement.sections) {
+                if (!docHasSection(moduleDoc, section)) {
+                    docSectionGaps.push(`${repoPath}: module doc is missing [${section}] section`);
+                }
+            }
+            for (const usageName of moduleSectionRequirement.doctestUses) {
+                if (!moduleDoc.some((docLine) => docLine.includes(usageName))) {
+                    docSectionGaps.push(`${repoPath}: module doc doctest must explain representative use of ${usageName}`);
+                }
+            }
+            for (const requiredDocPattern of moduleSectionRequirement.requiredPatterns) {
+                if (!moduleDoc.some((docLine) => requiredDocPattern.pattern.test(docLine))) {
+                    docSectionGaps.push(`${repoPath}: module doc must mention ${requiredDocPattern.label}`);
+                }
+            }
+        }
     }
 
     let implBlockIndent = null;
@@ -987,6 +1047,13 @@ assert.deepEqual(
     missingSectionRequirementTargets,
     [],
     `selfhost documentation section requirement targets must be found:\n${missingSectionRequirementTargets.join("\n")}`,
+);
+const missingModuleDocSectionRequirementTargets = [...moduleDocSectionRequirementByPath.keys()]
+    .filter((key) => !seenModuleDocSectionRequirementPaths.has(key));
+assert.deepEqual(
+    missingModuleDocSectionRequirementTargets,
+    [],
+    `selfhost module documentation section requirement targets must be found:\n${missingModuleDocSectionRequirementTargets.join("\n")}`,
 );
 assert.deepEqual(
     docSectionGaps,

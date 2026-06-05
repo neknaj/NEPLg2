@@ -1,21 +1,28 @@
 #indent 4
 
-pub #import "./proof/fact" as *
-pub #import "./proof/obligation" as *
-pub #import "./proof/query" as *
-pub #import "./proof/solver" as *
-pub #import "./proof/api" as *
-
 //: # proof
-//: NEPLg2.0 self-host compiler の[汎用/はんよう][証明/しょうめい][基盤/きばん] facade
+//: NEPLg2.1 self-host compiler の[汎用/はんよう][証明/しょうめい][基盤/きばん] facade
 //:
 //: [目的/もくてき]:
 //: - type / trait / effect / Resource IR / source capability が[共通/きょうつう]して[使/つか]う proof fact / obligation / solver の[入口/いりぐち]を[提供/ていきょう]します。
 //: - 個別 checker が[局所/きょくしょ]の文字列判定や module allowlist を証明の代用にしないよう、typed fact と typed obligation の[組/くみ]を solver に渡す形へ[統一/とういつ]します。
 //:
+//: [契約/けいやく]:
+//: - この facade は `SelfhostProofFact`、`SelfhostProofObligation`、`SelfhostProofEvidence`、`SelfhostProofRefutation`、`SelfhostProofResult` と、domain ごとの public wrapper を re-export するだけです。
+//: - proof の authority は parser / checker から渡された typed evidence と obligation の enum payload に置き、facade 自体は source text の再読、文字列一致、allowlist 判定、solver 状態の mutation を行いません。
+//: - caller は `proof/api` の wrapper を通じて domain 別 API を使い、直接 solver 実装 file の private helper に依存してはいけません。
+//:
+//: [現状/げんじょう]:
+//: - `proof/solver` には source span、raw backend、module directive、module declaration、type kind、trait impl、Resource IR、effect boundary の初期 proof rule が分かれて置かれています。
+//: - 現在の facade は import 境界の整理と public API の集約だけを担当し、キャッシュ、差分 proof summary、memoized proof query はまだ持ちません。
+//:
 //: [設計/せっけい]:
 //: - fact / obligation / result kind は enum で[表/あらわ]し、solver は match による[網羅/もうら][分岐/ぶんき]で[扱/あつか]います。
 //: - この facade は re-export だけを持ち、証明規則の実装は `proof/solver`、caller 向けの typed wrapper は `proof/api` に置きます。
+//:
+//: [計算量/けいさんりょう]:
+//: - この facade の import / re-export 自体は実行時処理を持ちません。
+//: - 具体的な証明の計算量は `proof/solver/*` の各 rule に従います。facade は余分な探索、module scan、文字列検索を追加しないことを契約にします。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -32,3 +39,9 @@ pub #import "./proof/api" as *
 //:         Result::Err _:
 //:             1
 //: ```
+
+pub #import "./proof/fact" as *
+pub #import "./proof/obligation" as *
+pub #import "./proof/query" as *
+pub #import "./proof/solver" as *
+pub #import "./proof/api" as *
