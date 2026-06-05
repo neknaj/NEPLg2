@@ -18,6 +18,13 @@
 //: ### [目的/もくてき]
 //: - `parent` / `sizes` / `n` を 1 [値/あたい]として[受/う]け[渡/わた]しし、[更新後/こうしんご]も[同/おな]じ[型/かた]で[扱/あつか]えるようにします。
 //:
+//: ### storage invariant
+//: - `n >= 0` です。
+//: - `parent` と `sizes` はどちらも[長/なが]さ `n` の `Vec i32` です。
+//: - 各 parent cell は `0 <= parent[i] < n` を[満/み]たします。
+//: - root は `parent[root] == root` で[表/あらわ]します。
+//: - root の `sizes[root]` は component size です。non-root の `sizes` cell は public contract では[読/よ]みません。
+//:
 //: ### [注意/ちゅうい]
 //: - `parent` と `sizes` の 2 [本/ほん]の[内部配列/ないぶはいれつ]を[所有/しょゆう]するので、[不要/ふよう]になったら `free` します。
 pub struct DisjointSet:
