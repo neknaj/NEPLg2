@@ -50837,6 +50837,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では、`note.n.md` 未更新が Blocker とされたため、この checkpoint を追記して解消した。Non-blocker として `candidates` の前提明記が指摘され、`body_line.nepl` の doccomment に追加した。
 - focused verification は `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/test_selfhost_body_segmenter_contract.js`、`node nodesrc/test_selfhost_expr_prefix_contract.js`、`node nodesrc/test_selfhost_module_checker_split_contract.js`、`node nodesrc/tests.js -i tests\stdlib\neplg2_call_reduce.n.md -o tmp\selfhost-call-reduce-body-line-final.json --no-tree -j 1 --assert-io --dist web\dist`、`node nodesrc/tests.js -i stdlib\neplg2\core\check\expr.nepl -o tmp\selfhost-check-expr-facade-body-line-final.json --no-tree -j 1 --assert-io --dist web\dist`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` の 2 warning のみ残った。
+
+## 2026-06-05 Agent selfhost argument cursor checkpoint
+
+- `selfhost/ascribed-argument-check-20260605` branch で、self-host compiler Phase 6 の call reducer から raw prefix item count 依存を外した。`plan.md` は確認のみで変更していない。
+- Zenn 記事を再確認し、未実装の `%T literal` argument を成功扱いせず、`SelfhostExprArgumentMatch` / `SelfhostExprArgumentMatchErrorKind` / `SelfhostCallReduceErrorKind::UnsupportedArgumentExpression` で typed fail-closed にした。
+- `call_reduce.nepl` は `item_count - 1` を argument count とみなさず、parameter index と prefix item cursor を分けて走査する。単一 literal argument は `next_index = item_index + 1` で成功し、parameter count 到達後に item が余る場合だけ `OverloadNoCandidate` になる。
+- `argument.nepl` は現 checkpoint で source text と token buffer を持たないため、`%T literal` の ascription type と parameter expected type の一致を検査しない。`TypeAnnotationMarker` を見つけた場合は `UnsupportedAscribedArgument` を返し、call reducer 側で `UnsupportedArgumentExpression` に投影する。
+- stage0 fixture に `add %i32 1 2` 相当の flat prefix item 列を追加し、raw 4 argument と誤分類せず `UnsupportedArgumentExpression` になることを確認した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` を更新し、今回完了した consume-width 境界と、次に残る source / token backed の nested / ascribed argument expression checker を分けて記録した。`todo.md` も次 slice を source / token backed argument checking に絞った。
+- subagent review では、現 `SelfhostExprPrefixList` だけでは `%T literal` を安全に成功扱いできないため、まず consume-width 境界を fail-closed に作るべきと確認された。今回の実装はその方針に従った。
+- focused verification は `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_argument_cursor_tests.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` の 2 warning のみ残った。
 ## 2026-06-05 Agent2 GUI breakout timer event checkpoint
 
 - `agent2/gui-breakout-timer-event` branch で、`ISS-20260604T034207064Z-BREAKOUT-GUI-EXAMPLE-USES-TIMEOUT-NO-EA0E4163` を修正した。`plan.md` は確認のみで変更していない。

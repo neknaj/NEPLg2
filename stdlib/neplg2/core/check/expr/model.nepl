@@ -51,8 +51,9 @@ impl Copy for SelfhostCallReduceResult:
 //: SelfhostCallReduceErrorKind: call reduction の失敗分類
 //:
 //: [目的/もくてき]:
-//: - parser 入力不正、名前解決失敗、callable でない値、partial application、argument type mismatch、overload、generic、expected type mismatch を enum として分けます。
+//: - parser 入力不正、名前解決失敗、callable でない値、partial application、argument type mismatch、未対応の実引数式、overload、generic、expected type mismatch を enum として分けます。
 //: - display text は別 module の diagnostic projection へ移し、checker 本体はこの分類を返します。
+//: - `UnsupportedArgumentExpression` は、ascription 付き引数や nested call のように 1 個の prefix item では型証拠を得られないが、raw item 数で overload 失敗へ潰してはいけない場合に使います。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
     UnsupportedPrefixItem
@@ -60,6 +61,7 @@ pub enum SelfhostCallReduceErrorKind:
     NotCallable
     PartialApplicationRejected
     ArgumentTypeMismatch
+    UnsupportedArgumentExpression
     OverloadNoCandidate
     OverloadAmbiguous
     GenericInferenceEvidenceMissing
@@ -143,6 +145,12 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentTypeMismatch:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentTypeMismatch:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::UnsupportedArgumentExpression:
+            match b:
+                SelfhostCallReduceErrorKind::UnsupportedArgumentExpression:
                     true
                 _:
                     false

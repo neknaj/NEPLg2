@@ -93,13 +93,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*ArgumentTypeMismatch[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
-    "call reduction errors must distinguish partial application, argument type, overload, generic, and expectation failures",
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*ArgumentTypeMismatch[\s\S]*UnsupportedArgumentExpression[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
+    "call reduction errors must distinguish partial application, argument type, unsupported argument expression, overload, generic, and expectation failures",
 );
 assert.match(
     source,
-    /# check\/expr\/argument[\s\S]*pub fn selfhost_expr_argument_item_literal_type_kind[\s\S]*pub fn selfhost_expr_argument_item_matches_type/,
-    "argument type evidence must live in its own check/expr split module",
+    /# check\/expr\/argument[\s\S]*pub struct SelfhostExprArgumentMatch:[\s\S]*next_index %i32[\s\S]*pub fn selfhost_expr_argument_item_literal_type_kind[\s\S]*pub fn selfhost_expr_argument_match_at/,
+    "argument type evidence and consume-width scanning must live in its own check/expr split module",
 );
 assert.match(
     source,
@@ -108,8 +108,18 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_type_arena_function_arg arena candidate\.callable_type idx[\s\S]*selfhost_expr_argument_item_matches_type arena argument_item expected_arg_type[\s\S]*SelfhostCallReduceErrorKind::ArgumentTypeMismatch/,
-    "call reduction must check each argument item against the candidate parameter type",
+    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*UnsupportedArgumentExpression/,
+    "argument expression scan failures must stay typed instead of collapsing into a boolean",
+);
+assert.match(
+    source,
+    /SelfhostExprPrefixItemKind::TypeAnnotationMarker:[\s\S]*SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument/,
+    "ascribed argument expressions must fail closed until token/source-backed argument checking is implemented",
+);
+assert.match(
+    source,
+    /selfhost_type_arena_function_arg arena candidate\.callable_type param_idx[\s\S]*selfhost_expr_argument_match_at arena prefix item_index item_count expected_arg_type[\s\S]*argument_match\.next_index/,
+    "call reduction must check each consumed argument expression against the candidate parameter type",
 );
 assert.match(
     source,
@@ -153,13 +163,28 @@ assert.match(
 );
 assert.match(
     source,
-    /lt argument_count param_count[\s\S]*SelfhostCallReduceErrorKind::PartialApplicationRejected/,
+    /ge item_index item_count[\s\S]*SelfhostCallReduceErrorKind::PartialApplicationRejected/,
     "argument shortage must reject partial application instead of producing a function value",
+);
+assert.match(
+    source,
+    /ge param_idx param_count[\s\S]*eq item_index item_count[\s\S]*SelfhostCallReduceErrorKind::OverloadNoCandidate/,
+    "extra argument expressions must be detected after consume-width scanning, not by raw item count",
+);
+assert.doesNotMatch(
+    implementation,
+    /let\s+argument_count\s+%i32\s+sub\s+item_count\s+1/,
+    "call reduction must not derive arity from raw prefix item count",
 );
 assert.match(
     source,
     /SelfhostExprPrefixItemKind::BoolLiteral[\s\S]*SelfhostCallReduceErrorKind::ArgumentTypeMismatch/,
     "stage0 must include a mismatched literal argument rejection smoke check",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage0_make_prefix_with_ascribed_first_arg[\s\S]*SelfhostExprPrefixItemKind::TypeAnnotationMarker[\s\S]*selfhost_check_expr_stage0_ascribed_argument_unsupported[\s\S]*SelfhostCallReduceErrorKind::UnsupportedArgumentExpression/,
+    "stage0 must confirm that ascribed argument expressions fail closed without raw arity misclassification",
 );
 assert.match(
     source,

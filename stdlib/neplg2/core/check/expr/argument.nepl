@@ -7,18 +7,92 @@
 //: - call reducer が function parameter type と実引数 item を照合できるよう、literal item の型を `SelfhostTypeKind` として返します。
 //: - parser や prefix expression module に checker の型知識を持ち込まず、型証拠の責務を `check/expr` 配下に閉じ込めます。
 //: - 未対応の式を「たぶん合っている」として通さず、証拠が取れない場合は `None` を返して caller が fail-closed にします。
+//: - prefix list 上で 1 つの実引数式がどこまでを消費したかを typed result として返し、call reducer が raw token 数を arity と誤認しないようにします。
 //:
 //: [契約/けいやく]:
 //: - `IntLiteral` は現 checkpoint の stage0 fixture と同じく `i32` として扱います。整数 suffix と expected type による numeric literal defaulting は後続 slice の責務です。
 //: - `FloatLiteral` はこの slice では型証拠を返しません。`f32` / `f64` の defaulting が仕様として固定されるまで成功扱いしません。
 //: - `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで `None` にします。
+//: - `%T expr` 形式の ascribed argument は、source text と token buffer を持つ argument-scope expression checker が実装されるまで成功扱いしません。この module は `%` を見つけた場合、可変幅式を生の item 数へ潰さず `UnsupportedAscribedArgument` として返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - item kind の分類と expected kind の比較はいずれも O(1) です。
 
 #import "core/option" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
 #import "neplg2/core/ty/ty" as *
+
+//: SelfhostExprArgumentMatch: prefix list 上で 1 つの実引数式を消費した結果
+//:
+//: [目的/もくてき]:
+//: - `next_index` は、次の実引数式を読み始める prefix item index です。
+//: - literal item だけの実引数では `next_index = current_index + 1` になります。
+//: - 後続 slice で `%T literal` や nested call が実装されると、同じ result 型で 2 個以上の item を消費できます。
+//:
+//: [契約/けいやく]:
+//: - この値は call reducer の走査 cursor です。HIR node や型付き expression payload ではありません。
+//: - 成功した場合だけ返し、証拠が足りない式は error enum で fail-closed にします。
+pub struct SelfhostExprArgumentMatch:
+    next_index %i32
+
+impl Clone for SelfhostExprArgumentMatch:
+    fn clone %fn &SelfhostExprArgumentMatch SelfhostExprArgumentMatch \self:
+        *self
+
+impl Copy for SelfhostExprArgumentMatch:
+    fn copy_mark %fn SelfhostExprArgumentMatch SelfhostExprArgumentMatch \self:
+        self
+
+//: SelfhostExprArgumentMatchErrorKind: 実引数式走査が失敗した理由
+//:
+//: [目的/もくてき]:
+//: - `TypeMismatch` は、literal item の型証拠が expected parameter type と合わなかった場合です。
+//: - `UnsupportedAscribedArgument` は、`%T expr` のような可変幅 argument expression を見つけたが、この checkpoint では source / token 付き checker へ渡せない場合です。
+//: - `UnsupportedArgumentExpression` は、name resolution や nested call reduction が必要で、単一 literal item からは型証拠を得られない場合です。
+//: - `MissingArgument` と `InternalInvariant` は caller 側の cursor と prefix list の不整合を区別します。
+pub enum SelfhostExprArgumentMatchErrorKind:
+    MissingArgument
+    TypeMismatch
+    UnsupportedAscribedArgument
+    UnsupportedArgumentExpression
+    InternalInvariant
+
+impl Clone for SelfhostExprArgumentMatchErrorKind:
+    fn clone %fn &SelfhostExprArgumentMatchErrorKind SelfhostExprArgumentMatchErrorKind \self:
+        *self
+
+impl Copy for SelfhostExprArgumentMatchErrorKind:
+    fn copy_mark %fn SelfhostExprArgumentMatchErrorKind SelfhostExprArgumentMatchErrorKind \self:
+        self
+
+//: SelfhostExprArgumentMatchError: 実引数式走査の typed error payload
+//:
+//: [目的/もくてき]:
+//: - reducer が unsupported expression と type mismatch を同じ string 診断へ潰さず、後続の diagnostic projection で別々に表示できるようにします。
+//: - `span` は、失敗した argument expression の先頭 item を指します。missing / invariant の場合は caller が渡した fallback span を使います。
+pub struct SelfhostExprArgumentMatchError:
+    kind %SelfhostExprArgumentMatchErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostExprArgumentMatchError:
+    fn clone %fn &SelfhostExprArgumentMatchError SelfhostExprArgumentMatchError \self:
+        *self
+
+impl Copy for SelfhostExprArgumentMatchError:
+    fn copy_mark %fn SelfhostExprArgumentMatchError SelfhostExprArgumentMatchError \self:
+        self
+
+//: selfhost_expr_argument_match_new: 実引数式走査の成功 payload を[作/つく]る
+pub fn selfhost_expr_argument_match_new %fn i32 SelfhostExprArgumentMatch \next_index:
+    SelfhostExprArgumentMatch next_index
+
+//: selfhost_expr_argument_match_error_new: 実引数式走査の error payload を[作/つく]る
+pub fn selfhost_expr_argument_match_error_new %fn SelfhostExprArgumentMatchErrorKind fn SelfhostSourceSpan SelfhostExprArgumentMatchError \kind\span:
+    SelfhostExprArgumentMatchError kind span
 
 //: selfhost_expr_argument_item_literal_type_kind: literal item の直接型証拠を[返/かえ]す
 //:
@@ -63,3 +137,39 @@ pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn Selfho
                     false
         Option::None:
             false
+
+//: selfhost_expr_argument_match_at: prefix list の cursor 位置から 1 つの実引数式を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - call reducer が `item_count - 1` を raw argument count とみなす旧方式から離れ、実引数式ごとに消費幅を得られるようにします。
+//: - この checkpoint では、単一 literal item だけを成功させます。`%T literal` は 1 個の argument expression ですが、source text と token buffer がない状態では `%T` と expected parameter type の一致を検査できないため、必ず typed error にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: `item_index` から始まる 1 argument expression が expected type と一致し、`match.next_index` から次の実引数を読めます。
+//: - `Err(TypeMismatch)`: literal 型証拠は得られましたが、parameter type と一致しませんでした。
+//: - `Err(UnsupportedAscribedArgument)`: `%T expr` の argument-scope checker が必要です。この失敗は raw item 数による overload 失敗へ潰してはいけません。
+//: - `Err(UnsupportedArgumentExpression)`: name / nested call / control form など、単一 literal item ではない式です。
+pub fn selfhost_expr_argument_match_at %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn i32 fn i32 fn SelfhostTypeId Result SelfhostExprArgumentMatch SelfhostExprArgumentMatchError \arena\prefix\item_index\item_count\expected_type:
+    if:
+        ge item_index item_count
+        then:
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::MissingArgument source_span_empty_unchecked 0 0
+        else:
+            match selfhost_expr_prefix_list_get prefix item_index:
+                Option::Some item:
+                    match item.kind:
+                        SelfhostExprPrefixItemKind::TypeAnnotationMarker:
+                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument item.span
+                        _:
+                            if:
+                                selfhost_expr_argument_item_matches_type arena item expected_type
+                                then:
+                                    Result::Ok selfhost_expr_argument_match_new add item_index 1
+                                else:
+                                    match selfhost_expr_argument_item_literal_type_kind item:
+                                        Option::Some _actual_kind:
+                                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::TypeMismatch item.span
+                                        Option::None:
+                                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression item.span
+                Option::None:
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant source_span_empty_unchecked 0 0

@@ -288,13 +288,15 @@ type checker は prefix call reduction を担当する。
 
 2026-06-05 candidate collection checkpoint では、line head に対する最初の名前解決境界を追加した。`SelfhostCallableSignatureTable` は現在 `Vec` による insertion-order table で、DefId lookup は O(s) だが、public API は表現を隠している。これにより後続の `.neplmeta` interface artifact や prechecked signature index へ差し替えるとき、call reducer や parser の契約を変えずに lookup 実装だけを置き換えられる。名前が見つからない場合は空 candidate list を返し、`UnresolvedName` diagnostic は call reduction 側に集約する。binding があるのに DefId や signature が欠ける場合は `PendingBinding` / `MissingSignature` として fail-closed にする。
 
-2026-06-05 argument type evidence checkpoint では、`check/expr/argument.nepl` を追加し、prefix item 1 個で型が一意に決まる literal argument だけを function parameter type と照合する境界を作った。`UnitValue`、`IntLiteral`、`BoolLiteral`、`CharLiteral`、`StringLiteral` はそれぞれ `unit`、`i32`、`bool`、`char`、`str` の証拠を返す。`FloatLiteral` は `f32` / `f64` defaulting が未確定なので成功扱いしない。`NamedValue`、nested call、block、lambda、`@function`、borrow、pipe、ascription 付き argument は full expression checker が expected parameter type を使って縮約できるまで `None` とし、call reducer は `ArgumentTypeMismatch` で fail-closed にする。これは完全な argument expression checker ではなく、arity と expected result だけで `add true 1` のような direct call を通してしまう経路を閉じる初期 boundary である。
+2026-06-05 argument type evidence checkpoint では、`check/expr/argument.nepl` を追加し、prefix item 1 個で型が一意に決まる literal argument だけを function parameter type と照合する境界を作った。`UnitValue`、`IntLiteral`、`BoolLiteral`、`CharLiteral`、`StringLiteral` はそれぞれ `unit`、`i32`、`bool`、`char`、`str` の証拠を返す。`FloatLiteral` は `f32` / `f64` defaulting が未確定なので成功扱いしない。`NamedValue`、nested call、block、lambda、`@function`、borrow、pipe、ascription 付き argument は full expression checker が expected parameter type を使って縮約できるまで fail-closed にする。これは完全な argument expression checker ではなく、arity と expected result だけで `add true 1` のような direct call を通してしまう経路を閉じる初期 boundary である。
+
+2026-06-05 argument expression cursor checkpoint では、call reducer が `item_count - 1` を実引数数として扱う旧方式をやめ、parameter index と prefix item cursor を分けた consume-width 走査へ移した。`SelfhostExprArgumentMatch.next_index` は 1 実引数式を消費した後の prefix item index を返す。現 checkpoint で成功するのは単一 literal item だけである。`%T literal` は言語仕様上 1 つの argument expression だが、現 `SelfhostExprPrefixList` は item kind、token index、span だけを持ち、`T` の source spelling や token buffer を持たないため、parameter expected type と明示 ascription type の一致を安全に検査できない。このため `%T literal` は `UnsupportedArgumentExpression` として拒否し、次の source / token backed argument-scope ascription checker に残す。重要なのは、`add %i32 1 2` のような入力を raw 4 argument と誤分類しないことである。
 
 2026-06-05 ascription expected conflict checkpoint では、`%T expr` が作る `ExplicitAscription` expectation と外側 context から渡る `SelfhostTypeExpectation` を `body_line.nepl` の owner 付き入口で照合するようにした。両者の `expected_type` が同じ `SelfhostTypeArena` 内で構造一致しない場合、内側 expression の call reduction へ進まず `SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict` を返す。これにより、`%i32 expr` が `bool` expected の位置にあるような入力を candidate / arity / argument type error へ誤分類しない。`SelfhostTypeExpectation.expected_type` は arena-local なので、失敗 payload は arena 解放後も安全に読める source / span evidence だけを保持する。型そのものの安定表示は canonical type key / diagnostic projection の後続 slice で接続する。
 
 この境界は owner を明示する。ascription projection は `SelfhostTypeArenaAlloc` を保持する success payload を返し、caller は `into_arena` で arena を受け取るか `free` で破棄する。これは borrowed arena から projection result を取り出す設計では lifetime が表現できないためであり、Rust 実装で得た ownership boundary の知見を self-host stdlib 側へ反映したものである。
 
-この初期境界は fail-closed である。先頭 item が named value で、候補が 1 つだけで、候補 type が function type で、引数数が完全一致し、各引数 item の型証拠が parameter type と一致し、expected result と候補 result が同じ arena 内で構造一致する場合だけ direct call plan を返す。候補が複数ある場合は、現段階では expected type や argument type による overload narrowing を行わず `OverloadAmbiguous` にする。generic inference state が `EvidenceMissing` / `Conflict` / `Unsupported` の場合は、それぞれ typed error に分ける。これにより、未完成の generic solver や overload solver が成功として後段へ流れない。
+この初期境界は fail-closed である。先頭 item が named value で、候補が 1 つだけで、候補 type が function type で、parameter count ぶんの実引数式を prefix cursor が過不足なく消費し、各引数式の型証拠が parameter type と一致し、expected result と候補 result が同じ arena 内で構造一致する場合だけ direct call plan を返す。候補が複数ある場合は、現段階では expected type や argument type による overload narrowing を行わず `OverloadAmbiguous` にする。generic inference state が `EvidenceMissing` / `Conflict` / `Unsupported` の場合は、それぞれ typed error に分ける。これにより、未完成の generic solver や overload solver が成功として後段へ流れない。
 
 部分適用は許可しない。`add 1` が `fn i32 i32` を要求する文脈であっても、NEPLg2.1 の一般規則として関数値を暗黙生成しない。関数値が必要な場合は `@function name` や明示的な lambda を使う。
 
@@ -761,8 +763,9 @@ Completed checkpoint:
 - `ExpressionLine.head` から `SelfhostExprPrefixList` を作り `check/expr` へ渡す接続
 - `%T expr` から `SelfhostTypeExpectation::ExplicitAscription` を作り、inner expression tail だけを call reducer へ渡す接続
 - `ExpressionLine.head` の identifier を `SelfhostNameScope` と callable signature table へ通し、DefId-linked candidate list を call reducer へ渡す初期接続
-- literal argument item の型証拠を function parameter type と照合し、未対応 argument expression を `ArgumentTypeMismatch` で fail-closed にする初期接続
+- literal argument item の型証拠を function parameter type と照合し、未対応 argument expression を `UnsupportedArgumentExpression` で fail-closed にする初期接続
 - `%T expr` の `ExplicitAscription` と outer expected type が衝突した場合に、内側 call reduction 前の typed error として拒否する接続
+- call reducer の raw `item_count - 1` argument count 依存を外し、argument expression ごとの `next_index` cursor で prefix list を走査する接続
 
 Performance acceptance:
 

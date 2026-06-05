@@ -117,6 +117,45 @@ fn selfhost_check_expr_stage0_make_prefix_with_first_arg %impure fn SelfhostExpr
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage0_make_prefix_with_ascribed_first_arg: `%T literal` を先頭実引数にした prefix fixture を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `add %i32 1 2` に相当する flat prefix item 列を、lexer / parser を通さずに stage0 で構築します。
+//: - 現 checkpoint の `SelfhostExprPrefixList` は token kind と span だけを持ち、`i32` という type token の text を保持しません。そのため、この fixture は `%T literal` の成功ではなく「raw item 数を arity とみなさず、typed unsupported として拒否する」契約を検査します。
+//:
+//: [所有/しょゆう]:
+//: - 成功時に返す `SelfhostExprPrefixList` は caller が `selfhost_expr_prefix_list_free` で解放します。
+fn selfhost_check_expr_stage0_make_prefix_with_ascribed_first_arg %impure fn void Result SelfhostExprPrefixList StdErrorKind \void:
+    let items_result %Result Vec SelfhostExprPrefixItem StdErrorKind v::new
+    match items_result:
+        Result::Ok items0:
+            let head %SelfhostExprPrefixItem selfhost_expr_prefix_item_new SelfhostExprPrefixItemKind::NamedValue 0 source_span_new_unchecked 0 0 3
+            match v::push items0 head:
+                Result::Ok items1:
+                    match selfhost_check_expr_stage0_push_arg_item_kind items1 0 SelfhostExprPrefixItemKind::TypeAnnotationMarker:
+                        Result::Ok items2:
+                            match selfhost_check_expr_stage0_push_arg_item_kind items2 1 SelfhostExprPrefixItemKind::NamedValue:
+                                Result::Ok items3:
+                                    match selfhost_check_expr_stage0_push_arg_item_kind items3 2 SelfhostExprPrefixItemKind::IntLiteral:
+                                        Result::Ok items4:
+                                            match selfhost_check_expr_stage0_push_arg_item_kind items4 3 SelfhostExprPrefixItemKind::IntLiteral:
+                                                Result::Ok items5:
+                                                    Result::Ok selfhost_expr_prefix_list_new items5
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
 fn selfhost_check_expr_stage0_make_candidate_vec %impure fn SelfhostTypeId impure fn SelfhostGenericInferenceState Result Vec SelfhostCallableCandidate StdErrorKind \callable_type\generic_state:
     let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
     match candidates_result:
@@ -188,6 +227,31 @@ fn selfhost_check_expr_stage0_argument_type_rejected %impure fn &SelfhostTypeAre
                     v::free candidates
                     selfhost_expr_prefix_list_free prefix
                     selfhost_check_expr_stage0_error_is result SelfhostCallReduceErrorKind::ArgumentTypeMismatch
+                Result::Err _e:
+                    selfhost_expr_prefix_list_free prefix
+                    false
+        Result::Err _e:
+            false
+
+//: selfhost_check_expr_stage0_ascribed_argument_unsupported: ascribed argument が raw arity 失敗に[潰/つぶ]れないことを[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `add %i32 1 2` のような入力は、実引数式としては 2 引数ですが、flat prefix item としては callee を除いて 4 item になります。
+//: - reducer が `item_count - 1` を argument count とみなして `OverloadNoCandidate` を返すと、後続の argument-scope ascription checker を接続できません。
+//: - 現 checkpoint では `%T literal` の型照合に必要な source / token text がないため、正しい失敗は `UnsupportedArgumentExpression` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: ascribed argument が typed unsupported として返りました。
+//: - `false`: raw arity 判定や別 error に潰れています。
+fn selfhost_check_expr_stage0_ascribed_argument_unsupported %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
+    match selfhost_check_expr_stage0_make_prefix_with_ascribed_first_arg:
+        Result::Ok prefix:
+            match selfhost_check_expr_stage0_make_candidate_vec add_type SelfhostGenericInferenceState::NoneRequired:
+                Result::Ok candidates:
+                    let result %Result SelfhostCallReduceResult SelfhostCallReduceError selfhost_call_reduce_prefix arena &prefix &candidates none
+                    v::free candidates
+                    selfhost_expr_prefix_list_free prefix
+                    selfhost_check_expr_stage0_error_is result SelfhostCallReduceErrorKind::UnsupportedArgumentExpression
                 Result::Err _e:
                     selfhost_expr_prefix_list_free prefix
                     false
@@ -278,8 +342,9 @@ pub fn selfhost_check_expr_stage0 %impure fn void i32 \void:
                                     let ok3 %bool selfhost_check_expr_stage0_argument_type_rejected &arena3 add_type
                                     let ok4 %bool selfhost_check_expr_stage0_generic_rejected &arena3 add_type
                                     let ok5 %bool selfhost_check_expr_stage0_ambiguous_rejected &arena3 add_type
+                                    let ok6 %bool selfhost_check_expr_stage0_ascribed_argument_unsupported &arena3 add_type
                                     selfhost_type_arena_free arena3
-                                    if and ok0 and ok1 and ok2 and ok3 and ok4 ok5 0 1
+                                    if and ok0 and ok1 and ok2 and ok3 and ok4 and ok5 ok6 0 1
                                 Result::Err _e:
                                     1
                         Result::Err _e:
