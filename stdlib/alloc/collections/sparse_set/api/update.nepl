@@ -4,6 +4,8 @@
 //: ### [目的/もくてき]
 //: - `insert` / `remove` の index validation、storage mutation、owner-preserving error 生成を集約します。
 //: - update 失敗時は `SparseSetUpdateError` に元 owner を入れて返し、caller が cleanup できるようにします。
+//: - 範囲外 value は storage update 前に拒否します。
+//: - storage invariant failure では cleanup 用 owner を返しますが、rollback は契約しません。
 
 #indent 4
 
@@ -35,6 +37,12 @@ pub fn sparse_set_update_err %fn SparseSet fn Diag Result SparseSet SparseSetUpd
 
 //: ## insert
 //: value を 1 [個/こ][追加/ついか]する
+//:
+//: ### [契約/けいやく]
+//: - `Result::Ok` は更新済み owner を返します。
+//: - `Result::Err` は `SparseSetUpdateError` として typed `Diag` と cleanup 用 owner を返します。
+//: - 範囲外 value は storage update 前に拒否します。
+//: - storage invariant failure では rollback は契約しません。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -79,6 +87,12 @@ pub fn insert %impure fn SparseSet impure fn i32 Result SparseSet SparseSetUpdat
 
 //: ## remove
 //: value を 1 [個/こ][削除/さくじょ]する
+//:
+//: ### [契約/けいやく]
+//: - `Result::Ok` は更新済み owner を返します。
+//: - `Result::Err` は `SparseSetUpdateError` として typed `Diag` と cleanup 用 owner を返します。
+//: - 範囲外 value は storage update 前に拒否します。
+//: - storage invariant failure では rollback は契約しません。
 //:
 //: neplg2:test
 //: ```neplg2

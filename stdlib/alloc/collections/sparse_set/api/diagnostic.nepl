@@ -10,8 +10,68 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
+//: ## sparse_set_diag_len
+//: domain [長/なが]さが不正な `SparseSet` 操作の `Diag` を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `new` が負の length を受け取ったときに使う diagnostic constructor です。
+//: - `StdErrorKind::CapacityExceeded` の `Diag` を返します。
+//: - error 表示は `alloc/diag` 側の責務であり、この helper は typed error data だけを作ります。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - message は `"invalid sparse set length"` です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_diag_len_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"length diag kind\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag sparse_set_diag_len
+//:     let kind %str diag_std_error_kind_str d
+//:     let report:
+//:         test_report_new "sparse_set_diag_len_doc"
+//:         |> test_report_push assert_str_eq "length diag kind" "CapacityExceeded" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_diag_len %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "invalid sparse set length"
 
+//: ## sparse_set_diag_index
+//: index 範囲外や storage invariant failure の `Diag` を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `contains` / `insert` / `remove` が domain 範囲外または internal storage missing cell を検出したときに使います。
+//: - `StdErrorKind::IndexOutOfBounds` の `Diag` を返します。
+//: - update API はこの `Diag` を `SparseSetUpdateError` に入れ、元 owner を caller へ返します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - message は `"sparse set index out of bounds"` です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_diag_index_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"index diag kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag sparse_set_diag_index
+//:     let kind %str diag_std_error_kind_str d
+//:     let report:
+//:         test_report_new "sparse_set_diag_index_doc"
+//:         |> test_report_push assert_str_eq "index diag kind" "IndexOutOfBounds" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_diag_index %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "sparse set index out of bounds"

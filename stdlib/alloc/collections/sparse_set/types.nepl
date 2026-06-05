@@ -17,6 +17,13 @@
 //: ### [目的/もくてき]
 //: - domain [長/なが]さ、active [要素数/ようそすう]、dense/sparse `Vec i32` owner を 1 [値/あたい]として[受/う]け[渡/わた]しします。
 //:
+//: ### [契約/けいやく]
+//: - `n >= 0` です。
+//: - `len0` は active dense prefix の[長/なが]さで、`0 <= len0 <= n` です。
+//: - `dense` と `sparse` は typed `Vec i32` owner で、どちらも長さ `n` です。
+//: - active value `v` は `dense[i] = v` かつ `sparse[v] = i` により表されます。
+//: - remove 後の old last dense slot や removed value の sparse slot は stale になり得ますが、membership は `len0` と dense 照合で判定します。
+//:
 //: ### [注意/ちゅうい]
 //: - `n = 0` のとき dense/sparse は empty `Vec` で、null pointer sentinel を owner state として[使/つか]いません。
 //: - [不要/ふよう]になったら `free` で dense / sparse owner を[閉/と]じます。

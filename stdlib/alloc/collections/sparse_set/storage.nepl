@@ -13,16 +13,172 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
+//: ## sparse_set_load_owned
+//: typed `Vec i32` の dense/sparse cell を `Option` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `base` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内なら `Option::Some value` を返します。
+//: - `idx` が範囲外なら `Option::None` を返します。
+//: - raw pointer や null sentinel は使わず、`Vec.get` の `Option` を SparseSet の storage boundary にします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.get` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_load_owned_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads cell\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing cell is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec i32 unwrap_ok sparse_set_alloc_array 3
+//:     sparse_set_store_owned &items 1 11
+//:     let value %i32 match sparse_set_load_owned &items 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing %bool match sparse_set_load_owned &items 9:
+//:         Option::Some _v:
+//:             false
+//:         Option::None:
+//:             true
+//:     let empty %Vec i32 unwrap_ok sparse_set_alloc_array 0
+//:     sparse_set_free_arrays items empty
+//:     let report:
+//:         test_report_new "sparse_set_load_owned_doc"
+//:         |> test_report_push assert_eq_i32 "reads cell" 11 value
+//:         |> test_report_push assert "missing cell is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_load_owned %fn &Vec i32 fn i32 Option i32 \base\idx:
     vec::get base idx
 
+//: ## sparse_set_store_owned
+//: typed `Vec i32` storage の 1 cell を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `base` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内であることは caller の責務です。
+//: - dense 側では active value、sparse 側では dense index を保存します。
+//: - raw pointer 書き込みではなく `Vec.replace` に集約します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.replace` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_store_owned_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores cell\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec i32 unwrap_ok sparse_set_alloc_array 2
+//:     sparse_set_store_owned &items 0 7
+//:     let value %i32 match sparse_set_load_owned &items 0:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let empty %Vec i32 unwrap_ok sparse_set_alloc_array 0
+//:     sparse_set_free_arrays items empty
+//:     let report:
+//:         test_report_new "sparse_set_store_owned_doc"
+//:         |> test_report_push assert_eq_i32 "stores cell" 7 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \base\idx\value:
     vec::replace base idx value
 
+//: ## sparse_set_free_arrays
+//: dense/sparse storage owner を 2 [本/ほん]とも[閉/と]じる
+//:
+//: ### [契約/けいやく]
+//: - `dense` と `sparse` owner を[消費/しょうひ]し、内部の `Vec i32` storage を解放します。
+//: - caller は `SparseSet` owner から 2 本の storage owner を取り出した後にこの helper を呼びます。
+//: - cleanup boundary をここに集約し、observer / membership / mutation から owner-consuming free を分離します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.free` に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_free_arrays_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free completed\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let dense %Vec i32 unwrap_ok sparse_set_alloc_array 1
+//:     let sparse %Vec i32 unwrap_ok sparse_set_alloc_array 1
+//:     sparse_set_free_arrays dense sparse
+//:     let report:
+//:         test_report_new "sparse_set_free_arrays_doc"
+//:         |> test_report_push assert "free completed" true
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_free_arrays %impure fn Vec i32 impure fn Vec i32 unit \dense\sparse:
     vec::free dense
     vec::free sparse
 
+//: ## sparse_set_alloc_array
+//: 0 [初期化/しょきか]された fixed length storage を[確保/かくほ]する
+//:
+//: ### [契約/けいやく]
+//: - `n` は dense/sparse の domain [長/なが]さです。
+//: - 成功時は長さ `n` の typed `Vec i32` owner を `Result::Ok` で返します。
+//: - allocation failure は `diag_out_of_memory` の `Diag` を `Result::Err` で返します。
+//: - raw allocation は使わず、`Vec.filled` に確保と 0 初期化を集約します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.filled` に従い O(n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_alloc_array_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"allocated len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"zero initialized\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let items %Vec i32 unwrap_ok sparse_set_alloc_array 3
+//:     let n %i32 vec::len &items
+//:     let first %i32 match sparse_set_load_owned &items 0:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let empty %Vec i32 unwrap_ok sparse_set_alloc_array 0
+//:     sparse_set_free_arrays items empty
+//:     let report:
+//:         test_report_new "sparse_set_alloc_array_doc"
+//:         |> test_report_push assert_eq_i32 "allocated len" 3 n
+//:         |> test_report_push assert_eq_i32 "zero initialized" 0 first
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_alloc_array %impure fn i32 Result Vec i32 Diag \n:
     match vec::filled n 0:
         Result::Ok items:

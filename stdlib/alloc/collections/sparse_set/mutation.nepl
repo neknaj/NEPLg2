@@ -13,6 +13,67 @@
 #import "./membership" as *
 #import "./storage" as *
 
+//: ## sparse_set_insert_storage
+//: dense/sparse storage に value を O(1) で[追加/ついか]する
+//:
+//: ### [契約/けいやく]
+//: - `dense` / `sparse` owner は[消費/しょうひ]しません。
+//: - public API は `0 <= value < n` を検査してからこの helper を呼びます。
+//: - すでに含まれている value では storage を変えず `Option::Some len0` を返します。
+//: - 新規追加に必要な dense/sparse cell がすべて読めた場合は、`dense[len0] = value` と `sparse[value] = len0` を書き、`Option::Some len0 + 1` を返します。
+//: - missing cell は storage invariant failure として `Option::None` を返し、API 層で owner-preserving `SparseSetUpdateError` に変換します。
+//: - storage invariant failure の rollback は契約しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid SparseSet storage では O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_insert_storage_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"next len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"dense slot\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"sparse slot\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"duplicate keeps len\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/membership" as *
+//:| #import "alloc/collections/sparse_set/mutation" as *
+//:| #import "alloc/collections/sparse_set/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let dense %Vec i32 unwrap_ok sparse_set_alloc_array 5
+//:     let sparse %Vec i32 unwrap_ok sparse_set_alloc_array 5
+//:     let next_len %i32 match sparse_set_insert_storage 5 &dense &sparse 0 3:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let dense0 %i32 match sparse_set_load_owned &dense 0:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let sparse3 %i32 match sparse_set_load_owned &sparse 3:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let duplicate_keeps_len %bool match sparse_set_insert_storage 5 &dense &sparse next_len 3:
+//:         Option::Some v:
+//:             eq v next_len
+//:         Option::None:
+//:             false
+//:     sparse_set_free_arrays dense sparse
+//:     let report:
+//:         test_report_new "sparse_set_insert_storage_doc"
+//:         |> test_report_push assert_eq_i32 "next len" 1 next_len
+//:         |> test_report_push assert_eq_i32 "dense slot" 3 dense0
+//:         |> test_report_push assert_eq_i32 "sparse slot" 0 sparse3
+//:         |> test_report_push assert "duplicate keeps len" duplicate_keeps_len
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_insert_storage %impure fn i32 impure fn &Vec i32 impure fn &Vec i32 impure fn i32 impure fn i32 Option i32 \n\dense\sparse\len0\value:
     if:
         sparse_set_contains_raw n dense sparse len0 value
@@ -31,6 +92,75 @@ pub fn sparse_set_insert_storage %impure fn i32 impure fn &Vec i32 impure fn &Ve
                             sparse_set_store_owned sparse value len0
                             some add len0 1
 
+//: ## sparse_set_remove_storage
+//: dense/sparse storage から value を O(1) で[削除/さくじょ]する
+//:
+//: ### [契約/けいやく]
+//: - `dense` / `sparse` owner は[消費/しょうひ]しません。
+//: - public API は `0 <= value < n` を検査してからこの helper を呼びます。
+//: - value が含まれていない場合は storage を変えず `Option::Some len0` を返します。
+//: - value が含まれている場合は最後の active value を削除位置へ移し、`Option::Some len0 - 1` を返します。
+//: - 削除された value の sparse slot や old last dense slot は現在の実装では stale cell として clear せず、membership は `len0` と dense 照合で判定します。
+//: - missing cell や invalid last value は storage invariant failure として `Option::None` を返し、API 層で owner-preserving `SparseSetUpdateError` に変換します。
+//: - storage invariant failure の rollback は契約しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid SparseSet storage では O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_remove_storage_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"next len\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"dense swapped\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"sparse moved\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"removed value absent\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/membership" as *
+//:| #import "alloc/collections/sparse_set/mutation" as *
+//:| #import "alloc/collections/sparse_set/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let dense %Vec i32 unwrap_ok sparse_set_alloc_array 5
+//:     let sparse %Vec i32 unwrap_ok sparse_set_alloc_array 5
+//:     let len1 %i32 match sparse_set_insert_storage 5 &dense &sparse 0 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let len2 %i32 match sparse_set_insert_storage 5 &dense &sparse len1 3:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let next_len %i32 match sparse_set_remove_storage 5 &dense &sparse len2 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let dense0 %i32 match sparse_set_load_owned &dense 0:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let sparse3 %i32 match sparse_set_load_owned &sparse 3:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let removed_still_present %bool sparse_set_contains_raw 5 &dense &sparse next_len 1
+//:     let removed_absent %bool not removed_still_present
+//:     sparse_set_free_arrays dense sparse
+//:     let report:
+//:         test_report_new "sparse_set_remove_storage_doc"
+//:         |> test_report_push assert_eq_i32 "next len" 1 next_len
+//:         |> test_report_push assert_eq_i32 "dense swapped" 3 dense0
+//:         |> test_report_push assert_eq_i32 "sparse moved" 0 sparse3
+//:         |> test_report_push assert "removed value absent" removed_absent
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_remove_storage %impure fn i32 impure fn &Vec i32 impure fn &Vec i32 impure fn i32 impure fn i32 Option i32 \n\dense\sparse\len0\value:
     if:
         not sparse_set_contains_raw n dense sparse len0 value
