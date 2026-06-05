@@ -8,6 +8,7 @@
 //: [注意/ちゅうい]:
 //: - 接頭辞 0x / 0b / 0o は扱いません。入力文字列本体だけを解析します。
 //: - 範囲外、無効 digit、空入力はいずれも Result::Err 1 を返します。
+//: - 現状の parse error payload は `i32` であり、typed enum error ではありません。typed enum error への整理は `ISS-20260606T054938514Z-STRING-INTEGER-PARSE-ERROR-KIND-COLLAPSED-I32-6E8B1A2C` で追跡します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
@@ -58,6 +59,64 @@
 #import "alloc/string/byte_index" as *
 #import "./common" as *
 
+//: integer_parse_byte_or_invalid: 範囲外 byte access を整数 parser 内部 sentinel へ変換する
+//:
+//: [目的/もくてき]:
+//: - `checked_string_byte_at` の `Option` を、integer parser 内部の byte scanner が扱う `i32` byte 値へ変換します。
+//: - 範囲外は digit や sign と一致しない `-1` に畳み、上位 parser が `Result::Err 1` へ変換できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `idx` が `s` の byte 範囲内なら、その byte 値を返します。
+//: - `idx` が範囲外なら `-1` を返します。
+//: - この helper は `str` owner を作らず、入力を借用して読むだけです。
+//:
+//: [現状/げんじょう]:
+//: - `Option::None` の理由は保持せず、内部 sentinel `-1` に畳みます。
+//: - public API の error payload はこの sentinel ではなく、`to_i32` / `to_i128_radix` などの `Result::Err 1` です。
+//:
+//: [注意/ちゅうい]:
+//: - sentinel を public contract として公開しないため、通常の利用者はこの helper を直接呼びません。
+//: - 無効 digit、空入力、範囲外 byte access の詳細分類は現状すべて `Result::Err 1` に畳まれます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_parse_byte_or_invalid_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"clean decimal accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"trailing invalid byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:
+//: fn result_i32_eq %fn Result i32 i32 fn i32 bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             eq actual expected
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_i32_err %fn Result i32 i32 bool \got:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err _:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let clean %Result i32 i32 to_i32 "12"
+//:     let trailing %Result i32 i32 to_i32 "12x"
+//:     let report:
+//:         test_report_new "alloc_string_integer_parse_byte_or_invalid_doc"
+//:         |> test_report_push assert "clean decimal accepted" result_i32_eq clean 12
+//:         |> test_report_push assert "trailing invalid byte rejected" result_i32_err trailing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
@@ -293,22 +352,69 @@ pub fn to_i32_range %fn str fn i32 fn i32 Result i32 i32 \s\start\end:
         else start
     parse_i32_decimal_digits_range s digit_start end has_minus
 
-// to_i32_radix: 指定基数の文字列を i32 に変換する
-//
-// 目的:
-// - 2 / 8 / 10 / 16 進で書かれた文字列を i32 に変換します。
-// - 設定値やリテラル風入力を i32 として読み取りたい時に使います。
-//
-// 実装(アルゴリズム):
-// - まず `to_i64_radix` で共通解析を行います。
-// - その後、i32 の範囲に収まるかを確認してから縮小します。
-//
-// 注意(重要):
-// - 接頭辞 `0x` や `0b` は解釈しません。文字列本体だけを渡してください。
-// - 解析失敗と範囲外はどちらも `Result::Err` を返します。
-//
-// 計算量:
-// - O(n)  (n は入力文字列長)
+//: to_i32_radix: 指定基数の文字列を i32 として解析する
+//:
+//: [目的/もくてき]:
+//: - 2 / 8 / 10 / 16 進で書かれた文字列を `i32` として読み取ります。
+//: - 設定値、診断 test、リテラル風入力の読み戻しで、基数を明示した解析を行えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 で、入力が `i32` 表現域に収まる場合は `Result::Ok` を返します。
+//: - 先頭の `-` は符号として扱い、すべての対応基数で受理します。
+//: - 接頭辞 `0b` / `0o` / `0x` は解釈しません。接頭辞を含む入力は digit 不正として `Result::Err 1` になります。
+//: - invalid radix、無効 digit、空入力、表現域外入力はいずれも `Result::Err 1` を返します。
+//:
+//: [実装/じっそう]:
+//: - `to_i64_radix` で共通解析を行い、最後に `-2147483648..2147483647` の範囲を検査してから `i32` へ縮小します。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_to_i32_radix_doc\" count=5 failed=0\nassertion index=0 status=ok kind=bool label=\"binary\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"min decimal\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"positive overflow rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"invalid radix rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:
+//: fn result_i32_eq %fn Result i32 i32 fn i32 bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             eq actual expected
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_i32_err %fn Result i32 i32 bool \got:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err _:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let binary %Result i32 i32 to_i32_radix "1010" 2
+//:     let negative_hex %Result i32 i32 to_i32_radix "-ff" 16
+//:     let min_decimal %Result i32 i32 to_i32_radix "-2147483648" 10
+//:     let positive_overflow %Result i32 i32 to_i32_radix "2147483648" 10
+//:     let invalid_radix %Result i32 i32 to_i32_radix "10" 3
+//:     let report:
+//:         test_report_new "alloc_string_integer_to_i32_radix_doc"
+//:         |> test_report_push assert "binary" result_i32_eq binary 10
+//:         |> test_report_push assert "negative hex" result_i32_eq negative_hex -255
+//:         |> test_report_push assert "min decimal" result_i32_eq min_decimal -2147483648
+//:         |> test_report_push assert "positive overflow rejected" result_i32_err positive_overflow
+//:         |> test_report_push assert "invalid radix rejected" result_i32_err invalid_radix
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_i32_radix %fn str fn i32 Result i32 i32 \s\radix:
     match to_i64_radix s radix:
         Result::Ok v64:
@@ -338,20 +444,51 @@ pub fn to_i32_radix %fn str fn i32 Result i32 i32 \s\radix:
 pub fn to_i64 %fn str Result i64 i32 \s:
     to_i64_radix s 10
 
-// i128_fits_i64: i128 が i64 の表現域に収まるかを判定する
-//
-// 目的:
-// - `to_i64_radix` が範囲外の i128 を i64 に切り詰めて受理しないようにします。
-//
-// 実装(アルゴリズム):
-// - 非負 i64 は hi が 0 かつ lo の符号 bit が 0 の時だけ許可します。
-// - 負 i64 は hi が -1 かつ lo の符号 bit が 1 の時だけ許可します。
-//
-// 注意(重要):
-// - これは bit pattern の符号拡張検査であり、cast 前に必ず実行します。
-//
-// 計算量:
-// - O(1)
+//: i128_fits_i64: i128 が i64 の表現域に収まるかを判定する
+//:
+//: [目的/もくてき]:
+//: - `to_i64_radix` が範囲外の `i128` を `i64` に切り詰めて受理しないようにします。
+//:
+//: [契約/けいやく]:
+//: - `v` が `-9223372036854775808..9223372036854775807` に収まる場合は `true` を返します。
+//: - それ以外の `i128` bit pattern は `false` を返します。
+//:
+//: [実装/じっそう]:
+//: - 非負 `i64` は high word が 0 かつ low word の符号 bit が 0 の時だけ許可します。
+//: - 負 `i64` は high word が -1 かつ low word の符号 bit が 1 の時だけ許可します。
+//:
+//: [注意/ちゅうい]:
+//: - これは bit pattern の符号拡張検査であり、`i64` へ cast する前に必ず実行します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_i128_fits_i64_doc\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"zero fits\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative one fits\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"positive high word rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"negative high word rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let zero %i128 %i128 cast 0
+//:     let neg_one %i128 %i128 cast -1
+//:     let positive_wide %i128 i128 %i64 cast 1 %i64 cast 0
+//:     let negative_wide %i128 i128 %i64 cast -2 %i64 cast 0
+//:     let report:
+//:         test_report_new "alloc_string_integer_i128_fits_i64_doc"
+//:         |> test_report_push assert "zero fits" i128_fits_i64 zero
+//:         |> test_report_push assert "negative one fits" i128_fits_i64 neg_one
+//:         |> test_report_push assert "positive high word rejected" not i128_fits_i64 positive_wide
+//:         |> test_report_push assert "negative high word rejected" not i128_fits_i64 negative_wide
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn i128_fits_i64 %fn i128 bool \v:
     let hi %i64 get v "hi";
     let lo %i64 get v "lo";
@@ -367,23 +504,71 @@ pub fn i128_fits_i64 %fn i128 bool \v:
                 else:
                     false
 
-// to_i64_radix: 指定基数の文字列を i64 に変換する
-//
-// 目的:
-// - 2 / 8 / 10 / 16 進文字列を i64 として解釈します。
-// - 数値入力の解析や、基数別テストデータの読み戻しに使います。
-//
-// 実装(アルゴリズム):
-// - `to_i128_radix` で共通解析を行い、最後に `i64` へ縮小します。
-// - i128 の上位 word が i64 の符号拡張と一致する時だけ縮小します。
-//
-// 注意(重要):
-// - 接頭辞 `0b` / `0o` / `0x` は解釈しません。
-// - `-ff` のような符号付き文字列は、すべての対応基数で受理します。
-// - 表現域外入力は `Result::Err 1` を返します。
-//
-// 計算量:
-// - O(n)  (n は入力文字列長)
+//: to_i64_radix: 指定基数の文字列を i64 として解析する
+//:
+//: [目的/もくてき]:
+//: - 2 / 8 / 10 / 16 進文字列を `i64` として読み取ります。
+//: - 大きめの整数入力を、`i128` parser と同じ digit / overflow 経路で検証してから縮小します。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 で、入力が `i64` 表現域に収まる場合は `Result::Ok` を返します。
+//: - 先頭の `-` は符号として扱い、すべての対応基数で受理します。
+//: - 接頭辞 `0b` / `0o` / `0x` は解釈しません。
+//: - invalid radix、無効 digit、空入力、表現域外入力はいずれも `Result::Err 1` を返します。
+//:
+//: [実装/じっそう]:
+//: - `to_i128_radix` で共通解析を行い、`i128_fits_i64` で符号拡張 bit pattern を確認してから `i64` へ縮小します。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_to_i64_radix_doc\" count=5 failed=0\nassertion index=0 status=ok kind=bool label=\"hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"min decimal\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"overflow rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"prefix rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:| #import "alloc/string/integer/format" as *
+//:
+//: fn result_i64_str_eq %fn Result i64 i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected from_i64 actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_i64_err %fn Result i64 i32 bool \got:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err _:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let hex_value %Result i64 i32 to_i64_radix "ff" 16
+//:     let negative_hex %Result i64 i32 to_i64_radix "-ff" 16
+//:     let min_decimal %Result i64 i32 to_i64_radix "-9223372036854775808" 10
+//:     let overflow %Result i64 i32 to_i64_radix "9223372036854775808" 10
+//:     let prefix %Result i64 i32 to_i64_radix "0x10" 16
+//:     let report:
+//:         test_report_new "alloc_string_integer_to_i64_radix_doc"
+//:         |> test_report_push assert "hex" result_i64_str_eq hex_value "255"
+//:         |> test_report_push assert "negative hex" result_i64_str_eq negative_hex "-255"
+//:         |> test_report_push assert "min decimal" result_i64_str_eq min_decimal "-9223372036854775808"
+//:         |> test_report_push assert "overflow rejected" result_i64_err overflow
+//:         |> test_report_push assert "prefix rejected" result_i64_err prefix
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_i64_radix %fn str fn i32 Result i64 i32 \s\radix:
     match to_i128_radix s radix:
         Result::Ok v128:
@@ -396,38 +581,134 @@ pub fn to_i64_radix %fn str fn i32 Result i64 i32 \s\radix:
         Result::Err e:
             Result::Err e
 
-// to_u128: 10 進文字列を u128 に変換する
-//
-// 目的:
-// - 大きな非負整数文字列を `u128` として読み取ります。
-//
-// 実装(アルゴリズム):
-// - `to_u128_radix s 10` に委譲します。
-//
-// 注意(重要):
-// - 負号は受理しません。
-//
-// 計算量:
-// - O(n)
+//: to_u128: 10 進文字列を u128 として解析する
+//:
+//: [目的/もくてき]:
+//: - 大きな非負整数文字列を `u128` として読み取ります。
+//:
+//: [契約/けいやく]:
+//: - 10 進 digit だけで構成され、`0..u128_max` に収まる入力は `Result::Ok` を返します。
+//: - 負号、空入力、無効 digit、表現域外入力はいずれも `Result::Err 1` を返します。
+//:
+//: [実装/じっそう]:
+//: - `to_u128_radix s 10` に委譲し、基数付き parser の overflow 検査へ統一します。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_to_u128_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"max decimal\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"max plus one rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:| #import "alloc/string/integer/format" as *
+//:
+//: fn result_u128_str_eq %fn Result u128 i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected from_u128 actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_u128_err %fn Result u128 i32 bool \got:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err _:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let max_text "340282366920938463463374607431768211455"
+//:     let max_plus_one "340282366920938463463374607431768211456"
+//:     let max_value %Result u128 i32 to_u128 max_text
+//:     let negative_value %Result u128 i32 to_u128 "-1"
+//:     let overflow_value %Result u128 i32 to_u128 max_plus_one
+//:     let report:
+//:         test_report_new "alloc_string_integer_to_u128_doc"
+//:         |> test_report_push assert "max decimal" result_u128_str_eq max_value max_text
+//:         |> test_report_push assert "negative rejected" result_u128_err negative_value
+//:         |> test_report_push assert "max plus one rejected" result_u128_err overflow_value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_u128 %fn str Result u128 i32 \s:
     to_u128_radix s 10
 
-// to_u128_radix: 指定基数の文字列を u128 に変換する
-//
-// 目的:
-// - 非負の 2 / 8 / 10 / 16 進文字列を `u128` に変換します。
-//
-// 実装(アルゴリズム):
-// - 各文字を `digit_from_char` で数値化し、`res = res * radix + digit` を `u128_mul_small` と `u128_add_small` で構築します。
-// - 更新前に `u128_max / radix` の商と余りで範囲を確認し、ラップする入力を拒否します。
-//
-// 注意(重要):
-// - 接頭辞 `0b` / `0o` / `0x` は解釈しません。
-// - 負号付き文字列は `Result::Err 1` です。
-// - 表現域外入力は `Result::Err 1` を返します。
-//
-// 計算量:
-// - O(n)
+//: to_u128_radix: 指定基数の文字列を u128 として解析する
+//:
+//: [目的/もくてき]:
+//: - 非負の 2 / 8 / 10 / 16 進文字列を `u128` に変換します。
+//: - `i128` parser が符号を取り除いた magnitude を読むための共通 digit loop もここから使います。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 で、入力が `0..u128_max` に収まる場合は `Result::Ok` を返します。
+//: - 負号、invalid radix、無効 digit、空入力、表現域外入力はいずれも `Result::Err 1` を返します。
+//: - 接頭辞 `0b` / `0o` / `0x` は解釈しません。
+//:
+//: [実装/じっそう]:
+//: - 各 byte を `digit_from_char` で数値化し、`res = res * radix + digit` を `u128_mul_small` と `u128_add_small` で構築します。
+//: - 更新前に `u128_max / radix` の商と余りで範囲を確認し、ラップする入力を拒否します。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_to_u128_radix_doc\" count=5 failed=0\nassertion index=0 status=ok kind=bool label=\"max hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"hex overflow rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"invalid digit rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"invalid radix rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"negative rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "core/cast" as *
+//:| #import "core/field" as *
+//:| #import "alloc/string/integer/parse" as *
+//:
+//: fn result_u128_words_eq %fn Result u128 i32 fn i64 fn i64 bool \got\expected_hi\expected_lo:
+//:     match got:
+//:         Result::Ok actual:
+//:             and eq get actual "hi" expected_hi eq get actual "lo" expected_lo
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_u128_err %fn Result u128 i32 bool \got:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err _:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let max_hex "ffffffffffffffffffffffffffffffff"
+//:     let max_hex_value %Result u128 i32 to_u128_radix max_hex 16
+//:     let hex_overflow %Result u128 i32 to_u128_radix "100000000000000000000000000000000" 16
+//:     let invalid_digit %Result u128 i32 to_u128_radix "2" 2
+//:     let invalid_radix %Result u128 i32 to_u128_radix "10" 3
+//:     let negative_value %Result u128 i32 to_u128_radix "-1" 10
+//:     let report:
+//:         test_report_new "alloc_string_integer_to_u128_radix_doc"
+//:         |> test_report_push assert "max hex" result_u128_words_eq max_hex_value %i64 cast -1 %i64 cast -1
+//:         |> test_report_push assert "hex overflow rejected" result_u128_err hex_overflow
+//:         |> test_report_push assert "invalid digit rejected" result_u128_err invalid_digit
+//:         |> test_report_push assert "invalid radix rejected" result_u128_err invalid_radix
+//:         |> test_report_push assert "negative rejected" result_u128_err negative_value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_u128_radix %fn str fn i32 Result u128 i32 \s\radix:
     match validate_radix radix:
         Result::Err e:
@@ -521,36 +802,96 @@ fn parse_u128_radix_digits_from %fn str fn i32 fn i32 Result u128 i32 \s\radix\s
         else:
             Result::Err 1
 
-// i128_positive_magnitude_allowed: 非負 i128 として許される大きさかを判定する
-//
-// 目的:
-// - `to_i128_radix` が正の範囲外入力を 2 の補数負値として受理しないようにします。
-//
-// 実装(アルゴリズム):
-// - i128 の正の最大値は上位 bit が 0 の範囲なので、u128 の hi word が負でないことを確認します。
-//
-// 注意(重要):
-// - ここでは magnitude を u128 として受け取り、符号付き値への bitcast 前に検査します。
-//
-// 計算量:
-// - O(1)
+//: i128_positive_magnitude_allowed: 非負 i128 として許される magnitude か判定する
+//:
+//: [目的/もくてき]:
+//: - `to_i128_radix` が正の範囲外入力を 2 の補数負値として受理しないようにします。
+//:
+//: [契約/けいやく]:
+//: - `mag <= 2^127 - 1` なら `true` を返します。
+//: - `mag >= 2^127` なら `false` を返します。
+//:
+//: [実装/じっそう]:
+//: - `u128` の high word を符号付き `i64` として見た時に負でなければ、上位 bit が 0 なので正の `i128` 範囲内です。
+//:
+//: [注意/ちゅうい]:
+//: - ここでは magnitude を `u128` として受け取り、符号付き値への bitcast 前に検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_i128_positive_magnitude_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"zero allowed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"low high word allowed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"two to 127 rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let zero %u128 u128 %i64 cast 0 %i64 cast 0
+//:     let max_positive_like %u128 u128 %i64 cast 0 %i64 cast -1
+//:     let min_hi %i64 shl %i64 cast 1 %i64 cast 63
+//:     let two_to_127 %u128 u128 min_hi %i64 cast 0
+//:     let report:
+//:         test_report_new "alloc_string_integer_i128_positive_magnitude_doc"
+//:         |> test_report_push assert "zero allowed" i128_positive_magnitude_allowed zero
+//:         |> test_report_push assert "low high word allowed" i128_positive_magnitude_allowed max_positive_like
+//:         |> test_report_push assert "two to 127 rejected" not i128_positive_magnitude_allowed two_to_127
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn i128_positive_magnitude_allowed %fn u128 bool \mag:
     not lt get mag "hi" %i64 cast 0
 
-// i128_negative_magnitude_allowed: 負 i128 として許される大きさかを判定する
-//
-// 目的:
-// - i128 最小値だけは magnitude が 2^127 でも受理し、それより大きい負入力を拒否します。
-//
-// 実装(アルゴリズム):
-// - 上位 bit が 0 なら通常の負値として安全です。
-// - 上位 bit が 1 の場合は、正確に `0x8000...0000` の時だけ最小値として許可します。
-//
-// 注意(重要):
-// - `-170...728` は許可し、`-170...729` は拒否する境界です。
-//
-// 計算量:
-// - O(1)
+//: i128_negative_magnitude_allowed: 負 i128 として許される magnitude か判定する
+//:
+//: [目的/もくてき]:
+//: - `i128` 最小値だけは magnitude が `2^127` でも受理し、それより大きい負入力を拒否します。
+//:
+//: [契約/けいやく]:
+//: - `mag <= 2^127` なら `true` を返します。
+//: - `mag > 2^127` なら `false` を返します。
+//:
+//: [実装/じっそう]:
+//: - 上位 bit が 0 なら通常の負値として安全です。
+//: - 上位 bit が 1 の場合は、正確に `0x8000...0000` の時だけ最小値として許可します。
+//:
+//: [注意/ちゅうい]:
+//: - `-170141183460469231731687303715884105728` は許可し、`-170141183460469231731687303715884105729` は拒否する境界です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_i128_negative_magnitude_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"one allowed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"two to 127 allowed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"two to 127 plus one rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let one %u128 u128 %i64 cast 0 %i64 cast 1
+//:     let min_hi %i64 shl %i64 cast 1 %i64 cast 63
+//:     let two_to_127 %u128 u128 min_hi %i64 cast 0
+//:     let two_to_127_plus_one %u128 u128 min_hi %i64 cast 1
+//:     let report:
+//:         test_report_new "alloc_string_integer_i128_negative_magnitude_doc"
+//:         |> test_report_push assert "one allowed" i128_negative_magnitude_allowed one
+//:         |> test_report_push assert "two to 127 allowed" i128_negative_magnitude_allowed two_to_127
+//:         |> test_report_push assert "two to 127 plus one rejected" not i128_negative_magnitude_allowed two_to_127_plus_one
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn i128_negative_magnitude_allowed %fn u128 bool \mag:
     if:
         not lt get mag "hi" %i64 cast 0
@@ -560,19 +901,50 @@ pub fn i128_negative_magnitude_allowed %fn u128 bool \mag:
             let min_hi %i64 shl %i64 cast 1 %i64 cast 63;
             and eq get mag "hi" min_hi eq get mag "lo" %i64 cast 0
 
-// i128_magnitude_allowed: 符号に応じて i128 の magnitude 範囲を判定する
-//
-// 目的:
-// - `to_i128_radix` の符号別境界判定を 1 箇所に集約します。
-//
-// 実装(アルゴリズム):
-// - 負号があれば `i128_negative_magnitude_allowed`、なければ `i128_positive_magnitude_allowed` に委譲します。
-//
-// 注意(重要):
-// - この判定が true の時だけ `i128_from_u128_bits` へ進めます。
-//
-// 計算量:
-// - O(1)
+//: i128_magnitude_allowed: 符号に応じて i128 の magnitude 範囲を判定する
+//:
+//: [目的/もくてき]:
+//: - `to_i128_radix` の符号別境界判定を 1 箇所に集約します。
+//:
+//: [契約/けいやく]:
+//: - `neg` が `false` なら `i128_positive_magnitude_allowed` と同じ条件で判定します。
+//: - `neg` が `true` なら `i128_negative_magnitude_allowed` と同じ条件で判定します。
+//:
+//: [実装/じっそう]:
+//: - `if` 式で符号を選び、正負それぞれの helper へ委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - この判定が `true` の時だけ `i128_from_u128_bits` へ進めます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_i128_magnitude_doc\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"positive max-like allowed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"positive two to 127 rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"negative two to 127 allowed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"negative two to 127 plus one rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let max_positive_like %u128 u128 %i64 cast 0 %i64 cast -1
+//:     let min_hi %i64 shl %i64 cast 1 %i64 cast 63
+//:     let two_to_127 %u128 u128 min_hi %i64 cast 0
+//:     let two_to_127_plus_one %u128 u128 min_hi %i64 cast 1
+//:     let report:
+//:         test_report_new "alloc_string_integer_i128_magnitude_doc"
+//:         |> test_report_push assert "positive max-like allowed" i128_magnitude_allowed max_positive_like false
+//:         |> test_report_push assert "positive two to 127 rejected" not i128_magnitude_allowed two_to_127 false
+//:         |> test_report_push assert "negative two to 127 allowed" i128_magnitude_allowed two_to_127 true
+//:         |> test_report_push assert "negative two to 127 plus one rejected" not i128_magnitude_allowed two_to_127_plus_one true
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn i128_magnitude_allowed %fn u128 fn bool bool \mag\neg:
     if:
         neg
@@ -581,38 +953,145 @@ pub fn i128_magnitude_allowed %fn u128 fn bool bool \mag\neg:
         else:
             i128_positive_magnitude_allowed mag
 
-// to_i128: 10 進文字列を i128 に変換する
-//
-// 目的:
-// - 大きな符号付き整数文字列を `i128` として読み取ります。
-//
-// 実装(アルゴリズム):
-// - `to_i128_radix s 10` に委譲します。
-//
-// 注意(重要):
-// - 接頭辞は解釈しません。
-//
-// 計算量:
-// - O(n)
+//: to_i128: 10 進文字列を i128 として解析する
+//:
+//: [目的/もくてき]:
+//: - 大きな符号付き整数文字列を `i128` として読み取ります。
+//:
+//: [契約/けいやく]:
+//: - 10 進 digit だけで構成され、`i128` 表現域に収まる入力は `Result::Ok` を返します。
+//: - 先頭の `-` は負号として扱い、`-170141183460469231731687303715884105728` まで受理します。
+//: - 空入力、`-` だけの入力、無効 digit、表現域外入力はいずれも `Result::Err 1` を返します。
+//: - 接頭辞 `0x` / `0b` / `0o` は解釈しません。
+//:
+//: [実装/じっそう]:
+//: - `to_i128_radix s 10` に委譲します。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は現状互換の `i32` であり、typed enum error ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_to_i128_doc\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"max decimal\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"min decimal\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"max plus one rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"bare minus rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:| #import "alloc/string/integer/format" as *
+//:
+//: fn result_i128_str_eq %fn Result i128 i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected from_i128 actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_i128_err %fn Result i128 i32 bool \got:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err _:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let max_text "170141183460469231731687303715884105727"
+//:     let min_text "-170141183460469231731687303715884105728"
+//:     let max_plus_one "170141183460469231731687303715884105728"
+//:     let max_value %Result i128 i32 to_i128 max_text
+//:     let min_value %Result i128 i32 to_i128 min_text
+//:     let overflow_value %Result i128 i32 to_i128 max_plus_one
+//:     let bare_minus %Result i128 i32 to_i128 "-"
+//:     let report:
+//:         test_report_new "alloc_string_integer_to_i128_doc"
+//:         |> test_report_push assert "max decimal" result_i128_str_eq max_value max_text
+//:         |> test_report_push assert "min decimal" result_i128_str_eq min_value min_text
+//:         |> test_report_push assert "max plus one rejected" result_i128_err overflow_value
+//:         |> test_report_push assert "bare minus rejected" result_i128_err bare_minus
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_i128 %fn str Result i128 i32 \s:
     to_i128_radix s 10
 
-// to_i128_radix: 指定基数の文字列を i128 に変換する
-//
-// 目的:
-// - 2 / 8 / 10 / 16 進の符号付き文字列を `i128` に変換します。
-//
-// 実装(アルゴリズム):
-// - 先頭の `-` を確認し、読み始める index を切り替えて共通 digit parser に渡します。
-// - 符号に応じた i128 の表現域を確認し、範囲外なら `Result::Err` にします。
-// - 符号が負なら `i128_neg` で符号反転します。
-//
-// 注意(重要):
-// - 表現域外入力は `Result::Err 1` を返します。
-// - 接頭辞 `0x` などは解釈しません。
-//
-// 計算量:
-// - O(n)
+//: to_i128_radix: 指定基数の文字列を i128 として解析する
+//:
+//: [目的/もくてき]:
+//: - 2 / 8 / 10 / 16 進の符号付き文字列を `i128` に変換します。
+//:
+//: [契約/けいやく]:
+//: - `radix` が 2 / 8 / 10 / 16 で、入力が `i128` 表現域に収まる場合は `Result::Ok` を返します。
+//: - 先頭の `-` は負号として扱い、すべての対応基数で受理します。
+//: - `2^127 - 1` は正数として受理し、`2^127` は正数として拒否します。
+//: - `-2^127` は負数として受理し、`-(2^127 + 1)` は拒否します。
+//: - invalid radix、無効 digit、空入力、`-` だけの入力、表現域外入力はいずれも `Result::Err 1` を返します。
+//: - 接頭辞 `0b` / `0o` / `0x` は解釈しません。
+//:
+//: [実装/じっそう]:
+//: - 先頭の `-` を確認し、読み始める index を切り替えて `parse_u128_radix_digits_from` に渡します。
+//: - `i128_magnitude_allowed` で符号に応じた表現域を確認し、範囲内の magnitude だけを `i128_from_u128_bits` へ進めます。
+//: - 符号が負なら `i128_neg` で符号反転します。
+//:
+//: [現状/げんじょう]:
+//: - parse error の payload は現状互換の `i32` であり、typed enum error ではありません。
+//: - typed enum error への整理は `ISS-20260606T054938514Z-STRING-INTEGER-PARSE-ERROR-KIND-COLLAPSED-I32-6E8B1A2C` で追跡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_integer_to_i128_radix_doc\" count=6 failed=0\nassertion index=0 status=ok kind=bool label=\"max hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"min negative hex\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"positive two to 127 rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"negative overflow rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"prefix rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"invalid radix rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "alloc/string/integer/parse" as *
+//:| #import "alloc/string/integer/format" as *
+//:
+//: fn result_i128_str_eq %fn Result i128 i32 fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected from_i128 actual
+//:         Result::Err _:
+//:             false
+//:
+//: fn result_i128_err %fn Result i128 i32 bool \got:
+//:     match got:
+//:         Result::Ok _:
+//:             false
+//:         Result::Err _:
+//:             true
+//:
+//: fn main %impure fn void i32 \void:
+//:     let max_decimal "170141183460469231731687303715884105727"
+//:     let min_decimal "-170141183460469231731687303715884105728"
+//:     let max_hex %Result i128 i32 to_i128_radix "7fffffffffffffffffffffffffffffff" 16
+//:     let min_negative_hex %Result i128 i32 to_i128_radix "-80000000000000000000000000000000" 16
+//:     let positive_two_to_127 %Result i128 i32 to_i128_radix "80000000000000000000000000000000" 16
+//:     let negative_overflow %Result i128 i32 to_i128_radix "-80000000000000000000000000000001" 16
+//:     let prefix %Result i128 i32 to_i128_radix "0x10" 16
+//:     let invalid_radix %Result i128 i32 to_i128_radix "10" 3
+//:     let report:
+//:         test_report_new "alloc_string_integer_to_i128_radix_doc"
+//:         |> test_report_push assert "max hex" result_i128_str_eq max_hex max_decimal
+//:         |> test_report_push assert "min negative hex" result_i128_str_eq min_negative_hex min_decimal
+//:         |> test_report_push assert "positive two to 127 rejected" result_i128_err positive_two_to_127
+//:         |> test_report_push assert "negative overflow rejected" result_i128_err negative_overflow
+//:         |> test_report_push assert "prefix rejected" result_i128_err prefix
+//:         |> test_report_push assert "invalid radix rejected" result_i128_err invalid_radix
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn to_i128_radix %fn str fn i32 Result i128 i32 \s\radix:
     match validate_radix radix:
         Result::Err e:

@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T20:37:20.106Z",
+  "generated_at": "2026-06-05T21:00:14.413Z",
   "counts": {
-    "total": 1350,
-    "open": 48,
+    "total": 1351,
+    "open": 49,
     "resolved": 1302,
     "by_area": {
       "stdlib": {
-        "total": 356,
-        "open": 15,
+        "total": 357,
+        "open": 16,
         "resolved": 341
       },
       "core": {
@@ -833,6 +833,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260606T053000000Z-STRING-FLOAT-PARSE-SPECIAL-VALUE-POLICY-MISSING-7C18B2D4.md"
+    },
+    {
+      "id": "ISS-20260606T054938514Z-STRING-INTEGER-PARSE-ERROR-KIND-COLLAPSED-I32-6E8B1A2C",
+      "title": "string integer parser collapses parse errors into i32",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-06-06",
+      "updated": "2026-06-06",
+      "target": "stdlib/alloc/string/integer/parse.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260606T054938514Z-STRING-INTEGER-PARSE-ERROR-KIND-COLLAPSED-I32-6E8B1A2C.md"
     },
     {
       "id": "ISS-20260604T034257629Z-SELFHOST-PARSER-LOOP-EXPOSES-LONG-ST-D57B1E8E",
