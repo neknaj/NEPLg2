@@ -14,6 +14,32 @@
   - `node nodesrc/test_selfhost_documentation_contract.js`: pass（declarationNoDoc 304 -> 251、privateNoDoc 253 -> 200。代表 ascription entry の `doctest` section も検査）
   - `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/ascription.nepl --no-tree -o tmp/selfhost-ascription-doc-tests.json -j 1 --dist web/dist --assert-io`: pass（2/2、Node WASI ExperimentalWarning は非回帰。stage1 wrapper 版は 60s timeout することがあったため、対象 API を直接呼ぶ軽量 doctest へ置き換えた）
 
+# 2026-06-06 Agent 2 Diag documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:50+09:00 頃に再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、match による網羅性、純粋性と副作用境界、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。
+- subagent review では、`stdlib/alloc/diag/diag.nepl`、`error/diag.nepl`、`error/diags.nepl` の by-value overload / stdio helper / typed error accessor / `Diags` observer に declaration doc gap が残り、message 文字列や `"None"` を diagnostic authority にしないこと、by-value observer が owner を閉じること、stdio print helper を IO boundary に閉じることが merge risk として確認された。
+- `diag.nepl` では by-value `kind_str`、`diag_to_string`、by-value `diags_to_string`、`diags_to_string_loop`、`diag_print`、`diag_println`、`diags_print`、`diags_println` の日本語 doc comment と `test_report` 形式の doctest を追加した。by-value `diags_to_string` は `diags_free` を呼ぶため、署名を `%fn` から `%impure fn` に修正した。
+- `error/diag.nepl` では by-value `diag_level`、`diag_std_error_kind`、`diag_std_error_kind_str` の日本語 doc comment と `test_report` 形式の doctest を追加した。`DiagLevel` / `Option StdErrorKind` が static check の authority であり、表示文字列は doctest や人間向け表示の補助であることを明記した。
+- `error/diags.nepl` では by-value `diags_len`、`diags_has_errors`、`diags_has_errors_loop` の日本語 doc comment と `test_report` 形式の doctest を追加した。by-value observer は borrowed overload で観測してから `diags_free` で owner を閉じ、`diags_has_errors_loop` は `Vec.get` と exhaustive `DiagLevel` match で判定する契約を固定した。
+- `nodesrc/test_stdlib_diag_doc_report_contract.js` を追加し、Diag 固有の report doctest 名、enum authority と表示文字列の分離、by-value `diags_to_string` の impure owner cleanup、by-value observer の owner close、`Vec.get` + `DiagLevel` match、stdio IO boundary を source policy として固定した。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline を実測値に締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=215`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。Diag slice は進んだが、sample gaps は hash32 / io / string builder 系へ残っている。
+- subagent final review では Blocker なし。`diags_to_string` by-value overload の `%impure fn` 化、enum authority と表示文字列の分離、by-value observer の owner close、source policy が行数/文字数制限でないことを確認し、`MERGE_APPROVED` と判定された。
+- 現時点の検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/diag/diag.nepl -i stdlib/alloc/diag/error/diag.nepl -i stdlib/alloc/diag/error/diags.nepl --no-tree -o tmp/agent2-diag-doc-smoke-4.json -j 1 --dist web/dist --assert-io`: pass（16/16）
+  - `node nodesrc/tests.js -i stdlib/tests/diag.n.md --no-tree -o tmp/agent2-diag-nmd-after-impure.json -j 1 --dist web/dist --assert-io`: pass（2/2）
+  - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/agent2-collections-diag-after-impure.json -j 1 --dist web/dist --assert-io`: pass（4/4）
+  - `node nodesrc/test_stdlib_diag_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_diag_nmd_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_collections_diag_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-diag-doc-playground-editor.json`: pass（13/13）
 # 2026-06-06 Agent selfhost expr argument/call_reduce documentation contract checkpoint
 
 - `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:41:36+09:00 に再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と現状説明の分離、計算量、丁寧な doc comment、試作段階でも品質を落とさない方針を今回の判断基準にした。

@@ -88,6 +88,42 @@ pub fn diags_len %fn &Diags i32 \ds:
     let items %&Vec Diag field::get_ref ds "items";
     vec_header::len items
 
+//: diags_len: by-value `Diags` の[件数/けんすう]を[読/よ]み、owner を[閉/と]じる
+//:
+//: ### [契約/けいやく]
+//: - borrowed overload と[同/おな]じ[診断/しんだん][件数/けんすう]を[返/かえ]します。
+//: - by-value overload は `Diags` owner を[消費/しょうひ]し、[観測/かんそく]後に `diags_free` で backing `Vec Diag` を[解放/かいほう]します。
+//: - storage を raw pointer で[読/よ]まず、`Vec` header observer を[通/とお]して[件数/けんすう]を[取得/しゅとく]します。
+//:
+//: ### [戻り値/もどりち]
+//: - `0` 以上の[診断/しんだん][件数/けんすう]
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `diags_len &ds` で[観測/かんそく]し、`diags_free ds` で owner を[閉/と]じてから[件数/けんすう]を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(1)
+//: - [空間/くうかん]: O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diags_len_by_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"consuming len\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error/diag" as *
+//:| #import "alloc/diag/error/diags" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ds %Diags diags_one diag_warn "careful"
+//:     let n %i32 diags_len ds
+//:     let report:
+//:         test_report_new "diags_len_by_value_doc"
+//:         |> test_report_push assert_eq_i32 "consuming len" 1 n
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diags_len %impure fn Diags i32 \ds:
     let n %i32 diags_len &ds
     diags_free ds
@@ -99,11 +135,92 @@ pub fn diags_has_errors %fn &Diags bool \ds:
     let items_len %i32 vec_header::len items;
     diags_has_errors_loop items items_len 0
 
+//: diags_has_errors: by-value `Diags` に error level が[含/ふく]まれるか[判定/はんてい]し、owner を[閉/と]じる
+//:
+//: ### [契約/けいやく]
+//: - `DiagLevel::Error` を 1 [件/けん]でも[含/ふく]むなら true を[返/かえ]します。
+//: - `DiagLevel` enum を `match` して[判定/はんてい]し、message や kind [文字列/もじれつ]には[依存/いぞん]しません。
+//: - by-value overload は `Diags` owner を[消費/しょうひ]し、[観測/かんそく]後に `diags_free` で backing `Vec Diag` を[解放/かいほう]します。
+//:
+//: ### [戻り値/もどりち]
+//: - true: `DiagLevel::Error` が[存在/そんざい]します。
+//: - false: error level がない、または malformed storage を `Vec.get` が `Option::None` として[返/かえ]した fail-closed [経路/けいろ]です。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - borrowed overload で[走査/そうさ]し、`diags_free ds` で owner を[閉/と]じます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n)
+//: - [空間/くうかん]: O(n)（[再帰/さいき]ぶん）
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diags_has_errors_by_value_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"has error\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error/diag" as *
+//:| #import "alloc/diag/error/diags" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ds %Diags diags_one diag_error StdErrorKind::Failure "bad"
+//:     let has_error %bool diags_has_errors ds
+//:     let report:
+//:         test_report_new "diags_has_errors_by_value_doc"
+//:         |> test_report_push assert "has error" has_error
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diags_has_errors %impure fn Diags bool \ds:
     let has_error %bool diags_has_errors &ds
     diags_free ds
     has_error
 
+//: diags_has_errors_loop: borrowed `Vec Diag` を[走査/そうさ]して error level を[探/さが]す private helper
+//:
+//: ### [契約/けいやく]
+//: - `i >= n` なら false を[返/かえ]します。
+//: - `Vec.get` が `Option::Some d` を[返/かえ]した[場合/ばあい]だけ `diag_level d` を[読/よ]み、`DiagLevel::Error` なら true を[返/かえ]します。
+//: - `Option::None` は malformed backing storage の fail-closed [経路/けいろ]であり、unsafe unwrap や unreachable には[落/お]としません。
+//:
+//: ### [戻り値/もどりち]
+//: - true: `DiagLevel::Error` を[見/み]つけました。
+//: - false: 最後まで error level がない、または storage invariant failure を[検出/けんしゅつ]しました。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `Vec.get` と `DiagLevel` の exhaustive `match` だけで[走査/そうさ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん]: O(n)
+//: - [空間/くうかん]: O(n)（[再帰/さいき]ぶん）
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"diags_has_errors_loop_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"warn has no error\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"error detected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/diag/error/diag" as *
+//:| #import "alloc/diag/error/diags" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let warn_ds %Diags diags_one diag_warn "careful"
+//:     let warn_ok %bool not diags_has_errors warn_ds
+//:     let err_ds %Diags diags_one diag_error StdErrorKind::Failure "bad"
+//:     let err_ok %bool diags_has_errors err_ds
+//:     let report:
+//:         test_report_new "diags_has_errors_loop_doc"
+//:         |> test_report_push assert "warn has no error" warn_ok
+//:         |> test_report_push assert "error detected" err_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn diags_has_errors_loop %fn &Vec Diag fn i32 fn i32 bool \items\n\i:
     if:
         ge i n
