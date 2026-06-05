@@ -266,6 +266,79 @@ const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_module_check_item", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast_loop", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_effect_allowed_result", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "effectBoundary"], {
+        requiredPatterns: [
+            requiredPattern("typed effect evidence", /\bSelfhostProofEvidence::EffectAllowed\b/),
+            requiredPattern("effect context authority", /\bSelfhostEffectContext\b/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_effect_invalid", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "effectBoundary"], {
+        requiredPatterns: [
+            requiredPattern("typed effect refutation", /\bSelfhostProofRefutation::EffectBoundaryInvalid\b/),
+            requiredPattern("typed effect boundary error", /\bSelfhostEffectBoundaryError\b/),
+            requiredPattern("unsafe memory boundary error", /\bSelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary\b/),
+            requiredPattern("impure effect in pure context error", /\bSelfhostEffectBoundaryError::ImpureEffectInPureContext\b/),
+            requiredPattern("internal allocation escape error", /\bSelfhostEffectBoundaryError::InternalAllocEscapeNotProven\b/),
+            requiredPattern("observed effect kind payload", /\bSelfhostEffectKind\b/),
+            requiredPattern("observed escape-state payload", /\bSelfhostEffectEscapeState\b/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_internal_alloc_allowed", ["purpose", "contract", "returns", "complexity", "errorVariant", "effectBoundary"], {
+        requiredPatterns: [
+            requiredPattern("internal allocation effect kind", /\bSelfhostEffectKind::InternalAlloc\b/),
+            requiredPattern("no-escape success state", /\bSelfhostEffectEscapeState::NoEscapeProven\b/),
+            requiredPattern("not-applicable escape failure state", /\bSelfhostEffectEscapeState::NotApplicable\b/),
+            requiredPattern("may-escape failure state", /\bSelfhostEffectEscapeState::MayEscape\b/),
+            requiredPattern("internal allocation escape error", /\bSelfhostEffectBoundaryError::InternalAllocEscapeNotProven\b/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_solve_effect_pure_context", ["purpose", "contract", "returns", "complexity", "errorVariant", "effectBoundary"], {
+        requiredPatterns: [
+            requiredPattern("pure context authority", /\bSelfhostEffectContext::PureContext\b/),
+            requiredPattern("internal allocation branch", /\bSelfhostEffectKind::InternalAlloc\b/),
+            requiredPattern("unsafe memory branch", /\bSelfhostEffectKind::UnsafeMemory\b/),
+            requiredPattern("external io branch", /\bSelfhostEffectKind::ExternalIo\b/),
+            requiredPattern("nondeterminism branch", /\bSelfhostEffectKind::Nondet\b/),
+            requiredPattern("unsafe memory boundary error", /\bSelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary\b/),
+            requiredPattern("impure effect in pure context error", /\bSelfhostEffectBoundaryError::ImpureEffectInPureContext\b/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_solve_effect_impure_context", ["purpose", "contract", "returns", "complexity", "errorVariant", "effectBoundary"], {
+        requiredPatterns: [
+            requiredPattern("impure context authority", /\bSelfhostEffectContext::ImpureContext\b/),
+            requiredPattern("internal allocation branch", /\bSelfhostEffectKind::InternalAlloc\b/),
+            requiredPattern("unsafe memory branch", /\bSelfhostEffectKind::UnsafeMemory\b/),
+            requiredPattern("external io branch", /\bSelfhostEffectKind::ExternalIo\b/),
+            requiredPattern("nondeterminism branch", /\bSelfhostEffectKind::Nondet\b/),
+            requiredPattern("unsafe memory boundary error", /\bSelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary\b/),
+            requiredPattern("internal allocation escape error", /\bSelfhostEffectBoundaryError::InternalAllocEscapeNotProven\b/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_solve_effect_unsafe_boundary", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "effectBoundary"], {
+        requiredPatterns: [
+            requiredPattern("unsafe boundary authority", /\bSelfhostEffectContext::UnsafeBoundary\b/),
+            requiredPattern("pure effect branch", /\bSelfhostEffectKind::Pure\b/),
+            requiredPattern("internal allocation branch", /\bSelfhostEffectKind::InternalAlloc\b/),
+            requiredPattern("unsafe memory branch", /\bSelfhostEffectKind::UnsafeMemory\b/),
+            requiredPattern("external io branch", /\bSelfhostEffectKind::ExternalIo\b/),
+            requiredPattern("nondeterminism branch", /\bSelfhostEffectKind::Nondet\b/),
+            requiredPattern("unsafe-boundary evidence payload", /\bSelfhostProofEvidence::EffectAllowed UnsafeBoundary\b/),
+            requiredPattern("effect kind is not preserved in evidence", /effect kind .*evidence payload .*保存されません/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_solve_effect_allowed", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "effectBoundary"], {
+        requiredPatterns: [
+            requiredPattern("pure context dispatch", /\bSelfhostEffectContext::PureContext\b/),
+            requiredPattern("impure context dispatch", /\bSelfhostEffectContext::ImpureContext\b/),
+            requiredPattern("unsafe boundary dispatch", /\bSelfhostEffectContext::UnsafeBoundary\b/),
+            requiredPattern("unsafe memory boundary error", /\bSelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary\b/),
+            requiredPattern("impure effect in pure context error", /\bSelfhostEffectBoundaryError::ImpureEffectInPureContext\b/),
+            requiredPattern("internal allocation escape error", /\bSelfhostEffectBoundaryError::InternalAllocEscapeNotProven\b/),
+            requiredPattern("typed effect evidence", /\bSelfhostProofEvidence::EffectAllowed\b/),
+            requiredPattern("typed effect refutation", /\bSelfhostProofRefutation::EffectBoundaryInvalid\b/),
+            requiredPattern("context match static check", /match .*網羅性検査/),
+        ],
+    }),
     requirement("stdlib/neplg2/core/hir/hir/expr.nepl", "SelfhostHirExprKind", ["purpose", "contract"]),
     requirement("stdlib/neplg2/core/hir/hir/expr.nepl", "SelfhostHirFunctionValueIdentityBuildError", ["purpose", "contract"]),
     requirement("stdlib/neplg2/core/hir/hir/expr.nepl", "SelfhostHirCallExpr", ["purpose", "contract", "complexity"]),
@@ -289,8 +362,9 @@ const SECTION_PATTERNS = {
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
     doctest: /\bneplg2:test\b/,
-    errorVariant: /\b(SelfhostCheckerDiagnosticCode|SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostProofRefutation::[A-Za-z0-9_]+|diagnostic code|code enum|typed diagnostic|typed refutation)\b/,
+    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+)\b/,
     authorityBoundary: /\b(authority|typed evidence|parser-provided evidence|parser\/proof|proof layer|source spelling|source text|kind stream|message .*authority|diagnostic kind の authority|表示.*authority)\b/,
+    effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     ownerBoundary: /\b(owner|cleanup obligation|cleanup|borrow|未処理 owner|owner 変換|解放)\b/,
 };
 
@@ -300,7 +374,12 @@ function requirement(relPath, name, sections, options = {}) {
         name,
         sections,
         doctestUses: options.doctestUses || [],
+        requiredPatterns: options.requiredPatterns || [],
     };
+}
+
+function requiredPattern(label, pattern) {
+    return { label, pattern };
 }
 
 function sectionRequirementKey(relPath, name) {
@@ -489,6 +568,11 @@ for (const filePath of walkNeplFiles(selfhostRoot).sort()) {
                 for (const usageName of sectionRequirement.doctestUses) {
                     if (!doc.some((docLine) => docLine.includes(usageName))) {
                         docSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc doctest must explain representative use of ${usageName}`);
+                    }
+                }
+                for (const requiredDocPattern of sectionRequirement.requiredPatterns) {
+                    if (!doc.some((docLine) => requiredDocPattern.pattern.test(docLine))) {
+                        docSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc must mention ${requiredDocPattern.label}`);
                     }
                 }
             }

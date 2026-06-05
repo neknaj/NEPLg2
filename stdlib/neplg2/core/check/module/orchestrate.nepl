@@ -80,6 +80,7 @@ fn selfhost_module_check_step_new %fn SelfhostModuleCheckSummary fn SelfhostRawB
 //: - 検査順序は span -> declaration header -> raw backend -> directive -> summary update です。この順序は、source evidence の妥当性を先に確定してから状態を進めるための契約です。
 //: - `SelfhostModuleItem` の typed evidence と proof layer の refutation が authority です。checker 本体は source text や表示 message を再読して分岐しません。
 //: - diagnostic message はここで作らず、adapter から返った `SelfhostProofRefutation` を `selfhost_module_check_refutation_diag` に委譲します。
+//: - 代表的な失敗は `SelfhostProofRefutation::SourceSpanInvalid`、`SelfhostProofRefutation::ModuleDeclarationHeaderMissing`、`SelfhostProofRefutation::ModuleDeclarationHeaderInvalid`、`SelfhostProofRefutation::RawBackendTextWithoutBlock`、`SelfhostProofRefutation::RawBackendBlockEmpty`、`SelfhostProofRefutation::ModuleDirectiveDuplicate` です。
 //: - `summary` はすべての proof が成功した後だけ更新します。途中の `Err` で count を進めてはいけません。
 //:
 //: [戻/もど]り[値/ち]:

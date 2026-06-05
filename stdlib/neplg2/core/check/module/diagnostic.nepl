@@ -145,10 +145,11 @@ fn selfhost_module_check_directive_duplicate_label %fn SelfhostModuleDirectiveKi
 //:
 //: [契約/けいやく]:
 //: - `duplicate.duplicate_span` は重複側 directive の span です。最初の directive を再探索する処理はここでは行いません。
+//: - diagnostic kind は `SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate` で固定し、message 文字列を分岐 authority にしません。
 //: - note は後続 stage の前提を説明するための補助であり、機械判定には使いません。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `ModuleDirectiveDuplicate` code と primary label / note を持つ diagnostic。
+//: - `SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate` code と primary label / note を持つ diagnostic。
 //:
 //: [計算量/けいさんりょう]:
 //: - directive kind の表示文選択と diagnostic 構築だけなので O(1) です。
