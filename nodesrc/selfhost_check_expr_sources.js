@@ -9,7 +9,9 @@ const CHECK_EXPR_SPLIT_FILES = [
     "stdlib/neplg2/core/check/expr/call_candidate.nepl",
     "stdlib/neplg2/core/check/expr/model.nepl",
     "stdlib/neplg2/core/check/expr/call_reduce.nepl",
+    "stdlib/neplg2/core/check/expr/body_line.nepl",
     "stdlib/neplg2/core/check/expr/stage0.nepl",
+    "stdlib/neplg2/core/check/expr/stage1.nepl",
 ];
 
 function readRepoFile(repoRoot, relPath) {

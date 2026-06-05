@@ -282,7 +282,7 @@ type checker は prefix call reduction を担当する。
 - `@function name` function value identity construction
 - `memo_call` compiler-known primitive
 
-現行 self-host 実装では、`stdlib/neplg2/core/check/expr/` が expression checker の初期境界を持つ。`SelfhostTypeExpectation` は expected type の `SelfhostTypeId` だけでなく、`ExplicitAscription` / `BlockResult` / `OuterConsumerArgument` の由来と span を保持する。`SelfhostCallableCandidate` は候補名、function type であるべき TypeId、effect、generic inference state、span を保持する。call reduction はこれらと `SelfhostExprPrefixList` を受け取り、HIR をまだ生成せず `SelfhostCallReduceResult::DirectCall` または `SelfhostCallReduceError` を返す。
+現行 self-host 実装では、`stdlib/neplg2/core/check/expr/` が expression checker の初期境界を持つ。`SelfhostTypeExpectation` は expected type の `SelfhostTypeId` だけでなく、`ExplicitAscription` / `BlockResult` / `OuterConsumerArgument` の由来と span を保持する。`SelfhostCallableCandidate` は候補名、function type であるべき TypeId、effect、generic inference state、span を保持する。call reduction はこれらと `SelfhostExprPrefixList` を受け取り、HIR をまだ生成せず `SelfhostCallReduceResult::DirectCall` または `SelfhostCallReduceError` を返す。`check/expr/body_line.nepl` は `SelfhostBodySegmentKind::ExpressionLine.head` から prefix list を作ってこの境界へ渡す接続口である。`BlockIntro` は nested body envelope なので `NotExpressionLine` として拒否し、prefix list 生成失敗と call reduction 失敗は別の enum variant に保つ。
 
 この初期境界は fail-closed である。先頭 item が named value で、候補が 1 つだけで、候補 type が function type で、引数数が完全一致し、expected result と候補 result が同じ arena 内で構造一致する場合だけ direct call plan を返す。候補が複数ある場合は、現段階では expected type による narrowing を行わず `OverloadAmbiguous` にする。generic inference state が `EvidenceMissing` / `Conflict` / `Unsupported` の場合は、それぞれ typed error に分ける。これにより、未完成の generic solver や overload solver が成功として後段へ流れない。
 
@@ -741,13 +741,16 @@ Issue slice:
 
 - `%T` ascription から `SelfhostTypeExpectation` を作る接続
 - callable candidate collection
-- `ExpressionLine.head` から `SelfhostExprPrefixList` を作り `check/expr` へ渡す接続
 - argument type checking を含む prefix call reduction stack
 - generic instantiation inference
 - trait bound solving
 - no partial application diagnostics
 - `@function` identity and indirect call
 - pure context effect diagnostics
+
+Completed checkpoint:
+
+- `ExpressionLine.head` から `SelfhostExprPrefixList` を作り `check/expr` へ渡す接続
 
 Performance acceptance:
 
@@ -883,7 +886,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor kind に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction、binder-indexed type parameter の arena/key projection、constructor kind validation と bound plan、pre-HIR `SelfhostExprPrefixList`、declaration body envelope / first expression range 抽出、body envelope からの `ExpressionLine` / `BlockIntro` segmenter を追加した。残件は call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor kind に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction、binder-indexed type parameter の arena/key projection、constructor kind validation と bound plan、pre-HIR `SelfhostExprPrefixList`、declaration body envelope / first expression range 抽出、body envelope からの `ExpressionLine` / `BlockIntro` segmenter、`ExpressionLine.head` から `check/expr` call reduction 初期境界への接続を追加した。残件は `%T` ascription 接続、candidate collection、argument type checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |
