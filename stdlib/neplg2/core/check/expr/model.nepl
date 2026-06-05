@@ -142,6 +142,10 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentLiteralStringMalformed
     ArgumentLiteralStringEscapeUnsupported
     ArgumentLiteralStringSliceFailed
+    ArgumentLiteralCharMalformed
+    ArgumentLiteralCharEscapeUnsupported
+    ArgumentLiteralCharInvalidScalar
+    ArgumentLiteralCharMultipleScalars
     ArgumentNestedCandidatePendingBinding
     ArgumentNestedCandidateMissingSignature
     ArgumentNestedCandidateHeadTokenOutOfBounds
@@ -416,6 +420,30 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars:
                     true
                 _:
                     false

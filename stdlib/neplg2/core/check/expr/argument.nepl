@@ -103,6 +103,10 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     LiteralStringMalformed
     LiteralStringEscapeUnsupported
     LiteralStringSliceFailed
+    LiteralCharMalformed
+    LiteralCharEscapeUnsupported
+    LiteralCharInvalidScalar
+    LiteralCharMultipleScalars
     UnsupportedArgumentExpression
     InternalInvariant
 
@@ -297,6 +301,14 @@ fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentEr
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported error.span
         SelfhostLiteralArgumentErrorKind::StringSliceFailed:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed error.span
+        SelfhostLiteralArgumentErrorKind::CharMalformed:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed error.span
+        SelfhostLiteralArgumentErrorKind::CharEscapeUnsupported:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported error.span
+        SelfhostLiteralArgumentErrorKind::CharInvalidScalar:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralCharInvalidScalar error.span
+        SelfhostLiteralArgumentErrorKind::CharMultipleScalars:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars error.span
 
 //: selfhost_expr_argument_match_literal_with_source: source-backed literal payload を持つ argument match を[作/つく]る
 //:
@@ -306,7 +318,7 @@ fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentEr
 //:
 //: [契約/けいやく]:
 //: - 失敗時には `arena` を解放してから `SelfhostExprArgumentMatchError` を返します。
-//: - `CharLiteral` など HIR payload が未実装の literal は、`literal_payload.nepl` で `TypedExpression` として残り、direct-call HIR lowering 側で fail-closed になります。
+//: - `CharLiteral` は `literal_payload.nepl` で semantic `char` payload に変換され、direct-call HIR lowering 側では Rust 実装と同じ i32-backed char literal へ変換されます。
 //: - この関数は HIR 型や HIR record を扱いません。source-backed literal decode の結果は `SelfhostCheckedArgument` だけに閉じます。
 //:
 //: [戻/もど]り[値/ち]:
