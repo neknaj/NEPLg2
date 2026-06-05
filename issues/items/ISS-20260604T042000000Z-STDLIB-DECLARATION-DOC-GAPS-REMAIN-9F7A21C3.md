@@ -45,6 +45,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の Alloc IO slice で `stdlib/alloc/io/bytebuf.nepl`、`bytebuilder/types.nepl`、`traits.nepl` の `ByteBuf` observer / pointer projection / cleanup、`ByteBuilder` pointer projection、stream trait / forwarding helper docs と report doctest を追加した。trait body には現行 NEPLg2 構文上 doc comment を置けないため、`nodesrc/test_stdlib_documentation_contract.js` は trait body method を個別 declaration として数えず、trait declaration doc に contract を集約する形へ修正した。baseline は `declarations=2488`、`declarationNoDoc=162`、`declarationNoDoctest=1662`、`publicDeclarationNoDoctest=1509`、`privateDeclarationNoDoctest=153` まで改善した。ただし hash32 / string builder / string integer などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の Hash32 slice で `stdlib/alloc/hash/hash32.nepl` と `fnv1a32.nepl` の module doc、`mix`、`hash_bytes_loop`、`hash32` primitive / `str` overload、`Fnv1a32` state / constructor / update / finalize docs と report doctest を追加した。`hash_bytes_loop` は `Option::Some` / `Option::None` の byte read boundary を明記し、`hash32 str` は UTF-8 byte 列を hash 対象にする契約を固定した。さらに `sha256_free` が内部 buffer owner を `free` するのに `%fn` だった純粋性不整合を `%impure fn` へ修正し、owner close doctest を追加した。baseline は `moduleNoDoctest=293`、`declarationNoDoc=161`、`declarationNoDoctest=1651`、`publicDeclarationNoDoctest=1498`、`privateDeclarationNoDoctest=153` まで改善した。ただし string builder / string integer / string UTF-8 helper などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 対象
 
 - `stdlib/core`
@@ -92,6 +94,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日 Alloc IO slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=295`、`declarationNoDoc=162`、`declarationNoDoctest=1662`、`publicDeclarationNoDoctest=1509`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_stdlib_alloc_io_doc_report_contract.js` により、`ByteBufStorage::Empty` / `Owned RegionToken` owner state、非所有 `MemPtr` view、`Option::Some` / `Option::None` pointer and byte access、`ByteBuf` cleanup、`ByteBuilder` pointer projection、stream trait の `StdErrorKind` / `Result` / `impure` boundary、trait body method を個別 doc 対象にしない scanner contract を module 固有にも固定する。
 
+同日 Hash32 slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=293`、`declarationNoDoc=161`、`declarationNoDoctest=1651`、`publicDeclarationNoDoctest=1498`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_stdlib_hash32_doc_report_contract.js` により、Hash32 / FNV-1a の report doctest、signed `i32` bit pattern、非暗号 hash boundary、UTF-8 byte hashing、`Option::Some` / `Option::None` byte read boundary、FNV offset basis / prime / byte range、O(1) / O(n) complexity、`sha256_free` の owner-closing `impure fn` boundary を module 固有にも固定する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -107,6 +111,10 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - 追加される cfg-test-style regular tests
 - `node nodesrc/test_stdlib_diag_doc_report_contract.js`
 - `node nodesrc/test_stdlib_alloc_io_doc_report_contract.js`
+- `node nodesrc/test_stdlib_hash32_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/hash32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/agent2-hash32-doc-smoke-5.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/test_stdlib_hash_string_access_boundary.js`
+- `node nodesrc/test_stdlib_hash_nmd_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i stdlib/alloc/io/traits.nepl -i stdlib/alloc/io/bytebuilder/types.nepl --no-tree -o tmp/agent2-alloc-io-doc-smoke-4.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`
 - `node nodesrc/test_stdlib_builder_owner_boundary.js`

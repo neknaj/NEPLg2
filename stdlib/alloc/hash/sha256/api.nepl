@@ -46,9 +46,42 @@ pub fn sha256_update %impure fn Sha256 impure fn i32 Result Sha256 Sha256UpdateE
 
 //: sha256_free: incremental state の入力 buffer を[解放/かいほう]する
 //:
-//: [目的/もくてき]:
+//: ### [目的/もくてき]
 //: - `sha256_update` 失敗後に返った state や、finalize せず破棄する state の owner を明示的に閉じます。
-pub fn sha256_free %fn Sha256 unit \ctx:
+//:
+//: ### [契約/けいやく]
+//: - `ctx` owner を消費し、内部 buffer owner を `free` で閉じます。
+//: - buffer 解放は副作用境界なので、この helper は `impure fn` です。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `Sha256.buffer` field を取り出して `free` に渡します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - buffer の解放処理に依存します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sha256_free_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"free closes owner\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/hash/sha256" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %i32 match new_sha256:
+//:         Result::Err _e:
+//:             0
+//:         Result::Ok ctx:
+//:             sha256_free ctx
+//:             1
+//:     let report:
+//:         test_report_new "sha256_free_doc"
+//:         |> test_report_push assert_eq_i32 "free closes owner" 1 ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+pub fn sha256_free %impure fn Sha256 unit \ctx:
     free field::get ctx "buffer"
 
 //: sha256_finalize: 32 byte SHA-256 digest を[返/かえ]す

@@ -1,70 +1,149 @@
 //: # fnv1a32
-//: FNV-1a 32-bit [非暗号/ひあんごう] hash
+//: FNV-1a 32-bit [非暗号/ひあんごう] hash state
 //:
 //: ### [目的/もくてき]
 //: - [短/みじか]い key や byte [列/れつ]に[対/たい]する lightweight hash state を[提供/ていきょう]します。
-//: - `update` を[繰/く]り[返/かえ]して byte を[混合/こんごう]し、`finalize` で 32-bit [値/あたい]を[取/と]り[出/だ]せるようにします。
+//: - `fnv1a32_update` を[繰/く]り[返/かえ]して byte を[混合/こんごう]し、`fnv1a32_finalize` で 32-bit [値/あたい]を[取/と]り[出/だ]せるようにします。
 //:
-//: ### [実装/じっそう]
-//: - FNV-1a の[更新式/こうしんしき] `(hash xor byte) * prime` をそのまま[実装/じっそう]します。
+//: ### [契約/けいやく]
+//: - state は `Fnv1a32` value として明示的に[渡/わた]し、global state や platform API に[依存/いぞん]しません。
+//: - 返り値の `i32` は signed integer ですが、hash としては 32-bit bit pattern として[扱/あつか]います。
+//: - [暗号用途/あんごうようと]、DoS [耐性/たいせい]、protocol fingerprint、永続化された識別子には[使/つか]えません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - FNV-1a の offset basis `0x811c9dc5` と prime `16777619` を[使/つか]います。
 //: - state は `Fnv1a32` struct 1 [個/こ]に[保持/ほじ]します。
 //:
-//: ### [注意/ちゅうい]
-//: - [暗号/あんごう]用途には[使/つか]えません。
-//: - [永続化/えいぞくか]や[通信/つうしん]で[互換/ごかん]を[保証/ほしょう]する fingerprint として[使/つか]うものではなく、主に stdlib [内部/ないぶ]の分散用途です。
-//:
 //: ### [計算量/けいさんりょう]
-//: - `update` / `finalize` は O(1) です。
+//: - `fnv1a32_update` / `fnv1a32_finalize` は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fnv1a32_module_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fnv a vector\" expected=\"-468965076\" actual=\"-468965076\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/hash/fnv1a32" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let h0 %Fnv1a32 new_fnv1a32
+//:     let h1 %Fnv1a32 fnv1a32_update h0 97
+//:     let actual %i32 fnv1a32_finalize h1
+//:     let report:
+//:         test_report_new "fnv1a32_module_doc"
+//:         |> test_report_push assert_eq_i32 "fnv a vector" -468965076 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 #import "core/math" as *
 
 //: Fnv1a32: FNV-1a 32-bit hash state
 //:
-//: [目的/もくてき]:
-//: - 逐次 update する 32-bit FNV-1a hash の現在値を保持します。
-//: - `new_fnv1a32` で offset basis から始め、入力 byte ごとに `fnv1a32_update` で state を作り直します。
+//: ### [目的/もくてき]
+//: - 逐次 update する 32-bit FNV-1a hash の現在値を[保持/ほじ]します。
 //:
-//: [実装/じっそう]:
-//: - `hash` field は FNV-1a の内部 accumulator です。
-//: - NEPL の `i32` は bit pattern として扱い、符号付き値に見えても 32-bit wraparound hash として解釈します。
+//: ### [契約/けいやく]
+//: - `hash` field は FNV-1a の accumulator bit pattern です。
+//: - signed `i32` として[見/み]えても hash としては 32-bit bit pattern として[扱/あつか]います。
+//: - この struct 自体は allocation や platform API を[使/つか]いません。
 //:
-//: [注意/ちゅうい]:
-//: - collision resistance や DoS 耐性はありません。公開入力の security boundary には使わないでください。
-//: - protocol 固定 fingerprint ではなく、stdlib 内部の軽量分散用です。
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - field は `hash %i32` だけです。
 //:
-//: [計算量/けいさんりょう]:
+//: ### [計算量/けいさんりょう]
 //: - 定義そのものは O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fnv1a32_struct_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"struct stores state\" expected=\"-2128831035\" actual=\"-2128831035\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/hash/fnv1a32" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let h %Fnv1a32 Fnv1a32 -2128831035
+//:     let actual %i32 fnv1a32_finalize h
+//:     let report:
+//:         test_report_new "fnv1a32_struct_doc"
+//:         |> test_report_push assert_eq_i32 "struct stores state" -2128831035 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct Fnv1a32:
     hash %i32
 
-//: new_fnv1a32: FNV-1a offset basis で state を作る
+//: new_fnv1a32: FNV-1a offset basis で state を[作/つく]る
 //:
-//: [目的/もくてき]:
-//: - オフセット基底値で初期化された `Fnv1a32` を[返/かえ]します。
+//: ### [目的/もくてき]
+//: - FNV-1a [計算/けいさん]を offset basis から[始/はじ]めるための state を[返/かえ]します。
 //:
-//: [実装/じっそう]:
-//: - 基底値 `0x811c9dc5` (`-2128831035`) を state に[保持/ほじ]します。
+//: ### [契約/けいやく]
+//: - 毎回同じ offset basis state を[返/かえ]します。
+//: - allocation や platform API は[使/つか]いません。
 //:
-//: [計算量/けいさんりょう]:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - 基底値 `0x811c9dc5` を signed `i32` bit pattern `-2128831035` として[保持/ほじ]します。
+//:
+//: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"new_fnv1a32_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"offset basis\" expected=\"-2128831035\" actual=\"-2128831035\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/hash/fnv1a32" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let h %Fnv1a32 new_fnv1a32
+//:     let actual %i32 fnv1a32_finalize h
+//:     let report:
+//:         test_report_new "new_fnv1a32_doc"
+//:         |> test_report_push assert_eq_i32 "offset basis" -2128831035 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn new_fnv1a32 %fn void Fnv1a32 \void:
     Fnv1a32 -2128831035
 
-//: fnv1a32_update: 1 byte を FNV-1a state に混ぜる
+//: fnv1a32_update: 1 byte を FNV-1a state に[混/ま]ぜる
 //:
-//: [目的/もくてき]:
+//: ### [目的/もくてき]
 //: - byte を 1 [個/こ][混合/こんごう]した新しい state を[返/かえ]します。
 //:
-//: [実装/じっそう]:
-//: - `(hash xor byte) * 16777619` を[計算/けいさん]します。
-//: - 乗算は i32 の wraparound として下位 32-bit を残します。
+//: ### [契約/けいやく]
+//: - 入力 state を基に新しい `Fnv1a32` value を[返/かえ]します。
+//: - `byte` は 0..255 の値を想定します。呼び出し側が byte 値へ[正規化/せいきか]します。
+//: - 失敗条件はなく、sentinel state を[返/かえ]しません。
 //:
-//: [注意/ちゅうい]:
-//: - `byte` は 0 から 255 の範囲を想定します。呼び出し側で byte 値へ正規化してください。
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `(hash xor byte) * 16777619` を i32 wraparound multiplication として[計算/けいさん]します。
 //:
-//: [計算量/けいさんりょう]:
+//: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fnv1a32_update_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"update byte a\" expected=\"-468965076\" actual=\"-468965076\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/hash/fnv1a32" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let h0 %Fnv1a32 new_fnv1a32
+//:     let h1 %Fnv1a32 fnv1a32_update h0 97
+//:     let actual %i32 fnv1a32_finalize h1
+//:     let report:
+//:         test_report_new "fnv1a32_update_doc"
+//:         |> test_report_push assert_eq_i32 "update byte a" -468965076 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn fnv1a32_update %fn Fnv1a32 fn i32 Fnv1a32 \h\byte:
     let prime %i32 16777619
     let current %i32 h.hash
@@ -72,15 +151,37 @@ pub fn fnv1a32_update %fn Fnv1a32 fn i32 Fnv1a32 \h\byte:
     let next %i32 mul x prime
     Fnv1a32 next
 
-//: fnv1a32_finalize: 現在の 32-bit hash 値を取り出す
+//: fnv1a32_finalize: 現在の 32-bit hash [値/あたい]を[取/と]り[出/だ]す
 //:
-//: [目的/もくてき]:
-//: - [現在/げんざい]の 32-bit hash [値/あたい]を[返/かえ]します。
+//: ### [目的/もくてき]
+//: - [現在/げんざい]の 32-bit hash [値/あたい]を `i32` として[返/かえ]します。
 //:
-//: [注意/ちゅうい]:
-//: - 返り値は signed `i32` ですが、hash としては 32-bit unsigned bit pattern として扱います。
+//: ### [契約/けいやく]
+//: - state の accumulator をそのまま[返/かえ]します。
+//: - 返り値は signed `i32` ですが、hash としては 32-bit bit pattern として[扱/あつか]います。
 //:
-//: [計算量/けいさんりょう]:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `Fnv1a32.hash` field を[読/よ]み[出/だ]します。
+//:
+//: ### [計算量/けいさんりょう]
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"fnv1a32_finalize_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"finalize returns field\" expected=\"123\" actual=\"123\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/hash/fnv1a32" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let h %Fnv1a32 Fnv1a32 123
+//:     let actual %i32 fnv1a32_finalize h
+//:     let report:
+//:         test_report_new "fnv1a32_finalize_doc"
+//:         |> test_report_push assert_eq_i32 "finalize returns field" 123 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn fnv1a32_finalize %fn Fnv1a32 i32 \h:
     h.hash

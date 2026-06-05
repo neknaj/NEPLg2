@@ -1,3 +1,22 @@
+# 2026-06-06 Agent 2 Hash32 documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06 に再確認し、静的検査の正確性、Option / Result と enum error、match による場合分け、純粋性と副作用境界、不変性、doc comment / doctest、詳細 test の分離、DAG 的 module boundary、ゼロコスト抽象化、暫定雑設計の排除を今回の判断基準にした。
+- subagent 事前レビューでは、`hash_bytes_loop` が現在の先頭 no-doc gap であること、`hash32` と `fnv1a32` を同じ hash module family として扱うこと、`Option::Some` / `Option::None` の byte read boundary、signed `i32` bit pattern、FNV offset basis / prime / byte range、非暗号 hash boundary を明記し、report doctest と source policy で固定することが指摘された。
+- `stdlib/alloc/hash/hash32.nepl` では module doc、`mix`、`hash_bytes_loop`、`hash32` bool / i32 / u8 / i64 / str overload の日本語 doc comment と `test_report` doctest を追加した。`hash_bytes_loop` は `checked_string_byte_at` の `Option::Some` / `Option::None` を明示し、`hash32 str` は Unicode scalar 数ではなく UTF-8 byte 列を hash 対象にする契約を固定した。
+- `stdlib/alloc/hash/fnv1a32.nepl` では module doc、`Fnv1a32` state、`new_fnv1a32`、`fnv1a32_update`、`fnv1a32_finalize` の日本語 doc comment と `test_report` doctest を追加した。offset basis `0x811c9dc5`、prime `16777619`、byte range 0..255、signed `i32` bit pattern を明記した。
+- `stdlib/alloc/hash/sha256/api.nepl` では `sha256_free` が内部 buffer owner を `free` するのに `%fn` だったため、Zenn 方針の副作用境界に合わせて `%impure fn` へ修正し、owner close doctest を追加した。これにより `stdlib/tests/hash.n.md` の pure context から impure call する compile failure も解消した。
+- `nodesrc/test_stdlib_hash32_doc_report_contract.js` を追加し、Hash32 / FNV-1a の report doctest、契約と現状説明の分離、O(1) / O(n) complexity、非暗号 hash boundary、UTF-8 byte / Option boundary、narrow `alloc/string/access` import、`sha256_free` の owner-closing `impure fn` boundary を source policy として固定した。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline は `moduleNoDoctest=293`、`declarationNoDoc=161`、`declarationNoDoctest=1651`、`publicDeclarationNoDoctest=1498`、`privateDeclarationNoDoctest=153` へ締め直した。次の sample gaps は `stdlib/alloc/string` 系へ移った。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。Hash32 slice は進んだが、string builder / string integer / string UTF-8 helper 系の declaration doc gap が残っている。
+- 現時点の検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/hash32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/agent2-hash32-doc-smoke-5.json -j 1 --dist web/dist --assert-io`: pass（15/15）
+  - `node nodesrc/test_stdlib_hash32_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/test_stdlib_hash_string_access_boundary.js`: pass
+  - `node nodesrc/test_stdlib_hash_nmd_report_contract.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `trunk build`: pass
+
 # 2026-06-06 Agent selfhost Zenn review continuity checkpoint
 
 - Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T16:42:00+09:00 に再確認した。AGENTS.md の関連方針も確認し、丁寧な doc comment、contract と現状説明の分離、Result / Option / enum error、match 網羅性、pure / impure boundary、試作段階でも品質を落とさないこと、行数制限 / doc comment 長制限を入れないことを今回の判断基準にした。
