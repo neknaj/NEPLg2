@@ -96,6 +96,36 @@ const contracts = [
         name: 'sb_append_i32_doc',
         count: 1,
     },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'char_offsets.nepl'],
+        name: 'alloc_string_char_offsets_module_doc',
+        count: 1,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'char_offsets.nepl'],
+        name: 'alloc_string_char_offsets_step_byte_doc',
+        count: 1,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'char_offsets.nepl'],
+        name: 'alloc_string_char_offsets_step_width_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'char_offsets.nepl'],
+        name: 'alloc_string_char_offsets_struct_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'char_offsets.nepl'],
+        name: 'alloc_string_char_offsets_new_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'char_offsets.nepl'],
+        name: 'alloc_string_char_offsets_result_doc',
+        count: 5,
+    },
 ];
 
 for (const { rel, index, name, count } of contracts) {
@@ -161,6 +191,18 @@ for (const [rel, snippets] of [
             'from_i32_radix v 10',
             '空 builder fallback',
             'O(d) + builder append',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'char_offsets.nepl'],
+        [
+            '公開 API に漏らしません',
+            'Result::Err "string.char invalid slice range"',
+            '`start_byte <= end_byte` や範囲内であることの検査は行いません',
+            '`0 <= start_char <= end_char <= str_char_count(s)`',
+            '`Result` payload を作らずに 1 回の走査',
+            'char は UTF-8 scalar value 単位',
+            'continuation byte や不正な leading byte から始まる位置は 0 を返します',
         ],
     ],
 ]) {

@@ -58,6 +58,11 @@ assert.doesNotMatch(
 );
 assert.match(
     validateCode,
+    /\bfn\s+text_utf8_lead_kind\b[\s\S]*and\s+ge\s+b\s+0\s+le\s+b\s+127/,
+    'std/text UTF-8 classifier must not classify negative sentinel bytes as ASCII',
+);
+assert.match(
+    validateCode,
     /\bfn\s+text_utf8_byte_at_checked\b[\s\S]*or\s+lt\s+idx\s+0\s+le\s+byte_len\s+idx[\s\S]*let\s+ptr\s+<MemPtr<u8>>\s+mem_ptr_add\s+data\s+idx[\s\S]*match\s+load_u8\s+ptr:/,
     'std/text checked byte reader must carry byte_len and keep mem_ptr_add as call-head evidence',
 );

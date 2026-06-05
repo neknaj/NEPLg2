@@ -169,7 +169,7 @@ pub fn string_utf8_is_continuation %fn i32 bool \b:
 //: ```
 pub fn string_utf8_lead_kind %fn i32 StringUtf8LeadKind \b:
     if:
-        le b 127
+        and ge b 0 le b 127
         then:
             StringUtf8LeadKind::Ascii
         else:

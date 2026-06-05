@@ -7,6 +7,33 @@
 //: [注意/ちゅうい]:
 //: - この module は offset 計算だけを所有します。新しい `str` の構築は `alloc/string/slice` と `alloc/string/storage` が行います。
 //: - char は UTF-8 scalar value 単位です。grapheme cluster や表示幅は扱いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_char_offsets_module_doc\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"char range maps to byte range\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/char_offsets" as *
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let ok %bool match str_char_slice_offsets_result "AあB" 1 2:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok offsets:
+//:             let start %i32 *field::get_ref &offsets "start"
+//:             let end %i32 *field::get_ref &offsets "end"
+//:             and eq start 1 eq end 4
+//:     let report:
+//:         test_report_new "alloc_string_char_offsets_module_doc"
+//:         |> test_report_push assert "char range maps to byte range" ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
@@ -19,6 +46,39 @@
 #import "alloc/string/byte_index" as *
 #import "alloc/string/utf8" as *
 
+//: str_utf8_step_byte_or_invalid: `checked_string_byte_at` の `Option` を内部 sentinel byte へ変換する
+//:
+//: [目的/もくてき]:
+//: - `str_utf8_step_width_at` が byte reader の `Option::Some` / `Option::None` を 1 つの i32 byte 値として扱えるようにします。
+//: - 範囲外を `-1` に畳むのはこの module 内部の走査 helper だけであり、公開 API の error 表現には使いません。
+//:
+//: [契約/けいやく]:
+//: - `idx` が `str` の byte 範囲内なら、その byte 値を返します。
+//: - 範囲外なら `-1` を返します。caller は `StringUtf8LeadKind::Invalid` へ分類される値として扱う必要があります。
+//: - sentinel は公開 API に漏らしません。上位の `str_char_slice_offsets_result` は不正幅を `Result::Err "string.char invalid slice range"` へ畳みます。
+//:
+//: [現状/げんじょう]:
+//: - `checked_string_byte_at` の `Option` を `match` で網羅し、`Option::None` の分岐だけ sentinel に変換します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_char_offsets_step_byte_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"continuation byte rejected\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/char_offsets" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_char_offsets_step_byte_doc"
+//:         |> test_report_push assert_eq_i32 "continuation byte rejected" 0 str_utf8_step_width_at "Aあ" 2
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn str_utf8_step_byte_or_invalid %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
@@ -38,9 +98,29 @@ fn str_utf8_step_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //: [注意/ちゅうい]:
 //: - `byte_index` は `0 <= byte_index < len(s)` の範囲で呼び出す内部 helper です。
 //: - `str` の UTF-8 不変条件が壊れていない限り 0 にはなりません。
+//: - continuation byte や不正な leading byte から始まる位置は 0 を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_char_offsets_step_width_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"ASCII width\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"three byte width\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"continuation width\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/char_offsets" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_char_offsets_step_width_doc"
+//:         |> test_report_push assert_eq_i32 "ASCII width" 1 str_utf8_step_width_at "Aあ" 0
+//:         |> test_report_push assert_eq_i32 "three byte width" 3 str_utf8_step_width_at "Aあ" 1
+//:         |> test_report_push assert_eq_i32 "continuation width" 0 str_utf8_step_width_at "Aあ" 2
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_utf8_step_width_at %fn str fn i32 i32 \s\byte_index:
     let n %i32 len s
     let b0 %i32 str_utf8_step_byte_or_invalid s byte_index
@@ -120,10 +200,78 @@ pub fn str_utf8_step_width_at %fn str fn i32 i32 \s\byte_index:
 //:
 //: [目的/もくてき]:
 //: - `str_slice_chars_result` が 1 回の走査で求めた start/end byte offset をまとめて返します。
+//: - 2 つの `i32` を裸で返さず、field 名により start/end の意味を静的に追いやすくします。
+//:
+//: [契約/けいやく]:
+//: - `start` は inclusive な開始 byte offset、`end` は exclusive な終了 byte offset です。
+//: - この struct は offset pair だけを保持し、元の `str` owner や byte buffer owner は保持しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access は O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_char_offsets_struct_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"struct start\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"struct end\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/char_offsets" as *
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let offsets %StrCharSliceOffsets match str_char_slice_offsets_result "AあB" 1 2:
+//:         Result::Err _e:
+//:             str_char_slice_offsets_new 0 0
+//:         Result::Ok found:
+//:             found
+//:     let start %i32 *field::get_ref &offsets "start"
+//:     let end %i32 *field::get_ref &offsets "end"
+//:     let report:
+//:         test_report_new "alloc_string_char_offsets_struct_doc"
+//:         |> test_report_push assert_eq_i32 "struct start" 1 start
+//:         |> test_report_push assert_eq_i32 "struct end" 4 end
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct StrCharSliceOffsets:
     start %i32
     end %i32
 
+//: str_char_slice_offsets_new: start/end byte offset を `StrCharSliceOffsets` にまとめる
+//:
+//: [目的/もくてき]:
+//: - char slice 走査中に確定した 2 つの byte offset を、名前付き field を持つ値として返します。
+//:
+//: [契約/けいやく]:
+//: - `start_byte` と `end_byte` をそのまま field に格納します。
+//: - `start_byte <= end_byte` や範囲内であることの検査は行いません。検査済みの offset を渡す責務は caller にあります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_char_offsets_new_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"new start\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"new end\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/char_offsets" as *
+//:| #import "core/field" as field
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let offsets %StrCharSliceOffsets str_char_slice_offsets_new 2 7
+//:     let start %i32 *field::get_ref &offsets "start"
+//:     let end %i32 *field::get_ref &offsets "end"
+//:     let report:
+//:         test_report_new "alloc_string_char_offsets_new_doc"
+//:         |> test_report_push assert_eq_i32 "new start" 2 start
+//:         |> test_report_push assert_eq_i32 "new end" 7 end
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_char_slice_offsets_new %fn i32 fn i32 StrCharSliceOffsets \start_byte\end_byte:
     StrCharSliceOffsets start_byte end_byte
 
@@ -136,8 +284,59 @@ pub fn str_char_slice_offsets_new %fn i32 fn i32 StrCharSliceOffsets \start_byte
 //: - `str_utf8_step_width_at` で UTF-8 幅だけを読み、`Result` payload を作らずに 1 回の走査で start/end を確定します。
 //: - `end_char == str_char_count(s)` の場合は末尾 byte offset を end として返します。
 //:
+//: [契約/けいやく]:
+//: - `0 <= start_char <= end_char <= str_char_count(s)` なら `Result::Ok` を返します。
+//: - 負の index、`end_char < start_char`、または存在しない char index を含む範囲は `Result::Err` です。
+//: - `Result::Err` payload は diagnostic 用の文字列であり、入力 `str` owner を保持しません。
+//:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_char_offsets_result_doc\" count=5 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"result start\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"result end\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"empty slice ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"end char count ok\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"invalid range rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/char_offsets" as *
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let offsets %StrCharSliceOffsets match str_char_slice_offsets_result "AあB" 1 2:
+//:         Result::Err _e:
+//:             str_char_slice_offsets_new 0 0
+//:         Result::Ok found:
+//:             found
+//:     let start %i32 *field::get_ref &offsets "start"
+//:     let end %i32 *field::get_ref &offsets "end"
+//:     let empty_ok %bool match str_char_slice_offsets_result "AあB" 1 1:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok empty_offsets:
+//:             let empty_start %i32 *field::get_ref &empty_offsets "start"
+//:             let empty_end %i32 *field::get_ref &empty_offsets "end"
+//:             and eq empty_start 1 eq empty_end 1
+//:     let end_count_ok %bool match str_char_slice_offsets_result "AあB" 2 3:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok tail_offsets:
+//:             let tail_start %i32 *field::get_ref &tail_offsets "start"
+//:             let tail_end %i32 *field::get_ref &tail_offsets "end"
+//:             and eq tail_start 4 eq tail_end 5
+//:     let invalid %bool is_err str_char_slice_offsets_result "AあB" 2 1
+//:     let report:
+//:         test_report_new "alloc_string_char_offsets_result_doc"
+//:         |> test_report_push assert_eq_i32 "result start" 1 start
+//:         |> test_report_push assert_eq_i32 "result end" 4 end
+//:         |> test_report_push assert "empty slice ok" empty_ok
+//:         |> test_report_push assert "end char count ok" end_count_ok
+//:         |> test_report_push assert "invalid range rejected" invalid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_char_slice_offsets_result %fn str fn i32 fn i32 Result StrCharSliceOffsets str \s\start_char\end_char:
     let n %i32 len s
     let mut byte_i %i32 0

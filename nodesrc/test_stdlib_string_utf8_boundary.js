@@ -36,6 +36,7 @@ assert.doesNotMatch(rootCode, /fn\s+string_from_utf8_mem_result\b/, "alloc/strin
 assert.match(storageCode, /fn\s+string_from_utf8_mem_result\b[\s\S]*string_utf8_validate_mem\s+src\s+byte_len/, "alloc/string/storage must keep checked str construction at the string ownership boundary");
 
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:[\s\S]*Ascii[\s\S]*Two[\s\S]*Three[\s\S]*Four[\s\S]*Invalid/, "alloc/string/utf8 must model leading byte categories as an enum");
+assert.match(utf8Code, /fn\s+string_utf8_lead_kind\b[\s\S]*and\s+ge\s+b\s+0\s+le\s+b\s+127/, "alloc/string/utf8 must not classify negative sentinel bytes as ASCII");
 assert.doesNotMatch(utf8Code, /pub\s+fn\s+string_utf8_byte_at\b/, "single-byte raw UTF-8 reader must not be public");
 assert.doesNotMatch(utf8Code, /pub\s+fn\s+string_utf8_validate_(?:two|three|four)\b/, "sequence validators must stay private implementation details");
 assert.match(utf8Code, /fn\s+string_utf8_byte_at_checked\b[\s\S]*or\s+lt\s+idx\s+0\s+le\s+byte_len\s+idx[\s\S]*let\s+ptr\s+<MemPtr<u8>>\s+mem_ptr_add\s+data\s+idx[\s\S]*match\s+load_u8\s+ptr:/, "private UTF-8 byte reader must carry byte_len and expose mem_ptr_add as call-head evidence before typed load");
