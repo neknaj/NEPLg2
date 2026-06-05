@@ -1,3 +1,21 @@
+# 2026-06-05 Agent selfhost literal value payload checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも技術的負債を残さない方針を判断基準にした。
+- subagent review では、literal 値を `lower/hir/direct_call.nepl` で source token から再解析するのは退行であり、source-backed `check/expr` で意味値 payload を保存するべきだと確認した。特に string は raw quoted lexeme と semantic value を混同してはいけないため、escape decode が未実装の間は simple string だけ accepted にする方針を採用した。
+- `stdlib/neplg2/core/check/expr/literal_payload.nepl` を追加した。bool literal は `true` / `false` を semantic bool payload へ、10 進 int literal は `string::to_i32` で i32 payload へ、escape を含まない string literal は quote を除いた semantic string payload へ変換する。
+- `SelfhostCheckedArgumentKind` に `BoolLiteral %bool`、`I32Literal %i32`、`StrLiteral %str` を追加した。`check/expr` は HIR を import せず、`lower/hir/direct_call.nepl` がこれらを HIR `BoolLiteral` / `I32Literal` / `StrLiteral` child へ変換する。
+- hex integer は `ArgumentLiteralI32RadixUnsupported`、不正 bool は `ArgumentLiteralBoolInvalid`、不正 i32 は `ArgumentLiteralI32Invalid`、quote 境界不正 string は `ArgumentLiteralStringMalformed`、escape 付き string は `ArgumentLiteralStringEscapeUnsupported` として typed error にした。これらを `UnsupportedArgumentExpression` へ潰さない。
+- `CharLiteral` は HIR payload がまだ無いため今回の accepted lowering には入れていない。char literal、escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` の checked tree payload は次 slice の残件として `todo.md` と issue に残した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-literal-payload.json`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-literal-lowering.json`: pass（2/2）
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost NamedValue HIR variable identity checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも技術的負債を残さない方針を判断基準にした。

@@ -163,13 +163,38 @@ assert.match(
 );
 assert.match(
     source,
-    /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
-    "checked argument payload must preserve function value, nested call, block-result, range, type, and span evidence",
+    /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*BoolLiteral %bool[\s\S]*I32Literal %i32[\s\S]*StrLiteral %str[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
+    "checked argument payload must preserve literal value, function value, nested call, block-result, range, type, and span evidence",
 );
 assert.match(
     source,
     /selfhost_checked_argument_unit_value[\s\S]*SelfhostCheckedArgumentKind::UnitValue[\s\S]*fn selfhost_expr_argument_checked_simple_item[\s\S]*SelfhostExprPrefixItemKind::UnitValue:[\s\S]*selfhost_checked_argument_unit_value/,
     "unit literal arguments must be preserved as a dedicated checked payload instead of a source-reread TypedExpression",
+);
+assert.match(
+    source,
+    /# check\/expr\/literal_payload[\s\S]*pub enum SelfhostLiteralArgumentErrorKind:[\s\S]*TokenOutOfBounds[\s\S]*BoolInvalid[\s\S]*I32Invalid[\s\S]*I32RadixUnsupported[\s\S]*StringMalformed[\s\S]*StringEscapeUnsupported[\s\S]*pub fn selfhost_literal_argument_checked_with_source %fn &Vec SelfhostToken fn str fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId Result SelfhostCheckedArgument SelfhostLiteralArgumentError/,
+    "literal argument payload creation must live in its own source-backed check/expr module with typed failures",
+);
+assert.match(
+    source,
+    /selfhost_literal_argument_bool_from_lexeme[\s\S]*string::str_eq lexeme "true"[\s\S]*string::str_eq lexeme "false"[\s\S]*selfhost_checked_argument_bool_literal/,
+    "bool literal arguments must store semantic bool payloads in checked arguments",
+);
+assert.match(
+    source,
+    /selfhost_literal_argument_i32_has_unsupported_radix[\s\S]*I32RadixUnsupported[\s\S]*string::to_i32 lexeme[\s\S]*selfhost_checked_argument_i32_literal/,
+    "i32 literal arguments must parse decimal i32 values and fail closed for unsupported radix forms",
+);
+assert.match(
+    source,
+    /selfhost_literal_argument_string_value_from_lexeme[\s\S]*StringEscapeUnsupported[\s\S]*string::str_slice lexeme 1 sub n 1[\s\S]*selfhost_checked_argument_str_literal/,
+    "string literal arguments must store unquoted semantic string values and reject escape decoding until implemented",
+);
+assert.match(
+    source,
+    /selfhost_expr_argument_match_literal_with_source[\s\S]*selfhost_literal_argument_checked_with_source tokens source item item_index next_index expected_type[\s\S]*selfhost_type_arena_free arena[\s\S]*selfhost_expr_argument_match_error_from_literal literal_error/,
+    "source-backed argument checking must convert literal payload failures into typed argument errors after freeing the arena owner",
 );
 assert.match(
     source,
@@ -193,7 +218,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*UnsupportedArgumentExpression/,
+    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*LiteralTokenOutOfBounds[\s\S]*LiteralBoolInvalid[\s\S]*LiteralI32Invalid[\s\S]*LiteralI32RadixUnsupported[\s\S]*LiteralStringMalformed[\s\S]*LiteralStringEscapeUnsupported[\s\S]*UnsupportedArgumentExpression/,
     "argument expression scan failures must stay typed instead of collapsing into a boolean",
 );
 assert.match(
@@ -205,6 +230,11 @@ assert.match(
     source,
     /SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument:[\s\S]*SelfhostCallReduceErrorKind::UnsupportedArgumentExpression[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueUnresolved:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueUnresolved[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueEvidenceMissing:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueExpectedFunctionType:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueExpectedFunctionType[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueMissingName:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingName[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueUnresolved:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueUnresolved[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueAmbiguous:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueAmbiguous[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValuePendingBinding:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValuePendingBinding[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueMissingSignature:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingSignature[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueHeadTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueHeadTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueOutOfMemory:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueOutOfMemory[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueGenericUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueTypeMismatch:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch/,
     "call reducer must map argument-scope ascription, named value evidence, and explicit function value failures separately from generic unsupported argument expressions",
+);
+assert.match(
+    source,
+    /SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported/,
+    "call reducer must preserve literal payload decode failures as typed call-reduction errors",
 );
 assert.match(
     source,

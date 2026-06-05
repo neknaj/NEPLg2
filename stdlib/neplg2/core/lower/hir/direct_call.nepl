@@ -5,6 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - `check/expr` は direct call として縮約できることを証明しますが、HIR record は生成しません。この module は、その checker-side plan と checked argument payload を HIR module の expression table へ落とします。
+//: - `BoolLiteral` / `I32Literal` / `StrLiteral` argument は `SelfhostCheckedArgumentKind` に保存済みの意味値を HIR literal payload へ写像します。lowering では literal lexeme を解析しません。
 //: - `NamedValue` argument は `SelfhostCheckedArgumentKind::NamedValue` として DefId-linked value identity を保持しています。この identity を `SelfhostHirExprPayload::Var` に変換します。
 //: - 明示 `@ident` argument は `SelfhostCheckedArgumentKind::FunctionValue` として `SelfhostCallableCandidate` を保持しています。この candidate を `lower/hir/function_value.nepl` 経由で `SelfhostHirExprPayload::FnValue` に変換します。
 //: - lowering が prefix token を再読して function identity を探すと、checker が選んだ DefId-linked candidate とずれる危険があります。そのため、ここでは checked argument list と selected candidate table だけを authority とします。
@@ -12,7 +13,7 @@
 //: [契約/けいやく]:
 //: - 入力 module は owner として受け取り、成功時は `SelfhostHirModuleExprAlloc` の中で更新済み owner を返します。
 //: - 失敗時は入力 module owner と、この module が作った一時 Vec owner を解放してから typed error を返します。
-//: - 現 checkpoint では `UnitValue`、`NamedValue`、`FunctionValue` argument を accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、詳細な literal / nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
+//: - 現 checkpoint では `UnitValue`、bool / i32 / simple string literal、`NamedValue`、`FunctionValue` argument を accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、char literal / escaped string / nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
 //: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
 //:
 //: [計算量/けいさんりょう]:
@@ -315,16 +316,38 @@ fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impu
 //:
 //: [目的/もくてき]:
 //: - 引数ごとの checked payload を HIR expression record へ変換します。
+//: - bool / i32 / string literal は checker が保存した意味値をそのまま HIR literal payload へ入れます。
 //: - `NamedValue` は checker が確定した DefId-linked identity を HIR value identity へ写像します。lowering では scope lookup や token lexeme 復元を行いません。
 //: - `FunctionValue` は DefId-linked candidate を `selfhost_hir_expr_fn_value_from_candidate` へ渡します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: module に child expression が追加され、`alloc.expr_id` がその child の id です。
-//: - `Err(UnsupportedArgumentKind)`: 値 payload 未保存の literal / nested call / block result は、まだ HIR expression tree へ落とせないため拒否しました。
+//: - `Err(UnsupportedArgumentKind)`: 値 payload 未保存の char literal / escaped string / nested call / block result は、まだ HIR expression tree へ落とせないため拒否しました。
 pub fn selfhost_hir_lower_checked_argument %impure fn SelfhostHirModule impure fn SelfhostCheckedArgument Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\argument:
     match *field::get_ref &argument "kind":
         SelfhostCheckedArgumentKind::UnitValue:
             let expr %SelfhostHirExpr selfhost_hir_expr_unit argument.value_type argument.span
+            match selfhost_hir_module_add_expr module expr:
+                Result::Ok alloc:
+                    Result::Ok alloc
+                Result::Err _e:
+                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
+        SelfhostCheckedArgumentKind::BoolLiteral value:
+            let expr %SelfhostHirExpr selfhost_hir_expr_bool_literal argument.value_type argument.span value
+            match selfhost_hir_module_add_expr module expr:
+                Result::Ok alloc:
+                    Result::Ok alloc
+                Result::Err _e:
+                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
+        SelfhostCheckedArgumentKind::I32Literal value:
+            let expr %SelfhostHirExpr selfhost_hir_expr_i32_literal argument.value_type argument.span value
+            match selfhost_hir_module_add_expr module expr:
+                Result::Ok alloc:
+                    Result::Ok alloc
+                Result::Err _e:
+                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
+        SelfhostCheckedArgumentKind::StrLiteral value:
+            let expr %SelfhostHirExpr selfhost_hir_expr_str_literal argument.value_type argument.span value
             match selfhost_hir_module_add_expr module expr:
                 Result::Ok alloc:
                     Result::Ok alloc

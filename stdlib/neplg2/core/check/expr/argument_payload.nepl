@@ -11,8 +11,10 @@
 //: - この module は HIR record を生成しません。HIR への変換は `neplg2/core/lower/hir` が担当します。
 //: - `FunctionValue` は、`@ident` argument が expected function type と照合済みで、monomorphic candidate として一意に解決されたことを表します。
 //: - `UnitValue` は、値 payload を持たずに HIR `Unit` へ下ろせる `unit` literal argument を表します。
+//: - `BoolLiteral` と `I32Literal` は、source-backed checker が token lexeme を一度だけ解析して得た意味値を保持します。lowering は source text を再読しません。
+//: - `StrLiteral` は、escape を含まない string literal から得た意味値を保持します。escape decode は別 slice の責務であり、この payload に raw quoted lexeme を入れてはいけません。
 //: - `NamedValue` は、scope と value type evidence で照合済みの値参照を、DefId-linked identity として表します。
-//: - `TypedExpression` は、数値 / 文字列 literal、ascribed literal など、現 checkpoint で literal 値をまだ持たない通常の typed expression を表します。
+//: - `TypedExpression` は、char literal、escape 付き string、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。
 //: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
 //:
 //: [計算量/けいさんりょう]:
@@ -65,6 +67,9 @@ pub fn selfhost_checked_value_identity_new %fn str fn SelfhostDefId fn SelfhostD
 //: - `NamedValue`、`FunctionValue`、`NestedDirectCall` は identity payload を保持し、名前文字列だけへ戻る退行を防ぎます。
 pub enum SelfhostCheckedArgumentKind:
     UnitValue
+    BoolLiteral %bool
+    I32Literal %i32
+    StrLiteral %str
     NamedValue %SelfhostCheckedValueIdentity
     TypedExpression
     FunctionValue %SelfhostCallableCandidate
@@ -107,7 +112,7 @@ pub fn selfhost_checked_argument_new %fn SelfhostCheckedArgumentKind fn i32 fn i
 //: selfhost_checked_argument_typed_expression: 通常の typed expression argument を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - named value、数値 / 文字列 literal、ascription 付き literal / named value など、関数値 identity や literal 値をまだ payload 化していない argument の共通 constructor です。
+//: - char literal、escape 付き string、ascription 付き複合式など、関数値 identity や literal 値をまだ payload 化していない argument の共通 constructor です。
 pub fn selfhost_checked_argument_typed_expression %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \start_index\next_index\value_type\span:
     selfhost_checked_argument_new SelfhostCheckedArgumentKind::TypedExpression start_index next_index value_type span
 
@@ -118,6 +123,39 @@ pub fn selfhost_checked_argument_typed_expression %fn i32 fn i32 fn SelfhostType
 //: - `TypedExpression` に丸めず専用 variant にすることで、HIR lowering が source token を再読せずに `unit` child を構築できます。
 pub fn selfhost_checked_argument_unit_value %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \start_index\next_index\value_type\span:
     selfhost_checked_argument_new SelfhostCheckedArgumentKind::UnitValue start_index next_index value_type span
+
+//: selfhost_checked_argument_bool_literal: bool literal argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-backed checker が `true` / `false` の lexeme を意味値へ解析した後、その値を checked payload として保存します。
+//: - HIR lowering はこの値だけを使い、token buffer や source text を再読しません。
+//:
+//: [契約/けいやく]:
+//: - caller は token kind が `BoolLiteral` で、lexeme が正当な bool literal として解析済みであることを保証します。
+pub fn selfhost_checked_argument_bool_literal %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn bool SelfhostCheckedArgument \start_index\next_index\value_type\span\value:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::BoolLiteral value start_index next_index value_type span
+
+//: selfhost_checked_argument_i32_literal: i32 literal argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-backed checker が整数 token を i32 の意味値へ解析した後、その値を checked payload として保存します。
+//: - numeric defaulting や suffix 解決を lowering へ持ち込まず、型検査済みの `i32` argument として扱います。
+//:
+//: [契約/けいやく]:
+//: - caller は token kind が `IntLiteral` で、現在の checkpoint が扱う 10 進 i32 literal として解析済みであることを保証します。
+pub fn selfhost_checked_argument_i32_literal %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn i32 SelfhostCheckedArgument \start_index\next_index\value_type\span\value:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::I32Literal value start_index next_index value_type span
+
+//: selfhost_checked_argument_str_literal: string literal argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-backed checker が string literal の token spelling から意味値を取り出した後、その値を checked payload として保存します。
+//: - 現 checkpoint では escape を含まない string literal だけを受理し、raw quoted lexeme を HIR へ渡す退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `value` は引用符を含まない semantic string value です。`"abc"` の payload は `abc` であり、`"abc"` という raw lexeme ではありません。
+pub fn selfhost_checked_argument_str_literal %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn str SelfhostCheckedArgument \start_index\next_index\value_type\span\value:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::StrLiteral value start_index next_index value_type span
 
 //: selfhost_checked_argument_named_value: `NamedValue` argument を[作/つく]る
 //:

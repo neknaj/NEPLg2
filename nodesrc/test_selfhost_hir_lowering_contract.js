@@ -65,8 +65,8 @@ assert.match(
 );
 assert.match(
     directCall,
-    /pub fn selfhost_hir_lower_checked_argument[\s\S]*SelfhostCheckedArgumentKind::UnitValue:[\s\S]*selfhost_hir_expr_unit argument\.value_type argument\.span[\s\S]*SelfhostCheckedArgumentKind::NamedValue identity:[\s\S]*selfhost_hir_value_identity_new identity\.name identity\.def_id argument\.value_type identity\.kind[\s\S]*selfhost_hir_expr_var argument\.value_type argument\.span hir_identity[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate:[\s\S]*selfhost_hir_expr_fn_value_from_candidate candidate argument\.span[\s\S]*SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind/,
-    "direct call lowering must lower UnitValue, NamedValue, and FunctionValue payloads without re-reading source and fail closed for unsupported argument kinds",
+    /pub fn selfhost_hir_lower_checked_argument[\s\S]*SelfhostCheckedArgumentKind::UnitValue:[\s\S]*selfhost_hir_expr_unit argument\.value_type argument\.span[\s\S]*SelfhostCheckedArgumentKind::BoolLiteral value:[\s\S]*selfhost_hir_expr_bool_literal argument\.value_type argument\.span value[\s\S]*SelfhostCheckedArgumentKind::I32Literal value:[\s\S]*selfhost_hir_expr_i32_literal argument\.value_type argument\.span value[\s\S]*SelfhostCheckedArgumentKind::StrLiteral value:[\s\S]*selfhost_hir_expr_str_literal argument\.value_type argument\.span value[\s\S]*SelfhostCheckedArgumentKind::NamedValue identity:[\s\S]*selfhost_hir_value_identity_new identity\.name identity\.def_id argument\.value_type identity\.kind[\s\S]*selfhost_hir_expr_var argument\.value_type argument\.span hir_identity[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate:[\s\S]*selfhost_hir_expr_fn_value_from_candidate candidate argument\.span[\s\S]*SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind/,
+    "direct call lowering must lower UnitValue, literal value, NamedValue, and FunctionValue payloads without re-reading source and fail closed for unsupported argument kinds",
 );
 assert.match(
     directCall,
@@ -85,8 +85,8 @@ assert.match(
 );
 assert.doesNotMatch(
     directCall,
-    /SelfhostExprPrefixList|SelfhostExprPrefixItem|selfhost_expr_prefix_list_from_syntax_range|selfhost_callable_candidates_collect_for_head_item/,
-    "direct call HIR lowering must not re-read prefix tokens to recover argument or function identity",
+    /SelfhostExprPrefixList|SelfhostExprPrefixItem|SelfhostToken|selfhost_token_lexeme|selfhost_expr_prefix_list_from_syntax_range|selfhost_callable_candidates_collect_for_head_item/,
+    "direct call HIR lowering must not re-read prefix tokens or source lexemes to recover argument or function identity",
 );
 assert.doesNotMatch(
     readRepoFile("stdlib/neplg2/core/check/expr.nepl"),

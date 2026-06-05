@@ -103,6 +103,18 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported error.span
         SelfhostExprArgumentMatchErrorKind::FunctionValueTypeMismatch:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported error.span
         SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedArgumentExpression error.span
         SelfhostExprArgumentMatchErrorKind::InternalInvariant:

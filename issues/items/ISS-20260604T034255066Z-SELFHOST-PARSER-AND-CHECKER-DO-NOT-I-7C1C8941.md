@@ -77,7 +77,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `check/expr/argument_payload.nepl` を追加し、実引数式ごとの checked evidence を `SelfhostCheckedArgument` として保持するようにした。`unit` は `UnitValue`、scope と value evidence で照合済みの値参照は `NamedValue(SelfhostCheckedValueIdentity)`、`@ident` は `FunctionValue(candidate)` payload を持つ。nested named call は `NestedDirectCall(candidate)`、末尾 block result は `BlockResult` として summary を残す。`check/expr` は HIR を直接生成せず、後続の `lower/hir` がこの payload を消費する。
 - 2026-06-05: `lower/hir/direct_call.nepl` を追加し、`SelfhostCallReduceResult::DirectCall` と `Vec SelfhostCheckedArgument` を消費して HIR child expression と parent call expression を作る初期 lowering を実装した。現 checkpoint では `UnitValue` を HIR `Unit` child、`NamedValue(identity)` を DefId-linked HIR `Var` child、`FunctionValue(candidate)` を HIR `FnValue` child にする。`TypedExpression` / `NestedDirectCall` / `BlockResult` は lowerable payload が不足しているため `UnsupportedArgumentKind` として fail-closed にする。callee は `candidate_index` から candidate table を読むだけで、prefix token や scope lookup を再実行しない。
 - 2026-06-05: HIR expression model の `Var` payload を `str` から `SelfhostHirValueIdentity` へ変更した。`argument.nepl` は `name -> latest binding -> DefId -> value type evidence` の成功時に `SelfhostCheckedValueIdentity` を作り、`direct_call.nepl` はその payload だけを使って HIR `Var` child を作る。lowering は source token、scope lookup、value evidence lookup を再実行せず、DefId / 型 / binding kind を持つ variable identity を保持する。
-- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、数値 / bool / char / string literal value payload、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `check/expr/literal_payload.nepl` を追加し、source-backed checker が bool / 10 進 i32 / escape なし string literal の意味値を `SelfhostCheckedArgumentKind::BoolLiteral` / `I32Literal` / `StrLiteral` として保存するようにした。`lower/hir/direct_call.nepl` はこの payload だけを使って HIR `BoolLiteral` / `I32Literal` / `StrLiteral` child を作り、source token や literal lexeme を再読しない。hex integer は `ArgumentLiteralI32RadixUnsupported`、escape 付き string は `ArgumentLiteralStringEscapeUnsupported` として fail-closed にした。
+- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、char literal payload、escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -108,6 +109,13 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/run_source_policy_regressions.js --warn-only`
 - `node nodesrc/issues.js check --dir issues`
 - `git diff --check`
+
+2026-06-05 literal value payload checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-literal-payload.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-literal-lowering.json`
 
 2026-06-05 type resolver input checkpoint:
 
@@ -315,3 +323,14 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_key.n.md -o tmp\selfhost-type-key-parameter.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_resolver_type_parameters.n.md -o tmp\selfhost-type-resolver-type-parameters-projection.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_type_proof.n.md -o tmp\selfhost-type-proof-parameter-kind.json --no-tree -j 1 --assert-io --dist web\dist`
+
+2026-06-05 literal value payload HIR lowering checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- `node nodesrc/test_selfhost_hir_expr_payload.js`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-literal-payload.json`（3/3 pass）
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-literal-lowering.json`（2/2 pass）
+- `node nodesrc/issues.js check --dir issues`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `git diff --check`

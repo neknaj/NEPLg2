@@ -24,7 +24,7 @@
 
 2026-04-26 NEPLg2 Self-host
 
-- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の次 slice として、数値 / bool / char / string literal value payload と `NestedDirectCall` / `BlockResult` の checked tree payload を設計し、`TypedExpression` / summary payload に丸めている argument を source 再読なしで HIR expression tree へ lowering できる形に分解する
+- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の次 slice として、char literal payload、escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` の checked tree payload を設計し、`TypedExpression` / summary payload に残っている argument を source 再読なしで HIR expression tree へ lowering できる形に分解する
 - `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の後続 slice として、block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 境界を追加する
 - `stdlib/doc-comment-boilerplate` branch で `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` に沿って boilerplate 化した stdlib doc comment を具体的な説明へ置き換える
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
