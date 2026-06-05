@@ -12,12 +12,14 @@
 //: - `SelfhostCallReduceResult::DirectCall` は「call tree へ縮約できる」という checker-side plan であり、HIR node ではありません。
 //: - unsupported / fail-closed は `Result::Err` として返します。未対応機能を成功 variant にして後段へ流してはいけません。
 
+#import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/ty" as *
 #import "./call_candidate" as *
+#import "./argument_payload" as *
 
 //: SelfhostReducedCall: direct named call として縮約できた payload
 //:
@@ -80,10 +82,22 @@ impl Copy for SelfhostCallReduceResult:
 //:
 //: [契約/けいやく]:
 //: - `result` は `SelfhostCallReduceResult` と同じ direct call plan です。
+//: - `checked_arguments` は source-backed argument checker が得た引数ごとの typed evidence です。HIR lowering はここから function value / nested call / block result を再計算せずに参照できます。
 //: - `arena` は成功時に caller が所有します。失敗時、owner-returning reducer は受け取った arena を解放してから error を返します。
 pub struct SelfhostCallReduceOwnedResult:
     arena %SelfhostTypeArena
     result %SelfhostCallReduceResult
+    checked_arguments %Vec SelfhostCheckedArgument
+
+//: SelfhostCallReduceOwnedResultParts: owned result を消費して取り出す field 群
+//:
+//: [目的/もくてき]:
+//: - arena owner、copyable な reduction result、checked argument list owner をまとめて次の owner payload へ移すための一時構造です。
+//: - caller が `SelfhostCallReduceOwnedResult` から複数 field を個別に取り出して owner を落とす退行を避けます。
+pub struct SelfhostCallReduceOwnedResultParts:
+    arena %SelfhostTypeArena
+    result %SelfhostCallReduceResult
+    checked_arguments %Vec SelfhostCheckedArgument
 
 //: SelfhostCallReduceErrorKind: call reduction の失敗分類
 //:
@@ -151,16 +165,36 @@ impl Copy for SelfhostCallReduceErrorKind:
         self
 
 //: selfhost_call_reduce_owned_result_new: owner 付き call reduction 成功 payload を[作/つく]る
-pub fn selfhost_call_reduce_owned_result_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult SelfhostCallReduceOwnedResult \arena\result:
-    SelfhostCallReduceOwnedResult arena result
+pub fn selfhost_call_reduce_owned_result_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult impure fn Vec SelfhostCheckedArgument SelfhostCallReduceOwnedResult \arena\result\checked_arguments:
+    SelfhostCallReduceOwnedResult arena result checked_arguments
 
 //: selfhost_call_reduce_owned_result_result: direct call plan を borrow で[返/かえ]す
 pub fn selfhost_call_reduce_owned_result_result %fn &SelfhostCallReduceOwnedResult &SelfhostCallReduceResult \owned:
     field::get_ref owned "result"
 
+//: selfhost_call_reduce_owned_result_checked_arguments: checked argument list を borrow で[返/かえ]す
+pub fn selfhost_call_reduce_owned_result_checked_arguments %fn &SelfhostCallReduceOwnedResult &Vec SelfhostCheckedArgument \owned:
+    field::get_ref owned "checked_arguments"
+
 //: selfhost_call_reduce_owned_result_into_arena: updated arena owner を[取/と]り[出/だ]す
+//:
+//: [注意/ちゅうい]:
+//: - この互換 helper は checked argument list を解放してから arena だけを返します。checked argument を後続へ渡す caller は `selfhost_call_reduce_owned_result_into_parts` を使ってください。
 pub fn selfhost_call_reduce_owned_result_into_arena %impure fn SelfhostCallReduceOwnedResult SelfhostTypeArena \owned:
+    v::free field::get owned "checked_arguments"
     field::get owned "arena"
+
+//: selfhost_call_reduce_owned_result_into_parts: owner result を field owner 群へ[分解/ぶんかい]する
+pub fn selfhost_call_reduce_owned_result_into_parts %impure fn SelfhostCallReduceOwnedResult SelfhostCallReduceOwnedResultParts \owned:
+    let arena %SelfhostTypeArena field::get owned "arena"
+    let result %SelfhostCallReduceResult field::get owned "result"
+    let checked_arguments %Vec SelfhostCheckedArgument field::get owned "checked_arguments"
+    SelfhostCallReduceOwnedResultParts arena result checked_arguments
+
+//: selfhost_call_reduce_owned_result_parts_into_arena: parts から arena owner を[取/と]り[出/だ]す
+pub fn selfhost_call_reduce_owned_result_parts_into_arena %impure fn SelfhostCallReduceOwnedResultParts SelfhostTypeArena \parts:
+    v::free field::get parts "checked_arguments"
+    field::get parts "arena"
 
 //: SelfhostCallReduceError: call reduction 失敗の typed payload
 //:

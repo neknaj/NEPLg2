@@ -1,3 +1,20 @@
+# 2026-06-05 Agent selfhost checked argument payload checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。
+- subagent review では、`@ident` で選んだ `SelfhostCallableCandidate` が `SelfhostExprArgumentOwnedMatch` と call reduction の cursor-only result で消えること、`check/expr` に HIR を持ち込まず typed payload evidence として運ぶべきこと、nested call / trailing block でも evidence を失わない accumulator が必要であることを確認した。
+- `stdlib/neplg2/core/check/expr/argument_payload.nepl` を追加し、実引数式ごとの検査済み証拠を `SelfhostCheckedArgument` として保持するようにした。`TypedExpression` は literal / named value / ascribed value の type evidence、`FunctionValue` は `@ident` が選んだ `SelfhostCallableCandidate`、`NestedDirectCall` は nested named call summary、`BlockResult` は末尾 block body result を表す。
+- `SelfhostExprArgumentOwnedMatch`、`SelfhostCallReduceOwnedResult`、`SelfhostExpressionLineCheckSuccess` は checked argument payload を owner として運ぶ。これにより `@ident` の `SelfhostCallableCandidate.def_id` と use-site span を HIR lowering 前に落とさず、`next_index` だけに退行しない。
+- `check/expr` は引き続き HIR record を直接生成しない。`FunctionValue(candidate)` は後続の `core/lower/hir/function_value` へ渡す checker evidence であり、`SelfhostHirExprPayload::FnValue` への変換は次 slice の direct call HIR lowering で行う。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` は checked argument enum、function value payload、call reduction result / body line success の owner list、stage1 の function value payload confirmation、`check/expr` から HIR を import しない境界を source policy として確認するようにした。
+- この checkpoint は checked argument payload の保存までであり、checked argument list から HIR direct call tree へ消費する処理、nested call の内側 argument tree 全体の lowering、indirect call、`memo_call` Phase 1 は未実装である。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-argument-payload.json`: pass（3/3）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost function value HIR lowering boundary checkpoint
 
 - `SelfhostCallableCandidate` が DefId を持つようになったため、次に候補 identity を HIR の `SelfhostHirFunctionValueIdentity` へ変換する規則を `core/lower/hir/function_value.nepl` として分離した。

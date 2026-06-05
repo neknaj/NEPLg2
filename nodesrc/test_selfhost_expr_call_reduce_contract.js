@@ -163,6 +163,16 @@ assert.match(
 );
 assert.match(
     source,
+    /# check\/expr\/argument_payload[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
+    "checked argument payload must preserve function value, nested call, block-result, range, type, and span evidence",
+);
+assert.match(
+    source,
+    /selfhost_checked_argument_function_value[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate[\s\S]*selfhost_checked_argument_is_function_value[\s\S]*SelfhostCheckedArgumentKind::FunctionValue _candidate:[\s\S]*true/,
+    "function value arguments must be represented as typed checked-argument payloads",
+);
+assert.match(
+    source,
     /# check\/expr\/argument[\s\S]*pub struct SelfhostExprArgumentMatch:[\s\S]*next_index %i32[\s\S]*pub fn selfhost_expr_argument_item_literal_type_kind[\s\S]*pub fn selfhost_expr_argument_match_at/,
     "argument type evidence and consume-width scanning must live in its own check/expr split module",
 );
@@ -188,8 +198,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostExprArgumentOwnedMatch:[\s\S]*arena %SelfhostTypeArena[\s\S]*match_value %SelfhostExprArgumentMatch[\s\S]*pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable/,
-    "source-backed argument checking must return an updated arena owner with consume-width evidence",
+    /pub struct SelfhostExprArgumentOwnedMatch:[\s\S]*arena %SelfhostTypeArena[\s\S]*match_value %SelfhostExprArgumentMatch[\s\S]*checked_argument %SelfhostCheckedArgument[\s\S]*pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable/,
+    "source-backed argument checking must return an updated arena owner with consume-width and checked-argument evidence",
 );
 assert.match(
     source,
@@ -203,8 +213,8 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_expr_argument_match_function_value_candidate[\s\S]*selfhost_type_arena_types_equal &arena candidate\.callable_type expected_type/,
-    "function value arguments must compare the selected callable signature through arena structural equality",
+    /fn selfhost_expr_argument_match_function_value_candidate[\s\S]*selfhost_type_arena_types_equal &arena candidate\.callable_type expected_type[\s\S]*selfhost_checked_argument_function_value start_index next_index candidate\.callable_type span candidate/,
+    "function value arguments must compare the selected callable signature and preserve the selected candidate payload",
 );
 assert.match(
     source,
@@ -248,8 +258,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head[\s\S]*argument_match\.next_index/,
-    "source-backed call reduction must route each consumed argument through the direct-or-nested argument boundary",
+    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head[\s\S]*selfhost_expr_argument_owned_match_checked_argument &owned_match[\s\S]*selfhost_call_reduce_push_checked_argument next_arena checked_arguments checked_argument head\.span[\s\S]*argument_match\.next_index/,
+    "source-backed call reduction must keep each consumed argument's checked payload while advancing the cursor",
 );
 assert.match(
     source,
@@ -268,8 +278,8 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_argument_consume_loop_with_source[\s\S]*ge param_idx param_count[\s\S]*selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new item_index[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head/,
-    "nested call reduction must return the consumed next_index for the enclosing argument loop",
+    /fn selfhost_call_reduce_argument_consume_loop_with_source[\s\S]*ge param_idx param_count[\s\S]*selfhost_checked_argument_nested_direct_call call_start_index item_index candidate\.callable_type head\.span candidate[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head/,
+    "nested call reduction must return consumed next_index and nested-call checked payload for the enclosing argument loop",
 );
 assert.match(
     source,
@@ -298,8 +308,18 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostCallReduceOwnedResult:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError/,
-    "source-backed call reduction must expose an arena-owner boundary with value and callable evidence separate from the borrowed reducer",
+    /pub struct SelfhostCallReduceOwnedResult:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*checked_arguments %Vec SelfhostCheckedArgument[\s\S]*pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError/,
+    "source-backed call reduction must expose an arena-owner boundary with checked argument payloads separate from the borrowed reducer",
+);
+assert.match(
+    source,
+    /pub struct SelfhostExpressionLineCheckSuccess:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*checked_arguments %Vec SelfhostCheckedArgument[\s\S]*selfhost_expression_line_check_success_checked_arguments/,
+    "expression-line success must preserve checked argument evidence instead of dropping it at the body-line boundary",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_success_has_function_value_argument[\s\S]*selfhost_expression_line_check_success_checked_arguments success[\s\S]*selfhost_checked_argument_is_function_value &argument[\s\S]*selfhost_check_expr_stage1_function_value_argument_ok_with_scope[\s\S]*selfhost_check_expr_stage1_success_has_function_value_argument &success/,
+    "stage1 must verify that explicit @ident keeps a FunctionValue checked-argument payload through body_line success",
 );
 assert.match(
     source,

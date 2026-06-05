@@ -36,6 +36,7 @@
 #import "./call_candidate" as *
 #import "./candidate_collection" as *
 #import "./value_evidence" as *
+#import "./argument_payload" as *
 #import "./model" as *
 #import "./body_line" as *
 
@@ -824,6 +825,19 @@ fn selfhost_check_expr_stage1_success_is_one_arg_direct_call %fn &SelfhostExpres
         SelfhostCallReduceResult::DirectCall call:
             eq call.argument_count 1
 
+fn selfhost_check_expr_stage1_success_has_function_value_argument %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
+    if:
+        not eq v::len checked_arguments 1
+        then:
+            false
+        else:
+            match v::get checked_arguments 0:
+                Option::Some argument:
+                    selfhost_checked_argument_is_function_value &argument
+                Option::None:
+                    false
+
 fn selfhost_check_expr_stage1_segment_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
     match segment.head:
         SelfhostSyntaxRange::Range range:
@@ -1209,7 +1223,7 @@ fn selfhost_check_expr_stage1_function_value_argument_ok_with_scope %impure fn V
                 Result::Ok context:
                     match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "takes @add" segment arena context &candidates none:
                         Result::Ok success:
-                            let ok %bool selfhost_check_expr_stage1_success_is_one_arg_direct_call &success
+                            let ok %bool and selfhost_check_expr_stage1_success_is_one_arg_direct_call &success selfhost_check_expr_stage1_success_has_function_value_argument &success
                             selfhost_expression_line_check_success_free success
                             v::free candidates
                             v::free tokens

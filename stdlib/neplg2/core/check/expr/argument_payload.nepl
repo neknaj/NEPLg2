@@ -1,0 +1,119 @@
+#indent 4
+
+//: # check/expr/argument_payload
+//: source-backed argument checker が返す checked argument evidence を定義する module です。
+//:
+//: [目的/もくてき]:
+//: - `argument.nepl` は prefix item を検査し、`call_reduce.nepl` はその検査結果を parameter loop に流します。この module は、その間で失ってはいけない typed evidence をまとめます。
+//: - consume-width だけでは、明示 `@ident` がどの callable candidate として解決されたかを後続 HIR lowering へ渡せません。そのため、関数値や nested call の候補 identity を payload として残します。
+//:
+//: [契約/けいやく]:
+//: - この module は HIR record を生成しません。HIR への変換は `neplg2/core/lower/hir` が担当します。
+//: - `FunctionValue` は、`@ident` argument が expected function type と照合済みで、monomorphic candidate として一意に解決されたことを表します。
+//: - `TypedExpression` は、literal、named value、ascribed literal / named value など、現 checkpoint で個別 HIR identity をまだ持たない通常の typed expression を表します。
+//: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload の構築と分類確認は O(1) です。
+
+#import "core/field" as field
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "./call_candidate" as *
+
+//: SelfhostCheckedArgumentKind: checked argument の lowering 用分類
+//:
+//: [目的/もくてき]:
+//: - expression checker が得た証拠を、後続 lowering が match で網羅的に扱えるようにします。
+//: - `FunctionValue` と `NestedDirectCall` は candidate identity を保持し、名前文字列だけへ戻る退行を防ぎます。
+pub enum SelfhostCheckedArgumentKind:
+    TypedExpression
+    FunctionValue %SelfhostCallableCandidate
+    NestedDirectCall %SelfhostCallableCandidate
+    BlockResult
+
+impl Clone for SelfhostCheckedArgumentKind:
+    fn clone %fn &SelfhostCheckedArgumentKind SelfhostCheckedArgumentKind \self:
+        *self
+
+impl Copy for SelfhostCheckedArgumentKind:
+    fn copy_mark %fn SelfhostCheckedArgumentKind SelfhostCheckedArgumentKind \self:
+        self
+
+//: SelfhostCheckedArgument: 1 個の実引数式が検査済みであることを表す evidence
+//:
+//: [目的/もくてき]:
+//: - `start_index` と `next_index` は、prefix list 上でこの実引数式が消費した範囲を表します。
+//: - `value_type` は、parameter type との照合後に得られた expression type です。HIR lowering はこの型を expression node の型として使えます。
+//: - `span` は、diagnostic と HIR dump が source 上の使用箇所を失わないための位置情報です。
+pub struct SelfhostCheckedArgument:
+    kind %SelfhostCheckedArgumentKind
+    start_index %i32
+    next_index %i32
+    value_type %SelfhostTypeId
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostCheckedArgument:
+    fn clone %fn &SelfhostCheckedArgument SelfhostCheckedArgument \self:
+        *self
+
+impl Copy for SelfhostCheckedArgument:
+    fn copy_mark %fn SelfhostCheckedArgument SelfhostCheckedArgument \self:
+        self
+
+//: selfhost_checked_argument_new: checked argument payload を[作/つく]る
+pub fn selfhost_checked_argument_new %fn SelfhostCheckedArgumentKind fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \kind\start_index\next_index\value_type\span:
+    SelfhostCheckedArgument kind start_index next_index value_type span
+
+//: selfhost_checked_argument_typed_expression: 通常の typed expression argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - literal、named value、ascription 付き literal / named value など、関数値 identity を持たない argument の共通 constructor です。
+pub fn selfhost_checked_argument_typed_expression %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \start_index\next_index\value_type\span:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::TypedExpression start_index next_index value_type span
+
+//: selfhost_checked_argument_function_value: 明示 `@ident` function value argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - callable candidate の DefId / type / effect evidence を保持し、後続の HIR `FnValue` lowering が同じ関数を参照できるようにします。
+pub fn selfhost_checked_argument_function_value %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCallableCandidate SelfhostCheckedArgument \start_index\next_index\value_type\span\candidate:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::FunctionValue candidate start_index next_index value_type span
+
+//: selfhost_checked_argument_nested_direct_call: nested direct call argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `add add 1 2 3` の内側 `add 1 2` のように、argument が nested call として縮約されたことを保持します。
+pub fn selfhost_checked_argument_nested_direct_call %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCallableCandidate SelfhostCheckedArgument \start_index\next_index\value_type\span\candidate:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::NestedDirectCall candidate start_index next_index value_type span
+
+//: selfhost_checked_argument_block_result: trailing block argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `head:` の body が `BlockResult` expectation で 1 個の実引数として検査済みであることを保存します。
+pub fn selfhost_checked_argument_block_result %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \start_index\next_index\value_type\span:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::BlockResult start_index next_index value_type span
+
+//: selfhost_checked_argument_is_function_value: argument が明示 function value か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - focused test と後続 lowering が、表示文字列ではなく typed payload で `@ident` の保持を確認できるようにします。
+pub fn selfhost_checked_argument_is_function_value %fn &SelfhostCheckedArgument bool \argument:
+    match *field::get_ref argument "kind":
+        SelfhostCheckedArgumentKind::FunctionValue _candidate:
+            true
+        _:
+            false
+
+//: selfhost_checked_argument_function_value_candidate: function value candidate を[取/と]り[出/だ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(candidate)`: argument は明示 function value で、DefId-linked candidate evidence を持ちます。
+//: - `None`: argument は通常式、nested call、または block result です。
+pub fn selfhost_checked_argument_function_value_candidate %fn &SelfhostCheckedArgument Option SelfhostCallableCandidate \argument:
+    match *field::get_ref argument "kind":
+        SelfhostCheckedArgumentKind::FunctionValue candidate:
+            some candidate
+        _:
+            none

@@ -40,6 +40,7 @@
 #import "./value_evidence" as *
 #import "./call_candidate" as *
 #import "./candidate_collection" as *
+#import "./argument_payload" as *
 
 //: SelfhostExprArgumentMatch: prefix list 上で 1 つの実引数式を消費した結果
 //:
@@ -137,18 +138,24 @@ pub fn selfhost_expr_argument_match_error_new %fn SelfhostExprArgumentMatchError
 //:
 //: [契約/けいやく]:
 //: - `match_value.next_index` は次の prefix argument item index です。
+//: - `checked_argument` は、この実引数式から得た typed evidence です。特に明示 `@ident` は、候補の DefId を後続 lowering へ渡すため `FunctionValue` payload を持ちます。
 //: - 失敗時、この module は受け取った arena owner を解放してから error を返します。caller は失敗後に同じ arena を使いません。
 pub struct SelfhostExprArgumentOwnedMatch:
     arena %SelfhostTypeArena
     match_value %SelfhostExprArgumentMatch
+    checked_argument %SelfhostCheckedArgument
 
 //: selfhost_expr_argument_owned_match_new: owner 付き argument match を[作/つく]る
-pub fn selfhost_expr_argument_owned_match_new %impure fn SelfhostTypeArena impure fn SelfhostExprArgumentMatch SelfhostExprArgumentOwnedMatch \arena\match_value:
-    SelfhostExprArgumentOwnedMatch arena match_value
+pub fn selfhost_expr_argument_owned_match_new %impure fn SelfhostTypeArena impure fn SelfhostExprArgumentMatch impure fn SelfhostCheckedArgument SelfhostExprArgumentOwnedMatch \arena\match_value\checked_argument:
+    SelfhostExprArgumentOwnedMatch arena match_value checked_argument
 
 //: selfhost_expr_argument_owned_match_match: consume-width payload を[返/かえ]す
 pub fn selfhost_expr_argument_owned_match_match %fn &SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatch \matched:
     *field::get_ref matched "match_value"
+
+//: selfhost_expr_argument_owned_match_checked_argument: checked argument evidence を[返/かえ]す
+pub fn selfhost_expr_argument_owned_match_checked_argument %fn &SelfhostExprArgumentOwnedMatch SelfhostCheckedArgument \matched:
+    *field::get_ref matched "checked_argument"
 
 //: selfhost_expr_argument_owned_match_into_arena: updated arena owner を[取/と]り[出/だ]す
 pub fn selfhost_expr_argument_owned_match_into_arena %impure fn SelfhostExprArgumentOwnedMatch SelfhostTypeArena \matched:
@@ -283,7 +290,10 @@ fn selfhost_expr_argument_match_named_value_with_source %impure fn SelfhostTypeA
             if:
                 selfhost_type_arena_types_equal &arena actual_type expected_type
                 then:
-                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add item_index 1
+                    let next_index %i32 add item_index 1
+                    let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
+                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_typed_expression item_index next_index actual_type item.span
+                    Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
                 else:
                     selfhost_type_arena_free arena
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::TypeMismatch item.span
@@ -318,7 +328,7 @@ fn selfhost_expr_argument_function_value_candidate_is_monomorphic %fn SelfhostCa
         _:
             false
 
-fn selfhost_expr_argument_match_function_value_candidate %impure fn SelfhostTypeArena impure fn SelfhostCallableCandidate impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidate\next_index\expected_type\span:
+fn selfhost_expr_argument_match_function_value_candidate %impure fn SelfhostTypeArena impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidate\start_index\next_index\expected_type\span:
     if:
         not selfhost_expr_argument_function_value_candidate_is_monomorphic candidate
         then:
@@ -328,12 +338,14 @@ fn selfhost_expr_argument_match_function_value_candidate %impure fn SelfhostType
             if:
                 selfhost_type_arena_types_equal &arena candidate.callable_type expected_type
                 then:
-                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new next_index
+                    let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
+                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_function_value start_index next_index candidate.callable_type span candidate
+                    Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
                 else:
                     selfhost_type_arena_free arena
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueTypeMismatch span
 
-fn selfhost_expr_argument_match_function_value_candidates %impure fn SelfhostTypeArena impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidates\next_index\expected_type\span:
+fn selfhost_expr_argument_match_function_value_candidates %impure fn SelfhostTypeArena impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidates\start_index\next_index\expected_type\span:
     let candidate_count %i32 v::len &candidates
     if:
         eq candidate_count 0
@@ -352,7 +364,7 @@ fn selfhost_expr_argument_match_function_value_candidates %impure fn SelfhostTyp
                     match v::get &candidates 0:
                         Option::Some candidate:
                             v::free candidates
-                            selfhost_expr_argument_match_function_value_candidate arena candidate next_index expected_type span
+                            selfhost_expr_argument_match_function_value_candidate arena candidate start_index next_index expected_type span
                         Option::None:
                             v::free candidates
                             selfhost_type_arena_free arena
@@ -378,7 +390,7 @@ fn selfhost_expr_argument_match_function_value_with_source %impure fn &Vec Selfh
                                 SelfhostExprPrefixItemKind::NamedValue:
                                     match selfhost_callable_candidates_collect_for_head_item source tokens name_item scope signatures:
                                         Result::Ok candidates:
-                                            selfhost_expr_argument_match_function_value_candidates arena candidates add name_index 1 expected_type name_item.span
+                                            selfhost_expr_argument_match_function_value_candidates arena candidates item_index add name_index 1 expected_type name_item.span
                                         Result::Err collect_error:
                                             selfhost_type_arena_free arena
                                             Result::Err selfhost_expr_argument_function_value_error_from_candidate_collect collect_error
@@ -502,7 +514,10 @@ fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec Selfhos
                                     if:
                                         selfhost_expr_argument_item_matches_type &arena expression_item expectation.expected_type
                                         then:
-                                            Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add expression_item_index 1
+                                            let next_index %i32 add expression_item_index 1
+                                            let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
+                                            let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_typed_expression expression_item_index next_index expectation.expected_type expression_item.span
+                                            Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
                                         else:
                                             selfhost_type_arena_free arena
                                             match selfhost_expr_argument_item_literal_type_kind expression_item:
@@ -565,7 +580,10 @@ pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken
                             if:
                                 selfhost_expr_argument_item_matches_type &arena item expected_type
                                 then:
-                                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add item_index 1
+                                    let next_index %i32 add item_index 1
+                                    let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
+                                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_typed_expression item_index next_index expected_type item.span
+                                    Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
                                 else:
                                     selfhost_type_arena_free arena
                                     match selfhost_expr_argument_item_literal_type_kind item:
