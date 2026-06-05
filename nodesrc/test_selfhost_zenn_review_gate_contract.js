@@ -173,6 +173,8 @@ for (const needle of [
     "policy/spec",
     "implementation/test",
     "subagent review",
+    "subagent_review_ids",
+    "subagent_review_count",
     "Blocker",
     "Non-blocker",
     "Question",
@@ -290,6 +292,7 @@ for (const needle of [
     "AGENTS.md の関連方針を確認した",
     "subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js` で検査していること",
     "`MERGE_APPROVED` は、`blockers` と `questions` が空",
+    "`subagent_review_ids` と `subagent_review_count`",
     "新規 source policy を追加した場合に `nodesrc/run_source_policy_regressions.js` へ登録されていること",
 ]) {
     assert.ok(checklist.includes(needle), `selfhost checklist must cover ${needle}`);
@@ -334,6 +337,8 @@ for (const needle of [
     "scope lookup 再実行",
     "cursor-only evidence loss",
     "## review_scope",
+    "subagent_review_ids",
+    "subagent_review_count",
     "## decision",
     "MERGE_APPROVED | BLOCKED | QUESTION",
     "## policy/spec",
@@ -368,6 +373,7 @@ for (const needle of [
     "node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>",
     "response checker が失敗した返答は review 記録として扱わず",
     "`MERGE_APPROVED` は、`blockers` と `questions` が空",
+    "`subagent_review_ids` と `subagent_review_count`",
 ]) {
     assert.ok(prompt.includes(needle), `selfhost review prompt must include ${needle}`);
 }
@@ -376,14 +382,14 @@ for (const needle of [
     "Blocker` は同じ branch 内で修正する",
     "同じ branch 内で修正できない `Blocker` は、原因、影響、完了条件、検証予定を持つ issue へ分離する",
     "`Question` は仕様確認として扱い、勝手な回避実装で進めない",
-    "`Approve` があっても、`files_read`、`not_reviewed`、`zenn_check`、`residual_risk`、`unexecuted_verification` が空の場合は review 記録として扱わない",
+    "`Approve` があっても、`files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count`、`zenn_check`、`residual_risk`、`unexecuted_verification` が空の場合は review 記録として扱わない",
     "`source_policy: not-needed` の場合も、`source_policy_reason` に理由を残す",
     "--record <note-or-issue.md>",
     "`note.n.md` または `issues/items/*.md`",
     "一時ファイルや repo 外ファイルを指定してはならない",
     "Zenn 記事 URL、`AGENTS.md`、checklist、対象 branch / commit / issue を省いた依頼を出してはならない",
     "`policy/spec` と `implementation/test` のどちらか片方だけで approve してはならない",
-    "`files_read` と `not_reviewed` を省いてはならない",
+    "`files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count` を省いてはならない",
     "`source_policy: not-needed` の理由を省いてはならない",
     "行数制限、ファイル長制限、doc comment 長制限を review 条件にしてはならない",
     "warning を既存か今回差分由来か分けずに扱ってはならない",
@@ -467,6 +473,10 @@ for (const needle of [
     "invalid_source_policy",
     "invalid_record_target",
     "missing_files_read",
+    "missing_subagent_review_ids",
+    "invalid_subagent_review_count",
+    "subagent_review_count_mismatch",
+    "duplicate_subagent_review_id",
     "missing_record_evidence",
     "--record <note-or-issue.md>",
     "approved_with_blockers",
@@ -666,6 +676,9 @@ try {
         "- files_read:",
         "  - nodesrc/selfhost_zenn_review_packet.js",
         "- not_reviewed: unrelated stdlib files",
+        "- subagent_review_ids:",
+        "  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e",
+        "- subagent_review_count: 1",
         "",
         "## decision",
         "- MERGE_APPROVED",
@@ -728,6 +741,9 @@ try {
         "- base commit: 0000000",
         "- head commit: 1111111",
         "- subagent review response を `nodesrc/selfhost_zenn_review_response_check.js --input valid.md --record record.md` で検査した。",
+        "- subagent_review_ids:",
+        "  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e",
+        "- subagent_review_count: 1",
         "- files_read: nodesrc/selfhost_zenn_review_packet.js",
         "- not_reviewed: unrelated stdlib files",
         "- decision: MERGE_APPROVED",
@@ -828,6 +844,108 @@ try {
     assert.ok(
         responseCheckWeak.stderr.includes("missing_section"),
         "selfhost review response checker must explain missing required sections",
+    );
+
+    const missingSubagentReviewIdPath = path.join(responseCheckTempDir, "missing-subagent-review-id.md");
+    fs.writeFileSync(
+        missingSubagentReviewIdPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace(
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 1\n",
+            "- subagent_review_ids:\n- subagent_review_count: 1\n",
+        ),
+        "utf8",
+    );
+    const responseCheckMissingSubagentReviewId = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        missingSubagentReviewIdPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckMissingSubagentReviewId.status,
+        0,
+        "selfhost review response checker must reject reviews without concrete subagent ids",
+    );
+    assert.ok(
+        responseCheckMissingSubagentReviewId.stderr.includes("missing_subagent_review_ids"),
+        "selfhost review response checker must explain missing subagent review ids",
+    );
+
+    const mismatchedSubagentReviewCountPath = path.join(responseCheckTempDir, "mismatched-subagent-review-count.md");
+    fs.writeFileSync(
+        mismatchedSubagentReviewCountPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- subagent_review_count: 1", "- subagent_review_count: 2"),
+        "utf8",
+    );
+    const responseCheckMismatchedSubagentReviewCount = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        mismatchedSubagentReviewCountPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckMismatchedSubagentReviewCount.status,
+        0,
+        "selfhost review response checker must reject mismatched subagent review counts",
+    );
+    assert.ok(
+        responseCheckMismatchedSubagentReviewCount.stderr.includes("subagent_review_count_mismatch"),
+        "selfhost review response checker must explain mismatched subagent review counts",
+    );
+
+    const invalidSubagentReviewCountPath = path.join(responseCheckTempDir, "invalid-subagent-review-count.md");
+    fs.writeFileSync(
+        invalidSubagentReviewCountPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- subagent_review_count: 1", "- subagent_review_count: 1abc"),
+        "utf8",
+    );
+    const responseCheckInvalidSubagentReviewCount = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        invalidSubagentReviewCountPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckInvalidSubagentReviewCount.status,
+        0,
+        "selfhost review response checker must reject non-integer subagent review counts",
+    );
+    assert.ok(
+        responseCheckInvalidSubagentReviewCount.stderr.includes("invalid_subagent_review_count"),
+        "selfhost review response checker must explain invalid subagent review counts",
+    );
+
+    const duplicateSubagentReviewIdPath = path.join(responseCheckTempDir, "duplicate-subagent-review-id.md");
+    fs.writeFileSync(
+        duplicateSubagentReviewIdPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace(
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 1\n",
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 2\n",
+        ),
+        "utf8",
+    );
+    const responseCheckDuplicateSubagentReviewId = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        duplicateSubagentReviewIdPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckDuplicateSubagentReviewId.status,
+        0,
+        "selfhost review response checker must reject duplicate subagent review ids",
+    );
+    assert.ok(
+        responseCheckDuplicateSubagentReviewId.stderr.includes("duplicate_subagent_review_id"),
+        "selfhost review response checker must explain duplicate subagent review ids",
     );
 
     const missingFieldReviewResponsePath = path.join(responseCheckTempDir, "missing-field.md");

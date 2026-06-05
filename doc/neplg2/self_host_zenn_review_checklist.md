@@ -26,6 +26,7 @@ subagent review を依頼するときは、少なくとも次を渡す。
 - review の観点が `policy/spec` と `implementation/test` の 2 軸に分かれていること。
 - review response を `nodesrc/selfhost_zenn_review_response_check.js` で検査し、必須 section / field が欠けた返答を受理しないこと。
 - 最終受理時は `nodesrc/selfhost_zenn_review_response_check.js --record <note-or-issue.md>` で、response の要約と判断根拠が `note.n.md` または `issues/items/*.md` の関連 issue に残っていることを検査すること。一時ファイルや repo 外ファイルは durable な review 証跡ではない。
+- review response と durable record には `subagent_review_ids` と `subagent_review_count` を残すこと。`subagent review` という文字列だけでは、どの独立 review を受理したかの証跡として扱わない。
 
 ## 必須確認項目
 
@@ -103,7 +104,7 @@ source_policy: added | updated | not-needed | follow-up
 verify: <実行した検証、または未実行理由>
 ```
 
-`MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read` と `not_reviewed` が記録されている場合だけ受理する。`nodesrc/selfhost_zenn_review_response_check.js` は、この最小条件と必須 section / field を検査する。
+`MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count` が記録されている場合だけ受理する。`nodesrc/selfhost_zenn_review_response_check.js` は、この最小条件と必須 section / field を検査する。
 
 ## note checkpoint 形式
 
@@ -119,7 +120,7 @@ commit 前に `note.n.md` へ次を記録する。
 - 対象 branch / commit / issue。
 - 今回の設計判断と、Zenn 方針のどの項目に対応するか。
 - `policy/spec` と `implementation/test` の review 観点。
-- subagent review の件数、Blocker、Non-blocker、Question、Approve の要約。
+- subagent review の件数、`subagent_review_ids`、Blocker、Non-blocker、Question、Approve の要約。
 - Blocker の修正内容、または issue 化した場合の issue ID。
 - 指摘別の `classification`、`decision`、`source_policy`、`verify`。
 - source policy / doctest / focused test / broad regression の検証結果。

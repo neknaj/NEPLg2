@@ -22,7 +22,7 @@ const requiredSections = [
 ];
 
 const sectionFields = new Map([
-    ["review_scope", ["branch", "base", "head", "files_read", "not_reviewed"]],
+    ["review_scope", ["branch", "base", "head", "files_read", "not_reviewed", "subagent_review_ids", "subagent_review_count"]],
     ["policy/spec", [
         "classification",
         "file/function",
@@ -156,6 +156,7 @@ function validateReviewResponse(source) {
         }
     }
     validateFilesRead(sections.get("review_scope"), errors);
+    validateSubagentReviewEvidence(sections.get("review_scope"), errors);
     validateClassificationValue(sections.get("policy/spec"), "policy/spec", errors);
     validateClassificationValue(sections.get("implementation/test"), "implementation/test", errors);
     validateSourcePolicyValue(sections.get("policy/spec"), "policy/spec", errors);
@@ -205,11 +206,22 @@ function validateReviewRecordEvidence(source, record, errors) {
     }
 
     for (const [section, fields] of [
-        ["review_scope", ["branch", "base", "head"]],
+        ["review_scope", ["branch", "base", "head", "subagent_review_ids", "subagent_review_count"]],
         ["summary", ["blockers", "questions", "approve"]],
     ]) {
         for (const field of fields) {
             const value = fieldValue(sections.get(section), field);
+            if (field === "subagent_review_ids") {
+                for (const id of subagentReviewIds(value)) {
+                    if (!record.includes(id)) {
+                        errors.push(reviewError(
+                            "missing_record_evidence",
+                            `record file must include ${section}.${field}: ${id}`,
+                        ));
+                    }
+                }
+                continue;
+            }
             if (value && !isPlaceholderValue(value) && !record.includes(value)) {
                 errors.push(reviewError(
                     "missing_record_evidence",
@@ -364,6 +376,44 @@ function validateFilesRead(section, errors) {
     if (isNoWorkValue(value)) {
         errors.push(reviewError("missing_files_read", "## review_scope files_read must list at least one reviewed file"));
     }
+}
+
+function validateSubagentReviewEvidence(section, errors) {
+    const idsValue = fieldValue(section, "subagent_review_ids");
+    const countValue = fieldValue(section, "subagent_review_count");
+    const ids = subagentReviewIds(idsValue);
+    if (ids.length === 0) {
+        errors.push(reviewError(
+            "missing_subagent_review_ids",
+            "## review_scope subagent_review_ids must list at least one UUID-like subagent id",
+        ));
+    }
+    const uniqueIds = new Set(ids.map((id) => id.toLowerCase()));
+    if (uniqueIds.size !== ids.length) {
+        errors.push(reviewError(
+            "duplicate_subagent_review_id",
+            "## review_scope subagent_review_ids must not contain duplicate subagent ids",
+        ));
+    }
+    if (!/^[1-9][0-9]*$/.test(countValue)) {
+        errors.push(reviewError(
+            "invalid_subagent_review_count",
+            "## review_scope subagent_review_count must be a positive integer",
+        ));
+        return;
+    }
+    const count = Number.parseInt(countValue, 10);
+    if (uniqueIds.size !== count) {
+        errors.push(reviewError(
+            "subagent_review_count_mismatch",
+            `## review_scope subagent_review_count must match unique listed ids: ${count} != ${uniqueIds.size}`,
+        ));
+    }
+}
+
+function subagentReviewIds(value) {
+    const matches = value.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi);
+    return matches || [];
 }
 
 function validateMergeApproval(decisionSection, summarySection, policySection, implementationSection, errors) {

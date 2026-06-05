@@ -272,6 +272,39 @@ const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_module_check_item", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast_loop", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast", ["purpose", "returns", "complexity"]),
+    moduleSolverRequirement("selfhost_proof_solve_raw_backend_transition", ["purpose", "contract", "current", "returns", "complexity", "doctest", "errorVariant", "authorityBoundary", "rawBoundary"], [
+        requiredPattern("raw backend obligation", /\bSelfhostProofObligation::RawBackendTransition\b/),
+        requiredPattern("raw backend item fact", /\bSelfhostRawBackendItemFact\b/),
+        requiredPattern("raw backend state", /\bSelfhostRawBackendState::(Normal|OpenEmpty|OpenReady)\b/),
+        requiredPattern("raw backend item kind", /\bSelfhostRawBackendItemKind::(WasmBlock|LlvmIrBlock|WasmText|LlvmIrText|NonRaw|StreamEnd)\b/),
+        requiredPattern("raw backend kind", /\bSelfhostRawBackendKind::(Wasm|LlvmIr)\b/),
+        requiredPattern("raw backend evidence", /\bSelfhostProofEvidence::RawBackendTransition\b/),
+        requiredPattern("text without block refutation", /\bSelfhostProofRefutation::RawBackendTextWithoutBlock\b/),
+        requiredPattern("empty block refutation", /\bSelfhostProofRefutation::RawBackendBlockEmpty\b/),
+        requiredPattern("representative solver call", /\bselfhost_proof_solve_raw_backend_transition\b/),
+    ], {
+        doctestUses: [
+            "selfhost_proof_solve_raw_backend_transition",
+            "SelfhostRawBackendItemKind::WasmBlock",
+            "SelfhostRawBackendItemKind::LlvmIrText",
+        ],
+    }),
+    moduleSolverRequirement("selfhost_proof_solve_module_directive_transition", ["purpose", "contract", "current", "returns", "complexity", "doctest", "errorVariant", "authorityBoundary", "directiveBoundary"], [
+        requiredPattern("module directive obligation", /\bSelfhostProofObligation::ModuleDirectiveTransition\b/),
+        requiredPattern("module directive fact", /\bSelfhostModuleDirectiveFact\b/),
+        requiredPattern("module directive state", /\bSelfhostModuleDirectiveState::(NoneSeen|EntrySeen|TargetSeen|EntryAndTargetSeen)\b/),
+        requiredPattern("module directive kind", /\bSelfhostModuleDirectiveKind::(Other|Entry|Target)\b/),
+        requiredPattern("module directive evidence", /\bSelfhostProofEvidence::ModuleDirectiveTransition\b/),
+        requiredPattern("module directive duplicate refutation", /\bSelfhostProofRefutation::ModuleDirectiveDuplicate\b/),
+        requiredPattern("module directive duplicate payload", /\bSelfhostModuleDirectiveDuplicate\b/),
+        requiredPattern("representative solver call", /\bselfhost_proof_solve_module_directive_transition\b/),
+    ], {
+        doctestUses: [
+            "selfhost_proof_solve_module_directive_transition",
+            "SelfhostModuleDirectiveKind::Entry",
+            "SelfhostModuleDirectiveState::EntrySeen",
+        ],
+    }),
     moduleSolverRequirement("selfhost_proof_span_contains_span", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "moduleBoundary"], [
         requiredPattern("outer file authority", /\bouter\.file_id\b/),
         requiredPattern("inner file authority", /\binner\.file_id\b/),
@@ -342,7 +375,7 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("proven proof result", /\bSelfhostProofResult::Proven\b/),
         requiredPattern("declaration header payload", /\bSelfhostModuleDeclarationHeader\b/),
     ]),
-    moduleSolverRequirement("selfhost_proof_solve_module_declaration_header", ["purpose", "contract", "current", "returns", "complexity", "errorVariant", "authorityBoundary", "moduleBoundary"], [
+    moduleSolverRequirement("selfhost_proof_solve_module_declaration_header", ["purpose", "contract", "current", "returns", "complexity", "doctest", "errorVariant", "authorityBoundary", "moduleBoundary"], [
         requiredPattern("module declaration header obligation", /\bSelfhostProofObligation::ModuleDeclarationHeaderAvailable\b/),
         requiredPattern("declaration fact authority", /\bSelfhostModuleDeclarationFact\b/),
         requiredPattern("fact item kind authority", /\bfact\.item_kind\b/),
@@ -354,7 +387,13 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("missing refutation", /\bSelfhostProofRefutation::ModuleDeclarationHeaderMissing\b/),
         requiredPattern("invalid refutation", /\bSelfhostProofRefutation::ModuleDeclarationHeaderInvalid\b/),
         requiredPattern("match exhaustiveness", /match .*網羅性検査/),
-    ]),
+    ], {
+        doctestUses: [
+            "selfhost_proof_solve_module_declaration_header",
+            "SelfhostModuleDeclarationHeader",
+            "SelfhostModuleDeclarationKind::Function",
+        ],
+    }),
     typeSolverRequirement("selfhost_proof_type_kind_compatible_result", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
         requiredPattern("type kind compatibility evidence", /\bSelfhostProofEvidence::TypeKindCompatible\b/),
         requiredPattern("typed proof result", /\bSelfhostProofResult::Proven\b/),
@@ -640,6 +679,8 @@ const SECTION_PATTERNS = {
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
     typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
+    rawBoundary: /\b(SelfhostRawBackendKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemFact|SelfhostRawBackendState(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendOpenBlock|SelfhostProofObligation::RawBackendTransition|SelfhostProofEvidence::RawBackendTransition|SelfhostProofRefutation::(RawBackendTextWithoutBlock|RawBackendBlockEmpty)|selfhost_raw_backend_text_matches)\b/,
+    directiveBoundary: /\b(SelfhostModuleDirectiveKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveFact|SelfhostModuleDirectiveState(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveSeenBoth|SelfhostModuleDirectiveDuplicate|SelfhostProofObligation::ModuleDirectiveTransition|SelfhostProofEvidence::ModuleDirectiveTransition|SelfhostProofRefutation::ModuleDirectiveDuplicate)\b/,
     moduleBoundary: /\b(SelfhostModuleDeclarationKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeadKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationVisibility(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeader|SelfhostModuleDeclarationFact|SelfhostModuleDeclarationHeaderIssue|SelfhostModuleItemKind(?:::)?[A-Za-z0-9_]*|SelfhostSyntaxRange(?:::)?[A-Za-z0-9_]*|SelfhostSourceSpan|SelfhostProofObligation::ModuleDeclarationHeaderAvailable|SelfhostProofEvidence::ModuleDeclarationHeaderAvailable|SelfhostProofRefutation::(ModuleDeclarationHeaderMissing|ModuleDeclarationHeaderInvalid|FactObligationMismatch)|selfhost_module_item_kind_declaration|selfhost_syntax_range_is_(?:valid|nonempty)|selfhost_syntax_range_span_is_inside|source_span_is_valid|selfhost_proof_span_contains_span)\b/,
     ownerBoundary: /\b(owner|cleanup obligation|cleanup|borrow|未処理 owner|owner 変換|解放)\b/,
 };
@@ -666,9 +707,10 @@ function typeSolverRequirement(name, sections, requiredPatterns = []) {
     });
 }
 
-function moduleSolverRequirement(name, sections, requiredPatterns = []) {
+function moduleSolverRequirement(name, sections, requiredPatterns = [], options = {}) {
     return requirement("stdlib/neplg2/core/proof/solver/module.nepl", name, sections, {
         requiredPatterns,
+        doctestUses: options.doctestUses || [],
     });
 }
 
