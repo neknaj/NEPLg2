@@ -96,6 +96,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日 Hash32 slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=293`、`declarationNoDoc=161`、`declarationNoDoctest=1651`、`publicDeclarationNoDoctest=1498`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_stdlib_hash32_doc_report_contract.js` により、Hash32 / FNV-1a の report doctest、signed `i32` bit pattern、非暗号 hash boundary、UTF-8 byte hashing、`Option::Some` / `Option::None` byte read boundary、FNV offset basis / prime / byte range、O(1) / O(n) complexity、`sha256_free` の owner-closing `impure fn` boundary を module 固有にも固定する。
 
+同日 StringBuilder fallback wrapper slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=293`、`declarationNoDoc=154`、`declarationNoDoctest=1651`、`publicDeclarationNoDoctest=1498`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`string_builder_new`、`sb_append`、`sb_append_char`、`sb_append_ascii`、`sb_append_byte`、`sb_build`、`sb_append_i32` の report doctest、入力 builder owner consumption、`Result::Err` からの空 builder / 空文字列 fallback、ASCII / byte / UTF-8 boundary、O(1) / O(n) / O(total_bytes) complexity を module 固有にも固定する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -112,6 +114,7 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/test_stdlib_diag_doc_report_contract.js`
 - `node nodesrc/test_stdlib_alloc_io_doc_report_contract.js`
 - `node nodesrc/test_stdlib_hash32_doc_report_contract.js`
+- `node nodesrc/test_alloc_string_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/hash32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/agent2-hash32-doc-smoke-5.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_hash_string_access_boundary.js`
 - `node nodesrc/test_stdlib_hash_nmd_report_contract.js`

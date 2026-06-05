@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T18:16:23.912Z",
+  "generated_at": "2026-06-05T18:20:53.746Z",
   "counts": {
-    "total": 1345,
-    "open": 43,
+    "total": 1346,
+    "open": 44,
     "resolved": 1302,
     "by_area": {
       "stdlib": {
-        "total": 351,
-        "open": 10,
+        "total": 352,
+        "open": 11,
         "resolved": 341
       },
       "core": {
@@ -758,6 +758,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034257267Z-NM-JSON-AND-HTML-GENERATION-DUPLICAT-C449CDF2.md"
+    },
+    {
+      "id": "ISS-20260605T181602324Z-MLSTR-TRAILING-WHITESPACE-FIXTURE-DI-5218829A",
+      "title": "mlstr trailing whitespace fixture disagrees with current output",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-06-05",
+      "updated": "2026-06-05",
+      "target": "tests/stdlib/string.n.md, parser mlstr handling",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260605T181602324Z-MLSTR-TRAILING-WHITESPACE-FIXTURE-DI-5218829A.md"
     },
     {
       "id": "ISS-20260604T034257629Z-SELFHOST-PARSER-LOOP-EXPOSES-LONG-ST-D57B1E8E",

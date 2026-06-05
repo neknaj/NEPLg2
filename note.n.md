@@ -14,7 +14,30 @@
 - 検証済み: `node nodesrc/test_selfhost_documentation_contract.js`, `node nodesrc/test_selfhost_zenn_review_gate_contract.js`, `node nodesrc/test_source_policy_no_line_count_limits.js`, `node nodesrc/selfhost_zenn_review_response_check.js --stdin --record note.n.md`, `node nodesrc/issues.js index --dir issues`, `node nodesrc/issues.js check --dir issues`, `node nodesrc/run_source_policy_regressions.js --warn-only`, `git diff --check`, `trunk build`, `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-proof-effect-zenn-doc-playground-editor.json`, merge後の `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-proof-effect-zenn-doc-playground-editor-after-merge.json`。`node nodesrc/test_selfhost_documentation_contract.js` は pass、`declarationNoDoc` は 168 から 162、`privateNoDoc` は 117 から 111 へ減少した。effect solver sample gap は消え、残る sample gap は proof module/resource/type solver、HIR/module doc など別 slice へ移った。
 - 既存 warning は source policy regression の既存 documentation gap samples、Node WASI ExperimentalWarning、`git diff --check` の CRLF warning、`trunk build` の trunk update notice と wasm-bindgen tool version mismatch notice。今回差分由来 warning はなし。未実行の検証は post-merge の GitHub Actions。
 - 次 slice は `stdlib/neplg2/core/proof/solver/resource.nepl` または `stdlib/neplg2/core/proof/solver/type.nepl` の doc gap。今回追加した `effectBoundary` と既存の `errorVariant` / `authorityBoundary` / `ownerBoundary` requirement は、対象関数ごとに必要な概念だけを指定し、全関数への boilerplate 化やコメント量抑制 gate にはしない。
+# 2026-06-06 Agent 2 StringBuilder fallback wrapper documentation checkpoint
 
+- `plan.md` は確認のみで変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06 に再確認し、静的検査の正確性、Option / Result と enum error、match による場合分け、純粋性と副作用境界、不変性、doc comment / doctest、詳細 test の分離、DAG 的 module boundary、ゼロコスト抽象化、暫定雑設計の排除を今回の判断基準にした。
+- 対象 slice は `stdlib/alloc/string/builder/append.nepl`、`builder/build.nepl`、`builder/reserve.nepl`、`builder_ext.nepl` の StringBuilder fallback public wrapper。Result API には既に契約がある一方で、互換 wrapper の `string_builder_new`、`sb_append`、`sb_append_char`、`sb_append_ascii`、`sb_append_byte`、`sb_build`、`sb_append_i32` が declaration doc gap の先頭に残っていたため、Result API との差分を固定する範囲に絞った。
+- 各 wrapper の日本語 doc comment には、目的、契約、現在の実装、計算量、入力 builder owner consumption、`Result::Err` からの空 builder / 空文字列 fallback、ASCII / byte / UTF-8 boundary を記述し、canonical `test_report` doctest を追加した。
+- `nodesrc/test_alloc_string_doc_report_contract.js` は StringBuilder fallback wrapper の report doctest を検査対象に追加し、fallback/owner/UTF-8/complexity の contract snippet を source policy として固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline は `declarationNoDoc=154` に締め直した。次の sample gaps は `stdlib/alloc/string/char_offsets`、`concat`、`float/format`、`integer/format`、`integer/parse`、`scanner`、`slice`、`utf8`、`core/char` 系へ移った。
+- subagent 計画レビューは依頼済み。最終 merge 前に指摘を確認し、Blocker があればこの slice 内で直す。
+- subagent 計画レビューではこの slice 自体の Blocker はなし。別件として `tests/stdlib/string.n.md::test_mlstr_trailing_whitespace` が現在 `"[line1\nline2]END"` を出し、fixture の trailing spaces 期待と合わないことが指摘されたため、`ISS-20260605T181602324Z-MLSTR-TRAILING-WHITESPACE-FIXTURE-DI-5218829A` を作成した。これは StringBuilder fallback wrapper の変更由来ではないため、この slice では修正しない。
+- 現時点の検証済み:
+  - `node nodesrc/test_alloc_string_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/alloc/string/builder/append.nepl --no-tree -o tmp/agent2-string-builder-append-doc.json -j 1 --dist web/dist --assert-io`: pass（4/4）
+  - `node nodesrc/tests.js -i stdlib/alloc/string/builder/build.nepl --no-tree -o tmp/agent2-string-builder-build-doc.json -j 1 --dist web/dist --assert-io`: pass（1/1）
+  - `node nodesrc/tests.js -i stdlib/alloc/string/builder/reserve.nepl --no-tree -o tmp/agent2-string-builder-reserve-doc.json -j 1 --dist web/dist --assert-io`: pass（1/1）
+  - `node nodesrc/tests.js -i stdlib/alloc/string/builder_ext.nepl --no-tree -o tmp/agent2-string-builder-ext-doc.json -j 1 --dist web/dist --assert-io`: pass（1/1）
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/agent2-stdlib-string-regression.json -j 1 --dist web/dist --assert-io`: pass（9/9）
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/agent2-string-char-check-2.json -j 1 --dist web/dist --assert-io`: pass（3/3）
+  - `node nodesrc/issues.js index --dir issues`: pass（total=1346, open=44, resolved=1302）
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `trunk build`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+- `node nodesrc/tests.js` で変更 `.nepl` 4 files と `stdlib/tests/string.n.md` をまとめて実行した場合は runner output が partial で終わったため、変更 module ごとの doctest と regular string regression を分割して検証した。これは個別 doctest failure ではなく、同一コマンドの長時間実行の扱いである。
 # 2026-06-06 Agent selfhost module checker documentation authority checkpoint
 
 - `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T02:43:30+09:00 に再確認した。AGENTS.md も再確認し、判断基準は、静的検査の正確性、Option / Result / enum error、error enum と表示の分離、match / typed value の活用、純粋性と副作用境界、責務分割、丁寧な doc comment、契約と現状説明の分離、試作段階でも品質を落とさないこと、行数制限 / doc comment 長制限を入れないこと。
