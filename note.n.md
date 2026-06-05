@@ -1,3 +1,16 @@
+# 2026-06-05 Agent adjacency matrix layout documentation checkpoint
+
+- Zenn 記事を再確認し、doc comment には目的、契約、現状実装の詳細、計算量、典型例と doctest を書く方針を改めて判断基準にした。
+- 前 checkpoint は documentation contract の baseline を締めたが、それだけでは「丁寧なコメントを整備する」方針の実行として不十分だった。今回は `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の未文書 helper 5件に、役割、境界条件、storage を読むかどうか、現状実装、計算量、doctest を追加した。
+- subagent review で、追加 comment が `[契約]` と `[現状実装]` を十分に分離していないと指摘された。これを受けて layout helper 6件すべてに `[契約]` と `[現状実装]` を明示し、row-major mapping、byte packing、overflow guard の責務境界を comment 内で分けた。
+- `adjacency_matrix_valid_vertex` と `adjacency_matrix_valid_edge` の doctest は、存在しない `assert_eq_bool` や import 境界が曖昧な `not` に依存せず、`std/test` の公開 `assert` / `assert_ne` を使う形にした。
+- `nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js` に、layout helper が `[目的]`、`[契約]`、`[現状実装]`、`[計算量]`、report doctest を持つことを検査する source policy を追加した。presence count だけでは Zenn 方針の実質を確認できないため、対象 module の section contract を機械検査する。
+- `nodesrc/test_stdlib_documentation_contract.js` の `declarationNoDoc` baseline は `366` から `361` へ締め直した。`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持し、残る gap を現在値で記録した。
+- 検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/layout.nepl --no-tree -o tmp/adjacency-matrix-layout-docs.json -j 1 --dist web/dist --assert-io`: pass, total=6
+  - `node nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass, `declarationNoDoc=361`
+
 # 2026-06-05 Agent Zenn documentation contract baseline checkpoint
 
 - Zenn 記事を再確認し、丁寧なドキュメントコメント、静的検査の正確性、試作段階でも技術的負債を残さない方針を判断基準にした。
