@@ -1,0 +1,79 @@
+#indent 4
+
+//: # check/expr/expectation
+//: expression checker が受け取る expected type の由来と payload を表す module です。
+//:
+//: [目的/もくてき]:
+//: - expected type を単なる `Option SelfhostTypeId` に潰さず、どの構文・どの外側 context から要求された型なのかを保持します。
+//: - overload candidate の安い pruning と、最終的な型不一致 diagnostic の両方で同じ typed evidence を使えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `expected_type` は `SelfhostTypeArena` 内の arena-local id です。同じ arena と一緒にだけ使います。
+//: - `span` は expected type を要求した構文位置を説明するための source span です。候補側や引数側の span とは混ぜません。
+//: - expected type がない場合は `Option::None` を使い、dummy TypeId や error type sentinel は使いません。
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostTypeExpectationSource: expected type がどの boundary から来たかを表す分類
+//:
+//: [目的/もくてき]:
+//: - `%T expr`、block result、外側 call argument のような由来を enum として残します。
+//: - diagnostic はこの分類を表示へ投影し、checker 本体は表示文言を持ちません。
+pub enum SelfhostTypeExpectationSource:
+    ExplicitAscription
+    BlockResult
+    OuterConsumerArgument
+
+impl Clone for SelfhostTypeExpectationSource:
+    fn clone %fn &SelfhostTypeExpectationSource SelfhostTypeExpectationSource \self:
+        *self
+
+impl Copy for SelfhostTypeExpectationSource:
+    fn copy_mark %fn SelfhostTypeExpectationSource SelfhostTypeExpectationSource \self:
+        self
+
+//: SelfhostTypeExpectation: expression reduction に渡す expected type evidence
+//:
+//: [目的/もくてき]:
+//: - expected type の TypeId、由来、span を 1 つの payload にまとめます。
+//: - 型 ID だけでは「どこから要求された型か」が失われるため、後続 diagnostic と cache key 境界の両方でこの record を使います。
+pub struct SelfhostTypeExpectation:
+    expected_type %SelfhostTypeId
+    source %SelfhostTypeExpectationSource
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTypeExpectation:
+    fn clone %fn &SelfhostTypeExpectation SelfhostTypeExpectation \self:
+        *self
+
+impl Copy for SelfhostTypeExpectation:
+    fn copy_mark %fn SelfhostTypeExpectation SelfhostTypeExpectation \self:
+        self
+
+//: selfhost_type_expectation_new: expected type evidence を[作/つく]る
+pub fn selfhost_type_expectation_new %fn SelfhostTypeId fn SelfhostTypeExpectationSource fn SelfhostSourceSpan SelfhostTypeExpectation \expected_type\source\span:
+    SelfhostTypeExpectation expected_type source span
+
+//: selfhost_type_expectation_source_eq: expected type source が同じ分類か[返/かえ]す
+pub fn selfhost_type_expectation_source_eq %fn SelfhostTypeExpectationSource fn SelfhostTypeExpectationSource bool \a\b:
+    match a:
+        SelfhostTypeExpectationSource::ExplicitAscription:
+            match b:
+                SelfhostTypeExpectationSource::ExplicitAscription:
+                    true
+                _:
+                    false
+        SelfhostTypeExpectationSource::BlockResult:
+            match b:
+                SelfhostTypeExpectationSource::BlockResult:
+                    true
+                _:
+                    false
+        SelfhostTypeExpectationSource::OuterConsumerArgument:
+            match b:
+                SelfhostTypeExpectationSource::OuterConsumerArgument:
+                    true
+                _:
+                    false

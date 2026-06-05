@@ -168,6 +168,7 @@ const checks = [
     "nodesrc/test_selfhost_parser_report_contract.js",
     "nodesrc/test_selfhost_checker_report_contract.js",
     "nodesrc/test_selfhost_module_checker_split_contract.js",
+    "nodesrc/test_selfhost_expr_call_reduce_contract.js",
     "nodesrc/test_selfhost_module_loader_report_contract.js",
     "nodesrc/test_selfhost_diag_outcome_report_contract.js",
     "nodesrc/test_selfhost_diag_split_contract.js",

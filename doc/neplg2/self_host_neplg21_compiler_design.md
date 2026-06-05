@@ -282,6 +282,10 @@ type checker は prefix call reduction を担当する。
 - `@function name` function value identity construction
 - `memo_call` compiler-known primitive
 
+現行 self-host 実装では、`stdlib/neplg2/core/check/expr/` が expression checker の初期境界を持つ。`SelfhostTypeExpectation` は expected type の `SelfhostTypeId` だけでなく、`ExplicitAscription` / `BlockResult` / `OuterConsumerArgument` の由来と span を保持する。`SelfhostCallableCandidate` は候補名、function type であるべき TypeId、effect、generic inference state、span を保持する。call reduction はこれらと `SelfhostExprPrefixList` を受け取り、HIR をまだ生成せず `SelfhostCallReduceResult::DirectCall` または `SelfhostCallReduceError` を返す。
+
+この初期境界は fail-closed である。先頭 item が named value で、候補が 1 つだけで、候補 type が function type で、引数数が完全一致し、expected result と候補 result が同じ arena 内で構造一致する場合だけ direct call plan を返す。候補が複数ある場合は、現段階では expected type による narrowing を行わず `OverloadAmbiguous` にする。generic inference state が `EvidenceMissing` / `Conflict` / `Unsupported` の場合は、それぞれ typed error に分ける。これにより、未完成の generic solver や overload solver が成功として後段へ流れない。
+
 部分適用は許可しない。`add 1` が `fn i32 i32` を要求する文脈であっても、NEPLg2.1 の一般規則として関数値を暗黙生成しない。関数値が必要な場合は `@function name` や明示的な lambda を使う。
 
 zero-argument function は実引数なしで呼ぶ。
@@ -735,10 +739,10 @@ Performance acceptance:
 
 Issue slice:
 
-- expected type and `%T` ascription
+- `%T` ascription から `SelfhostTypeExpectation` を作る接続
 - callable candidate collection
-- `SelfhostExprPrefixList` からの expression reduction input validation
-- prefix call reduction stack
+- `ExpressionLine.head` から `SelfhostExprPrefixList` を作り `check/expr` へ渡す接続
+- argument type checking を含む prefix call reduction stack
 - generic instantiation inference
 - trait bound solving
 - no partial application diagnostics

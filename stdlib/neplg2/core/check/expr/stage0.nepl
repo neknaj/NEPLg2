@@ -1,0 +1,212 @@
+#indent 4
+
+//: # check/expr/stage0
+//: expression call reduction の smoke test API と focused fixture helper を置く module です。
+//:
+//: [目的/もくてき]:
+//: - `SelfhostExprPrefixList`、callable candidate、type arena を実際に組み合わせ、call reduction の成功と fail-closed error を小さく確認します。
+//: - doctest 側が owner-backed `SelfhostTypeArena` を独自 aggregate に包まずに済むよう、stdlib 内の helper で fixture を構築します。
+//:
+//: [契約/けいやく]:
+//: - この module は stage0 fixture だけを持ちます。production の reduction 規則は `call_reduce.nepl` に置きます。
+//: - fixture は parser / lexer を通さず、typed prefix item を直接作ります。これにより call reduction の責務だけを検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture prefix list の構築は引数数 k に対して O(k) です。
+//: - stage0 全体は固定サイズの候補と型だけを作るため O(1) です。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+#import "./expectation" as *
+#import "./call_candidate" as *
+#import "./model" as *
+#import "./call_reduce" as *
+
+fn selfhost_check_expr_stage0_push_arg_items %impure fn Vec SelfhostExprPrefixItem impure fn i32 impure fn i32 Result Vec SelfhostExprPrefixItem StdErrorKind \items\n\idx:
+    if:
+        ge idx n
+        then:
+            Result::Ok items
+        else:
+            let span %SelfhostSourceSpan source_span_new_unchecked 0 add idx 4 add idx 5
+            let item %SelfhostExprPrefixItem selfhost_expr_prefix_item_new SelfhostExprPrefixItemKind::IntLiteral add idx 1 span
+            match v::push items item:
+                Result::Ok next_items:
+                    selfhost_check_expr_stage0_push_arg_items next_items n add idx 1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+
+fn selfhost_check_expr_stage0_make_prefix %impure fn i32 Result SelfhostExprPrefixList StdErrorKind \argument_count:
+    let items_result %Result Vec SelfhostExprPrefixItem StdErrorKind v::new
+    match items_result:
+        Result::Ok items0:
+            let head %SelfhostExprPrefixItem selfhost_expr_prefix_item_new SelfhostExprPrefixItemKind::NamedValue 0 source_span_new_unchecked 0 0 3
+            match v::push items0 head:
+                Result::Ok items1:
+                    match selfhost_check_expr_stage0_push_arg_items items1 argument_count 0:
+                        Result::Ok items2:
+                            Result::Ok selfhost_expr_prefix_list_new items2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_check_expr_stage0_make_candidate_vec %impure fn SelfhostTypeId impure fn SelfhostGenericInferenceState Result Vec SelfhostCallableCandidate StdErrorKind \callable_type\generic_state:
+    let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
+    match candidates_result:
+        Result::Ok candidates0:
+            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" callable_type SelfhostEffectKind::Pure generic_state source_span_new_unchecked 0 0 3
+            match v::push candidates0 candidate:
+                Result::Ok candidates1:
+                    Result::Ok candidates1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_check_expr_stage0_reduce %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn i32 impure fn SelfhostGenericInferenceState impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError \arena\add_type\argument_count\generic_state\expected:
+    match selfhost_check_expr_stage0_make_prefix argument_count:
+        Result::Ok prefix:
+            match selfhost_check_expr_stage0_make_candidate_vec add_type generic_state:
+                Result::Ok candidates:
+                    let result %Result SelfhostCallReduceResult SelfhostCallReduceError selfhost_call_reduce_prefix arena &prefix &candidates expected
+                    v::free candidates
+                    selfhost_expr_prefix_list_free prefix
+                    result
+                Result::Err _e:
+                    selfhost_expr_prefix_list_free prefix
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+        Result::Err _e:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+
+fn selfhost_check_expr_stage0_error_is %fn Result SelfhostCallReduceResult SelfhostCallReduceError fn SelfhostCallReduceErrorKind bool \result\expected:
+    match result:
+        Result::Ok _reduced:
+            false
+        Result::Err e:
+            selfhost_call_reduce_error_kind_eq e.kind expected
+
+fn selfhost_check_expr_stage0_direct_ok %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \arena\i32_type\add_type:
+    match selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::NoneRequired none:
+        Result::Ok reduced:
+            match reduced:
+                SelfhostCallReduceResult::DirectCall call:
+                    and eq call.argument_count 2 selfhost_type_id_eq call.result_type i32_type
+        Result::Err _e:
+            false
+
+fn selfhost_check_expr_stage0_partial_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
+    selfhost_check_expr_stage0_error_is (selfhost_check_expr_stage0_reduce arena add_type 1 SelfhostGenericInferenceState::NoneRequired none) SelfhostCallReduceErrorKind::PartialApplicationRejected
+
+fn selfhost_check_expr_stage0_expected_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \arena\bool_type\add_type:
+    let expected %SelfhostTypeExpectation selfhost_type_expectation_new bool_type SelfhostTypeExpectationSource::ExplicitAscription source_span_new_unchecked 0 0 3
+    selfhost_check_expr_stage0_error_is (selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::NoneRequired some expected) SelfhostCallReduceErrorKind::ExpectedTypeMismatch
+
+fn selfhost_check_expr_stage0_generic_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
+    match selfhost_check_expr_stage0_reduce arena add_type 2 SelfhostGenericInferenceState::EvidenceMissing none:
+        Result::Ok _reduced:
+            false
+        Result::Err e:
+            and:
+                selfhost_call_reduce_error_kind_eq e.kind SelfhostCallReduceErrorKind::GenericInferenceEvidenceMissing
+                selfhost_generic_inference_state_eq e.generic_state SelfhostGenericInferenceState::EvidenceMissing
+
+fn selfhost_check_expr_stage0_ambiguous_rejected %impure fn &SelfhostTypeArena impure fn SelfhostTypeId bool \arena\add_type:
+    match selfhost_check_expr_stage0_make_prefix 2:
+        Result::Ok prefix:
+            match selfhost_check_expr_stage0_make_candidate_vec add_type SelfhostGenericInferenceState::NoneRequired:
+                Result::Ok candidates1:
+                    let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" add_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
+                    match v::push candidates1 candidate:
+                        Result::Ok candidates2:
+                            let result %Result SelfhostCallReduceResult SelfhostCallReduceError selfhost_call_reduce_prefix arena &prefix &candidates2 none
+                            v::free candidates2
+                            selfhost_expr_prefix_list_free prefix
+                            selfhost_check_expr_stage0_error_is result SelfhostCallReduceErrorKind::OverloadAmbiguous
+                        Result::Err e:
+                            v::free v::vec_push_error_vec e
+                            selfhost_expr_prefix_list_free prefix
+                            false
+                Result::Err _e:
+                    selfhost_expr_prefix_list_free prefix
+                    false
+        Result::Err _e:
+            false
+
+fn selfhost_check_expr_stage0_add_two_i32_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\i32_type:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 i32_type:
+                Result::Ok params1:
+                    match v::push params1 i32_type:
+                        Result::Ok params2:
+                            selfhost_type_arena_add_function arena params2 i32_type
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            selfhost_type_arena_free arena
+                            Result::Err error
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_check_expr_stage0: expression call reduction の smoke API
+//:
+//: [目的/もくてき]:
+//: - direct call success、partial application rejection、expected type mismatch、generic evidence missing、overload ambiguity を 1 回で確認します。
+//: - これは public compiler API ではなく、self-host expression checker slice の接続確認用です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: すべての stage0 checks が期待通りでした。
+//: - `1`: setup または reduction のいずれかが失敗しました。
+pub fn selfhost_check_expr_stage0 %impure fn void i32 \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::Bool:
+                        Result::Ok bool_alloc:
+                            let bool_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &bool_alloc
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena bool_alloc
+                            match selfhost_check_expr_stage0_add_two_i32_function arena2 i32_type:
+                                Result::Ok add_alloc:
+                                    let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+                                    let ok0 %bool selfhost_check_expr_stage0_direct_ok &arena3 i32_type add_type
+                                    let ok1 %bool selfhost_check_expr_stage0_partial_rejected &arena3 add_type
+                                    let ok2 %bool selfhost_check_expr_stage0_expected_rejected &arena3 bool_type add_type
+                                    let ok3 %bool selfhost_check_expr_stage0_generic_rejected &arena3 add_type
+                                    let ok4 %bool selfhost_check_expr_stage0_ambiguous_rejected &arena3 add_type
+                                    selfhost_type_arena_free arena3
+                                    if and ok0 and ok1 and ok2 and ok3 ok4 0 1
+                                Result::Err _e:
+                                    1
+                        Result::Err _e:
+                            1
+                Result::Err _e:
+                    1
+        Result::Err _e:
+            1
