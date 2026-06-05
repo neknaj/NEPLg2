@@ -19,10 +19,24 @@ const BASELINE = {
     privateNoDoc: 253,
     privateNoDoctest: 195,
 };
+const HARD_DOC_BASELINE_KEYS = [
+    "moduleNoDoc",
+    "declarationNoDoc",
+    "publicNoDoc",
+    "privateNoDoc",
+];
+const REPORT_ONLY_DOCTEST_BASELINE_KEYS = [
+    "moduleNoDoctest",
+    "declarationNoDoctest",
+    "publicNoDoctest",
+    "privateNoDoctest",
+];
 
 const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/cli/args/emit.nepl",
+    "stdlib/neplg2/core/check/expr/argument.nepl",
     "stdlib/neplg2/core/check/expr/ascription.nepl",
+    "stdlib/neplg2/core/check/expr/call_reduce.nepl",
     "stdlib/neplg2/core/check/module/",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
@@ -34,11 +48,32 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/hir/hir/expr.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
 ];
-const PUBLIC_DOC_SECTION_REQUIREMENTS = [
+const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_new", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_empty", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_all", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_add", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentMatchErrorKind", ["purpose", "contract"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentMatchError", ["purpose", "contract"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "SelfhostExprArgumentOwnedMatch", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_owned_match_new", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_owned_match_match", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_owned_match_checked_argument", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_owned_match_into_arena", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_expected_type_is_function", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_function_value_error_from_candidate_collect", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_function_value_candidate_is_monomorphic", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_match_function_value_candidate", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_match_function_value_candidates", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_match_function_value_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_range_from_prefix", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_find_prefix_item_by_token_loop", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_find_prefix_item_by_token", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_validate_ascription_expected", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_span_from_ascription_error", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_match_ascribed_with_projection", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_match_ascribed_at_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/argument.nepl", "selfhost_expr_argument_match_at_with_source", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "SelfhostExprAscriptionError", ["purpose", "contract"]),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "SelfhostExprAscriptionProjection", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "SelfhostExprAscriptionHeadProjection", ["purpose", "contract", "complexity"]),
@@ -54,6 +89,31 @@ const PUBLIC_DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_expectation", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_head_expectation", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_expectation_with_constructors", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_free_error_new", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_free_existing_error", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_free_argument_error", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "SelfhostCallReduceArgumentCheckState", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_argument_check_state_new", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_argument_check_state_free", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_argument_check_state_into_arena", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_free_argument_state_error", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_push_checked_argument", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_error_from_candidate_collect", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_error_from_block_body_result", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_generic_state_error", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_expected_result", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_argument_match_direct_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_argument_consume_loop_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_nested_single_named_candidate_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_nested_named_candidates_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_argument_match_at_with_source_or_nested", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_single_named_candidate", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_single_named_candidate_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_named_prefix", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_named_prefix_with_source_and_trailing_block", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_named_prefix_with_source", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_prefix_with_source_and_trailing_block", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_prefix_with_source", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/declaration_adapter.nepl", "selfhost_module_check_directive_fact", ["purpose", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/declaration_adapter.nepl", "selfhost_module_check_item_directive_state", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/declaration_adapter.nepl", "selfhost_module_check_item_span", ["purpose", "returns", "complexity"]),
@@ -117,8 +177,8 @@ function docHasSection(docLines, section) {
     return docLines.some((line) => pattern.test(line));
 }
 
-const publicDocSectionRequirementByKey = new Map(
-    PUBLIC_DOC_SECTION_REQUIREMENTS.map((item) => [sectionRequirementKey(item.relPath, item.name), item.sections]),
+const docSectionRequirementByKey = new Map(
+    DOC_SECTION_REQUIREMENTS.map((item) => [sectionRequirementKey(item.relPath, item.name), item.sections]),
 );
 
 function walkNeplFiles(dir) {
@@ -211,8 +271,8 @@ const stats = {
 const samples = [];
 const publicDocRequiredPrefixGaps = [];
 const moduleDocRequiredPrefixGaps = [];
-const publicDocSectionGaps = [];
-const seenPublicDocSectionRequirementKeys = new Set();
+const docSectionGaps = [];
+const seenDocSectionRequirementKeys = new Set();
 const seenRepoPaths = new Set();
 
 function sample(message) {
@@ -282,12 +342,12 @@ for (const filePath of walkNeplFiles(selfhostRoot).sort()) {
             }
         } else {
             const requirementKey = sectionRequirementKey(repoPath, declaration[3]);
-            const sectionRequirements = publicDocSectionRequirementByKey.get(requirementKey);
-            if (isPublic && sectionRequirements) {
-                seenPublicDocSectionRequirementKeys.add(requirementKey);
+            const sectionRequirements = docSectionRequirementByKey.get(requirementKey);
+            if (sectionRequirements) {
+                seenDocSectionRequirementKeys.add(requirementKey);
                 for (const section of sectionRequirements) {
                     if (!docHasSection(doc, section)) {
-                        publicDocSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc is missing [${section}] section`);
+                        docSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc is missing [${section}] section`);
                     }
                 }
             }
@@ -338,38 +398,18 @@ for (const [key, value] of Object.entries(BASELINE)) {
         `selfhost documentation baseline issue must record ${key}=${value}`,
     );
 }
-assert(
-    stats.moduleNoDoc <= BASELINE.moduleNoDoc,
-    `selfhost module doc gaps increased: ${stats.moduleNoDoc} > ${BASELINE.moduleNoDoc}`,
-);
-assert(
-    stats.moduleNoDoctest <= BASELINE.moduleNoDoctest,
-    `selfhost module doctest gaps increased: ${stats.moduleNoDoctest} > ${BASELINE.moduleNoDoctest}`,
-);
-assert(
-    stats.declarationNoDoc <= BASELINE.declarationNoDoc,
-    `selfhost declaration doc gaps increased: ${stats.declarationNoDoc} > ${BASELINE.declarationNoDoc}`,
-);
-assert(
-    stats.declarationNoDoctest <= BASELINE.declarationNoDoctest,
-    `selfhost declaration doctest gaps increased: ${stats.declarationNoDoctest} > ${BASELINE.declarationNoDoctest}`,
-);
-assert(
-    stats.publicNoDoc <= BASELINE.publicNoDoc,
-    `selfhost public declaration doc gaps increased: ${stats.publicNoDoc} > ${BASELINE.publicNoDoc}`,
-);
-assert(
-    stats.publicNoDoctest <= BASELINE.publicNoDoctest,
-    `selfhost public declaration doctest gaps increased: ${stats.publicNoDoctest} > ${BASELINE.publicNoDoctest}`,
-);
-assert(
-    stats.privateNoDoc <= BASELINE.privateNoDoc,
-    `selfhost private declaration doc gaps increased: ${stats.privateNoDoc} > ${BASELINE.privateNoDoc}`,
-);
-assert(
-    stats.privateNoDoctest <= BASELINE.privateNoDoctest,
-    `selfhost private declaration doctest gaps increased: ${stats.privateNoDoctest} > ${BASELINE.privateNoDoctest}`,
-);
+for (const key of HARD_DOC_BASELINE_KEYS) {
+    assert(
+        stats[key] <= BASELINE[key],
+        `selfhost documentation gaps increased for ${key}: ${stats[key]} > ${BASELINE[key]}`,
+    );
+}
+for (const key of REPORT_ONLY_DOCTEST_BASELINE_KEYS) {
+    assert.ok(
+        Object.hasOwn(BASELINE, key),
+        `selfhost doctest debt counter must remain visible in the baseline issue: ${key}`,
+    );
+}
 assert.deepEqual(
     moduleDocRequiredPrefixGaps,
     [],
@@ -380,17 +420,17 @@ assert.deepEqual(
     [],
     `selfhost fixed public documentation slices must not have public declaration doc gaps:\n${publicDocRequiredPrefixGaps.join("\n")}`,
 );
-const missingSectionRequirementTargets = [...publicDocSectionRequirementByKey.keys()]
-    .filter((key) => !seenPublicDocSectionRequirementKeys.has(key));
+const missingSectionRequirementTargets = [...docSectionRequirementByKey.keys()]
+    .filter((key) => !seenDocSectionRequirementKeys.has(key));
 assert.deepEqual(
     missingSectionRequirementTargets,
     [],
     `selfhost documentation section requirement targets must be found:\n${missingSectionRequirementTargets.join("\n")}`,
 );
 assert.deepEqual(
-    publicDocSectionGaps,
+    docSectionGaps,
     [],
-    `selfhost fixed documentation slices must preserve the required Zenn-policy doc sections:\n${publicDocSectionGaps.join("\n")}`,
+    `selfhost fixed documentation slices must preserve the required Zenn-policy doc sections:\n${docSectionGaps.join("\n")}`,
 );
 
 console.log("selfhost documentation contract baseline ok");

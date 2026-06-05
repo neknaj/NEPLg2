@@ -34,6 +34,22 @@
 #import "./value_evidence" as *
 #import "./block_body" as *
 
+//: selfhost_call_reduce_generic_state_error: candidate の generic inference state を call reduction error へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - direct call plan に未解決 generic を流さないため、候補収集時点の generic inference state を縮約前に確認します。
+//: - `EvidenceMissing`、`Conflict`、`Unsupported` を別の error kind として残し、単なる no-candidate や型不一致へ潰しません。
+//:
+//: [契約/けいやく]:
+//: - `NoneRequired` と `Unique` だけを成功として扱います。
+//: - 失敗時は candidate の span と generic state を保持した error を返し、後続 diagnostic が原因を復元できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(unit)`: candidate はこの reducer が扱える generic state です。
+//: - `Err(error)`: generic inference が未完了、不整合、またはこの段階では未対応です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
 fn selfhost_call_reduce_generic_state_error %fn SelfhostCallableCandidate Result unit SelfhostCallReduceError \candidate:
     match candidate.generic_state:
         SelfhostGenericInferenceState::NoneRequired:
@@ -46,7 +62,23 @@ fn selfhost_call_reduce_generic_state_error %fn SelfhostCallableCandidate Result
             Result::Err selfhost_call_reduce_error_generic SelfhostCallReduceErrorKind::GenericInferenceConflict candidate.span candidate.generic_state
         SelfhostGenericInferenceState::Unsupported:
             Result::Err selfhost_call_reduce_error_generic SelfhostCallReduceErrorKind::GenericInferenceUnsupported candidate.span candidate.generic_state
-
+//: selfhost_call_reduce_expected_result: candidate の result type と外側 expectation を[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - direct call の実引数がすべて合った後、呼び出し全体の result type が外側 consumer の期待型に合うかを確認します。
+//: - 期待型がない場合でも、candidate の function result type を direct call plan に入れるために取り出します。
+//:
+//: [契約/けいやく]:
+//: - candidate type が function でない場合は `NotCallable` として fail-closed にします。
+//: - expectation がある場合は `SelfhostTypeArena` 内の型同一性だけを使い、表示名や source spelling では比較しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(result_type)`: direct call plan に保存する result type id です。
+//: - `Err(NotCallable)`: candidate type から result type を取り出せません。
+//: - `Err(ExpectedTypeMismatch)`: 外側 expectation と result type が一致しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - function result 取得は O(1) です。型同一性比較の実コストは arena の型表現に依存します。
 fn selfhost_call_reduce_expected_result %fn &SelfhostTypeArena fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostTypeId SelfhostCallReduceError \arena\candidate\expected:
     match selfhost_type_arena_function_result arena candidate.callable_type:
         Option::Some result_type:
@@ -163,14 +195,57 @@ fn selfhost_call_reduce_error_from_argument_match_owned %fn SelfhostExprArgument
         Result::Ok _unit:
             selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_free_error_new: arena owner を閉じて新しい call reduction error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - owner-returning reducer の失敗経路で、arena owner を残さず typed error を作ります。
+//: - cleanup と error construction を 1 箇所に寄せ、失敗分岐で arena free を忘れないようにします。
+//:
+//: [契約/けいやく]:
+//: - `arena` はこの関数が必ず解放します。
+//: - 返り値は常に `Err` であり、成功 payload を作りません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Err(SelfhostCallReduceError { kind, span })` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - error record 構築は O(1) です。arena cleanup の実コストは arena の内容に依存します。
 fn selfhost_call_reduce_free_error_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \arena\kind\span:
     selfhost_type_arena_free arena
     Result::Err selfhost_call_reduce_error_new kind span
 
+//: selfhost_call_reduce_free_existing_error: arena owner を閉じて既存 error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 下位 helper がすでに typed error を作っている場合に、arena owner だけを閉じて error をそのまま上位へ返します。
+//:
+//: [契約/けいやく]:
+//: - `arena` はこの関数が解放します。
+//: - `error` の kind/span は変更しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `Err(error)` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - error forwarding は O(1) です。arena cleanup の実コストは arena の内容に依存します。
 fn selfhost_call_reduce_free_existing_error %impure fn SelfhostTypeArena impure fn SelfhostCallReduceError Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \arena\error:
     selfhost_type_arena_free arena
     Result::Err error
 
+//: selfhost_call_reduce_free_argument_error: argument reducer 用に arena owner を閉じて error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - nested call argument helper が `SelfhostExprArgumentOwnedMatch` を返す型の失敗経路で、arena owner を残さず call reduction error を返します。
+//:
+//: [契約/けいやく]:
+//: - `arena` はこの関数が解放します。
+//: - 返り値は常に `Err(error)` であり、checked argument payload は作りません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Err(error)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - error forwarding は O(1) です。arena cleanup の実コストは arena の内容に依存します。
 fn selfhost_call_reduce_free_argument_error %impure fn SelfhostTypeArena impure fn SelfhostCallReduceError Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \arena\error:
     selfhost_type_arena_free arena
     Result::Err error
@@ -180,26 +255,99 @@ fn selfhost_call_reduce_free_argument_error %impure fn SelfhostTypeArena impure 
 //: [目的/もくてき]:
 //: - argument loop は `%T` projection によって更新された type arena owner と、各 argument から得た checked payload vector を一緒に運びます。
 //: - arena だけを返すと、`@ident` が成功した時点の callable candidate / DefId evidence が loop の次の再帰で失われます。
+//:
+//: [契約/けいやく]:
+//: - `arena` と `checked_arguments` の owner はこの state が保持します。
+//: - caller は success path で state を上位 payload へ移すか、`free` / `into_arena` で owner を閉じます。
+//:
+//: [計算量/けいさんりょう]:
+//: - record の生成と field 取り出しは O(1) です。Vec / arena cleanup は保持要素数に依存します。
 struct SelfhostCallReduceArgumentCheckState:
     arena %SelfhostTypeArena
     checked_arguments %Vec SelfhostCheckedArgument
 
+//: selfhost_call_reduce_argument_check_state_new: argument loop state を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - updated arena owner と checked argument list owner を 1 つの loop state にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `arena` と `checked_arguments` の所有権は返り値へ移ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostCallReduceArgumentCheckState`: argument loop の owner state です。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
 fn selfhost_call_reduce_argument_check_state_new %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument SelfhostCallReduceArgumentCheckState \arena\checked_arguments:
     SelfhostCallReduceArgumentCheckState arena checked_arguments
 
+//: selfhost_call_reduce_argument_check_state_free: argument loop state の owner を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - loop state を上位 payload へ渡さない失敗/中断経路で、arena と checked argument vector を両方閉じます。
+//:
+//: [契約/けいやく]:
+//: - `state` を消費します。呼び出し後に arena や checked arguments を読むことはできません。
+//:
+//: [計算量/けいさんりょう]:
+//: - owner 取り出しは O(1) です。arena/Vec cleanup の実コストは保持要素数に依存します。
 fn selfhost_call_reduce_argument_check_state_free %impure fn SelfhostCallReduceArgumentCheckState unit \state:
     selfhost_type_arena_free field::get state "arena"
     v::free field::get state "checked_arguments"
 
+//: selfhost_call_reduce_argument_check_state_into_arena: checked argument list を閉じて arena owner だけを[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - checked argument payload が不要な互換経路で、Vec owner を解放し、arena owner だけを返します。
+//:
+//: [契約/けいやく]:
+//: - `state` を消費します。
+//: - checked argument evidence はこの関数で破棄されるため、HIR lowering に証拠を渡す経路では使いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeArena`: state が保持していた arena owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - Vec cleanup の実コストは checked argument 数に依存します。arena field 取り出しは O(1) です。
 fn selfhost_call_reduce_argument_check_state_into_arena %impure fn SelfhostCallReduceArgumentCheckState SelfhostTypeArena \state:
     v::free field::get state "checked_arguments"
     field::get state "arena"
 
+//: selfhost_call_reduce_free_argument_state_error: argument loop の partial owner を閉じて error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - state record を作る前に失敗した経路で、arena owner と checked argument Vec owner をまとめて閉じます。
+//:
+//: [契約/けいやく]:
+//: - `arena` と `checked_arguments` はこの関数が解放します。
+//: - 返り値は常に `Err(error)` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Err(error)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - error forwarding は O(1) です。owner cleanup は保持要素数に依存します。
 fn selfhost_call_reduce_free_argument_state_error %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCallReduceError Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \arena\checked_arguments\error:
     selfhost_type_arena_free arena
     v::free checked_arguments
     Result::Err error
 
+//: selfhost_call_reduce_push_checked_argument: checked argument を loop state へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - 1 argument の検査済み evidence を Vec に追加し、updated arena owner と一緒に次の loop state を作ります。
+//:
+//: [契約/けいやく]:
+//: - push 成功時、`checked_arguments` owner は返り値の state へ移ります。
+//: - push 失敗時、arena owner と Vec owner はこの関数が解放し、OOM error を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(state)`: checked argument が追加された loop state です。
+//: - `Err(OutOfMemory)`: Vec push に失敗しました。owner は解放済みです。
+//:
+//: [計算量/けいさんりょう]:
+//: - Vec push は償却 O(1) です。失敗時 cleanup は保持要素数に依存します。
 fn selfhost_call_reduce_push_checked_argument %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedArgument impure fn SelfhostSourceSpan Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \arena\checked_arguments\checked_argument\fallback_span:
     match v::push checked_arguments checked_argument:
         Result::Ok next_arguments:
@@ -209,6 +357,18 @@ fn selfhost_call_reduce_push_checked_argument %impure fn SelfhostTypeArena impur
             v::free v::vec_push_error_vec e
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory fallback_span
 
+//: selfhost_call_reduce_error_from_candidate_collect: nested call candidate 収集 error を call reduction error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - nested direct call argument の候補収集失敗を、call reduction 全体の error domain へ移します。
+//: - pending binding、signature 欠落、head token 範囲外、OOM を別 variant として保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 対応する `ArgumentNestedCandidate*` kind を持つ `SelfhostCallReduceError` です。
+//: - 未分類 error は `ArgumentNestedCandidateInternalInvariant` として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
 fn selfhost_call_reduce_error_from_candidate_collect %fn SelfhostCallableCandidateCollectError SelfhostCallReduceError \error:
     match error.kind:
         SelfhostCallableCandidateCollectErrorKind::PendingBinding:
@@ -222,6 +382,17 @@ fn selfhost_call_reduce_error_from_candidate_collect %fn SelfhostCallableCandida
         _:
             selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant error.span
 
+//: selfhost_call_reduce_error_from_block_body_result: trailing block body error を call reduction error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - block body segmenter/reducer の失敗を、call reduction の trailing block argument error として保持します。
+//: - 空body、複数segment、nested block unsupported、prefix/candidate失敗を同じ unsupported error へ潰しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 対応する `TrailingBlockBody*` kind を持つ `SelfhostCallReduceError` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
 fn selfhost_call_reduce_error_from_block_body_result %fn SelfhostBlockBodyResultError SelfhostCallReduceError \error:
     match error.kind:
         SelfhostBlockBodyResultErrorKind::SegmentFailed:
@@ -277,6 +448,23 @@ fn selfhost_call_reduce_argument_type_check_loop %fn &SelfhostTypeArena fn &Self
                         Option::None:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_argument_match_direct_with_source: 1 実引数を source-backed argument reducer で[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - nested direct call として扱わない prefix item を、通常の argument reducer へ委譲します。
+//: - argument reducer が作った checked argument evidence と更新済み arena owner を、call reduction 側の error domain に保ったまま返します。
+//:
+//: [契約/けいやく]:
+//: - 成功時の arena owner は `SelfhostExprArgumentOwnedMatch` に移ります。
+//: - 失敗時は argument reducer が返した error を `SelfhostCallReduceError` に写像し、呼び出し head の span で no-candidate 系の文脈を保持します。
+//: - この関数は nested candidate の探索を行いません。探索済みで「直接実引数として検査する」と決まった item だけを受け取ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_match)`: 実引数が `expected_type` に適合し、checked argument evidence を保持しています。
+//: - `Err(error)`: 型不一致、ascription 不整合、または argument reducer の内部不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - この wrapper 自体は O(1) です。実際の探索範囲と型検査コストは `selfhost_expr_argument_match_at_with_source` に従います。
 fn selfhost_call_reduce_argument_match_direct_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
     match selfhost_expr_argument_match_at_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type:
         Result::Ok owned_match:
@@ -284,6 +472,24 @@ fn selfhost_call_reduce_argument_match_direct_with_source %impure fn &Vec Selfho
         Result::Err argument_error:
             Result::Err selfhost_call_reduce_error_from_argument_match_owned argument_error head
 
+//: selfhost_call_reduce_argument_consume_loop_with_source: nested direct call の実引数列を[左/ひだり]から[消費/しょうひ]する
+//:
+//: [目的/もくてき]:
+//: - `head arg1 arg2 ...` という prefix 列を、`head` が 1 つの実引数式として期待型に渡される nested direct call に縮約します。
+//: - 各 parameter の期待型で実引数を検査し、最後に `NestedDirectCall` checked argument として呼び出し範囲を保存します。
+//:
+//: [契約/けいやく]:
+//: - partial application は許可しません。parameter が残ったまま item が尽きた場合は `PartialApplicationRejected` を返します。
+//: - 成功時は最終 arena owner と nested direct call evidence を `SelfhostExprArgumentOwnedMatch` に移します。
+//: - `selfhost_call_reduce_argument_match_at_with_source_or_nested` の成功 payload から arena owner を取り出して次の再帰へ渡すため、途中の owner は二重解放されません。
+//: - 失敗時は、下位 reducer またはこの関数の cleanup helper が arena owner を閉じた状態で typed error を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_match)`: `call_start_index..item_index` が nested direct call として検査済みです。
+//: - `Err(error)`: 実引数不足、parameter type 取得失敗、または下位 argument 検査失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - loop は parameter 数に対して O(p) 回進みます。各 step の実引数検査コストは、該当 prefix item の ascription/nested call 探索に依存します。
 fn selfhost_call_reduce_argument_consume_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidate\param_count\param_idx\call_start_index\item_index\item_count\head:
     if:
         ge param_idx param_count
@@ -309,6 +515,23 @@ fn selfhost_call_reduce_argument_consume_loop_with_source %impure fn &Vec Selfho
                         Option::None:
                             selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_nested_single_named_candidate_with_source: 1 つの named candidate を nested direct call として[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - argument position に現れた named value が callable である場合、その呼び出し全体を 1 つの実引数式として縮約します。
+//: - 呼び出し内部の parameter をすべて消費した後、candidate の result type が外側 consumer の `expected_type` に合うことを確認します。
+//:
+//: [契約/けいやく]:
+//: - generic candidate は現段階では閉じた monomorphic candidate として扱えないため、fail-closed で error にします。
+//: - result type check に失敗した場合は、consumed payload から取り出した arena owner をこの関数が閉じます。
+//: - 成功時は checked argument evidence を保持したまま、新しい owned match として arena owner を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_match)`: nested direct call と外側期待型が両方検査済みです。
+//: - `Err(error)`: candidate が callable でない、generic 未対応、内部実引数検査失敗、または result type 不一致です。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate の parameter 数を p とすると、実引数消費は O(p) 回の検査です。result type check は型照合器のコストに従います。
 fn selfhost_call_reduce_nested_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidate\item_index\item_count\expected_type\head:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _unit:
@@ -333,6 +556,23 @@ fn selfhost_call_reduce_nested_single_named_candidate_with_source %impure fn &Ve
         Result::Err e:
             selfhost_call_reduce_free_argument_error arena e
 
+//: selfhost_call_reduce_nested_named_candidates_with_source: named item の候補数で nested/direct の[分岐/ぶんき]を[決/き]める
+//:
+//: [目的/もくてき]:
+//: - argument position の named item について、callable candidate が 0/1/複数のどれかを判定します。
+//: - candidate がない場合は通常の値式として direct argument reducer に委譲し、1 つだけなら nested direct call として縮約します。
+//:
+//: [契約/けいやく]:
+//: - `candidates` Vec はこの関数が必ず解放します。
+//: - 複数 candidate は曖昧な nested call として `OverloadAmbiguous` を返し、探索を広げません。
+//: - 0 candidate の場合も、named value が通常の値である可能性を残すため、direct argument check を実行します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_match)`: direct argument または nested direct call として検査済みです。
+//: - `Err(error)`: ambiguity、candidate vector 不整合、または委譲先 reducer の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate 数判定と 0/1/>1 分岐は O(1) です。実際の検査コストは direct reducer または single-candidate reducer に従います。
 fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\item_index\item_count\expected_type\head:
     let candidate_count %i32 v::len &candidates
     if:
@@ -356,6 +596,23 @@ fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec Self
                             v::free candidates
                             selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_argument_match_at_with_source_or_nested: item を direct argument または nested call として[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - prefix item が named value の場合だけ callable candidate を収集し、nested direct call として扱えるかを判定します。
+//: - named value 以外、または callable candidate がない named value は、通常の direct argument reducer へ渡します。
+//:
+//: [契約/けいやく]:
+//: - candidate 収集が失敗した場合は、arena owner を閉じたうえで candidate collect error を call reduction error へ写像します。
+//: - `item_index` が prefix 範囲外なら internal invariant として fail-closed します。
+//: - nested/direct の選択は source token と signature table に基づき、曖昧な複数候補を勝手に選びません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_match)`: item 位置から始まる 1 実引数が検査済みです。
+//: - `Err(error)`: 候補収集失敗、曖昧候補、範囲外、または委譲先 reducer の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - named value では candidate 収集コストに加えて nested/direct reducer のコストがかかります。named value 以外では direct reducer のコストだけです。
 fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
     match selfhost_expr_prefix_list_get prefix item_index:
         Option::Some item:
@@ -469,6 +726,23 @@ fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec Sel
                         Option::None:
                             selfhost_call_reduce_free_argument_state_error arena checked_arguments selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_single_named_candidate: source-less に 1 candidate の direct call を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - source text を必要としない最小 reducer として、flat prefix item の型証拠だけで direct call plan を作ります。
+//: - `%T expr`、named value argument、nested call など source-backed checker が必要な引数は成功扱いせず、typed error として上位へ返します。
+//:
+//: [契約/けいやく]:
+//: - partial application は許可せず、parameter が残った場合は `PartialApplicationRejected` を返します。
+//: - generic state と result expectation は、この関数の中で必ず確認します。
+//: - checked argument evidence は作らない source-less 経路であり、HIR lowering に詳細 payload が必要な入口では source-backed reducer を使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(DirectCall)`: source-less に検査できる direct call plan です。
+//: - `Err(error)`: generic 未対応、callable でない候補、実引数不足、型不一致、unsupported argument、または result expectation 不一致です。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 数を p とすると、実引数走査は O(p) です。各 item の型証拠確認は source-less helper のコストに従います。
 fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn i32 fn SelfhostExprPrefixItem fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError \arena\prefix\item_count\head\candidate\expected:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _:
@@ -488,6 +762,23 @@ fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn &Selfho
         Result::Err e:
             Result::Err e
 
+//: selfhost_call_reduce_single_named_candidate_with_source: source-backed に 1 candidate の direct call を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - named head に対して候補が 1 つに絞れた後、実引数列、末尾 block argument、期待 result type をまとめて検査します。
+//: - 成功時には direct call plan に加えて、各実引数から得た checked argument evidence を owner result に保持します。
+//:
+//: [契約/けいやく]:
+//: - generic candidate は `selfhost_call_reduce_generic_state_error` で fail-closed にし、未解決の型変数を HIR plan へ流しません。
+//: - `arena` と checked argument Vec は成功時に `SelfhostCallReduceOwnedResult` へ移り、失敗時にはこの関数または下位 helper が閉じます。
+//: - `trailing_block` がある場合は、parameter 不足位置でだけ block body result として消費します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_result)`: direct call plan、result type、checked argument evidence、更新済み arena owner を返します。
+//: - `Err(error)`: generic 未対応、callable でない候補、引数検査失敗、result expectation 不一致、または OOM です。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 数を p とすると、実引数消費は O(p) 回の検査です。各 argument の検査コストは ascription/nested call/source token lookup に依存します。
 fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn SelfhostExprPrefixItem impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_count\head\candidate\expected\trailing_block:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _:
@@ -517,6 +808,23 @@ fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec Selfh
         Result::Err e:
             selfhost_call_reduce_free_existing_error arena e
 
+//: selfhost_call_reduce_named_prefix: source-less に named head の候補数を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - prefix head が named value であることを確認済みの状態で、候補 0/1/複数を direct call reduction の error または single-candidate reducer へ分配します。
+//: - source-less reducer の入口として、候補が複数ある場合に探索を広げず `OverloadAmbiguous` で止めます。
+//:
+//: [契約/けいやく]:
+//: - 候補 0 は unresolved name、候補複数は ambiguity として扱います。
+//: - この関数は `candidates` を borrow するだけで、Vec owner を解放しません。
+//: - 1 候補の場合だけ `selfhost_call_reduce_single_named_candidate` に進みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(result)`: 唯一候補で source-less direct call plan が作れました。
+//: - `Err(error)`: 未解決、曖昧、candidate Vec 不整合、または single-candidate reducer の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate 数判定は O(1) です。1 候補の場合の支配的コストは single-candidate reducer に従います。
 fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn SelfhostExprPrefixItem fn i32 Result SelfhostCallReduceResult SelfhostCallReduceError \arena\prefix\candidates\expected\head\item_count:
     let candidate_count %i32 v::len candidates
     if:
@@ -535,6 +843,23 @@ fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &SelfhostExprPref
                         Option::None:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_named_prefix_with_source_and_trailing_block: named head の候補数を[確認/かくにん]して source-backed reducer へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - prefix head が `NamedValue` であることを確認済みの状態で、候補 0/1/複数を分け、1 候補だけを direct call reducer へ渡します。
+//: - 末尾 block argument を持つ expression line と通常 argument を同じ候補選択規則で扱います。
+//:
+//: [契約/けいやく]:
+//: - 候補 0 は `UnresolvedName`、複数は `OverloadAmbiguous` として fail-closed にします。
+//: - この関数は `candidates` を borrow するだけで解放しません。arena owner は成功 payload へ移るか、失敗時に cleanup helper が閉じます。
+//: - 候補が 1 つでも、引数検査や result expectation は下位の single-candidate reducer が行います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_result)`: 唯一候補の direct call と checked argument evidence です。
+//: - `Err(error)`: 未解決、曖昧、candidate Vec 不整合、または下位 reducer の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate 数の判定は O(1) です。1 候補の場合の支配的コストは single-candidate reducer に従います。
 fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\trailing_block\head\item_count:
     let candidate_count %i32 v::len candidates
     if:
@@ -553,6 +878,22 @@ fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &
                         Option::None:
                             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_named_prefix_with_source: 末尾 block なしで named head を source-backed に[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - 通常 expression line の named head を、末尾 block argument なしの direct call として処理します。
+//: - 実装は trailing block 対応関数へ `None` を渡し、候補 0/1/複数と owner cleanup の規則を共有します。
+//:
+//: [契約/けいやく]:
+//: - この関数自体は新しい候補選択規則を持ちません。`trailing_block = none` であることだけを固定します。
+//: - arena owner の移動/解放契約は `selfhost_call_reduce_named_prefix_with_source_and_trailing_block` と同じです。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_result)`: direct call plan と checked argument evidence です。
+//: - `Err(error)`: 委譲先 reducer の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - wrapper 自体は O(1) です。支配的コストは委譲先 reducer に従います。
 fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\head\item_count:
     selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena prefix scope value_types signatures candidates expected none head item_count
 
@@ -599,6 +940,13 @@ pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefix
 //: - `NamedValue` argument は scope binding と value type evidence がそろう場合だけ成功します。nested named call は callable signature table から候補を集め、expected parameter type を result expectation として検査します。
 //: - `trailing_block` が `Some` の場合、parameter が不足している位置では nested body を `BlockResult` expectation 付き expression として検査します。parameter 消費後に余る block は `UnexpectedTrailingBlockArgument` として拒否します。
 //: - block body の segment 化、prefix build、candidate collection が失敗した場合は `TrailingBlockBody*` error へ分け、partial application や overload failure へ潰しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_result)`: source-backed に検査済みの direct call plan、checked argument evidence、更新済み arena owner です。
+//: - `Err(error)`: empty input、unsupported head、候補選択、argument 検査、trailing block 検査、または result expectation の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - prefix head 取得は O(1) です。支配的コストは候補数判定、parameter 数 p に対する実引数検査、必要な場合の block body segment 化に依存します。
 pub fn selfhost_call_reduce_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\trailing_block:
     let item_count %i32 selfhost_expr_prefix_list_len prefix
     if:
@@ -621,5 +969,16 @@ pub fn selfhost_call_reduce_prefix_with_source_and_trailing_block %impure fn &Ve
 //: [目的/もくてき]:
 //: - 末尾 block argument を持たない通常の expression line 用入口です。
 //: - 実装は `selfhost_call_reduce_prefix_with_source_and_trailing_block` に `None` を渡し、BlockIntro 専用経路と通常経路の規則を一箇所に集めます。
+//:
+//: [契約/けいやく]:
+//: - source text、tokens、scope、value type evidence、signature table の authority は委譲先へそのまま渡します。
+//: - trailing block を持つ構文はこの入口では扱わず、caller は `with_source_and_trailing_block` を使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_result)`: 末尾 block なしとして検査済みの direct call result です。
+//: - `Err(error)`: 委譲先 reducer の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - wrapper 自体は O(1) です。実際の縮約コストは `selfhost_call_reduce_prefix_with_source_and_trailing_block` と同じです。
 pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected:
     selfhost_call_reduce_prefix_with_source_and_trailing_block tokens source arena prefix scope value_types signatures candidates expected none
