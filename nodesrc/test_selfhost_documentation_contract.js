@@ -11,11 +11,11 @@ const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-CO
 
 const BASELINE = {
     moduleNoDoc: 70,
-    moduleNoDoctest: 66,
+    moduleNoDoctest: 65,
     declarationNoDoc: 63,
-    declarationNoDoctest: 1669,
+    declarationNoDoctest: 1668,
     publicNoDoc: 28,
-    publicNoDoctest: 1257,
+    publicNoDoctest: 1256,
     privateNoDoc: 35,
     privateNoDoctest: 412,
 };
@@ -99,7 +99,19 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("no import graph scan", /import graph/),
         ],
     }),
-    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/constructor.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], {
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/constructor.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant", "doctest"], {
+        doctestUses: [
+            "selfhost_type_constructor_table_new",
+            "selfhost_type_constructor_table_add_checked",
+            "selfhost_type_constructor_add_result_into_table",
+            "selfhost_type_constructor_table_find",
+            "selfhost_type_constructor_table_find_span",
+            "selfhost_type_constructor_table_error_kind_eq",
+            "SelfhostTypeConstructorKind::TypeConstructor",
+            "SelfhostTypeConstructorTableErrorKind::NegativeConstructorArity",
+            "SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName",
+            "SelfhostTypeConstructorTableErrorKind::DuplicateTypeConstructor",
+        ],
         requiredPatterns: [
             requiredPattern("constructor table owner", /\bSelfhostTypeConstructorTable\b/),
             requiredPattern("constructor header payload", /\bSelfhostTypeConstructor\b/),
@@ -245,13 +257,20 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("table owner cleanup", /\bselfhost_type_constructor_table_free\b/),
         requiredPattern("typed error kind", /\bSelfhostTypeConstructorTableErrorKind\b/),
     ]),
-    typeConstructorRequirement("selfhost_type_constructor_table_add_checked", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "errorVariant", "typeBoundary"], [
+    typeConstructorRequirement("selfhost_type_constructor_table_add_checked", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "errorVariant", "typeBoundary", "doctest"], [
         requiredPattern("reserved name error", /\bSelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName\b/),
         requiredPattern("negative arity error", /\bSelfhostTypeConstructorTableErrorKind::NegativeConstructorArity\b/),
         requiredPattern("duplicate constructor error", /\bSelfhostTypeConstructorTableErrorKind::DuplicateTypeConstructor\b/),
         requiredPattern("out of memory error", /\bSelfhostTypeConstructorTableErrorKind::OutOfMemory\b/),
         requiredPattern("checked kind conversion", /\bSelfhostTypeConstructorKind\b/),
-    ]),
+    ], {
+        doctestUses: [
+            "selfhost_type_constructor_table_add_checked",
+            "selfhost_type_constructor_table_error_kind_eq",
+            "SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName",
+            "selfhost_type_constructor_table_free",
+        ],
+    }),
     typeConstructorRequirement("selfhost_type_constructor_table_get", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
         requiredPattern("named type id lookup", /\bSelfhostNamedTypeId\b/),
         requiredPattern("negative index returns none", /負 index.*none/),
@@ -1285,9 +1304,10 @@ function typeSolverRequirement(name, sections, requiredPatterns = []) {
     });
 }
 
-function typeConstructorRequirement(name, sections, requiredPatterns = []) {
+function typeConstructorRequirement(name, sections, requiredPatterns = [], options = {}) {
     return requirement("stdlib/neplg2/core/resolve/type_resolver/constructor.nepl", name, sections, {
         requiredPatterns,
+        doctestUses: options.doctestUses || [],
     });
 }
 
