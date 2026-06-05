@@ -1,3 +1,20 @@
+# 2026-06-05 Agent selfhost unit argument HIR lowering checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも設計負債を残さない方針を判断基準にした。
+- `unit` literal argument は値 payload を持たないため、`SelfhostCheckedArgumentKind::UnitValue` として `TypedExpression` から分離した。checker は expected type との一致を確認した後、この payload を残す。
+- `lower/hir/direct_call.nepl` は `UnitValue` を HIR unit expression child へ lower する。`FunctionValue(candidate)` と同じく、source token、lexeme、scope lookup、candidate collection は HIR lowering で再実行しない。
+- 数値 / bool / char / string literal は実際の値 payload と literal parser、`NamedValue` は DefId-linked variable identity、`NestedDirectCall` / `BlockResult` は内側 checked tree が未接続のため、今回も `UnsupportedArgumentKind` で fail-closed に残した。
+- subagent review では、`UnitValue` は自然な最小 slice である一方、`TypedExpression` 全体を lower するのは source/token 再読に戻るため不可であることを確認した。後続は literal 値 payload、NamedValue の DefId-linked identity、nested direct call / block result の checked tree 化を先に行う。
+- `check/expr` 側の doc comment には HIR 型名を書かず、HIR import / HIR record 構築が check 層へ漏れていないことを source policy で確認した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-unit-payload.json`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-unit-argument-lowering.json`: pass（2/2）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost HIR direct call checked argument lowering checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。

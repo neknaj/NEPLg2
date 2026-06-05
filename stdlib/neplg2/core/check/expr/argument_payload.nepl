@@ -10,7 +10,8 @@
 //: [契約/けいやく]:
 //: - この module は HIR record を生成しません。HIR への変換は `neplg2/core/lower/hir` が担当します。
 //: - `FunctionValue` は、`@ident` argument が expected function type と照合済みで、monomorphic candidate として一意に解決されたことを表します。
-//: - `TypedExpression` は、literal、named value、ascribed literal / named value など、現 checkpoint で個別 HIR identity をまだ持たない通常の typed expression を表します。
+//: - `UnitValue` は、値 payload を持たずに HIR `Unit` へ下ろせる `unit` literal argument を表します。
+//: - `TypedExpression` は、named value、数値 / 文字列 literal、ascribed literal / named value など、現 checkpoint で個別 HIR identity や literal 値をまだ持たない通常の typed expression を表します。
 //: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
 //:
 //: [計算量/けいさんりょう]:
@@ -29,6 +30,7 @@
 //: - expression checker が得た証拠を、後続 lowering が match で網羅的に扱えるようにします。
 //: - `FunctionValue` と `NestedDirectCall` は candidate identity を保持し、名前文字列だけへ戻る退行を防ぎます。
 pub enum SelfhostCheckedArgumentKind:
+    UnitValue
     TypedExpression
     FunctionValue %SelfhostCallableCandidate
     NestedDirectCall %SelfhostCallableCandidate
@@ -70,9 +72,17 @@ pub fn selfhost_checked_argument_new %fn SelfhostCheckedArgumentKind fn i32 fn i
 //: selfhost_checked_argument_typed_expression: 通常の typed expression argument を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - literal、named value、ascription 付き literal / named value など、関数値 identity を持たない argument の共通 constructor です。
+//: - named value、数値 / 文字列 literal、ascription 付き literal / named value など、関数値 identity や literal 値をまだ payload 化していない argument の共通 constructor です。
 pub fn selfhost_checked_argument_typed_expression %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \start_index\next_index\value_type\span:
     selfhost_checked_argument_new SelfhostCheckedArgumentKind::TypedExpression start_index next_index value_type span
+
+//: selfhost_checked_argument_unit_value: `unit` literal argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `unit` は値 payload を持たず、型と span だけで HIR `Unit` expression へ変換できます。
+//: - `TypedExpression` に丸めず専用 variant にすることで、HIR lowering が source token を再読せずに `unit` child を構築できます。
+pub fn selfhost_checked_argument_unit_value %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \start_index\next_index\value_type\span:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::UnitValue start_index next_index value_type span
 
 //: selfhost_checked_argument_function_value: 明示 `@ident` function value argument を[作/つく]る
 //:
