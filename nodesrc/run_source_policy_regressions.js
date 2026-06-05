@@ -127,6 +127,7 @@ const checks = [
     "nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_sparse_set_borrowed_observers.js",
     "nodesrc/test_stdlib_sparse_set_update_error_owner.js",
+    "nodesrc/test_stdlib_sparse_set_doc_report_contract.js",
     "nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_segment_tree_borrowed_observers.js",
     "nodesrc/test_stdlib_segment_tree_update_error_owner.js",

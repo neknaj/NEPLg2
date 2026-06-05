@@ -12,9 +12,88 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
+//: ## sparse_set_valid_index
+//: value が domain `[0, n)` に[入/はい]るかを[判定/はんてい]する
+//:
+//: ### [契約/けいやく]
+//: - `0 <= idx < n` のときだけ `true` を返します。
+//: - `n` は `SparseSet` の domain [長/なが]さで、public `new` は `n >= 0` を保証します。
+//: - この helper は storage を読まず、純粋な domain validation だけを行います。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_valid_index_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"inside domain\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"negative invalid\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"upper bound invalid\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/membership" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let inside %bool sparse_set_valid_index 2 5
+//:     let negative_ok %bool not sparse_set_valid_index -1 5
+//:     let upper_ok %bool not sparse_set_valid_index 5 5
+//:     let report:
+//:         test_report_new "sparse_set_valid_index_doc"
+//:         |> test_report_push assert "inside domain" inside
+//:         |> test_report_push assert "negative invalid" negative_ok
+//:         |> test_report_push assert "upper bound invalid" upper_ok
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_valid_index %fn i32 fn i32 bool \idx\n:
     and le 0 idx lt idx n
 
+//: ## sparse_set_contains_raw
+//: borrowed dense/sparse storage から membership を[判定/はんてい]する
+//:
+//: ### [契約/けいやく]
+//: - `dense` / `sparse` owner は[消費/しょうひ]しません。
+//: - `value` が domain 外なら `false` を返します。
+//: - `sparse[value]` が `0 <= idx < len0` を満たし、`dense[idx] == value` のときだけ `true` を返します。
+//: - missing cell や dense/sparse invariant failure は `false` に畳みます。
+//: - public `contains` は domain 外を typed `Diag` にしますが、この内部 helper は storage 欠損を panic や sentinel ではなく `false` として扱います。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `Vec.get` を通す `sparse_set_load_owned` だけで dense/sparse cell を読みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid SparseSet storage では O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sparse_set_contains_raw_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"contains stored value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing value absent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"out of domain absent\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set/membership" as *
+//:| #import "alloc/collections/sparse_set/storage" as *
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let dense %Vec i32 unwrap_ok sparse_set_alloc_array 5
+//:     let sparse %Vec i32 unwrap_ok sparse_set_alloc_array 5
+//:     sparse_set_store_owned &dense 0 1
+//:     sparse_set_store_owned &dense 1 3
+//:     sparse_set_store_owned &sparse 1 0
+//:     sparse_set_store_owned &sparse 3 1
+//:     let found %bool sparse_set_contains_raw 5 &dense &sparse 2 3
+//:     let missing %bool not sparse_set_contains_raw 5 &dense &sparse 2 2
+//:     let out %bool not sparse_set_contains_raw 5 &dense &sparse 2 9
+//:     sparse_set_free_arrays dense sparse
+//:     let report:
+//:         test_report_new "sparse_set_contains_raw_doc"
+//:         |> test_report_push assert "contains stored value" found
+//:         |> test_report_push assert "missing value absent" missing
+//:         |> test_report_push assert "out of domain absent" out
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sparse_set_contains_raw %fn i32 fn &Vec i32 fn &Vec i32 fn i32 fn i32 bool \n\dense\sparse\len0\value:
     if:
         not sparse_set_valid_index value n

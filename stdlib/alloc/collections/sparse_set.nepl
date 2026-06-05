@@ -6,6 +6,9 @@
 //: - 型定義、typed storage 操作、membership 判定、更新処理、public API を submodule に分けます。
 //:
 //: ### [注意/ちゅうい]
+//: - domain は `[0, n)` で、`new 0` は valid empty set です。
+//: - `len0` は active dense prefix の[長/なが]さで、`0 <= len0 <= n` を[保/たも]ちます。
+//: - dense/sparse は typed `Vec i32` owner で、null pointer / sentinel owner state は使いません。
 //: - query API は `&SparseSet` を[受/う]け[取/と]り、dense/sparse storage owner を[移動/いどう]しません。
 //: - `insert` / `remove` の失敗は owner を失わないように `SparseSetUpdateError` で元の `SparseSet` と `Diag` を返します。
 
