@@ -62,9 +62,28 @@ pub struct SelfhostExprAscriptionProjection:
     expectation %SelfhostTypeExpectation
     expression_tail %SelfhostSyntaxRange
 
+//: SelfhostExprAscriptionHeadProjection: `%T` head だけを投影した checker 入力
+//:
+//: [目的/もくてき]:
+//: - argument-scope ascription では、`%T expr next` の `expr` だけが 1 つの実引数式であり、`next` は次の実引数として残ります。
+//: - そのため、line-head ascription のように残り token 全体を `expression_tail` にせず、型式直後の最初の expression token index だけを返します。
+//:
+//: [契約/けいやく]:
+//: - `expression_first_token` は source token buffer 上の index です。prefix item index ではありません。
+//: - caller はこの token index から対応する `SelfhostExprPrefixItem` を探し、実引数式の消費幅を決めます。
+//: - owner を含むため、この構造は Copy にしません。caller は `into_arena` または `free` で owner を閉じます。
+pub struct SelfhostExprAscriptionHeadProjection:
+    allocated %SelfhostTypeArenaAlloc
+    expectation %SelfhostTypeExpectation
+    expression_first_token %i32
+
 //: selfhost_expr_ascription_projection_new: ascription projection payload を[作/つく]る
 fn selfhost_expr_ascription_projection_new %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeExpectation impure fn SelfhostSyntaxRange SelfhostExprAscriptionProjection \allocated\expectation\expression_tail:
     SelfhostExprAscriptionProjection allocated expectation expression_tail
+
+//: selfhost_expr_ascription_head_projection_new: ascription head projection payload を[作/つく]る
+fn selfhost_expr_ascription_head_projection_new %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeExpectation impure fn i32 SelfhostExprAscriptionHeadProjection \allocated\expectation\expression_first_token:
+    SelfhostExprAscriptionHeadProjection allocated expectation expression_first_token
 
 //: selfhost_expr_ascription_projection_expectation: 注釈由来 expected type を[返/かえ]す
 pub fn selfhost_expr_ascription_projection_expectation %fn &SelfhostExprAscriptionProjection SelfhostTypeExpectation \projection:
@@ -79,6 +98,14 @@ pub fn selfhost_expr_ascription_projection_type_id %fn &SelfhostExprAscriptionPr
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation projection
     expectation.expected_type
 
+//: selfhost_expr_ascription_head_projection_expectation: 注釈由来 expected type を[返/かえ]す
+pub fn selfhost_expr_ascription_head_projection_expectation %fn &SelfhostExprAscriptionHeadProjection SelfhostTypeExpectation \projection:
+    *field::get_ref projection "expectation"
+
+//: selfhost_expr_ascription_head_projection_expression_first_token: 型式直後の expression token index を[返/かえ]す
+pub fn selfhost_expr_ascription_head_projection_expression_first_token %fn &SelfhostExprAscriptionHeadProjection i32 \projection:
+    *field::get_ref projection "expression_first_token"
+
 //: selfhost_expr_ascription_projection_into_arena: projection を消費して TypeArena owner を[取/と]り[出/だ]す
 //:
 //: [契約/けいやく]:
@@ -88,8 +115,22 @@ pub fn selfhost_expr_ascription_projection_into_arena %impure fn SelfhostExprAsc
     let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
     selfhost_type_arena_alloc_into_arena allocated
 
+//: selfhost_expr_ascription_head_projection_into_arena: head projection を消費して TypeArena owner を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeArenaAlloc` wrapper を消費して arena owner を返します。
+//: - `expectation` と `expression_first_token` は Copy payload なので、必要ならこの関数を呼ぶ前に読んでください。
+pub fn selfhost_expr_ascription_head_projection_into_arena %impure fn SelfhostExprAscriptionHeadProjection SelfhostTypeArena \projection:
+    let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
+    selfhost_type_arena_alloc_into_arena allocated
+
 //: selfhost_expr_ascription_projection_free: projection が保持する arena owner を[解放/かいほう]する
 pub fn selfhost_expr_ascription_projection_free %impure fn SelfhostExprAscriptionProjection unit \projection:
+    let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
+    selfhost_type_arena_free selfhost_type_arena_alloc_into_arena allocated
+
+//: selfhost_expr_ascription_head_projection_free: head projection が保持する arena owner を[解放/かいほう]する
+pub fn selfhost_expr_ascription_head_projection_free %impure fn SelfhostExprAscriptionHeadProjection unit \projection:
     let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
     selfhost_type_arena_free selfhost_type_arena_alloc_into_arena allocated
 
@@ -210,6 +251,24 @@ fn selfhost_expr_ascription_expression_tail_range %fn &Vec SelfhostToken fn Self
                         Option::None:
                             Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
 
+fn selfhost_expr_ascription_expression_first_token %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 Result i32 SelfhostExprAscriptionError \tokens\syntax_range\next_index:
+    match syntax_range:
+        SelfhostSyntaxRange::Empty:
+            Result::Err SelfhostExprAscriptionError::EmptyExpressionRange source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            let first_token %i32 add add range.first_token 1 next_index
+            let range_end %i32 add range.first_token range.token_count
+            if:
+                ge first_token range_end
+                then:
+                    Result::Err SelfhostExprAscriptionError::MissingExpressionTail range.span
+                else:
+                    match v::get tokens first_token:
+                        Option::Some _token:
+                            Result::Ok first_token
+                        Option::None:
+                            Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
+
 fn selfhost_expr_ascription_project_reduced %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn SelfhostTypePrefixReducePrefixResult Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\syntax_range\arena\reduced:
     let next_index %i32 selfhost_type_prefix_reduce_prefix_result_next_index &reduced
     match selfhost_expr_ascription_expression_tail_range tokens syntax_range next_index:
@@ -222,6 +281,26 @@ fn selfhost_expr_ascription_project_reduced %impure fn &Vec SelfhostToken impure
                     let expectation %SelfhostTypeExpectation selfhost_type_expectation_new type_id SelfhostTypeExpectationSource::ExplicitAscription ascription_span
                     selfhost_type_prefix_reduce_prefix_result_free reduced
                     Result::Ok selfhost_expr_ascription_projection_new allocated expectation tail
+                Result::Err e:
+                    selfhost_type_prefix_reduce_prefix_result_free reduced
+                    Result::Err SelfhostExprAscriptionError::TypeProjectFailed e
+        Result::Err e:
+            selfhost_type_prefix_reduce_prefix_result_free reduced
+            selfhost_type_arena_free arena
+            Result::Err e
+
+fn selfhost_expr_ascription_project_head_reduced %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn SelfhostTypePrefixReducePrefixResult Result SelfhostExprAscriptionHeadProjection SelfhostExprAscriptionError \tokens\syntax_range\arena\reduced:
+    let next_index %i32 selfhost_type_prefix_reduce_prefix_result_next_index &reduced
+    match selfhost_expr_ascription_expression_first_token tokens syntax_range next_index:
+        Result::Ok first_token:
+            let ascription_span %SelfhostSourceSpan selfhost_expr_ascription_type_span_from_range tokens syntax_range next_index
+            let root %&SelfhostResolvedTypeTreeRoot selfhost_type_prefix_reduce_prefix_result_root &reduced
+            match selfhost_type_project_root_into_arena arena root:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let expectation %SelfhostTypeExpectation selfhost_type_expectation_new type_id SelfhostTypeExpectationSource::ExplicitAscription ascription_span
+                    selfhost_type_prefix_reduce_prefix_result_free reduced
+                    Result::Ok selfhost_expr_ascription_head_projection_new allocated expectation first_token
                 Result::Err e:
                     selfhost_type_prefix_reduce_prefix_result_free reduced
                     Result::Err SelfhostExprAscriptionError::TypeProjectFailed e
@@ -243,6 +322,30 @@ pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToke
             match reduced_result:
                 Result::Ok reduced:
                     selfhost_expr_ascription_project_reduced tokens syntax_range arena reduced
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err SelfhostExprAscriptionError::TypeReduceFailed e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_expr_ascription_project_head_expectation: `%T` head を expected type と expression start へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - argument-scope checker が、`%T literal next` から `%T` だけを型注釈として消費し、`literal` の token index を得られるようにします。
+//: - line-head 用の `selfhost_expr_ascription_project_expectation` と違い、後続 token 全体を inner expression range として返しません。
+//:
+//: [契約/けいやく]:
+//: - named constructor table を使わない最小入口です。primitive type と function type の focused slice で使います。
+//: - 成功時は projection が arena owner を保持します。失敗時はこの関数が arena owner を解放します。
+pub fn selfhost_expr_ascription_project_head_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionHeadProjection SelfhostExprAscriptionError \tokens\source\arena\syntax_range:
+    match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
+        Result::Ok type_prefix:
+            let reduced_result %Result SelfhostTypePrefixReducePrefixResult SelfhostTypeReduceError selfhost_type_prefix_list_reduce_prefix source &type_prefix
+            selfhost_type_prefix_list_free type_prefix
+            match reduced_result:
+                Result::Ok reduced:
+                    selfhost_expr_ascription_project_head_reduced tokens syntax_range arena reduced
                 Result::Err e:
                     selfhost_type_arena_free arena
                     Result::Err SelfhostExprAscriptionError::TypeReduceFailed e

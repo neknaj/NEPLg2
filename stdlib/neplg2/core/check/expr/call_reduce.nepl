@@ -21,6 +21,7 @@
 #import "core/math" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/ty" as *
 #import "./expectation" as *
 #import "./call_candidate" as *
@@ -64,10 +65,29 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentTypeMismatch error.span
         SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedArgumentExpression error.span
+        SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed error.span
+        SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict error.span
         SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedArgumentExpression error.span
         SelfhostExprArgumentMatchErrorKind::InternalInvariant:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+fn selfhost_call_reduce_error_from_argument_match_owned %fn SelfhostExprArgumentMatchError fn SelfhostExprPrefixItem SelfhostCallReduceError \error\head:
+    match selfhost_call_reduce_error_from_argument_match error head:
+        Result::Err e:
+            e
+        Result::Ok _unit:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+fn selfhost_call_reduce_free_error_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \arena\kind\span:
+    selfhost_type_arena_free arena
+    Result::Err selfhost_call_reduce_error_new kind span
+
+fn selfhost_call_reduce_free_existing_error %impure fn SelfhostTypeArena impure fn SelfhostCallReduceError Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \arena\error:
+    selfhost_type_arena_free arena
+    Result::Err error
 
 //: selfhost_call_reduce_argument_type_check_loop: 実引数式 cursor と parameter type を順に[照合/しょうごう]する
 //:
@@ -107,6 +127,47 @@ fn selfhost_call_reduce_argument_type_check_loop %fn &SelfhostTypeArena fn &Self
                         Option::None:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_argument_type_check_loop_with_source: source-backed に実引数式 cursor を[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - `%T literal` のように source text と token buffer が必要な argument expression を扱うため、arena owner を受け渡しながら argument loop を進めます。
+//: - borrowed loop と同じ parameter / item cursor 境界を使い、source-backed checker だけが ascription projection を成功させます。
+//:
+//: [契約/けいやく]:
+//: - 成功時は更新済み `SelfhostTypeArena` owner を返します。
+//: - 失敗時、この関数または argument checker が arena owner を解放します。
+//: - `param_idx` が `param_count` に到達した時点で `item_index == item_count` なら完全飽和です。
+fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostExprPrefixItem Result SelfhostTypeArena SelfhostCallReduceError \tokens\source\arena\prefix\candidate\param_count\param_idx\item_index\item_count\head:
+    if:
+        ge param_idx param_count
+        then:
+            if:
+                eq item_index item_count
+                then:
+                    Result::Ok arena
+                else:
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadNoCandidate head.span
+        else:
+            if:
+                ge item_index item_count
+                then:
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
+                else:
+                    match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
+                        Option::Some expected_arg_type:
+                            match selfhost_expr_argument_match_at_with_source tokens source arena prefix item_index item_count expected_arg_type:
+                                Result::Ok owned_match:
+                                    let argument_match %SelfhostExprArgumentMatch selfhost_expr_argument_owned_match_match &owned_match
+                                    let next_arena %SelfhostTypeArena selfhost_expr_argument_owned_match_into_arena owned_match
+                                    selfhost_call_reduce_argument_type_check_loop_with_source tokens source next_arena prefix candidate param_count add param_idx 1 argument_match.next_index item_count head
+                                Result::Err argument_error:
+                                    Result::Err selfhost_call_reduce_error_from_argument_match_owned argument_error head
+                        Option::None:
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
 fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn i32 fn SelfhostExprPrefixItem fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError \arena\prefix\item_count\head\candidate\expected:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _:
@@ -126,6 +187,26 @@ fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn &Selfho
         Result::Err e:
             Result::Err e
 
+fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn i32 impure fn SelfhostExprPrefixItem impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\item_count\head\candidate\expected:
+    match selfhost_call_reduce_generic_state_error candidate:
+        Result::Ok _:
+            match selfhost_type_arena_function_arg_count &arena candidate.callable_type:
+                Option::Some param_count:
+                    match selfhost_call_reduce_argument_type_check_loop_with_source tokens source arena prefix candidate param_count 0 1 item_count head:
+                        Result::Ok checked_arena:
+                            match selfhost_call_reduce_expected_result &checked_arena candidate expected:
+                                Result::Ok result_type:
+                                    let result %SelfhostCallReduceResult SelfhostCallReduceResult::DirectCall selfhost_reduced_call_new 0 param_count result_type head.span
+                                    Result::Ok selfhost_call_reduce_owned_result_new checked_arena result
+                                Result::Err e:
+                                    selfhost_call_reduce_free_existing_error checked_arena e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::NotCallable candidate.span
+        Result::Err e:
+            selfhost_call_reduce_free_existing_error arena e
+
 fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn SelfhostExprPrefixItem fn i32 Result SelfhostCallReduceResult SelfhostCallReduceError \arena\prefix\candidates\expected\head\item_count:
     let candidate_count %i32 v::len candidates
     if:
@@ -143,6 +224,24 @@ fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &SelfhostExprPref
                             selfhost_call_reduce_single_named_candidate arena prefix item_count head candidate expected
                         Option::None:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\candidates\expected\head\item_count:
+    let candidate_count %i32 v::len candidates
+    if:
+        eq candidate_count 0
+        then:
+            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnresolvedName head.span
+        else:
+            if:
+                gt candidate_count 1
+                then:
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
+                else:
+                    match v::get candidates 0:
+                        Option::Some candidate:
+                            selfhost_call_reduce_single_named_candidate_with_source tokens source arena prefix item_count head candidate expected
+                        Option::None:
+                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant head.span
 
 //: selfhost_call_reduce_prefix: prefix expression list を direct call plan へ[縮約/しゅくやく]する
 //:
@@ -173,3 +272,30 @@ pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefix
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
                 Option::None:
                     Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+
+//: selfhost_call_reduce_prefix_with_source: source-backed argument checker を使って prefix expression list を[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - `add %i32 1 2` のように、実引数位置の `%T literal` が source text と token span を必要とする場合に使う owner-returning entry です。
+//: - borrowed `selfhost_call_reduce_prefix` は source-less / fail-closed の契約を保ち、この関数だけが ascription projection による `SelfhostTypeArena` 更新を caller へ返します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `SelfhostCallReduceOwnedResult` が更新済み arena owner と direct call plan を保持します。
+//: - 失敗時はこの reducer または argument checker が受け取った arena owner を解放します。caller は失敗後に同じ arena を使いません。
+//: - source-backed に成功させる可変幅 argument は現 checkpoint では `%T literal` に限定します。未対応の入れ子式は typed error で fail-closed にします。
+pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\candidates\expected:
+    let item_count %i32 selfhost_expr_prefix_list_len prefix
+    if:
+        eq item_count 0
+        then:
+            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::EmptyInput source_span_empty_unchecked 0 0
+        else:
+            match selfhost_expr_prefix_list_get prefix 0:
+                Option::Some head:
+                    match head.kind:
+                        SelfhostExprPrefixItemKind::NamedValue:
+                            selfhost_call_reduce_named_prefix_with_source tokens source arena prefix candidates expected head item_count
+                        _:
+                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
+                Option::None:
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0

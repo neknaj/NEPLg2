@@ -50890,3 +50890,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - source policy `nodesrc/test_web_gui_mandelbrot_transport_contract.js` を追加し、Mandelbrot が row payload を使うこと、Web host decode/render が `rgba-row` を扱うこと、formal host import ABI の未実装を完了扱いしないことを固定した。
 - `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、stdout fallback の row payload checkpoint と formal host import ABI / native `GuiHost.present` の残件を分けて更新した。
 - merge 前 subagent review は 2 件とも Approve で、Blocker はなかった。Non-blocker として formal ABI 未完了の negative source policy を強める提案があり、`nodesrc/test_web_gui_mandelbrot_transport_contract.js` に docs の未実装 contract を直接検査する assertion を追加した。
+
+## 2026-06-05 Agent selfhost source-backed ascribed argument checkpoint
+
+- `selfhost/ascribed-argument-source-check-20260605` branch で、self-host compiler Phase 6 の argument-scope `%T literal` 検査を source / token backed owner API として追加した。`plan.md` は確認のみで変更していない。
+- Zenn 記事の静的検査、Option / Result、enum error、所有境界、試作段階でも技術的負債を残さない方針を再確認し、source-less borrowed reducer で `%T literal` を成功扱いする緩和は入れていない。
+- `check/expr/ascription.nepl` は `SelfhostExprAscriptionHeadProjection` を追加し、`%T expr` の head だけから explicit expectation と inner expression の first token を取り出す。`check/expr/argument.nepl` は source と token buffer を持つ入口で、その first token に対応する prefix item を見つけ、literal tail の型証拠と parameter expected type を照合する。
+- `SelfhostExprArgumentOwnedMatch` と `SelfhostCallReduceOwnedResult` は `SelfhostTypeArena` owner を結果に戻す。これにより、ascription projection 後に arena-local `SelfhostTypeId` を dangling させず、caller が arena を受け取るか error path で破棄するかを明示できる。
+- `selfhost_call_reduce_prefix_with_source` は `add %i32 1 2` を 2 引数 direct call として受理し、`add %bool 1 2` を `ArgumentAscriptionExpectedTypeConflict` として拒否する。source-less borrowed `selfhost_call_reduce_prefix` は引き続き `selfhost_expr_argument_match_at` だけを使い、source / token がない argument ascription を fail-closed に保つ。
+- subagent review で、module doc が source-backed 入口追加後の契約を十分に分けていないことと、ascription projection failure を empty span の unsupported error へ潰していることが指摘された。対応として、borrowed API と owner API の契約を doc comment へ明記し、projection failure は `AscriptionProjectionFailed` / `ArgumentAscriptionProjectionFailed` として sub-error span を保持するようにした。
+- focused doctest の初回実行で `argument.nepl` の `&Vec SelfhostToken` が `Vec` constructor を import していないため parse できないことを確認し、`alloc/collections/vec` import を追加した。型名の source spelling を利用する境界では、使用する type constructor を明示 import する必要がある。
+- focused verification は `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_ascribed_argument_source_tests.json`、`node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-review.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存別件の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` の 2 warning が残る。

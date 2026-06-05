@@ -63,8 +63,9 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `check/expr/argument.nepl` を追加し、literal argument item から得られる型証拠を function parameter type と照合する初期境界を実装した。`UnitValue` / `IntLiteral` / `BoolLiteral` / `CharLiteral` / `StringLiteral` は primitive type evidence として扱い、`FloatLiteral`、`NamedValue`、nested call、block、lambda、`@function`、ascription 付き argument など full expression checker が必要なものは成功扱いせず fail-closed にする。`add true 1` のように arity と expected result だけでは見逃す direct call を拒否する focused smoke と source policy も追加した。
 - 2026-06-05: `check/expr/body_line.nepl` の owner 付き ascription 入口で、`%T expr` の `ExplicitAscription` expectation と外側 context の expected type を照合するようにした。同じ `SelfhostTypeArena` 内で一致しない場合は、内側 call reduction へ進まず `AscriptionExpectedTypeConflict` を返す。error payload は arena 解放後も安全に読める source / span evidence だけを保持し、arena-local `SelfhostTypeId` は残さない。
 - 2026-06-05: call reducer の raw `item_count - 1` argument count 依存をやめ、parameter index と prefix item cursor を分けた argument expression consume-width 境界へ移した。現 checkpoint では単一 literal item だけが `SelfhostExprArgumentMatch.next_index` を返して成功し、`%T literal` は source / token backed argument checker が未接続のため `UnsupportedArgumentExpression` として fail-closed にする。これにより `add %i32 1 2` 相当の flat prefix item 列を raw 4 argument と誤分類せず、後続の argument-scope ascription 検査へ接続できる。
+- 2026-06-05: source / token backed の argument-scope ascription 検査を追加し、`selfhost_call_reduce_prefix_with_source` から `%T literal` を 1 つの argument expression として縮約できるようにした。`SelfhostExprArgumentOwnedMatch` / `SelfhostCallReduceOwnedResult` は `SelfhostTypeArena` owner を返すため、projection 後の expected type を arena-local id のまま安全に比較できる。source-less borrowed reducer は引き続き `%T literal` を成功扱いせず fail-closed にし、source と token を持つ入口だけが `add %i32 1 2` を 2 引数 direct call として受理し、`add %bool 1 2` を `ArgumentAscriptionExpectedTypeConflict` として拒否する。`%T` head の projection 自体が失敗した場合は `ArgumentAscriptionProjectionFailed` として span を保持し、empty-span の unsupported error へ潰さない。
 - 2026-06-05: focused doctest を止めていた既存 effect 境界も修正した。`selfhost_diagnostics_push` / `selfhost_diagnostics_free` / `lex_stack_drop_top` は `Vec` owner の更新または解放を行うため `impure fn` に正規化し、`lex_stack_drop_top` は引き続き public `drop_last` API へ委譲して `Vec` 内部 storage layout へ依存しない。
-- 残件: source / token backed の nested / ascribed argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 残件: source / token backed の nested / non-literal ascribed argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -209,6 +210,11 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 
 - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_argument_cursor_tests.json`
+
+2026-06-05 source-backed ascribed argument checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_ascribed_argument_source_tests.json`（2/2 pass）
 
 2026-06-05 canonical type key checkpoint:
 

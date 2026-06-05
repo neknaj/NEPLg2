@@ -7,6 +7,7 @@
 //: - token buffer、`SelfhostBodySegmentKind::ExpressionLine`、type arena、callable candidate を組み合わせ、`body_line.nepl` の接続が実際に direct call plan を返すことを確認します。
 //: - `BlockIntro` を誤って expression line reduction へ渡した場合に、typed error として拒否されることを確認します。
 //: - `%i32 add 1 2` のような明示 type ascription が、`%` を call reduction へ渡さず expected type と内側 expression range に分解されることを確認します。
+//: - `add %i32 1 2` のような argument-scope ascription が、raw prefix item 数ではなく実引数式 cursor と source-backed ascription checker で縮約されることを確認します。
 //:
 //: [契約/けいやく]:
 //: - この module は focused smoke helper だけを持ち、production の接続規則は `body_line.nepl` に置きます。
@@ -159,6 +160,15 @@ fn selfhost_check_expr_stage1_ascribed_expression_segment %fn void SelfhostBodyS
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 5 source_span_new_unchecked 0 0 12
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_ascribed_argument_segment: `add %T 1 2` 全体を指す expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - argument-scope ascription を含む line でも、segmenter から見た expression head は通常の `add` で始まることを fixture 化します。
+//: - body line connector の non-percent branch が source-backed reducer へ進み、argument checker が `%T` を 1 つの実引数式の head として扱えることを確認します。
+fn selfhost_check_expr_stage1_ascribed_argument_segment %fn SelfhostSourceSpan SelfhostBodySegment \span:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 5 span
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
 //: selfhost_check_expr_stage1_block_intro_segment: 拒否確認用の block-intro segment を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -238,6 +248,74 @@ fn selfhost_check_expr_stage1_make_ascribed_tokens %impure fn void Result Vec Se
                                     match selfhost_check_expr_stage1_push_token tokens3 arg0:
                                         Result::Ok tokens4:
                                             let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 11 12
+                                            selfhost_check_expr_stage1_push_token tokens4 arg1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_ascribed_argument_i32_tokens: `add %i32 1 2` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - argument-scope ascription success fixture です。`%i32 1` は 1 つ目の実引数式で、最後の `2` は 2 つ目の実引数式として残ります。
+//: - span は source `"add %i32 1 2"` の byte offset に合わせ、source-backed type resolver が `i32` の spelling を復元できるようにします。
+fn selfhost_check_expr_stage1_make_ascribed_argument_i32_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 add_token:
+                Result::Ok tokens1:
+                    let percent_token %SelfhostToken selfhost_token_new TokenKind::Percent source_span_new_unchecked 0 4 5
+                    match selfhost_check_expr_stage1_push_token tokens1 percent_token:
+                        Result::Ok tokens2:
+                            let type_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 5 8
+                            match selfhost_check_expr_stage1_push_token tokens2 type_token:
+                                Result::Ok tokens3:
+                                    let arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 9 10
+                                    match selfhost_check_expr_stage1_push_token tokens3 arg0:
+                                        Result::Ok tokens4:
+                                            let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 11 12
+                                            selfhost_check_expr_stage1_push_token tokens4 arg1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_ascribed_argument_bool_tokens: `add %bool 1 2` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - argument-scope ascription conflict fixture です。`add` candidate は `i32` parameter を要求するため、`%bool 1` は parameter expected type と衝突します。
+//: - この失敗は arity / overload ではなく `ArgumentAscriptionExpectedTypeConflict` として残る必要があります。
+fn selfhost_check_expr_stage1_make_ascribed_argument_bool_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 add_token:
+                Result::Ok tokens1:
+                    let percent_token %SelfhostToken selfhost_token_new TokenKind::Percent source_span_new_unchecked 0 4 5
+                    match selfhost_check_expr_stage1_push_token tokens1 percent_token:
+                        Result::Ok tokens2:
+                            let type_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 5 9
+                            match selfhost_check_expr_stage1_push_token tokens2 type_token:
+                                Result::Ok tokens3:
+                                    let arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 10 11
+                                    match selfhost_check_expr_stage1_push_token tokens3 arg0:
+                                        Result::Ok tokens4:
+                                            let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 12 13
                                             selfhost_check_expr_stage1_push_token tokens4 arg1
                                         Result::Err e:
                                             Result::Err e
@@ -347,6 +425,65 @@ fn selfhost_check_expr_stage1_ascription_conflict_rejected_with_candidate %impur
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_ascribed_argument_ok_with_scope: `add %i32 1 2` が direct call になるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - line head は `add` のまま、1 つ目の argument だけが `%i32 1` になっている case を確認します。
+//: - candidate collection は fixture scope と signature table を通し、body line connector は source-backed reducer を通します。
+//:
+//: [契約/けいやく]:
+//: - `arena` と `tokens` はこの helper が成功・失敗にかかわらず閉じます。
+fn selfhost_check_expr_stage1_ascribed_argument_ok_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 12
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_ascribed_argument_segment span
+    match selfhost_check_expr_stage1_collect_candidates_from_fixture_scope "add %i32 1 2" &tokens segment add_type:
+        Result::Ok candidates:
+            match selfhost_check_expr_reduce_body_segment_with_arena &tokens "add %i32 1 2" segment arena &candidates none:
+                Result::Ok success:
+                    let ok %bool selfhost_check_expr_stage1_success_is_two_arg_direct_call &success
+                    selfhost_expression_line_check_success_free success
+                    v::free candidates
+                    v::free tokens
+                    ok
+                Result::Err _e:
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
+//: selfhost_check_expr_stage1_ascribed_argument_conflict_with_scope: `add %bool 1 2` が typed conflict になるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - argument ascription の `%bool` は syntactically valid ですが、`add` の先頭 parameter は `i32` です。
+//: - reducer がこの衝突を `ArgumentAscriptionExpectedTypeConflict` として返し、raw item count 由来の arity error へ戻らないことを確認します。
+//:
+//: [契約/けいやく]:
+//: - 失敗は expected outcome ですが、arena owner は source-backed reducer が閉じます。
+//: - candidate vector と token vector はこの helper が必ず解放します。
+fn selfhost_check_expr_stage1_ascribed_argument_conflict_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 13
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_ascribed_argument_segment span
+    match selfhost_check_expr_stage1_collect_candidates_from_fixture_scope "add %bool 1 2" &tokens segment add_type:
+        Result::Ok candidates:
+            match selfhost_check_expr_reduce_body_segment_with_arena &tokens "add %bool 1 2" segment arena &candidates none:
+                Result::Ok success:
+                    selfhost_expression_line_check_success_free success
+                    v::free candidates
+                    v::free tokens
+                    false
+                Result::Err e:
+                    let ok %bool selfhost_expression_line_check_error_is_call_reduce_kind e SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict
+                    v::free candidates
+                    v::free tokens
+                    ok
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_run_with_candidate: token / arena / candidate owner を閉じて smoke result を[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -404,6 +541,26 @@ fn selfhost_check_expr_stage1_run_ascription_conflict_with_types %impure fn Vec 
             let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
             let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
             if selfhost_check_expr_stage1_ascription_conflict_rejected_with_candidate tokens next_arena add_type bool_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_ascribed_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_ascribed_argument_ok_with_scope tokens next_arena add_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_ascribed_argument_conflict_with_scope tokens next_arena add_type 0 1
         Result::Err _e:
             v::free tokens
             1
@@ -467,6 +624,36 @@ fn selfhost_check_expr_stage1_run_ascription_conflict_with_tokens %impure fn Vec
             v::free tokens
             1
 
+fn selfhost_check_expr_stage1_run_ascribed_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_ascribed_argument_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_ascribed_tokens:
         Result::Ok tokens:
@@ -484,11 +671,29 @@ fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
         Result::Err _e:
             1
 
+fn selfhost_check_expr_stage1_ascribed_argument_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_ascribed_argument_i32_tokens:
+        Result::Ok tokens:
+            let ok_result %i32 selfhost_check_expr_stage1_run_ascribed_argument_with_tokens tokens
+            if:
+                eq ok_result 0
+                then:
+                    match selfhost_check_expr_stage1_make_ascribed_argument_bool_tokens:
+                        Result::Ok conflict_tokens:
+                            selfhost_check_expr_stage1_run_ascribed_argument_conflict_with_tokens conflict_tokens
+                        Result::Err _e:
+                            1
+                else:
+                    1
+        Result::Err _e:
+            1
+
 //: selfhost_check_expr_stage1_body_line: body expression line 接続の smoke API
 //:
 //: [目的/もくてき]:
 //: - `ExpressionLine.head` から prefix list を作り、direct named call reduction へ渡す縦切りを確認します。
 //: - `BlockIntro` が同じ入口から拒否されることも確認し、nested body を flat expression として扱う退行を防ぎます。
+//: - line-head ascription と argument-scope ascription の両方を smoke test に含め、source-backed reducer への接続退行を検出します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `0`: expression line reduction と block intro rejection が期待通りでした。
@@ -500,7 +705,13 @@ pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
             if:
                 eq base 0
                 then:
-                    selfhost_check_expr_stage1_ascription_body_line
+                    let ascription_base %i32 selfhost_check_expr_stage1_ascription_body_line
+                    if:
+                        eq ascription_base 0
+                        then:
+                            selfhost_check_expr_stage1_ascribed_argument_body_line
+                        else:
+                            1
                 else:
                     1
         Result::Err _e:

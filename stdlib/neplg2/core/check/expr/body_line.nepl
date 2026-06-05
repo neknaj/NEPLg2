@@ -161,6 +161,18 @@ pub fn selfhost_expression_line_check_error_is_call_reduce %fn SelfhostExpressio
         _:
             false
 
+//: selfhost_expression_line_check_error_is_call_reduce_kind: call reduction error kind を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - focused test が表示文言や span ではなく、`SelfhostCallReduceErrorKind` の typed classification を直接確認できるようにします。
+//: - argument-scope ascription の expected type conflict など、通常の expression-line error ではなく call reducer 側で検出される失敗を区別します。
+pub fn selfhost_expression_line_check_error_is_call_reduce_kind %fn SelfhostExpressionLineCheckError fn SelfhostCallReduceErrorKind bool \error\expected:
+    match error:
+        SelfhostExpressionLineCheckError::CallReduceFailed reduce_error:
+            selfhost_call_reduce_error_kind_eq reduce_error.kind expected
+        _:
+            false
+
 //: selfhost_expression_line_check_error_is_ascription: type ascription 分解 error か[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -241,6 +253,32 @@ fn selfhost_check_expr_reduce_expression_line_prefix %impure fn &Vec SelfhostTok
         Result::Err e:
             Result::Err SelfhostExpressionLineCheckError::PrefixBuildFailed e
 
+//: selfhost_check_expr_reduce_expression_line_prefix_with_arena: source-backed reducer へ owner 付きで[接続/せつぞく]する
+//:
+//: [目的/もくてき]:
+//: - `ExpressionLine.head` から prefix list を作り、source-backed call reduction へ渡します。
+//: - argument-scope `%T literal` は source text がなければ安全に検査できないため、owner-returning body connector はこの helper を通します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `SelfhostExpressionLineCheckSuccess` が updated arena owner と reduction result を保持します。
+//: - prefix build 失敗時はこの helper が arena owner を解放します。
+//: - call reduction 失敗時は `selfhost_call_reduce_prefix_with_source` 側が arena owner を解放済みです。
+fn selfhost_check_expr_reduce_expression_line_prefix_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\head\arena\candidates\expected:
+    match selfhost_expr_prefix_list_from_syntax_range tokens head:
+        Result::Ok prefix:
+            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source tokens source arena &prefix candidates expected
+            selfhost_expr_prefix_list_free prefix
+            match reduced:
+                Result::Ok owned:
+                    let result %SelfhostCallReduceResult *selfhost_call_reduce_owned_result_result &owned
+                    let next_arena %SelfhostTypeArena selfhost_call_reduce_owned_result_into_arena owned
+                    Result::Ok selfhost_expression_line_check_success_new next_arena result
+                Result::Err e:
+                    Result::Err SelfhostExpressionLineCheckError::CallReduceFailed e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err SelfhostExpressionLineCheckError::PrefixBuildFailed e
+
 //: selfhost_check_expr_validate_ascription_outer_expected: 明示 ascription と外側 expected type の整合性を[検査/けんさ]する
 //:
 //: [目的/もくてき]:
@@ -287,19 +325,14 @@ pub fn selfhost_check_expr_reduce_body_segment %impure fn &Vec SelfhostToken imp
         SelfhostBodySegmentKind::BlockIntro:
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment
 
-fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn SelfhostExprAscriptionProjection impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\projection\candidates\outer_expected:
+fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostExprAscriptionProjection impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\projection\candidates\outer_expected:
     let tail %SelfhostSyntaxRange selfhost_expr_ascription_projection_tail &projection
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation &projection
     let arena %SelfhostTypeArena selfhost_expr_ascription_projection_into_arena projection
     match selfhost_check_expr_validate_ascription_outer_expected &arena expectation outer_expected:
         Result::Ok _unit:
             let expected %Option SelfhostTypeExpectation some expectation
-            match selfhost_check_expr_reduce_expression_line_prefix tokens tail &arena candidates expected:
-                Result::Ok result:
-                    Result::Ok selfhost_expression_line_check_success_new arena result
-                Result::Err e:
-                    selfhost_type_arena_free arena
-                    Result::Err e
+            selfhost_check_expr_reduce_expression_line_prefix_with_arena tokens source tail arena candidates expected
         Result::Err e:
             selfhost_type_arena_free arena
             Result::Err e
@@ -327,16 +360,11 @@ pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec Selfho
                 then:
                     match selfhost_expr_ascription_project_expectation tokens source arena segment.head:
                         Result::Ok projection:
-                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens projection candidates expected
+                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens source projection candidates expected
                         Result::Err e:
                             Result::Err SelfhostExpressionLineCheckError::AscriptionFailed e
                 else:
-                    match selfhost_check_expr_reduce_expression_line_prefix tokens segment.head &arena candidates expected:
-                        Result::Ok result:
-                            Result::Ok selfhost_expression_line_check_success_new arena result
-                        Result::Err e:
-                            selfhost_type_arena_free arena
-                            Result::Err e
+                    selfhost_check_expr_reduce_expression_line_prefix_with_arena tokens source segment.head arena candidates expected
         SelfhostBodySegmentKind::BlockIntro:
             selfhost_type_arena_free arena
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment

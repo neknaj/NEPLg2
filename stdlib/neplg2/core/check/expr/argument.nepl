@@ -6,25 +6,32 @@
 //: [目的/もくてき]:
 //: - call reducer が function parameter type と実引数 item を照合できるよう、literal item の型を `SelfhostTypeKind` として返します。
 //: - parser や prefix expression module に checker の型知識を持ち込まず、型証拠の責務を `check/expr` 配下に閉じ込めます。
-//: - 未対応の式を「たぶん合っている」として通さず、証拠が取れない場合は `None` を返して caller が fail-closed にします。
+//: - 未対応の式を「たぶん合っている」として通さず、証拠が取れない場合は error enum を返して caller が fail-closed にします。
 //: - prefix list 上で 1 つの実引数式がどこまでを消費したかを typed result として返し、call reducer が raw token 数を arity と誤認しないようにします。
 //:
 //: [契約/けいやく]:
 //: - `IntLiteral` は現 checkpoint の stage0 fixture と同じく `i32` として扱います。整数 suffix と expected type による numeric literal defaulting は後続 slice の責務です。
 //: - `FloatLiteral` はこの slice では型証拠を返しません。`f32` / `f64` の defaulting が仕様として固定されるまで成功扱いしません。
-//: - `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで `None` にします。
-//: - `%T expr` 形式の ascribed argument は、source text と token buffer を持つ argument-scope expression checker が実装されるまで成功扱いしません。この module は `%` を見つけた場合、可変幅式を生の item 数へ潰さず `UnsupportedAscribedArgument` として返します。
+//: - `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで fail-closed にします。
+//: - source-less borrowed API は `%T expr` 形式の ascribed argument を成功扱いしません。`%` を見つけた場合、可変幅式を生の item 数へ潰さず `UnsupportedAscribedArgument` として返します。
+//: - source / token backed owner API は、現 checkpoint では `%T literal` だけを成功させます。型式投影に失敗した場合は `AscriptionProjectionFailed` として返し、位置情報を空 span へ潰しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - item kind の分類と expected kind の比較はいずれも O(1) です。
 
+#import "alloc/collections/vec" as v
 #import "core/option" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "core/field" as field
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/ty" as *
+#import "./expectation" as *
+#import "./ascription" as *
 
 //: SelfhostExprArgumentMatch: prefix list 上で 1 つの実引数式を消費した結果
 //:
@@ -51,13 +58,17 @@ impl Copy for SelfhostExprArgumentMatch:
 //:
 //: [目的/もくてき]:
 //: - `TypeMismatch` は、literal item の型証拠が expected parameter type と合わなかった場合です。
-//: - `UnsupportedAscribedArgument` は、`%T expr` のような可変幅 argument expression を見つけたが、この checkpoint では source / token 付き checker へ渡せない場合です。
+//: - `UnsupportedAscribedArgument` は、`%T expr` のような可変幅 argument expression を見つけたが、この API では source / token 付き checker へ渡せない場合です。
+//: - `AscriptionProjectionFailed` は、source / token backed API が `%T` head を型式として投影できなかった場合です。
+//: - `AscriptionExpectedTypeConflict` は、明示 ascription type と parameter expected type が衝突した場合です。
 //: - `UnsupportedArgumentExpression` は、name resolution や nested call reduction が必要で、単一 literal item からは型証拠を得られない場合です。
 //: - `MissingArgument` と `InternalInvariant` は caller 側の cursor と prefix list の不整合を区別します。
 pub enum SelfhostExprArgumentMatchErrorKind:
     MissingArgument
     TypeMismatch
     UnsupportedAscribedArgument
+    AscriptionProjectionFailed
+    AscriptionExpectedTypeConflict
     UnsupportedArgumentExpression
     InternalInvariant
 
@@ -93,6 +104,31 @@ pub fn selfhost_expr_argument_match_new %fn i32 SelfhostExprArgumentMatch \next_
 //: selfhost_expr_argument_match_error_new: 実引数式走査の error payload を[作/つく]る
 pub fn selfhost_expr_argument_match_error_new %fn SelfhostExprArgumentMatchErrorKind fn SelfhostSourceSpan SelfhostExprArgumentMatchError \kind\span:
     SelfhostExprArgumentMatchError kind span
+
+//: SelfhostExprArgumentOwnedMatch: arena owner を更新し得る実引数式走査の成功 payload
+//:
+//: [目的/もくてき]:
+//: - `%T literal` は `T` を `SelfhostTypeArena` へ投影するため、argument checker は arena owner を受け取り、成功時に更新済み owner を返します。
+//: - literal-only argument でも同じ payload を使い、source-backed call reducer が argument loop のたびに arena owner を明示的に受け渡せるようにします。
+//:
+//: [契約/けいやく]:
+//: - `match_value.next_index` は次の prefix argument item index です。
+//: - 失敗時、この module は受け取った arena owner を解放してから error を返します。caller は失敗後に同じ arena を使いません。
+pub struct SelfhostExprArgumentOwnedMatch:
+    arena %SelfhostTypeArena
+    match_value %SelfhostExprArgumentMatch
+
+//: selfhost_expr_argument_owned_match_new: owner 付き argument match を[作/つく]る
+pub fn selfhost_expr_argument_owned_match_new %impure fn SelfhostTypeArena impure fn SelfhostExprArgumentMatch SelfhostExprArgumentOwnedMatch \arena\match_value:
+    SelfhostExprArgumentOwnedMatch arena match_value
+
+//: selfhost_expr_argument_owned_match_match: consume-width payload を[返/かえ]す
+pub fn selfhost_expr_argument_owned_match_match %fn &SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatch \matched:
+    *field::get_ref matched "match_value"
+
+//: selfhost_expr_argument_owned_match_into_arena: updated arena owner を[取/と]り[出/だ]す
+pub fn selfhost_expr_argument_owned_match_into_arena %impure fn SelfhostExprArgumentOwnedMatch SelfhostTypeArena \matched:
+    field::get matched "arena"
 
 //: selfhost_expr_argument_item_literal_type_kind: literal item の直接型証拠を[返/かえ]す
 //:
@@ -172,4 +208,139 @@ pub fn selfhost_expr_argument_match_at %fn &SelfhostTypeArena fn &SelfhostExprPr
                                         Option::None:
                                             Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression item.span
                 Option::None:
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+
+fn selfhost_expr_argument_range_from_prefix %fn &SelfhostExprPrefixList fn i32 fn i32 Result SelfhostSyntaxRange SelfhostExprArgumentMatchError \prefix\item_index\item_count:
+    match selfhost_expr_prefix_list_get prefix item_index:
+        Option::Some first_item:
+            match selfhost_expr_prefix_list_get prefix sub item_count 1:
+                Option::Some last_item:
+                    let token_count %i32 add sub last_item.token_index first_item.token_index 1
+                    let span %SelfhostSourceSpan source_span_new_unchecked first_item.span.file_id first_item.span.start last_item.span.end
+                    Result::Ok selfhost_syntax_range_new_unchecked first_item.token_index token_count span
+                Option::None:
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant first_item.span
+        Option::None:
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+
+fn selfhost_expr_argument_find_prefix_item_by_token_loop %fn &SelfhostExprPrefixList fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostExprArgumentMatchError \prefix\idx\item_count\token_index\fallback_span:
+    if:
+        ge idx item_count
+        then:
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression fallback_span
+        else:
+            match selfhost_expr_prefix_list_get prefix idx:
+                Option::Some item:
+                    if:
+                        eq item.token_index token_index
+                        then:
+                            Result::Ok idx
+                        else:
+                            selfhost_expr_argument_find_prefix_item_by_token_loop prefix add idx 1 item_count token_index fallback_span
+                Option::None:
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant fallback_span
+
+fn selfhost_expr_argument_find_prefix_item_by_token %fn &SelfhostExprPrefixList fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostExprArgumentMatchError \prefix\start_idx\item_count\token_index\fallback_span:
+    selfhost_expr_argument_find_prefix_item_by_token_loop prefix start_idx item_count token_index fallback_span
+
+fn selfhost_expr_argument_validate_ascription_expected %fn &SelfhostTypeArena fn SelfhostTypeExpectation fn SelfhostTypeId Result unit SelfhostExprArgumentMatchError \arena\ascription_expectation\expected_type:
+    if:
+        selfhost_type_arena_types_equal arena ascription_expectation.expected_type expected_type
+        then:
+            Result::Ok unit
+        else:
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict ascription_expectation.span
+
+fn selfhost_expr_argument_span_from_ascription_error %fn SelfhostExprAscriptionError SelfhostSourceSpan \error:
+    match error:
+        SelfhostExprAscriptionError::EmptyExpressionRange span:
+            span
+        SelfhostExprAscriptionError::InvalidExpressionRange span:
+            span
+        SelfhostExprAscriptionError::NotTypeAscription span:
+            span
+        SelfhostExprAscriptionError::TypePrefixBuildFailed e:
+            e.span
+        SelfhostExprAscriptionError::TypeReduceFailed e:
+            e.span
+        SelfhostExprAscriptionError::TypeProjectFailed e:
+            e.span
+        SelfhostExprAscriptionError::MissingExpressionTail span:
+            span
+
+fn selfhost_expr_argument_match_ascribed_literal_with_projection %impure fn SelfhostExprAscriptionHeadProjection impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \projection\prefix\item_index\item_count\expected_type:
+    let expectation %SelfhostTypeExpectation selfhost_expr_ascription_head_projection_expectation &projection
+    let expression_token %i32 selfhost_expr_ascription_head_projection_expression_first_token &projection
+    let arena %SelfhostTypeArena selfhost_expr_ascription_head_projection_into_arena projection
+    match selfhost_expr_argument_validate_ascription_expected &arena expectation expected_type:
+        Result::Ok _unit:
+            match selfhost_expr_argument_find_prefix_item_by_token prefix add item_index 1 item_count expression_token expectation.span:
+                Result::Ok expression_item_index:
+                    match selfhost_expr_prefix_list_get prefix expression_item_index:
+                        Option::Some expression_item:
+                            if:
+                                selfhost_expr_argument_item_matches_type &arena expression_item expectation.expected_type
+                                then:
+                                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add expression_item_index 1
+                                else:
+                                    selfhost_type_arena_free arena
+                                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::TypeMismatch expression_item.span
+                        Option::None:
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant expectation.span
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\item_index\item_count\expected_type:
+    match selfhost_expr_argument_range_from_prefix prefix item_index item_count:
+        Result::Ok syntax_range:
+            match selfhost_expr_ascription_project_head_expectation tokens source arena syntax_range:
+                Result::Ok projection:
+                    selfhost_expr_argument_match_ascribed_literal_with_projection projection prefix item_index item_count expected_type
+                Result::Err e:
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed selfhost_expr_argument_span_from_ascription_error e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_expr_argument_match_at_with_source: source / token backed に 1 つの実引数式を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `%T literal` のように、prefix item kind だけでは型注釈の spelling を検査できない argument expression を安全に扱います。
+//: - この入口は arena owner を受け取り、ascription type を projection した場合は更新済み arena owner を成功 payload として返します。
+//:
+//: [契約/けいやく]:
+//: - 現 checkpoint で source-backed に成功させる可変幅式は `%T literal` だけです。literal tail でない場合は `UnsupportedArgumentExpression` または `TypeMismatch` として fail-closed にします。
+//: - `%T` と expected parameter type が同じ arena 内で一致しない場合は `AscriptionExpectedTypeConflict` として返し、arity / overload 失敗へ潰しません。
+//: - 失敗時は、この関数が受け取った arena owner を解放します。
+pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\item_index\item_count\expected_type:
+    if:
+        ge item_index item_count
+        then:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::MissingArgument source_span_empty_unchecked 0 0
+        else:
+            match selfhost_expr_prefix_list_get prefix item_index:
+                Option::Some item:
+                    match item.kind:
+                        SelfhostExprPrefixItemKind::TypeAnnotationMarker:
+                            selfhost_expr_argument_match_ascribed_at_with_source tokens source arena prefix item_index item_count expected_type
+                        _:
+                            if:
+                                selfhost_expr_argument_item_matches_type &arena item expected_type
+                                then:
+                                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add item_index 1
+                                else:
+                                    selfhost_type_arena_free arena
+                                    match selfhost_expr_argument_item_literal_type_kind item:
+                                        Option::Some _actual_kind:
+                                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::TypeMismatch item.span
+                                        Option::None:
+                                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression item.span
+                Option::None:
+                    selfhost_type_arena_free arena
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant source_span_empty_unchecked 0 0
