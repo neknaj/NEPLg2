@@ -30,6 +30,7 @@
 #import "./model" as *
 #import "./argument" as *
 #import "./value_evidence" as *
+#import "./block_body" as *
 
 fn selfhost_call_reduce_generic_state_error %fn SelfhostCallableCandidate Result unit SelfhostCallReduceError \candidate:
     match candidate.generic_state:
@@ -116,6 +117,23 @@ fn selfhost_call_reduce_error_from_candidate_collect %fn SelfhostCallableCandida
             selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateOutOfMemory error.span
         _:
             selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant error.span
+
+fn selfhost_call_reduce_error_from_block_body_result %fn SelfhostBlockBodyResultError SelfhostCallReduceError \error:
+    match error.kind:
+        SelfhostBlockBodyResultErrorKind::SegmentFailed:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodySegmentFailed error.span
+        SelfhostBlockBodyResultErrorKind::EmptyBody:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodyEmpty error.span
+        SelfhostBlockBodyResultErrorKind::MultipleSegments:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodyMultipleSegments error.span
+        SelfhostBlockBodyResultErrorKind::NestedBlockUnsupported:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodyNestedBlockUnsupported error.span
+        SelfhostBlockBodyResultErrorKind::PrefixBuildFailed:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodyPrefixBuildFailed error.span
+        SelfhostBlockBodyResultErrorKind::CandidateCollectFailed:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodyCandidateCollectFailed error.span
+        SelfhostBlockBodyResultErrorKind::InternalInvariant:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant error.span
 
 //: selfhost_call_reduce_argument_type_check_loop: 実引数式 cursor と parameter type を順に[照合/しょうごう]する
 //:
@@ -246,6 +264,33 @@ fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec 
         Option::None:
             selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_trailing_block_body_result: 末尾 block argument を `BlockResult` expectation で[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` を、次に不足している parameter の 1 実引数式として検査します。
+//: - nested body envelope は `block_body.nepl` で単一 expression line に分解し、その expression を既存の source-backed call reducer へ渡します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は block body expression が `expected_type` を返すことまで確認済みの arena owner を返します。
+//: - 失敗時は、この関数が受け取った arena owner を閉じるか、再帰 reducer が閉じた状態で typed error を返します。
+//: - block body の prefix/candidate owner は、再帰 reducer が成功しても失敗しても必ず解放します。
+fn selfhost_call_reduce_trailing_block_body_result %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostTypeId impure fn SelfhostTrailingBlockArgument Result SelfhostTypeArena SelfhostCallReduceError \tokens\source\arena\scope\value_types\signatures\expected_type\block_arg:
+    match selfhost_block_body_result_input_from_trailing_block tokens source scope signatures block_arg:
+        Result::Ok input:
+            let block_expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::BlockResult block_arg.span
+            let prefix %&SelfhostExprPrefixList selfhost_block_body_result_input_prefix &input
+            let candidates %&Vec SelfhostCallableCandidate selfhost_block_body_result_input_candidates &input
+            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source tokens source arena prefix scope value_types signatures candidates some block_expected
+            selfhost_block_body_result_input_free input
+            match reduced:
+                Result::Ok owned:
+                    Result::Ok selfhost_call_reduce_owned_result_into_arena owned
+                Result::Err e:
+                    Result::Err e
+        Result::Err block_error:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_call_reduce_error_from_block_body_result block_error
+
 //: selfhost_call_reduce_argument_type_check_loop_with_source: source-backed に実引数式 cursor を[照合/しょうごう]する
 //:
 //: [目的/もくてき]:
@@ -279,8 +324,16 @@ fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec Sel
                 then:
                     match trailing_block:
                         Option::Some block_arg:
-                            selfhost_type_arena_free arena
-                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported block_arg.span
+                            match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
+                                Option::Some expected_arg_type:
+                                    match selfhost_call_reduce_trailing_block_body_result tokens source arena scope value_types signatures expected_arg_type block_arg:
+                                        Result::Ok checked_arena:
+                                            selfhost_call_reduce_argument_type_check_loop_with_source tokens source checked_arena prefix scope value_types signatures candidate param_count add param_idx 1 item_index item_count none head
+                                        Result::Err e:
+                                            Result::Err e
+                                Option::None:
+                                    selfhost_type_arena_free arena
+                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
                         Option::None:
                             selfhost_type_arena_free arena
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
@@ -417,7 +470,8 @@ pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefix
 //: - 成功時は `SelfhostCallReduceOwnedResult` が更新済み arena owner と direct call plan を保持します。
 //: - 失敗時はこの reducer または argument checker が受け取った arena owner を解放します。caller は失敗後に同じ arena を使いません。
 //: - `NamedValue` argument は scope binding と value type evidence がそろう場合だけ成功します。nested named call は callable signature table から候補を集め、expected parameter type を result expectation として検査します。
-//: - `trailing_block` が `Some` の場合、この checkpoint では block body result checker が未接続であるため、必要な parameter 位置では `TrailingBlockArgumentUnsupported`、余分な block では `UnexpectedTrailingBlockArgument` を返します。どちらも partial application や overload failure へ潰しません。
+//: - `trailing_block` が `Some` の場合、parameter が不足している位置では nested body を `BlockResult` expectation 付き expression として検査します。parameter 消費後に余る block は `UnexpectedTrailingBlockArgument` として拒否します。
+//: - block body の segment 化、prefix build、candidate collection が失敗した場合は `TrailingBlockBody*` error へ分け、partial application や overload failure へ潰しません。
 pub fn selfhost_call_reduce_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\trailing_block:
     let item_count %i32 selfhost_expr_prefix_list_len prefix
     if:

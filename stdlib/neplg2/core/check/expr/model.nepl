@@ -38,8 +38,8 @@ pub struct SelfhostReducedCall:
 //:
 //: [契約/けいやく]:
 //: - `body` は `SelfhostBodySegmentKind::BlockIntro` の nested body envelope です。
-//: - 現 checkpoint では block body result model が未接続なので、これを受け取った reducer は成功扱いせず専用 error を返します。
-//: - 後続 slice で単一 `ExpressionLine` body を `BlockResult` expectation で再帰検査するときも、この payload をそのまま入力境界として使います。
+//: - reducer はこの envelope を flat prefix item へ混ぜず、`block_body.nepl` で単一 `ExpressionLine` へ分解してから `BlockResult` expectation で検査します。
+//: - 複数式や nested block など、この slice で安全に縮約できない body は具体的な `TrailingBlockBody*` error として fail-closed にします。
 pub struct SelfhostTrailingBlockArgument:
     body %SelfhostSyntaxRange
     span %SelfhostSourceSpan
@@ -94,7 +94,7 @@ pub struct SelfhostCallReduceOwnedResult:
 //: - `ArgumentAscriptionProjectionFailed` と `ArgumentAscriptionExpectedTypeConflict` は、argument-scope `%T expr` の型注釈自体の不備と expected parameter type との衝突を分けます。
 //: - `ArgumentNamedValue*` は、argument position の名前が値として解決できない場合と、値は解決できるが型証拠がまだ無い場合を分けます。
 //: - `ArgumentNestedCandidate*` は、nested named call argument の head を function candidate として収集する段階の不整合を分けます。
-//: - `TrailingBlockArgumentUnsupported` は、末尾 block argument を検出したが block body result checker がまだ未接続である場合です。partial application や raw arity error へ潰してはいけません。
+//: - `TrailingBlockBody*` は、末尾 block argument の nested body を `BlockResult` expectation で検査する前の入力構築失敗を分けます。partial application や raw arity error へ潰してはいけません。
 //: - `UnexpectedTrailingBlockArgument` は、candidate の parameter をすでにすべて消費した後に `BlockIntro.body` が残った場合です。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
@@ -114,7 +114,12 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentNestedCandidateHeadTokenOutOfBounds
     ArgumentNestedCandidateOutOfMemory
     ArgumentNestedCandidateInternalInvariant
-    TrailingBlockArgumentUnsupported
+    TrailingBlockBodySegmentFailed
+    TrailingBlockBodyEmpty
+    TrailingBlockBodyMultipleSegments
+    TrailingBlockBodyNestedBlockUnsupported
+    TrailingBlockBodyPrefixBuildFailed
+    TrailingBlockBodyCandidateCollectFailed
     UnexpectedTrailingBlockArgument
     UnsupportedArgumentExpression
     OverloadNoCandidate
@@ -289,9 +294,39 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
                     true
                 _:
                     false
-        SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported:
+        SelfhostCallReduceErrorKind::TrailingBlockBodySegmentFailed:
             match b:
-                SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported:
+                SelfhostCallReduceErrorKind::TrailingBlockBodySegmentFailed:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::TrailingBlockBodyEmpty:
+            match b:
+                SelfhostCallReduceErrorKind::TrailingBlockBodyEmpty:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::TrailingBlockBodyMultipleSegments:
+            match b:
+                SelfhostCallReduceErrorKind::TrailingBlockBodyMultipleSegments:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::TrailingBlockBodyNestedBlockUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::TrailingBlockBodyNestedBlockUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::TrailingBlockBodyPrefixBuildFailed:
+            match b:
+                SelfhostCallReduceErrorKind::TrailingBlockBodyPrefixBuildFailed:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::TrailingBlockBodyCandidateCollectFailed:
+            match b:
+                SelfhostCallReduceErrorKind::TrailingBlockBodyCandidateCollectFailed:
                     true
                 _:
                     false

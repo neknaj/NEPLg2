@@ -1,0 +1,190 @@
+#indent 4
+
+//: # check/expr/block_body
+//: `BlockIntro.body` を block result expression の入力へ変換する module です。
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` は nested body envelope であり、outer call の flat prefix item ではありません。
+//: - この module は nested body envelope を body segmenter で再帰的に分解し、block result として検査できる単一 `ExpressionLine` だけを prefix list と callable candidate list へ変換します。
+//: - call reduction そのものは `call_reduce.nepl` に残し、この module は block body の構文境界、owner 管理、candidate collection までを担当します。
+//:
+//: [契約/けいやく]:
+//: - 成功するのは、nested body がちょうど 1 個の `ExpressionLine` で、その head から prefix list と candidate list を構築できる場合だけです。
+//: - 空 body、複数 top-level segment、nested `BlockIntro`、prefix build failure、candidate collection failure はすべて typed error として返します。
+//: - `BlockIntro.body` 全体を `SelfhostExprPrefixList` に直接変換してはいけません。必ず `selfhost_body_segment_list_from_envelope` を通して body の階層を確認します。
+//: - 成功 payload は prefix list owner と candidate vector owner を持ちます。caller は call reduction 後に `selfhost_block_body_result_input_free` で必ず解放します。
+//:
+//: [現状/げんじょう]:
+//: - 現在の block result checker は、single expression line を既存の source-backed call reducer へ渡すための入力構築までを扱います。
+//: - bare literal body、lambda body、pipe body、さらに nested block body の成功受理は、対応する expression checker slice が接続された後にこの module の入力構築結果を拡張します。
+//:
+//: [計算量/けいさんりょう]:
+//: - body envelope の token 数を k とすると、segmenter は O(k)、prefix list build も O(k) です。
+//: - candidate collection は現在の scope binding 数 b と signature 数 s に依存し、`candidate_collection.nepl` の契約どおり O(b + m*s) です。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
+#import "neplg2/core/syntax/token" as *
+#import "./call_candidate" as *
+#import "./candidate_collection" as *
+#import "./model" as *
+
+//: SelfhostBlockBodyResultErrorKind: block result 入力構築の失敗分類
+//:
+//: [目的/もくてき]:
+//: - block body の segment 化、単一式制約、prefix list 構築、candidate collection のどこで fail-closed になったかを enum で保持します。
+//: - 表示文言は diagnostic projection 側へ移し、この module は source span と分類だけを返します。
+pub enum SelfhostBlockBodyResultErrorKind:
+    SegmentFailed
+    EmptyBody
+    MultipleSegments
+    NestedBlockUnsupported
+    PrefixBuildFailed
+    CandidateCollectFailed
+    InternalInvariant
+
+impl Clone for SelfhostBlockBodyResultErrorKind:
+    fn clone %fn &SelfhostBlockBodyResultErrorKind SelfhostBlockBodyResultErrorKind \self:
+        *self
+
+impl Copy for SelfhostBlockBodyResultErrorKind:
+    fn copy_mark %fn SelfhostBlockBodyResultErrorKind SelfhostBlockBodyResultErrorKind \self:
+        self
+
+//: SelfhostBlockBodyResultError: block result 入力構築 error の typed payload
+//:
+//: [目的/もくてき]:
+//: - error kind と span をまとめ、call reducer が `SelfhostCallReduceErrorKind` へ投影できるようにします。
+//: - prefix build error や candidate collection error の詳細 payload は owner を持たない span evidence としてここで畳み込みます。詳細な diagnostic が必要な場合は後続 slice で dedicated diagnostic payload を追加します。
+pub struct SelfhostBlockBodyResultError:
+    kind %SelfhostBlockBodyResultErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostBlockBodyResultError:
+    fn clone %fn &SelfhostBlockBodyResultError SelfhostBlockBodyResultError \self:
+        *self
+
+impl Copy for SelfhostBlockBodyResultError:
+    fn copy_mark %fn SelfhostBlockBodyResultError SelfhostBlockBodyResultError \self:
+        self
+
+//: SelfhostBlockBodyResultInput: block result として reducer へ渡す owner payload
+//:
+//: [目的/もくてき]:
+//: - nested body の単一 expression line から作った prefix list と、その head に対する callable candidate list をまとめます。
+//: - `span` は block result expression の head span で、後続 diagnostic や expectation evidence に使えます。
+//:
+//: [契約/けいやく]:
+//: - `prefix` と `candidates` はこの payload が所有します。
+//: - caller は borrow getter で reducer へ渡したあと、成功・失敗にかかわらず `selfhost_block_body_result_input_free` を呼びます。
+pub struct SelfhostBlockBodyResultInput:
+    prefix %SelfhostExprPrefixList
+    candidates %Vec SelfhostCallableCandidate
+    span %SelfhostSourceSpan
+
+//: selfhost_block_body_result_error_new: block body result error を[作/つく]る
+pub fn selfhost_block_body_result_error_new %fn SelfhostBlockBodyResultErrorKind fn SelfhostSourceSpan SelfhostBlockBodyResultError \kind\span:
+    SelfhostBlockBodyResultError kind span
+
+//: selfhost_block_body_result_input_new: block body result input owner を[作/つく]る
+pub fn selfhost_block_body_result_input_new %impure fn SelfhostExprPrefixList impure fn Vec SelfhostCallableCandidate impure fn SelfhostSourceSpan SelfhostBlockBodyResultInput \prefix\candidates\span:
+    SelfhostBlockBodyResultInput prefix candidates span
+
+//: selfhost_block_body_result_input_prefix: prefix list を borrow で[返/かえ]す
+pub fn selfhost_block_body_result_input_prefix %fn &SelfhostBlockBodyResultInput &SelfhostExprPrefixList \input:
+    field::get_ref input "prefix"
+
+//: selfhost_block_body_result_input_candidates: candidate list を borrow で[返/かえ]す
+pub fn selfhost_block_body_result_input_candidates %fn &SelfhostBlockBodyResultInput &Vec SelfhostCallableCandidate \input:
+    field::get_ref input "candidates"
+
+//: selfhost_block_body_result_input_span: block result expression の span を[返/かえ]す
+pub fn selfhost_block_body_result_input_span %fn &SelfhostBlockBodyResultInput SelfhostSourceSpan \input:
+    *field::get_ref input "span"
+
+//: selfhost_block_body_result_input_free: block body result input の owner を[解放/かいほう]する
+//:
+//: [契約/けいやく]:
+//: - `prefix` と `candidates` の両方を閉じます。
+//: - reducer へ borrow で渡している最中に呼んではいけません。call reduction が戻った後に呼びます。
+pub fn selfhost_block_body_result_input_free %impure fn SelfhostBlockBodyResultInput unit \input:
+    selfhost_expr_prefix_list_free field::get input "prefix"
+    v::free field::get input "candidates"
+
+fn selfhost_block_body_result_segment_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
+    match segment.head:
+        SelfhostSyntaxRange::Range range:
+            range.span
+        SelfhostSyntaxRange::Empty:
+            source_span_empty_unchecked 0 0
+
+fn selfhost_block_body_result_from_expression_segment %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostBodySegment Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\segment:
+    match selfhost_expr_prefix_list_from_syntax_range tokens segment.head:
+        Result::Ok prefix:
+            match selfhost_callable_candidates_collect_for_prefix source tokens &prefix scope signatures:
+                Result::Ok candidates:
+                    Result::Ok selfhost_block_body_result_input_new prefix candidates selfhost_block_body_result_segment_span segment
+                Result::Err collect_error:
+                    selfhost_expr_prefix_list_free prefix
+                    Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::CandidateCollectFailed collect_error.span
+        Result::Err prefix_error:
+            Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::PrefixBuildFailed prefix_error.span
+
+fn selfhost_block_body_result_from_single_segment %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostBodySegment Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\segment:
+    match segment.kind:
+        SelfhostBodySegmentKind::ExpressionLine:
+            selfhost_block_body_result_from_expression_segment tokens source scope signatures segment
+        SelfhostBodySegmentKind::BlockIntro:
+            Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::NestedBlockUnsupported selfhost_block_body_result_segment_span segment
+
+fn selfhost_block_body_result_from_segment_list %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostBodySegmentList impure fn SelfhostSourceSpan Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\segments\span:
+    let count %i32 selfhost_body_segment_list_len &segments
+    if:
+        eq count 0
+        then:
+            selfhost_body_segment_list_free segments
+            Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::EmptyBody span
+        else:
+            if:
+                gt count 1
+                then:
+                    selfhost_body_segment_list_free segments
+                    Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::MultipleSegments span
+                else:
+                    match selfhost_body_segment_list_get &segments 0:
+                        Option::Some segment:
+                            let result %Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError selfhost_block_body_result_from_single_segment tokens source scope signatures segment
+                            selfhost_body_segment_list_free segments
+                            result
+                        Option::None:
+                            selfhost_body_segment_list_free segments
+                            Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::InternalInvariant span
+
+//: selfhost_block_body_result_input_from_trailing_block: 末尾 block argument body を block result input へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTrailingBlockArgument.body` を segmenter で分解し、単一 expression line の prefix list と candidate list を作ります。
+//: - caller は返された input を `BlockResult` expectation 付きの source-backed call reducer へ渡します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Ok(input)`: nested body は単一 expression line で、prefix list と候補列を構築できました。
+//: - `Err(SegmentFailed)`: body envelope の segment 化に失敗しました。
+//: - `Err(EmptyBody)`: segmenter は成功したが segment がありませんでした。
+//: - `Err(MultipleSegments)`: block result としてこの slice では複数 top-level expression を受理しません。
+//: - `Err(NestedBlockUnsupported)`: block result body 自体がさらに `BlockIntro` でした。
+//: - `Err(PrefixBuildFailed)` / `Err(CandidateCollectFailed)`: expression head の入力構築に失敗しました。
+pub fn selfhost_block_body_result_input_from_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostTrailingBlockArgument Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\block_arg:
+    match selfhost_body_segment_list_from_envelope tokens block_arg.body:
+        Result::Ok segments:
+            selfhost_block_body_result_from_segment_list tokens source scope signatures segments block_arg.span
+        Result::Err segment_error:
+            Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::SegmentFailed segment_error.span

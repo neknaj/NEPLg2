@@ -397,11 +397,11 @@ fn selfhost_check_expr_stage1_block_intro_segment %fn void SelfhostBodySegment \
 //: - `add` は fixture 上 2 引数関数なので、2 個目の parameter 位置で trailing block argument が検出されます。
 //:
 //: [契約/けいやく]:
-//: - `body` range は block body result checker の入力候補ですが、この smoke ではまだ成功受理しません。
-//: - 期待する失敗は `TrailingBlockArgumentUnsupported` であり、`PartialApplicationRejected` ではありません。
+//: - `body` range は `add 1 1` の 3 token を指し、block result checker が `BlockResult` expectation で再帰的に縮約する入力です。
+//: - head と body を別々の range にすることで、outer call の raw item 数を水増しせずに末尾 block を 1 実引数式として検査できます。
 fn selfhost_check_expr_stage1_trailing_block_argument_segment %fn void SelfhostBodySegment \void:
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 2 source_span_new_unchecked 0 0 5
-    let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 1 source_span_new_unchecked 0 11 12
+    let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 3 source_span_new_unchecked 0 11 18
     selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
 
 //: selfhost_check_expr_stage1_push_token: token fixture へ 1 token を[追加/ついか]する
@@ -447,10 +447,10 @@ fn selfhost_check_expr_stage1_make_tokens %impure fn void Result Vec SelfhostTok
         Result::Err e:
             Result::Err e
 
-//: selfhost_check_expr_stage1_make_trailing_block_argument_tokens: `add 1:` fixture 用 token buffer を[作/つく]る
+//: selfhost_check_expr_stage1_make_trailing_block_argument_tokens: `add 1:` と block result `add 1 1` の fixture 用 token buffer を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - head range の `add 1` と block body range の `2` を同じ token buffer に置きます。
+//: - head range の `add 1` と block body range の `add 1 1` を同じ token buffer に置きます。
 //: - colon、newline、indent は `SelfhostBodySegment` 側の head/body range 境界として表現済みなので、この focused smoke では prefix builder が読む token だけを置きます。
 fn selfhost_check_expr_stage1_make_trailing_block_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
     let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
@@ -462,8 +462,18 @@ fn selfhost_check_expr_stage1_make_trailing_block_argument_tokens %impure fn voi
                     let arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 4 5
                     match selfhost_check_expr_stage1_push_token tokens1 arg0:
                         Result::Ok tokens2:
-                            let block_value %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 11 12
-                            selfhost_check_expr_stage1_push_token tokens2 block_value
+                            let block_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 11 14
+                            match selfhost_check_expr_stage1_push_token tokens2 block_add:
+                                Result::Ok tokens3:
+                                    let block_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 15 16
+                                    match selfhost_check_expr_stage1_push_token tokens3 block_arg0:
+                                        Result::Ok tokens4:
+                                            let block_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 17 18
+                                            selfhost_check_expr_stage1_push_token tokens4 block_arg1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
                         Result::Err e:
                             Result::Err e
                 Result::Err e:
@@ -1033,30 +1043,38 @@ fn selfhost_check_expr_stage1_nested_call_argument_ok_with_scope %impure fn Vec 
             v::free tokens
             false
 
-//: selfhost_check_expr_stage1_trailing_block_argument_typed_error: 末尾 block argument が専用 error になるか[返/かえ]す
+//: selfhost_check_expr_stage1_trailing_block_argument_result_ok: 末尾 block argument が block result として[縮約/しゅくやく]されるか[返/かえ]す
 //:
 //: [目的/もくてき]:
 //: - `add 1:` の head prefix は `add 1` で止まり、残る parameter は `BlockIntro.body` によって満たされるべき位置になります。
-//: - 現 checkpoint では block body result checker が未接続なので、成功ではなく `TrailingBlockArgumentUnsupported` を返します。
+//: - nested body の `add 1 1` は同じ fixture scope の `add` callable candidate で検査され、outer call の第2引数として `i32` result を提供します。
 //:
 //: [契約/けいやく]:
 //: - この helper は旧 `selfhost_check_expr_reduce_body_segment_with_arena` ではなく、BlockIntro 専用入口を通します。
-//: - 失敗は expected outcome ですが、arena owner は reducer が閉じます。
-fn selfhost_check_expr_stage1_trailing_block_argument_typed_error %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+//: - `tokens`、candidate vector、value context、arena owner は成功・失敗にかかわらずこの helper が閉じます。
+fn selfhost_check_expr_stage1_trailing_block_argument_result_ok %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
     let segment %SelfhostBodySegment selfhost_check_expr_stage1_trailing_block_argument_segment
     match selfhost_check_expr_stage1_make_candidate_vec add_type:
         Result::Ok candidates:
-            match selfhost_check_expr_stage1_reduce_block_intro_with_empty_values &tokens "add 1:\n    2" segment arena &candidates none:
-                Result::Ok success:
-                    selfhost_expression_line_check_success_free success
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_block_intro_with_value_context &tokens "add 1:\n    add 1 1" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool selfhost_check_expr_stage1_success_is_two_arg_direct_call &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
                     v::free candidates
                     v::free tokens
                     false
-                Result::Err e:
-                    let ok %bool selfhost_expression_line_check_error_is_call_reduce_kind e SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported
-                    v::free candidates
-                    v::free tokens
-                    ok
         Result::Err _e:
             selfhost_type_arena_free arena
             v::free tokens
@@ -1313,7 +1331,7 @@ fn selfhost_check_expr_stage1_run_trailing_block_argument_with_i32 %impure fn Ve
         Result::Ok add_alloc:
             let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
             let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
-            if selfhost_check_expr_stage1_trailing_block_argument_typed_error tokens next_arena add_type 0 1
+            if selfhost_check_expr_stage1_trailing_block_argument_result_ok tokens next_arena add_type 0 1
         Result::Err _e:
             v::free tokens
             1
@@ -1512,7 +1530,7 @@ fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void 
 //: - `NamedValue` argument は、scope binding と value type evidence が揃う場合だけ通り、binding だけでは拒否されることを確認します。
 //: - nested named call argument は、scope と callable signature table から inner head の候補を集め、消費後 index を外側 call へ返すことを確認します。
 //: - 同名 local が function を shadow している場合は、古い function candidate を復活させず、NamedValue value evidence fallback を使うことも確認します。
-//: - `BlockIntro` 専用入口では、末尾 block argument が `PartialApplicationRejected` ではなく専用 typed error になることを確認します。
+//: - `BlockIntro` 専用入口では、末尾 block argument が nested body を `BlockResult` expectation として検査し、outer call の不足 parameter を満たすことを確認します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `0`: expression line reduction と block intro rejection が期待通りでした。

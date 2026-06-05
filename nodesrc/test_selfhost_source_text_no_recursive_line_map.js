@@ -30,8 +30,29 @@ function functionBlock(name) {
 const collect = functionBlock('source_text_collect_line_starts');
 const newSourceText = functionBlock('source_text_new');
 const pushLineStart = functionBlock('source_text_push_line_start');
+const freeSourceText = functionBlock('source_text_free');
 const withoutSignature = collect.split(/\r?\n/).slice(1).join('\n');
 
+assert.match(
+    collect,
+    /^pub fn source_text_collect_line_starts <\(str,i32,i32,Vec<i32>\)\*>Result<Vec<i32>,StdErrorKind>> \(source,n,idx,starts\):/m,
+    'source_text_collect_line_starts must expose Vec owner updates as an explicit impure effect'
+);
+assert.match(
+    pushLineStart,
+    /^pub fn source_text_push_line_start <\(Vec<i32>,i32\)\*>SourceTextLineStartPush> \(starts,offset\):/m,
+    'source_text_push_line_start must expose Vec::push as an explicit impure effect'
+);
+assert.match(
+    newSourceText,
+    /^pub fn source_text_new <\(i32,str,str\)\*>Result<SelfhostSourceText,StdErrorKind>> \(file_id,path,source\):/m,
+    'source_text_new must expose line-start Vec construction as an explicit impure effect'
+);
+assert.match(
+    freeSourceText,
+    /^pub fn source_text_free <\(SelfhostSourceText\)\*>unit> \(text\):/m,
+    'source_text_free must expose line-start Vec cleanup as an explicit impure effect'
+);
 assert.match(
     collect,
     /^\s+while\s+and\s+lt\s+i\s+n\s+not\s+failed:\s*$/m,

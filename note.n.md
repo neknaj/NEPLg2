@@ -1,3 +1,27 @@
+# 2026-06-05 Agent selfhost block body result checkpoint
+
+- Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。
+- subagent review では、`BlockIntro.body` を flat prefix list に混ぜると nested body envelope、scope、最後の式結果、`BlockResult` expectation を失うため、body segmenter を再帰利用する専用境界が必要だと確認した。
+- `stdlib/neplg2/core/check/expr/block_body.nepl` を追加した。`SelfhostTrailingBlockArgument.body` を `selfhost_body_segment_list_from_envelope` で再帰分解し、単一 `ExpressionLine` だけを prefix list と callable candidate list へ変換する。空 body、複数 segment、nested `BlockIntro`、prefix build failure、candidate collection failure は `SelfhostBlockBodyResultErrorKind` として分ける。
+- `stdlib/neplg2/core/check/expr/call_reduce.nepl` は、不足 parameter 位置に末尾 block がある場合、parameter expected type を `SelfhostTypeExpectationSource::BlockResult` として nested expression reducer へ渡すようにした。成功時は末尾 block を 1 実引数式として消費し、余分な block は引き続き `UnexpectedTrailingBlockArgument` として拒否する。
+- `SelfhostCallReduceErrorKind` には `TrailingBlockBodySegmentFailed` / `TrailingBlockBodyEmpty` / `TrailingBlockBodyMultipleSegments` / `TrailingBlockBodyNestedBlockUnsupported` / `TrailingBlockBodyPrefixBuildFailed` / `TrailingBlockBodyCandidateCollectFailed` を追加し、block body 入力構築失敗を partial application や overload failure へ潰さないようにした。
+- `stage1` smoke は `add 1:\n    add 1 1` を使い、outer call の第2引数を block body direct call result で満たせることを確認する形に更新した。bare literal body の成功受理は full expression checker の残件なので、この checkpoint では既存 direct call reducer で検査できる expression body を使う。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` に、block body module の re-export、segmenter 経由、単一 segment 制約、nested block rejection、candidate collection、`BlockResult` expectation 再帰 reducer、body envelope 直接 prefix 化禁止を source policy として追加した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` を更新し、block body result checker を完了済みに移した。残件は lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena canonical key / binder identity である。
+- 広域 `stdlib/neplg2` 検証で、既存の `source_text_*` と `std/fs/path/normalize*` が `Vec` owner の更新・解放を行うのに `%fn` のままになっている静的検査不整合を検出した。Zenn 方針に合わせ、所有者を作る・更新する・閉じる境界を `impure fn` へ正規化し、doc comment と source policy も effect 契約に合わせた。
+- 検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_body_segmenter_contract.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_block_result_tests.json`: pass（2/2）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-block-result.json`: pass（3/3）
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-text-effect.json`: pass（4/4）
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/file_io.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-file-io-effect.json`: pass（1/1）
+  - `node nodesrc/tests.js -i stdlib/std/fs/path.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/fs-path-facade-effect.json`: pass（2/2）
+  - `node nodesrc/tests.js -i stdlib/neplg2 --no-tree -j 2 --assert-io --dist web/dist -o tmp/selfhost-stdlib-neplg2-block-result.json`: pass（53/53）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-06-05 Agent adjacency matrix layout documentation checkpoint
 
 - Zenn 記事を再確認し、doc comment には目的、契約、現状実装の詳細、計算量、典型例と doctest を書く方針を改めて判断基準にした。

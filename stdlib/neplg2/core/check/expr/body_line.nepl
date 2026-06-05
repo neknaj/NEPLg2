@@ -312,8 +312,8 @@ fn selfhost_check_expr_reduce_expression_line_prefix_with_arena %impure fn &Vec 
 //: - block body は nested body envelope であり、flat prefix list の一部ではありません。この helper は body range を直接 prefix 化しません。
 //:
 //: [契約/けいやく]:
-//: - 現 checkpoint では block body result checker が未接続なので、必要な末尾 block argument は `TrailingBlockArgumentUnsupported` として返ります。
-//: - それでも `PartialApplicationRejected` や raw arity failure ではなく、BlockIntro 専用境界を通ったことを typed error として残します。
+//: - 必要な末尾 block argument は、source-backed reducer 内で `BlockResult` expectation 付きの single expression body として検査されます。
+//: - block body が空、複数式、nested block、候補収集不能などの場合は `TrailingBlockBody*` error として残し、`PartialApplicationRejected` や raw arity failure へ潰しません。
 fn selfhost_check_expr_reduce_block_intro_prefix_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\scope\value_types\signatures\candidates\expected:
     match selfhost_expr_prefix_list_from_syntax_range tokens segment.head:
         Result::Ok prefix:

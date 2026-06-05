@@ -25,10 +25,11 @@
 //:
 //: 注意(重要):
 //: - 失敗時は `v::push` が返した stack owner をこの関数内で閉じ、呼び出し側へ errno 12 を返します。
+//: - `Vec i32` storage を consuming に更新するため、effect は `impure` です。
 //:
 //: 計算量:
 //: - ならし O(1)
-pub fn fs_normalize_range_push_raw_errno %fn Vec i32 fn i32 fn i32 Result Vec i32 i32 \stack\start\end:
+pub fn fs_normalize_range_push_raw_errno %impure fn Vec i32 impure fn i32 impure fn i32 Result Vec i32 i32 \stack\start\end:
     match v::push stack start:
         Result::Err e:
             let returned %Vec i32 v::vec_push_error_vec e
@@ -47,12 +48,13 @@ pub fn fs_normalize_range_push_raw_errno %fn Vec i32 fn i32 fn i32 Result Vec i3
 //:
 //: [目的/もくてき]:
 //: - range stack の push failure を `FsError` として[返/かえ]し、通常 public API から raw errno を[隠/かく]します。
+//: - 内部では `fs_normalize_range_push_raw_errno` と同じ owner 更新を行うため、effect は `impure` です。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
 //:| #import "std/fs/path/normalize/range_stack" as *
 //: ```
-pub fn fs_normalize_range_push %fn Vec i32 fn i32 fn i32 Result Vec i32 FsError \stack\start\end:
+pub fn fs_normalize_range_push %impure fn Vec i32 impure fn i32 impure fn i32 Result Vec i32 FsError \stack\start\end:
     match fs_normalize_range_push_raw_errno stack start end:
         Result::Ok next_stack:
             Result::Ok next_stack
@@ -69,10 +71,11 @@ pub fn fs_normalize_range_push %fn Vec i32 fn i32 fn i32 Result Vec i32 FsError 
 //:
 //: 注意(重要):
 //: - 呼び出し側は stack に少なくとも 1 component、つまり 2 要素あることを確認してから呼びます。
+//: - `Vec i32` storage を consuming に縮めるため、effect は `impure` です。
 //:
 //: 計算量:
 //: - O(1)
-pub fn fs_normalize_range_pop %fn Vec i32 Vec i32 \stack:
+pub fn fs_normalize_range_pop %impure fn Vec i32 Vec i32 \stack:
     let popped_end v::pop stack
     let without_end %Vec i32 field::get popped_end "vec"
     let popped_start v::pop without_end

@@ -36,10 +36,11 @@
 //: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
 //: - 空 path は preopen root 自体を表す `"."` に正規化します。
 //: - component 分割や stack 確保に失敗した場合は `Err(12)` を返します。
+//: - 正規化中の component range stack と output builder owner を扱うため、effect は `impure` です。
 //:
 //: 計算量:
 //: - path 長 n に対して O(n)
-pub fn fs_normalize_relative_builder_raw_errno %fn str Result StringBuilder i32 \path:
+pub fn fs_normalize_relative_builder_raw_errno %impure fn str Result StringBuilder i32 \path:
     let path_len %i32 len path
     if:
         normalize_validate::fs_path_has_forbidden_host_byte path
@@ -106,12 +107,14 @@ pub fn fs_normalize_relative_builder_raw_errno %fn str Result StringBuilder i32 
 //:
 //: [目的/もくてき]:
 //: - path 正規化 failure を `FsError` として[返/かえ]し、通常 public API から raw errno を[隠/かく]します。
+//: - 戻り値の `StringBuilder` owner は caller が使用後に閉じる必要があります。
+//: - 内部では component range stack と builder owner を扱うため、effect は `impure` です。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
 //:| #import "std/fs/path/normalize" as *
 //: ```
-pub fn fs_normalize_relative_builder %fn str Result StringBuilder FsError \path:
+pub fn fs_normalize_relative_builder %impure fn str Result StringBuilder FsError \path:
     match fs_normalize_relative_builder_raw_errno path:
         Result::Ok sb:
             Result::Ok sb
@@ -130,7 +133,8 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder FsError \path:
 //: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
 //: - 空 path は preopen root 自体を表す `"."` に正規化します。
 //: - component 分割や stack 確保に失敗した場合は `Err(12)` を返します。
-pub fn fs_normalize_relative_raw_errno %fn str Result str i32 \path:
+//: - 内部で builder owner を作成して `str` owner へ確定するため、effect は `impure` です。
+pub fn fs_normalize_relative_raw_errno %impure fn str Result str i32 \path:
     match fs_normalize_relative_builder_raw_errno path:
         Result::Err e:
             Result::Err e
@@ -148,12 +152,13 @@ pub fn fs_normalize_relative_raw_errno %fn str Result str i32 \path:
 //:
 //: [注意/ちゅうい]:
 //: - 失敗時は `FsError` を返します。errno 互換が必要な境界では `fs_normalize_relative_raw_errno` を使います。
+//: - 内部で path owner を構築するため、effect は `impure` です。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
 //:| #import "std/fs/path/normalize" as *
 //: ```
-pub fn fs_normalize_relative %fn str Result str FsError \path:
+pub fn fs_normalize_relative %impure fn str Result str FsError \path:
     match fs_normalize_relative_raw_errno path:
         Result::Ok normalized:
             Result::Ok normalized

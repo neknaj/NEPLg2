@@ -128,8 +128,33 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*TrailingBlockArgumentUnsupported[\s\S]*UnexpectedTrailingBlockArgument[\s\S]*UnsupportedArgumentExpression/,
-    "trailing block argument failures must stay typed instead of collapsing into partial application or generic unsupported argument errors",
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*TrailingBlockBodySegmentFailed[\s\S]*TrailingBlockBodyEmpty[\s\S]*TrailingBlockBodyMultipleSegments[\s\S]*TrailingBlockBodyNestedBlockUnsupported[\s\S]*TrailingBlockBodyPrefixBuildFailed[\s\S]*TrailingBlockBodyCandidateCollectFailed[\s\S]*UnexpectedTrailingBlockArgument[\s\S]*UnsupportedArgumentExpression/,
+    "trailing block argument body failures must stay typed instead of collapsing into partial application or generic unsupported argument errors",
+);
+assert.match(
+    source,
+    /# check\/expr\/block_body[\s\S]*pub struct SelfhostBlockBodyResultInput:[\s\S]*prefix %SelfhostExprPrefixList[\s\S]*candidates %Vec SelfhostCallableCandidate[\s\S]*span %SelfhostSourceSpan/,
+    "trailing block body checking must own a prefix list and candidate list boundary before recursive reduction",
+);
+assert.match(
+    source,
+    /selfhost_body_segment_list_from_envelope tokens block_arg\.body[\s\S]*selfhost_block_body_result_from_segment_list tokens source scope signatures segments block_arg\.span/,
+    "trailing block body checking must segment the nested body envelope before building prefix input",
+);
+assert.match(
+    source,
+    /selfhost_body_segment_list_len &segments[\s\S]*SelfhostBlockBodyResultErrorKind::EmptyBody[\s\S]*SelfhostBlockBodyResultErrorKind::MultipleSegments[\s\S]*selfhost_body_segment_list_get &segments 0/,
+    "trailing block body checking must reject empty and multi-segment bodies before call reduction",
+);
+assert.match(
+    source,
+    /SelfhostBodySegmentKind::ExpressionLine:[\s\S]*selfhost_block_body_result_from_expression_segment tokens source scope signatures segment[\s\S]*SelfhostBodySegmentKind::BlockIntro:[\s\S]*SelfhostBlockBodyResultErrorKind::NestedBlockUnsupported/,
+    "trailing block body checking must reject nested BlockIntro bodies in this slice",
+);
+assert.match(
+    source,
+    /selfhost_expr_prefix_list_from_syntax_range tokens segment\.head[\s\S]*selfhost_callable_candidates_collect_for_prefix source tokens &prefix scope signatures/,
+    "trailing block body checking must build candidates from the nested expression head through scope and signatures",
 );
 assert.match(
     source,
@@ -373,8 +398,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_trailing_block_argument_segment[\s\S]*SelfhostBodySegmentKind::BlockIntro[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_typed_error[\s\S]*SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported/,
-    "stage1 must smoke-test that a trailing block argument reaches a dedicated typed error",
+    /selfhost_check_expr_stage1_trailing_block_argument_segment[\s\S]*SelfhostBodySegmentKind::BlockIntro[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_result_ok[\s\S]*"add 1:\\n    add 1 1"[\s\S]*selfhost_check_expr_stage1_success_is_two_arg_direct_call/,
+    "stage1 must smoke-test that a trailing block argument is checked as a BlockResult expression",
 );
 assert.match(
     source,
@@ -407,6 +432,11 @@ assert.match(
     "BlockIntro reduction must pass the body envelope as trailing-block evidence without flattening it",
 );
 assert.match(
+    source,
+    /selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_input_from_trailing_block tokens source scope signatures block_arg[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_prefix_with_source tokens source arena prefix scope value_types signatures candidates some block_expected/,
+    "call reduction must recursively check a trailing block body with a BlockResult expectation",
+);
+assert.match(
     bodyLine,
     /borrowed API[\s\S]*selfhost_check_expr_reduce_body_segment_with_arena/,
     "borrowed expression-line connector must document that percent ascription uses the owner-returning API",
@@ -415,6 +445,11 @@ assert.doesNotMatch(
     bodyLine,
     /selfhost_expr_prefix_list_from_syntax_range\s+tokens\s+segment\.body/,
     "BlockIntro.body must not be passed directly to flat prefix expression reduction",
+);
+assert.doesNotMatch(
+    implementation,
+    /selfhost_expr_prefix_list_from_syntax_range\s+tokens\s+block_arg\.body/,
+    "trailing block body must be segmented before any prefix list is built",
 );
 assert.doesNotMatch(
     implementation,

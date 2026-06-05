@@ -66,9 +66,11 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: source / token backed の argument-scope ascription 検査を追加し、`selfhost_call_reduce_prefix_with_source` から `%T literal` を 1 つの argument expression として縮約できるようにした。`SelfhostExprArgumentOwnedMatch` / `SelfhostCallReduceOwnedResult` は `SelfhostTypeArena` owner を返すため、projection 後の expected type を arena-local id のまま安全に比較できる。source-less borrowed reducer は引き続き `%T literal` を成功扱いせず fail-closed にし、source と token を持つ入口だけが `add %i32 1 2` を 2 引数 direct call として受理し、`add %bool 1 2` を `ArgumentAscriptionExpectedTypeConflict` として拒否する。`%T` head の projection 自体が失敗した場合は `ArgumentAscriptionProjectionFailed` として span を保持し、empty-span の unsupported error へ潰さない。
 - 2026-06-05: `check/expr/value_evidence.nepl` を追加し、source / token backed の `NamedValue` argument と `%T NamedValue` argument を DefId-linked な型証拠で検査するようにした。`SelfhostValueTypeEvidenceTable` は scope binding の `SelfhostDefId` と arena-local `SelfhostTypeId` を結び、名前の spelling だけでは成功させない。binding 欠落、DefId 未割当、値として扱えない binding kind、型証拠欠落を `NamedValue*` error として分け、call reducer 側では `ArgumentNamedValue*` error へ投影する。`add x 2` と `add %i32 x 2` は `x: i32` の証拠が登録済みの場合だけ受理し、binding だけでは `ArgumentNamedValueEvidenceMissing` として拒否する。
 - 2026-06-05: source / token backed の nested named call argument 検査を追加した。`candidate_collection.nepl` は prefix 全体の先頭ではない `SelfhostExprPrefixItem` head からも function candidate を集め、`call_reduce.nepl` は外側 parameter の expected type を nested call の result expectation として使う。`add add 1 2 3` では内側 `add 1 2` が第1引数として消費され、返された `next_index` により最後の `3` が外側 call の第2引数として残る。候補 0 件のときだけ NamedValue value evidence へ fallback し、候補収集の DefId / signature 不整合は `ArgumentNestedCandidate*` として fail-closed にする。subagent review で指摘された shadowing 退行も修正し、最新の可視 binding が local / parameter などの non-function なら、古い同名 function を復活させず value evidence fallback へ進む。
-- 2026-06-05: BlockIntro 専用の trailing block argument 境界を追加した。通常の `ExpressionLine` reducer は引き続き `BlockIntro` を `NotExpressionLine` として拒否する。一方、`selfhost_check_expr_reduce_block_intro_with_arena` は `BlockIntro.head` だけを prefix list にし、`BlockIntro.body` を `SelfhostTrailingBlockArgument` として source-backed call reducer へ渡す。現 checkpoint では block body result checker が未接続なので、必要な parameter 位置では `TrailingBlockArgumentUnsupported`、parameter 消費後に余った block では `UnexpectedTrailingBlockArgument` として fail-closed にする。これにより、末尾 block argument 未対応を partial application / raw arity error へ潰さず、次 slice で `BlockResult` expectation に接続する API 境界を固定した。
+- 2026-06-05: BlockIntro 専用の trailing block argument 境界を追加した。通常の `ExpressionLine` reducer は引き続き `BlockIntro` を `NotExpressionLine` として拒否する。一方、`selfhost_check_expr_reduce_block_intro_with_arena` は `BlockIntro.head` だけを prefix list にし、`BlockIntro.body` を `SelfhostTrailingBlockArgument` として source-backed call reducer へ渡す。この時点では block body result checker が未接続だったため、必要な parameter 位置では `TrailingBlockArgumentUnsupported`、parameter 消費後に余った block では `UnexpectedTrailingBlockArgument` として fail-closed にした。これにより、末尾 block argument 未対応を partial application / raw arity error へ潰さず、次 slice で `BlockResult` expectation に接続する API 境界を固定した。
+- 2026-06-05: source / token backed の block body result checker を接続した。`check/expr/block_body.nepl` は `BlockIntro.body` を `selfhost_body_segment_list_from_envelope` で再帰分解し、単一 `ExpressionLine` の場合だけ prefix list と callable candidate list を構築する。call reducer は不足 parameter type を `SelfhostTypeExpectationSource::BlockResult` として nested expression reducer へ渡し、`add 1:\n    add 1 1` のような direct call body を 1 実引数式として消費できる。空 body、複数 segment、nested `BlockIntro`、prefix build failure、candidate collection failure は `TrailingBlockBody*` error として分け、余分な block は引き続き `UnexpectedTrailingBlockArgument` として拒否する。
+- 2026-06-05: block body result checkpoint の広域検証で、既存の `source_text_*` と `std/fs/path/normalize*` が `Vec` owner の更新・解放を行うのに pure function として公開されていることを検出した。所有者を作る・更新する・閉じる関数は `impure fn` として明示し、doc comment と source policy を effect 契約に合わせた。
 - 2026-06-05: focused doctest を止めていた既存 effect 境界も修正した。`selfhost_diagnostics_push` / `selfhost_diagnostics_free` / `lex_stack_drop_top` は `Vec` owner の更新または解放を行うため `impure fn` に正規化し、`lex_stack_drop_top` は引き続き public `drop_last` API へ委譲して `Vec` 内部 storage layout へ依存しない。
-- 残件: source / token backed の block body result checker、lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 残件: lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -126,6 +128,20 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/issues.js check --dir issues`
 - `git diff --check`
 - `node nodesrc/run_source_policy_regressions.js --warn-only`（exit 0、既存の resource gate / diagnostic registry warning 2件あり）
+
+2026-06-05 block body result checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_body_segmenter_contract.js`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_block_result_tests.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-block-result.json`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-text-effect.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/cli/file_io.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-file-io-effect.json`
+- `node nodesrc/tests.js -i stdlib/std/fs/path.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/fs-path-facade-effect.json`
+- `node nodesrc/tests.js -i stdlib/neplg2 --no-tree -j 2 --assert-io --dist web/dist -o tmp/selfhost-stdlib-neplg2-block-result.json`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
 
 2026-06-05 type constructor lookup checkpoint:
 

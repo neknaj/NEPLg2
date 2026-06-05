@@ -128,7 +128,10 @@ pub fn source_text_next_index_after_cr %fn str fn i32 fn i32 i32 \source\n\idx:
 //: [目的/もくてき]:
 //: - `Vec::push` は consuming API なので、while loop の accumulator へ戻す owner を成功/失敗の両方で明示します。
 //: - 失敗時、`Vec::push` が返した入力 Vec owner を保持し、呼び出し側が cleanup できるようにします。
-pub fn source_text_push_line_start %fn Vec i32 fn i32 SourceTextLineStartPush \starts\offset:
+//:
+//: [副作用/ふくさよう]:
+//: - `line_starts` 用 `Vec i32` の storage を更新するため、effect は `impure` です。
+pub fn source_text_push_line_start %impure fn Vec i32 impure fn i32 SourceTextLineStartPush \starts\offset:
     match v::push starts offset:
         Result::Ok next_starts:
             SourceTextLineStartPush SourceTextLineStartPushState::Ok next_starts
@@ -143,7 +146,8 @@ pub fn source_text_push_line_start %fn Vec i32 fn i32 SourceTextLineStartPush \s
 //:
 //: [注意/ちゅうい]:
 //: - allocation failure は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
-pub fn source_text_collect_line_starts %fn str fn i32 fn i32 fn Vec i32 Result Vec i32 StdErrorKind \source\n\idx\starts:
+//: - 入力された `starts` owner を consuming に更新し、失敗時には確定した owner を閉じます。そのため effect は `impure` です。
+pub fn source_text_collect_line_starts %impure fn str impure fn i32 impure fn i32 impure fn Vec i32 Result Vec i32 StdErrorKind \source\n\idx\starts:
     let mut i %i32 idx
     let mut out %Vec i32 starts
     let mut failed %bool false
@@ -191,7 +195,8 @@ pub fn source_text_collect_line_starts %fn str fn i32 fn i32 fn Vec i32 Result V
 //:
 //: [注意/ちゅうい]:
 //: - `path` は diagnostic [表示用/ひょうじよう]の[名前/なまえ]です。filesystem へは[接続/せつぞく]しません。
-pub fn source_text_new %fn i32 fn str fn str Result SelfhostSourceText StdErrorKind \file_id\path\source:
+//: - `line_starts` の `Vec i32` owner を作るため、effect は `impure` です。
+pub fn source_text_new %impure fn i32 impure fn str impure fn str Result SelfhostSourceText StdErrorKind \file_id\path\source:
     match v::filled 1 0:
         Result::Ok starts:
             let n %i32 string_access::len source
@@ -204,7 +209,10 @@ pub fn source_text_new %fn i32 fn str fn str Result SelfhostSourceText StdErrorK
             Result::Err StdErrorKind::OutOfMemory
 
 //: source_text_free: line start table を[解放/かいほう]する
-pub fn source_text_free %fn SelfhostSourceText unit \text:
+//:
+//: [副作用/ふくさよう]:
+//: - `SelfhostSourceText` が所有する `line_starts` storage を閉じるため、effect は `impure` です。
+pub fn source_text_free %impure fn SelfhostSourceText unit \text:
     v::free field::get text "line_starts"
 
 //: source_text_len: source [本文/ほんぶん]の byte [長/ちょう]を[返/かえ]す
