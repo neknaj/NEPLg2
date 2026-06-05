@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T00:55:30.406Z",
+  "generated_at": "2026-06-05T01:21:17.520Z",
   "counts": {
     "total": 1343,
-    "open": 47,
-    "resolved": 1296,
+    "open": 46,
+    "resolved": 1297,
     "by_area": {
       "stdlib": {
         "total": 350,
@@ -18,8 +18,8 @@
       },
       "examples": {
         "total": 22,
-        "open": 5,
-        "resolved": 17
+        "open": 4,
+        "resolved": 18
       },
       "selfhost": {
         "total": 118,
@@ -548,21 +548,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034206360Z-LIFE-GUI-EXAMPLE-RENDERS-PRESET-PATT-A9CAC1AF.md"
-    },
-    {
-      "id": "ISS-20260604T034206714Z-PAINT-GUI-EXAMPLE-USES-FIXED-STROKE--B21EFEC7",
-      "title": "Paint GUI example uses fixed stroke slots and sentinel values instead of typed stroke storage",
-      "area": "examples",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "examples/gui_paint.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034206714Z-PAINT-GUI-EXAMPLE-USES-FIXED-STROKE--B21EFEC7.md"
     },
     {
       "id": "ISS-20260604T034207064Z-BREAKOUT-GUI-EXAMPLE-USES-TIMEOUT-NO-EA0E4163",
@@ -10763,6 +10748,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T100459865Z-EXAMPLES-RELY-ON-QUALIFIED-ALLOC-STR-B6D68CEA.md"
+    },
+    {
+      "id": "ISS-20260604T034206714Z-PAINT-GUI-EXAMPLE-USES-FIXED-STROKE--B21EFEC7",
+      "title": "Paint GUI example uses fixed stroke slots and sentinel values instead of typed stroke storage",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "examples/gui_paint.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034206714Z-PAINT-GUI-EXAMPLE-USES-FIXED-STROKE--B21EFEC7.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

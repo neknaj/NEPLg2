@@ -81,6 +81,7 @@ const checks = [
     "nodesrc/test_web_gui_runtime_bridge.js",
     "nodesrc/test_web_gui_input_bridge.js",
     "nodesrc/test_web_gui_shared_event_queue.js",
+    "nodesrc/test_web_gui_paint_model_contract.js",
     "nodesrc/test_web_gui_stdout_protocol.js",
     "nodesrc/test_web_gui_floating_window_source.js",
     "nodesrc/test_native_gui_platform_behavior.js",
