@@ -83,7 +83,8 @@ impl Copy for SelfhostHirFunctionValueIdentityBuildError:
 //:
 //: [注意/ちゅうい]:
 //: - child range や literal 値は `SelfhostHirExprPayload` を match した後でだけ読めます。
-//: - 後続の symbol table / string table 導入までは、Var / Call / StrLiteral payload に `str` を直接保持します。
+//: - 後続の symbol table / string table 導入までは、Call / StrLiteral payload に `str` を直接保持します。
+//: - 変数参照は `str` だけでは identity と proof boundary が不足するため、`SelfhostHirValueIdentity` として保持します。
 //: - 関数値は `str` だけでは identity と proof boundary が不足するため、`SelfhostHirFunctionValueIdentity` として保持します。
 pub struct SelfhostHirCallExpr:
     name %str
@@ -97,13 +98,38 @@ impl Copy for SelfhostHirCallExpr:
     fn copy_mark %fn SelfhostHirCallExpr SelfhostHirCallExpr \self:
         self
 
+//: SelfhostHirValueIdentity: HIR に保存する値参照の typed identity
+//:
+//: [目的/もくてき]:
+//: - `NamedValue` argument などから作られる変数参照を、表示名だけでなく DefId、値型、定義分類と一緒に保存します。
+//: - HIR lowering 後に scope lookup を再実行せず、monomorphize、Resource IR、backend が同じ値定義を参照していることを確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `symbol` は diagnostic / dump / backend symbol 用の表示名です。
+//: - `def_id` は name resolver が割り当てた定義 identity です。`Var` payload は DefId のない文字列参照へ戻してはいけません。
+//: - `value_ty` はこの値参照 expression の型であり、`SelfhostHirExpr.ty` と一致していなければなりません。
+//: - `kind` は local / parameter / builtin などの名前空間分類です。後続 phase は kind に応じて capture、local slot、builtin lowering を分けます。
+pub struct SelfhostHirValueIdentity:
+    symbol %str
+    def_id %SelfhostDefId
+    value_ty %SelfhostTypeId
+    kind %SelfhostDefKind
+
+impl Clone for SelfhostHirValueIdentity:
+    fn clone %fn &SelfhostHirValueIdentity SelfhostHirValueIdentity \self:
+        *self
+
+impl Copy for SelfhostHirValueIdentity:
+    fn copy_mark %fn SelfhostHirValueIdentity SelfhostHirValueIdentity \self:
+        self
+
 pub enum SelfhostHirExprPayload:
     Error
     Unit
     BoolLiteral %bool
     I32Literal %i32
     StrLiteral %str
-    Var %str
+    Var %SelfhostHirValueIdentity
     FnValue %SelfhostHirFunctionValueIdentity
     Call %SelfhostHirCallExpr
     Block %SelfhostHirChildRange
@@ -362,6 +388,21 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
 pub fn selfhost_hir_expr_new %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirExprPayload SelfhostHirExpr \ty\span\payload:
     SelfhostHirExpr ty span payload
 
+//: selfhost_hir_value_identity_new: 値参照 identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - HIR `Var` payload に保存する値 identity を構築します。
+//: - checker / lowering が確定した DefId、型、binding kind をまとめ、後続 phase が source scope を再探索しなくても同じ値定義を参照できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `symbol` は表示用です。identity の authority は `def_id` です。
+//: - `value_ty` は、この identity を持つ `SelfhostHirExpr.ty` と一致している必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+pub fn selfhost_hir_value_identity_new %fn str fn SelfhostDefId fn SelfhostTypeId fn SelfhostDefKind SelfhostHirValueIdentity \symbol\def_id\value_ty\kind:
+    SelfhostHirValueIdentity symbol def_id value_ty kind
+
 //: selfhost_hir_function_value_identity_new_result: 関数値 identity を検査して[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -428,8 +469,12 @@ pub fn selfhost_hir_expr_str_literal %fn SelfhostTypeId fn SelfhostSourceSpan fn
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::StrLiteral value
 
 //: selfhost_hir_expr_var: variable reference expression record を[作/つく]る
-pub fn selfhost_hir_expr_var %fn SelfhostTypeId fn SelfhostSourceSpan fn str SelfhostHirExpr \ty\span\name:
-    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Var name
+//:
+//: [目的/もくてき]:
+//: - 変数参照を DefId-linked identity として保存します。
+//: - 文字列名だけを受け取る constructor は用意せず、checker / lowering が確定した identity を渡す境界にします。
+pub fn selfhost_hir_expr_var %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirValueIdentity SelfhostHirExpr \ty\span\identity:
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Var identity
 
 //: selfhost_hir_expr_fn_value: named function value expression record を[作/つく]る
 //:

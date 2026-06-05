@@ -5,13 +5,14 @@
 //:
 //: [目的/もくてき]:
 //: - `check/expr` は direct call として縮約できることを証明しますが、HIR record は生成しません。この module は、その checker-side plan と checked argument payload を HIR module の expression table へ落とします。
+//: - `NamedValue` argument は `SelfhostCheckedArgumentKind::NamedValue` として DefId-linked value identity を保持しています。この identity を `SelfhostHirExprPayload::Var` に変換します。
 //: - 明示 `@ident` argument は `SelfhostCheckedArgumentKind::FunctionValue` として `SelfhostCallableCandidate` を保持しています。この candidate を `lower/hir/function_value.nepl` 経由で `SelfhostHirExprPayload::FnValue` に変換します。
 //: - lowering が prefix token を再読して function identity を探すと、checker が選んだ DefId-linked candidate とずれる危険があります。そのため、ここでは checked argument list と selected candidate table だけを authority とします。
 //:
 //: [契約/けいやく]:
 //: - 入力 module は owner として受け取り、成功時は `SelfhostHirModuleExprAlloc` の中で更新済み owner を返します。
 //: - 失敗時は入力 module owner と、この module が作った一時 Vec owner を解放してから typed error を返します。
-//: - 現 checkpoint では `UnitValue` と `FunctionValue` argument だけを accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、詳細な literal / named value / nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
+//: - 現 checkpoint では `UnitValue`、`NamedValue`、`FunctionValue` argument を accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、詳細な literal / nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
 //: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
 //:
 //: [計算量/けいさんりょう]:
@@ -20,13 +21,14 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
 //: ##: [5] ok
+//: ##: [6] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -51,28 +53,31 @@
 //:     let result_ty %SelfhostTypeId selfhost_type_id_new 4
 //:     let arg_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" selfhost_def_id_new 31 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
 //:     let callee_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "takes" selfhost_def_id_new 32 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     let named_identity %SelfhostCheckedValueIdentity selfhost_checked_value_identity_new "x" selfhost_def_id_new 41 SelfhostDefKind::Local
 //:     let checked_arg0 %SelfhostCheckedArgument selfhost_checked_argument_unit_value 1 2 result_ty span
-//:     let checked_arg1 %SelfhostCheckedArgument selfhost_checked_argument_function_value 2 4 fn_ty span arg_candidate
+//:     let checked_arg1 %SelfhostCheckedArgument selfhost_checked_argument_named_value 2 3 result_ty span named_identity
+//:     let checked_arg2 %SelfhostCheckedArgument selfhost_checked_argument_function_value 3 5 fn_ty span arg_candidate
 //:     let checked_args0 %Vec SelfhostCheckedArgument unwrap_ok v::new
 //:     let checked_args1 %Vec SelfhostCheckedArgument unwrap_ok v::push checked_args0 checked_arg0
 //:     let checked_args2 %Vec SelfhostCheckedArgument unwrap_ok v::push checked_args1 checked_arg1
+//:     let checked_args3 %Vec SelfhostCheckedArgument unwrap_ok v::push checked_args2 checked_arg2
 //:     let candidates0 %Vec SelfhostCallableCandidate unwrap_ok v::new
 //:     let candidates1 %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 callee_candidate
-//:     let call %SelfhostReducedCall selfhost_reduced_call_new 0 2 result_ty span
+//:     let call %SelfhostReducedCall selfhost_reduced_call_new 0 3 result_ty span
 //:     let reduced %SelfhostCallReduceResult SelfhostCallReduceResult::DirectCall call
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
-//:             match selfhost_hir_lower_direct_call_result module0 reduced &checked_args2 &candidates1:
+//:             match selfhost_hir_lower_direct_call_result module0 reduced &checked_args3 &candidates1:
 //:                 Result::Ok alloc:
 //:                     let root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc
 //:                     let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc
-//:                     let checks1 checks_push checks0 check_eq_i32 3 selfhost_hir_module_expr_len &module1
-//:                     let checks2 checks_push checks1 check_eq_i32 2 selfhost_hir_module_child_len &module1
+//:                     let checks1 checks_push checks0 check_eq_i32 4 selfhost_hir_module_expr_len &module1
+//:                     let checks2 checks_push checks1 check_eq_i32 3 selfhost_hir_module_child_len &module1
 //:                     match selfhost_hir_module_get_expr &module1 root:
 //:                         Option::Some root_expr:
 //:                             let checks3 checks_push checks2 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &root_expr SelfhostHirExprKind::Call
 //:                             let child_range %SelfhostHirChildRange selfhost_hir_expr_child_range &root_expr
-//:                             let checks4 checks_push checks3 check_eq_i32 2 selfhost_hir_child_range_count child_range
+//:                             let checks4 checks_push checks3 check_eq_i32 3 selfhost_hir_child_range_count child_range
 //:                             match selfhost_hir_module_get_child &module1 child_range 0:
 //:                                 Option::Some child0_id:
 //:                                     match selfhost_hir_module_get_expr &module1 child0_id:
@@ -82,55 +87,74 @@
 //:                                                 Option::Some child1_id:
 //:                                                     match selfhost_hir_module_get_expr &module1 child1_id:
 //:                                                         Option::Some child1_expr:
-//:                                                             let checks6 checks_push checks5 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &child1_expr SelfhostHirExprKind::FnValue
-//:                                                             selfhost_hir_module_free module1
-//:                                                             v::free checked_args2
-//:                                                             v::free candidates1
-//:                                                             let shown checks_print_report checks6
-//:                                                             checks_exit_code shown
+//:                                                             let checks6 checks_push checks5 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &child1_expr SelfhostHirExprKind::Var
+//:                                                             match selfhost_hir_module_get_child &module1 child_range 2:
+//:                                                                 Option::Some child2_id:
+//:                                                                     match selfhost_hir_module_get_expr &module1 child2_id:
+//:                                                                         Option::Some child2_expr:
+//:                                                                             let checks7 checks_push checks6 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &child2_expr SelfhostHirExprKind::FnValue
+//:                                                                             selfhost_hir_module_free module1
+//:                                                                             v::free checked_args3
+//:                                                                             v::free candidates1
+//:                                                                             let shown checks_print_report checks7
+//:                                                                             checks_exit_code shown
+//:                                                                         Option::None:
+//:                                                                             selfhost_hir_module_free module1
+//:                                                                             v::free checked_args3
+//:                                                                             v::free candidates1
+//:                                                                             let checks7 checks_push checks6 Result::Err "missing fn child expr"
+//:                                                                             let shown checks_print_report checks7
+//:                                                                             checks_exit_code shown
+//:                                                                 Option::None:
+//:                                                                     selfhost_hir_module_free module1
+//:                                                                     v::free checked_args3
+//:                                                                     v::free candidates1
+//:                                                                     let checks7 checks_push checks6 Result::Err "missing fn child id"
+//:                                                                     let shown checks_print_report checks7
+//:                                                                     checks_exit_code shown
 //:                                                         Option::None:
 //:                                                             selfhost_hir_module_free module1
-//:                                                             v::free checked_args2
+//:                                                             v::free checked_args3
 //:                                                             v::free candidates1
-//:                                                             let checks6 checks_push checks5 Result::Err "missing fn child expr"
+//:                                                             let checks6 checks_push checks5 Result::Err "missing var child expr"
 //:                                                             let shown checks_print_report checks6
 //:                                                             checks_exit_code shown
 //:                                                 Option::None:
 //:                                                     selfhost_hir_module_free module1
-//:                                                     v::free checked_args2
+//:                                                     v::free checked_args3
 //:                                                     v::free candidates1
-//:                                                     let checks6 checks_push checks5 Result::Err "missing fn child id"
+//:                                                     let checks6 checks_push checks5 Result::Err "missing var child id"
 //:                                                     let shown checks_print_report checks6
 //:                                                     checks_exit_code shown
 //:                                         Option::None:
 //:                                             selfhost_hir_module_free module1
-//:                                             v::free checked_args2
+//:                                             v::free checked_args3
 //:                                             v::free candidates1
 //:                                             let checks5 checks_push checks4 Result::Err "missing unit child expr"
 //:                                             let shown checks_print_report checks5
 //:                                             checks_exit_code shown
 //:                                 Option::None:
 //:                                     selfhost_hir_module_free module1
-//:                                     v::free checked_args2
+//:                                     v::free checked_args3
 //:                                     v::free candidates1
 //:                                     let checks5 checks_push checks4 Result::Err "missing unit child id"
 //:                                     let shown checks_print_report checks5
 //:                                     checks_exit_code shown
 //:                         Option::None:
 //:                             selfhost_hir_module_free module1
-//:                             v::free checked_args2
+//:                             v::free checked_args3
 //:                             v::free candidates1
 //:                             let checks3 checks_push checks2 Result::Err "missing root expr"
 //:                             let shown checks_print_report checks3
 //:                             checks_exit_code shown
 //:                 Result::Err _error:
-//:                     v::free checked_args2
+//:                     v::free checked_args3
 //:                     v::free candidates1
 //:                     let checks1 checks_push checks0 Result::Err "direct call lowering failed"
 //:                     let shown checks_print_report checks1
 //:                     checks_exit_code shown
 //:         Result::Err _e:
-//:             v::free checked_args2
+//:             v::free checked_args3
 //:             v::free candidates1
 //:             let checks1 checks_push checks0 Result::Err "module allocation failed"
 //:             let shown checks_print_report checks1
@@ -291,15 +315,24 @@ fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impu
 //:
 //: [目的/もくてき]:
 //: - 引数ごとの checked payload を HIR expression record へ変換します。
-//: - 現 checkpoint では `FunctionValue` のみを受理し、DefId-linked candidate を `selfhost_hir_expr_fn_value_from_candidate` へ渡します。
+//: - `NamedValue` は checker が確定した DefId-linked identity を HIR value identity へ写像します。lowering では scope lookup や token lexeme 復元を行いません。
+//: - `FunctionValue` は DefId-linked candidate を `selfhost_hir_expr_fn_value_from_candidate` へ渡します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: module に child expression が追加され、`alloc.expr_id` がその child の id です。
-//: - `Err(UnsupportedArgumentKind)`: 値 payload 未保存の literal / named value / nested call / block result は、まだ HIR expression tree へ落とせないため拒否しました。
+//: - `Err(UnsupportedArgumentKind)`: 値 payload 未保存の literal / nested call / block result は、まだ HIR expression tree へ落とせないため拒否しました。
 pub fn selfhost_hir_lower_checked_argument %impure fn SelfhostHirModule impure fn SelfhostCheckedArgument Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\argument:
     match *field::get_ref &argument "kind":
         SelfhostCheckedArgumentKind::UnitValue:
             let expr %SelfhostHirExpr selfhost_hir_expr_unit argument.value_type argument.span
+            match selfhost_hir_module_add_expr module expr:
+                Result::Ok alloc:
+                    Result::Ok alloc
+                Result::Err _e:
+                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
+        SelfhostCheckedArgumentKind::NamedValue identity:
+            let hir_identity %SelfhostHirValueIdentity selfhost_hir_value_identity_new identity.name identity.def_id argument.value_type identity.kind
+            let expr %SelfhostHirExpr selfhost_hir_expr_var argument.value_type argument.span hir_identity
             match selfhost_hir_module_add_expr module expr:
                 Result::Ok alloc:
                     Result::Ok alloc

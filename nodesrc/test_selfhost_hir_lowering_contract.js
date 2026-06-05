@@ -65,8 +65,8 @@ assert.match(
 );
 assert.match(
     directCall,
-    /pub fn selfhost_hir_lower_checked_argument[\s\S]*SelfhostCheckedArgumentKind::UnitValue:[\s\S]*selfhost_hir_expr_unit argument\.value_type argument\.span[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate:[\s\S]*selfhost_hir_expr_fn_value_from_candidate candidate argument\.span[\s\S]*SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind/,
-    "direct call lowering must lower UnitValue and FunctionValue payloads without re-reading source and fail closed for unsupported argument kinds",
+    /pub fn selfhost_hir_lower_checked_argument[\s\S]*SelfhostCheckedArgumentKind::UnitValue:[\s\S]*selfhost_hir_expr_unit argument\.value_type argument\.span[\s\S]*SelfhostCheckedArgumentKind::NamedValue identity:[\s\S]*selfhost_hir_value_identity_new identity\.name identity\.def_id argument\.value_type identity\.kind[\s\S]*selfhost_hir_expr_var argument\.value_type argument\.span hir_identity[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate:[\s\S]*selfhost_hir_expr_fn_value_from_candidate candidate argument\.span[\s\S]*SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind/,
+    "direct call lowering must lower UnitValue, NamedValue, and FunctionValue payloads without re-reading source and fail closed for unsupported argument kinds",
 );
 assert.match(
     directCall,
@@ -95,7 +95,7 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     checkExprSource,
-    /#import "neplg2\/core\/hir\/hir"|#import "neplg2\/core\/lower\/hir"|SelfhostHirExpr|SelfhostHirFunctionValueIdentity/,
+    /#import "neplg2\/core\/hir\/hir"|#import "neplg2\/core\/lower\/hir"|SelfhostHirExpr|SelfhostHirFunctionValueIdentity|SelfhostHirValueIdentity/,
     "check/expr split modules must not import or construct HIR records directly",
 );
 

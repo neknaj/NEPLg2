@@ -161,6 +161,40 @@ pub fn selfhost_expr_argument_owned_match_checked_argument %fn &SelfhostExprArgu
 pub fn selfhost_expr_argument_owned_match_into_arena %impure fn SelfhostExprArgumentOwnedMatch SelfhostTypeArena \matched:
     field::get matched "arena"
 
+//: SelfhostExprArgumentNamedValueEvidence: `NamedValue` argument の検査済み中間証拠
+//:
+//: [目的/もくてき]:
+//: - source-backed argument checker 内で、name resolver 由来の value identity と value type evidence を一緒に運びます。
+//: - public checked payload へ変換する前に、型比較で使う `value_type` と lowering で使う `identity` が同じ DefId 由来であることを保ちます。
+//:
+//: [契約/けいやく]:
+//: - この型は check/expr 内部の一時 record であり、HIR record ではありません。
+//: - `identity.def_id` と `value_type` は、同じ `SelfhostNameBinding` と `SelfhostValueTypeEvidence` から作られます。
+//:
+//: [計算量/けいさんりょう]:
+//: - record の構築と copy は O(1) です。
+struct SelfhostExprArgumentNamedValueEvidence:
+    identity %SelfhostCheckedValueIdentity
+    value_type %SelfhostTypeId
+
+impl Clone for SelfhostExprArgumentNamedValueEvidence:
+    fn clone %fn &SelfhostExprArgumentNamedValueEvidence SelfhostExprArgumentNamedValueEvidence \self:
+        *self
+
+impl Copy for SelfhostExprArgumentNamedValueEvidence:
+    fn copy_mark %fn SelfhostExprArgumentNamedValueEvidence SelfhostExprArgumentNamedValueEvidence \self:
+        self
+
+//: selfhost_expr_argument_named_value_evidence_new: named value の内部証拠を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - binding / evidence lookup の成功結果を、型比較と checked payload 生成の両方で使える record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - caller は `identity` と `value_type` が同じ DefId に対する証拠から作られていることを保証します。
+fn selfhost_expr_argument_named_value_evidence_new %fn SelfhostCheckedValueIdentity fn SelfhostTypeId SelfhostExprArgumentNamedValueEvidence \identity\value_type:
+    SelfhostExprArgumentNamedValueEvidence identity value_type
+
 //: selfhost_expr_argument_item_literal_type_kind: literal item の直接型証拠を[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -214,7 +248,7 @@ pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn Selfho
 //:
 //: [現状/げんじょう]:
 //: - 数値、bool、char、string literal は値 payload の設計がまだ必要なため、従来どおり `TypedExpression` に留めます。
-//: - named value は DefId-linked variable identity が HIR 側に未接続のため、この helper では扱いません。
+//: - named value は source-backed branch が scope と value evidence から `NamedValue` payload を作ります。この helper は source spelling を読めないため扱いません。
 fn selfhost_expr_argument_checked_simple_item %fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId SelfhostCheckedArgument \item\start_index\next_index\value_type:
     match item.kind:
         SelfhostExprPrefixItemKind::UnitValue:
@@ -243,18 +277,19 @@ fn selfhost_expr_argument_named_value_kind_supported %fn SelfhostDefKind bool \k
         _:
             false
 
-//: selfhost_expr_argument_named_value_type_from_binding: binding の DefId から値型証拠を[取/と]り[出/だ]す
+//: selfhost_expr_argument_named_value_evidence_from_binding: binding の DefId から値参照証拠を[取/と]り[出/だ]す
 //:
 //: [目的/もくてき]:
 //: - `NamedValue` の型を名前の spelling から推測せず、name resolver が割り当てた `SelfhostDefId` と value evidence table の対応で取得します。
 //: - binding はあるが DefId 生成や型登録が未完了の段階を、通常の型不一致とは別 error として保持します。
+//: - 成功時には後続 lowering 用に `SelfhostCheckedValueIdentity` も同時に構築します。これにより HIR lowering は source token と scope を再読しません。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(type_id)`: caller が同じ `SelfhostTypeArena` 内で parameter type と構造比較できる型証拠です。
+//: - `Ok(evidence)`: checked value identity と、caller が同じ `SelfhostTypeArena` 内で parameter type と構造比較できる型証拠です。
 //: - `Err(NamedValueUnsupportedBinding)`: 現在見えている binding が値として使えません。
 //: - `Err(NamedValuePendingBinding)`: binding にはまだ DefId が割り当てられていません。
 //: - `Err(NamedValueEvidenceMissing)`: DefId はありますが、式検査用の value type evidence が未登録です。
-fn selfhost_expr_argument_named_value_type_from_binding %fn &SelfhostValueTypeEvidenceTable fn SelfhostNameBinding Result SelfhostTypeId SelfhostExprArgumentMatchError \value_types\binding:
+fn selfhost_expr_argument_named_value_evidence_from_binding %fn &SelfhostValueTypeEvidenceTable fn SelfhostNameBinding Result SelfhostExprArgumentNamedValueEvidence SelfhostExprArgumentMatchError \value_types\binding:
     if:
         not selfhost_expr_argument_named_value_kind_supported binding.kind
         then:
@@ -264,28 +299,30 @@ fn selfhost_expr_argument_named_value_type_from_binding %fn &SelfhostValueTypeEv
                 Option::Some def_id:
                     match selfhost_value_type_evidence_table_find value_types def_id:
                         Option::Some evidence:
-                            Result::Ok evidence.value_type
+                            let identity %SelfhostCheckedValueIdentity selfhost_checked_value_identity_new binding.name def_id binding.kind
+                            Result::Ok selfhost_expr_argument_named_value_evidence_new identity evidence.value_type
                         Option::None:
                             Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NamedValueEvidenceMissing binding.span
                 Option::None:
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NamedValuePendingBinding binding.span
 
-//: selfhost_expr_argument_named_value_type_id: prefix item の名前から value type evidence を[解決/かいけつ]する
+//: selfhost_expr_argument_named_value_evidence: prefix item の名前から value identity と type evidence を[解決/かいけつ]する
 //:
 //: [目的/もくてき]:
 //: - token index と source text から現在の `NamedValue` spelling を復元し、scope の最新 binding を調べます。
 //: - 成功条件は `name -> binding -> DefId -> value type evidence` がすべて揃うことです。binding だけ、または spelling だけでは成功させません。
+//: - scope lookup の結果から `SelfhostCheckedValueIdentity` を構築し、後続 lowering が同じ DefId-linked 値を参照できるようにします。
 //:
 //: [契約/けいやく]:
 //: - token index が壊れている場合は checker 内部の不変条件破れなので `InternalInvariant` を返します。
 //: - unresolved name は `NamedValueUnresolved` とし、型不一致や unsupported expression へ潰しません。
-fn selfhost_expr_argument_named_value_type_id %fn &Vec SelfhostToken fn str fn &SelfhostNameScope fn &SelfhostValueTypeEvidenceTable fn SelfhostExprPrefixItem Result SelfhostTypeId SelfhostExprArgumentMatchError \tokens\source\scope\value_types\item:
+fn selfhost_expr_argument_named_value_evidence %fn &Vec SelfhostToken fn str fn &SelfhostNameScope fn &SelfhostValueTypeEvidenceTable fn SelfhostExprPrefixItem Result SelfhostExprArgumentNamedValueEvidence SelfhostExprArgumentMatchError \tokens\source\scope\value_types\item:
     match v::get tokens item.token_index:
         Option::Some token:
             let name %str selfhost_token_lexeme source token
             match selfhost_name_scope_find scope name:
                 Option::Some binding:
-                    selfhost_expr_argument_named_value_type_from_binding value_types binding
+                    selfhost_expr_argument_named_value_evidence_from_binding value_types binding
                 Option::None:
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NamedValueUnresolved item.span
         Option::None:
@@ -295,20 +332,21 @@ fn selfhost_expr_argument_named_value_type_id %fn &Vec SelfhostToken fn str fn &
 //:
 //: [目的/もくてき]:
 //: - `NamedValue` argument の実際の型を DefId-linked evidence から取り出し、function parameter の expected type と同じ arena 内で構造比較します。
+//: - 型が一致した場合は `NamedValue` checked payload を返し、後続 HIR lowering が scope lookup を再実行せずに `Var` expression を構築できるようにします。
 //: - 型が一致した場合は 1 prefix item を消費した cursor を返します。型が一致しない場合は arena owner を閉じて typed error を返します。
 //:
 //: [契約/けいやく]:
 //: - 失敗時にはこの関数が `arena` を解放します。caller は error 後に同じ owner を再利用しません。
 //: - 成功時には arena owner をそのまま `SelfhostExprArgumentOwnedMatch` に入れて返します。
 fn selfhost_expr_argument_match_named_value_with_source %impure fn SelfhostTypeArena impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn SelfhostExprPrefixItem impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\tokens\source\scope\value_types\item\item_index\expected_type:
-    match selfhost_expr_argument_named_value_type_id tokens source scope value_types item:
-        Result::Ok actual_type:
+    match selfhost_expr_argument_named_value_evidence tokens source scope value_types item:
+        Result::Ok named:
             if:
-                selfhost_type_arena_types_equal &arena actual_type expected_type
+                selfhost_type_arena_types_equal &arena named.value_type expected_type
                 then:
                     let next_index %i32 add item_index 1
                     let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
-                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_typed_expression item_index next_index actual_type item.span
+                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_named_value item_index next_index named.value_type item.span named.identity
                     Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
                 else:
                     selfhost_type_arena_free arena

@@ -11,7 +11,8 @@
 //: - この module は HIR record を生成しません。HIR への変換は `neplg2/core/lower/hir` が担当します。
 //: - `FunctionValue` は、`@ident` argument が expected function type と照合済みで、monomorphic candidate として一意に解決されたことを表します。
 //: - `UnitValue` は、値 payload を持たずに HIR `Unit` へ下ろせる `unit` literal argument を表します。
-//: - `TypedExpression` は、named value、数値 / 文字列 literal、ascribed literal / named value など、現 checkpoint で個別 HIR identity や literal 値をまだ持たない通常の typed expression を表します。
+//: - `NamedValue` は、scope と value type evidence で照合済みの値参照を、DefId-linked identity として表します。
+//: - `TypedExpression` は、数値 / 文字列 literal、ascribed literal など、現 checkpoint で literal 値をまだ持たない通常の typed expression を表します。
 //: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
 //:
 //: [計算量/けいさんりょう]:
@@ -21,16 +22,50 @@
 #import "core/option" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/ty/ty" as *
 #import "./call_candidate" as *
+
+//: SelfhostCheckedValueIdentity: checked argument として確定した値参照 identity
+//:
+//: [目的/もくてき]:
+//: - `NamedValue` argument を後続 lowering へ渡すため、source spelling だけではなく name resolver が割り当てた DefId と定義分類を保持します。
+//: - HIR lowering はこの payload を使い、scope lookup や source token の再読を行わずに variable reference を構築します。
+pub struct SelfhostCheckedValueIdentity:
+    name %str
+    def_id %SelfhostDefId
+    kind %SelfhostDefKind
+
+impl Clone for SelfhostCheckedValueIdentity:
+    fn clone %fn &SelfhostCheckedValueIdentity SelfhostCheckedValueIdentity \self:
+        *self
+
+impl Copy for SelfhostCheckedValueIdentity:
+    fn copy_mark %fn SelfhostCheckedValueIdentity SelfhostCheckedValueIdentity \self:
+        self
+
+//: selfhost_checked_value_identity_new: checked value identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-backed argument checker が確定した値参照 identity を、checked argument payload へ入れる形で構築します。
+//:
+//: [契約/けいやく]:
+//: - `def_id` は必須です。DefId 未割当の binding は `NamedValuePendingBinding` として、この constructor へ到達する前に拒否します。
+//: - `name` は表示用の spelling であり、identity の authority は `def_id` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+pub fn selfhost_checked_value_identity_new %fn str fn SelfhostDefId fn SelfhostDefKind SelfhostCheckedValueIdentity \name\def_id\kind:
+    SelfhostCheckedValueIdentity name def_id kind
 
 //: SelfhostCheckedArgumentKind: checked argument の lowering 用分類
 //:
 //: [目的/もくてき]:
 //: - expression checker が得た証拠を、後続 lowering が match で網羅的に扱えるようにします。
-//: - `FunctionValue` と `NestedDirectCall` は candidate identity を保持し、名前文字列だけへ戻る退行を防ぎます。
+//: - `NamedValue`、`FunctionValue`、`NestedDirectCall` は identity payload を保持し、名前文字列だけへ戻る退行を防ぎます。
 pub enum SelfhostCheckedArgumentKind:
     UnitValue
+    NamedValue %SelfhostCheckedValueIdentity
     TypedExpression
     FunctionValue %SelfhostCallableCandidate
     NestedDirectCall %SelfhostCallableCandidate
@@ -83,6 +118,14 @@ pub fn selfhost_checked_argument_typed_expression %fn i32 fn i32 fn SelfhostType
 //: - `TypedExpression` に丸めず専用 variant にすることで、HIR lowering が source token を再読せずに `unit` child を構築できます。
 pub fn selfhost_checked_argument_unit_value %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostCheckedArgument \start_index\next_index\value_type\span:
     selfhost_checked_argument_new SelfhostCheckedArgumentKind::UnitValue start_index next_index value_type span
+
+//: selfhost_checked_argument_named_value: `NamedValue` argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - scope lookup と value type evidence lookup が完了した値参照を、DefId-linked payload として保存します。
+//: - 後続 HIR lowering はこの payload と `value_type` を使い、名前解決を再実行しません。
+pub fn selfhost_checked_argument_named_value %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCheckedValueIdentity SelfhostCheckedArgument \start_index\next_index\value_type\span\identity:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::NamedValue identity start_index next_index value_type span
 
 //: selfhost_checked_argument_function_value: 明示 `@ident` function value argument を[作/つく]る
 //:

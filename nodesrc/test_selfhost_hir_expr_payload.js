@@ -50,6 +50,15 @@ assert.deepEqual(
 );
 assert.match(hir, /(?:pub\s+)?struct SelfhostHirCallExpr:[\s\S]*?\bname\s+<str>[\s\S]*?\bargs\s+<SelfhostHirChildRange>/, "call payload must own callee name and argument range");
 
+const valueIdentityStruct = topLevelBlock(hir, "struct", "SelfhostHirValueIdentity:");
+assert.match(valueIdentityStruct, /\bsymbol\s+<str>/, "value identity must keep the display symbol");
+assert.match(valueIdentityStruct, /\bdef_id\s+<SelfhostDefId>/, "value identity must keep DefId evidence");
+assert.match(valueIdentityStruct, /\bvalue_ty\s+<SelfhostTypeId>/, "value identity must keep the value type");
+assert.match(valueIdentityStruct, /\bkind\s+<SelfhostDefKind>/, "value identity must keep the definition kind");
+assert.match(hir, /\bVar\s+<SelfhostHirValueIdentity>/, "variable payload must use typed identity, not a string-only name");
+assert.doesNotMatch(hir, /\bVar\s+<str>/, "variable payload must not regress to a string-only identity");
+assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_var\b[^\n]*\bfn\s+str\b/, "variable constructor must not accept a string-only identity");
+
 const fnIdentityStruct = topLevelBlock(hir, "struct", "SelfhostHirFunctionValueIdentity:");
 assert.match(fnIdentityStruct, /\bsymbol\s+<str>/, "function value identity must keep the display/link symbol");
 assert.match(fnIdentityStruct, /\bdef_id\s+<Option<SelfhostDefId>>/, "function value identity must keep optional DefId evidence");

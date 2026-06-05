@@ -163,7 +163,7 @@ assert.match(
 );
 assert.match(
     source,
-    /# check\/expr\/argument_payload[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
+    /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
     "checked argument payload must preserve function value, nested call, block-result, range, type, and span evidence",
 );
 assert.match(
@@ -175,6 +175,11 @@ assert.match(
     source,
     /selfhost_checked_argument_function_value[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate[\s\S]*selfhost_checked_argument_is_function_value[\s\S]*SelfhostCheckedArgumentKind::FunctionValue _candidate:[\s\S]*true/,
     "function value arguments must be represented as typed checked-argument payloads",
+);
+assert.match(
+    source,
+    /selfhost_checked_argument_named_value[\s\S]*SelfhostCheckedArgumentKind::NamedValue identity[\s\S]*fn selfhost_expr_argument_named_value_evidence_from_binding[\s\S]*selfhost_checked_value_identity_new binding\.name def_id binding\.kind[\s\S]*selfhost_checked_argument_named_value item_index next_index named\.value_type item\.span named\.identity/,
+    "named value arguments must be represented as DefId-linked checked-argument payloads instead of TypedExpression",
 );
 assert.match(
     source,
@@ -228,17 +233,17 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_name_scope_find scope name[\s\S]*selfhost_expr_argument_named_value_type_from_binding value_types binding/,
+    /selfhost_name_scope_find scope name[\s\S]*selfhost_expr_argument_named_value_evidence_from_binding value_types binding/,
     "source-backed named value arguments must resolve through scope, DefId-linked value evidence, and arena structural equality",
 );
 assert.match(
     source,
-    /selfhost_value_type_evidence_table_find value_types def_id[\s\S]*Result::Ok evidence\.value_type/,
+    /selfhost_value_type_evidence_table_find value_types def_id[\s\S]*selfhost_checked_value_identity_new binding\.name def_id binding\.kind[\s\S]*Result::Ok selfhost_expr_argument_named_value_evidence_new identity evidence\.value_type/,
     "named value type evidence must be recovered from the DefId-linked table",
 );
 assert.match(
     source,
-    /selfhost_type_arena_types_equal &arena actual_type expected_type/,
+    /selfhost_type_arena_types_equal &arena named\.value_type expected_type/,
     "named value argument types must be compared through arena structural equality",
 );
 assert.match(

@@ -74,10 +74,10 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: HIR expression model に `SelfhostHirExprPayload::FnValue` と `SelfhostHirFunctionValueIdentity` を追加した。function value identity は symbol だけではなく、`Option SelfhostDefId`、関数型 `SelfhostTypeId`、`SelfhostEffectKind`、`type_arg_count` を持つ。`def_id = None` や generic type argument 実体未接続の identity を accepted indirect call / `memo_call` へ流さないため、HIR の受け皿だけを先に typed payload として固定した。
 - 2026-06-05: `SelfhostCallableCandidate` に `SelfhostDefId` を追加し、`SelfhostCallableSignature` から reducer 用 candidate へ変換するときに `signature.def_id` を落とさないようにした。stage0 / stage1 の手作り fixture も DefId を明示し、後続の HIR `FnValue` lowering が name string と function type だけへ退行しないよう source policy で固定した。
 - 2026-06-05: `core/lower/hir/function_value.nepl` を追加し、DefId 付き `SelfhostCallableCandidate` から `SelfhostHirFunctionValueIdentity` と `SelfhostHirExprPayload::FnValue` expression record を作る境界を分離した。`candidate.def_id` は `Option::Some` として HIR identity に入れ、generic candidate は stable type-argument range / canonical key が無いため `GenericUnsupported` として拒否する。`check/expr` は HIR record を直接生成しない境界を保つ。
-- 2026-06-05: `check/expr/argument_payload.nepl` を追加し、実引数式ごとの checked evidence を `SelfhostCheckedArgument` として保持するようにした。`@ident` は `FunctionValue(candidate)` payload を持ち、`SelfhostCallableCandidate.def_id` と use-site span を `SelfhostExprArgumentOwnedMatch`、`SelfhostCallReduceOwnedResult`、`SelfhostExpressionLineCheckSuccess` まで運ぶ。nested named call は `NestedDirectCall(candidate)`、末尾 block result は `BlockResult` として summary を残す。`check/expr` は HIR を直接生成せず、後続の `lower/hir/function_value.nepl` がこの payload を消費する。
-- 2026-06-05: `lower/hir/direct_call.nepl` を追加し、`SelfhostCallReduceResult::DirectCall` と `Vec SelfhostCheckedArgument` を消費して HIR child expression と parent call expression を作る初期 lowering を実装した。現 checkpoint では `FunctionValue(candidate)` argument だけを `selfhost_hir_expr_fn_value_from_candidate` 経由で HIR `FnValue` child にし、`TypedExpression` / `NestedDirectCall` / `BlockResult` は lowerable payload が不足しているため `UnsupportedArgumentKind` として fail-closed にする。callee は `candidate_index` から candidate table を読むだけで、prefix token や scope lookup を再実行しない。
-- 2026-06-05: `unit` literal argument を `SelfhostCheckedArgumentKind::UnitValue` として `TypedExpression` から分離し、`lower/hir/direct_call.nepl` で HIR unit expression child へ lower できるようにした。`unit` は値 payload を持たないため、checker が expected type と照合した時点で source token / lexeme を再読せずに HIR へ変換できる。数値 / bool / char / string literal と `NamedValue` は、値 payload または DefId-linked variable identity が未接続のため、引き続き fail-closed にする。
-- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、数値 / bool / char / string literal value payload、NamedValue の DefId-linked HIR variable identity、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `check/expr/argument_payload.nepl` を追加し、実引数式ごとの checked evidence を `SelfhostCheckedArgument` として保持するようにした。`unit` は `UnitValue`、scope と value evidence で照合済みの値参照は `NamedValue(SelfhostCheckedValueIdentity)`、`@ident` は `FunctionValue(candidate)` payload を持つ。nested named call は `NestedDirectCall(candidate)`、末尾 block result は `BlockResult` として summary を残す。`check/expr` は HIR を直接生成せず、後続の `lower/hir` がこの payload を消費する。
+- 2026-06-05: `lower/hir/direct_call.nepl` を追加し、`SelfhostCallReduceResult::DirectCall` と `Vec SelfhostCheckedArgument` を消費して HIR child expression と parent call expression を作る初期 lowering を実装した。現 checkpoint では `UnitValue` を HIR `Unit` child、`NamedValue(identity)` を DefId-linked HIR `Var` child、`FunctionValue(candidate)` を HIR `FnValue` child にする。`TypedExpression` / `NestedDirectCall` / `BlockResult` は lowerable payload が不足しているため `UnsupportedArgumentKind` として fail-closed にする。callee は `candidate_index` から candidate table を読むだけで、prefix token や scope lookup を再実行しない。
+- 2026-06-05: HIR expression model の `Var` payload を `str` から `SelfhostHirValueIdentity` へ変更した。`argument.nepl` は `name -> latest binding -> DefId -> value type evidence` の成功時に `SelfhostCheckedValueIdentity` を作り、`direct_call.nepl` はその payload だけを使って HIR `Var` child を作る。lowering は source token、scope lookup、value evidence lookup を再実行せず、DefId / 型 / binding kind を持つ variable identity を保持する。
+- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、数値 / bool / char / string literal value payload、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -94,6 +94,18 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/tests.js -i stdlib\neplg2\core\check -o tmp\selfhost-prefix-check-tests.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i stdlib\neplg2 -o tmp\selfhost-prefix-boundary-stdlib-neplg2.json --no-tree -j 2 --assert-io --dist web\dist`
 - `node nodesrc/run_source_policy_regressions.js --warn-only`（既存 5 warning のみ）
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
+
+2026-06-05 NamedValue HIR identity checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_hir_expr_payload.js`
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-named-value-payload.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/hir --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-value-identity.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-named-value-lowering.json`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
 - `node nodesrc/issues.js check --dir issues`
 - `git diff --check`
 
