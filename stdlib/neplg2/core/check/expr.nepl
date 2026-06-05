@@ -17,10 +17,11 @@
 //: [現状/げんじょう]:
 //: - この slice は direct named call の最小 reduction plan だけを扱います。
 //: - `ExpressionLine` は `body_line.nepl` で受理し、`BlockIntro` は nested body として明示的に拒否します。
-//: - literal argument item の最小型証拠は `argument.nepl` で扱います。literal lowering、nested argument expression、block recursion、indirect function value、trait method、memo_call primitive、HIR 生成は後続 slice で追加します。
+//: - literal argument item と DefId-linked な `NamedValue` argument の型証拠は `argument.nepl` / `value_evidence.nepl` で扱います。literal lowering、nested argument expression、block recursion、indirect function value、trait method、memo_call primitive、HIR 生成は後続 slice で追加します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 現在の reduction は候補数 c と prefix item 数 k のうち、候補数検査 O(1)、先頭 item / arity 検査 O(1)、literal argument evidence 照合 O(k) を行います。
+//: - source-backed `NamedValue` argument は scope lookup と value evidence lookup を追加で行います。現実装の table は線形探索なので、値証拠数 n に対して該当 argument ごとに O(n) です。public API は表現を隠しており、後続 slice で DefId index へ置き換えられます。
 //: - 本格 overload narrowing を追加するときも、候補列を 1 回走査して拒否理由を集計する O(c) 境界を保ちます。
 //:
 //: neplg2:test
@@ -35,6 +36,7 @@
 pub #import "./expr/expectation" as *
 pub #import "./expr/call_candidate" as *
 pub #import "./expr/candidate_collection" as *
+pub #import "./expr/value_evidence" as *
 pub #import "./expr/model" as *
 pub #import "./expr/argument" as *
 pub #import "./expr/call_reduce" as *

@@ -8,6 +8,7 @@ const CHECK_EXPR_SPLIT_FILES = [
     "stdlib/neplg2/core/check/expr/expectation.nepl",
     "stdlib/neplg2/core/check/expr/call_candidate.nepl",
     "stdlib/neplg2/core/check/expr/candidate_collection.nepl",
+    "stdlib/neplg2/core/check/expr/value_evidence.nepl",
     "stdlib/neplg2/core/check/expr/model.nepl",
     "stdlib/neplg2/core/check/expr/argument.nepl",
     "stdlib/neplg2/core/check/expr/call_reduce.nepl",

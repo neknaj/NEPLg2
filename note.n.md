@@ -1,3 +1,14 @@
+# 2026-06-05 Agent selfhost named value argument evidence checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の静的検査・enum error・Result/Option・fail-closed・責務分割の方針に沿って、argument position の `NamedValue` を spelling ではなく DefId-linked な値型証拠で検査する境界を追加した。
+- subagent review では、value evidence table は candidate collection へ混ぜず `check/expr/value_evidence.nepl` として分離すること、source-less borrowed reducer は引き続き fail-closed にすること、`find_kind(Local)` と `find_kind(Param)` のような順次 fallback で shadowing を壊さないこと、binding だけで成功させず `DefId -> type evidence` を要求することを確認した。
+- `stdlib/neplg2/core/check/expr/value_evidence.nepl` を追加し、`SelfhostValueTypeEvidenceTable` が `SelfhostDefId` と arena-local `SelfhostTypeId` の対応を保持するようにした。現行 table は O(n) の線形探索だが、public API は表現を隠しているため、後続の index 化で caller 契約を変えない。
+- `stdlib/neplg2/core/check/expr/argument.nepl` の source-backed owner API に `SelfhostNameScope` と `SelfhostValueTypeEvidenceTable` を渡し、`NamedValue` と `%T NamedValue` を parameter expected type と照合するようにした。binding 欠落、DefId 未割当、値として扱えない binding kind、型証拠欠落は `NamedValue*` error として分ける。
+- `call_reduce.nepl` / `body_line.nepl` / `stage1.nepl` に scope と value evidence table を通し、`add x 2` と `add %i32 x 2` は `x: i32` の証拠が登録済みの場合だけ成功する smoke を追加した。scope に binding だけが存在する場合は `ArgumentNamedValueEvidenceMissing` として拒否する。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` を更新し、value evidence table、NamedValue error projection、source-backed reducer の scope / value evidence 引数、stage1 positive / negative smoke を source policy で固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` を更新し、NamedValue argument evidence を完了済みに移した。残件は nested call / block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、memo_call の Phase 1 境界である。
+- 検証済み: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_named_argument_tests.json`（2/2 pass）、`node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-named-value-review.json`（3/3 pass）、`node nodesrc/issues.js check --dir issues`、`git diff --check`。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象の selfhost policy が pass し、既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけが warning として残った。
+
 # 2026-06-05 Agent selfhost ascription outer expected conflict checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の静的検査・enum error・Result/Option・fail-closed 方針に沿って、`%T expr` の明示 ascription と外側 context から渡る expected type の矛盾を typed error として分離した。

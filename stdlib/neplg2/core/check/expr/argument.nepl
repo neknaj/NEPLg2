@@ -12,12 +12,14 @@
 //: [契約/けいやく]:
 //: - `IntLiteral` は現 checkpoint の stage0 fixture と同じく `i32` として扱います。整数 suffix と expected type による numeric literal defaulting は後続 slice の責務です。
 //: - `FloatLiteral` はこの slice では型証拠を返しません。`f32` / `f64` の defaulting が仕様として固定されるまで成功扱いしません。
-//: - `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで fail-closed にします。
+//: - source-less borrowed API では `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで fail-closed にします。
 //: - source-less borrowed API は `%T expr` 形式の ascribed argument を成功扱いしません。`%` を見つけた場合、可変幅式を生の item 数へ潰さず `UnsupportedAscribedArgument` として返します。
-//: - source / token backed owner API は、現 checkpoint では `%T literal` だけを成功させます。型式投影に失敗した場合は `AscriptionProjectionFailed` として返し、位置情報を空 span へ潰しません。
+//: - source / token backed owner API は、literal、`%T literal`、型証拠が登録済みの `NamedValue`、`%T NamedValue` を成功させます。型式投影に失敗した場合は `AscriptionProjectionFailed` として返し、位置情報を空 span へ潰しません。
+//: - `NamedValue` は scope binding と DefId-linked value type evidence が両方そろう場合だけ成功させます。名前の spelling だけから型を推測しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - item kind の分類と expected kind の比較はいずれも O(1) です。
+//: - source-backed `NamedValue` は scope lookup と value evidence lookup を行います。現行 `SelfhostValueTypeEvidenceTable` は DefId に対して O(n) の線形探索ですが、API が table 表現を隠しているため、後続で index 化しても caller の契約は変わりません。
 
 #import "alloc/collections/vec" as v
 #import "core/option" as *
@@ -26,12 +28,14 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/ty" as *
 #import "./expectation" as *
 #import "./ascription" as *
+#import "./value_evidence" as *
 
 //: SelfhostExprArgumentMatch: prefix list 上で 1 つの実引数式を消費した結果
 //:
@@ -61,6 +65,7 @@ impl Copy for SelfhostExprArgumentMatch:
 //: - `UnsupportedAscribedArgument` は、`%T expr` のような可変幅 argument expression を見つけたが、この API では source / token 付き checker へ渡せない場合です。
 //: - `AscriptionProjectionFailed` は、source / token backed API が `%T` head を型式として投影できなかった場合です。
 //: - `AscriptionExpectedTypeConflict` は、明示 ascription type と parameter expected type が衝突した場合です。
+//: - `NamedValue*` は、argument position の名前に対する binding / DefId / value type evidence が不足した場合を分けます。
 //: - `UnsupportedArgumentExpression` は、name resolution や nested call reduction が必要で、単一 literal item からは型証拠を得られない場合です。
 //: - `MissingArgument` と `InternalInvariant` は caller 側の cursor と prefix list の不整合を区別します。
 pub enum SelfhostExprArgumentMatchErrorKind:
@@ -69,6 +74,10 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     UnsupportedAscribedArgument
     AscriptionProjectionFailed
     AscriptionExpectedTypeConflict
+    NamedValueUnresolved
+    NamedValuePendingBinding
+    NamedValueUnsupportedBinding
+    NamedValueEvidenceMissing
     UnsupportedArgumentExpression
     InternalInvariant
 
@@ -162,7 +171,8 @@ pub fn selfhost_expr_argument_item_literal_type_kind %fn SelfhostExprPrefixItem 
 //:
 //: [注意/ちゅうい]:
 //: - この関数は構造的な式全体の型検査ではありません。現段階では prefix item 1 個で表せる literal argument のみを扱います。
-//: - `NamedValue` の型、nested call の result type、ascription 付き argument は後続の expression checker slice で別の evidence source として追加します。
+//: - `NamedValue` は source / token backed API が scope と DefId-linked value evidence を使って扱います。この borrowed helper では source spelling を読めないため成功扱いしません。
+//: - nested call の result type や block / lambda / borrow / pipe は、後続の expression checker slice で別の evidence source として追加します。
 pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn SelfhostExprPrefixItem fn SelfhostTypeId bool \arena\item\expected_type:
     match selfhost_expr_argument_item_literal_type_kind item:
         Option::Some actual_kind:
@@ -173,6 +183,98 @@ pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn Selfho
                     false
         Option::None:
             false
+
+//: selfhost_expr_argument_named_value_kind_supported: argument value として扱える binding kind かを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - name scope には型名、trait、impl など「名前として解決できるが値ではない」binding も入ります。
+//: - argument position の `NamedValue` は値を要求するため、値として扱える分類だけを source-backed argument checker に渡します。
+//:
+//: [契約/けいやく]:
+//: - 最新 binding が unsupported kind の場合、古い同名値へ戻りません。shadowing の結果として現在見えている名前が値ではないなら、`NamedValueUnsupportedBinding` として fail-closed にします。
+fn selfhost_expr_argument_named_value_kind_supported %fn SelfhostDefKind bool \kind:
+    match kind:
+        SelfhostDefKind::Function:
+            true
+        SelfhostDefKind::Local:
+            true
+        SelfhostDefKind::Param:
+            true
+        SelfhostDefKind::Builtin:
+            true
+        _:
+            false
+
+//: selfhost_expr_argument_named_value_type_from_binding: binding の DefId から値型証拠を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - `NamedValue` の型を名前の spelling から推測せず、name resolver が割り当てた `SelfhostDefId` と value evidence table の対応で取得します。
+//: - binding はあるが DefId 生成や型登録が未完了の段階を、通常の型不一致とは別 error として保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(type_id)`: caller が同じ `SelfhostTypeArena` 内で parameter type と構造比較できる型証拠です。
+//: - `Err(NamedValueUnsupportedBinding)`: 現在見えている binding が値として使えません。
+//: - `Err(NamedValuePendingBinding)`: binding にはまだ DefId が割り当てられていません。
+//: - `Err(NamedValueEvidenceMissing)`: DefId はありますが、式検査用の value type evidence が未登録です。
+fn selfhost_expr_argument_named_value_type_from_binding %fn &SelfhostValueTypeEvidenceTable fn SelfhostNameBinding Result SelfhostTypeId SelfhostExprArgumentMatchError \value_types\binding:
+    if:
+        not selfhost_expr_argument_named_value_kind_supported binding.kind
+        then:
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NamedValueUnsupportedBinding binding.span
+        else:
+            match binding.def_id:
+                Option::Some def_id:
+                    match selfhost_value_type_evidence_table_find value_types def_id:
+                        Option::Some evidence:
+                            Result::Ok evidence.value_type
+                        Option::None:
+                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NamedValueEvidenceMissing binding.span
+                Option::None:
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NamedValuePendingBinding binding.span
+
+//: selfhost_expr_argument_named_value_type_id: prefix item の名前から value type evidence を[解決/かいけつ]する
+//:
+//: [目的/もくてき]:
+//: - token index と source text から現在の `NamedValue` spelling を復元し、scope の最新 binding を調べます。
+//: - 成功条件は `name -> binding -> DefId -> value type evidence` がすべて揃うことです。binding だけ、または spelling だけでは成功させません。
+//:
+//: [契約/けいやく]:
+//: - token index が壊れている場合は checker 内部の不変条件破れなので `InternalInvariant` を返します。
+//: - unresolved name は `NamedValueUnresolved` とし、型不一致や unsupported expression へ潰しません。
+fn selfhost_expr_argument_named_value_type_id %fn &Vec SelfhostToken fn str fn &SelfhostNameScope fn &SelfhostValueTypeEvidenceTable fn SelfhostExprPrefixItem Result SelfhostTypeId SelfhostExprArgumentMatchError \tokens\source\scope\value_types\item:
+    match v::get tokens item.token_index:
+        Option::Some token:
+            let name %str selfhost_token_lexeme source token
+            match selfhost_name_scope_find scope name:
+                Option::Some binding:
+                    selfhost_expr_argument_named_value_type_from_binding value_types binding
+                Option::None:
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NamedValueUnresolved item.span
+        Option::None:
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant item.span
+
+//: selfhost_expr_argument_match_named_value_with_source: source-backed `NamedValue` argument を parameter type と[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - `NamedValue` argument の実際の型を DefId-linked evidence から取り出し、function parameter の expected type と同じ arena 内で構造比較します。
+//: - 型が一致した場合は 1 prefix item を消費した cursor を返します。型が一致しない場合は arena owner を閉じて typed error を返します。
+//:
+//: [契約/けいやく]:
+//: - 失敗時にはこの関数が `arena` を解放します。caller は error 後に同じ owner を再利用しません。
+//: - 成功時には arena owner をそのまま `SelfhostExprArgumentOwnedMatch` に入れて返します。
+fn selfhost_expr_argument_match_named_value_with_source %impure fn SelfhostTypeArena impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn SelfhostExprPrefixItem impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\tokens\source\scope\value_types\item\item_index\expected_type:
+    match selfhost_expr_argument_named_value_type_id tokens source scope value_types item:
+        Result::Ok actual_type:
+            if:
+                selfhost_type_arena_types_equal &arena actual_type expected_type
+                then:
+                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add item_index 1
+                else:
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::TypeMismatch item.span
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
 
 //: selfhost_expr_argument_match_at: prefix list の cursor 位置から 1 つの実引数式を[検査/けんさ]する
 //:
@@ -268,7 +370,7 @@ fn selfhost_expr_argument_span_from_ascription_error %fn SelfhostExprAscriptionE
         SelfhostExprAscriptionError::MissingExpressionTail span:
             span
 
-fn selfhost_expr_argument_match_ascribed_literal_with_projection %impure fn SelfhostExprAscriptionHeadProjection impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \projection\prefix\item_index\item_count\expected_type:
+fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn SelfhostExprAscriptionHeadProjection impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\scope\value_types\projection\prefix\item_index\item_count\expected_type:
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_head_projection_expectation &projection
     let expression_token %i32 selfhost_expr_ascription_head_projection_expression_first_token &projection
     let arena %SelfhostTypeArena selfhost_expr_ascription_head_projection_into_arena projection
@@ -278,13 +380,21 @@ fn selfhost_expr_argument_match_ascribed_literal_with_projection %impure fn Self
                 Result::Ok expression_item_index:
                     match selfhost_expr_prefix_list_get prefix expression_item_index:
                         Option::Some expression_item:
-                            if:
-                                selfhost_expr_argument_item_matches_type &arena expression_item expectation.expected_type
-                                then:
-                                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add expression_item_index 1
-                                else:
-                                    selfhost_type_arena_free arena
-                                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::TypeMismatch expression_item.span
+                            match expression_item.kind:
+                                SelfhostExprPrefixItemKind::NamedValue:
+                                    selfhost_expr_argument_match_named_value_with_source arena tokens source scope value_types expression_item expression_item_index expectation.expected_type
+                                _:
+                                    if:
+                                        selfhost_expr_argument_item_matches_type &arena expression_item expectation.expected_type
+                                        then:
+                                            Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new add expression_item_index 1
+                                        else:
+                                            selfhost_type_arena_free arena
+                                            match selfhost_expr_argument_item_literal_type_kind expression_item:
+                                                Option::Some _actual_kind:
+                                                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::TypeMismatch expression_item.span
+                                                Option::None:
+                                                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression expression_item.span
                         Option::None:
                             selfhost_type_arena_free arena
                             Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant expectation.span
@@ -295,12 +405,12 @@ fn selfhost_expr_argument_match_ascribed_literal_with_projection %impure fn Self
             selfhost_type_arena_free arena
             Result::Err e
 
-fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\item_index\item_count\expected_type:
+fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\item_index\item_count\expected_type:
     match selfhost_expr_argument_range_from_prefix prefix item_index item_count:
         Result::Ok syntax_range:
             match selfhost_expr_ascription_project_head_expectation tokens source arena syntax_range:
                 Result::Ok projection:
-                    selfhost_expr_argument_match_ascribed_literal_with_projection projection prefix item_index item_count expected_type
+                    selfhost_expr_argument_match_ascribed_with_projection tokens source scope value_types projection prefix item_index item_count expected_type
                 Result::Err e:
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed selfhost_expr_argument_span_from_ascription_error e
         Result::Err e:
@@ -311,13 +421,15 @@ fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec Selfhost
 //:
 //: [目的/もくてき]:
 //: - `%T literal` のように、prefix item kind だけでは型注釈の spelling を検査できない argument expression を安全に扱います。
+//: - `NamedValue` は `SelfhostNameScope` と `SelfhostValueTypeEvidenceTable` を使い、DefId-linked な型証拠がある場合だけ parameter type と照合します。
 //: - この入口は arena owner を受け取り、ascription type を projection した場合は更新済み arena owner を成功 payload として返します。
 //:
 //: [契約/けいやく]:
-//: - 現 checkpoint で source-backed に成功させる可変幅式は `%T literal` だけです。literal tail でない場合は `UnsupportedArgumentExpression` または `TypeMismatch` として fail-closed にします。
+//: - source-backed に成功させる可変幅式は `%T literal` と `%T NamedValue` です。nested call や block などは `UnsupportedArgumentExpression` として fail-closed にします。
+//: - 名前付き値は最新 binding を使います。最新 binding が型名や trait など値として扱えない分類なら、古い同名値へ戻らず `NamedValueUnsupportedBinding` を返します。
 //: - `%T` と expected parameter type が同じ arena 内で一致しない場合は `AscriptionExpectedTypeConflict` として返し、arity / overload 失敗へ潰しません。
 //: - 失敗時は、この関数が受け取った arena owner を解放します。
-pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\item_index\item_count\expected_type:
+pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\item_index\item_count\expected_type:
     if:
         ge item_index item_count
         then:
@@ -328,7 +440,9 @@ pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken
                 Option::Some item:
                     match item.kind:
                         SelfhostExprPrefixItemKind::TypeAnnotationMarker:
-                            selfhost_expr_argument_match_ascribed_at_with_source tokens source arena prefix item_index item_count expected_type
+                            selfhost_expr_argument_match_ascribed_at_with_source tokens source arena prefix scope value_types item_index item_count expected_type
+                        SelfhostExprPrefixItemKind::NamedValue:
+                            selfhost_expr_argument_match_named_value_with_source arena tokens source scope value_types item item_index expected_type
                         _:
                             if:
                                 selfhost_expr_argument_item_matches_type &arena item expected_type

@@ -1,0 +1,118 @@
+#indent 4
+
+//: # check/expr/value_evidence
+//: 名前解決済みの値定義に、式検査で使う型証拠を結び付ける module です。
+//:
+//: [目的/もくてき]:
+//: - `NamedValue` を「名前が存在するから正しい」として扱わず、`DefId` と型の対応が事前に登録されている場合だけ argument checker へ型証拠を渡します。
+//: - name resolver は名前と定義分類を管理し、この module は expression checker が必要とする値の型だけを管理します。
+//: - callable candidate table と同じく内部表現を `Vec` に閉じ、後続の interface artifact や indexed table へ差し替えやすい境界にします。
+//:
+//: [契約/けいやく]:
+//: - table は caller が scope 構築や local / parameter typing と同じ phase で構築します。この module は source text や AST を再探索しません。
+//: - 同じ `DefId` が複数回登録された場合は、後から追加された record を優先します。これは checker の段階的な上書き実装を許すためであり、重複登録を推奨する契約ではありません。
+//: - `SelfhostTypeId` は同じ `SelfhostTypeArena` に属するものとして扱います。異なる arena の TypeId を混ぜると構造比較の前提が壊れるため、caller が同一 arena 境界を守ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 現在の lookup は登録数 n に対して O(n) です。
+//: - public API は table の表現を隠しているため、DefId index table へ変更しても caller の契約は変わりません。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostValueTypeEvidence: 1つの値定義に対応する型証拠
+//:
+//: [目的/もくてき]:
+//: - `def_id` は name resolver が割り当てた値定義の identity です。
+//: - `value_type` は expression checker が argument type と照合する arena-local TypeId です。
+//: - `span` は table 不整合を diagnostic へ投影するときの fallback 位置です。
+pub struct SelfhostValueTypeEvidence:
+    def_id %SelfhostDefId
+    value_type %SelfhostTypeId
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostValueTypeEvidence:
+    fn clone %fn &SelfhostValueTypeEvidence SelfhostValueTypeEvidence \self:
+        *self
+
+impl Copy for SelfhostValueTypeEvidence:
+    fn copy_mark %fn SelfhostValueTypeEvidence SelfhostValueTypeEvidence \self:
+        self
+
+//: SelfhostValueTypeEvidenceTable: 値型証拠 record の owning table
+//:
+//: [契約/けいやく]:
+//: - `entries` は実装詳細です。caller は `add` と `find` だけを使い、Vec の順序や配置へ依存しません。
+pub struct SelfhostValueTypeEvidenceTable:
+    entries %Vec SelfhostValueTypeEvidence
+
+//: selfhost_value_type_evidence_new: 値型証拠 record を[作/つく]る
+pub fn selfhost_value_type_evidence_new %fn SelfhostDefId fn SelfhostTypeId fn SelfhostSourceSpan SelfhostValueTypeEvidence \def_id\value_type\span:
+    SelfhostValueTypeEvidence def_id value_type span
+
+//: selfhost_value_type_evidence_table_new: [空/から]の値型証拠 table を[作/つく]る
+pub fn selfhost_value_type_evidence_table_new %impure fn void Result SelfhostValueTypeEvidenceTable StdErrorKind \void:
+    let entries_result %Result Vec SelfhostValueTypeEvidence StdErrorKind v::new
+    match entries_result:
+        Result::Ok entries:
+            Result::Ok SelfhostValueTypeEvidenceTable entries
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_value_type_evidence_table_free: 値型証拠 table の buffer を[解放/かいほう]する
+pub fn selfhost_value_type_evidence_table_free %impure fn SelfhostValueTypeEvidenceTable unit \table:
+    v::free field::get table "entries"
+
+//: selfhost_value_type_evidence_table_add: 値型証拠 record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - table owner を消費し、追加後の owner を返します。
+//: - `Vec::push` の owner 更新を含むため、この関数は impure です。
+pub fn selfhost_value_type_evidence_table_add %impure fn SelfhostValueTypeEvidenceTable impure fn SelfhostValueTypeEvidence Result SelfhostValueTypeEvidenceTable StdErrorKind \table\evidence:
+    let entries %Vec SelfhostValueTypeEvidence field::get table "entries"
+    match v::push entries evidence:
+        Result::Ok next_entries:
+            Result::Ok SelfhostValueTypeEvidenceTable next_entries
+        Result::Err e:
+            let push_error_kind %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err push_error_kind
+
+//: selfhost_value_type_evidence_table_find_loop: DefId lookup を末尾から[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - 同じ DefId が複数回登録された場合、後から追加された record を優先します。
+//: - 現在は線形探索ですが、lookup API の外に Vec 表現を出さないことで後続の index 化を可能にします。
+fn selfhost_value_type_evidence_table_find_loop %fn &SelfhostValueTypeEvidenceTable fn SelfhostDefId fn i32 Option SelfhostValueTypeEvidence \table\def_id\idx:
+    if:
+        lt idx 0
+        then:
+            none
+        else:
+            let entries %&Vec SelfhostValueTypeEvidence field::get_ref table "entries"
+            match v::get entries idx:
+                Option::Some evidence:
+                    if:
+                        selfhost_def_id_eq evidence.def_id def_id
+                        then:
+                            some evidence
+                        else:
+                            selfhost_value_type_evidence_table_find_loop table def_id sub idx 1
+                Option::None:
+                    none
+
+//: selfhost_value_type_evidence_table_find: DefId に対応する値型証拠を[返/かえ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(evidence)`: caller が同じ arena 内で parameter type と比較できる型証拠が存在します。
+//: - `None`: binding は存在しても型証拠が未登録です。この場合、argument checker は成功扱いせず fail-closed にします。
+pub fn selfhost_value_type_evidence_table_find %fn &SelfhostValueTypeEvidenceTable fn SelfhostDefId Option SelfhostValueTypeEvidence \table\def_id:
+    let entries %&Vec SelfhostValueTypeEvidence field::get_ref table "entries"
+    selfhost_value_type_evidence_table_find_loop table def_id sub v::len entries 1

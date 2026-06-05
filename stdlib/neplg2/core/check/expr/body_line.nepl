@@ -13,9 +13,11 @@
 //: - prefix list owner はこの関数の内部で作り、call reduction 後に必ず解放します。返り値は prefix list の owner や参照を保持しません。
 //: - `expected` は `SelfhostTypeExpectation` として受け取り、dummy type id や sentinel で expected type の欠如を表しません。
 //: - `candidates` は、この expression line の先頭 item / name resolver scope に対して caller がすでに収集した候補列です。この関数は global candidate table を探索せず、受け取った候補列だけを call reduction へ渡します。
+//: - owner-returning API では、argument position の `NamedValue` を検査するために caller-built の scope と value type evidence table も受け取ります。
 //:
 //: [計算量/けいさんりょう]:
-//: - expression line の token 数を k、candidate 数を c とすると、現在の接続は prefix list 生成 O(k) と初期 call reduction O(1) です。
+//: - expression line の token 数を k、candidate 数を c とすると、現在の接続は prefix list 生成 O(k) と初期 call reduction O(k) です。
+//: - source-backed `NamedValue` argument がある場合、value evidence lookup は現行 table の登録数 n に対して該当 argument ごとに O(n) です。この module は table 表現へ依存せず、index 化は `value_evidence.nepl` 内で完結できます。
 //: - 将来 candidate narrowing を追加しても、candidate table を外側で構築し、この関数は与えられた候補列を 1 回だけ扱う境界を維持します。
 
 #import "alloc/collections/vec" as v
@@ -23,6 +25,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
 #import "neplg2/core/syntax/parser/body_segmenter" as *
@@ -33,6 +36,7 @@
 #import "./model" as *
 #import "./call_reduce" as *
 #import "./ascription" as *
+#import "./value_evidence" as *
 
 //: SelfhostExpressionLineCheckError: expression line 接続の失敗分類
 //:
@@ -257,16 +261,16 @@ fn selfhost_check_expr_reduce_expression_line_prefix %impure fn &Vec SelfhostTok
 //:
 //: [目的/もくてき]:
 //: - `ExpressionLine.head` から prefix list を作り、source-backed call reduction へ渡します。
-//: - argument-scope `%T literal` は source text がなければ安全に検査できないため、owner-returning body connector はこの helper を通します。
+//: - argument-scope `%T literal` と `NamedValue` は source text、scope、値型証拠がなければ安全に検査できないため、owner-returning body connector はこの helper を通します。
 //:
 //: [契約/けいやく]:
 //: - 成功時は `SelfhostExpressionLineCheckSuccess` が updated arena owner と reduction result を保持します。
 //: - prefix build 失敗時はこの helper が arena owner を解放します。
 //: - call reduction 失敗時は `selfhost_call_reduce_prefix_with_source` 側が arena owner を解放済みです。
-fn selfhost_check_expr_reduce_expression_line_prefix_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\head\arena\candidates\expected:
+fn selfhost_check_expr_reduce_expression_line_prefix_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\head\arena\scope\value_types\candidates\expected:
     match selfhost_expr_prefix_list_from_syntax_range tokens head:
         Result::Ok prefix:
-            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source tokens source arena &prefix candidates expected
+            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source tokens source arena &prefix scope value_types candidates expected
             selfhost_expr_prefix_list_free prefix
             match reduced:
                 Result::Ok owned:
@@ -325,14 +329,14 @@ pub fn selfhost_check_expr_reduce_body_segment %impure fn &Vec SelfhostToken imp
         SelfhostBodySegmentKind::BlockIntro:
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment
 
-fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostExprAscriptionProjection impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\projection\candidates\outer_expected:
+fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostExprAscriptionProjection impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\projection\scope\value_types\candidates\outer_expected:
     let tail %SelfhostSyntaxRange selfhost_expr_ascription_projection_tail &projection
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation &projection
     let arena %SelfhostTypeArena selfhost_expr_ascription_projection_into_arena projection
     match selfhost_check_expr_validate_ascription_outer_expected &arena expectation outer_expected:
         Result::Ok _unit:
             let expected %Option SelfhostTypeExpectation some expectation
-            selfhost_check_expr_reduce_expression_line_prefix_with_arena tokens source tail arena candidates expected
+            selfhost_check_expr_reduce_expression_line_prefix_with_arena tokens source tail arena scope value_types candidates expected
         Result::Err e:
             selfhost_type_arena_free arena
             Result::Err e
@@ -342,17 +346,18 @@ fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn 
 //: [目的/もくてき]:
 //: - `%T expr` で始まる expression line を、ascription projection の後に内側 expression だけ call reduction へ渡します。
 //: - ascription でない expression line は従来と同じ prefix list 生成へ進め、arena owner は成功 payload へそのまま移します。
+//: - argument position の `NamedValue` は、この入口に渡された scope と value type evidence table でだけ検査します。binding や型証拠が無い場合は call reduction error として fail-closed になります。
 //:
 //: [契約/けいやく]:
 //: - `arena` は owner として受け取り、成功時は `SelfhostExpressionLineCheckSuccess` が保持します。
 //: - 失敗時はこの関数が arena owner を解放します。caller は失敗後に同じ arena を使えません。
-//: - この入口でも candidate collection は行いません。`candidates` は caller が内側 expression の先頭名に対して構築する責務を持ちます。
+//: - この入口でも candidate collection と value evidence collection は行いません。`candidates`、`scope`、`value_types` は caller が構築する責務を持ちます。
 //:
 //: [場合分/ばあいわ]け:
 //: - ascription がない expression line では、caller から渡された `expected` をそのまま call reduction へ渡します。
 //: - `%T expr` では、まず `%T` を `ExplicitAscription` expectation へ投影し、外側 `expected` があれば同じ arena 内で同形か確認します。
 //: - ascription と外側 expected type が衝突した場合は、内側 expression の call reduction へ進まず `AscriptionExpectedTypeConflict` を返します。
-pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\candidates\expected:
+pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\scope\value_types\candidates\expected:
     match segment.kind:
         SelfhostBodySegmentKind::ExpressionLine:
             if:
@@ -360,11 +365,11 @@ pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec Selfho
                 then:
                     match selfhost_expr_ascription_project_expectation tokens source arena segment.head:
                         Result::Ok projection:
-                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens source projection candidates expected
+                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens source projection scope value_types candidates expected
                         Result::Err e:
                             Result::Err SelfhostExpressionLineCheckError::AscriptionFailed e
                 else:
-                    selfhost_check_expr_reduce_expression_line_prefix_with_arena tokens source segment.head arena candidates expected
+                    selfhost_check_expr_reduce_expression_line_prefix_with_arena tokens source segment.head arena scope value_types candidates expected
         SelfhostBodySegmentKind::BlockIntro:
             selfhost_type_arena_free arena
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment

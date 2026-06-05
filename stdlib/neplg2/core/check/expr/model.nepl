@@ -65,10 +65,11 @@ pub struct SelfhostCallReduceOwnedResult:
 //: SelfhostCallReduceErrorKind: call reduction の失敗分類
 //:
 //: [目的/もくてき]:
-//: - parser 入力不正、名前解決失敗、callable でない値、partial application、argument type mismatch、argument ascription failure、未対応の実引数式、overload、generic、expected type mismatch を enum として分けます。
+//: - parser 入力不正、名前解決失敗、callable でない値、partial application、argument type mismatch、argument ascription failure、argument name evidence failure、未対応の実引数式、overload、generic、expected type mismatch を enum として分けます。
 //: - display text は別 module の diagnostic projection へ移し、checker 本体はこの分類を返します。
 //: - `UnsupportedArgumentExpression` は、ascription 付き引数や nested call のように 1 個の prefix item では型証拠を得られないが、raw item 数で overload 失敗へ潰してはいけない場合に使います。
 //: - `ArgumentAscriptionProjectionFailed` と `ArgumentAscriptionExpectedTypeConflict` は、argument-scope `%T expr` の型注釈自体の不備と expected parameter type との衝突を分けます。
+//: - `ArgumentNamedValue*` は、argument position の名前が値として解決できない場合と、値は解決できるが型証拠がまだ無い場合を分けます。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
     UnsupportedPrefixItem
@@ -78,6 +79,10 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentTypeMismatch
     ArgumentAscriptionProjectionFailed
     ArgumentAscriptionExpectedTypeConflict
+    ArgumentNamedValueUnresolved
+    ArgumentNamedValuePendingBinding
+    ArgumentNamedValueUnsupportedBinding
+    ArgumentNamedValueEvidenceMissing
     UnsupportedArgumentExpression
     OverloadNoCandidate
     OverloadAmbiguous
@@ -186,6 +191,30 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNamedValueUnresolved:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNamedValueUnresolved:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNamedValuePendingBinding:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNamedValuePendingBinding:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNamedValueUnsupportedBinding:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNamedValueUnsupportedBinding:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:
                     true
                 _:
                     false

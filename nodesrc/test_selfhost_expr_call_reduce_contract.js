@@ -63,6 +63,16 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostValueTypeEvidence:[\s\S]*def_id %SelfhostDefId[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan[\s\S]*pub struct SelfhostValueTypeEvidenceTable:[\s\S]*entries %Vec SelfhostValueTypeEvidence/,
+    "named value arguments must use an explicit DefId-linked value type evidence table",
+);
+assert.match(
+    source,
+    /pub fn selfhost_value_type_evidence_table_find %fn &SelfhostValueTypeEvidenceTable fn SelfhostDefId Option SelfhostValueTypeEvidence/,
+    "value type evidence lookup must be keyed by DefId instead of raw source spelling",
+);
+assert.match(
+    source,
     /pub enum SelfhostCallableCandidateCollectErrorKind:[\s\S]*EmptyPrefix[\s\S]*PrefixBuildFailed[\s\S]*UnsupportedHead[\s\S]*HeadTokenOutOfBounds[\s\S]*PendingBinding[\s\S]*MissingSignature[\s\S]*OutOfMemory/,
     "callable candidate collection errors must fail closed with typed causes",
 );
@@ -93,8 +103,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*ArgumentTypeMismatch[\s\S]*ArgumentAscriptionProjectionFailed[\s\S]*ArgumentAscriptionExpectedTypeConflict[\s\S]*UnsupportedArgumentExpression[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
-    "call reduction errors must distinguish partial application, argument type, argument ascription, unsupported argument expression, overload, generic, and expectation failures",
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*ArgumentTypeMismatch[\s\S]*ArgumentAscriptionProjectionFailed[\s\S]*ArgumentAscriptionExpectedTypeConflict[\s\S]*ArgumentNamedValueUnresolved[\s\S]*ArgumentNamedValuePendingBinding[\s\S]*ArgumentNamedValueUnsupportedBinding[\s\S]*ArgumentNamedValueEvidenceMissing[\s\S]*UnsupportedArgumentExpression[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
+    "call reduction errors must distinguish partial application, argument type, argument ascription, named value evidence, unsupported argument expression, overload, generic, and expectation failures",
 );
 assert.match(
     source,
@@ -108,7 +118,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*UnsupportedArgumentExpression/,
+    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*UnsupportedArgumentExpression/,
     "argument expression scan failures must stay typed instead of collapsing into a boolean",
 );
 assert.match(
@@ -118,13 +128,28 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument:[\s\S]*SelfhostCallReduceErrorKind::UnsupportedArgumentExpression[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict/,
-    "call reducer must map argument-scope ascription projection and expected-type conflicts separately from generic unsupported argument expressions",
+    /SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument:[\s\S]*SelfhostCallReduceErrorKind::UnsupportedArgumentExpression[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueUnresolved:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueUnresolved[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValuePendingBinding:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValuePendingBinding[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueUnsupportedBinding:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueUnsupportedBinding[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueEvidenceMissing:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing/,
+    "call reducer must map argument-scope ascription and named value evidence failures separately from generic unsupported argument expressions",
 );
 assert.match(
     source,
-    /pub struct SelfhostExprArgumentOwnedMatch:[\s\S]*arena %SelfhostTypeArena[\s\S]*match_value %SelfhostExprArgumentMatch[\s\S]*pub fn selfhost_expr_argument_match_at_with_source/,
+    /pub struct SelfhostExprArgumentOwnedMatch:[\s\S]*arena %SelfhostTypeArena[\s\S]*match_value %SelfhostExprArgumentMatch[\s\S]*pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable/,
     "source-backed argument checking must return an updated arena owner with consume-width evidence",
+);
+assert.match(
+    source,
+    /selfhost_name_scope_find scope name[\s\S]*selfhost_expr_argument_named_value_type_from_binding value_types binding/,
+    "source-backed named value arguments must resolve through scope, DefId-linked value evidence, and arena structural equality",
+);
+assert.match(
+    source,
+    /selfhost_value_type_evidence_table_find value_types def_id[\s\S]*Result::Ok evidence\.value_type/,
+    "named value type evidence must be recovered from the DefId-linked table",
+);
+assert.match(
+    source,
+    /selfhost_type_arena_types_equal &arena actual_type expected_type/,
+    "named value argument types must be compared through arena structural equality",
 );
 assert.match(
     source,
@@ -143,7 +168,7 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_expr_argument_match_at_with_source tokens source arena prefix item_index item_count expected_arg_type[\s\S]*argument_match\.next_index/,
+    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_expr_argument_match_at_with_source tokens source arena prefix scope value_types item_index item_count expected_arg_type[\s\S]*argument_match\.next_index/,
     "source-backed call reduction must check consumed argument expressions with token/source-backed argument matching",
 );
 assert.match(
@@ -173,7 +198,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostCallReduceOwnedResult:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError/,
+    /pub struct SelfhostCallReduceOwnedResult:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError/,
     "source-backed call reduction must expose an arena-owner boundary separate from the borrowed reducer",
 );
 assert.match(
@@ -183,7 +208,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError/,
+    /pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError/,
     "body segment connector must expose an arena-owner boundary for ascription projection",
 );
 assert.match(
@@ -243,12 +268,12 @@ assert.match(
 );
 assert.match(
     bodyLine,
-    /selfhost_expr_prefix_list_from_syntax_range tokens head[\s\S]*selfhost_call_reduce_prefix_with_source tokens source arena &prefix candidates expected[\s\S]*selfhost_expr_prefix_list_free prefix/,
+    /selfhost_expr_prefix_list_from_syntax_range tokens head[\s\S]*selfhost_call_reduce_prefix_with_source tokens source arena &prefix scope value_types candidates expected[\s\S]*selfhost_expr_prefix_list_free prefix/,
     "owner expression-line prefix reducer must build and free a prefix list around source-backed call reduction",
 );
 assert.match(
     bodyLine,
-    /selfhost_check_expr_head_starts_with_percent tokens segment\.head[\s\S]*selfhost_expr_ascription_project_expectation tokens source arena segment\.head[\s\S]*selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens source projection candidates expected/,
+    /selfhost_check_expr_head_starts_with_percent tokens segment\.head[\s\S]*selfhost_expr_ascription_project_expectation tokens source arena segment\.head[\s\S]*selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens source projection scope value_types candidates expected/,
     "percent-prefixed expression lines must be projected as type ascriptions before call reduction",
 );
 assert.match(
@@ -280,6 +305,21 @@ assert.match(
     source,
     /selfhost_check_expr_stage1_make_ascribed_argument_bool_tokens[\s\S]*"add %bool 1 2"[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict/,
     "stage1 must smoke-test that argument-scope ascription conflicts keep a typed call-reduction error",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_make_named_argument_tokens[\s\S]*"add x 2"[\s\S]*selfhost_check_expr_stage1_value_context_with_typed_value "x" i32_type[\s\S]*selfhost_check_expr_stage1_success_is_two_arg_direct_call/,
+    "stage1 must smoke-test that named value arguments succeed only with typed value evidence",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_value_context_with_binding_only "x"[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing/,
+    "stage1 must smoke-test that a named binding without value type evidence fails closed",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_make_ascribed_named_argument_tokens[\s\S]*"add %i32 x 2"[\s\S]*selfhost_check_expr_stage1_ascribed_named_argument_ok_with_scope/,
+    "stage1 must smoke-test argument-scope ascription with a named value tail",
 );
 assert.match(
     bodyLine,
