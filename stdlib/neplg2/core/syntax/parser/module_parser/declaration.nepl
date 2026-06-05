@@ -10,6 +10,7 @@
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/token" as *
 #import "./action" as *
+#import "./body_range" as *
 #import "./diagnostic" as *
 #import "./header_boundary" as *
 #import "./prefix_range" as *
@@ -81,8 +82,9 @@ fn selfhost_parser_declaration_header %fn &Vec SelfhostToken fn i32 fn i32 fn Se
 
 fn selfhost_parser_declaration_item %impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn SelfhostModuleAst impure fn SelfhostToken impure fn SelfhostModuleItemKind impure fn SelfhostModuleDeclarationKind Result SelfhostModuleAst SelfhostDiagnostic \source\tokens\n\idx\ast\token\item_kind\decl_kind:
     let header %SelfhostModuleDeclarationHeader selfhost_parser_declaration_header tokens n idx token decl_kind
+    let body %SelfhostModuleDeclarationBody selfhost_parser_declaration_body_range tokens n idx
     let lexeme %str string_slice::str_slice source header.header_span.start header.header_span.end
-    let item %SelfhostModuleItem selfhost_module_item_new_with_declaration item_kind lexeme header
+    let item %SelfhostModuleItem selfhost_module_item_new_with_declaration_and_body item_kind lexeme header body
     match selfhost_module_ast_push ast item:
         Result::Ok next_ast:
             Result::Ok next_ast
