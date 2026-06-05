@@ -4,6 +4,8 @@
 //: ### [目的/もくてき]
 //: - `replace` / `add` の index validation、storage invariant check、owner-preserving error 生成を集約します。
 //: - update 失敗時は `SegmentTreeUpdateError` に元 owner を入れて返し、caller が cleanup できるようにします。
+//: - 範囲外 index は storage update 前に拒否します。
+//: - storage invariant failure では cleanup 用 owner を返しますが、rollback は契約しません。
 
 #indent 4
 
@@ -31,6 +33,12 @@ pub fn seg_update_err %fn SegmentTree fn Diag Result SegmentTree SegmentTreeUpda
 
 //: ## replace
 //: `idx` の[値/あたい]を `value` に[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `Result::Ok` は更新済み owner を返します。
+//: - `Result::Err` は `SegmentTreeUpdateError` として typed `Diag` と cleanup 用 owner を返します。
+//: - 範囲外 index は storage update 前に拒否します。
+//: - storage invariant failure では rollback は契約しません。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -77,6 +85,12 @@ pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result Segment
 
 //: ## add
 //: `idx` に `delta` を[加算/かさん]する
+//:
+//: ### [契約/けいやく]
+//: - `Result::Ok` は更新済み owner を返します。
+//: - `Result::Err` は `SegmentTreeUpdateError` として typed `Diag` と cleanup 用 owner を返します。
+//: - 範囲外 index は storage update 前に拒否します。
+//: - storage invariant failure では rollback は契約しません。
 //:
 //: neplg2:test
 //: ```neplg2

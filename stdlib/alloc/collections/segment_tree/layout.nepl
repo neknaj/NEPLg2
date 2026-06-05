@@ -9,6 +9,38 @@
 #import "core/math" as *
 #import "alloc/collections/vec" as vec
 
+//: ## seg_next_pow2
+//: `SegmentTree` の leaf base に使う 2 冪を[求/もと]める
+//:
+//: ### [契約/けいやく]
+//: - `new` は logical length `n` を `max 1 n` にしてからこの helper に渡します。
+//: - `n <= 1` では `1` を返します。
+//: - `n > 1` では `n <= result` かつ `result` が 2 冪である最小値を返します。
+//: - 現行実装は `1` から倍々に増やす simple loop です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_next_pow2_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"zero maps to one\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"exact power\" expected=\"8\" actual=\"8\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"rounded power\" expected=\"8\" actual=\"8\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/layout" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let zero %i32 seg_next_pow2 0
+//:     let exact %i32 seg_next_pow2 8
+//:     let rounded %i32 seg_next_pow2 5
+//:     let report:
+//:         test_report_new "segment_tree_next_pow2_doc"
+//:         |> test_report_push assert_eq_i32 "zero maps to one" 1 zero
+//:         |> test_report_push assert_eq_i32 "exact power" 8 exact
+//:         |> test_report_push assert_eq_i32 "rounded power" 8 rounded
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_next_pow2 %fn i32 i32 \n:
     let mut x %i32 1
     while lt x n:
@@ -16,8 +48,71 @@ pub fn seg_next_pow2 %fn i32 i32 \n:
             set x mul x 2
     x
 
+//: ## seg_expected_cells
+//: internal storage に[必要/ひつよう]な cell [数/すう]を[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - caller は `seg_next_pow2` で得た `base` を渡します。
+//: - `SegmentTree` storage は typed `Vec i32` に `2 * base` cell を持ちます。
+//: - index `1..base - 1` は internal node、`base..base + n - 1` は logical leaf です。
+//: - index `0` と padding leaf は現在の実装では 0 初期化された unused / neutral cell として残ります。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_expected_cells_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"twice base\" expected=\"16\" actual=\"16\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/layout" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "segment_tree_expected_cells_doc"
+//:         |> test_report_push assert_eq_i32 "twice base" 16 seg_expected_cells 8
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_expected_cells %fn i32 i32 \base:
     mul base 2
 
+//: ## seg_storage_has_expected_len
+//: storage [長/なが]さが `2 * base` invariant を[満/み]たすか[調/しら]べる
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - `vec::len data == seg_expected_cells base` のときだけ `true` を返します。
+//: - public API は update / query の前にこの helper で storage invariant を確認し、失敗時は typed `Diag` に変換します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.len` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_storage_expected_len_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"matches base\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"rejects wrong base\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/layout" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 8 0
+//:     let valid_len %bool seg_storage_has_expected_len &data 4
+//:     let wrong_len %bool seg_storage_has_expected_len &data 2
+//:     let wrong %bool not wrong_len
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_storage_expected_len_doc"
+//:         |> test_report_push assert "matches base" valid_len
+//:         |> test_report_push assert "rejects wrong base" wrong
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_storage_has_expected_len %fn &Vec i32 fn i32 bool \data\base:
     eq vec::len data seg_expected_cells base

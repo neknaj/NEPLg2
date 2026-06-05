@@ -12,6 +12,58 @@
 #import "alloc/collections/vec/types" as *
 #import "./storage" as *
 
+//: ## seg_sum_range_storage
+//: 1-indexed tree storage から `[l, r)` の[区間和/くかんわ]を `Option` として[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - public API は `0 <= l <= r <= len` と storage length invariant を検査してからこの helper を呼びます。
+//: - traversal 中に必要な cell がすべて読めた場合は `Option::Some total` を返します。
+//: - missing cell は storage invariant failure として `Option::None` を返し、API 層で typed `Diag` に変換します。
+//: - 現行実装は left / right accumulator を持つ iterative traversal です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid Segment Tree storage では O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_sum_range_storage_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"range total\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing cell is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/range" as *
+//:| #import "alloc/collections/segment_tree/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 8 0
+//:     seg_store_owned &data 2 3
+//:     seg_store_owned &data 3 7
+//:     seg_store_owned &data 4 1
+//:     seg_store_owned &data 5 2
+//:     seg_store_owned &data 6 3
+//:     seg_store_owned &data 7 4
+//:     let total %i32 match seg_sum_range_storage &data 4 1 4:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing %bool match seg_sum_range_storage &data 8 1 2:
+//:         Option::Some _v:
+//:             false
+//:         Option::None:
+//:             true
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_sum_range_storage_doc"
+//:         |> test_report_push assert_eq_i32 "range total" 9 total
+//:         |> test_report_push assert "missing cell is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_sum_range_storage %fn &Vec i32 fn i32 fn i32 fn i32 Option i32 \data\base\l\r:
     let mut left %i32 add base l
     let mut right %i32 add base r

@@ -12,6 +12,63 @@
 #import "alloc/collections/vec/types" as *
 #import "./storage" as *
 
+//: ## seg_rebuild_parents
+//: leaf から root へ sibling pair sum を[再計算/さいけいさん]する
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - `leaf` は `base + idx` の範囲内 cell であることを caller が保証します。
+//: - root までの sibling pair がすべて読めた場合は parent cell を更新して `true` を返します。
+//: - missing cell は storage invariant failure として `false` を返し、API 層で owner-preserving `SegmentTreeUpdateError` に変換します。
+//: - storage invariant failure の rollback は契約しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `leaf / 2` から root へ向かい、`seg_pair_sum` と `seg_store_owned` で parent を更新します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid Segment Tree storage では O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_rebuild_parents_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"rebuild succeeds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"left parent\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"root sum\" expected=\"10\" actual=\"10\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/mutation" as *
+//:| #import "alloc/collections/segment_tree/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 8 0
+//:     seg_store_owned &data 3 7
+//:     seg_store_owned &data 4 1
+//:     seg_store_owned &data 5 2
+//:     seg_store_owned &data 6 3
+//:     seg_store_owned &data 7 4
+//:     let rebuild_ok %bool seg_rebuild_parents &data 5
+//:     let left_parent %i32 match seg_load_owned &data 2:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let root %i32 match seg_load_owned &data 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_rebuild_parents_doc"
+//:         |> test_report_push assert "rebuild succeeds" rebuild_ok
+//:         |> test_report_push assert_eq_i32 "left parent" 3 left_parent
+//:         |> test_report_push assert_eq_i32 "root sum" 10 root
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_rebuild_parents %impure fn &Vec i32 impure fn i32 bool \data\leaf:
     let mut pos %i32 leaf
     let mut valid %bool true
@@ -27,11 +84,112 @@ pub fn seg_rebuild_parents %impure fn &Vec i32 impure fn i32 bool \data\leaf:
                     set valid false
     valid
 
+//: ## seg_replace_storage
+//: leaf を[置/お]き[換/か]えて root まで[再計算/さいけいさん]する
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - public API は `0 <= idx < n` と storage length invariant を検査してからこの helper を呼びます。
+//: - leaf store と parent rebuild が成功した場合は `true` を返します。
+//: - missing cell は storage invariant failure として `false` を返し、API 層で owner-preserving `SegmentTreeUpdateError` に変換します。
+//: - leaf store 後の rebuild failure に対する rollback は契約しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid Segment Tree storage では O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_replace_storage_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"replace succeeds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"leaf updated\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"root updated\" expected=\"5\" actual=\"5\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/mutation" as *
+//:| #import "alloc/collections/segment_tree/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 8 0
+//:     let replace_ok %bool seg_replace_storage &data 4 2 5
+//:     let leaf %i32 match seg_load_owned &data 6:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let root %i32 match seg_load_owned &data 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_replace_storage_doc"
+//:         |> test_report_push assert "replace succeeds" replace_ok
+//:         |> test_report_push assert_eq_i32 "leaf updated" 5 leaf
+//:         |> test_report_push assert_eq_i32 "root updated" 5 root
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_replace_storage %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 bool \data\base\idx\value:
     let leaf %i32 add base idx
     seg_store_owned data leaf value
     seg_rebuild_parents data leaf
 
+//: ## seg_add_storage
+//: leaf に delta を[加算/かさん]して root まで[再計算/さいけいさん]する
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - public API は `0 <= idx < n` と storage length invariant を検査してからこの helper を呼びます。
+//: - leaf が読め、加算と parent rebuild が成功した場合は `true` を返します。
+//: - missing cell は storage invariant failure として `false` を返し、API 層で owner-preserving `SegmentTreeUpdateError` に変換します。
+//: - 加算後の rebuild failure に対する rollback は契約しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - valid Segment Tree storage では O(log n) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_add_storage_doc\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"add succeeds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"leaf added\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"root updated\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"missing cell fails\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/mutation" as *
+//:| #import "alloc/collections/segment_tree/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 8 0
+//:     let add_ok %bool seg_add_storage &data 4 1 4
+//:     let leaf %i32 match seg_load_owned &data 5:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let root %i32 match seg_load_owned &data 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing_update %bool seg_add_storage &data 8 2 1
+//:     let invalid %bool not missing_update
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_add_storage_doc"
+//:         |> test_report_push assert "add succeeds" add_ok
+//:         |> test_report_push assert_eq_i32 "leaf added" 4 leaf
+//:         |> test_report_push assert_eq_i32 "root updated" 4 root
+//:         |> test_report_push assert "missing cell fails" invalid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_add_storage %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 bool \data\base\idx\delta:
     let leaf %i32 add base idx
     match seg_load_owned data leaf:

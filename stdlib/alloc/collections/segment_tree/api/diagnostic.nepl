@@ -10,11 +10,92 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
+//: ## seg_diag_len
+//: [長/なが]さが不正な `SegmentTree` 操作の `Diag` を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `new` が負の length を受け取ったときに使う diagnostic constructor です。
+//: - `StdErrorKind::CapacityExceeded` と現行 message `"invalid segment tree length"` を持つ `Diag` を返します。
+//: - error 表示は `alloc/diag` 側の責務であり、この helper は typed error data だけを作ります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_diag_len_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"length diag kind\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag seg_diag_len
+//:     let kind %str diag_std_error_kind_str d
+//:     let report:
+//:         test_report_new "segment_tree_diag_len_doc"
+//:         |> test_report_push assert_str_eq "length diag kind" "CapacityExceeded" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_diag_len %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "invalid segment tree length"
 
+//: ## seg_diag_index
+//: index 範囲外や更新 storage invariant failure の `Diag` を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `replace` / `add` が単一 index の範囲外または internal storage missing cell を検出したときに使います。
+//: - `StdErrorKind::IndexOutOfBounds` と現行 message `"segment tree index out of bounds"` を持つ `Diag` を返します。
+//: - update API はこの `Diag` を `SegmentTreeUpdateError` に入れ、元 owner を caller へ返します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_diag_index_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"index diag kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag seg_diag_index
+//:     let kind %str diag_std_error_kind_str d
+//:     let report:
+//:         test_report_new "segment_tree_diag_index_doc"
+//:         |> test_report_push assert_str_eq "index diag kind" "IndexOutOfBounds" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_diag_index %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "segment tree index out of bounds"
 
+//: ## seg_diag_range
+//: range 範囲外や range traversal failure の `Diag` を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `sum_range` が `0 <= l <= r <= len` を満たさない range または internal storage missing cell を検出したときに使います。
+//: - `StdErrorKind::IndexOutOfBounds` と現行 message `"segment tree range out of bounds"` を持つ `Diag` を返します。
+//: - range error も string ではなく enum kind で判定します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_diag_range_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"range diag kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag seg_diag_range
+//:     let kind %str diag_std_error_kind_str d
+//:     let report:
+//:         test_report_new "segment_tree_diag_range_doc"
+//:         |> test_report_push assert_str_eq "range diag kind" "IndexOutOfBounds" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_diag_range %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "segment tree range out of bounds"

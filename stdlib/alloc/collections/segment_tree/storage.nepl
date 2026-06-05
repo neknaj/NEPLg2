@@ -12,6 +12,51 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
+//: ## seg_load_owned
+//: typed `Vec i32` の tree cell を `Option` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内なら `Option::Some value` を返します。
+//: - `idx` が範囲外なら `Option::None` を返します。
+//: - raw pointer や sentinel value は使わず、`Vec.get` の `Option` を Segment Tree の storage boundary にします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.get` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_load_owned_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads cell\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing cell is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 4 0
+//:     seg_store_owned &data 2 11
+//:     let value %i32 match seg_load_owned &data 2:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing %bool match seg_load_owned &data 9:
+//:         Option::Some _v:
+//:             false
+//:         Option::None:
+//:             true
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_load_owned_doc"
+//:         |> test_report_push assert_eq_i32 "reads cell" 11 value
+//:         |> test_report_push assert "missing cell is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_load_owned %fn &Vec i32 fn i32 Option i32 \data\idx:
     match vec::get data idx:
         Option::Some v:
@@ -19,9 +64,94 @@ pub fn seg_load_owned %fn &Vec i32 fn i32 Option i32 \data\idx:
         Option::None:
             none
 
+//: ## seg_store_owned
+//: typed `Vec i32` storage の 1 cell を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内であることは caller の責務です。
+//: - `value` は leaf value または sibling pair sum です。
+//: - raw pointer 書き込みではなく `Vec.replace` に集約します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.replace` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_store_owned_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores cell\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 3 0
+//:     seg_store_owned &data 1 7
+//:     let value %i32 match seg_load_owned &data 1:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_store_owned_doc"
+//:         |> test_report_push assert_eq_i32 "stores cell" 7 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \data\idx\value:
     vec::replace data idx value
 
+//: ## seg_pair_sum
+//: sibling 2 cell の[和/わ]を `Option` として[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `data` owner は[消費/しょうひ]しません。
+//: - `left` と `right` の両方が読めた場合は `Option::Some left_value + right_value` を返します。
+//: - どちらかの cell が欠けている場合は storage invariant failure として `Option::None` を返します。
+//: - parent rebuild はこの helper を通して missing cell を検出し、API 層で typed `Diag` に変換します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 2 回の `Vec.get` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"segment_tree_pair_sum_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"pair sum\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing pair is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/collections/vec/types" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let data %Vec i32 unwrap_ok vec::filled 4 0
+//:     seg_store_owned &data 2 4
+//:     seg_store_owned &data 3 5
+//:     let total %i32 match seg_pair_sum &data 2 3:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing %bool match seg_pair_sum &data 2 9:
+//:         Option::Some _v:
+//:             false
+//:         Option::None:
+//:             true
+//:     vec::free data
+//:     let report:
+//:         test_report_new "segment_tree_pair_sum_doc"
+//:         |> test_report_push assert_eq_i32 "pair sum" 9 total
+//:         |> test_report_push assert "missing pair is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn seg_pair_sum %fn &Vec i32 fn i32 fn i32 Option i32 \data\left\right:
     match seg_load_owned data left:
         Option::Some lv:
