@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T03:20:20.718Z",
+  "generated_at": "2026-06-05T03:55:06.628Z",
   "counts": {
     "total": 1344,
-    "open": 43,
-    "resolved": 1301,
+    "open": 42,
+    "resolved": 1302,
     "by_area": {
       "stdlib": {
         "total": 351,
@@ -20,11 +20,6 @@
         "total": 118,
         "open": 3,
         "resolved": 115
-      },
-      "examples": {
-        "total": 22,
-        "open": 1,
-        "resolved": 21
       },
       "neplg21": {
         "total": 2,
@@ -85,6 +80,11 @@
         "total": 8,
         "open": 0,
         "resolved": 8
+      },
+      "examples": {
+        "total": 22,
+        "open": 0,
+        "resolved": 22
       },
       "nodesrc": {
         "total": 16,
@@ -638,21 +638,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T102900000Z-HIR-FUNCTION-VALUE-REACHABILITY-SHOUL-6C0E9B12.md"
-    },
-    {
-      "id": "ISS-20260604T034207429Z-GUI-EXAMPLES-DUPLICATE-FRAME-BUTTON--57AC9031",
-      "title": "GUI examples duplicate frame button and event loop boilerplate instead of sharing typed helpers",
-      "area": "examples",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "maintenance",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "examples/gui_*.nepl, stdlib/platforms/gui/web",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034207429Z-GUI-EXAMPLES-DUPLICATE-FRAME-BUTTON--57AC9031.md"
     },
     {
       "id": "ISS-20260528T085628387Z-NEPLG2-1-NEEDS-POSTFIX-FREE-TYPE-EVI-43646AFF",
@@ -18323,6 +18308,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895.md"
+    },
+    {
+      "id": "ISS-20260604T034207429Z-GUI-EXAMPLES-DUPLICATE-FRAME-BUTTON--57AC9031",
+      "title": "GUI examples duplicate text-button stdout emission instead of sharing typed helpers",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "examples/gui_*.nepl, stdlib/platforms/gui/web",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034207429Z-GUI-EXAMPLES-DUPLICATE-FRAME-BUTTON--57AC9031.md"
     },
     {
       "id": "ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B",

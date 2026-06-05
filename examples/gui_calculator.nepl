@@ -491,20 +491,8 @@ fn calculator_present_button %impure fn i32 Result unit GuiError \index:
                 calculator_color_button_op
             else:
                 calculator_color_button
-    match gui_web_stdout_fill_rect rect color:
-        Result::Ok _:
-            let x %i32 gui_rect_x &rect
-            let y %i32 gui_rect_y &rect
-            let origin_x %i32 add x 31
-            let origin_y %i32 add y 12
-            let origin %GuiPoint gui_point_new origin_x origin_y
-            match gui_web_stdout_text_run origin 16 GuiWebTextAlign::Center calculator_color_text label:
-                Result::Ok _:
-                    gui_web_stdout_action_rect rect action
-                Result::Err error:
-                    Result::Err error
-        Result::Err error:
-            Result::Err error
+    let config %GuiWebButtonConfig gui_web_button_config rect action label color calculator_color_text 16 12
+    gui_web_stdout_button config
 
 fn calculator_present_buttons %impure fn i32 Result unit GuiError \index:
     if:

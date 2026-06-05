@@ -460,16 +460,8 @@ fn paint_present_controls %impure fn PaintModel Result unit GuiError \model:
                             match paint_present_palette_button 2 paint_action_color_c:
                                 Result::Ok _:
                                     let clear_rect %GuiRect paint_button_clear_rect
-                                    match gui_web_stdout_fill_rect clear_rect paint_color_background:
-                                        Result::Ok _:
-                                            let origin %GuiPoint gui_point_new 638 130
-                                            match gui_web_stdout_text_run origin 13 GuiWebTextAlign::Center paint_color_text "Clear":
-                                                Result::Ok _:
-                                                    gui_web_stdout_action_rect clear_rect paint_action_clear
-                                                Result::Err error:
-                                                    Result::Err error
-                                        Result::Err error:
-                                            Result::Err error
+                                    let clear_config %GuiWebButtonConfig gui_web_button_config clear_rect paint_action_clear "Clear" paint_color_background paint_color_text 13 10
+                                    gui_web_stdout_button clear_config
                                 Result::Err error:
                                     Result::Err error
                         Result::Err error:
