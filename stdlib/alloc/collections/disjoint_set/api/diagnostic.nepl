@@ -10,8 +10,62 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
+//: ## dsu_diag_len
+//: [長/なが]さが不正な `DisjointSet` 操作の `Diag` を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `new` が負の length を受け取ったときに使う diagnostic constructor です。
+//: - `StdErrorKind::CapacityExceeded` と固定 message `"invalid disjoint set length"` を持つ `Diag` を返します。
+//: - error 表示は `alloc/diag` 側の責務であり、この helper は typed error data だけを作ります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"disjoint_set_diag_len_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"length diag kind\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag dsu_diag_len
+//:     let kind %str diag_std_error_kind_str d
+//:     let report:
+//:         test_report_new "disjoint_set_diag_len_doc"
+//:         |> test_report_push assert_str_eq "length diag kind" "CapacityExceeded" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn dsu_diag_len %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "invalid disjoint set length"
 
+//: ## dsu_diag_index
+//: 範囲外 index や storage invariant failure の `Diag` を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `find` / `same` / `size` / `union` が範囲外 index または internal storage traversal failure を検出したときに使います。
+//: - `StdErrorKind::IndexOutOfBounds` と固定 message `"disjoint set index out of bounds"` を持つ `Diag` を返します。
+//: - `union` はこの `Diag` を `DisjointSetUpdateError` に入れ、元 owner を caller へ返します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"disjoint_set_diag_index_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"index diag kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "alloc/string" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag dsu_diag_index
+//:     let kind %str diag_std_error_kind_str d
+//:     let report:
+//:         test_report_new "disjoint_set_diag_index_doc"
+//:         |> test_report_push assert_str_eq "index diag kind" "IndexOutOfBounds" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn dsu_diag_index %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "disjoint set index out of bounds"

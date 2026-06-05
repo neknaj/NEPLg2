@@ -12,6 +12,53 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
+//: ## dsu_root_storage
+//: parent storage を[辿/たど]って root index を `Option` として[返/かえ]す
+//:
+//: ### [契約/けいやく]
+//: - `parent` owner は[消費/しょうひ]しません。
+//: - `idx` から parent link を辿り、`parent[root] == root` に到達したら `Option::Some root` を返します。
+//: - 範囲外 index、missing cell、または `parent.len` step 以内に root へ到達しない cycle / storage invariant failure は `Option::None` を返します。
+//: - この helper は pure query であり、path compression は行いません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 現行実装は最大 `parent.len` step で停止するため O(n) です。union-by-size invariant が保たれている通常 API path では root までの高さに比例します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"disjoint_set_root_storage_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"finds root\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"invalid index is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set/query" as *
+//:| #import "alloc/collections/disjoint_set/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let parent %Vec i32 unwrap_ok vec::filled 3 0
+//:     dsu_store_owned &parent 0 0
+//:     dsu_store_owned &parent 1 0
+//:     dsu_store_owned &parent 2 1
+//:     let root %i32 match dsu_root_storage &parent 2:
+//:         Option::Some r:
+//:             r
+//:         Option::None:
+//:             -1
+//:     let invalid %bool match dsu_root_storage &parent 5:
+//:         Option::Some _r:
+//:             false
+//:         Option::None:
+//:             true
+//:     vec::free parent
+//:     let report:
+//:         test_report_new "disjoint_set_root_storage_doc"
+//:         |> test_report_push assert_eq_i32 "finds root" 0 root
+//:         |> test_report_push assert "invalid index is none" invalid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn dsu_root_storage %fn &Vec i32 fn i32 Option i32 \parent\idx:
     let mut cur %i32 idx
     let mut done %bool false
@@ -38,5 +85,50 @@ pub fn dsu_root_storage %fn &Vec i32 fn i32 Option i32 \parent\idx:
         else:
             none
 
+//: ## dsu_size_storage
+//: sizes storage から root の component size を `Option` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `sizes` owner は[消費/しょうひ]しません。
+//: - `root` が範囲内なら `Option::Some size` を返します。
+//: - `root` が範囲外なら `Option::None` を返します。
+//: - caller は `root` が `dsu_root_storage` で得た root であることを[保証/ほしょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `dsu_load_owned` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"disjoint_set_size_storage_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads root size\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing root size is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set/query" as *
+//:| #import "alloc/collections/disjoint_set/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let sizes %Vec i32 unwrap_ok vec::filled 3 1
+//:     dsu_store_owned &sizes 0 3
+//:     let size0 %i32 match dsu_size_storage &sizes 0:
+//:         Option::Some s:
+//:             s
+//:         Option::None:
+//:             -1
+//:     let missing %bool match dsu_size_storage &sizes 5:
+//:         Option::Some _s:
+//:             false
+//:         Option::None:
+//:             true
+//:     vec::free sizes
+//:     let report:
+//:         test_report_new "disjoint_set_size_storage_doc"
+//:         |> test_report_push assert_eq_i32 "reads root size" 3 size0
+//:         |> test_report_push assert "missing root size is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn dsu_size_storage %fn &Vec i32 fn i32 Option i32 \sizes\root:
     dsu_load_owned sizes root

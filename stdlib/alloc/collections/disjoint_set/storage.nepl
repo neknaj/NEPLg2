@@ -11,6 +11,50 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
+//: ## dsu_load_owned
+//: typed `Vec i32` storage から 1 cell を `Option` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `base` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内なら `Option::Some value` を返します。
+//: - `idx` が範囲外なら `Option::None` を返します。
+//: - raw pointer や sentinel value は使わず、`Vec.get` の `Option` をそのまま DisjointSet の storage boundary にします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.get` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"disjoint_set_load_owned_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"reads stored cell\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing cell is none\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let cells %Vec i32 unwrap_ok vec::filled 2 0
+//:     dsu_store_owned &cells 0 7
+//:     let value %i32 match dsu_load_owned &cells 0:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     let missing %bool match dsu_load_owned &cells 5:
+//:         Option::Some _v:
+//:             false
+//:         Option::None:
+//:             true
+//:     vec::free cells
+//:     let report:
+//:         test_report_new "disjoint_set_load_owned_doc"
+//:         |> test_report_push assert_eq_i32 "reads stored cell" 7 value
+//:         |> test_report_push assert "missing cell is none" missing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn dsu_load_owned %fn &Vec i32 fn i32 Option i32 \base\idx:
     match vec::get base idx:
         Option::Some v:
@@ -18,5 +62,43 @@ pub fn dsu_load_owned %fn &Vec i32 fn i32 Option i32 \base\idx:
         Option::None:
             none
 
+//: ## dsu_store_owned
+//: typed `Vec i32` storage の 1 cell を[置/お]き[換/か]える
+//:
+//: ### [契約/けいやく]
+//: - `base` owner は[消費/しょうひ]しません。
+//: - `idx` が範囲内であることは caller の責務です。
+//: - parent storage では `value` は parent index、sizes storage では root component size を表します。
+//: - raw pointer 書き込みではなく `Vec.replace` に集約します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `Vec.replace` に従い O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"disjoint_set_store_owned_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stores cell\" expected=\"9\" actual=\"9\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let cells %Vec i32 unwrap_ok vec::filled 1 0
+//:     dsu_store_owned &cells 0 9
+//:     let value %i32 match dsu_load_owned &cells 0:
+//:         Option::Some v:
+//:             v
+//:         Option::None:
+//:             -1
+//:     vec::free cells
+//:     let report:
+//:         test_report_new "disjoint_set_store_owned_doc"
+//:         |> test_report_push assert_eq_i32 "stores cell" 9 value
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn dsu_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \base\idx\value:
     vec::replace base idx value

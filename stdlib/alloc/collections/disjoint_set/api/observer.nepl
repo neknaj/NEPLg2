@@ -2,7 +2,8 @@
 //: `DisjointSet` の借用 query API
 //:
 //: ### [目的/もくてき]
-//: - `len` / `find` / `same` / `size` を owner を消費しない API として提供します。
+//: - `len` / `find` / `same` / `size` を borrowed observer API として提供します。
+//: - observer は owner を消費しないため、caller は query 後も同じ `DisjointSet` を使い、不要になったら `free` できます。
 //: - path compression は行わず、pure query として parent / size storage を読み取ります。
 
 #indent 4

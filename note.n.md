@@ -1,3 +1,29 @@
+# 2026-06-05 Agent 2 DisjointSet documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。
+- subagent review では、`stdlib/alloc/collections/disjoint_set/api/diagnostic.nepl`、`storage.nepl`、`query.nepl` の diagnostic / typed storage / borrowed query helper 6件に declaration doc gap が残ることが blocker として指摘された。特に `StdErrorKind::CapacityExceeded` / `StdErrorKind::IndexOutOfBounds`、`Vec i32` storage boundary、`Option::Some` / `Option::None` の条件、path compression なし、`DisjointSetUpdateError` による owner recovery、union-by-size invariant、O(log n) / O(n) / O(1) の書き分けを宣言近傍に固定する必要があると確認した。
+- `api/diagnostic.nepl` では `dsu_diag_len` と `dsu_diag_index` の日本語 doc comment と `test_report` 形式の doctest を追加した。diagnostic の判定は message 文字列ではなく `StdErrorKind` の enum kind によることを明記した。
+- `storage.nepl` では `dsu_load_owned` と `dsu_store_owned` の日本語 doc comment と `test_report` 形式の doctest を追加した。raw pointer や sentinel value ではなく `Vec.get` / `Vec.replace` と `Option` を storage boundary にすることを契約として固定した。
+- `query.nepl` では `dsu_root_storage` と `dsu_size_storage` の日本語 doc comment と `test_report` 形式の doctest を追加した。`dsu_root_storage` は corruption / cycle に対して最大 `parent.len` step で `Option::None` へ落とす defensive traversal であり、public API path の O(log n) とは別に helper 自体は O(n) であることを明記した。
+- `types.nepl`、`api/observer.nepl`、`api/mutation.nepl` の既存 doc comment も補強し、storage invariant、borrowed observer、owner-consuming update と `DisjointSetUpdateError` での owner recovery の接続を明示した。実装本体は変更していない。
+- `nodesrc/test_stdlib_disjoint_set_doc_report_contract.js` を追加し、DisjointSet 固有の report doctest 名、typed error kind、storage invariant、typed `Vec i32` storage boundary、path compression なしの borrowed query、owner recovery contract を source policy として固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline を実測値に締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=266`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。DisjointSet slice は進んだが、sample gaps は fenwick / segment_tree / sparse_set 系へ残っている。
+- subagent final review では Blocker / Non-blocker ともになし。Zenn 方針、AGENTS.md、DisjointSet 固有の owner / `Result` / typed error / storage invariant / borrowed observer contract、source policy baseline 更新は妥当で、`MERGE_APPROVED` と判定された。
+- 現時点の検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/disjoint_set/types.nepl -i stdlib/alloc/collections/disjoint_set/storage.nepl -i stdlib/alloc/collections/disjoint_set/query.nepl -i stdlib/alloc/collections/disjoint_set/api.nepl -i stdlib/alloc/collections/disjoint_set/api/diagnostic.nepl -i stdlib/alloc/collections/disjoint_set/api/create.nepl -i stdlib/alloc/collections/disjoint_set/api/observer.nepl -i stdlib/alloc/collections/disjoint_set/api/mutation.nepl -i stdlib/alloc/collections/disjoint_set/api/cleanup.nepl -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/agent2-disjoint-set-doc-slice.json -j 1 --dist web/dist --assert-io`: pass（19/19）
+  - `node nodesrc/test_stdlib_disjoint_set_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: pass
+  - `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-disjoint-set-doc-playground-editor.json`: pass（13/13）
+
 # 2026-06-05 Agent 2 BTreeSet documentation contract checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。

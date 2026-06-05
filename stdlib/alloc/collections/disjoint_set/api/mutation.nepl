@@ -24,6 +24,12 @@
 //:
 //: ### [実装/じっそう]
 //: - union-by-size で[小/ちい]さい[木/き]を[大/おお]きい[木/き]の root に[付/つ]けます。
+//: - 範囲外 index や storage invariant failure では `DisjointSetUpdateError` に元 owner と typed `Diag` を入れて返します。
+//:
+//: ### [契約/けいやく]
+//: - 成功時は更新後の `DisjointSet` owner を `Result::Ok` で返します。
+//: - 失敗時は `Result::Err` の `DisjointSetUpdateError` から `disjoint_set_update_error_owner` で owner を回収します。
+//: - `find` / `same` / `size` と同じく、storage traversal は path compression を行いません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(log n)
