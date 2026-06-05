@@ -1,0 +1,95 @@
+//: # streamio/scanner/error
+//: `StreamScanner` の typed error を定義する submodule
+//:
+//: ### [目的/もくてき]
+//: - scanner の cursor 破損、EOF、malformed token、UTF-8 失敗を string literal ではなく enum として扱います。
+//: - error の同一性はこの enum に閉じ、表示用文字列は `stream_scanner_error_name` に分離します。
+//:
+//: ### [契約/けいやく]
+//: - primary scanner API は `Result .T StreamScannerError` を返します。
+//: - bare `read` などの互換 wrapper は、この enum を明示的に sentinel へ射影する境界だけで使います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "std/streamio/scanner/error" as *
+//: fn main %impure fn void i32 \void:
+//:     if str_eq stream_scanner_error_name StreamScannerError::Eof "Eof" 0 1
+//: ```
+
+#indent 4
+
+#import "core/traits/copy" as *
+
+//: StreamScannerError: scanner [処理/しょり]の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - `match` の網羅性で scanner error を扱えるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/scanner/error" as *
+//: ```
+pub enum StreamScannerError:
+    InputReadFailed
+    TextAllocFailed
+    CursorAllocFailed
+    InvalidByteBuffer
+    CursorMissing
+    CursorStoreFailed
+    InvalidRange
+    InvalidUtf8
+    MissingBuffer
+    Eof
+    MalformedToken
+
+impl Clone for StreamScannerError:
+    fn clone %fn &StreamScannerError StreamScannerError \err:
+        *err
+
+impl Copy for StreamScannerError:
+    fn copy_mark %fn StreamScannerError StreamScannerError \err:
+        err
+
+//: stream_scanner_error_name: scanner error enum の stable [識別子/しきべつし]を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - error data と表示を分け、test / diagnostic 側だけが文字列へ射影します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "std/streamio/scanner/error" as *
+//: fn main %impure fn void i32 \void:
+//:     if str_eq stream_scanner_error_name StreamScannerError::InvalidUtf8 "InvalidUtf8" 0 1
+//: ```
+pub fn stream_scanner_error_name %fn StreamScannerError str \err:
+    match err:
+        StreamScannerError::InputReadFailed:
+            "InputReadFailed"
+        StreamScannerError::TextAllocFailed:
+            "TextAllocFailed"
+        StreamScannerError::CursorAllocFailed:
+            "CursorAllocFailed"
+        StreamScannerError::InvalidByteBuffer:
+            "InvalidByteBuffer"
+        StreamScannerError::CursorMissing:
+            "CursorMissing"
+        StreamScannerError::CursorStoreFailed:
+            "CursorStoreFailed"
+        StreamScannerError::InvalidRange:
+            "InvalidRange"
+        StreamScannerError::InvalidUtf8:
+            "InvalidUtf8"
+        StreamScannerError::MissingBuffer:
+            "MissingBuffer"
+        StreamScannerError::Eof:
+            "Eof"
+        StreamScannerError::MalformedToken:
+            "MalformedToken"

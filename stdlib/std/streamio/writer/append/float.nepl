@@ -3,73 +3,177 @@
 //:
 //: ### [目的/もくてき]
 //: - 浮動小数の固定小数点 format を整数 append から分離します。
-//: - 整数部の出力は `append_u64_impl` を再利用し、digit 出力の責務を重複させません。
+//: - `Result` 版では各 byte append の失敗を `StreamWriterError` として返します。
 
 #indent 4
 
-#import "core/cast" as *
 #import "core/math" as *
+#import "core/math/convert/float" as *
+#import "core/result" as *
+#import "std/streamio/convert" as *
 #import "std/streamio/writer/append/integer" as *
 #import "std/streamio/writer/state" as *
 
-//: ## append_f64_fixed_impl
+//: ## append_f64_fraction_digits_result
+//: 小数部 digit を指定桁数だけ追記する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/float" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_f64_fraction_digits_result w convert_s_i32_to_f64 0 2 0;
+//:| close next;
+//: ```
+fn append_f64_fraction_digits_result %impure fn StreamWriter impure fn f64 impure fn i32 impure fn i32 Result StreamWriter StreamWriterError \w\frac\precision\i:
+    if:
+        ge i precision
+        then:
+            Result::Ok w
+        else:
+            let ten %f64 convert_s_i32_to_f64 10;
+            let frac10 %f64 mul frac ten;
+            let digit %i32 trunc_s_f64_to_i32 frac10;
+            match push_u8_result w add '0' digit:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok next:
+                    let digit_f %f64 convert_s_i32_to_f64 digit;
+                    let next_frac %f64 sub frac10 digit_f;
+                    append_f64_fraction_digits_result next next_frac precision add i 1
+
+//: ## append_f64_fixed_result
 //: `f64` を[固定/こてい][小数点/しょうすうてん]で[追記/ついき]する
 //:
 //: ### [注意/ちゅうい]
 //: - `NaN` / `inf` は[未対応/みたいおう]です。
-pub fn append_f64_fixed_impl %impure fn StreamWriter impure fn f64 impure fn i32 StreamWriter \w\v\precision:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/float" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_f64_fixed_result w convert_s_i32_to_f64 1 2;
+//:| close next;
+//: ```
+pub fn append_f64_fixed_result %impure fn StreamWriter impure fn f64 impure fn i32 Result StreamWriter StreamWriterError \w\v\precision:
     let mut x %f64 v;
-    let zero %f64 cast 0;
+    let zero %f64 convert_s_i32_to_f64 0;
     let is_neg %bool lt x zero;
-    let mut ww %StreamWriter w;
-    if:
-        is_neg
-        then:
-            set ww push_u8_impl ww 45;
-            let nx %f64 neg x;
-            set x nx;
-            unit
-        else:
-            unit;
+    let first %Result StreamWriter StreamWriterError:
+        if:
+            is_neg
+            then:
+                let nx %f64 neg x;
+                set x nx;
+                push_u8_result w 45
+            else:
+                Result::Ok w
+    match first:
+        Result::Err e:
+            Result::Err e
+        Result::Ok w0:
+            let int_part %i64 trunc_s_f64_to_i64 x;
+            let int_u %u64 streamio_i64_to_u64_bits int_part;
+            match append_u64_result w0 int_u:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok w1:
+                    if:
+                        le precision 0
+                        then:
+                            Result::Ok w1
+                        else:
+                            match push_u8_result w1 46:
+                                Result::Err e:
+                                    Result::Err e
+                                Result::Ok w2:
+                                    let int_as_f64 %f64 convert_s_i64_to_f64 int_part;
+                                    let frac %f64 sub x int_as_f64;
+                                    append_f64_fraction_digits_result w2 frac precision 0
 
-    let int_part %i64 cast x;
-    let int_u %u64 cast int_part;
-    set ww append_u64_impl ww int_u;
+//: ## append_f64_fixed_impl
+//: `append_f64_fixed_result` の互換 facade
+pub fn append_f64_fixed_impl %impure fn StreamWriter impure fn f64 impure fn i32 StreamWriter \w\v\precision:
+    match append_f64_fixed_result w v precision:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
 
-    if:
-        le precision 0
-        then:
-            ww
-        else:
-            set ww push_u8_impl ww 46;
-            let int_as_f64 %f64 cast int_part;
-            let mut frac %f64 sub x int_as_f64;
-            let ten %f64 cast 10;
-            let mut i %i32 0;
-            while lt i precision:
-                do:
-                    let frac10 %f64 mul frac ten;
-                    set frac frac10;
-                    let digit %i32 cast frac;
-                    set ww push_u8_impl ww add '0' digit;
-                    let digit_f %f64 cast digit;
-                    let next_frac %f64 sub frac digit_f;
-                    set frac next_frac;
-                    set i add i 1;
-            ww
+//: ## append_f64_result
+//: `f64` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/float" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let next %StreamWriter unwrap_ok append_f64_result w convert_s_i32_to_f64 1;
+//:| close next;
+//: ```
+pub fn append_f64_result %impure fn StreamWriter impure fn f64 Result StreamWriter StreamWriterError \w\v:
+    append_f64_fixed_result w v 6
 
 //: ## append_f64_impl
-//: `f64` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
+//: `append_f64_result` の互換 facade
 pub fn append_f64_impl %impure fn StreamWriter impure fn f64 StreamWriter \w\v:
-    append_f64_fixed_impl w v 6
+    match append_f64_result w v:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_f32_fixed_result
+//: `f32` を[固定/こてい][小数点/しょうすうてん]で[追記/ついき]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/float" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let v %f32 demote_f64_to_f32 convert_s_i32_to_f64 1;
+//:| let next %StreamWriter unwrap_ok append_f32_fixed_result w v 2;
+//:| close next;
+//: ```
+pub fn append_f32_fixed_result %impure fn StreamWriter impure fn f32 impure fn i32 Result StreamWriter StreamWriterError \w\v\precision:
+    let v64 %f64 promote_f32_to_f64 v;
+    append_f64_fixed_result w v64 precision
 
 //: ## append_f32_fixed_impl
-//: `f32` を[固定/こてい][小数点/しょうすうてん]で[追記/ついき]する
+//: `append_f32_fixed_result` の互換 facade
 pub fn append_f32_fixed_impl %impure fn StreamWriter impure fn f32 impure fn i32 StreamWriter \w\v\precision:
-    let v64 %f64 cast v;
-    append_f64_fixed_impl w v64 precision
+    match append_f32_fixed_result w v precision:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e
+
+//: ## append_f32_result
+//: `f32` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/math/convert/float" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/writer" as *
+//:| let w %StreamWriter unwrap_ok stream_writer_new StreamWriterTargetKind::Stdout;
+//:| let v %f32 demote_f64_to_f32 convert_s_i32_to_f64 1;
+//:| let next %StreamWriter unwrap_ok append_f32_result w v;
+//:| close next;
+//: ```
+pub fn append_f32_result %impure fn StreamWriter impure fn f32 Result StreamWriter StreamWriterError \w\v:
+    append_f32_fixed_result w v 6
 
 //: ## append_f32_impl
-//: `f32` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
+//: `append_f32_result` の互換 facade
 pub fn append_f32_impl %impure fn StreamWriter impure fn f32 StreamWriter \w\v:
-    append_f32_fixed_impl w v 6
+    match append_f32_result w v:
+        Result::Ok next:
+            next
+        Result::Err e:
+            stream_writer_error_recover_or_empty e

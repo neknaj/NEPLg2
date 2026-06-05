@@ -24,7 +24,7 @@
 //: - path に binary artifact を保存します。
 //:
 //: 実装(アルゴリズム):
-//: - `fs_open_write` → `fs_write_fd_bytes` → `fs_close` の順に処理します。
+//: - `fs_open_write` → `fs_write_fd_bytes` → `fs_close_raw_errno` の順に処理します。
 //:
 //: 注意(重要):
 //: - 入力 `ByteBuf` は open 失敗時も含めてこの関数が解放します。
@@ -36,22 +36,22 @@ pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result unit FsError \p
     match fs_open_write path:
         Result::Err e:
             io_bytebuf_free bytes
-            Result::Err fs_error_from_errno FsOperation::OpenWrite e
+            Result::Err e
         Result::Ok fd:
             match fs_write_fd_bytes fd bytes:
                 Result::Ok _:
-                    match fs_close fd:
+                    match fs_close_raw_errno fd:
                         Result::Ok _:
                             Result::Ok unit
                         Result::Err close_errno:
                             Result::Err fs_error_from_errno FsOperation::CloseAfterWrite close_errno
-                Result::Err e:
-                    match fs_close fd:
+                Result::Err write_error:
+                    match fs_close_raw_errno fd:
                         Result::Ok _:
                             unit
                         Result::Err _:
                             unit
-                    Result::Err fs_error_from_errno FsOperation::WriteFd e
+                    Result::Err write_error
 
 //: fs_write_to_bytes_errno: binary write error を errno 互換値へ[写/うつ]す legacy wrapper
 //:

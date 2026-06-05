@@ -15,8 +15,9 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/fs/error" as *
 
-//: fs_normalize_build_ranges_builder: range stack から正規 path の builder を組み立てる
+//: fs_normalize_build_ranges_builder_raw_errno: range stack から正規 path の builder を組み立て、失敗を raw errno で返す
 //:
 //: 目的:
 //: - 正規化済み component range stack を `/` で連結し、空なら `"."` を保持する `StringBuilder` を返します。
@@ -30,7 +31,7 @@
 //:
 //: 計算量:
 //: - 出力 byte 数 n に対して O(n)
-pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilder i32 \path\stack:
+pub fn fs_normalize_build_ranges_builder_raw_errno %fn str fn &Vec i32 Result StringBuilder i32 \path\stack:
     let stack_len %i32 v::len stack
     match string_builder_new_result:
         Result::Err _e:
@@ -88,15 +89,31 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
                             string_builder_free sb
                             Result::Err 12
 
-//: fs_normalize_build_ranges: range stack から正規 path 文字列を組み立てる
+//: fs_normalize_build_ranges_builder: range stack から正規 path の builder を組み立てる
+//:
+//: [目的/もくてき]:
+//: - build failure を `FsError` として[返/かえ]し、通常 public API から raw errno を[隠/かく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/path/normalize/build" as *
+//: ```
+pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilder FsError \path\stack:
+    match fs_normalize_build_ranges_builder_raw_errno path stack:
+        Result::Ok sb:
+            Result::Ok sb
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::NormalizePathRanges e
+
+//: fs_normalize_build_ranges_raw_errno: range stack から正規 path 文字列を組み立て、失敗を raw errno で返す
 //:
 //: 目的:
 //: - 検証や内部利用向けに、正規化済み component range stack を `str` として返します。
 //:
 //: 実装(アルゴリズム):
 //: - syscall 用途では builder owner のまま使えるよう、実処理は `fs_normalize_build_ranges_builder` に集約します。
-pub fn fs_normalize_build_ranges %fn str fn &Vec i32 Result str i32 \path\stack:
-    match fs_normalize_build_ranges_builder path stack:
+pub fn fs_normalize_build_ranges_raw_errno %fn str fn &Vec i32 Result str i32 \path\stack:
+    match fs_normalize_build_ranges_builder_raw_errno path stack:
         Result::Err e:
             Result::Err e
         Result::Ok sb:
@@ -105,3 +122,19 @@ pub fn fs_normalize_build_ranges %fn str fn &Vec i32 Result str i32 \path\stack:
                     Result::Err 12
                 Result::Ok out:
                     Result::Ok out
+
+//: fs_normalize_build_ranges: range stack から正規 path 文字列を組み立てる
+//:
+//: [目的/もくてき]:
+//: - range stack からの path build failure を `FsError` として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/path/normalize/build" as *
+//: ```
+pub fn fs_normalize_build_ranges %fn str fn &Vec i32 Result str FsError \path\stack:
+    match fs_normalize_build_ranges_raw_errno path stack:
+        Result::Ok out:
+            Result::Ok out
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::NormalizePathRanges e

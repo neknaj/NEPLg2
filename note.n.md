@@ -1,3 +1,36 @@
+# 2026-06-05 Agent 2 streamio typed error boundary checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の「error は enum data」「Result / Option と match を使う」「silent no-op を避ける」「doc comment と doctest を整備する」方針に合わせ、`std/streamio` の scanner / writer failure boundary を typed API へ寄せた。
+- `ISS-20260604T033842259Z-STREAMIO-SCANNER-AND-WRITER-APIS-STI-EFC1568E` を `fixed` / `resolved: true` に更新した。
+- `stdlib/std/streamio/scanner/error.nepl` を追加し、`StreamScannerError` を `InputReadFailed`、`TextAllocFailed`、`CursorAllocFailed`、`InvalidByteBuffer`、`CursorMissing`、`CursorStoreFailed`、`InvalidRange`、`InvalidUtf8`、`MissingBuffer`、`Eof`、`MalformedToken` の enum data として定義した。
+- scanner の primary API は `open`、`skip_ws_result`、`is_eof_result`、`skip_result`、`scan_token_result`、各 `read_result` overload が `Result ... StreamScannerError` を返す形にした。互換 facade は残したが、typed API に委譲し、失敗を丸めることを doc comment に明記した。
+- parser 内部の byte access は `stream_scanner_byte_at_result` へ統一し、EOF / malformed token / invalid UTF-8 / cursor storage failure を sentinel byte や空文字へ潰さないようにした。
+- `stdlib/std/streamio/writer/state.nepl` では `StreamWriterErrorKind` と `StreamWriterError` を追加し、append / flush / close failure 時に recover 可能な writer owner を error payload へ戻す形にした。
+- writer の primary API は `open`、`write_result`、`writeln_result`、`flush_result`、`close_result` が `Result` を返す形にした。`WriteStream::Fs` は未対応 target として `UnsupportedTarget` を返す。
+- `stdlib/std/streamio/convert.nepl` を追加し、streamio 内の unsigned bit conversion を局所化した。`core/cast` 由来の resource leak を避けるため、`stdlib/core/traits/copy/primitive.nepl` に `u32` / `u64` の `Clone` / `Copy` 実装を追加した。
+- 新規 API の doc comment / `neplg2:test[skip]` を追加し、`nodesrc/test_stdlib_documentation_contract.js` の declaration doctest gap を増やさないようにした。trait method 直前の doc comment は現行 parser が受け付けないため、trait 自体の契約 comment へ集約した。
+- subagent review では、writer error helper が `std/streamio` facade から見えないこと、primary scanner path が sentinel byte access に残っていること、`u32` / `u64` Copy 不足が streamio doctest を落としていることを blocker として指摘された。これらは実装へ反映した。
+- 検証済み: `node nodesrc/test_stdlib_streamio_scanner_boundary.js`、`node nodesrc/test_stdlib_streamio_writer_boundary.js`、`node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`、`node nodesrc/tests.js -i tests/stdlib/streamio.n.md -o tmp/streamio-tests.json --assert-io -j 1`、`node nodesrc/test_stdlib_documentation_contract.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-streamio-typed-error-playground-editor.json`。playground editor JSON は 13/13 pass を確認した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象の streamio / documentation policy が通過し、既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけを warning として報告した。
+- `nodesrc/tests.js` の固定メッセージどおり、今回の変更は Rust 側ではなく stdlib / nodesrc policy / tests の範囲なので、focused doctest は既存 `web/dist` を使って検証した。
+
+# 2026-06-05 Agent 2 std/fs lower raw errno boundary checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の「error は enum data」「raw integer を primary API にしない」「Result / Option と match を使う」「raw platform 依存境界を表層に閉じる」方針に合わせ、`std/fs` 下層 API の raw errno surface を整理した。
+- `ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167` を `fixed` / `resolved: true` に更新した。
+- raw errno を返す public helper は `*_raw_errno` / `*_errno` / `*_errno_result` という明示名に限定した。通常名の `fs_open_read`、`fs_open_write`、`fs_close`、`fs_read_fd_bytes`、`fs_write_fd_bytes`、`fs_open_dir`、`fs_read_dir_fd`、`fs_read_dir`、`fs_path_filetype`、`fs_normalize_relative*`、`fs_sort_strings` は `Result ... FsError` を返す。
+- `FsOperation` に `OpenWithFlags`、`OpenDir`、`ReadDirFd`、`CloseAfterReadDir`、`CloseFd`、`PathFileType`、`NormalizePathBuilder`、`NormalizePath`、`NormalizePathRanges`、`SortEntries` を追加し、`fs_operation_name` の網羅 match も更新した。
+- path read/write は typed fd API を通し、close-after-read/write だけ `fs_close_raw_errno` から文脈付き `FsOperation::CloseAfterRead` / `CloseAfterWrite` へ包み直す。directory read は read 成功後の close 失敗を捨てず、返せない `Vec str` を解放して `CloseAfterReadDir` を返す。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は、safe fs module の public function が `Result ..., i32` を返す場合に raw/errno 互換名を要求する source policy を追加した。raw syscall ownership checks は `*_raw_errno` 側へ向け、通常名は `fs_error_from_errno FsOperation::*` を通す thin wrapper として固定した。
+- `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` は、`fs_read_fd_bytes_raw_errno` 側で `ByteBuf` owner 正規化を検査し、通常名の `fs_read_fd_bytes` は `FsOperation::ReadFd` 付き `FsError` 境界として検査するように更新した。
+- `nepl-cli/tests/cli_output.rs` の埋め込み std/fs fixture は、通常 public API の `FsError` を raw `i32` として扱わず、互換 exit code が必要な箇所で `fs_error_to_errno` を明示的に通すように更新した。
+- `tests/stdlib/fs.n.md` と `stdlib/std/fs/path.nepl` の errno 前提を `FsErrorKind` / `fs_error_to_errno` 前提に更新した。
+- subagent audit では、raw errno を `std/fs/raw/*`、private raw ABI helper、明示 `*_raw_errno` / `*_errno` 境界だけに残す方針で一致した。source policy には通常名の typed wrapper、raw名の所有権境界、double wrapping 防止を入れるべきと指摘され、実装へ反映した。
+- 検証済み: `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`、`node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`、`node nodesrc/test_stdlib_documentation_contract.js`、`node nodesrc/test_selfhost_cli_file_io_boundary.js`、`node nodesrc/test_stdlib_io_nmd_report_contract.js`、`node nodesrc/test_stdlib_fs_report_contract.js`、`node nodesrc/test_stdlib_fs_nmd_report_contract.js`、`cargo test -p nepl-cli --test cli_output run_wasi -- --nocapture`。
+- focused doctest は `stdlib/std/fs/error.nepl`、`stdlib/std/fs/fd.nepl`、`stdlib/std/fs/read/fd.nepl`、`stdlib/std/fs/write/fd.nepl`、`stdlib/std/fs/read/path.nepl`、`stdlib/std/fs/write/path.nepl`、`stdlib/std/fs/path.nepl`、`stdlib/std/fs/path/normalize*.nepl`、`stdlib/std/fs/path/entry.nepl`、`stdlib/std/fs/stat.nepl`、`stdlib/std/fs/dir*.nepl`、`tests/stdlib/fs.n.md`、`stdlib/tests/fs.n.md` で通過した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象の fs/io/gui/editor/selfhost 周辺 policy が通過し、既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけを warning として報告した。
+- `trunk build` は通過した。`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-std-fs-raw-boundary-playground-editor.json` は 13/13 pass の JSON を生成した。
+
 # 2026-06-05 Agent 2 std/fs typed error checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の「error は enum data」「表示と分離」「Result / Option と match を使う」「場当たり的な修正を残さない」方針に合わせ、`std/fs` の path/text API で raw errno を primary error にする設計を改めた。

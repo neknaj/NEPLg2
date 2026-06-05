@@ -1,0 +1,57 @@
+//: # streamio/convert
+//: `streamio` の数値 parser / formatter が使う bit pattern 変換 helper
+//:
+//: ### [目的/もくてき]
+//: - `u32` / `u64` は `streamio` 内部で unsigned 演算用の bit pattern として扱い、公開 error / IO API へは出しません。
+//: - `core/cast` facade 全体を import せず、必要な低水準変換だけをこの小さな境界に閉じます。
+//:
+//: ### [注意/ちゅうい]
+//: - ここでの変換は値域検査ではなく、同じ bit pattern の型解釈を変える helper です。
+//: - public API 用の一般変換ではありません。通常の利用者は `core/cast` または `core/math/convert` を使ってください。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/streamio/convert" as *
+//: fn main %impure fn void i32 \void:
+//:     streamio_u32_to_i32_bits streamio_i32_to_u32_bits 7
+//: ```
+
+#indent 4
+
+//: streamio_i32_to_u32_bits: i32 bit pattern を u32 として扱う
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/convert" as *
+//: ```
+pub fn streamio_i32_to_u32_bits %impure fn i32 u32 \v:
+    #intrinsic "i32_to_u32" <> (v)
+
+//: streamio_u32_to_i32_bits: u32 bit pattern を i32 として扱う
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/convert" as *
+//: ```
+pub fn streamio_u32_to_i32_bits %impure fn u32 i32 \v:
+    #intrinsic "u32_to_i32" <> (v)
+
+//: streamio_i64_to_u64_bits: i64 bit pattern を u64 として扱う
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/convert" as *
+//: ```
+pub fn streamio_i64_to_u64_bits %impure fn i64 u64 \v:
+    #intrinsic "i64_to_u64" <> (v)
+
+//: streamio_u64_to_i64_bits: u64 bit pattern を i64 として扱う
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/streamio/convert" as *
+//: ```
+pub fn streamio_u64_to_i64_bits %impure fn u64 i64 \v:
+    #intrinsic "u64_to_i64" <> (v)

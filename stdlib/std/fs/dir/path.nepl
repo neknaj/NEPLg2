@@ -13,9 +13,10 @@
 #import "core/result" as *
 #import "std/fs/dir/open" as *
 #import "std/fs/dir/read_fd" as *
+#import "std/fs/error" as *
 #import "std/fs/fd" as *
 
-//: fs_read_dir: directory entry 名を安定順で返す
+//: fs_read_dir_raw_errno: directory entry 名を安定順で返し、失敗を raw errno で返す
 //:
 //: 目的:
 //: - self-host compiler の stdlib discovery と import root scanning に必要な directory traversal を提供します。
@@ -29,15 +30,53 @@
 //:
 //: 計算量:
 //: - entry 総 byte 数 n と sort の O(k^2)
-pub fn fs_read_dir %impure fn str Result Vec str i32 \path:
-    match fs_open_dir path:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/dir/path" as *
+//: ```
+pub fn fs_read_dir_raw_errno %impure fn str Result Vec str i32 \path:
+    match fs_open_dir_raw_errno path:
         Result::Err e:
             Result::Err e
         Result::Ok fd:
-            let res %Result Vec str i32 fs_read_dir_fd fd
-            match fs_close fd:
+            let res %Result Vec str i32 fs_read_dir_fd_raw_errno fd
+            match fs_close_raw_errno fd:
                 Result::Ok _:
                     unit
                 Result::Err _:
                     unit
             res
+
+//: fs_read_dir: directory entry 名を安定順で返す
+//:
+//: [目的/もくてき]:
+//: - directory listing failure を `FsError` として[返/かえ]し、通常 public API で raw integer を primary error にしないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - read 成功後の close 失敗では、返せない `Vec str` を解放して `CloseAfterReadDir` を返します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/dir/path" as *
+//: ```
+pub fn fs_read_dir %impure fn str Result Vec str FsError \path:
+    match fs_open_dir path:
+        Result::Err e:
+            Result::Err e
+        Result::Ok fd:
+            match fs_read_dir_fd fd:
+                Result::Ok entries:
+                    match fs_close_raw_errno fd:
+                        Result::Ok _:
+                            Result::Ok entries
+                        Result::Err close_errno:
+                            v::free entries
+                            Result::Err fs_error_from_errno FsOperation::CloseAfterReadDir close_errno
+                Result::Err read_error:
+                    match fs_close_raw_errno fd:
+                        Result::Ok _:
+                            unit
+                        Result::Err _close_errno:
+                            unit
+                    Result::Err read_error

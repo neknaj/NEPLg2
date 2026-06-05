@@ -34,6 +34,7 @@
 #import "std/iotarget" as *
 #import "std/stdio" as *
 #import "std/streamio/scanner/cursor" as *
+#import "std/streamio/scanner/error" as *
 #import "std/streamio/scanner/number" as *
 #import "std/streamio/scanner/state" as *
 #import "core/field" as *
@@ -50,17 +51,30 @@
 //: - target ごとに byte [列/れつ]へ[正規化/せいきか]してから typed cursor storage を[確保/かくほ]し、input owner は `ByteBuf` field として[保持/ほじ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - file read [失敗/しっぱい]や[確保/かくほ][失敗/しっぱい]は `Result::Err` に[丸/まる]めます。
-pub fn open %impure fn ReadStream Result StreamScanner str \target:
+//: - file read [失敗/しっぱい]や[確保/かくほ][失敗/しっぱい]は `StreamScannerError` に[分類/ぶんるい]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "1 2";
+//:| close sc;
+//: ```
+pub fn open %impure fn ReadStream Result StreamScanner StreamScannerError \target:
     match target:
         ReadStream::Stdio:
-            scanner_from_bytes stdio_read_all_bytes
+            match stdio_read_all_bytes_result:
+                Result::Ok bytes:
+                    scanner_from_bytes bytes
+                Result::Err _e:
+                    Result::Err StreamScannerError::InputReadFailed
         ReadStream::Text text:
             match io_bytebuf_from_str_result text:
                 Result::Ok bytes:
                     scanner_from_bytes bytes
                 Result::Err _e:
-                    Result::Err "streamio.scanner text alloc failed"
+                    Result::Err StreamScannerError::TextAllocFailed
         ReadStream::Bytes bytes:
             scanner_from_bytes bytes
         ReadStream::Fs path:
@@ -68,78 +82,210 @@ pub fn open %impure fn ReadStream Result StreamScanner str \target:
                 Result::Ok bytes:
                     scanner_from_bytes bytes
                 Result::Err _e:
-                    Result::Err "streamio.scanner read failed"
+                    Result::Err StreamScannerError::InputReadFailed
+
+//: ## skip_ws_result
+//: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす
+//:
+//: ### [契約/けいやく]
+//: - cursor storage が[壊/こわ]れている[場合/ばあい]は `Result::Err` を[返/かえ]します。
+//: - 成功時だけ cursor を[更新/こうしん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "   x";
+//:| unwrap_ok skip_ws_result &sc;
+//:| close sc;
+//: ```
+pub fn skip_ws_result %impure fn &StreamScanner Result unit StreamScannerError \sc:
+    stream_scanner_skip_ws_result sc
 
 //: ## skip_ws
-//: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす
+//: `skip_ws_result` の互換 facade
+//:
+//: ### [注意/ちゅうい]
+//: - 旧 API との互換用です。失敗を観測する場合は `skip_ws_result` を使ってください。
 pub fn skip_ws %impure fn &StreamScanner unit \sc:
-    stream_scanner_skip_ws_state sc
+    match skip_ws_result sc:
+        Result::Ok _:
+            unit
+        Result::Err _e:
+            unit
 
 //: ## is_eof
 //: token が[残/のこ]っていないか[確認/かくにん]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "";
+//:| let eof %bool unwrap_ok is_eof_result &sc;
+//:| close sc;
+//: ```
+pub fn is_eof_result %impure fn &StreamScanner Result bool StreamScannerError \sc:
+    match skip_ws_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            match stream_scanner_load_pos_result sc:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok pos:
+                    Result::Ok ge pos stream_scanner_len sc
+
+//: ## is_eof
+//: `is_eof_result` の互換 facade
 pub fn is_eof %impure fn &StreamScanner bool \sc:
-    stream_scanner_skip_ws_state sc;
-    ge stream_scanner_load_pos sc stream_scanner_len sc
+    match is_eof_result sc:
+        Result::Ok eof:
+            eof
+        Result::Err _e:
+            true
 
 //: ## skip
 //: [現在/げんざい] token を 1 [個/こ][消費/しょうひ]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "skip keep";
+//:| unwrap_ok skip_result &sc;
+//:| close sc;
+//: ```
+pub fn skip_result %impure fn &StreamScanner Result unit StreamScannerError \sc:
+    match skip_ws_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            let bytes %&ByteBuf get_ref sc "bytes";
+            let len %i32 stream_scanner_len sc;
+            match stream_scanner_load_pos_result sc:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok start:
+                    let mut p %i32 start;
+                    let mut done %i32 0;
+                    let mut failed %i32 0;
+                    let mut err %StreamScannerError StreamScannerError::InvalidByteBuffer;
+                    while eq done 0:
+                        if:
+                            lt p len
+                            then:
+                                match stream_scanner_byte_at_result bytes p:
+                                    Result::Err e:
+                                        set err e;
+                                        set failed 1;
+                                        set done 1;
+                                    Result::Ok byte:
+                                        if:
+                                            stream_scanner_is_token_separator byte
+                                            then:
+                                                set done 1;
+                                            else:
+                                                set p add p 1;
+                            else:
+                                set done 1;
+                    if:
+                        eq failed 1
+                        then:
+                            Result::Err err
+                        else:
+                            stream_scanner_store_pos_result sc p
+
+//: ## skip
+//: `skip_result` の互換 facade
 pub fn skip %impure fn &StreamScanner unit \sc:
-    stream_scanner_skip_ws_state sc;
-    let bytes %&ByteBuf get_ref sc "bytes";
-    let len %i32 stream_scanner_len sc;
-    let mut p %i32 stream_scanner_load_pos sc;
-    let mut done %i32 0;
-    while eq done 0:
-        if:
-            lt p len
-            then:
-                let byte %i32 stream_scanner_byte_at bytes p;
-                if:
-                    stream_scanner_is_token_separator byte
-                    then:
-                        set done 1;
-                    else:
-                        set p add p 1;
-            else:
-                set done 1;
-    stream_scanner_store_pos sc p;
-    unit
+    match skip_result sc:
+        Result::Ok _:
+            unit
+        Result::Err _e:
+            unit
+
+//: ## scan_token_result
+//: [次/つぎ]の token を `str` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - EOF は空文字ではなく `StreamScannerError::Eof` として返します。
+//: - invalid UTF-8 は `StreamScannerError::InvalidUtf8` として返し、cursor を進めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "token";
+//:| let token %str unwrap_ok scan_token_result &sc;
+//:| close sc;
+//: ```
+pub fn scan_token_result %impure fn &StreamScanner Result str StreamScannerError \sc:
+    match skip_ws_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            let bytes %&ByteBuf get_ref sc "bytes";
+            let len %i32 stream_scanner_len sc;
+            match stream_scanner_load_pos_result sc:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok start:
+                    let mut p %i32 start;
+                    let mut done %i32 0;
+                    let mut failed %i32 0;
+                    let mut err %StreamScannerError StreamScannerError::InvalidByteBuffer;
+                    while eq done 0:
+                        if:
+                            lt p len
+                            then:
+                                match stream_scanner_byte_at_result bytes p:
+                                    Result::Err e:
+                                        set err e;
+                                        set failed 1;
+                                        set done 1;
+                                    Result::Ok byte:
+                                        if:
+                                            stream_scanner_is_token_separator byte
+                                            then:
+                                                set done 1;
+                                            else:
+                                                set p add p 1;
+                            else:
+                                set done 1;
+                    if:
+                        eq failed 1
+                        then:
+                            Result::Err err
+                        else:
+                            let tlen %i32 sub p start;
+                            if:
+                                eq tlen 0
+                                then:
+                                    Result::Err StreamScannerError::Eof
+                                else:
+                                    match stream_scanner_slice_to_str_result sc start tlen:
+                                        Result::Err e:
+                                            Result::Err e
+                                        Result::Ok token:
+                                            match stream_scanner_store_pos_result sc p:
+                                                Result::Err e:
+                                                    Result::Err e
+                                                Result::Ok _:
+                                                    Result::Ok token
 
 //: ## scan_token_impl
-//: [次/つぎ]の token を `str` として[読/よ]む
+//: `scan_token_result` の互換 facade
 pub fn scan_token_impl %impure fn &StreamScanner str \sc:
-    stream_scanner_skip_ws_state sc;
-    let bytes %&ByteBuf get_ref sc "bytes";
-    let len %i32 stream_scanner_len sc;
-    let start %i32 stream_scanner_load_pos sc;
-    let mut p %i32 start;
-    let mut done %i32 0;
-    while eq done 0:
-        if:
-            lt p len
-            then:
-                let byte %i32 stream_scanner_byte_at bytes p;
-                if:
-                    stream_scanner_is_token_separator byte
-                    then:
-                        set done 1;
-                    else:
-                        set p add p 1;
-            else:
-                set done 1;
-    let tlen %i32 sub p start;
-    if:
-        eq tlen 0
-        then:
+    match scan_token_result sc:
+        Result::Ok token:
+            token
+        Result::Err _e:
             ""
-        else:
-            match stream_scanner_slice_to_str_result sc start tlen:
-                Result::Err _e:
-                    stream_scanner_store_pos sc p;
-                    ""
-                Result::Ok token:
-                    stream_scanner_store_pos sc p;
-                    token
 
 //: ## read
 //: `StreamScanner` から token / [数値/すうち]を[読/よ]む
@@ -153,23 +299,128 @@ pub fn scan_token_impl %impure fn &StreamScanner str \sc:
 pub fn read %impure fn &StreamScanner str \sc:
     scan_token_impl sc
 
+//: ## read_result str
+//: `str` token を typed error として読む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "word";
+//:| let word %str unwrap_ok read_result &sc;
+//:| close sc;
+//: ```
+pub fn read_result %impure fn &StreamScanner Result str StreamScannerError \sc:
+    scan_token_result sc
+
 pub fn read %impure fn &StreamScanner i32 \sc:
     scan_i32_impl sc
+
+//: ## read_result i32
+//: `i32` token を typed error として読む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "-12";
+//:| let n %i32 unwrap_ok read_result &sc;
+//:| close sc;
+//: ```
+pub fn read_result %impure fn &StreamScanner Result i32 StreamScannerError \sc:
+    scan_i32_result sc
 
 pub fn read %impure fn &StreamScanner i64 \sc:
     scan_i64_impl sc
 
+//: ## read_result i64
+//: `i64` token を typed error として読む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "-12";
+//:| let n %i64 unwrap_ok read_result &sc;
+//:| close sc;
+//: ```
+pub fn read_result %impure fn &StreamScanner Result i64 StreamScannerError \sc:
+    scan_i64_result sc
+
 pub fn read %impure fn &StreamScanner u32 \sc:
     scan_u32_impl sc
+
+//: ## read_result u32
+//: `u32` token を typed error として読む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "12";
+//:| let n %u32 unwrap_ok read_result &sc;
+//:| close sc;
+//: ```
+pub fn read_result %impure fn &StreamScanner Result u32 StreamScannerError \sc:
+    scan_u32_result sc
 
 pub fn read %impure fn &StreamScanner u64 \sc:
     scan_u64_impl sc
 
+//: ## read_result u64
+//: `u64` token を typed error として読む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "12";
+//:| let n %u64 unwrap_ok read_result &sc;
+//:| close sc;
+//: ```
+pub fn read_result %impure fn &StreamScanner Result u64 StreamScannerError \sc:
+    scan_u64_result sc
+
 pub fn read %impure fn &StreamScanner f64 \sc:
     scan_f64_impl sc
 
+//: ## read_result f64
+//: `f64` token を typed error として読む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "1.25";
+//:| let n %f64 unwrap_ok read_result &sc;
+//:| close sc;
+//: ```
+pub fn read_result %impure fn &StreamScanner Result f64 StreamScannerError \sc:
+    scan_f64_result sc
+
 pub fn read %impure fn &StreamScanner f32 \sc:
     scan_f32_impl sc
+
+//: ## read_result f32
+//: `f32` token を typed error として読む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "1.25";
+//:| let n %f32 unwrap_ok read_result &sc;
+//:| close sc;
+//: ```
+pub fn read_result %impure fn &StreamScanner Result f32 StreamScannerError \sc:
+    scan_f32_result sc
 
 //: ## close
 //: `StreamScanner` を[閉/と]じて[内部/ないぶ] buffer を[解放/かいほう]する

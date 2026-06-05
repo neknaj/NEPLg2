@@ -22,6 +22,7 @@ const outputStderrRelPath = 'stdlib/std/streamio/output/stderr.nepl';
 const bytesRelPath = 'stdlib/std/streamio/bytes.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
 const scannerCursorRelPath = 'stdlib/std/streamio/scanner/cursor.nepl';
+const scannerErrorRelPath = 'stdlib/std/streamio/scanner/error.nepl';
 const scannerNumberRelPath = 'stdlib/std/streamio/scanner/number.nepl';
 const scannerNumberIntRelPath = 'stdlib/std/streamio/scanner/number/int.nepl';
 const scannerNumberFloatRelPath = 'stdlib/std/streamio/scanner/number/float.nepl';
@@ -42,6 +43,7 @@ const outputStderrSrc = fs.readFileSync(path.join(repoRoot, outputStderrRelPath)
 const bytesSrc = fs.readFileSync(path.join(repoRoot, bytesRelPath), 'utf8');
 const scannerSrc = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
 const scannerCursorSrc = fs.readFileSync(path.join(repoRoot, scannerCursorRelPath), 'utf8');
+const scannerErrorSrc = fs.readFileSync(path.join(repoRoot, scannerErrorRelPath), 'utf8');
 const scannerNumberSrc = fs.readFileSync(path.join(repoRoot, scannerNumberRelPath), 'utf8');
 const scannerNumberIntSrc = fs.readFileSync(path.join(repoRoot, scannerNumberIntRelPath), 'utf8');
 const scannerNumberFloatSrc = fs.readFileSync(path.join(repoRoot, scannerNumberFloatRelPath), 'utf8');
@@ -64,10 +66,11 @@ const bytesCode = legacyTypeSyntaxView(bytesSrc);
 const scannerCode = legacyTypeSyntaxView(scannerSrc);
 const scannerStateCode = legacyTypeSyntaxView(scannerStateSrc);
 const scannerCursorCode = legacyTypeSyntaxView(scannerCursorSrc);
+const scannerErrorCode = legacyTypeSyntaxView(scannerErrorSrc);
 const scannerNumberCode = legacyTypeSyntaxView(scannerNumberSrc);
 const scannerNumberIntCode = legacyTypeSyntaxView(scannerNumberIntSrc);
 const scannerNumberFloatCode = legacyTypeSyntaxView(scannerNumberFloatSrc);
-const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${outputTypesCode}\n${outputStdoutCode}\n${outputStderrCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${writerAppendTextCode}\n${writerAppendByteBufCode}\n${writerAppendIntegerCode}\n${writerAppendFloatCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
+const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${outputTypesCode}\n${outputStdoutCode}\n${outputStderrCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${writerAppendTextCode}\n${writerAppendByteBufCode}\n${writerAppendIntegerCode}\n${writerAppendFloatCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerErrorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
 
 assert.match(
     facadeCode,
@@ -146,8 +149,13 @@ assert.match(
 );
 assert.match(
     writerCode,
-    /\bfn\s+close\s+<\(StreamWriter\)\*>unit>\s+\(w\):\s*stream_writer_close_impl\s+w\b/,
-    `${writerRelPath} must expose StreamWriter owner cleanup through the root close facade`,
+    /\bfn\s+close_result\s+<\(StreamWriter\)\*>Result<unit,StreamWriterError>>\s+\(w\):[\s\S]*drain_result\s+w[\s\S]*stream_writer_close_impl\s+flushed/,
+    `${writerRelPath} must expose typed close_result that flushes before cleanup`,
+);
+assert.match(
+    writerCode,
+    /\bfn\s+close\s+<\(StreamWriter\)\*>unit>\s+\(w\):[\s\S]*match\s+close_result\s+w:/,
+    `${writerRelPath} must keep StreamWriter owner cleanup through the root close compatibility facade`,
 );
 assert.match(
     writerStateCode,
@@ -217,26 +225,36 @@ assert.match(code, /fn\s+close\s+<\(StreamScanner\)\*>/, 'StreamScanner close mu
 
 assert.match(
     code,
-    /fn\s+stream_scanner_load_pos_result\s+<\(&StreamScanner\)->Result<i32,str>>\s+\(sc\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get\s+cursor\s+0:[\s\S]*Option::Some\s+pos:[\s\S]*Result::Ok\s+pos[\s\S]*Result::Err\s+"streamio\.stream_scanner_load_pos failed"/,
+    /enum\s+StreamScannerError:[\s\S]*CursorMissing[\s\S]*CursorStoreFailed[\s\S]*InvalidUtf8[\s\S]*Eof[\s\S]*MalformedToken/,
+    'stream scanner failures must be represented by StreamScannerError enum variants',
+);
+assert.match(
+    code,
+    /fn\s+stream_scanner_load_pos_result\s+<\(&StreamScanner\)->Result<i32,StreamScannerError>>\s+\(sc\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get\s+cursor\s+0:[\s\S]*Option::Some\s+pos:[\s\S]*Result::Ok\s+pos[\s\S]*Result::Err\s+StreamScannerError::CursorMissing/,
     'stream scanner cursor loads must return Result through typed cursor storage instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+stream_scanner_store_pos_result\s+<\(&StreamScanner,i32\)\*>Result<unit,str>>\s+\(sc,\s*pos\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get\s+cursor\s+0:[\s\S]*Option::Some\s+_old:[\s\S]*vec::replace\s+cursor\s+0\s+pos[\s\S]*Result::Ok\s+unit[\s\S]*Result::Err\s+"streamio\.stream_scanner_store_pos failed"/,
+    /fn\s+stream_scanner_store_pos_result\s+<\(&StreamScanner,i32\)\*>Result<unit,StreamScannerError>>\s+\(sc,\s*pos\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get\s+cursor\s+0:[\s\S]*Option::Some\s+_old:[\s\S]*vec::replace\s+cursor\s+0\s+pos[\s\S]*Result::Ok\s+unit[\s\S]*Result::Err\s+StreamScannerError::CursorStoreFailed/,
     'stream scanner cursor stores must return Result through typed cursor storage instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+scanner_from_bytes\s+<\(ByteBuf\)\*>Result<StreamScanner,str>>\s+\(bytes\):[\s\S]*match\s+io_bytebuf_ptr_ref\s+&bytes:[\s\S]*Option::None:[\s\S]*eq\s+len\s+0[\s\S]*stream_scanner_cursor_new[\s\S]*Result::Ok\s+StreamScanner\s+bytes\s+cursor[\s\S]*Option::Some\s+_buf:[\s\S]*stream_scanner_cursor_new/,
+    /fn\s+scanner_from_bytes\s+<\(ByteBuf\)\*>Result<StreamScanner,StreamScannerError>>\s+\(bytes\):[\s\S]*match\s+io_bytebuf_ptr_ref\s+&bytes:[\s\S]*Option::None:[\s\S]*eq\s+len\s+0[\s\S]*stream_scanner_cursor_new[\s\S]*Result::Ok\s+StreamScanner\s+bytes\s+cursor[\s\S]*Option::Some\s+_buf:[\s\S]*stream_scanner_cursor_new/,
     'scanner_from_bytes must keep the ByteBuf owner in StreamScanner and allocate only cursor storage separately',
 );
 
 assert.match(
     code,
-    /fn\s+push_u8_impl\s+<\(StreamWriter,i32\)\*>StreamWriter>\s+\(w,\s*b\):[\s\S]*let\s+w1\s+<StreamWriter>\s+reserve_impl\s+w\s+1[\s\S]*let\s+builder\s+<ByteBuilder>\s+get\s+w1\s+"builder"[\s\S]*match\s+byte_builder_push_u8\s+builder\s+b:[\s\S]*Result::Ok\s+next_builder:[\s\S]*StreamWriter\s+next_builder\s+target\s+@stream_writer_noncopy_marker[\s\S]*Result::Err\s+e:[\s\S]*byte_builder_error_free\s+e[\s\S]*StreamWriter\s+byte_builder_empty\s+target\s+@stream_writer_noncopy_marker/,
-    'push_u8_impl must delegate byte storage and length advance to ByteBuilder after reserve_impl',
+    /fn\s+push_u8_result\s+<\(StreamWriter,i32\)\*>Result<StreamWriter,StreamWriterError>>\s+\(w,\s*b\):[\s\S]*reserve_result\s+w\s+1[\s\S]*match\s+byte_builder_push_u8\s+builder\s+b:[\s\S]*Result::Ok\s+next_builder:[\s\S]*Result::Ok\s+StreamWriter\s+next_builder\s+target\s+@stream_writer_noncopy_marker[\s\S]*Result::Err\s+e:[\s\S]*byte_builder_error_builder\s+e[\s\S]*stream_writer_error_with_writer\s+failed\s+StreamWriterErrorKind::AppendFailed/,
+    'push_u8_result must delegate byte storage and length advance to ByteBuilder while preserving the writer owner on failure',
+);
+assert.match(
+    code,
+    /fn\s+push_u8_impl\s+<\(StreamWriter,i32\)\*>StreamWriter>\s+\(w,\s*b\):[\s\S]*match\s+push_u8_result\s+w\s+b:/,
+    'push_u8_impl must be a compatibility wrapper around push_u8_result',
 );
 
 assert.doesNotMatch(
@@ -247,17 +265,27 @@ assert.doesNotMatch(
 
 assert.match(
     code,
-    /fn\s+append_str_impl\s+<\(StreamWriter,str\)\*>StreamWriter>\s+\(w,\s*s\):[\s\S]*while\s+lt\s+i\s+n:[\s\S]*match\s+checked_string_byte_at\s+s\s+i:[\s\S]*Option::Some\s+ch:[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch/,
-    'append_str_impl must stream through the alloc/string byte boundary and push_u8_impl',
+    /fn\s+append_str_result\s+<\(StreamWriter,str\)\*>Result<StreamWriter,StreamWriterError>>\s+\(w,\s*s\):[\s\S]*match\s+byte_builder_push_str\s+builder\s+s:[\s\S]*Result::Err\s+e:[\s\S]*byte_builder_error_builder\s+e[\s\S]*stream_writer_error_with_writer\s+failed\s+StreamWriterErrorKind::AppendFailed/,
+    'append_str_result must use the ByteBuilder string boundary and preserve the writer owner on failure',
+);
+assert.match(
+    code,
+    /fn\s+append_str_impl\s+<\(StreamWriter,str\)\*>StreamWriter>\s+\(w,\s*s\):[\s\S]*match\s+append_str_result\s+w\s+s:/,
+    'append_str_impl must be a compatibility wrapper around append_str_result',
 );
 
 assert.match(
     code,
-    /fn\s+append_bytebuf_impl\s+<\(StreamWriter,ByteBuf\)\*>StreamWriter>\s+\(w,\s*bytes\):[\s\S]*while\s+and\s+eq\s+done\s+0\s+lt\s+i\s+n:[\s\S]*match\s+stream_writer_bytebuf_byte_at\s+&bytes\s+i:[\s\S]*Option::Some\s+ch:[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch[\s\S]*io_bytebuf_free\s+bytes/,
-    'append_bytebuf_impl must stream through the borrowed ByteBuf byte boundary, preserve ownership cleanup, and avoid unsafe unwrap',
+    /fn\s+append_bytebuf_result\s+<\(StreamWriter,ByteBuf\)\*>Result<StreamWriter,StreamWriterError>>\s+\(w,\s*bytes\):[\s\S]*match\s+byte_builder_push_bytebuf\s+builder\s+bytes:[\s\S]*Result::Err\s+e:[\s\S]*get\s+e\s+"builder"[\s\S]*get\s+e\s+"bytes"[\s\S]*io_bytebuf_free\s+returned_bytes[\s\S]*stream_writer_error_with_writer\s+failed\s+StreamWriterErrorKind::AppendFailed/,
+    'append_bytebuf_result must use the ByteBuilder ByteBuf boundary, close rejected bytes, and preserve the writer owner',
+);
+assert.match(
+    code,
+    /fn\s+append_bytebuf_impl\s+<\(StreamWriter,ByteBuf\)\*>StreamWriter>\s+\(w,\s*bytes\):[\s\S]*match\s+append_bytebuf_result\s+w\s+bytes:/,
+    'append_bytebuf_impl must be a compatibility wrapper around append_bytebuf_result',
 );
 
 assert.doesNotMatch(code, /store_u8\s+mem_ptr_add\s+buf\s+off/, 'numeric writer helpers must not bypass push_u8_impl with direct buffer stores');
-assert.match(code, /fn\s+append_u64_digits_impl\s+<\(StreamWriter,i64\)\*>StreamWriter>[\s\S]*push_u8_impl/, 'numeric writer helpers must funnel digits through push_u8_impl');
+assert.match(code, /fn\s+append_u64_digits_result\s+<\(StreamWriter,i64\)\*>Result<StreamWriter,StreamWriterError>>[\s\S]*push_u8_result/, 'numeric writer helpers must funnel digits through push_u8_result');
 
 console.log('stdlib streamio unsafe unwrap regression passed');

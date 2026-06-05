@@ -14,6 +14,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 
 //: fs_str_lt: directory entry の安定順を決める byte 辞書順比較
 //:
@@ -58,7 +59,7 @@ pub fn fs_str_lt %fn str fn str bool \a\b:
         then answer
         else lt la lb
 
-//: fs_sort_strings: Vec str を in-place に安定した byte 順へ並べる
+//: fs_sort_strings_raw_errno: Vec str を in-place に安定した byte 順へ並べ、失敗を raw errno で返す
 //:
 //: 目的:
 //: - `fs_read_dir` の戻り値を platform 非依存の順序に揃えます。
@@ -73,7 +74,7 @@ pub fn fs_str_lt %fn str fn str bool \a\b:
 //:
 //: 計算量:
 //: - entry 数 n、名前長比較を含めて最悪 O(n^2)
-pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
+pub fn fs_sort_strings_raw_errno %impure fn &Vec str Result unit i32 \entries:
     let n %i32 v::len entries
     let mut i %i32 1
     let mut sort_error %i32 0
@@ -110,6 +111,22 @@ pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
         eq sort_error 0
         then Result::Ok unit
         else Result::Err sort_error
+
+//: fs_sort_strings: Vec str を in-place に安定した byte 順へ並べる
+//:
+//: [目的/もくてき]:
+//: - directory entry の sort failure を `FsError` として[返/かえ]し、通常 public API で raw errno を primary error にしないようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/path/entry" as *
+//: ```
+pub fn fs_sort_strings %impure fn &Vec str Result unit FsError \entries:
+    match fs_sort_strings_raw_errno entries:
+        Result::Ok _:
+            Result::Ok unit
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::SortEntries e
 
 pub fn fs_dir_name_is_dot %fn str bool \name:
     or str_eq name "." str_eq name ".."

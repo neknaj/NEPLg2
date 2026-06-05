@@ -18,6 +18,7 @@
 #import "core/result" as *
 #import "std/fs/bytes" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 #import "std/fs/raw" as *
 
 //: fs_fd_read_into_result: WASI fd_read の iov/nread scratch を fd read 境界へ閉じ込める内部 helper
@@ -139,7 +140,7 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
                                             unit
                                     Result::Err 12
 
-//: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
+//: fs_read_fd_bytes_raw_errno: fd から全て読み込み、失敗を raw errno で返す
 //:
 //: 目的:
 //: - fd の内容をすべて読み込み、バイト列として返します。
@@ -153,10 +154,10 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
 //:
 //: 計算量:
 //: - O(n)
-//: fs_read_fd_bytes: 使い方の最小例
+//: fs_read_fd_bytes_raw_errno: 使い方の最小例
 //:
 //: [目的/もくてき]:
-//: - `fs_read_fd_bytes` の典型的な使い方を最小構成で示します。
+//: - `fs_read_fd_bytes_raw_errno` の典型的な使い方を最小構成で示します。
 //: - 値を返す関数は結果の受け取り方も合わせて確認できます。
 //:
 //: [注意/ちゅうい]:
@@ -175,14 +176,14 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     match fs_read_fd_bytes 0:
+//:     match fs_read_fd_bytes_raw_errno 0:
 //:         Result::Ok bytes:
 //:             let text %str fs_bytes_to_string bytes;
 //:             if str_eq text "fd bytes" 0 1
 //:         Result::Err _e:
 //:             1
 //: ```
-pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
+pub fn fs_read_fd_bytes_raw_errno %impure fn i32 Result ByteBuf i32 \fd:
     let mut buffer_capacity %i32 65536;
     match alloc_region<u8> buffer_capacity:
         Result::Err _e:
@@ -272,3 +273,22 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                                             fs_finish_read_buffer buf_region read_len
                                         else:
                                             fs_discard_read_buffer buf_region read_error
+
+//: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
+//:
+//: [目的/もくてき]:
+//: - fd read loop の errno を `FsError` へ[包/つつ]み、通常 public API で raw integer を primary error にしないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - fd の open/close は caller の責務です。raw errno が必要な互換境界では `fs_read_fd_bytes_raw_errno` を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/read/fd" as *
+//: ```
+pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf FsError \fd:
+    match fs_read_fd_bytes_raw_errno fd:
+        Result::Ok bytes:
+            Result::Ok bytes
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::ReadFd e

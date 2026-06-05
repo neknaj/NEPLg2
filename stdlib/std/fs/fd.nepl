@@ -18,11 +18,13 @@
 #import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 #import "std/fs/raw" as *
-//: fs_open_with_flags: path_open の fd_out 確保と結果変換を共通化する
+//: fs_open_with_flags_raw_errno: path_open の fd_out 確保と errno 結果変換を共通化する raw helper
 //:
 //: 目的:
 //: - read/write で共通する WASI `path_open` 呼び出しを 1 箇所へ集約します。
+//: - host errno を保持する syscall 近傍の境界として使います。
 //:
 //: 実装(アルゴリズム):
 //: - fd_out 用の 4 byte buffer を確保し、`path_open` 成功時だけ fd を読み出して返します。
@@ -34,7 +36,12 @@
 //:
 //: 計算量:
 //: - O(1)
-pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 i32 \path\oflags\rights:
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/fd" as *
+//: ```
+pub fn fs_open_with_flags_raw_errno %impure fn str impure fn i32 impure fn i64 Result i32 i32 \path\oflags\rights:
     match alloc_region<u8> 4:
         Result::Err _e:
             Result::Err 12
@@ -63,6 +70,25 @@ pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 
                     unit;
             res
 
+//: fs_open_with_flags: path_open の fd_out 確保と typed error 変換を共通化する
+//:
+//: [目的/もくてき]:
+//: - public helper の通常名では raw errno を直接返さず、`FsError` に[操作/そうさ]と kind を[保持/ほじ]します。
+//:
+//: [注意/ちゅうい]:
+//: - raw errno が必要な境界では `fs_open_with_flags_raw_errno` を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/fd" as *
+//: ```
+pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 FsError \path\oflags\rights:
+    match fs_open_with_flags_raw_errno path oflags rights:
+        Result::Ok fd:
+            Result::Ok fd
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::OpenWithFlags e
+
 //: fs_open_read: ファイルを読み込み専用で開く
 //:
 //: 目的:
@@ -73,7 +99,7 @@ pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 
 //:
 //: 注意(重要):
 //: - dirfd は 3 (preopen) を仮定します。
-//: - 失敗時は Err(errno) を返します。
+//: - 失敗時は `Err(FsError)` を返します。
 //:
 //: 計算量:
 //: - O(1)
@@ -102,8 +128,21 @@ pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 
 //:         Result::Err _e:
 //:             1
 //: ```
-pub fn fs_open_read %impure fn str Result i32 i32 \path:
-    fs_open_with_flags path 0 fs_right_fd_read
+pub fn fs_open_read %impure fn str Result i32 FsError \path:
+    match fs_open_read_raw_errno path:
+        Result::Ok fd:
+            Result::Ok fd
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::OpenRead e
+
+//: fs_open_read_raw_errno: 読み込み fd open error を raw errno で返す互換境界
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/fd" as *
+//: ```
+pub fn fs_open_read_raw_errno %impure fn str Result i32 i32 \path:
+    fs_open_with_flags_raw_errno path 0 fs_right_fd_read
 
 //: fs_open_write: ファイルを書き込み専用で開く
 //:
@@ -116,7 +155,7 @@ pub fn fs_open_read %impure fn str Result i32 i32 \path:
 //: 注意(重要):
 //: - dirfd は 3 (preopen) を仮定します。
 //: - 既存ファイルは truncate されます。
-//: - 失敗時は Err(errno) を返します。
+//: - 失敗時は `Err(FsError)` を返します。
 //:
 //: 計算量:
 //: - O(1)
@@ -147,13 +186,26 @@ pub fn fs_open_read %impure fn str Result i32 i32 \path:
 //:         Result::Err _e:
 //:             1
 //: ```
-pub fn fs_open_write %impure fn str Result i32 i32 \path:
-    fs_open_with_flags path fs_oflags_create_truncate fs_right_fd_write
+pub fn fs_open_write %impure fn str Result i32 FsError \path:
+    match fs_open_write_raw_errno path:
+        Result::Ok fd:
+            Result::Ok fd
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::OpenWrite e
 
-//: fs_close: fd を閉じる
+//: fs_open_write_raw_errno: 書き込み fd open error を raw errno で返す互換境界
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/fd" as *
+//: ```
+pub fn fs_open_write_raw_errno %impure fn str Result i32 i32 \path:
+    fs_open_with_flags_raw_errno path fs_oflags_create_truncate fs_right_fd_write
+
+//: fs_close_raw_errno: fd を閉じ、host errno を raw integer で返す境界 helper
 //:
 //: 目的:
-//: - `fs_open_read` / `fs_open_write` で得た fd を明示的に閉じます。
+//: - fd close syscall の raw errno を保持します。
 //:
 //: 実装(アルゴリズム):
 //: - WASI `fd_close` を呼び、errno 0 を `Ok(unit)`、それ以外を `Err(errno)` に変換します。
@@ -163,7 +215,11 @@ pub fn fs_open_write %impure fn str Result i32 i32 \path:
 //:
 //: 計算量:
 //: - O(1)
-pub fn fs_close %impure fn i32 Result unit i32 \fd:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/fd" as *
+//: ```
+pub fn fs_close_raw_errno %impure fn i32 Result unit i32 \fd:
     let errno %i32 wasi_fd_close fd
     if:
         eq errno 0
@@ -171,3 +227,22 @@ pub fn fs_close %impure fn i32 Result unit i32 \fd:
             Result::Ok unit
         else:
             Result::Err errno
+
+//: fs_close: fd を閉じる
+//:
+//: [目的/もくてき]:
+//: - `fs_open_read` / `fs_open_write` で得た fd を閉じ、失敗を `FsError` として[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - read/write path API は close-after-operation を区別するため、必要に応じて raw 境界から別 operation へ包み直します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/fd" as *
+//: ```
+pub fn fs_close %impure fn i32 Result unit FsError \fd:
+    match fs_close_raw_errno fd:
+        Result::Ok _:
+            Result::Ok unit
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::CloseFd e

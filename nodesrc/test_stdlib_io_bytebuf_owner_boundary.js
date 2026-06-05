@@ -244,17 +244,26 @@ assert.doesNotMatch(
 
 assert.match(byteBuilderCode, /\b(?:mem_ptr_addr|load_u8|store_u8|mem_copy|RegionToken)\b/, 'ByteBuilder implementation modules must carry source-level raw memory evidence');
 
-const fsReadMatch = fsCode.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
-assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
-const fsRead = fsReadMatch[1];
-const fsFinishMatch = fsCode.match(/(?:pub\s+)?fn\s+fs_finish_read_buffer\b([\s\S]*?)\n(?:pub\s+)?fn\s+fs_read_fd_bytes\b/);
+const fsReadRawMatch = fsCode.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes_raw_errno\b([\s\S]*?)\n(?:pub\s+)?fn\s+fs_read_fd_bytes\b/);
+assert.ok(fsReadRawMatch, 'fs_read_fd_bytes_raw_errno body must be found');
+const fsReadRaw = fsReadRawMatch[1];
+const fsReadTypedMatch = fsCode.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
+assert.ok(fsReadTypedMatch, 'fs_read_fd_bytes body must be found');
+const fsReadTyped = fsReadTypedMatch[1];
+const fsFinishMatch = fsCode.match(/(?:pub\s+)?fn\s+fs_finish_read_buffer\b([\s\S]*?)\n(?:pub\s+)?fn\s+fs_read_fd_bytes_raw_errno\b/);
 assert.ok(fsFinishMatch, 'fs_finish_read_buffer body must be found');
 const fsFinish = fsFinishMatch[1];
 
 assert.match(
-    fsRead,
+    fsReadRaw,
     new RegExp(String.raw`\blet\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+65536[\s\S]*\balloc_region<u8>\s+\1[\s\S]*\brealloc_region_bytes_keep<u8>\s+buf_region\s+new_cap[\s\S]*\bfs_finish_read_buffer\s+buf_region\s+read_len\b`),
-    'fs_read_fd_bytes must finish through the ByteBuf ownership-normalizing helper',
+    'fs_read_fd_bytes_raw_errno must finish through the ByteBuf ownership-normalizing helper',
+);
+
+assert.match(
+    fsReadTyped,
+    /\bmatch\s+fs_read_fd_bytes_raw_errno\s+fd:[\s\S]*?\bResult::Err\s+fs_error_from_errno\s+FsOperation::ReadFd\s+e\b/,
+    'fs_read_fd_bytes must expose the typed FsError boundary while delegating raw ownership handling to fs_read_fd_bytes_raw_errno',
 );
 
 assert.match(

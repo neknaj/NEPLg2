@@ -3,206 +3,443 @@
 //:
 //: ### [目的/もくてき]
 //: - `i32` / `u32` / `u64` / `i64` の token parser を浮動小数点 parser から分離します。
-//: - 整数 parser は cursor helper と state boundary だけに依存し、raw buffer access を直接行いません。
+//: - primary API は `Result` で EOF / malformed token / cursor failure を返し、旧 API だけが互換用 sentinel に丸めます。
 
 #indent 4
 
 #import "alloc/io" as *
-#import "core/cast" as *
 #import "core/math" as *
+#import "core/math/convert/width" as *
+#import "core/result" as *
+#import "std/streamio/convert" as *
 #import "std/streamio/scanner/cursor" as *
+#import "std/streamio/scanner/error" as *
 #import "std/streamio/scanner/state" as *
 #import "core/field" as *
 
-//: ## scan_i32_impl
+//: ## scan_i32_result
 //: [次/つぎ]の token を `i32` として[読/よ]む
-pub fn scan_i32_impl %impure fn &StreamScanner i32 \sc:
-    stream_scanner_skip_ws_state sc;
-    let bytes %&ByteBuf get_ref sc "bytes";
-    let len %i32 stream_scanner_len sc;
-    let mut p %i32 stream_scanner_load_pos sc;
-    if:
-        ge p len
-        then:
-            0
-        else:
-            let mut sign %i32 1;
-            let b0 %i32 stream_scanner_byte_at bytes p;
-            if:
-                eq b0 '-'
-                then:
-                    set sign -1;
-                    set p add p 1;
-                else:
-                    unit;
-            let mut val %i32 0;
-            let mut done %i32 0;
-            while eq done 0:
-                if:
-                    lt p len
-                    then:
-                        let byte %i32 stream_scanner_byte_at bytes p;
-                        if:
-                            eq byte 0
-                            then:
-                                set p add p 1;
-                            else:
+//:
+//: ### [契約/けいやく]
+//: - token がない場合は `StreamScannerError::Eof` を返します。
+//: - sign だけ、または先頭が digit でない token は `StreamScannerError::MalformedToken` を返します。
+//: - 成功時だけ cursor を token 末尾へ進めます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "-42";
+//:| let n %i32 unwrap_ok scan_i32_result &sc;
+//:| close sc;
+//: ```
+pub fn scan_i32_result %impure fn &StreamScanner Result i32 StreamScannerError \sc:
+    match stream_scanner_skip_ws_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            let bytes %&ByteBuf get_ref sc "bytes";
+            let len %i32 stream_scanner_len sc;
+            match stream_scanner_load_pos_result sc:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok start:
+                    if:
+                        ge start len
+                        then:
+                            Result::Err StreamScannerError::Eof
+                        else:
+                            let mut p %i32 start;
+                            let mut sign %i32 1;
+                            let mut failed %i32 0;
+                            let mut err %StreamScannerError StreamScannerError::InvalidByteBuffer;
+                            match stream_scanner_byte_at_result bytes p:
+                                Result::Err e:
+                                    set err e;
+                                    set failed 1;
+                                Result::Ok b0:
+                                    if:
+                                        eq b0 '-'
+                                        then:
+                                            set sign -1;
+                                            set p add p 1;
+                                        else:
+                                            if:
+                                                eq b0 '+'
+                                                then:
+                                                    set p add p 1;
+                                                else:
+                                                    unit;
+                            let mut val %i32 0;
+                            let mut any_digit %i32 0;
+                            let mut done %i32 0;
+                            while eq done 0:
                                 if:
-                                    stream_scanner_is_ascii_digit byte
+                                    and eq failed 0 lt p len
                                     then:
-                                        set val add mul val 10 stream_scanner_digit_value byte;
-                                        set p add p 1;
+                                        match stream_scanner_byte_at_result bytes p:
+                                            Result::Err e:
+                                                set err e;
+                                                set failed 1;
+                                                set done 1;
+                                            Result::Ok byte:
+                                                if:
+                                                    stream_scanner_is_ascii_digit byte
+                                                    then:
+                                                        set val add mul val 10 stream_scanner_digit_value byte;
+                                                        set p add p 1;
+                                                        set any_digit 1;
+                                                    else:
+                                                        set done 1;
                                     else:
                                         set done 1;
-                    else:
-                        set done 1;
-            stream_scanner_store_pos sc p;
-            mul val sign
+                            if:
+                                eq failed 1
+                                then:
+                                    Result::Err err
+                                else:
+                                    if:
+                                        eq any_digit 0
+                                        then:
+                                            Result::Err StreamScannerError::MalformedToken
+                                        else:
+                                            match stream_scanner_store_pos_result sc p:
+                                                Result::Err e:
+                                                    Result::Err e
+                                                Result::Ok _:
+                                                    Result::Ok mul val sign
+
+//: ## scan_i32_impl
+//: `scan_i32_result` の互換 facade
+pub fn scan_i32_impl %impure fn &StreamScanner i32 \sc:
+    match scan_i32_result sc:
+        Result::Ok value:
+            value
+        Result::Err _e:
+            0
+
+//: ## scan_u32_result
+//: [次/つぎ]の token を `u32` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - 先頭 `-` は unsigned token として不正なので `StreamScannerError::MalformedToken` を返します。
+//: - 成功時だけ cursor を token 末尾へ進めます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "42";
+//:| let n %u32 unwrap_ok scan_u32_result &sc;
+//:| close sc;
+//: ```
+pub fn scan_u32_result %impure fn &StreamScanner Result u32 StreamScannerError \sc:
+    match stream_scanner_skip_ws_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            let bytes %&ByteBuf get_ref sc "bytes";
+            let len %i32 stream_scanner_len sc;
+            match stream_scanner_load_pos_result sc:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok start:
+                    if:
+                        ge start len
+                        then:
+                            Result::Err StreamScannerError::Eof
+                        else:
+                            let mut p %i32 start;
+                            let mut failed %i32 0;
+                            let mut malformed %i32 0;
+                            let mut err %StreamScannerError StreamScannerError::InvalidByteBuffer;
+                            match stream_scanner_byte_at_result bytes p:
+                                Result::Err e:
+                                    set err e;
+                                    set failed 1;
+                                Result::Ok b0:
+                                    if:
+                                        eq b0 '-'
+                                        then:
+                                            set malformed 1;
+                                        else:
+                                            if:
+                                                eq b0 '+'
+                                                then:
+                                                    set p add p 1;
+                                                else:
+                                                    unit;
+                            if:
+                                eq malformed 1
+                                then:
+                                    Result::Err StreamScannerError::MalformedToken
+                                else:
+                                    let mut val %i32 0;
+                                    let mut any_digit %i32 0;
+                                    let mut done %i32 0;
+                                    while eq done 0:
+                                        if:
+                                            and eq failed 0 lt p len
+                                            then:
+                                                match stream_scanner_byte_at_result bytes p:
+                                                    Result::Err e:
+                                                        set err e;
+                                                        set failed 1;
+                                                        set done 1;
+                                                    Result::Ok byte:
+                                                        if:
+                                                            stream_scanner_is_ascii_digit byte
+                                                            then:
+                                                                let digit %i32 stream_scanner_digit_value byte;
+                                                                let scaled %i32 mul val 10;
+                                                                set val add scaled digit;
+                                                                set p add p 1;
+                                                                set any_digit 1;
+                                                            else:
+                                                                set done 1;
+                                            else:
+                                                set done 1;
+                                    if:
+                                        eq failed 1
+                                        then:
+                                            Result::Err err
+                                        else:
+                                            if:
+                                                eq any_digit 0
+                                                then:
+                                                    Result::Err StreamScannerError::MalformedToken
+                                                else:
+                                                    match stream_scanner_store_pos_result sc p:
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                        Result::Ok _:
+                                                            Result::Ok streamio_i32_to_u32_bits val
 
 //: ## scan_u32_impl
-//: [次/つぎ]の token を `u32` として[読/よ]む
+//: `scan_u32_result` の互換 facade
 pub fn scan_u32_impl %impure fn &StreamScanner u32 \sc:
-    stream_scanner_skip_ws_state sc;
-    let bytes %&ByteBuf get_ref sc "bytes";
-    let len %i32 stream_scanner_len sc;
-    let mut p %i32 stream_scanner_load_pos sc;
-    if:
-        ge p len
-        then:
-            %u32 cast 0
-        else:
-            if:
-                eq stream_scanner_byte_at bytes p '+'
-                then:
-                    set p add p 1;
-                else:
-                    unit;
-            let mut val %i32 0;
-            let mut done %i32 0;
-            while eq done 0:
-                if:
-                    lt p len
-                    then:
-                        let byte %i32 stream_scanner_byte_at bytes p;
-                        if:
-                            eq byte 0
-                            then:
-                                set p add p 1;
-                            else:
-                                if:
-                                    stream_scanner_is_ascii_digit byte
-                                    then:
-                                        let digit %i32 stream_scanner_digit_value byte;
-                                        let scaled %i32 mul val 10;
-                                        set val add scaled digit;
-                                        set p add p 1;
-                                    else:
-                                        set done 1;
-                    else:
-                        set done 1;
-            stream_scanner_store_pos sc p;
-            %u32 cast val
+    match scan_u32_result sc:
+        Result::Ok value:
+            value
+        Result::Err _e:
+            streamio_i32_to_u32_bits 0
+
+//: ## scan_u64_result
+//: [次/つぎ]の token を `u64` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - 先頭 `-` は unsigned token として不正なので `StreamScannerError::MalformedToken` を返します。
+//: - parser 内部では `i64` の bit pattern を通して `u64` へ戻し、公開 API では `u64` を返します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "42";
+//:| let n %u64 unwrap_ok scan_u64_result &sc;
+//:| close sc;
+//: ```
+pub fn scan_u64_result %impure fn &StreamScanner Result u64 StreamScannerError \sc:
+    match stream_scanner_skip_ws_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            let bytes %&ByteBuf get_ref sc "bytes";
+            let len %i32 stream_scanner_len sc;
+            match stream_scanner_load_pos_result sc:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok start:
+                    if:
+                        ge start len
+                        then:
+                            Result::Err StreamScannerError::Eof
+                        else:
+                            let mut p %i32 start;
+                            let mut failed %i32 0;
+                            let mut malformed %i32 0;
+                            let mut err %StreamScannerError StreamScannerError::InvalidByteBuffer;
+                            match stream_scanner_byte_at_result bytes p:
+                                Result::Err e:
+                                    set err e;
+                                    set failed 1;
+                                Result::Ok b0:
+                                    if:
+                                        eq b0 '-'
+                                        then:
+                                            set malformed 1;
+                                        else:
+                                            if:
+                                                eq b0 '+'
+                                                then:
+                                                    set p add p 1;
+                                                else:
+                                                    unit;
+                            if:
+                                eq malformed 1
+                                then:
+                                    Result::Err StreamScannerError::MalformedToken
+                                else:
+                                    let mut val %i64 extend_s_i32_to_i64 0;
+                                    let mut any_digit %i32 0;
+                                    let mut done %i32 0;
+                                    while eq done 0:
+                                        if:
+                                            and eq failed 0 lt p len
+                                            then:
+                                                match stream_scanner_byte_at_result bytes p:
+                                                    Result::Err e:
+                                                        set err e;
+                                                        set failed 1;
+                                                        set done 1;
+                                                    Result::Ok byte:
+                                                        if:
+                                                            stream_scanner_is_ascii_digit byte
+                                                            then:
+                                                                let digit32 %i32 stream_scanner_digit_value byte;
+                                                                let digit %i64 extend_s_i32_to_i64 digit32;
+                                                                let scaled %i64 mul val extend_s_i32_to_i64 10;
+                                                                set val add scaled digit;
+                                                                set p add p 1;
+                                                                set any_digit 1;
+                                                            else:
+                                                                set done 1;
+                                            else:
+                                                set done 1;
+                                    if:
+                                        eq failed 1
+                                        then:
+                                            Result::Err err
+                                        else:
+                                            if:
+                                                eq any_digit 0
+                                                then:
+                                                    Result::Err StreamScannerError::MalformedToken
+                                                else:
+                                                    match stream_scanner_store_pos_result sc p:
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                        Result::Ok _:
+                                                            Result::Ok streamio_i64_to_u64_bits val
 
 //: ## scan_u64_impl
-//: [次/つぎ]の token を `u64` として[読/よ]む
+//: `scan_u64_result` の互換 facade
 pub fn scan_u64_impl %impure fn &StreamScanner u64 \sc:
-    stream_scanner_skip_ws_state sc;
-    let bytes %&ByteBuf get_ref sc "bytes";
-    let len %i32 stream_scanner_len sc;
-    let mut p %i32 stream_scanner_load_pos sc;
-    if:
-        ge p len
-        then:
-            let zero64 %i64 cast 0;
-            %u64 cast zero64
-        else:
-            if:
-                eq stream_scanner_byte_at bytes p '+'
-                then:
-                    set p add p 1;
-                else:
-                    unit;
-            let mut val %i64 cast 0;
-            let mut done %i32 0;
-            while eq done 0:
-                if:
-                    lt p len
-                    then:
-                        let byte %i32 stream_scanner_byte_at bytes p;
-                        if:
-                            eq byte 0
-                            then:
-                                set p add p 1;
-                            else:
+    match scan_u64_result sc:
+        Result::Ok value:
+            value
+        Result::Err _e:
+            let zero64 %i64 extend_s_i32_to_i64 0;
+            streamio_i64_to_u64_bits zero64
+
+//: ## scan_i64_result
+//: [次/つぎ]の token を `i64` として[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - token がない場合は `StreamScannerError::Eof` を返します。
+//: - sign だけ、または先頭が digit でない token は `StreamScannerError::MalformedToken` を返します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/result" as *
+//:| #import "std/iotarget" as *
+//:| #import "std/streamio/scanner" as *
+//:| let sc %StreamScanner unwrap_ok open ReadStream::Text "-42";
+//:| let n %i64 unwrap_ok scan_i64_result &sc;
+//:| close sc;
+//: ```
+pub fn scan_i64_result %impure fn &StreamScanner Result i64 StreamScannerError \sc:
+    match stream_scanner_skip_ws_result sc:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            let bytes %&ByteBuf get_ref sc "bytes";
+            let len %i32 stream_scanner_len sc;
+            match stream_scanner_load_pos_result sc:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok start:
+                    if:
+                        ge start len
+                        then:
+                            Result::Err StreamScannerError::Eof
+                        else:
+                            let mut p %i32 start;
+                            let mut is_neg %i32 0;
+                            let mut failed %i32 0;
+                            let mut err %StreamScannerError StreamScannerError::InvalidByteBuffer;
+                            match stream_scanner_byte_at_result bytes p:
+                                Result::Err e:
+                                    set err e;
+                                    set failed 1;
+                                Result::Ok b0:
+                                    if:
+                                        eq b0 '-'
+                                        then:
+                                            set is_neg 1;
+                                            set p add p 1;
+                                        else:
+                                            if:
+                                                eq b0 '+'
+                                                then:
+                                                    set p add p 1;
+                                                else:
+                                                    unit;
+                            let mut val %i64 extend_s_i32_to_i64 0;
+                            let mut any_digit %i32 0;
+                            let mut done %i32 0;
+                            while eq done 0:
                                 if:
-                                    stream_scanner_is_ascii_digit byte
+                                    and eq failed 0 lt p len
                                     then:
-                                        let digit32 %i32 stream_scanner_digit_value byte;
-                                        let digit %i64 cast digit32;
-                                        let scaled %i64 mul val %i64 cast 10;
-                                        set val add scaled digit;
-                                        set p add p 1;
+                                        match stream_scanner_byte_at_result bytes p:
+                                            Result::Err e:
+                                                set err e;
+                                                set failed 1;
+                                                set done 1;
+                                            Result::Ok byte:
+                                                if:
+                                                    stream_scanner_is_ascii_digit byte
+                                                    then:
+                                                        let digit32 %i32 stream_scanner_digit_value byte;
+                                                        let digit %i64 extend_s_i32_to_i64 digit32;
+                                                        let scaled %i64 mul val extend_s_i32_to_i64 10;
+                                                        set val add scaled digit;
+                                                        set p add p 1;
+                                                        set any_digit 1;
+                                                    else:
+                                                        set done 1;
                                     else:
                                         set done 1;
-                    else:
-                        set done 1;
-            stream_scanner_store_pos sc p;
-            %u64 cast val
+                            if:
+                                eq failed 1
+                                then:
+                                    Result::Err err
+                                else:
+                                    if:
+                                        eq any_digit 0
+                                        then:
+                                            Result::Err StreamScannerError::MalformedToken
+                                        else:
+                                            match stream_scanner_store_pos_result sc p:
+                                                Result::Err e:
+                                                    Result::Err e
+                                                Result::Ok _:
+                                                    if:
+                                                        eq is_neg 1
+                                                        then:
+                                                            Result::Ok sub extend_s_i32_to_i64 0 val
+                                                        else:
+                                                            Result::Ok val
 
 //: ## scan_i64_impl
-//: [次/つぎ]の token を `i64` として[読/よ]む
+//: `scan_i64_result` の互換 facade
 pub fn scan_i64_impl %impure fn &StreamScanner i64 \sc:
-    stream_scanner_skip_ws_state sc;
-    let bytes %&ByteBuf get_ref sc "bytes";
-    let len %i32 stream_scanner_len sc;
-    let mut p %i32 stream_scanner_load_pos sc;
-    if:
-        ge p len
-        then:
-            %i64 cast 0
-        else:
-            let mut is_neg %i32 0;
-            let b0 %i32 stream_scanner_byte_at bytes p;
-            if:
-                eq b0 '-'
-                then:
-                    set is_neg 1;
-                    set p add p 1;
-                else:
-                    if:
-                        eq b0 '+'
-                        then:
-                            set p add p 1;
-                        else:
-                            unit;
-            let mut val %i64 cast 0;
-            let mut done %i32 0;
-            while eq done 0:
-                if:
-                    lt p len
-                    then:
-                        let byte %i32 stream_scanner_byte_at bytes p;
-                        if:
-                            eq byte 0
-                            then:
-                                set p add p 1;
-                            else:
-                                if:
-                                    stream_scanner_is_ascii_digit byte
-                                    then:
-                                        let digit32 %i32 stream_scanner_digit_value byte;
-                                        let digit %i64 cast digit32;
-                                        let scaled %i64 mul val %i64 cast 10;
-                                        set val add scaled digit;
-                                        set p add p 1;
-                                    else:
-                                        set done 1;
-                    else:
-                        set done 1;
-            stream_scanner_store_pos sc p;
-            if:
-                eq is_neg 1
-                then:
-                    sub %i64 cast 0 val
-                else:
-                    val
+    match scan_i64_result sc:
+        Result::Ok value:
+            value
+        Result::Err _e:
+            extend_s_i32_to_i64 0

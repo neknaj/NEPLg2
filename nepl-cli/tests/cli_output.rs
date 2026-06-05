@@ -49,7 +49,7 @@ fn main <()*>i32> ():
         Result::Ok text:
             if str_eq text "sandbox-ok" 0 91
         Result::Err e:
-            e
+            fs_error_to_errno e
 "#
 }
 
@@ -67,7 +67,8 @@ fn main <()*>i32> ():
         Result::Ok _content:
             95
         Result::Err e:
-            if eq e 76 0 95
+            let errno <i32> fs_error_to_errno e;
+            if eq errno 76 0 95
 "#
 }
 
@@ -85,7 +86,8 @@ fn main <()*>i32> ():
         Result::Ok _content:
             94
         Result::Err e:
-            if eq e 44 0 94
+            let errno <i32> fs_error_to_errno e;
+            if eq errno 44 0 94
 "#
 }
 
@@ -102,7 +104,7 @@ fn main <()*>i32> ():
         Result::Ok _:
             0
         Result::Err e:
-            e
+            fs_error_to_errno e
 "#
 }
 
@@ -120,7 +122,8 @@ fn main <()*>i32> ():
         Result::Ok _:
             95
         Result::Err e:
-            if eq e 76 0 95
+            let errno <i32> fs_error_to_errno e;
+            if eq errno 76 0 95
 "#
 }
 
@@ -140,7 +143,8 @@ fn main <()*>i32> ():
         Result::Ok _filetype:
             false
         Result::Err e:
-            eq e 76
+            let errno <i32> fs_error_to_errno e;
+            eq errno 76
     if and ok_dir and ok_file ok_escape 0 91
 "#
 }
@@ -160,7 +164,7 @@ fn fs_readdir_source() -> &'static str {
 fn main <()*>i32> ():
     match fs_read_dir "dir":
         Result::Err e:
-            e
+            fs_error_to_errno e
         Result::Ok entries:
             let ok_len <bool> eq v::len<str> &entries 3;
             let ok0 <bool> match v::get<str> &entries 0:
@@ -198,7 +202,8 @@ fn fs_std_read_dir_source() -> &'static str {
 fn main <()*>i32> ():
     match fs_read_dir "dir":
         Result::Err e:
-            add 90 e
+            let errno <i32> fs_error_to_errno e;
+            add 90 errno
         Result::Ok entries:
             let ok_len <bool> eq v::len<str> &entries 3;
             let ok0 <bool> match v::get<str> &entries 0:

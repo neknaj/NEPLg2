@@ -6,7 +6,7 @@
 //: - selfhost の module discovery が read 失敗に頼らず候補 path を分類できるようにします。
 //:
 //: ### 注意
-//: - 権限違反や preopen root escape は existence false として扱います。詳細 errno が必要な場合は `fs_path_filetype` を使ってください。
+//: - 権限違反や preopen root escape は existence false として扱います。詳細 error が必要な場合は `fs_path_filetype` を使ってください。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -28,6 +28,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
+#import "std/fs/error" as *
 #import "std/fs/path" as *
 #import "std/fs/raw" as *
 #import "core/field" as *
@@ -66,7 +67,7 @@ fn fs_path_filetype_normalized %impure fn str Result i32 i32 \stat_path:
                     unit
             res
 
-//: fs_path_filetype: path の WASI filetype を取得する
+//: fs_path_filetype_raw_errno: path の WASI filetype を取得し、失敗を raw errno で返す
 //:
 //: 目的:
 //: - existence check と file/dir 判定を、read 失敗の副作用に頼らず取得します。
@@ -82,8 +83,8 @@ fn fs_path_filetype_normalized %impure fn str Result i32 i32 \stat_path:
 //:
 //: 計算量:
 //: - path 正規化 O(n) と host stat 1 回
-pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
-    match fs_normalize_relative_builder path:
+pub fn fs_path_filetype_raw_errno %impure fn str Result i32 i32 \path:
+    match fs_normalize_relative_builder_raw_errno path:
         Result::Err e:
             Result::Err e
         Result::Ok normalized:
@@ -92,6 +93,25 @@ pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
                     Result::Err 12
                 Result::Ok stat_path:
                     fs_path_filetype_normalized stat_path
+
+//: fs_path_filetype: path の WASI filetype を取得する
+//:
+//: [目的/もくてき]:
+//: - existence check と file/dir 判定を、read 失敗の副作用に頼らず取得します。
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時は `FsError` を返します。errno 互換が必要な境界では `fs_path_filetype_raw_errno` を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/fs/stat" as *
+//: ```
+pub fn fs_path_filetype %impure fn str Result i32 FsError \path:
+    match fs_path_filetype_raw_errno path:
+        Result::Ok kind:
+            Result::Ok kind
+        Result::Err e:
+            Result::Err fs_error_from_errno FsOperation::PathFileType e
 
 //: fs_exists: path が preopen root 内に存在するかを返す
 //:
@@ -102,7 +122,7 @@ pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
 //: - `fs_path_filetype` が成功するかどうかだけを bool に変換します。
 //:
 //: 注意(重要):
-//: - 権限違反や root escape も false になります。詳細 errno が必要なら `fs_path_filetype` を使ってください。
+//: - 権限違反や root escape も false になります。詳細 error が必要なら `fs_path_filetype` を使ってください。
 //:
 //: 計算量:
 //: - host stat 1 回

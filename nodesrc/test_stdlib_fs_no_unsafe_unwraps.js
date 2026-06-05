@@ -34,10 +34,15 @@ const relPaths = [
     'stdlib/std/fs/write/path.nepl',
 ];
 
-function implementation(relPath) {
-    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
+function source(relPath) {
+    return fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 }
 
+function implementation(relPath) {
+    return legacyTypeSyntaxView(sourceByPath.get(relPath));
+}
+
+const sourceByPath = new Map(relPaths.map((relPath) => [relPath, source(relPath)]));
 const codeByPath = new Map(relPaths.map((relPath) => [relPath, implementation(relPath)]));
 const combinedCode = [...codeByPath.values()].join('\n');
 const facadeCode = codeByPath.get('stdlib/std/fs.nepl');
@@ -75,6 +80,38 @@ const forbidden = [
 for (const pattern of forbidden) {
     for (const [relPath, code] of codeByPath) {
         assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
+    }
+}
+
+for (const [relPath, code] of codeByPath) {
+    const lines = code.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+        const declaration = lines[i].match(/^\s*pub\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
+        if (!declaration || !/\bResult<[\s\S]*,i32>>/.test(lines[i])) {
+            continue;
+        }
+        const name = declaration[1];
+        assert.match(
+            name,
+            /(?:_raw_errno|_errno|_errno_result)$|^__/,
+            `${relPath}:${i + 1} public fs APIs returning raw i32 errors must be explicitly named as raw/errno compatibility boundaries`,
+        );
+    }
+}
+
+for (const [relPath, code] of sourceByPath) {
+    const lines = code.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+        const declaration = lines[i].match(/^\s*pub\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
+        if (!declaration || !/\bResult\b[^\n\\]*\bi32\s+\\/.test(lines[i])) {
+            continue;
+        }
+        const name = declaration[1];
+        assert.match(
+            name,
+            /(?:_raw_errno|_errno|_errno_result)$|^__/,
+            `${relPath}:${i + 1} current-syntax public fs APIs returning raw i32 errors must be explicitly named as raw/errno compatibility boundaries`,
+        );
     }
 }
 
@@ -119,7 +156,7 @@ assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_fd_bytes\b/, 'std/fs facade must
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_to_bytes\b/, 'std/fs facade must not inline path read helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_fd_bytes\b/, 'std/fs facade must not inline fd write helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_to_bytes\b/, 'std/fs facade must not inline path write helpers');
-assert.match(errorCode, /\bpub\s+enum\s+FsOperation\b[\s\S]*\bCloseAfterRead\b[\s\S]*\bCloseAfterWrite\b/, 'std/fs/error must identify close-after-operation failures as typed operations');
+assert.match(errorCode, /\bpub\s+enum\s+FsOperation\b[\s\S]*\bOpenWithFlags\b[\s\S]*\bOpenDir\b[\s\S]*\bReadDirFd\b[\s\S]*\bCloseAfterReadDir\b[\s\S]*\bNormalizePath\b[\s\S]*\bSortEntries\b/, 'std/fs/error must identify lower filesystem failures as typed operations');
 assert.match(errorCode, /\bpub\s+enum\s+FsErrorKind\b[\s\S]*\bInvalidUtf8\b[\s\S]*\bOutOfMemory\b[\s\S]*\bNotCapable\b/, 'std/fs/error must expose typed filesystem error kinds');
 assert.match(errorCode, /\bpub\s+struct\s+FsError\b[\s\S]*\boperation\s+<FsOperation>[\s\S]*\bkind\s+<FsErrorKind>[\s\S]*\berrno\s+<Option<i32>>/, 'std/fs/error must store operation, kind, and optional errno as structured payload');
 assert.match(errorCode, /\bfn\s+fs_error_to_errno\b[\s\S]*\bmatch\s+fs_error_errno\s+&err\b[\s\S]*\bfs_errno_ilseq\b/, 'errno projection must be an explicit compatibility function on FsError');
@@ -137,23 +174,26 @@ for (const [relPath, code] of [
     assert.match(code, /#import\s+"std\/fs\/raw"\s+as\s+\*/, `${relPath} must import std/fs/raw explicitly when crossing the raw ABI boundary`);
 }
 
-assert.match(fdCode, /\bfn\s+fs_open_with_flags\b[\s\S]*\balloc_region<u8>\s+4[\s\S]*\blet\s+fd_out_buf\s+<MemPtr<u8>>\s+region_ptr\s+&fd_out_region[\s\S]*\bwasi_path_open\b[\s\S]*\bdealloc_region<u8>\s+fd_out_region/, 'fs open fd_out scratch must be owned by RegionToken and keep path_open raw out pointer local');
+assert.match(fdCode, /\bfn\s+fs_open_with_flags_raw_errno\b[\s\S]*\balloc_region<u8>\s+4[\s\S]*\blet\s+fd_out_buf\s+<MemPtr<u8>>\s+region_ptr\s+&fd_out_region[\s\S]*\bwasi_path_open\b[\s\S]*\bdealloc_region<u8>\s+fd_out_region/, 'fs open fd_out scratch must be owned by RegionToken and keep path_open raw out pointer local');
+assert.match(fdCode, /\bfn\s+fs_open_with_flags\b[\s\S]*Result<i32,FsError>[\s\S]*fs_open_with_flags_raw_errno\s+path\s+oflags\s+rights[\s\S]*fs_error_from_errno\s+FsOperation::OpenWithFlags\s+e/, 'fs_open_with_flags normal API must be a typed wrapper over the raw errno boundary');
 assert.doesNotMatch(fdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/fd must not use MemPtr as a scratch free-obligation owner');
 assert.match(statCode, /\bfn\s+fs_path_filetype_normalized\b[\s\S]*\balloc_region<u8>\s+64[\s\S]*\blet\s+stat_buf\s+<MemPtr<u8>>\s+region_ptr\s+&stat_region[\s\S]*\bwasi_path_filestat_get\b[\s\S]*\bdealloc_region<u8>\s+stat_region/, 'fs stat out buffer must be owned by RegionToken and keep filestat raw layout local');
-assert.match(statCode, /\bpub\s+fn\s+fs_path_filetype\b[\s\S]*\bfs_normalize_relative_builder\s+path[\s\S]*\bfs_path_filetype_normalized\s+stat_path/, 'fs path filetype public API must normalize paths before entering the raw stat boundary');
+assert.match(statCode, /\bpub\s+fn\s+fs_path_filetype_raw_errno\b[\s\S]*\bfs_normalize_relative_builder_raw_errno\s+path[\s\S]*\bfs_path_filetype_normalized\s+stat_path/, 'fs raw path filetype API must normalize paths before entering the raw stat boundary');
+assert.match(statCode, /\bpub\s+fn\s+fs_path_filetype\b[\s\S]*Result<i32,FsError>[\s\S]*fs_path_filetype_raw_errno\s+path[\s\S]*fs_error_from_errno\s+FsOperation::PathFileType\s+e/, 'fs_path_filetype normal API must be a typed wrapper over the raw errno boundary');
 assert.doesNotMatch(statCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/stat must not use MemPtr as a scratch free-obligation owner');
 
 assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/fd"\s+as\s+\*/, 'std/fs/read facade must re-export fd read helper submodule');
 assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/path"\s+as\s+\*/, 'std/fs/read facade must re-export path read helper submodule');
 assert.doesNotMatch(readCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/read root must stay a facade without implementation bodies');
-assert.match(readFdCode, new RegExp(String.raw`\bfn\s+fs_read_fd_bytes\b[\s\S]*\blet\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+65536[\s\S]*\balloc_region<u8>\s+\1[\s\S]*\blet\s+mut\s+buf_region\s+<RegionToken<u8>>[\s\S]*\brealloc_region_bytes_keep<u8>\s+buf_region\s+new_cap[\s\S]*\bfs_fd_read_into_result\b[\s\S]*\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region[\s\S]*\bfs_finish_read_buffer\s+buf_region\s+read_len\b`), 'fd read loop must own growable buffer and scratch through RegionToken in std/fs/read/fd');
+assert.match(readFdCode, new RegExp(String.raw`\bfn\s+fs_read_fd_bytes_raw_errno\b[\s\S]*\blet\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+65536[\s\S]*\balloc_region<u8>\s+\1[\s\S]*\blet\s+mut\s+buf_region\s+<RegionToken<u8>>[\s\S]*\brealloc_region_bytes_keep<u8>\s+buf_region\s+new_cap[\s\S]*\bfs_fd_read_into_result\b[\s\S]*\bdealloc_region<u8>\s+nread_region[\s\S]*\bdealloc_region<u8>\s+iov_region[\s\S]*\bfs_finish_read_buffer\s+buf_region\s+read_len\b`), 'fd read loop must own growable buffer and scratch through RegionToken in std/fs/read/fd');
+assert.match(readFdCode, /\bfn\s+fs_read_fd_bytes\b[\s\S]*Result<ByteBuf,FsError>[\s\S]*fs_read_fd_bytes_raw_errno\s+fd[\s\S]*fs_error_from_errno\s+FsOperation::ReadFd\s+e/, 'fs_read_fd_bytes normal API must be a typed wrapper over the raw errno boundary');
 assert.doesNotMatch(readFdCode, /\bpub\s+fn\s+fs_fd_read_into_result\b/, 'raw fd_read MemPtr helper must stay private inside std/fs/read/fd');
 assert.match(readFdCode, /\bfn\s+fs_fd_read_into_result\b[\s\S]*\bstore_i32\s+iov_raw\s+data_raw[\s\S]*\bwasi_fd_read\s+fd\s+iov_raw\s+1\s+nread_raw[\s\S]*\bload_i32\s+nread_raw/, 'fd read scratch initialization must stay inside the std/fs/read/fd owner boundary');
 assert.match(readFdCode, /\bfn\s+fs_discard_read_buffer\s+<\(RegionToken<u8>,i32\)\*>/, 'fs read discard helper must consume a RegionToken owner, not a MemPtr owner');
 assert.match(readFdCode, /\bfn\s+fs_finish_read_buffer\s+<\(RegionToken<u8>,i32\)\*>[\s\S]*\brealloc_region_bytes_keep<u8>[\s\S]*\bio_bytebuf_finish_region\b/, 'ByteBuf finish ownership normalization must stay on the RegionToken owner boundary in std/fs/read/fd');
 assert.doesNotMatch(readFdCode, /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/, 'std/fs/read/fd must not import low-level MemPtr owner allocation wrappers');
 assert.doesNotMatch(readFdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/read/fd must not use MemPtr as a read buffer or scratch free-obligation owner');
-assert.match(readPathCode, /\bfn\s+fs_read_to_bytes\b[\s\S]*\bResult<ByteBuf,\s*FsError>[\s\S]*\bfs_open_read\s+path[\s\S]*\bfs_read_fd_bytes\s+fd[\s\S]*\bfs_close\s+fd/, 'path read API must stay typed in std/fs/read/path');
+assert.match(readPathCode, /\bfn\s+fs_read_to_bytes\b[\s\S]*\bResult<ByteBuf,\s*FsError>[\s\S]*\bfs_open_read\s+path[\s\S]*\bfs_read_fd_bytes\s+fd[\s\S]*\bfs_close_raw_errno\s+fd/, 'path read API must stay typed in std/fs/read/path and only use raw close when remapping close-after-read');
 assert.match(readPathCode, /\bfn\s+fs_read_to_string\b[\s\S]*\bResult<str,\s*FsError>[\s\S]*\bfs_bytes_to_string_result\s+bytes/, 'path text read API must use checked ByteBuf conversion and preserve FsError in std/fs/read/path');
 assert.match(readPathCode, /\bfn\s+fs_read_to_string_errno\b[\s\S]*\bfs_read_to_string\s+path[\s\S]*\bfs_error_to_errno\s+e/, 'path text read errno compatibility must be an explicit wrapper over typed read');
 assert.doesNotMatch(readPathCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_raw|fs_fd_read_into_result)\b/, 'std/fs/read/path must not own fd scratch raw read loop');
@@ -165,8 +205,9 @@ assert.doesNotMatch(writeFdCode, /\bpub\s+fn\s+fs_write_fd_mem_result\b/, 'raw M
 assert.doesNotMatch(writeFdCode, /\bpub\s+fn\s+fs_fd_write_from_result\b/, 'raw fd_write MemPtr helper must stay private inside std/fs/write/fd');
 assert.match(writeFdCode, /\bfn\s+fs_fd_write_from_result\b[\s\S]*\bstore_i32\s+iov_raw\s+data_raw[\s\S]*\bwasi_fd_write\s+fd\s+iov_raw\s+1\s+nwritten_raw[\s\S]*\bload_i32\s+nwritten_raw/, 'fd write scratch initialization must stay inside the std/fs/write/fd owner boundary');
 assert.doesNotMatch(writeFdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/write/fd must not use MemPtr as a scratch free-obligation owner');
-assert.match(writeFdCode, /\bfn\s+fs_write_fd_bytes\b[\s\S]*\bfs_write_fd_mem_result\s+fd\s+data\s+data_len[\s\S]*\bio_bytebuf_free\s+bytes/, 'ByteBuf-consuming fd write API must stay in std/fs/write/fd and close storage through the ByteBuf owner boundary');
-assert.match(writePathCode, /\bfn\s+fs_write_to_bytes\b[\s\S]*\bResult<unit,\s*FsError>[\s\S]*\bfs_open_write\s+path[\s\S]*\bfs_write_fd_bytes\s+fd\s+bytes[\s\S]*\bfs_close\s+fd/, 'path write API must stay typed in std/fs/write/path');
+assert.match(writeFdCode, /\bfn\s+fs_write_fd_bytes_raw_errno\b[\s\S]*\bfs_write_fd_mem_result\s+fd\s+data\s+data_len[\s\S]*\bio_bytebuf_free\s+bytes/, 'ByteBuf-consuming fd write API must stay in std/fs/write/fd and close storage through the ByteBuf owner boundary');
+assert.match(writeFdCode, /\bfn\s+fs_write_fd_bytes\b[\s\S]*Result<unit,FsError>[\s\S]*fs_write_fd_bytes_raw_errno\s+fd\s+bytes[\s\S]*fs_error_from_errno\s+FsOperation::WriteFd\s+e/, 'fs_write_fd_bytes normal API must be a typed wrapper over the raw errno boundary');
+assert.match(writePathCode, /\bfn\s+fs_write_to_bytes\b[\s\S]*\bResult<unit,\s*FsError>[\s\S]*\bfs_open_write\s+path[\s\S]*\bfs_write_fd_bytes\s+fd\s+bytes[\s\S]*\bfs_close_raw_errno\s+fd/, 'path write API must stay typed in std/fs/write/path and only use raw close when remapping close-after-write');
 assert.match(writePathCode, /\bfn\s+fs_write_to_string\b[\s\S]*\bResult<unit,\s*FsError>[\s\S]*\bio_bytebuf_from_str_result\s+text[\s\S]*\bfs_write_to_bytes\s+path\s+bytes/, 'string write API must build ByteBuf then delegate with FsError in std/fs/write/path');
 assert.match(writePathCode, /\bfn\s+fs_write_to_string_errno\b[\s\S]*\bfs_write_to_string\s+path\s+text[\s\S]*\bfs_error_to_errno\s+e/, 'path text write errno compatibility must be an explicit wrapper over typed write');
 assert.doesNotMatch(writePathCode, /\b(?:alloc_ptr|realloc_ptr|fs_fd_write_from_result)\b/, 'std/fs/write/path must not own fd scratch raw write loop');
@@ -177,20 +218,24 @@ assert.doesNotMatch(pathCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/path root must 
 
 assert.doesNotMatch(combinedCode, /\bstr_split_result\b/, 'fs_normalize_relative must not use owned Vec<str> split');
 assert.doesNotMatch(combinedCode, /\bstr_split_ranges_result\b/, 'fs_normalize_relative must not allocate split range vectors');
-assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative_builder\s+<\(str\)->Result<StringBuilder,i32>>\s+\(path\):[\s\S]*str_split_next\s+path\s+"\/"\s+cursor[\s\S]*match\s+get\s+step\s+"kind":[\s\S]*StrSplitStepKind::Part:/, 'fs_normalize_relative_builder must scan path components with allocation-free split steps');
-assert.match(pathNormalizeCode, new RegExp(String.raw`fn\s+fs_normalize_relative_builder\s+<\(str\)->Result<StringBuilder,i32>>\s+\(path\):[\s\S]*let\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+0[\s\S]*while\s+and\s+eq\s+\1\s+0\s+eq\s+done\s+0:[\s\S]*match\s+normalize_range_stack::fs_normalize_range_push\s+stack\s+part_start\s+part_end:[\s\S]*Result::Err\s+e:[\s\S]*set\s+stack\s+empty_stack[\s\S]*set\s+\1\s+e`), 'fs_normalize_relative_builder must store component ranges as Copy i32 pairs and map push failure to errno');
+assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative_builder_raw_errno\s+<\(str\)->Result<StringBuilder,i32>>\s+\(path\):[\s\S]*str_split_next\s+path\s+"\/"\s+cursor[\s\S]*match\s+get\s+step\s+"kind":[\s\S]*StrSplitStepKind::Part:/, 'fs_normalize_relative_builder raw boundary must scan path components with allocation-free split steps');
+assert.match(pathNormalizeCode, new RegExp(String.raw`fn\s+fs_normalize_relative_builder_raw_errno\s+<\(str\)->Result<StringBuilder,i32>>\s+\(path\):[\s\S]*let\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+0[\s\S]*while\s+and\s+eq\s+\1\s+0\s+eq\s+done\s+0:[\s\S]*match\s+normalize_range_stack::fs_normalize_range_push_raw_errno\s+stack\s+part_start\s+part_end:[\s\S]*Result::Err\s+e:[\s\S]*set\s+stack\s+empty_stack[\s\S]*set\s+\1\s+e`), 'fs_normalize_relative_builder raw boundary must store component ranges as Copy i32 pairs and map push failure to errno');
 assert.match(pathNormalizeCode, /normalize_validate::fs_path_has_forbidden_host_byte\s+path/, 'fs_normalize_relative_builder must delegate host-path byte validation');
-assert.match(pathNormalizeCode, /normalize_build::fs_normalize_build_ranges_builder\s+path\s+&stack/, 'fs_normalize_relative_builder must delegate range-stack output construction');
+assert.match(pathNormalizeCode, /normalize_build::fs_normalize_build_ranges_builder_raw_errno\s+path\s+&stack/, 'fs_normalize_relative_builder raw boundary must delegate range-stack output construction');
 assert.doesNotMatch(pathNormalizeCode, /\bfn\s+fs_path_has_forbidden_host_byte\b/, 'std/fs/path/normalize root must not inline host-path byte validation');
 assert.doesNotMatch(pathNormalizeCode, /\bfn\s+fs_normalize_range_push\b/, 'std/fs/path/normalize root must not inline range-stack mutation');
 assert.doesNotMatch(pathNormalizeCode, /\bfn\s+fs_normalize_build_ranges_builder\b/, 'std/fs/path/normalize root must not inline range-stack output construction');
 assert.match(pathNormalizeValidateCode, /\bfn\s+fs_path_has_forbidden_host_byte\b[\s\S]*\bchecked_string_byte_at\b/, 'host-path byte validation must stay in normalize/validate with checked byte access');
-assert.match(pathNormalizeRangeStackCode, /\bfn\s+fs_normalize_range_push\b[\s\S]*\bv::push\s+stack\s+start[\s\S]*\bv::push\s+with_start\s+end/, 'range-stack push must stay in normalize/range_stack');
+assert.match(pathNormalizeRangeStackCode, /\bfn\s+fs_normalize_range_push_raw_errno\b[\s\S]*\bv::push\s+stack\s+start[\s\S]*\bv::push\s+with_start\s+end/, 'range-stack push must stay in normalize/range_stack');
+assert.match(pathNormalizeRangeStackCode, /\bfn\s+fs_normalize_range_push\b[\s\S]*Result<Vec<i32>,FsError>[\s\S]*fs_normalize_range_push_raw_errno\s+stack\s+start\s+end[\s\S]*fs_error_from_errno\s+FsOperation::NormalizePathBuilder\s+e/, 'range-stack normal push must be a typed wrapper over the raw errno boundary');
 assert.match(pathNormalizeRangeStackCode, /\bfn\s+fs_normalize_range_pop\b[\s\S]*\bv::pop\s+stack[\s\S]*\bfield::get\s+popped_end\s+"vec"[\s\S]*\bv::pop\s+without_end[\s\S]*\bfield::get\s+popped_start\s+"vec"/, 'range-stack pop must stay in normalize/range_stack');
-assert.match(pathNormalizeBuildCode, /\bfn\s+fs_normalize_build_ranges_builder\b[\s\S]*\bsb_append_slice_result\s+with_sep\s+path\s+part_start\s+part_end/, 'range-stack output construction must stay in normalize/build');
-assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative\s+<\(str\)->Result<str,i32>>\s+\(path\):[\s\S]*fs_normalize_relative_builder\s+path[\s\S]*sb_build_result\s+sb/, 'fs_normalize_relative must delegate through the builder boundary');
+assert.match(pathNormalizeBuildCode, /\bfn\s+fs_normalize_build_ranges_builder_raw_errno\b[\s\S]*\bsb_append_slice_result\s+with_sep\s+path\s+part_start\s+part_end/, 'range-stack output construction must stay in normalize/build');
+assert.match(pathNormalizeBuildCode, /\bfn\s+fs_normalize_build_ranges_builder\b[\s\S]*Result<StringBuilder,FsError>[\s\S]*fs_normalize_build_ranges_builder_raw_errno\s+path\s+stack[\s\S]*fs_error_from_errno\s+FsOperation::NormalizePathRanges\s+e/, 'range-stack builder normal API must be a typed wrapper over the raw errno boundary');
+assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative_raw_errno\s+<\(str\)->Result<str,i32>>\s+\(path\):[\s\S]*fs_normalize_relative_builder_raw_errno\s+path[\s\S]*sb_build_result\s+sb/, 'fs_normalize_relative raw boundary must delegate through the builder boundary');
+assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative\s+<\(str\)->Result<str,FsError>>\s+\(path\):[\s\S]*fs_normalize_relative_raw_errno\s+path[\s\S]*fs_error_from_errno\s+FsOperation::NormalizePath\s+e/, 'fs_normalize_relative normal API must be a typed wrapper over the raw errno boundary');
 assert.match(pathEntryCode, /\bfn\s+fs_str_lt\b[\s\S]*\bstring_bytes_cmp\b/, 'directory entry comparison must stay in std/fs/path/entry with checked byte comparison');
-assert.match(pathEntryCode, /\bfn\s+fs_sort_strings\s+<\(&Vec<str>\)\*>Result<unit,i32>>\s+\(entries\):[\s\S]*\bv::get\s+entries\s+i[\s\S]*\bv::replace\s+entries\s+j\s+key/, 'directory entry sort must use Vec public get/replace boundary with an explicit mutation effect');
+assert.match(pathEntryCode, /\bfn\s+fs_sort_strings_raw_errno\s+<\(&Vec<str>\)\*>Result<unit,i32>>\s+\(entries\):[\s\S]*\bv::get\s+entries\s+i[\s\S]*\bv::replace\s+entries\s+j\s+key/, 'directory entry sort must use Vec public get/replace boundary with an explicit mutation effect');
+assert.match(pathEntryCode, /\bfn\s+fs_sort_strings\s+<\(&Vec<str>\)\*>Result<unit,FsError>>\s+\(entries\):[\s\S]*fs_sort_strings_raw_errno\s+entries[\s\S]*fs_error_from_errno\s+FsOperation::SortEntries\s+e/, 'directory entry sort normal API must be a typed wrapper over the raw errno boundary');
 assert.doesNotMatch(pathEntryCode, /\bfn\s+fs_sort_strings\s+<\(i32,i32\)/, 'directory entry sort must not accept raw Vec storage pointers');
 assert.doesNotMatch(pathEntryCode, /\b(?:load<str>|store<str>|mem_ptr_addr)\b/, 'directory entry helpers must not sort Vec<str> through raw str storage');
 assert.doesNotMatch(pathEntryCode, /\bfs_string_from_bytes\b/, 'std/fs/path/entry must not publish raw fd_readdir byte conversion through the path facade');
@@ -199,17 +244,20 @@ assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/open"\s+as\s+\*/, 'std/fs/
 assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/read_fd"\s+as\s+\*/, 'std/fs/dir facade must re-export fd directory reader submodule');
 assert.match(dirCode, /pub\s+#import\s+"std\/fs\/dir\/path"\s+as\s+\*/, 'std/fs/dir facade must re-export path directory listing submodule');
 assert.doesNotMatch(dirCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/dir root must stay a facade without implementation bodies');
-assert.match(dirOpenCode, /\bfn\s+fs_open_dir\b[\s\S]*\bfs_normalize_relative\s+path[\s\S]*\bfs_open_with_flags\s+normalized\s+fs_oflags_directory\s+fs_right_fd_readdir/, 'directory open helper must stay in std/fs/dir/open');
-assert.match(dirReadFdCode, new RegExp(String.raw`fn\s+fs_read_dir_fd\s+<\(i32\)\*>Result<Vec<str>,i32>>\s+\(fd\):[\s\S]*let\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+0[\s\S]*\bwasi_fd_readdir\b[\s\S]*match\s+v::push\s+entries\s+name:[\s\S]*Result::Err\s+e:[\s\S]*set\s+entries\s+v::vec_push_error_vec\s+e[\s\S]*set\s+\1\s+12`), 'fs_read_dir_fd must preserve the entry Vec owner while mapping accumulation push failure to errno 12');
-assert.match(dirReadFdCode, /\bmatch\s+fs_sort_strings\s+&entries:[\s\S]*Result::Err\s+e:[\s\S]*v::free\s+entries[\s\S]*Result::Err\s+e/, 'fs_read_dir_fd must sort through the Vec boundary and free entries if sorting reports an invariant error');
-assert.match(dirReadFdCode, /\bfn\s+fs_read_dir_fd\b[\s\S]*\balloc_region<u8>\s+buf_len[\s\S]*\balloc_region<u8>\s+4[\s\S]*\blet\s+buf_ptr\s+<MemPtr<u8>>\s+region_ptr\s+&buf_region[\s\S]*\blet\s+used_ptr\s+<MemPtr<u8>>\s+region_ptr\s+&used_region[\s\S]*\bwasi_fd_readdir\b[\s\S]*\bdealloc_region<u8>\s+used_region[\s\S]*\bdealloc_region<u8>\s+buf_region/, 'fs_read_dir_fd must own fd_readdir buffers through RegionToken and pass only non-owning views to the raw ABI');
+assert.match(dirOpenCode, /\bfn\s+fs_open_dir_raw_errno\b[\s\S]*\bfs_normalize_relative_raw_errno\s+path[\s\S]*\bfs_open_with_flags_raw_errno\s+normalized\s+fs_oflags_directory\s+fs_right_fd_readdir/, 'directory raw open helper must stay in std/fs/dir/open');
+assert.match(dirOpenCode, /\bfn\s+fs_open_dir\b[\s\S]*Result<i32,FsError>[\s\S]*fs_open_dir_raw_errno\s+path[\s\S]*fs_error_from_errno\s+FsOperation::OpenDir\s+e/, 'directory open normal API must be a typed wrapper over the raw errno boundary');
+assert.match(dirReadFdCode, new RegExp(String.raw`fn\s+fs_read_dir_fd_raw_errno\s+<\(i32\)\*>Result<Vec<str>,i32>>\s+\(fd\):[\s\S]*let\s+mut\s+([A-Za-z_][A-Za-z0-9_]*)\s+<i32>\s+0[\s\S]*\bwasi_fd_readdir\b[\s\S]*match\s+v::push\s+entries\s+name:[\s\S]*Result::Err\s+e:[\s\S]*set\s+entries\s+v::vec_push_error_vec\s+e[\s\S]*set\s+\1\s+12`), 'fs_read_dir_fd raw boundary must preserve the entry Vec owner while mapping accumulation push failure to errno 12');
+assert.match(dirReadFdCode, /\bmatch\s+fs_sort_strings_raw_errno\s+&entries:[\s\S]*Result::Err\s+e:[\s\S]*v::free\s+entries[\s\S]*Result::Err\s+e/, 'fs_read_dir_fd raw boundary must sort through the Vec boundary and free entries if sorting reports an invariant error');
+assert.match(dirReadFdCode, /\bfn\s+fs_read_dir_fd\b[\s\S]*Result<Vec<str>,FsError>[\s\S]*fs_read_dir_fd_raw_errno\s+fd[\s\S]*fs_error_from_errno\s+FsOperation::ReadDirFd\s+e/, 'fs_read_dir_fd normal API must be a typed wrapper over the raw errno boundary');
+assert.match(dirReadFdCode, /\bfn\s+fs_read_dir_fd_raw_errno\b[\s\S]*\balloc_region<u8>\s+buf_len[\s\S]*\balloc_region<u8>\s+4[\s\S]*\blet\s+buf_ptr\s+<MemPtr<u8>>\s+region_ptr\s+&buf_region[\s\S]*\blet\s+used_ptr\s+<MemPtr<u8>>\s+region_ptr\s+&used_region[\s\S]*\bwasi_fd_readdir\b[\s\S]*\bdealloc_region<u8>\s+used_region[\s\S]*\bdealloc_region<u8>\s+buf_region/, 'fs_read_dir_fd raw boundary must own fd_readdir buffers through RegionToken and pass only non-owning views to the raw ABI');
 assert.match(dirReadFdCode, /\bfn\s+fs_dirent_name_to_string\s+<\(MemPtr<u8>,i32\)->Result<str,i32>>\s+\(src_ptr,\s*byte_len\):[\s\S]*\bstring_utf8_validate_mem\s+src_ptr\s+byte_len[\s\S]*\bstring_from_mem_unchecked_result\s+src_ptr\s+byte_len/, 'fd_readdir name conversion must validate UTF-8 before constructing str inside std/fs/dir/read_fd');
 assert.match(dirReadFdCode, /\blet\s+name_ptr\s+<MemPtr<u8>>\s+mem_ptr_add\s+buf_ptr\s+add\s+off\s+fs_dirent_header_size[\s\S]*\bmatch\s+fs_dirent_name_to_string\s+name_ptr\s+name_len/, 'fs_read_dir_fd must derive entry name pointers from the RegionToken-backed buffer view');
 assert.doesNotMatch(dirReadFdCode, /\bmem_ptr_wrap\b/, 'std/fs/dir/read_fd must not rewrap raw fd_readdir addresses as MemPtr');
 assert.doesNotMatch(dirReadFdCode, /#import\s+"core\/mem\/pointer\/alloc"\s+as\s+\*/, 'std/fs/dir/read_fd must not import low-level MemPtr owner allocation wrappers');
 assert.doesNotMatch(dirReadFdCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, 'std/fs/dir/read_fd must not use MemPtr as an fd_readdir buffer or scratch free-obligation owner');
 assert.doesNotMatch(dirReadFdCode, /\bget\s+entries\s+"data"/, 'fs_read_dir_fd must not depend on the removed Vec.data field');
-assert.match(dirPathCode, /\bfn\s+fs_read_dir\b[\s\S]*\bfs_open_dir\s+path[\s\S]*\bfs_read_dir_fd\s+fd[\s\S]*\bfs_close\s+fd/, 'path directory listing API must stay in std/fs/dir/path');
+assert.match(dirPathCode, /\bfn\s+fs_read_dir_raw_errno\b[\s\S]*\bfs_open_dir_raw_errno\s+path[\s\S]*\bfs_read_dir_fd_raw_errno\s+fd[\s\S]*\bfs_close_raw_errno\s+fd/, 'path directory raw listing API must stay in std/fs/dir/path');
+assert.match(dirPathCode, /\bfn\s+fs_read_dir\b[\s\S]*Result<Vec<str>,FsError>[\s\S]*\bfs_open_dir\s+path[\s\S]*\bfs_read_dir_fd\s+fd[\s\S]*\bfs_close_raw_errno\s+fd[\s\S]*FsOperation::CloseAfterReadDir/, 'path directory listing API must stay typed and preserve close-after-read-dir failures');
 assert.doesNotMatch(dirPathCode, /\b(?:alloc_ptr|wasi_fd_readdir|load_i32|store_i32)\b/, 'std/fs/dir/path must not own fd_readdir raw entry conversion');
 assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/wasi"\s+as\s+\*/, 'std/fs/raw facade must re-export WASI syscall submodule');
 assert.doesNotMatch(rawCode, /#import\s+"std\/fs\/raw\/fd_io"\s+as\s+\*/, 'std/fs/raw facade must not re-export fd I/O MemPtr scratch helpers');
