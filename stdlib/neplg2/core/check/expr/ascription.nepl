@@ -242,9 +242,18 @@ pub fn selfhost_expr_ascription_head_projection_free %impure fn SelfhostExprAscr
     let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
     selfhost_type_arena_free selfhost_type_arena_alloc_into_arena allocated
 
-fn selfhost_expr_ascription_error_from_build %fn SelfhostTypePrefixBuildError SelfhostExprAscriptionError \error:
-    SelfhostExprAscriptionError::TypePrefixBuildFailed error
-
+//: selfhost_expr_ascription_first_token_is_percent: range の先頭 token が `%` かを[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `SelfhostSyntaxRange` を `%T expr` として投影する前に、先頭 token が type ascription marker であることを確認します。
+//: - 範囲外 access を `false` に畳み、caller が `NotTypeAscription` または invalid range として明示的に扱えるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `idx` に token があり、その kind が `TokenKind::Percent` です。
+//: - `false`: token が存在しない、または kind が `%` ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - Vec index 取得と token kind match だけなので O(1) です。
 fn selfhost_expr_ascription_first_token_is_percent %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
     match v::get tokens idx:
         Option::Some token:
@@ -256,6 +265,22 @@ fn selfhost_expr_ascription_first_token_is_percent %fn &Vec SelfhostToken fn i32
         Option::None:
             false
 
+//: selfhost_expr_ascription_push_type_item: type prefix item を Vec owner へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `%T expr` の `%` 直後から読んだ型 token を、type resolver が読む prefix item list に追加します。
+//: - Vec push の失敗を `OutOfMemory` の builder error として保持し、panic や unchecked unwrap へ逃がしません。
+//:
+//: [契約/けいやく]:
+//: - 成功時、`items` owner は返り値の Vec に移ります。
+//: - push 失敗時、push error が返した Vec owner をこの関数が解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_items)`: `item` を追加した Vec owner です。
+//: - `Err(TypePrefixBuildFailed(OutOfMemory))`: Vec push に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - Vec push は償却 O(1) です。再確保が起きる場合は要素数に依存します。
 fn selfhost_expr_ascription_push_type_item %impure fn Vec SelfhostTypePrefixItem impure fn SelfhostTypePrefixItem impure fn SelfhostSourceSpan Result Vec SelfhostTypePrefixItem SelfhostExprAscriptionError \items\item\span:
     match v::push items item:
         Result::Ok next_items:
@@ -264,6 +289,23 @@ fn selfhost_expr_ascription_push_type_item %impure fn Vec SelfhostTypePrefixItem
             v::free v::vec_push_error_vec e
             Result::Err SelfhostExprAscriptionError::TypePrefixBuildFailed selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::OutOfMemory span
 
+//: selfhost_expr_ascription_type_items_loop: token range から type prefix item を[左/ひだり]から[集/あつ]める
+//:
+//: [目的/もくてき]:
+//: - `%T expr` の `%` より後ろを読み、型式として解釈できる token だけを prefix item Vec に積みます。
+//: - 型式として扱えない token に到達した時点で、そこを式本体の先頭候補として残すため loop を止めます。
+//:
+//: [契約/けいやく]:
+//: - `idx >= end` または型 token でない token に到達した場合は、現在の Vec owner を成功として返します。
+//: - token Vec 範囲外に到達した場合は `items` を解放し、invalid range error を返します。
+//: - この関数は型式の arity 解決までは行いません。prefix item list の境界候補だけを作ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(items)`: 読み取れた type prefix item の Vec owner です。
+//: - `Err(error)`: OOM または token range 不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 読み取る token 数を n とすると O(n) です。
 fn selfhost_expr_ascription_type_items_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn Vec SelfhostTypePrefixItem Result Vec SelfhostTypePrefixItem SelfhostExprAscriptionError \tokens\idx\end\items:
     if:
         ge idx end
@@ -285,6 +327,23 @@ fn selfhost_expr_ascription_type_items_loop %impure fn &Vec SelfhostToken impure
                     v::free items
                     Result::Err SelfhostExprAscriptionError::InvalidExpressionRange source_span_empty_unchecked 0 0
 
+//: selfhost_expr_ascription_type_prefix_list_from_range: `%T expr` range から型prefix list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - syntax range が `%` で始まる ascription であることを確認し、type resolver に渡す `SelfhostTypePrefixList` を構築します。
+//: - token range の不整合、`%` でない先頭、Vec allocation failure を Result で分けます。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostSyntaxRange::Empty` は必ず `EmptyExpressionRange` です。
+//: - range の first/count が token Vec の外へ出る場合は `InvalidExpressionRange` として fail-closed にします。
+//: - 成功時、type prefix list は Vec owner を保持します。caller は reducer へ渡した後に必ず解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(prefix_list)`: `%` 直後から読み取った型prefix item list です。
+//: - `Err(error)`: empty/invalid range、not-ascription、または type prefix build failure です。
+//:
+//: [計算量/けいさんりょう]:
+//: - range内で型tokenとして読める部分の長さを n とすると O(n) です。
 fn selfhost_expr_ascription_type_prefix_list_from_range %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result SelfhostTypePrefixList SelfhostExprAscriptionError \tokens\syntax_range:
     match syntax_range:
         SelfhostSyntaxRange::Empty:
@@ -316,6 +375,19 @@ fn selfhost_expr_ascription_type_prefix_list_from_range %impure fn &Vec Selfhost
                                     Result::Err _e:
                                         Result::Err SelfhostExprAscriptionError::TypePrefixBuildFailed selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::OutOfMemory range.span
 
+//: selfhost_expr_ascription_type_span_from_range: `%T` 部分の source span を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - explicit ascription の期待型に付ける span として、`%` token から最後の type token までの範囲を計算します。
+//: - range が壊れている場合でも panic せず、caller が持つ range span へ戻します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 正常な token 参照では `%T` 部分だけを覆う `SelfhostSourceSpan` です。
+//: - empty/range不整合では fallback として empty span または range span を返します。
+//: - `next_index` は `%` の直後から type prefix reducer が消費した item 数であり、`%` token 自体は数えません。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 2 個の参照だけなので O(1) です。
 fn selfhost_expr_ascription_type_span_from_range %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 SelfhostSourceSpan \tokens\syntax_range\next_index:
     match syntax_range:
         SelfhostSyntaxRange::Empty:
@@ -332,9 +404,35 @@ fn selfhost_expr_ascription_type_span_from_range %fn &Vec SelfhostToken fn Selfh
                 Option::None:
                     range.span
 
+//: selfhost_expr_ascription_tail_span_from_tokens: tail expression の source span を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `%T expr` の `expr` 部分が複数 token を持つ場合に、先頭 token から末尾 token までを覆う span を作ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `first_token.span.start` から `last_token.span.end` までの span です。
+//:
+//: [計算量/けいさんりょう]:
+//: - span field の読み出しだけなので O(1) です。
 fn selfhost_expr_ascription_tail_span_from_tokens %fn SelfhostToken fn SelfhostToken SelfhostSourceSpan \first_token\last_token:
     source_span_new_unchecked first_token.span.file_id first_token.span.start last_token.span.end
 
+//: selfhost_expr_ascription_expression_tail_range: `%T` の後ろを inner expression range として[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - type resolver が消費した type prefix item 数から、残り token を `%T expr` の `expr` 部分として切り出します。
+//: - missing tail、range 不整合、token Vec 範囲外を typed error として分けます。
+//:
+//: [契約/けいやく]:
+//: - `next_index` は type prefix reducer が返した消費幅であり、`%` token 自体は含みません。
+//: - tail が存在しない場合、空 expression を成功扱いせず `MissingExpressionTail` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(range)`: inner expression の token range と span です。
+//: - `Err(error)`: empty range、missing tail、または invalid range です。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 2 個の取得と arithmetic だけなので O(1) です。
 fn selfhost_expr_ascription_expression_tail_range %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 Result SelfhostSyntaxRange SelfhostExprAscriptionError \tokens\syntax_range\next_index:
     match syntax_range:
         SelfhostSyntaxRange::Empty:
@@ -359,6 +457,22 @@ fn selfhost_expr_ascription_expression_tail_range %fn &Vec SelfhostToken fn Self
                         Option::None:
                             Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
 
+//: selfhost_expr_ascription_expression_first_token: argument-scope projection の inner expression 先頭 token を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - call argument position の `%T head ...` では、inner expression 全体ではなく先頭 prefix item index が必要です。
+//: - type resolver の消費幅から、`%T` の直後に来る expression head token を計算します。
+//:
+//: [契約/けいやく]:
+//: - `next_index` は type prefix reducer が返した消費幅であり、`%` token 自体は含みません。
+//: - expression head が存在しない場合は `MissingExpressionTail` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(token_index)`: inner expression の先頭 token index です。
+//: - `Err(error)`: empty range、missing tail、または token range 不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 1 個の存在確認だけなので O(1) です。
 fn selfhost_expr_ascription_expression_first_token %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 Result i32 SelfhostExprAscriptionError \tokens\syntax_range\next_index:
     match syntax_range:
         SelfhostSyntaxRange::Empty:
@@ -377,6 +491,24 @@ fn selfhost_expr_ascription_expression_first_token %fn &Vec SelfhostToken fn Sel
                         Option::None:
                             Result::Err SelfhostExprAscriptionError::InvalidExpressionRange range.span
 
+//: selfhost_expr_ascription_project_reduced: 解決済み型prefixを expectation と tail range へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - type prefix reducer が返した resolved type tree root を type arena に投影し、explicit ascription expectation を作ります。
+//: - 同時に `%T` の後ろの inner expression range を計算し、式検査が再度 token 境界を推測しないようにします。
+//:
+//: [契約/けいやく]:
+//: - 成功時、`reduced` はこの関数が解放し、arena owner は `SelfhostExprAscriptionProjection` 内の allocation owner へ移ります。
+//: - tail range 計算に失敗した場合は `reduced` と `arena` の両方をこの関数が閉じます。
+//: - type projection に失敗した場合は `selfhost_type_project_root_into_arena` が入力 arena を閉じます。この関数は `reduced` だけを閉じ、projection error を typed payload として返します。
+//: - この分担により、tail range 失敗と type projection 失敗のどちらでも arena owner は二重解放も漏れも起こしません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(projection)`: explicit expectation、inner expression range、arena allocation owner を保持します。
+//: - `Err(error)`: missing tail、invalid range、または type projection failure です。
+//:
+//: [計算量/けいさんりょう]:
+//: - tail range と span 計算は O(1) です。type projection の実コストは resolved type tree の大きさに依存します。
 fn selfhost_expr_ascription_project_reduced %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn SelfhostTypePrefixReducePrefixResult Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\syntax_range\arena\reduced:
     let next_index %i32 selfhost_type_prefix_reduce_prefix_result_next_index &reduced
     match selfhost_expr_ascription_expression_tail_range tokens syntax_range next_index:
@@ -397,6 +529,24 @@ fn selfhost_expr_ascription_project_reduced %impure fn &Vec SelfhostToken impure
             selfhost_type_arena_free arena
             Result::Err e
 
+//: selfhost_expr_ascription_project_head_reduced: 解決済み型prefixを argument head projection へ[投影/とうえい]する
+//:
+//: [目的/もくてき]:
+//: - argument position の `%T head ...` について、explicit expectation と inner expression の先頭 token index を作ります。
+//: - `call_reduce` が prefix item index との対応を確認できるよう、tail range ではなく first token を保持します。
+//:
+//: [契約/けいやく]:
+//: - 成功時、`reduced` はこの関数が解放し、arena owner は `SelfhostExprAscriptionHeadProjection` 内の allocation owner へ移ります。
+//: - first token 計算に失敗した場合は `reduced` と `arena` の両方を閉じます。
+//: - type projection に失敗した場合は `selfhost_type_project_root_into_arena` が入力 arena を閉じます。この関数は `reduced` だけを閉じ、`TypeProjectFailed` として返します。
+//: - line-head projection と同じく、token range 失敗はこの関数、type projection 失敗は projection callee が arena owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(projection)`: explicit expectation、inner expression head token index、arena allocation owner です。
+//: - `Err(error)`: missing tail、invalid range、または type projection failure です。
+//:
+//: [計算量/けいさんりょう]:
+//: - head token と span 計算は O(1) です。type projection の実コストは resolved type tree の大きさに依存します。
 fn selfhost_expr_ascription_project_head_reduced %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange impure fn SelfhostTypeArena impure fn SelfhostTypePrefixReducePrefixResult Result SelfhostExprAscriptionHeadProjection SelfhostExprAscriptionError \tokens\syntax_range\arena\reduced:
     let next_index %i32 selfhost_type_prefix_reduce_prefix_result_next_index &reduced
     match selfhost_expr_ascription_expression_first_token tokens syntax_range next_index:
@@ -435,6 +585,79 @@ fn selfhost_expr_ascription_project_head_reduced %impure fn &Vec SelfhostToken i
 //: [計算量/けいさんりょう]:
 //: - type prefix candidate の走査は注釈範囲の token 数を k として O(k) です。
 //: - 型式縮約と arena projection は縮約された型式 tree の node 数に比例します。
+//:
+//: [使用例/しようれい]:
+//: - token buffer、source text、type arena owner、syntax range を同じ fixture で構築し、`%i32 1` から inner expression range を取り出します。
+//: - 成功時は `SelfhostExprAscriptionProjection` が arena owner を持つため、例でも `selfhost_expr_ascription_projection_free` で owner を閉じます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//:| #import "core/traits/copy" as *
+//:| #import "neplg2/core/check/expr/ascription" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/syntax/ast/module_ast" as *
+//:| #import "neplg2/core/syntax/token" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:
+//: fn push_token %impure fn Vec SelfhostToken impure fn SelfhostToken Result Vec SelfhostToken StdErrorKind \tokens\token:
+//:     match v::push tokens token:
+//:         Result::Ok next_tokens:
+//:             Result::Ok next_tokens
+//:         Result::Err e:
+//:             v::free v::vec_push_error_vec e
+//:             Result::Err StdErrorKind::OutOfMemory
+//:
+//: fn make_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+//:     let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+//:     match tokens_result:
+//:         Result::Ok tokens0:
+//:             let percent_token %SelfhostToken selfhost_token_new TokenKind::Percent source_span_new_unchecked 0 0 1
+//:             match push_token tokens0 percent_token:
+//:                 Result::Ok tokens1:
+//:                     let type_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 1 4
+//:                     match push_token tokens1 type_token:
+//:                         Result::Ok tokens2:
+//:                             let value_token %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 5 6
+//:                             push_token tokens2 value_token
+//:                         Result::Err e:
+//:                             Result::Err e
+//:                 Result::Err e:
+//:                     Result::Err e
+//:         Result::Err e:
+//:             Result::Err e
+//:
+//: fn main %impure fn void i32 \void:
+//:     match make_tokens:
+//:         Result::Ok tokens:
+//:             match selfhost_type_arena_new:
+//:                 Result::Ok arena:
+//:                     let source %str "%i32 1"
+//:                     let range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 6
+//:                     match selfhost_expr_ascription_project_expectation &tokens source arena range:
+//:                         Result::Ok projection:
+//:                             let tail %SelfhostSyntaxRange selfhost_expr_ascription_projection_tail &projection
+//:                             let tail_ok %bool selfhost_syntax_range_is_nonempty tail
+//:                             selfhost_expr_ascription_projection_free projection
+//:                             v::free tokens
+//:                             if:
+//:                                 tail_ok
+//:                                 then:
+//:                                     0
+//:                                 else:
+//:                                     1
+//:                         Result::Err _e:
+//:                             v::free tokens
+//:                             1
+//:                 Result::Err _e:
+//:                     v::free tokens
+//:                     1
+//:         Result::Err _e:
+//:             1
+//: ```
 pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\source\arena\syntax_range:
     match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
         Result::Ok type_prefix:
@@ -467,6 +690,85 @@ pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToke
 //: [計算量/けいさんりょう]:
 //: - 注釈範囲の token 数を k として、type prefix item 収集は O(k) です。
 //: - 型式縮約と arena projection は型式 tree の node 数に比例します。
+//:
+//: [使用例/しようれい]:
+//: - token buffer、source text、type arena owner、argument-scope の syntax range を同じ fixture で構築し、`%i32 1 2` の `1` が inner expression head になることを確認します。
+//: - 成功時は `SelfhostExprAscriptionHeadProjection` が arena owner を持つため、例でも `selfhost_expr_ascription_head_projection_free` で owner を閉じます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/traits/copy" as *
+//:| #import "neplg2/core/check/expr/ascription" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/syntax/ast/module_ast" as *
+//:| #import "neplg2/core/syntax/token" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:
+//: fn push_token %impure fn Vec SelfhostToken impure fn SelfhostToken Result Vec SelfhostToken StdErrorKind \tokens\token:
+//:     match v::push tokens token:
+//:         Result::Ok next_tokens:
+//:             Result::Ok next_tokens
+//:         Result::Err e:
+//:             v::free v::vec_push_error_vec e
+//:             Result::Err StdErrorKind::OutOfMemory
+//:
+//: fn make_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+//:     let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+//:     match tokens_result:
+//:         Result::Ok tokens0:
+//:             let percent_token %SelfhostToken selfhost_token_new TokenKind::Percent source_span_new_unchecked 0 0 1
+//:             match push_token tokens0 percent_token:
+//:                 Result::Ok tokens1:
+//:                     let type_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 1 4
+//:                     match push_token tokens1 type_token:
+//:                         Result::Ok tokens2:
+//:                             let first_value %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 5 6
+//:                             match push_token tokens2 first_value:
+//:                                 Result::Ok tokens3:
+//:                                     let second_value %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 7 8
+//:                                     push_token tokens3 second_value
+//:                                 Result::Err e:
+//:                                     Result::Err e
+//:                         Result::Err e:
+//:                             Result::Err e
+//:                 Result::Err e:
+//:                     Result::Err e
+//:         Result::Err e:
+//:             Result::Err e
+//:
+//: fn main %impure fn void i32 \void:
+//:     match make_tokens:
+//:         Result::Ok tokens:
+//:             match selfhost_type_arena_new:
+//:                 Result::Ok arena:
+//:                     let source %str "%i32 1 2"
+//:                     let range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 4 source_span_new_unchecked 0 0 8
+//:                     match selfhost_expr_ascription_project_head_expectation &tokens source arena range:
+//:                         Result::Ok projection:
+//:                             let first_token %i32 selfhost_expr_ascription_head_projection_expression_first_token &projection
+//:                             let head_ok %bool eq first_token 2
+//:                             selfhost_expr_ascription_head_projection_free projection
+//:                             v::free tokens
+//:                             if:
+//:                                 head_ok
+//:                                 then:
+//:                                     0
+//:                                 else:
+//:                                     1
+//:                         Result::Err _e:
+//:                             v::free tokens
+//:                             1
+//:                 Result::Err _e:
+//:                     v::free tokens
+//:                     1
+//:         Result::Err _e:
+//:             1
+//: ```
 pub fn selfhost_expr_ascription_project_head_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionHeadProjection SelfhostExprAscriptionError \tokens\source\arena\syntax_range:
     match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
         Result::Ok type_prefix:

@@ -86,9 +86,38 @@ const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_head_projection_into_arena", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_projection_free", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_head_projection_free", ["purpose", "contract", "complexity"]),
-    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_expectation", ["purpose", "contract", "returns", "complexity"]),
-    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_head_expectation", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_first_token_is_percent", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_push_type_item", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_type_items_loop", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_type_prefix_list_from_range", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_type_span_from_range", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_tail_span_from_tokens", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_expression_tail_range", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_expression_first_token", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_reduced", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_head_reduced", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_expectation", ["purpose", "contract", "returns", "complexity", "doctest"], {
+        doctestUses: [
+            "selfhost_expr_ascription_project_expectation",
+            "selfhost_expr_ascription_projection_tail",
+            "selfhost_expr_ascription_projection_free",
+        ],
+    }),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_head_expectation", ["purpose", "contract", "returns", "complexity", "doctest"], {
+        doctestUses: [
+            "selfhost_expr_ascription_project_head_expectation",
+            "selfhost_expr_ascription_head_projection_expression_first_token",
+            "selfhost_expr_ascription_head_projection_free",
+        ],
+    }),
     requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_expectation_with_constructors", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/block_body.nepl", "selfhost_block_body_result_segment_span", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/block_body.nepl", "selfhost_block_body_result_from_expression_segment", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/block_body.nepl", "selfhost_block_body_result_from_single_segment", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/block_body.nepl", "selfhost_block_body_result_from_segment_list", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/body_line.nepl", "selfhost_check_expr_syntax_range_span", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/body_line.nepl", "selfhost_check_expr_head_starts_with_percent", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/body_line.nepl", "selfhost_check_expr_reduce_body_segment_with_projected_ascription", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_free_error_new", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_free_existing_error", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/expr/call_reduce.nepl", "selfhost_call_reduce_free_argument_error", ["purpose", "contract", "returns", "complexity"]),
@@ -161,10 +190,16 @@ const SECTION_PATTERNS = {
     contract: /\[契約\/けいやく\]/,
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
+    doctest: /\bneplg2:test\b/,
 };
 
-function requirement(relPath, name, sections) {
-    return { relPath, name, sections };
+function requirement(relPath, name, sections, options = {}) {
+    return {
+        relPath,
+        name,
+        sections,
+        doctestUses: options.doctestUses || [],
+    };
 }
 
 function sectionRequirementKey(relPath, name) {
@@ -178,7 +213,7 @@ function docHasSection(docLines, section) {
 }
 
 const docSectionRequirementByKey = new Map(
-    DOC_SECTION_REQUIREMENTS.map((item) => [sectionRequirementKey(item.relPath, item.name), item.sections]),
+    DOC_SECTION_REQUIREMENTS.map((item) => [sectionRequirementKey(item.relPath, item.name), item]),
 );
 
 function walkNeplFiles(dir) {
@@ -342,12 +377,17 @@ for (const filePath of walkNeplFiles(selfhostRoot).sort()) {
             }
         } else {
             const requirementKey = sectionRequirementKey(repoPath, declaration[3]);
-            const sectionRequirements = docSectionRequirementByKey.get(requirementKey);
-            if (sectionRequirements) {
+            const sectionRequirement = docSectionRequirementByKey.get(requirementKey);
+            if (sectionRequirement) {
                 seenDocSectionRequirementKeys.add(requirementKey);
-                for (const section of sectionRequirements) {
+                for (const section of sectionRequirement.sections) {
                     if (!docHasSection(doc, section)) {
                         docSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc is missing [${section}] section`);
+                    }
+                }
+                for (const usageName of sectionRequirement.doctestUses) {
+                    if (!doc.some((docLine) => docLine.includes(usageName))) {
+                        docSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc doctest must explain representative use of ${usageName}`);
                     }
                 }
             }

@@ -245,6 +245,18 @@ fn selfhost_check_expr_body_segment_head_span %fn SelfhostBodySegment SelfhostSo
         SelfhostSyntaxRange::Empty:
             source_span_empty_unchecked 0 0
 
+//: selfhost_check_expr_syntax_range_span: syntax range の代表 span を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` など、range だけを保持している構文片を trailing block argument evidence へ変換するときに source span を取り出します。
+//: - empty range は成功対象ではありませんが、typed error payload の fallback span として empty span を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Range`: range が保持する span です。
+//: - `Empty`: unchecked empty span です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match と field 取得だけなので O(1) です。
 fn selfhost_check_expr_syntax_range_span %fn SelfhostSyntaxRange SelfhostSourceSpan \range:
     match range:
         SelfhostSyntaxRange::Range item:
@@ -252,6 +264,18 @@ fn selfhost_check_expr_syntax_range_span %fn SelfhostSyntaxRange SelfhostSourceS
         SelfhostSyntaxRange::Empty:
             source_span_empty_unchecked 0 0
 
+//: selfhost_check_expr_head_starts_with_percent: expression head が `%` で[始/はじ]まるかを[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - expression line の先頭が explicit ascription `%T expr` かどうかを、token kind に基づいて判定します。
+//: - `%` で始まる場合だけ ascription projector へ進め、通常の prefix reducer に `%` item を直接渡さないようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: head range の先頭 token が `TokenKind::Percent` です。
+//: - `false`: head が empty、先頭 token が存在しない、または `%` ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 1 個の取得と kind match だけなので O(1) です。
 fn selfhost_check_expr_head_starts_with_percent %fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \tokens\head:
     match head:
         SelfhostSyntaxRange::Empty:
@@ -388,6 +412,24 @@ pub fn selfhost_check_expr_reduce_body_segment %impure fn &Vec SelfhostToken imp
         SelfhostBodySegmentKind::BlockIntro:
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment
 
+//: selfhost_check_expr_reduce_body_segment_with_projected_ascription: 投影済み `%T expr` を owner 付きで[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - ascription projector が作った explicit expectation と inner expression range を使い、内側 expression だけを source-backed reducer へ渡します。
+//: - 外側 expected type がある場合は、内側 call reduction より前に明示 ascription と外側 expectation の矛盾を検出します。
+//:
+//: [契約/けいやく]:
+//: - `projection` はこの関数が消費し、arena owner を取り出して成功 payload または失敗 cleanup へ渡します。
+//: - ascription と outer expected type が衝突した場合は、arena owner をこの関数が解放し、`AscriptionExpectedTypeConflict` を返します。
+//: - 衝突がない場合、inner expression range は `selfhost_check_expr_reduce_expression_line_prefix_with_arena` に渡され、成功/失敗時の owner 契約は委譲先に従います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(success)`: explicit ascription expectation の下で inner expression が検査済みです。
+//: - `Err(AscriptionExpectedTypeConflict)`: 明示 ascription と外側 expectation が一致しません。
+//: - `Err(error)`: inner expression の prefix build または call reduction 失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - outer expectation の照合は型同一性比較のコストに依存します。支配的コストは inner expression の prefix build と call reduction です。
 fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostExprAscriptionProjection impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\projection\scope\value_types\signatures\candidates\outer_expected:
     let tail %SelfhostSyntaxRange selfhost_expr_ascription_projection_tail &projection
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation &projection
