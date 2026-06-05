@@ -24,6 +24,7 @@
 //: ```
 
 pub #import "./module" as @merge
+pub #import "./expr" as @merge
 
 #import "core/result" as *
 #import "core/math" as *

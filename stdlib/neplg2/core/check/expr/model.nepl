@@ -1,0 +1,189 @@
+#indent 4
+
+//: # check/expr/model
+//: prefix call reduction の成功 payload と失敗 payload を定義する module です。
+//:
+//: [目的/もくてき]:
+//: - expression checker の初期 slice で、HIR をまだ生成せずに reduction の判断結果を型付きで返します。
+//: - 成功 payload は selected candidate、実引数数、result type、span を保持し、後続の HIR lowering が同じ evidence を使えるようにします。
+//: - 失敗 payload は error kind、span、generic state を保持し、generic 証拠不足や partial application を曖昧な通常失敗へ潰しません。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostCallReduceResult::DirectCall` は「call tree へ縮約できる」という checker-side plan であり、HIR node ではありません。
+//: - unsupported / fail-closed は `Result::Err` として返します。未対応機能を成功 variant にして後段へ流してはいけません。
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/ty" as *
+#import "./call_candidate" as *
+
+//: SelfhostReducedCall: direct named call として縮約できた payload
+//:
+//: [目的/もくてき]:
+//: - selected candidate index と argument count を保存し、後続 lowering が prefix list のどの範囲を call arguments として使うかを再計算しないようにします。
+//: - result type は expected type 検査後の candidate result です。
+pub struct SelfhostReducedCall:
+    candidate_index %i32
+    argument_count %i32
+    result_type %SelfhostTypeId
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostReducedCall:
+    fn clone %fn &SelfhostReducedCall SelfhostReducedCall \self:
+        *self
+
+impl Copy for SelfhostReducedCall:
+    fn copy_mark %fn SelfhostReducedCall SelfhostReducedCall \self:
+        self
+
+//: SelfhostCallReduceResult: expression reduction の成功結果
+pub enum SelfhostCallReduceResult:
+    DirectCall %SelfhostReducedCall
+
+impl Clone for SelfhostCallReduceResult:
+    fn clone %fn &SelfhostCallReduceResult SelfhostCallReduceResult \self:
+        *self
+
+impl Copy for SelfhostCallReduceResult:
+    fn copy_mark %fn SelfhostCallReduceResult SelfhostCallReduceResult \self:
+        self
+
+//: SelfhostCallReduceErrorKind: call reduction の失敗分類
+//:
+//: [目的/もくてき]:
+//: - parser 入力不正、名前解決失敗、callable でない値、partial application、overload、generic、expected type mismatch を enum として分けます。
+//: - display text は別 module の diagnostic projection へ移し、checker 本体はこの分類を返します。
+pub enum SelfhostCallReduceErrorKind:
+    EmptyInput
+    UnsupportedPrefixItem
+    UnresolvedName
+    NotCallable
+    PartialApplicationRejected
+    OverloadNoCandidate
+    OverloadAmbiguous
+    GenericInferenceEvidenceMissing
+    GenericInferenceConflict
+    GenericInferenceUnsupported
+    ExpectedTypeMismatch
+    OutOfMemory
+    InternalInvariant
+
+impl Clone for SelfhostCallReduceErrorKind:
+    fn clone %fn &SelfhostCallReduceErrorKind SelfhostCallReduceErrorKind \self:
+        *self
+
+impl Copy for SelfhostCallReduceErrorKind:
+    fn copy_mark %fn SelfhostCallReduceErrorKind SelfhostCallReduceErrorKind \self:
+        self
+
+//: SelfhostCallReduceError: call reduction 失敗の typed payload
+//:
+//: [目的/もくてき]:
+//: - error kind と span を常に保持し、generic 関連の失敗では generic state も併せて返します。
+//: - `generic_state` が `NoneRequired` の場合、その error は generic solver 由来ではありません。
+pub struct SelfhostCallReduceError:
+    kind %SelfhostCallReduceErrorKind
+    span %SelfhostSourceSpan
+    generic_state %SelfhostGenericInferenceState
+
+impl Clone for SelfhostCallReduceError:
+    fn clone %fn &SelfhostCallReduceError SelfhostCallReduceError \self:
+        *self
+
+impl Copy for SelfhostCallReduceError:
+    fn copy_mark %fn SelfhostCallReduceError SelfhostCallReduceError \self:
+        self
+
+//: selfhost_reduced_call_new: direct call reduction payload を[作/つく]る
+pub fn selfhost_reduced_call_new %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostReducedCall \candidate_index\argument_count\result_type\span:
+    SelfhostReducedCall candidate_index argument_count result_type span
+
+//: selfhost_call_reduce_error_new: non-generic call reduction error を[作/つく]る
+pub fn selfhost_call_reduce_error_new %fn SelfhostCallReduceErrorKind fn SelfhostSourceSpan SelfhostCallReduceError \kind\span:
+    SelfhostCallReduceError kind span SelfhostGenericInferenceState::NoneRequired
+
+//: selfhost_call_reduce_error_generic: generic call reduction error を[作/つく]る
+pub fn selfhost_call_reduce_error_generic %fn SelfhostCallReduceErrorKind fn SelfhostSourceSpan fn SelfhostGenericInferenceState SelfhostCallReduceError \kind\span\state:
+    SelfhostCallReduceError kind span state
+
+//: selfhost_call_reduce_error_kind_eq: error kind が同じ分類か[返/かえ]す
+pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn SelfhostCallReduceErrorKind bool \a\b:
+    match a:
+        SelfhostCallReduceErrorKind::EmptyInput:
+            match b:
+                SelfhostCallReduceErrorKind::EmptyInput:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::UnsupportedPrefixItem:
+            match b:
+                SelfhostCallReduceErrorKind::UnsupportedPrefixItem:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::UnresolvedName:
+            match b:
+                SelfhostCallReduceErrorKind::UnresolvedName:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::NotCallable:
+            match b:
+                SelfhostCallReduceErrorKind::NotCallable:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PartialApplicationRejected:
+            match b:
+                SelfhostCallReduceErrorKind::PartialApplicationRejected:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::OverloadNoCandidate:
+            match b:
+                SelfhostCallReduceErrorKind::OverloadNoCandidate:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::OverloadAmbiguous:
+            match b:
+                SelfhostCallReduceErrorKind::OverloadAmbiguous:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::GenericInferenceEvidenceMissing:
+            match b:
+                SelfhostCallReduceErrorKind::GenericInferenceEvidenceMissing:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::GenericInferenceConflict:
+            match b:
+                SelfhostCallReduceErrorKind::GenericInferenceConflict:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::GenericInferenceUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::GenericInferenceUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ExpectedTypeMismatch:
+            match b:
+                SelfhostCallReduceErrorKind::ExpectedTypeMismatch:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::OutOfMemory:
+            match b:
+                SelfhostCallReduceErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::InternalInvariant:
+            match b:
+                SelfhostCallReduceErrorKind::InternalInvariant:
+                    true
+                _:
+                    false

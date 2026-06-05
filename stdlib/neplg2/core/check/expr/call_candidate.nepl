@@ -1,0 +1,137 @@
+#indent 4
+
+//: # check/expr/call_candidate
+//: prefix call reduction に渡す callable candidate と rejection reason を表す module です。
+//:
+//: [目的/もくてき]:
+//: - name resolver / signature table が集めた候補を、checker が型付きに評価できる形で受け取ります。
+//: - overload 候補の拒否理由を enum で残し、候補なし・曖昧・generic 未解決を同じエラーに潰さないようにします。
+//:
+//: [契約/けいやく]:
+//: - `callable_type` は function type であることをこの module の constructor では仮定しません。reduction 側が arena record を確認し、function でなければ `NotCallable` として拒否します。
+//: - generic inference state は候補ごとに保持します。未対応 generic を monomorphic な成功として扱うことは禁止です。
+//: - candidate identity は当面 name 文字列と候補 index で表します。stable function identity / imported interface identity は後続の signature artifact slice で置き換えます。
+
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostGenericInferenceState: callable candidate の generic 解決状態
+//:
+//: [目的/もくてき]:
+//: - generic が不要な候補、証拠が一意に揃った候補、証拠不足、制約衝突、未対応の generic solver 境界を enum で分けます。
+//: - `Option TypeId` では「証拠がない」のか「未対応なので解けない」のかを区別できないため、この分類を reduction input に含めます。
+pub enum SelfhostGenericInferenceState:
+    NoneRequired
+    Unique
+    EvidenceMissing
+    Conflict
+    Unsupported
+
+impl Clone for SelfhostGenericInferenceState:
+    fn clone %fn &SelfhostGenericInferenceState SelfhostGenericInferenceState \self:
+        *self
+
+impl Copy for SelfhostGenericInferenceState:
+    fn copy_mark %fn SelfhostGenericInferenceState SelfhostGenericInferenceState \self:
+        self
+
+//: SelfhostCallableCandidate: overload reduction に渡す callable 候補
+//:
+//: [目的/もくてき]:
+//: - 候補名、function type であるべき TypeId、surface effect、generic inference state、span をまとめます。
+//: - reduction は `callable_type` の arena record を確認してから arity / expected result を検査します。
+pub struct SelfhostCallableCandidate:
+    name %str
+    callable_type %SelfhostTypeId
+    effect %SelfhostEffectKind
+    generic_state %SelfhostGenericInferenceState
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostCallableCandidate:
+    fn clone %fn &SelfhostCallableCandidate SelfhostCallableCandidate \self:
+        *self
+
+impl Copy for SelfhostCallableCandidate:
+    fn copy_mark %fn SelfhostCallableCandidate SelfhostCallableCandidate \self:
+        self
+
+//: SelfhostOverloadCandidateRejectionKind: overload 候補の拒否理由
+//:
+//: [目的/もくてき]:
+//: - 候補を拒否した理由を enum payload として保存し、diagnostic や future ambiguity narrowing が原因を失わないようにします。
+//: - この slice では全候補 rejection list の構築までは行わず、model を先に固定します。
+pub enum SelfhostOverloadCandidateRejectionKind:
+    NotFunction
+    ArityMismatch
+    DeclaredExpectedResult
+    ArgumentType
+    ExpectedResult
+    GenericConstraintConflict
+    UnsupportedGeneric
+    UnsupportedTraitBound
+
+impl Clone for SelfhostOverloadCandidateRejectionKind:
+    fn clone %fn &SelfhostOverloadCandidateRejectionKind SelfhostOverloadCandidateRejectionKind \self:
+        *self
+
+impl Copy for SelfhostOverloadCandidateRejectionKind:
+    fn copy_mark %fn SelfhostOverloadCandidateRejectionKind SelfhostOverloadCandidateRejectionKind \self:
+        self
+
+//: SelfhostOverloadCandidateRejection: 候補拒否の typed payload
+pub struct SelfhostOverloadCandidateRejection:
+    kind %SelfhostOverloadCandidateRejectionKind
+    candidate_index %i32
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostOverloadCandidateRejection:
+    fn clone %fn &SelfhostOverloadCandidateRejection SelfhostOverloadCandidateRejection \self:
+        *self
+
+impl Copy for SelfhostOverloadCandidateRejection:
+    fn copy_mark %fn SelfhostOverloadCandidateRejection SelfhostOverloadCandidateRejection \self:
+        self
+
+//: selfhost_callable_candidate_new: callable candidate payload を[作/つく]る
+pub fn selfhost_callable_candidate_new %fn str fn SelfhostTypeId fn SelfhostEffectKind fn SelfhostGenericInferenceState fn SelfhostSourceSpan SelfhostCallableCandidate \name\callable_type\effect\generic_state\span:
+    SelfhostCallableCandidate name callable_type effect generic_state span
+
+//: selfhost_overload_candidate_rejection_new: overload rejection payload を[作/つく]る
+pub fn selfhost_overload_candidate_rejection_new %fn SelfhostOverloadCandidateRejectionKind fn i32 fn SelfhostSourceSpan SelfhostOverloadCandidateRejection \kind\candidate_index\span:
+    SelfhostOverloadCandidateRejection kind candidate_index span
+
+//: selfhost_generic_inference_state_eq: generic inference state が同じ分類か[返/かえ]す
+pub fn selfhost_generic_inference_state_eq %fn SelfhostGenericInferenceState fn SelfhostGenericInferenceState bool \a\b:
+    match a:
+        SelfhostGenericInferenceState::NoneRequired:
+            match b:
+                SelfhostGenericInferenceState::NoneRequired:
+                    true
+                _:
+                    false
+        SelfhostGenericInferenceState::Unique:
+            match b:
+                SelfhostGenericInferenceState::Unique:
+                    true
+                _:
+                    false
+        SelfhostGenericInferenceState::EvidenceMissing:
+            match b:
+                SelfhostGenericInferenceState::EvidenceMissing:
+                    true
+                _:
+                    false
+        SelfhostGenericInferenceState::Conflict:
+            match b:
+                SelfhostGenericInferenceState::Conflict:
+                    true
+                _:
+                    false
+        SelfhostGenericInferenceState::Unsupported:
+            match b:
+                SelfhostGenericInferenceState::Unsupported:
+                    true
+                _:
+                    false
