@@ -260,8 +260,8 @@ pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn Selfho
 //: - HIR lowering はこの payload を使い、source token や lexeme を再読せずに unit expression を構築できます。
 //:
 //: [現状/げんじょう]:
-//: - 数値、bool、string literal の意味値 payload は source-backed `literal_payload.nepl` が作ります。この helper は source-less なので `unit` 以外を値 payload 化しません。
-//: - char literal は HIR payload が未実装のため、source-backed 経路でも現 checkpoint では `TypedExpression` に留めます。
+//: - 数値、bool、char、string literal の意味値 payload は source-backed `literal_payload.nepl` が作ります。この helper は source-less なので `unit` 以外を値 payload 化しません。
+//: - `TypedExpression` は source-less fallback です。source-backed 経路では char literal は `CharLiteral` payload に分解済みなので、この helper の fallback 説明を source-backed 契約へ広げてはいけません。
 //: - named value は source-backed branch が scope と value evidence から `NamedValue` payload を作ります。この helper は source spelling を読めないため扱いません。
 fn selfhost_expr_argument_checked_simple_item %fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId SelfhostCheckedArgument \item\start_index\next_index\value_type:
     match item.kind:

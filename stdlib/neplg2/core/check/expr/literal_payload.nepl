@@ -5,7 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - `argument.nepl` は argument の型一致と consume-width を管理します。この module は、その成功済み literal item について、source text から意味値を一度だけ取り出して `SelfhostCheckedArgument` に保存します。
-//: - HIR lowering が token buffer や source text を再読しないよう、bool / i32 / string の値 payload を check/expr 側で確定します。
+//: - HIR lowering が token buffer や source text を再読しないよう、bool / i32 / char / string の値 payload を check/expr 側で確定します。
 //: - literal decode の失敗を `UnsupportedArgumentExpression` や文字列診断に潰さず、enum error として caller へ返します。
 //:
 //: [契約/けいやく]:
@@ -16,6 +16,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - bool / i32 の lexeme 解析は lexeme 長 n に対して O(n) です。
+//: - char の simple literal / simple escape / `\xHH` は O(1)、`\u{...}` は hex digit 数 d に対して O(d) です。仕様上 d は高々 6 です。
 //: - simple string の検査と引用符除去は string token 長 n に対して O(n) です。
 
 #import "alloc/collections/vec" as v

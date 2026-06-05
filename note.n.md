@@ -51375,6 +51375,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification は `node nodesrc/test_selfhost_zenn_review_gate_contract.js` を通した。broad verification は `node nodesrc/test_source_policy_no_line_count_limits.js`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - `git diff --check` では空白エラーはなく、Windows の改行変換 warning だけが表示された。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存の documentation gap sample と Node WASI ExperimentalWarning が表示された。
 
+## 2026-06-05 Agent selfhost Zenn comment compliance checkpoint
+
+- `selfhost/zenn-comment-compliance-20260605` branch で、Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、セルフホスト direct-call argument payload / HIR lowering slice の doc comment と source policy を修正した。`plan.md` は確認のみで変更していない。
+- Zenn 記事の「丁寧なドキュメントコメント」「contract と現状実装の分離」「Result / enum による typed failure」「試作段階でも技術的負債を残さない」方針に合わせ、`argument_payload.nepl` と `direct_call.nepl` の enum / struct / helper doc に目的、分類、契約、現状、戻り値、計算量を追加した。
+- `argument.nepl` に残っていた旧 checkpoint の説明を修正し、source-backed 経路では char literal が `CharLiteral` payload へ分解済みであり、`TypedExpression` は source-less fallback であることを明記した。
+- `literal_payload.nepl` は file-level doc に bool / i32 / char / string payload を明示し、char simple / escape decode の計算量境界を追記した。
+- `direct_call.nepl` は direct call HIR lowering の accepted payload 契約と、現在の Rust 互換 i32-backed char HIR payload 実装を分離した。`FunctionValueFailed` path は `selfhost_direct_call_lower_free_module_error` 経由に統一し、owner 解放契約と実装を一致させた。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` は `argument_payload.nepl` と `argument.nepl` の doc comment contract を検査し、古い `char literal -> TypedExpression` 説明の再導入を `check/expr` 全体で拒否するようにした。
+- `nodesrc/test_selfhost_hir_lowering_contract.js` は direct-call lowering の error enum / error struct / helper doc section、owner 契約、契約と現状実装の分離、source 再読禁止を検査するようにした。コメントを削らせる行数制限のような gate は追加していない。
+- subagent review は 3 件実施した。初回 review では `argument.nepl` の stale char comment、`SelfhostDirectCallLowerErrorKind` の分類不足、owner 契約の説明不足、source policy の穴が Blocker とされた。修正後の再 review では重大な未修正点なしと確認した。
+- focused verification は `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/test_selfhost_hir_lowering_contract.js`、`node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/direct_call.nepl --no-tree -o tmp/zenn-comment-direct-call.json -j 1 --dist web/dist --assert-io` を通した。
+- broad verification は `node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。`run_source_policy_regressions` は今回差分由来の failure はなく、既存の documentation gap sample と Node WASI ExperimentalWarning が表示された。`git diff --check` は空白エラーなしで、Windows の改行変換 warning だけが表示された。
+
 ## 2026-06-05 Agent2 AdjacencyMatrix doc report checkpoint
 
 - `agent2/adjacency-matrix-doc-contract` branch で、`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` のうち `stdlib/alloc/collections/adjacency_matrix` slice を進めた。`plan.md` は確認のみで変更していない。

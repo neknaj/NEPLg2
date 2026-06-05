@@ -13,10 +13,13 @@
 //: [契約/けいやく]:
 //: - 入力 module は owner として受け取り、成功時は `SelfhostHirModuleExprAlloc` の中で更新済み owner を返します。
 //: - 失敗時は入力 module owner と、この module が作った一時 Vec owner を解放してから typed error を返します。
-//: - 現 checkpoint では `UnitValue`、bool / i32 / char / simple string literal、`NamedValue`、`FunctionValue` argument を accepted HIR lowering とします。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、nested tree / block tree lowering が入るまで `UnsupportedArgumentKind` として fail-closed にします。
-//: - char literal は Rust 実装の現在の HIR と同じく、型を `char` とした i32-backed literal payload に変換します。char の source spelling を lowering で再解析してはいけません。
+//: - `UnitValue`、bool / i32 / char / simple string literal、`NamedValue`、`FunctionValue` argument は accepted HIR lowering です。
+//: - `TypedExpression`、`NestedDirectCall`、`BlockResult` は、この module が必要な checked tree payload を受け取るまでは `UnsupportedArgumentKind` として fail-closed にします。
 //: - escape 付き string は `check/expr/literal_payload.nepl` が `StringEscapeUnsupported` として拒否するため、raw lexeme を持ったままこの lowering 境界へ到達しません。
 //: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
+//:
+//: [現状実装/げんじょうじっそう]:
+//: - char literal は Rust 実装の現在の HIR と同じく、型を `char` とした i32-backed literal payload に変換します。char の source spelling を lowering で再解析してはいけません。
 //:
 //: [計算量/けいさんりょう]:
 //: - 引数 lowering は checked argument 数を n として O(n) です。
@@ -184,6 +187,19 @@
 //: [目的/もくてき]:
 //: - HIR lowering の失敗を文字列ではなく enum で返し、後続 diagnostic projection が match で網羅できるようにします。
 //: - `FunctionValueFailed` は function value 専用 lowering が generic candidate などを拒否した場合です。
+//:
+//: [分類/ぶんるい]:
+//: - `NotDirectCall` は、呼び出し側が direct call 以外の reduce result をこの module に渡した場合です。
+//: - `SelectedCandidateMissing` は、reducer が保持した candidate index が candidate table に存在しない場合です。
+//: - `CheckedArgumentCountMismatch` と `CheckedArgumentMissing` は、reducer の argument count と checked argument list の整合性が壊れている場合です。
+//: - `UnsupportedArgumentKind` は、`TypedExpression`、`NestedDirectCall`、`BlockResult` など、現 checkpoint で HIR child payload が不足している argument を fail-closed した場合です。
+//: - `FunctionValueFailed` は、`@ident` function value lowering が monomorphic candidate 以外を拒否した場合など、function value 専用 error を包みます。
+//: - `ChildIdsAllocFailed`、`ChildExprAllocFailed`、`ChildIdPushFailed`、`ChildRangeAllocFailed`、`ParentCallAllocFailed` は、HIR module または一時 Vec の owner 境界で起きた allocation failure です。
+//:
+//: [契約/けいやく]:
+//: - 失敗理由は必ずこの enum に分類し、表示文字列や `StdErrorKind` へ直接丸めてはいけません。
+//: - owner を閉じる必要がある失敗 path では、この kind を作る前後で `selfhost_direct_call_lower_free_module_error` または `selfhost_direct_call_lower_free_state_error` を通します。
+//: - `UnsupportedArgumentKind` は未実装 payload の一時的な成功扱いではなく、安全側の拒否です。accepted argument が増えたときは、この enum の使用箇所と module-level 契約を同時に更新します。
 pub enum SelfhostDirectCallLowerErrorKind:
     NotDirectCall
     SelectedCandidateMissing
@@ -210,6 +226,13 @@ impl Copy for SelfhostDirectCallLowerErrorKind:
 //: [目的/もくてき]:
 //: - error kind と span を一緒に保持し、どの引数または call expression の lowering で失敗したかを診断側へ渡します。
 //: - allocation failure も `StdErrorKind` の表示文字列へ丸めず、direct call lowering のどの owner 境界で失敗したかを分類します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は診断分類の authority です。表示文字列、翻訳、色付けはこの struct とは別の report 層で行います。
+//: - `span` は失敗した argument または call expression の source span です。候補 missing のように argument を特定できない場合は call span を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - copy と field access は O(1) です。inner error kind を持つ場合も値 payload を保持するだけです。
 pub struct SelfhostDirectCallLowerError:
     kind %SelfhostDirectCallLowerErrorKind
     span %SelfhostSourceSpan
@@ -222,11 +245,33 @@ impl Copy for SelfhostDirectCallLowerError:
     fn copy_mark %fn SelfhostDirectCallLowerError SelfhostDirectCallLowerError \self:
         self
 
+//: SelfhostDirectCallArgumentLowerState: direct call argument lowering の途中 owner
+//:
+//: [目的/もくてき]:
+//: - 引数 child expression を順に追加する再帰処理で、更新済み HIR module owner と child id Vec owner を一緒に返します。
+//: - module と child id list を別々に返すと、途中失敗時にどちらの owner を caller が閉じるべきか曖昧になるため、内部 state record としてまとめます。
+//:
+//: [契約/けいやく]:
+//: - `module` は、これまでに成功した child expression 追加を含む owner です。
+//: - `child_ids` は、`module` 内に実在する child expression id だけを保持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築と copy は O(1) です。
 struct SelfhostDirectCallArgumentLowerState:
     module %SelfhostHirModule
     child_ids %Vec SelfhostHirExprId
 
 //: selfhost_direct_call_lower_error_new: direct call lowering error を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - HIR lowering の失敗分類と source span を、診断 projection がそのまま扱える typed payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `kind` は表示文ではなく enum error です。表示文や翻訳は後続 diagnostic 層で行います。
+//: - `span` は失敗した call expression または argument の span です。fallback span を混ぜると診断位置が曖昧になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
 pub fn selfhost_direct_call_lower_error_new %fn SelfhostDirectCallLowerErrorKind fn SelfhostSourceSpan SelfhostDirectCallLowerError \kind\span:
     SelfhostDirectCallLowerError kind span
 
@@ -234,6 +279,13 @@ pub fn selfhost_direct_call_lower_error_new %fn SelfhostDirectCallLowerErrorKind
 //:
 //: [目的/もくてき]:
 //: - focused test が表示文言ではなく typed error kind を確認できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 2 つの error kind は同じ分類です。`FunctionValueFailed` は内側 error kind も比較します。
+//: - `false`: 分類が異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum 分岐だけなので O(1) です。
 pub fn selfhost_direct_call_lower_error_kind_eq %fn SelfhostDirectCallLowerErrorKind fn SelfhostDirectCallLowerErrorKind bool \a\b:
     match a:
         SelfhostDirectCallLowerErrorKind::NotDirectCall:
@@ -303,13 +355,52 @@ pub fn selfhost_direct_call_lower_error_kind_eq %fn SelfhostDirectCallLowerError
                 _:
                     false
 
+//: selfhost_direct_call_argument_lower_state_new: argument lowering state を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - recursive argument lowering が成功した時点の module owner と child id Vec owner を 1 つにまとめます。
+//:
+//: [契約/けいやく]:
+//: - `child_ids` は `module` に追加済みの expression id だけを含みます。
+//: - この helper は owner を消費して record に移すだけで、module や Vec の内容は変更しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
 fn selfhost_direct_call_argument_lower_state_new %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId SelfhostDirectCallArgumentLowerState \module\child_ids:
     SelfhostDirectCallArgumentLowerState module child_ids
 
+//: selfhost_direct_call_lower_free_module_error: module owner を[閉/と]じて lowering error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - parent call 生成前など、child id Vec をまだ持っていない失敗 path で module owner を必ず閉じます。
+//:
+//: [契約/けいやく]:
+//: - この関数に渡した `module` は必ず free され、caller へ戻りません。
+//: - caller は戻り値の `Err` だけを扱い、同じ module owner を再利用してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `Err(SelfhostDirectCallLowerError)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - module free の計算量に従います。追加の探索は行いません。
 fn selfhost_direct_call_lower_free_module_error %impure fn SelfhostHirModule impure fn SelfhostDirectCallLowerErrorKind impure fn SelfhostSourceSpan Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\kind\span:
     selfhost_hir_module_free module
     Result::Err selfhost_direct_call_lower_error_new kind span
 
+//: selfhost_direct_call_lower_free_state_error: module と child id Vec を[閉/と]じて lowering error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - child ids を確保した後の失敗 path で、module owner と child id Vec owner の両方を閉じます。
+//:
+//: [契約/けいやく]:
+//: - この関数に渡した `module` と `child_ids` は必ず free され、caller へ戻りません。
+//: - child id は module 内の参照値なので、module owner を閉じた後に保持してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `Err(SelfhostDirectCallLowerError)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - module free と Vec free の計算量に従います。追加の探索は行いません。
 fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId impure fn SelfhostDirectCallLowerErrorKind impure fn SelfhostSourceSpan Result SelfhostDirectCallArgumentLowerState SelfhostDirectCallLowerError \module\child_ids\kind\span:
     selfhost_hir_module_free module
     v::free child_ids
@@ -327,6 +418,16 @@ fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impu
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: module に child expression が追加され、`alloc.expr_id` がその child の id です。
 //: - `Err(UnsupportedArgumentKind)`: 値 payload 未保存の nested call、block result などは、まだ HIR expression tree へ落とせないため拒否しました。escape 付き string は checker 側の typed error で止まります。
+//: - `Err(ChildExprAllocFailed)`: HIR expression table への child 追加に失敗しました。この API は add_expr 失敗時に再利用可能な module owner を返さないため、caller は error だけを扱います。
+//: - `Err(FunctionValueFailed(_))`: function value 専用 lowering が generic candidate などを拒否しました。この path では module owner を `selfhost_direct_call_lower_free_module_error` で閉じてから返します。
+//:
+//: [契約/けいやく]:
+//: - accepted literal と value payload は HIR expression に変換しますが、source lexeme や prefix token を再読してはいけません。
+//: - unsupported variant は `UnsupportedArgumentKind` として fail-closed にします。暫定的に `Unit` や dummy expression へ丸めてはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload variant の分岐は O(1) です。
+//: - HIR expression table への追加は Vec の償却 O(1)、再確保時は table size に比例します。
 pub fn selfhost_hir_lower_checked_argument %impure fn SelfhostHirModule impure fn SelfhostCheckedArgument Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\argument:
     match *field::get_ref &argument "kind":
         SelfhostCheckedArgumentKind::UnitValue:
@@ -381,11 +482,26 @@ pub fn selfhost_hir_lower_checked_argument %impure fn SelfhostHirModule impure f
                         Result::Err _e:
                             Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
                 Result::Err e:
-                    selfhost_hir_module_free module
-                    Result::Err selfhost_direct_call_lower_error_new (SelfhostDirectCallLowerErrorKind::FunctionValueFailed e.kind) argument.span
+                    selfhost_direct_call_lower_free_module_error module (SelfhostDirectCallLowerErrorKind::FunctionValueFailed e.kind) argument.span
         _:
             selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind argument.span
 
+//: selfhost_hir_lower_direct_call_arguments: checked argument list を HIR child list へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - checked argument payload を左から順に HIR child expression へ下ろし、parent call が参照する child id list を作ります。
+//: - 失敗時は、その時点で所有している module / child id Vec を閉じ、途中生成物を caller へ漏らしません。
+//:
+//: [契約/けいやく]:
+//: - `idx` は次に処理する checked argument index です。
+//: - `argument_count` は reducer が確定した call arity です。caller は checked argument Vec の長さと一致するかを先に確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(state)`: `state.module` に全 child expression が追加され、`state.child_ids` は parent call の child range に使えます。
+//: - `Err(error)`: child lowering、child id push、または checked argument lookup に失敗しました。所有中の module / Vec は閉じています。
+//:
+//: [計算量/けいさんりょう]:
+//: - 引数数 n に対して O(n) です。child expression / child id Vec の再確保時は各 Vec の現在 size に比例します。
 fn selfhost_hir_lower_direct_call_arguments %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId impure fn &Vec SelfhostCheckedArgument impure fn i32 impure fn i32 impure fn SelfhostSourceSpan Result SelfhostDirectCallArgumentLowerState SelfhostDirectCallLowerError \module\child_ids\checked_arguments\argument_count\idx\call_span:
     if:
         ge idx argument_count
@@ -411,6 +527,23 @@ fn selfhost_hir_lower_direct_call_arguments %impure fn SelfhostHirModule impure 
                 Option::None:
                     selfhost_direct_call_lower_free_state_error module child_ids SelfhostDirectCallLowerErrorKind::CheckedArgumentMissing call_span
 
+//: selfhost_hir_lower_direct_call_plan: direct call plan を HIR parent call expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - reducer が選んだ callee candidate と checked argument payload から、HIR child expressions と parent `Call` expression を構築します。
+//: - callee 名は candidate table 由来の `candidate.name` を使い、prefix token spelling は再読しません。
+//:
+//: [契約/けいやく]:
+//: - `candidate` は `call.candidate_index` で選択済みの callable candidate です。
+//: - `checked_arguments` は reducer が受理した引数だけを順番通りに含みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: parent call expression が HIR module に追加されました。
+//: - `Err(CheckedArgumentCountMismatch)`: reducer の arity と checked argument Vec の長さが一致しません。
+//: - `Err(error)`: child lowering、child range allocation、parent call allocation のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 引数数 n に対して O(n) です。HIR table / child range allocation の再確保時は各 storage size に比例します。
 fn selfhost_hir_lower_direct_call_plan %impure fn SelfhostHirModule impure fn SelfhostReducedCall impure fn &Vec SelfhostCheckedArgument impure fn SelfhostCallableCandidate Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\call\checked_arguments\candidate:
     if:
         not eq v::len checked_arguments call.argument_count
@@ -450,7 +583,11 @@ fn selfhost_hir_lower_direct_call_plan %impure fn SelfhostHirModule impure fn Se
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: module に argument child expressions と parent call expression が追加され、`alloc.expr_id` が parent call の id です。
 //: - `Err(NotDirectCall)`: 現在の result が direct call ではありません。
+//: - `Err(SelectedCandidateMissing)`: reducer が選んだ candidate index が candidate table に存在しません。
 //: - `Err(UnsupportedArgumentKind)`: checked argument の中に、現 checkpoint ではまだ HIR lowering できない分類が含まれています。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate lookup は O(1)、direct call plan lowering は引数数 n に対して O(n) です。
 pub fn selfhost_hir_lower_direct_call_result %impure fn SelfhostHirModule impure fn SelfhostCallReduceResult impure fn &Vec SelfhostCheckedArgument impure fn &Vec SelfhostCallableCandidate Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\result\checked_arguments\candidates:
     match result:
         SelfhostCallReduceResult::DirectCall call:
@@ -465,5 +602,13 @@ pub fn selfhost_hir_lower_direct_call_result %impure fn SelfhostHirModule impure
 //: [目的/もくてき]:
 //: - `body_line.nepl` が返す owner 付き success payload を borrow し、direct call lowering に必要な reduction result と checked argument list を同じ境界で読みます。
 //: - success payload 自体はこの関数が消費しません。caller は lowering 後に `selfhost_expression_line_check_success_free` などで owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: body line success が direct call HIR expression として module に追加されました。
+//: - `Err(NotDirectCall)`: success の reduction result が direct call ではありません。
+//: - `Err(error)`: selected candidate lookup、checked argument lowering、child range allocation、parent call allocation のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - direct call の引数数 n に対して O(n) です。success payload は borrow するだけなので追加 traversal は行いません。
 pub fn selfhost_hir_lower_expression_line_success_direct_call %impure fn SelfhostHirModule impure fn &SelfhostExpressionLineCheckSuccess impure fn &Vec SelfhostCallableCandidate Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\success\candidates:
     selfhost_hir_lower_direct_call_result module *selfhost_expression_line_check_success_result success selfhost_expression_line_check_success_checked_arguments success candidates

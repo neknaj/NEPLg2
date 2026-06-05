@@ -24,6 +24,7 @@ const parserPrefix = readRepoFile(repoRoot, "stdlib/neplg2/core/syntax/ast/prefi
     + "\n"
     + readRepoFile(repoRoot, "stdlib/neplg2/core/syntax/parser/body_segmenter.nepl");
 const bodyLine = readRepoFile(repoRoot, "stdlib/neplg2/core/check/expr/body_line.nepl");
+const argumentPayload = readRepoFile(repoRoot, "stdlib/neplg2/core/check/expr/argument_payload.nepl");
 const literalPayload = readRepoFile(repoRoot, "stdlib/neplg2/core/check/expr/literal_payload.nepl");
 
 function assertLiteralPayloadDoc(name, requiredParts) {
@@ -33,6 +34,18 @@ function assertLiteralPayloadDoc(name, requiredParts) {
     const fnIndex = literalPayload.indexOf(`fn ${name} `, markerIndex);
     assert.notEqual(fnIndex, -1, `${name} doc comment must be immediately before its function declaration`);
     const doc = literalPayload.slice(markerIndex, fnIndex);
+    for (const part of requiredParts) {
+        assert.ok(doc.includes(part), `${name} doc comment must include ${part}`);
+    }
+}
+
+function assertArgumentPayloadDoc(name, declarationKind, requiredParts) {
+    const marker = `//: ${name}:`;
+    const markerIndex = argumentPayload.indexOf(marker);
+    assert.notEqual(markerIndex, -1, `${name} must have a named doc comment`);
+    const declIndex = argumentPayload.indexOf(`${declarationKind} ${name}`, markerIndex);
+    assert.notEqual(declIndex, -1, `${name} doc comment must be immediately before ${declarationKind}`);
+    const doc = argumentPayload.slice(markerIndex, declIndex);
     for (const part of requiredParts) {
         assert.ok(doc.includes(part), `${name} doc comment must include ${part}`);
     }
@@ -187,6 +200,59 @@ assert.match(
     source,
     /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*BoolLiteral %bool[\s\S]*I32Literal %i32[\s\S]*CharLiteral %char[\s\S]*StrLiteral %str[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
     "checked argument payload must preserve literal value, function value, nested call, block-result, range, type, and span evidence",
+);
+assert.match(
+    argumentPayload,
+    /`TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool \/ i32 \/ char \/ simple string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。/,
+    "TypedExpression documentation must not describe implemented char/simple literal payloads as unsupported fallbacks",
+);
+assertArgumentPayloadDoc("SelfhostCheckedArgumentKind", "pub enum", [
+    "[目的/もくてき]",
+    "[分類/ぶんるい]",
+    "[現状/げんじょう]",
+    "`TypedExpression` は、型照合は済んでいるが",
+    "`NestedDirectCall` と `BlockResult` は candidate や範囲の evidence だけを持つため",
+]);
+assertArgumentPayloadDoc("SelfhostCheckedArgument", "pub struct", [
+    "[目的/もくてき]",
+    "[契約/けいやく]",
+    "[計算量/けいさんりょう]",
+    "literal 値や DefId-linked identity を捨てて、後段で source から復元してはいけません",
+]);
+assertArgumentPayloadDoc("selfhost_checked_argument_typed_expression", "pub fn", [
+    "[目的/もくてき]",
+    "[契約/けいやく]",
+    "[計算量/けいさんりょう]",
+    "char literal は `CharLiteral` payload 実装済みなので",
+]);
+assertArgumentPayloadDoc("selfhost_checked_argument_nested_direct_call", "pub fn", [
+    "[目的/もくてき]",
+    "[現状/げんじょう]",
+    "[契約/けいやく]",
+    "[計算量/けいさんりょう]",
+    "lowering は名前文字列から候補を再探索してはいけません",
+]);
+assertArgumentPayloadDoc("selfhost_checked_argument_block_result", "pub fn", [
+    "[目的/もくてき]",
+    "[現状/げんじょう]",
+    "[契約/けいやく]",
+    "[計算量/けいさんりょう]",
+    "direct-call lowering は `UnsupportedArgumentKind` として拒否します",
+]);
+assert.doesNotMatch(
+    argumentPayload,
+    /char literal、escape 付き string|CharLiteral[^。\n]*TypedExpression|char literal[^。\n]*TypedExpression/,
+    "argument payload comments must not reintroduce the old char-literal-as-TypedExpression explanation",
+);
+assert.match(
+    source,
+    /selfhost_expr_argument_checked_simple_item:[\s\S]*\[目的\/もくてき\]:[\s\S]*\[現状\/げんじょう\]:[\s\S]*source-backed 経路では char literal は `CharLiteral` payload に分解済み[\s\S]*fn selfhost_expr_argument_checked_simple_item/,
+    "source-less simple-item argument helper docs must preserve the source-backed CharLiteral payload boundary",
+);
+assert.doesNotMatch(
+    source,
+    /char literal は HIR payload が未実装|char literal[^。\n]*`TypedExpression` に留めます|CharLiteral[^。\n]*TypedExpression/,
+    "check/expr comments must not reintroduce the old source-backed char-literal-as-TypedExpression explanation",
 );
 assert.match(
     source,

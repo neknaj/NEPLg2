@@ -14,7 +14,7 @@
 //: - `BoolLiteral`、`I32Literal`、`CharLiteral` は、source-backed checker が token lexeme を一度だけ解析して得た意味値を保持します。lowering は source text を再読しません。
 //: - `StrLiteral` は、escape を含まない string literal から得た意味値を保持します。escape decode は別 slice の責務であり、この payload に raw quoted lexeme を入れてはいけません。
 //: - `NamedValue` は、scope と value type evidence で照合済みの値参照を、DefId-linked identity として表します。
-//: - `TypedExpression` は、escape 付き string、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。
+//: - `TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool / i32 / char / simple string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。
 //: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
 //:
 //: [計算量/けいさんりょう]:
@@ -65,6 +65,17 @@ pub fn selfhost_checked_value_identity_new %fn str fn SelfhostDefId fn SelfhostD
 //: [目的/もくてき]:
 //: - expression checker が得た証拠を、後続 lowering が match で網羅的に扱えるようにします。
 //: - `NamedValue`、`FunctionValue`、`NestedDirectCall` は identity payload を保持し、名前文字列だけへ戻る退行を防ぎます。
+//:
+//: [分類/ぶんるい]:
+//: - `UnitValue`、`BoolLiteral`、`I32Literal`、`CharLiteral`、`StrLiteral` は、source-backed checker が確定した literal argument payload です。
+//: - `NamedValue` は、scope lookup と value type evidence によって DefId-linked value identity が確定した argument です。
+//: - `FunctionValue` は、明示 `@ident` が expected function type と照合され、一意の callable candidate として確定した argument です。
+//: - `TypedExpression` は、型照合は済んでいるが、現 checkpoint で HIR child を source 再読なしに構築する payload がまだない expression です。
+//: - `NestedDirectCall` と `BlockResult` は、argument が単一 item ではなく、後続 slice で checked tree payload を追加する必要がある分類です。
+//:
+//: [現状/げんじょう]:
+//: - `NestedDirectCall` と `BlockResult` は candidate や範囲の evidence だけを持つため、direct-call HIR lowering では fail-closed にします。
+//: - bool / i32 / char / simple string literal は専用 payload を持ちます。これらを `TypedExpression` へ戻すと、lowering が source token を再読する設計へ退行します。
 pub enum SelfhostCheckedArgumentKind:
     UnitValue
     BoolLiteral %bool
@@ -91,6 +102,14 @@ impl Copy for SelfhostCheckedArgumentKind:
 //: - `start_index` と `next_index` は、prefix list 上でこの実引数式が消費した範囲を表します。
 //: - `value_type` は、parameter type との照合後に得られた expression type です。HIR lowering はこの型を expression node の型として使えます。
 //: - `span` は、diagnostic と HIR dump が source 上の使用箇所を失わないための位置情報です。
+//:
+//: [契約/けいやく]:
+//: - `kind` は、checker がこの argument について持つ最も具体的な evidence です。literal 値や DefId-linked identity を捨てて、後段で source から復元してはいけません。
+//: - `start_index` と `next_index` は半開区間 `[start_index, next_index)` です。caller は `next_index` を次の argument 開始位置として扱えます。
+//: - `value_type` は expected parameter type と照合済みです。未照合の型候補や fallback 型を入れてはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - record の copy と field access は O(1) です。payload が持つ文字列や Vec の深い複製は行いません。
 pub struct SelfhostCheckedArgument:
     kind %SelfhostCheckedArgumentKind
     start_index %i32
@@ -125,10 +144,10 @@ pub fn selfhost_checked_argument_new %fn SelfhostCheckedArgumentKind fn i32 fn i
 //: selfhost_checked_argument_typed_expression: 通常の typed expression argument を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - char literal、escape 付き string、ascription 付き複合式など、関数値 identity や literal 値をまだ payload 化していない argument の共通 constructor です。
+//: - ascription 付き複合式など、関数値 identity や literal 値をまだ payload 化していない argument の共通 constructor です。
 //:
 //: [契約/けいやく]:
-//: - `TypedExpression` は「型だけは一致したが、HIR child を source 再読なしに作る payload が未実装」という分類です。
+//: - `TypedExpression` は「型だけは一致したが、HIR child を source 再読なしに作る payload が未実装」という分類です。char literal は `CharLiteral` payload 実装済みなので、この constructor へ渡してはいけません。
 //: - HIR lowering はこの variant を accepted として扱わず、より詳細な checked tree payload が入るまで fail-closed にします。
 //:
 //: [計算量/けいさんりょう]:
@@ -246,6 +265,10 @@ pub fn selfhost_checked_argument_function_value %fn i32 fn i32 fn SelfhostTypeId
 //: - この variant は nested call の candidate summary だけを持ち、内側 argument tree の full payload はまだ持ちません。
 //: - HIR lowering で accepted にするには、後続 slice で checked tree payload を追加する必要があります。
 //:
+//: [契約/けいやく]:
+//: - `candidate` は nested call の head として選択された callable candidate です。lowering は名前文字列から候補を再探索してはいけません。
+//: - 現 checkpoint では accepted lowering ではありません。caller はこの payload を成功扱いにする前に、内側 checked argument tree を運ぶ構造へ拡張する必要があります。
+//:
 //: [計算量/けいさんりょう]:
 //: - 構築は O(1) です。
 pub fn selfhost_checked_argument_nested_direct_call %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCallableCandidate SelfhostCheckedArgument \start_index\next_index\value_type\span\candidate:
@@ -259,6 +282,10 @@ pub fn selfhost_checked_argument_nested_direct_call %fn i32 fn i32 fn SelfhostTy
 //: [現状/げんじょう]:
 //: - この variant は block result の範囲と型だけを運び、block body の HIR tree payload はまだ持ちません。
 //: - 後続 HIR lowering は、この payload が拡張されるまで fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - `start_index` / `next_index` と `span` は trailing block が 1 個の argument として検査された範囲を示します。
+//: - 現 checkpoint では accepted lowering ではありません。block body の typed HIR payload が追加されるまでは、direct-call lowering は `UnsupportedArgumentKind` として拒否します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 構築は O(1) です。
