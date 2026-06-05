@@ -8,6 +8,41 @@
 //: [注意/ちゅうい]:
 //: - `str_slice_result` の index は byte index です。char index ではありません。
 //: - 文字境界でない範囲は `Result::Err` にします。
+//: - `Result::Err str` は現状互換境界です。typed enum error 化は `ISS-20260606T073427291Z-STRING-SLICE-CHAR-ERROR-KIND-COLLAPSED-STR-4F9E2A81` で追跡します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_byte_module_doc\" count=4 failed=0\nassertion index=0 status=ok kind=str_eq label=\"ascii byte slice\" expected=\"ell\" actual=\"ell\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"utf8 byte slice\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"mid char end rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=str_eq label=\"fallback empty\" expected=\"\" actual=\"\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/byte" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str str fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _e:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let ascii %str str_slice "hello" 1 4
+//:     let utf8_result %Result str str str_slice_result "AあB" 1 4
+//:     let cut_end %Result str str str_slice_result "あ" 0 1
+//:     let utf8_ok %bool result_str_eq utf8_result "あ"
+//:     let cut_end_err %bool is_err cut_end
+//:     let fallback %str str_slice "あ" 0 1
+//:     let report:
+//:         test_report_new "alloc_string_slice_byte_module_doc"
+//:         |> test_report_push assert_str_eq "ascii byte slice" "ell" ascii
+//:         |> test_report_push assert "utf8 byte slice" utf8_ok
+//:         |> test_report_push assert "mid char end rejected" cut_end_err
+//:         |> test_report_push assert_str_eq "fallback empty" "" fallback
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
@@ -31,9 +66,48 @@
 //: [注意/ちゅうい]:
 //: - index は byte index です。ただし `str` の UTF-8 不変条件を守るため、文字境界でない範囲は `Result::Err` にします。
 //: - `str_slice` は失敗時に空文字列 fallback を返す互換 API です。
+//: - error payload の `str` は現状互換境界です。typed enum error 化は `ISS-20260606T073427291Z-STRING-SLICE-CHAR-ERROR-KIND-COLLAPSED-STR-4F9E2A81` で追跡します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_result_doc\" count=6 failed=0\nassertion index=0 status=ok kind=bool label=\"ascii slice\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"utf8 slice\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"empty range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"clamped range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"cut end rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"cut start rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/byte" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str str fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _e:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let ascii %Result str str str_slice_result "abcdef" 2 5
+//:     let utf8 %Result str str str_slice_result "AあB" 1 4
+//:     let empty %Result str str str_slice_result "abc" 2 2
+//:     let clamped %Result str str str_slice_result "abc" -3 99
+//:     let cut_end %Result str str str_slice_result "あ" 0 1
+//:     let cut_start %Result str str str_slice_result "あ" 1 3
+//:     let cut_end_err %bool is_err cut_end
+//:     let cut_start_err %bool is_err cut_start
+//:     let report:
+//:         test_report_new "alloc_string_slice_result_doc"
+//:         |> test_report_push assert "ascii slice" result_str_eq ascii "cde"
+//:         |> test_report_push assert "utf8 slice" result_str_eq utf8 "あ"
+//:         |> test_report_push assert "empty range" result_str_eq empty ""
+//:         |> test_report_push assert "clamped range" result_str_eq clamped "abc"
+//:         |> test_report_push assert "cut end rejected" cut_end_err
+//:         |> test_report_push assert "cut start rejected" cut_start_err
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_slice_result %fn str fn i32 fn i32 Result str str \s\start\end:
     let n %i32 len s;
     let mut s0 %i32 start;
@@ -59,6 +133,43 @@ pub fn str_slice_result %fn str fn i32 fn i32 Result str str \s\start\end:
         else:
             Result::Err "string.slice invalid utf8 boundary"
 
+//: str_slice: 失敗理由を捨てて空文字列 fallback を返す byte slice 互換 API
+//:
+//: [目的/もくてき]:
+//: - 既存の文字列処理が `Result` を扱えない境界でも、byte 範囲から新しい `str` を得られるようにします。
+//:
+//: [契約/けいやく]:
+//: - `str_slice_result s start end` が `Result::Ok out` なら `out` を返します。
+//: - UTF-8 文字境界違反や allocation failure などで `Result::Err` なら `""` を返します。
+//: - error reason が必要な新規コードでは `str_slice_result` を使います。
+//:
+//: [現状/げんじょう]:
+//: - fallback は互換層のための仕様です。silent success ではなく、失敗理由を捨てる API として分けています。
+//:
+//: [計算量/けいさんりょう]:
+//: - 成功時は O(end - start)。失敗時は検査に必要な範囲だけを処理します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_fallback_doc\" count=3 failed=0\nassertion index=0 status=ok kind=str_eq label=\"valid slice\" expected=\"bc\" actual=\"bc\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"reversed empty\" expected=\"\" actual=\"\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"invalid utf8 fallback\" expected=\"\" actual=\"\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/byte" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let valid %str str_slice "abcd" 1 3
+//:     let reversed %str str_slice "abcd" 3 1
+//:     let invalid %str str_slice "あ" 0 1
+//:     let report:
+//:         test_report_new "alloc_string_slice_fallback_doc"
+//:         |> test_report_push assert_str_eq "valid slice" "bc" valid
+//:         |> test_report_push assert_str_eq "reversed empty" "" reversed
+//:         |> test_report_push assert_str_eq "invalid utf8 fallback" "" invalid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_slice %fn str fn i32 fn i32 str \s\start\end:
     match str_slice_result s start end:
         Result::Ok out:

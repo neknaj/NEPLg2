@@ -7,6 +7,41 @@
 //:
 //: [注意/ちゅうい]:
 //: - char 系 API は Unicode scalar value 単位です。表示幅や grapheme cluster は扱いません。
+//: - `Result::Err str` は現状互換境界です。typed enum error 化は `ISS-20260606T073427291Z-STRING-SLICE-CHAR-ERROR-KIND-COLLAPSED-STR-4F9E2A81` で追跡します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_char_module_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"char count\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"char slice\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"contains emoji\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"starts with A\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str str fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _e:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let text %str "Aéあ💯"
+//:     let count %i32 str_char_count text
+//:     let sliced %Result str str str_slice_chars_result text 1 3
+//:     let sliced_ok %bool result_str_eq sliced "éあ"
+//:     let contains %bool str_contains_char text '\u{1F4AF}'
+//:     let starts %bool str_starts_with_char text 'A'
+//:     let report:
+//:         test_report_new "alloc_string_slice_char_module_doc"
+//:         |> test_report_push assert_eq_i32 "char count" 4 count
+//:         |> test_report_push assert "char slice" sliced_ok
+//:         |> test_report_push assert "contains emoji" contains
+//:         |> test_report_push assert "starts with A" starts
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
@@ -23,9 +58,107 @@
 #import "alloc/string/char_offsets" as *
 #import "./byte" as *
 
+//: str_next_char_ok: decode 済み char と次 byte offset を Ok step に包む
+//:
+//: [目的/もくてき]:
+//: - UTF-8 decoder の各分岐が、`CharUtf8Step` の構築と `Result::Ok` 包装を重複して書かずに済むようにします。
+//:
+//: [契約/けいやく]:
+//: - `c` を `CharUtf8Step.value`、`next_byte_index` を `CharUtf8Step.next` として返します。
+//: - `next_byte_index` の範囲検査は行いません。caller は decode した sequence の byte 幅から妥当な次 offset を渡します。
+//:
+//: [現状/げんじょう]:
+//: - owner を持たない `CharUtf8Step` を返すだけで、allocation は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_next_char_ok_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"ok step value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"ok step next\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/char" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let step %CharUtf8Step match str_next_char_ok 'Z' 9:
+//:         Result::Err _e:
+//:             char_utf8_step_new '?' 0
+//:         Result::Ok found:
+//:             found
+//:     let value_code %i32 char_to_i32 get step "value"
+//:     let next %i32 get step "next"
+//:     let report:
+//:         test_report_new "alloc_string_slice_next_char_ok_doc"
+//:         |> test_report_push assert "ok step value" eq value_code 90
+//:         |> test_report_push assert "ok step next" eq next 9
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_next_char_ok %fn char fn i32 Result CharUtf8Step str \c\next_byte_index:
     Result::Ok char_utf8_step_new c next_byte_index
 
+//: str_decode_char_result: i32 code point を検証して decode step にする
+//:
+//: [目的/もくてき]:
+//: - UTF-8 byte sequence から組み立てた code point を `char` に変換し、surrogate や範囲外を `Result::Err` にします。
+//:
+//: [契約/けいやく]:
+//: - `code` が Unicode scalar value なら `CharUtf8Step.value` として返します。
+//: - surrogate range と `0x10FFFF` 超過は `Result::Err "string.char invalid scalar"` です。
+//: - `next_byte_index` は検証済み sequence の直後 offset として caller が渡します。この helper 自体は offset 範囲検査を行いません。
+//: - error payload の `str` は現状互換境界です。typed enum error 化は `ISS-20260606T073427291Z-STRING-SLICE-CHAR-ERROR-KIND-COLLAPSED-STR-4F9E2A81` で追跡します。
+//:
+//: [現状/げんじょう]:
+//: - scalar 検査は `core/char` の `char_from_i32_result` に委譲します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_decode_char_doc\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"hiragana scalar\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"emoji scalar\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"surrogate rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"too large rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/char" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn step_eq %fn Result CharUtf8Step str fn i32 fn i32 bool \got\expected_code\expected_next:
+//:     match got:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok step:
+//:             let value_code %i32 char_to_i32 get step "value"
+//:             let next %i32 get step "next"
+//:             and eq value_code expected_code eq next expected_next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let hira %Result CharUtf8Step str str_decode_char_result 0x3042 4
+//:     let emoji %Result CharUtf8Step str str_decode_char_result 0x1F4AF 10
+//:     let surrogate %Result CharUtf8Step str str_decode_char_result 0xD800 1
+//:     let too_large %Result CharUtf8Step str str_decode_char_result 0x110000 1
+//:     let surrogate_err %bool is_err surrogate
+//:     let too_large_err %bool is_err too_large
+//:     let report:
+//:         test_report_new "alloc_string_slice_decode_char_doc"
+//:         |> test_report_push assert "hiragana scalar" step_eq hira 0x3042 4
+//:         |> test_report_push assert "emoji scalar" step_eq emoji 0x1F4AF 10
+//:         |> test_report_push assert "surrogate rejected" surrogate_err
+//:         |> test_report_push assert "too large rejected" too_large_err
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_decode_char_result %fn i32 fn i32 Result CharUtf8Step str \code\next_byte_index:
     match char_from_i32_result code:
         Result::Err _e:
@@ -33,6 +166,55 @@ pub fn str_decode_char_result %fn i32 fn i32 Result CharUtf8Step str \code\next_
         Result::Ok c:
             str_next_char_ok c next_byte_index
 
+//: str_char_byte_or_invalid: byte reader の Option を内部 sentinel に畳む
+//:
+//: [目的/もくてき]:
+//: - UTF-8 decode 分岐が continuation byte を読むとき、`Option::Some` / `Option::None` を 1 つの i32 byte 値として扱えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `idx` が byte 範囲内ならその byte 値を返します。
+//: - 範囲外なら `-1` を返します。caller は continuation 判定や lead kind 判定で invalid として扱う必要があります。
+//: - sentinel は public API に漏らしません。`str_next_char_result` は `Result::Err` の文字列 payload へ変換します。
+//:
+//: [現状/げんじょう]:
+//: - valid `str` を public API 経由で読む通常経路では、事前の長さ検査により範囲外 continuation read は起きません。この helper は内部防衛境界です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_char_byte_or_invalid_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"in range public decode\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"continuation rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/char" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn step_eq %fn Result CharUtf8Step str fn i32 fn i32 bool \got\expected_code\expected_next:
+//:     match got:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok step:
+//:             let value_code %i32 char_to_i32 get step "value"
+//:             let next %i32 get step "next"
+//:             and eq value_code expected_code eq next expected_next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let in_range %Result CharUtf8Step str str_next_char_result "A" 0
+//:     let continuation %Result CharUtf8Step str str_next_char_result "é" 1
+//:     let continuation_err %bool is_err continuation
+//:     let report:
+//:         test_report_new "alloc_string_slice_char_byte_or_invalid_doc"
+//:         |> test_report_push assert "in range public decode" step_eq in_range 65 1
+//:         |> test_report_push assert "continuation rejected" continuation_err
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 fn str_char_byte_or_invalid %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
@@ -51,6 +233,50 @@ fn str_char_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_next_char_result_doc\" count=6 failed=0\nassertion index=0 status=ok kind=bool label=\"ascii step\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"two byte step\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"three byte step\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"four byte step\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"continuation rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"end rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/char" as *
+//:| #import "core/field" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn step_eq %fn Result CharUtf8Step str fn i32 fn i32 bool \got\expected_code\expected_next:
+//:     match got:
+//:         Result::Err _e:
+//:             false
+//:         Result::Ok step:
+//:             let value_code %i32 char_to_i32 get step "value"
+//:             let next %i32 get step "next"
+//:             and eq value_code expected_code eq next expected_next
+//:
+//: fn main %impure fn void i32 \void:
+//:     let text %str "Aéあ💯"
+//:     let ascii %Result CharUtf8Step str str_next_char_result text 0
+//:     let two_byte %Result CharUtf8Step str str_next_char_result text 1
+//:     let three_byte %Result CharUtf8Step str str_next_char_result text 3
+//:     let four_byte %Result CharUtf8Step str str_next_char_result text 6
+//:     let continuation %Result CharUtf8Step str str_next_char_result text 2
+//:     let at_end %Result CharUtf8Step str str_next_char_result text 10
+//:     let continuation_err %bool is_err continuation
+//:     let end_err %bool is_err at_end
+//:     let report:
+//:         test_report_new "alloc_string_slice_next_char_result_doc"
+//:         |> test_report_push assert "ascii step" step_eq ascii 65 1
+//:         |> test_report_push assert "two byte step" step_eq two_byte 0x00E9 3
+//:         |> test_report_push assert "three byte step" step_eq three_byte 0x3042 6
+//:         |> test_report_push assert "four byte step" step_eq four_byte 0x1F4AF 10
+//:         |> test_report_push assert "continuation rejected" continuation_err
+//:         |> test_report_push assert "end rejected" end_err
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_next_char_result %fn str fn i32 Result CharUtf8Step str \s\byte_index:
     let n %i32 len s
     if:
@@ -157,6 +383,29 @@ pub fn str_next_char_result %fn str fn i32 Result CharUtf8Step str \s\byte_index
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_char_count_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"mixed count\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"empty count\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"ascii count\" expected=\"3\" actual=\"3\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let mixed %i32 str_char_count "Aéあ💯"
+//:     let empty %i32 str_char_count ""
+//:     let ascii %i32 str_char_count "abc"
+//:     let report:
+//:         test_report_new "alloc_string_slice_char_count_doc"
+//:         |> test_report_push assert_eq_i32 "mixed count" 4 mixed
+//:         |> test_report_push assert_eq_i32 "empty count" 0 empty
+//:         |> test_report_push assert_eq_i32 "ascii count" 3 ascii
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_char_count %fn str i32 \s:
     let n %i32 len s
     let mut byte_i %i32 0
@@ -184,6 +433,39 @@ pub fn str_char_count %fn str i32 \s:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_char_byte_index_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"char one offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"end offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"missing char rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn result_i32_eq %fn Result i32 str fn i32 bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             eq actual expected
+//:         Result::Err _e:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let text %str "Aéあ💯"
+//:     let char_one %Result i32 str str_char_byte_index_result text 1
+//:     let at_end %Result i32 str str_char_byte_index_result text 4
+//:     let missing %Result i32 str str_char_byte_index_result text 5
+//:     let missing_err %bool is_err missing
+//:     let report:
+//:         test_report_new "alloc_string_slice_char_byte_index_doc"
+//:         |> test_report_push assert "char one offset" result_i32_eq char_one 1
+//:         |> test_report_push assert "end offset" result_i32_eq at_end 10
+//:         |> test_report_push assert "missing char rejected" missing_err
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_char_byte_index_result %fn str fn i32 Result i32 str \s\char_index:
     let n %i32 len s
     let mut byte_i %i32 0
@@ -213,8 +495,52 @@ pub fn str_char_byte_index_result %fn str fn i32 Result i32 str \s\char_index:
 
 //: str_char_at_result: char index で 1 つの char を読む
 //:
+//: [目的/もくてき]:
+//: - char index を byte offset に変換し、その位置の Unicode scalar value を返します。
+//:
+//: [契約/けいやく]:
+//: - `0 <= char_index < str_char_count(s)` なら `Result::Ok char` を返します。
+//: - 末尾位置や範囲外、または UTF-8 decode 不能な位置は `Result::Err` です。
+//:
+//: [現状/げんじょう]:
+//: - offset 変換は `str_char_byte_index_result`、decode は `str_next_char_result` に委譲します。
+//:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_char_at_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"ascii char\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"emoji char\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"end rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/char" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn result_char_eq %fn Result char str fn i32 bool \got\expected_code:
+//:     match got:
+//:         Result::Ok actual:
+//:             eq char_to_i32 actual expected_code
+//:         Result::Err _e:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let text %str "Aéあ💯"
+//:     let ascii %Result char str str_char_at_result text 0
+//:     let emoji %Result char str str_char_at_result text 3
+//:     let at_end %Result char str str_char_at_result text 4
+//:     let at_end_err %bool is_err at_end
+//:     let report:
+//:         test_report_new "alloc_string_slice_char_at_doc"
+//:         |> test_report_push assert "ascii char" result_char_eq ascii 65
+//:         |> test_report_push assert "emoji char" result_char_eq emoji 0x1F4AF
+//:         |> test_report_push assert "end rejected" at_end_err
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_char_at_result %fn str fn i32 Result char str \s\char_index:
     match str_char_byte_index_result s char_index:
         Result::Err e:
@@ -237,8 +563,48 @@ pub fn str_char_at_result %fn str fn i32 Result char str \s\char_index:
 //: [目的/もくてき]:
 //: - char index の半開区間 `[start_char, end_char)` を byte boundary へ変換し、新しい `str` として返します。
 //:
+//: [契約/けいやく]:
+//: - 範囲は char index で指定します。byte index ではありません。
+//: - `0 <= start_char <= end_char <= str_char_count(s)` なら `Result::Ok str` を返します。
+//: - 不正な範囲や offset 変換失敗は `Result::Err` です。
+//:
+//: [現状/げんじょう]:
+//: - offset 計算を `char_offsets` module に委譲し、owned `str` 構築は `str_slice_result` に委譲します。
+//:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len + slice_byte_len)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_chars_result_doc\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"middle chars\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"empty chars\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"reversed rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn result_str_eq %fn Result str str fn str bool \got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_str_eq expected actual
+//:         Result::Err _e:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let text %str "Aéあ💯"
+//:     let middle %Result str str str_slice_chars_result text 1 3
+//:     let empty %Result str str str_slice_chars_result text 2 2
+//:     let reversed %Result str str str_slice_chars_result text 3 1
+//:     let reversed_err %bool is_err reversed
+//:     let report:
+//:         test_report_new "alloc_string_slice_chars_result_doc"
+//:         |> test_report_push assert "middle chars" result_str_eq middle "éあ"
+//:         |> test_report_push assert "empty chars" result_str_eq empty ""
+//:         |> test_report_push assert "reversed rejected" reversed_err
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_slice_chars_result %fn str fn i32 fn i32 Result str str \s\start_char\end_char:
     match str_char_slice_offsets_result s start_char end_char:
         Result::Err e:
@@ -249,6 +615,35 @@ pub fn str_slice_chars_result %fn str fn i32 fn i32 Result str str \s\start_char
             str_slice_result s start_byte end_byte
 
 //: str_starts_with_char: `str` が指定 char で始まるか判定する
+//:
+//: [目的/もくてき]:
+//: - 先頭の Unicode scalar value だけを decode し、指定 char と比較します。
+//:
+//: [契約/けいやく]:
+//: - 空文字列は `false` です。
+//: - 先頭 byte が decode できない場合も `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_starts_with_char_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"starts true\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"starts false\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_slice_starts_with_char_doc"
+//:         |> test_report_push assert "starts true" str_starts_with_char "éclair" '\u{00E9}'
+//:         |> test_report_push assert "starts false" not str_starts_with_char "éclair" 'e'
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_starts_with_char %fn str fn char bool \s\c:
     if:
         eq len s 0
@@ -264,8 +659,37 @@ pub fn str_starts_with_char %fn str fn char bool \s\c:
 
 //: str_contains_char: `str` が指定 char を含むか char 単位で判定する
 //:
+//: [目的/もくてき]:
+//: - byte offset を進めながら Unicode scalar value 単位で走査し、指定 char の有無を返します。
+//:
+//: [契約/けいやく]:
+//: - 比較単位は Unicode scalar value です。grapheme cluster や表示幅は扱いません。
+//: - decode error に遭遇した場合は、その位置で走査を止めて `false` のまま返します。
+//:
+//: [現状/げんじょう]:
+//: - char の code point を `i32` に変換して比較します。allocation は行いません。
+//:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"alloc_string_slice_contains_char_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"contains emoji\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"missing char\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/slice/char" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "alloc_string_slice_contains_char_doc"
+//:         |> test_report_push assert "contains emoji" str_contains_char "A💯" '\u{1F4AF}'
+//:         |> test_report_push assert "missing char" not str_contains_char "A💯" 'Z'
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_contains_char %fn str fn char bool \s\c:
     let target %i32 char_to_i32 c
     let n %i32 len s

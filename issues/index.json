@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T21:44:11.108Z",
+  "generated_at": "2026-06-05T22:35:57.357Z",
   "counts": {
-    "total": 1351,
-    "open": 49,
+    "total": 1352,
+    "open": 50,
     "resolved": 1302,
     "by_area": {
       "stdlib": {
-        "total": 357,
-        "open": 16,
+        "total": 358,
+        "open": 17,
         "resolved": 341
       },
       "core": {
@@ -848,6 +848,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260606T054938514Z-STRING-INTEGER-PARSE-ERROR-KIND-COLLAPSED-I32-6E8B1A2C.md"
+    },
+    {
+      "id": "ISS-20260606T073427291Z-STRING-SLICE-CHAR-ERROR-KIND-COLLAPSED-STR-4F9E2A81",
+      "title": "string slice and char decode errors are collapsed into str payloads",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-06-06",
+      "updated": "2026-06-06",
+      "target": "stdlib/alloc/string/slice",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260606T073427291Z-STRING-SLICE-CHAR-ERROR-KIND-COLLAPSED-STR-4F9E2A81.md"
     },
     {
       "id": "ISS-20260604T034257629Z-SELFHOST-PARSER-LOOP-EXPOSES-LONG-ST-D57B1E8E",

@@ -114,6 +114,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の StringScanner slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=288`、`declarationNoDoc=118`、`declarationNoDoctest=1639`、`publicDeclarationNoDoctest=1486`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`scanner_byte_is_ascii_digit` / `upper` / `lower` / `alpha` / `inline_space` と public wrapper の byte 値 contract、Unicode / locale 非対応、CRLF 入力で CR を inline space とし LF を行境界として扱うこと、`str_skip_inline_space_range` / `str_word_end_inline_space_range` の start / end 丸めと byte offset contract を module 固有にも固定する。ただし slice、core/gui render command、core/math convert などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の StringSlice slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=286`、`declarationNoDoc=114`、`declarationNoDoctest=1631`、`publicDeclarationNoDoctest=1478`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`str_slice_result` / `str_slice` の byte index contract、UTF-8 boundary 検査、範囲丸め、owned `str` construction boundary、Result API と空文字列 fallback API の責務差、`str_next_char_ok` / `str_decode_char_result` / `str_char_byte_or_invalid` / `str_next_char_result` の `CharUtf8Step` / scalar validation / internal sentinel / enum match boundary、char count / char byte index / char at / char slice / starts-with / contains-char の Unicode scalar value contract を module 固有にも固定する。slice / char decode error typed enum 未整備は `ISS-20260606T073427291Z-STRING-SLICE-CHAR-ERROR-KIND-COLLAPSED-STR-4F9E2A81` として分離した。ただし core/gui render command、core/math convert、core/mem、std/env、std/fs raw などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -135,6 +137,7 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/tests.js -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/agent2-string-float-format-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/string/float/parse.nepl --no-tree -o tmp/agent2-string-float-parse-doc-slice-module.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/string/integer/format.nepl --no-tree -o tmp/agent2-string-integer-format-doc-slice.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/tests.js -i stdlib/alloc/string/slice/byte.nepl -i stdlib/alloc/string/slice/char.nepl --no-tree -o tmp/agent2-string-slice-doc-third.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/hash32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/agent2-hash32-doc-smoke-5.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_hash_string_access_boundary.js`
 - `node nodesrc/test_stdlib_hash_nmd_report_contract.js`
