@@ -44,6 +44,41 @@ const contracts = [
         count: 6,
     },
     {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        name: 'alloc_string_integer_format_module_doc',
+        count: 4,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        name: 'alloc_string_integer_from_i32_radix_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        name: 'alloc_string_integer_from_i64_radix_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        name: 'alloc_string_integer_from_u128_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        name: 'alloc_string_integer_from_u128_radix_doc',
+        count: 3,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        name: 'alloc_string_integer_from_i128_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        name: 'alloc_string_integer_from_i128_radix_doc',
+        count: 3,
+    },
+    {
         rel: ['stdlib', 'alloc', 'string', 'float', 'parse.nepl'],
         index: 0,
         name: 'string_float_parse_doc',
@@ -290,6 +325,24 @@ for (const [rel, snippets] of [
             '`a + b` の内容が 2 回目の連結時に再コピーされます',
             'string_alloc_region',
             'mem_copy',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'integer', 'format.nepl'],
+        [
+            'integer format は parse と分け、Result API と fallback API の境界を明示します',
+            '基数は common の validate_radix に従い 2 / 8 / 10 / 16 のみを受理します',
+            '`from_i32` / `from_i64` / `from_u128` / `from_i128` は失敗時に `"0"` fallback を返す互換 API です',
+            '`from_i32_radix` / `from_i64_radix` / `from_u128_radix` / `from_i128_radix` は `Result` で失敗理由を返す API です',
+            '英字 digit は `a..f` の小文字です',
+            '`Result::Err 1` は invalid radix',
+            '`Result::Err 12` は allocation / builder failure',
+            'typed enum error ではありません',
+            'ISS-20260605T203044028Z-STRING-INTEGER-FORMAT-ERROR-KIND-COLLAPSED-I32-8C63F92A',
+            'string_alloc_region digit_count',
+            'string_finish',
+            'digit reversal 用の scratch raw buffer を作りません',
+            'StringBuilder',
         ],
     ],
     [
