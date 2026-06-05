@@ -1,3 +1,22 @@
+# 2026-06-05 Agent selfhost NamedValue HIR variable identity checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも技術的負債を残さない方針を判断基準にした。
+- subagent review では、`NamedValue` を `TypedExpression` へ丸めると HIR lowering が source token / scope lookup / value evidence lookup を再実行するしかなくなり、`FunctionValue` で直した DefId evidence loss を variable reference で再導入する危険があると確認した。
+- `SelfhostCheckedArgumentKind::NamedValue` と `SelfhostCheckedValueIdentity` を追加し、source-backed argument checker が `name -> latest binding -> DefId -> value type evidence` の成功時に DefId-linked payload を保存するようにした。`check/expr` は引き続き HIR 型を import しない。
+- HIR expression model の `SelfhostHirExprPayload::Var` を `str` から `SelfhostHirValueIdentity` に変更した。value identity は display 用 symbol、`SelfhostDefId`、`SelfhostTypeId`、`SelfhostDefKind` を持ち、文字列名だけの variable reference へ戻らない。
+- `lower/hir/direct_call.nepl` は `UnitValue`、`NamedValue(identity)`、`FunctionValue(candidate)` を accepted lowering とし、`NamedValue` は source / scope 再読なしで HIR `Var` child へ変換する。`TypedExpression`、`NestedDirectCall`、`BlockResult` は、literal value payload や checked tree payload が入るまで `UnsupportedArgumentKind` で fail-closed に残す。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js`、`nodesrc/test_selfhost_hir_expr_payload.js`、`nodesrc/test_selfhost_hir_lowering_contract.js` は、`Var <str>` と string-only constructor の退行、check/expr への HIR identity 漏れ、NamedValue の TypedExpression 丸めを検出するように更新した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-named-value-payload.json`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/hir --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-value-identity.json`: pass（3/3）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-named-value-lowering.json`: pass（2/2）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost unit argument HIR lowering checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum/struct による状態表現、Result による fail-closed、責務分割、丁寧な doc comment、試作段階でも設計負債を残さない方針を判断基準にした。
