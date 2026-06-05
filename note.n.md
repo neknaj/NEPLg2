@@ -1,3 +1,20 @@
+# 2026-06-05 Agent selfhost HIR function value identity model checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。
+- `stdlib/neplg2/core/hir/hir/expr.nepl` に `SelfhostHirExprPayload::FnValue` と `SelfhostHirFunctionValueIdentity` を追加した。関数値は表示用 `symbol` だけでなく、`Option SelfhostDefId`、関数型の `SelfhostTypeId`、`SelfhostEffectKind`、`type_arg_count` を持つ typed payload として表す。
+- `SelfhostHirFunctionValueIdentityBuildError::NegativeTypeArgCount` と `selfhost_hir_function_value_identity_new_result` を追加し、型引数数が負の identity を HIR に入れない fail-closed constructor を用意した。monomorphic helper は `def_id = Some(def_id)` と `type_arg_count = 0` を明示する。
+- `selfhost_hir_expr_kind_eq`、`selfhost_hir_expr_kind`、`selfhost_hir_expr_child_range`、`selfhost_hir_expr_fn_value` を更新し、`FnValue` が leaf expression として扱われることを固定した。
+- `nodesrc/test_selfhost_hir_expr_payload.js` は `FnValue` variant、typed identity struct、string-only identity の禁止、kind / child accessor coverage を確認する。
+- この checkpoint は HIR data model の受け皿であり、`@ident` argument match から DefId 付き `FnValue` へ lower する処理、indirect call、`MemoizedFunctionValue`、`memo_call` private cache proof は未実装のまま fail-closed に残す。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+  - `node nodesrc/test_selfhost_hir_split_contract.js`: pass
+  - `node nodesrc/test_selfhost_hir_report_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/hir/hir.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-function-value-model.json`: pass（3/3）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost explicit function value argument checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。

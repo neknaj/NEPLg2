@@ -45,10 +45,19 @@ assert.doesNotMatch(exprStruct, /\b(?:first_child|child_count|name|int_value|boo
 
 assert.deepEqual(
     enumVariants(hir, "SelfhostHirExprPayload"),
-    ["Error", "Unit", "BoolLiteral", "I32Literal", "StrLiteral", "Var", "Call", "Block", "If"],
+    ["Error", "Unit", "BoolLiteral", "I32Literal", "StrLiteral", "Var", "FnValue", "Call", "Block", "If"],
     "expression payload variants must cover the current expression kind set",
 );
 assert.match(hir, /(?:pub\s+)?struct SelfhostHirCallExpr:[\s\S]*?\bname\s+<str>[\s\S]*?\bargs\s+<SelfhostHirChildRange>/, "call payload must own callee name and argument range");
+
+const fnIdentityStruct = topLevelBlock(hir, "struct", "SelfhostHirFunctionValueIdentity:");
+assert.match(fnIdentityStruct, /\bsymbol\s+<str>/, "function value identity must keep the display/link symbol");
+assert.match(fnIdentityStruct, /\bdef_id\s+<Option<SelfhostDefId>>/, "function value identity must keep optional DefId evidence");
+assert.match(fnIdentityStruct, /\bfunction_ty\s+<SelfhostTypeId>/, "function value identity must keep the function type");
+assert.match(fnIdentityStruct, /\beffect\s+<SelfhostEffectKind>/, "function value identity must keep the function effect");
+assert.match(fnIdentityStruct, /\btype_arg_count\s+<i32>/, "function value identity must keep generic arity evidence until a stable type-arg range exists");
+assert.match(hir, /\bFnValue\s+<SelfhostHirFunctionValueIdentity>/, "function value payload must use typed identity, not a string-only name");
+assert.doesNotMatch(hir, /\bFnValue\s+<str>/, "function value payload must not regress to a string-only identity");
 
 assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_(?:leaf|with_children)\b/, "flat leaf/children constructors must not remain");
 assert.doesNotMatch(hir, /\bselfhost_hir_expr_new\s+SelfhostHirExprKind::/, "flat kind-driven constructor calls must not remain");
@@ -76,6 +85,7 @@ for (const fnName of [
     "selfhost_hir_expr_i32_literal",
     "selfhost_hir_expr_str_literal",
     "selfhost_hir_expr_var",
+    "selfhost_hir_expr_fn_value",
     "selfhost_hir_expr_call",
     "selfhost_hir_expr_block",
     "selfhost_hir_expr_if",
