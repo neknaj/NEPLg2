@@ -25,6 +25,7 @@ subagent review を依頼するときは、少なくとも次を渡す。
 - 実行した検証、未実行の検証、既存 warning と今回差分由来の warning の区別。
 - review の観点が `policy/spec` と `implementation/test` の 2 軸に分かれていること。
 - review response を `nodesrc/selfhost_zenn_review_response_check.js` で検査し、必須 section / field が欠けた返答を受理しないこと。
+- 最終受理時は `nodesrc/selfhost_zenn_review_response_check.js --record <note-or-issue.md>` で、response の要約と判断根拠が `note.n.md` または `issues/items/*.md` の関連 issue に残っていることを検査すること。一時ファイルや repo 外ファイルは durable な review 証跡ではない。
 
 ## 必須確認項目
 
@@ -106,6 +107,8 @@ verify: <実行した検証、または未実行理由>
 ## note checkpoint 形式
 
 commit 前に `note.n.md` へ次を記録する。
+
+最新の `note.n.md` selfhost checkpoint は `nodesrc/test_selfhost_zenn_review_gate_contract.js` で検査する。これは review 証跡が人間の記憶や口頭報告にだけ残ることを防ぐための検査であり、行数、ファイル長、doc comment 長さ、コメント量を制限する検査ではない。
 
 ```text
 ## YYYY-MM-DD Agent selfhost <topic> checkpoint

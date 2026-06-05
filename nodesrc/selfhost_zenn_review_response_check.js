@@ -2,10 +2,13 @@
 "use strict";
 
 const fs = require("node:fs");
+const path = require("node:path");
+const repoRoot = path.resolve(__dirname, "..");
 
 const usage = [
     "usage: node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>",
     "   or: node nodesrc/selfhost_zenn_review_response_check.js --stdin",
+    "  optional: --record <note-or-issue.md>",
 ].join("\n");
 
 const requiredSections = [
@@ -67,8 +70,17 @@ const sectionFields = new Map([
 ]);
 
 try {
-    const source = readReviewResponse(parseArgs(process.argv.slice(2)));
+    const args = parseArgs(process.argv.slice(2));
+    const source = readReviewResponse(args);
     const errors = validateReviewResponse(source);
+    const recordPath = args.get("record");
+    if (recordPath) {
+        const resolvedRecordPath = resolveRecordPath(recordPath, errors);
+        if (resolvedRecordPath) {
+            const record = fs.readFileSync(resolvedRecordPath, "utf8").replace(/\r\n/g, "\n");
+            validateReviewRecordEvidence(source, record, errors);
+        }
+    }
     if (errors.length > 0) {
         for (const error of errors) {
             console.error(`${error.code}: ${error.message}`);
@@ -151,6 +163,110 @@ function validateReviewResponse(source) {
     validateMergeApproval(sections.get("decision"), sections.get("summary"), errors);
     validateReviewDoesNotAcceptWarnings(sections.get("summary"), errors);
     return errors;
+}
+
+function validateReviewRecordEvidence(source, record, errors) {
+    const sections = parseSections(source);
+    for (const section of requiredSections) {
+        if (!sections.has(section)) {
+            return;
+        }
+    }
+
+    for (const needle of [
+        "https://zenn.dev/bem130/articles/1b352797de94e7",
+        "AGENTS.md",
+        "policy/spec",
+        "implementation/test",
+        "subagent review",
+        "files_read",
+        "not_reviewed",
+        "Blocker",
+        "Non-blocker",
+        "Question",
+        "Approve",
+        "classification",
+        "decision",
+        "source_policy",
+        "verify",
+    ]) {
+        if (!record.includes(needle)) {
+            errors.push(reviewError(
+                "missing_record_evidence",
+                `record file must include review evidence: ${needle}`,
+            ));
+        }
+    }
+
+    for (const [section, fields] of [
+        ["review_scope", ["branch", "base", "head"]],
+        ["summary", ["blockers", "questions", "approve"]],
+    ]) {
+        for (const field of fields) {
+            const value = fieldValue(sections.get(section), field);
+            if (value && !isPlaceholderValue(value) && !record.includes(value)) {
+                errors.push(reviewError(
+                    "missing_record_evidence",
+                    `record file must include ${section}.${field}: ${value}`,
+                ));
+            }
+        }
+    }
+
+    const decision = sections.get("decision").match(/\b(MERGE_APPROVED|BLOCKED|QUESTION)\b/);
+    if (decision && !record.includes(decision[1])) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            `record file must include review decision: ${decision[1]}`,
+        ));
+    }
+
+    if (!recordIncludesAny(record, ["executed", "検証済み", "実行した検証"])) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must include executed verification evidence",
+        ));
+    }
+    if (!recordIncludesAny(record, ["not executed", "未実行", "未実行の検証"])) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must include unexecuted verification evidence",
+        ));
+    }
+    if (!recordIncludesAny(record, ["existing warnings", "既存 warning"])) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must distinguish existing warnings",
+        ));
+    }
+    if (!recordIncludesAny(record, ["new warnings", "今回差分由来 warning"])) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must distinguish warnings introduced by the current diff",
+        ));
+    }
+}
+
+function resolveRecordPath(recordPath, errors) {
+    const resolvedPath = path.isAbsolute(recordPath)
+        ? path.resolve(recordPath)
+        : path.resolve(repoRoot, recordPath);
+    const normalized = path.relative(repoRoot, resolvedPath).replace(/\\/g, "/");
+    if (normalized.startsWith("../") || normalized === ".." || path.isAbsolute(normalized)) {
+        errors.push(reviewError(
+            "invalid_record_target",
+            "--record must point to note.n.md or issues/items/*.md inside the repository",
+        ));
+        return null;
+    }
+    if (normalized === "note.n.md" || /^issues\/items\/[^/]+\.md$/.test(normalized)) {
+        return resolvedPath;
+    }
+    errors.push(reviewError(
+        "invalid_record_target",
+        "--record must point to note.n.md or issues/items/*.md so accepted review evidence is durable",
+    ));
+    return null;
 }
 
 function parseSections(source) {
@@ -286,6 +402,10 @@ function isNoWorkValue(value) {
 
 function isAffirmative(value) {
     return /\b(yes|true|approved)\b|はい|承認/i.test(value.trim());
+}
+
+function recordIncludesAny(record, needles) {
+    return needles.some((needle) => record.includes(needle));
 }
 
 function reviewError(code, message) {

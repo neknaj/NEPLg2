@@ -53,15 +53,40 @@ const forbidden = [
     /\bassertLineLimit\b/,
     /\blineLimits\b/,
     /\bmaxLines\b/,
+    /\bmaxBytes\b/,
+    /\bmaxFileSize\b/,
+    /\bmaxCommentLines\b/,
+    /\bmaxDocCommentLines\b/,
+    /\bmaxCommentCount\b/,
+    /\bmaxDocCommentCount\b/,
+    /\bmaxCommentLength\b/,
+    /\bmaxDocCommentLength\b/,
     /\blineCount\b[\s\S]{0,80}(?:<=|>=|<|>)\s*\d+/,
+    /\b(?:commentCount|docCommentCount|commentLength|docCommentLength)\b[\s\S]{0,80}(?:<=|>=|<|>)\s*\d+/,
     /\b(?:lines|implementationLines)\.length\b\s*(?:<=|>=|<|>)\s*\d+/,
+    /\b(?:source|text|content)\.length\b\s*(?:<=|>=|<|>)\s*\d+/,
+    /\b(?:commentLines|docLines|docCommentLines)\.length\b\s*(?:<=|>=|<|>)\s*\d+/,
     /\b[A-Za-z_][A-Za-z0-9_]*(?:Lines|LineCount)\.length\b\s*(?:<=|>=|<|>)\s*\d+/,
+    /\b[A-Za-z_][A-Za-z0-9_]*(?:CommentCount|DocCommentCount|CommentLength|DocCommentLength)\b[\s\S]{0,80}(?:<=|>=|<|>)\s*\d+/,
+    /\b[A-Za-z_][A-Za-z0-9_]*(?:Bytes|ByteLength|FileSize)\b[\s\S]{0,80}(?:<=|>=|<|>)\s*\d+/,
     /\d+\s*(?:<=|>=|<|>)\s*\b(?:lineCount|lines\.length|implementationLines\.length)\b/,
+    /\d+\s*(?:<=|>=|<|>)\s*\b(?:commentCount|docCommentCount|commentLength|docCommentLength)\b/,
+    /\d+\s*(?:<=|>=|<|>)\s*\b(?:source\.length|text\.length|content\.length)\b/,
+    /\d+\s*(?:<=|>=|<|>)\s*\b(?:commentLines\.length|docLines\.length|docCommentLines\.length)\b/,
+    /\bBuffer\.byteLength\s*\([\s\S]{0,80}\)\s*(?:<=|>=|<|>)\s*\d+/,
+    /\bfs\.statSync\s*\([\s\S]{0,80}\)\.size\s*(?:<=|>=|<|>)\s*\d+/,
     /\.split\(["']\\n["']\)\.length\s*<=/,
     /\d+\s*行以内/,
     /(?:within|under|below|less than|fewer than)\s+\d+\s+lines/i,
+    /(?:within|under|below|less than|fewer than)\s+\d+\s+bytes/i,
     /line budget/i,
     /line limit/i,
+    /comment budget/i,
+    /comment limit/i,
+    /doc comment budget/i,
+    /doc comment limit/i,
+    /file size limit/i,
+    /size budget/i,
     /split threshold/i,
     /split review limit/i,
     /implementation lines/i,
@@ -70,6 +95,29 @@ const forbidden = [
     /responsibility split limit/i,
     /responsibility freeze limit/i,
 ];
+
+const forbiddenSelfCheckSamples = [
+    "assert.ok(Buffer.byteLength(source) <= 20000)",
+    "assert.ok(fs.statSync(file).size <= 50000)",
+    "assert.ok(source.length <= 30000)",
+    "assert.ok(commentLines.length <= 120)",
+    "assert.ok(docLines.length <= 80)",
+    "assert.ok(commentCount <= 120)",
+    "assert.ok(docCommentLength <= 6000)",
+    "const maxFileSize = 12000",
+    "const maxDocCommentLines = 40",
+    "const maxCommentCount = 120",
+    "const maxDocCommentLength = 6000",
+    "doc comment budget",
+    "file size limit",
+];
+
+for (const sample of forbiddenSelfCheckSamples) {
+    assert.ok(
+        forbidden.some((pattern) => pattern.test(sample)),
+        `line-count limit guard must also detect size/comment-volume gate sample: ${sample}`,
+    );
+}
 
 for (const relPath of scanned) {
     if (relPath === "nodesrc/test_source_policy_no_line_count_limits.js") {

@@ -18,6 +18,8 @@ const executionPlan = read("doc/neplg2/self_host_execution_plan.md");
 const checklist = read("doc/neplg2/self_host_zenn_review_checklist.md");
 const prompt = read("doc/neplg2/self_host_zenn_review_prompt.md");
 const docCommentPolicy = read("doc/stdlib_doc_comment_policy.md");
+const note = read("note.n.md");
+const docGapIssue = read("issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md");
 const packetHelper = read("nodesrc/selfhost_zenn_review_packet.js");
 const responseHelper = read("nodesrc/selfhost_zenn_review_response_check.js");
 const sourcePolicyRunner = read("nodesrc/run_source_policy_regressions.js");
@@ -35,6 +37,23 @@ function sourcePolicyRunnerChecks() {
     assert.ok(match, "source policy runner must expose a checks array");
     return new Set([...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]));
 }
+
+function latestSelfhostCheckpoint(source) {
+    const checkpoints = source
+        .split(/(?=^# \d{4}-\d{2}-\d{2} Agent )/m)
+        .filter((section) => /^# \d{4}-\d{2}-\d{2} Agent selfhost\b/m.test(section));
+    assert.ok(
+        checkpoints.length > 0,
+        "note.n.md must contain at least one selfhost checkpoint for Zenn-policy review evidence",
+    );
+    return checkpoints[0];
+}
+
+function assertCheckpointIncludes(checkpoint, needle, message) {
+    assert.ok(checkpoint.includes(needle), message);
+}
+
+const currentSelfhostCheckpoint = latestSelfhostCheckpoint(note);
 
 assertIncludes(
     "https://zenn.dev/bem130/articles/1b352797de94e7",
@@ -144,6 +163,61 @@ assertPlanIncludes(
     "selfhost_zenn_review_response_check.js",
     "selfhost execution plan must require machine validation of subagent review responses",
 );
+
+for (const needle of [
+    "Zenn 記事",
+    "https://zenn.dev/bem130/articles/1b352797de94e7",
+    "AGENTS.md",
+    "対象 branch",
+    "対象 issue / slice",
+    "policy/spec",
+    "implementation/test",
+    "subagent review",
+    "Blocker",
+    "Non-blocker",
+    "Question",
+    "Approve",
+    "classification",
+    "decision",
+    "source_policy",
+    "verify",
+    "nodesrc/selfhost_zenn_review_response_check.js",
+    "source policy",
+    "既存 warning",
+    "今回差分由来 warning",
+    "検証済み",
+    "行数制限",
+    "doc comment 長制限",
+    "次 slice",
+]) {
+    assertCheckpointIncludes(
+        currentSelfhostCheckpoint,
+        needle,
+        `latest selfhost note checkpoint must record ${needle}`,
+    );
+}
+assert.doesNotMatch(
+    currentSelfhostCheckpoint,
+    /実行予定/,
+    "latest selfhost note checkpoint must record completed verification, not planned verification",
+);
+
+for (const needle of [
+    "## 完了条件",
+    "## review 証跡",
+    "root cause",
+    "impact",
+    "completion conditions",
+    "verification plan",
+    "fail-closed boundary",
+    "--record <note-or-issue.md>",
+    "byte count",
+    "file size",
+    "doc comment length",
+    "comment line count",
+]) {
+    assert.ok(docGapIssue.includes(needle), `selfhost documentation issue must record ${needle}`);
+}
 assert.doesNotMatch(
     executionPlan,
     /500 行/,
@@ -169,6 +243,14 @@ for (const needle of [
 ]) {
     assert.ok(checklist.includes(needle), `selfhost checklist must include ${needle}`);
 }
+assert.ok(
+    checklist.includes("最新の `note.n.md` selfhost checkpoint は `nodesrc/test_selfhost_zenn_review_gate_contract.js` で検査する"),
+    "selfhost checklist must state that the latest note checkpoint is machine-checked",
+);
+assert.ok(
+    checklist.includes("`note.n.md` または `issues/items/*.md`"),
+    "selfhost checklist must restrict durable review records to note.n.md or issues/items/*.md",
+);
 
 for (const needle of [
     "対象 branch と対象 commit",
@@ -296,6 +378,9 @@ for (const needle of [
     "`Question` は仕様確認として扱い、勝手な回避実装で進めない",
     "`Approve` があっても、`files_read`、`not_reviewed`、`zenn_check`、`residual_risk`、`unexecuted_verification` が空の場合は review 記録として扱わない",
     "`source_policy: not-needed` の場合も、`source_policy_reason` に理由を残す",
+    "--record <note-or-issue.md>",
+    "`note.n.md` または `issues/items/*.md`",
+    "一時ファイルや repo 外ファイルを指定してはならない",
     "Zenn 記事 URL、`AGENTS.md`、checklist、対象 branch / commit / issue を省いた依頼を出してはならない",
     "`policy/spec` と `implementation/test` のどちらか片方だけで approve してはならない",
     "`files_read` と `not_reviewed` を省いてはならない",
@@ -380,7 +465,10 @@ for (const needle of [
     "invalid_decision",
     "invalid_classification",
     "invalid_source_policy",
+    "invalid_record_target",
     "missing_files_read",
+    "missing_record_evidence",
+    "--record <note-or-issue.md>",
     "approved_with_blockers",
     "approved_with_questions",
     "weak_approval",
@@ -562,6 +650,10 @@ for (const invalidZennCheckedAt of [
 }
 
 const responseCheckTempDir = fs.mkdtempSync(path.join(os.tmpdir(), "selfhost-zenn-review-response-"));
+const validReviewRecordRelPath = `issues/items/__selfhost_zenn_review_record_${process.pid}.md`;
+const missingReviewRecordRelPath = `issues/items/__selfhost_zenn_review_missing_record_${process.pid}.md`;
+const validReviewRecordPath = path.join(repoRoot, validReviewRecordRelPath);
+const missingReviewRecordPath = path.join(repoRoot, missingReviewRecordRelPath);
 try {
     const validReviewResponsePath = path.join(responseCheckTempDir, "valid.md");
     fs.writeFileSync(validReviewResponsePath, [
@@ -626,11 +718,34 @@ try {
         "- unexecuted_verification: none",
         "",
     ].join("\n"), "utf8");
+    fs.writeFileSync(validReviewRecordPath, [
+        "# 2026-06-06 Agent selfhost review response record checkpoint",
+        "",
+        "- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` と AGENTS.md を確認した。",
+        "- 対象 branch: selfhost/example",
+        "- base commit: 0000000",
+        "- head commit: 1111111",
+        "- subagent review response を `nodesrc/selfhost_zenn_review_response_check.js --input valid.md --record record.md` で検査した。",
+        "- files_read: nodesrc/selfhost_zenn_review_packet.js",
+        "- not_reviewed: unrelated stdlib files",
+        "- decision: MERGE_APPROVED",
+        "- policy/spec classification: Approve, source_policy: updated, verify: node nodesrc/selfhost_zenn_review_response_check.js --input valid.md",
+        "- implementation/test classification: Approve, source_policy: updated, verify: node nodesrc/test_selfhost_zenn_review_gate_contract.js",
+        "- summary Blocker: 0 / Non-blocker: 0 / Question: 0 / Approve: yes",
+        "- executed: node nodesrc/test_selfhost_zenn_review_gate_contract.js",
+        "- not executed: none",
+        "- existing warnings: none",
+        "- new warnings: none",
+        "- 次 slice: none",
+        "",
+    ].join("\n"), "utf8");
 
     const responseCheckValid = spawnSync(process.execPath, [
         "nodesrc/selfhost_zenn_review_response_check.js",
         "--input",
         validReviewResponsePath,
+        "--record",
+        validReviewRecordPath,
     ], {
         cwd: repoRoot,
         encoding: "utf8",
@@ -640,9 +755,65 @@ try {
         responseCheckValid.stdout.includes("selfhost Zenn review response contract passed"),
         "selfhost review response checker must report success for complete review responses",
     );
+    const responseCheckValidFromNodesrcCwd = spawnSync(process.execPath, [
+        path.join(repoRoot, "nodesrc", "selfhost_zenn_review_response_check.js"),
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        validReviewRecordPath,
+    ], {
+        cwd: path.join(repoRoot, "nodesrc"),
+        encoding: "utf8",
+    });
+    assert.equal(
+        responseCheckValidFromNodesrcCwd.status,
+        0,
+        "selfhost review response checker must validate absolute durable record paths independent of cwd",
+    );
 
     const weakReviewResponsePath = path.join(responseCheckTempDir, "weak.md");
     fs.writeFileSync(weakReviewResponsePath, "Approve\n", "utf8");
+    fs.writeFileSync(missingReviewRecordPath, "Approve\n", "utf8");
+    const responseCheckMissingRecordEvidence = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        missingReviewRecordPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckMissingRecordEvidence.status,
+        0,
+        "selfhost review response checker must reject missing note/issue evidence records",
+    );
+    assert.ok(
+        responseCheckMissingRecordEvidence.stderr.includes("missing_record_evidence"),
+        "selfhost review response checker must explain missing record evidence",
+    );
+
+    const responseCheckInvalidRecordTarget = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        weakReviewResponsePath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckInvalidRecordTarget.status,
+        0,
+        "selfhost review response checker must reject non-durable review record targets",
+    );
+    assert.ok(
+        responseCheckInvalidRecordTarget.stderr.includes("invalid_record_target"),
+        "selfhost review response checker must explain invalid review record targets",
+    );
+
     const responseCheckWeak = spawnSync(process.execPath, [
         "nodesrc/selfhost_zenn_review_response_check.js",
         "--input",
@@ -730,6 +901,12 @@ try {
     );
 } finally {
     fs.rmSync(responseCheckTempDir, { recursive: true, force: true });
+    for (const relPath of [validReviewRecordRelPath, missingReviewRecordRelPath]) {
+        const filePath = path.join(repoRoot, relPath);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+    }
 }
 
 console.log("selfhost Zenn review gate contract passed");

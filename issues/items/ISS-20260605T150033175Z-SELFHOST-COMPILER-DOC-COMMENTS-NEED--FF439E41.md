@@ -56,6 +56,23 @@ The stage0 review found that the first pass still missed typed failure boundary 
 
 The later 2026-06-06 stage1 correction expands the fixed slice to the stage1 value context and function value argument fixture boundary in `stdlib/neplg2/core/check/expr/stage1.nepl`. It requires the value context constructor/accessors/free path, binding-only / typed-value / function context fixtures, candidate Vec wrappers, one-argument function type fixture, function-value consumer type fixture, and `takes @add` / `takes add` segment/token fixtures to document purpose, owner/borrow contracts, Result branches, explicit `@` function value semantics, no-partial-application rejection, and complexity. Remaining stage1 reducer/run/body-line smoke gaps stay open for a later slice.
 
+The 2026-06-06 Zenn review continuity correction connects the review process itself to a fail-closed source policy. `nodesrc/test_selfhost_zenn_review_gate_contract.js` now checks the latest selfhost checkpoint in `note.n.md`, and `nodesrc/selfhost_zenn_review_response_check.js --record <note-or-issue.md>` can reject a review response whose summary and decision were not recorded in `note.n.md` or an issue. This prevents subagent review from remaining only in a chat transcript or temporary file.
+
+## 完了条件
+
+- `moduleNoDoc`, `declarationNoDoc`, `publicNoDoc`, and `privateNoDoc` for `stdlib/neplg2/**` reach zero, or each remaining root cause is split into a narrower open issue with an owner boundary, impact, completion conditions, and verification plan.
+- Every fixed selfhost slice has targeted section requirements for purpose, contract, return/error cases, complexity, and representative doctest/report examples where the public API is stable enough.
+- No gate uses file count, declaration count, line count, byte count, file size, doc comment length, comment line count, or no-doctest count increases as a reason to suppress detailed comments.
+- The latest selfhost checkpoint in `note.n.md` records Zenn re-check, `AGENTS.md` check, `policy/spec` and `implementation/test` review axes, subagent review outcome, `classification` / `decision` / `source_policy` / `verify`, executed and unexecuted verification, existing warnings, warnings introduced by the current diff, and next-slice residual work.
+- Final acceptance of a selfhost slice validates the subagent response with `nodesrc/selfhost_zenn_review_response_check.js --record <note-or-issue.md>` so the response is tied to durable note or issue evidence.
+
+## review 証跡
+
+- 2026-06-05: initial selfhost Zenn review gate hardening confirmed the baseline was not a quality acceptance line and added the open issue boundary.
+- 2026-06-06: ascription, argument/call-reduce, stage0, and stage1 slices used subagent review to identify missing section requirements and owner-cleanup ambiguities, then fixed Blocker findings in the same slice.
+- 2026-06-06: review continuity follow-up found that packet/response checks were not enough unless the accepted response was also recorded. The response checker and note checkpoint contract now cover this persistence requirement.
+- Any future Blocker that cannot be fixed in the same branch must be added to this issue or split into a narrower issue with root cause, impact, completion conditions, fail-closed boundary, and verification plan before merge.
+
 ## 検証
 
 node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/run_source_policy_regressions.js --warn-only; node nodesrc/issues.js check --dir issues
