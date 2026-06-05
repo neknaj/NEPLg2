@@ -196,6 +196,7 @@ const checks = [
     "nodesrc/test_selfhost_name_resolver_declaration_hoist.js",
     "nodesrc/test_selfhost_hir_expr_payload.js",
     "nodesrc/test_selfhost_hir_report_contract.js",
+    "nodesrc/test_selfhost_hir_lowering_contract.js",
     "nodesrc/test_selfhost_name_resolver_report_contract.js",
     "nodesrc/test_selfhost_type_resolver_split_contract.js",
     "nodesrc/test_selfhost_type_resolver_prefix_input.js",

@@ -1,0 +1,136 @@
+#indent 4
+
+//: # lower/hir/function_value
+//: callable candidate から HIR function value identity へ落とす境界です。
+//:
+//: [目的/もくてき]:
+//: - 明示 `@ident` で検査済みの callable candidate を、HIR の `FnValue` payload として保存できる typed identity へ変換します。
+//: - candidate の `name` だけでは monomorphize、indirect call、`memo_call`、Resource IR summary が同じ関数を参照していることを証明できません。そのため、この module は `SelfhostDefId`、関数型、effect をまとめた `SelfhostHirFunctionValueIdentity` を作ります。
+//: - generic function value の実体をまだ保存できない段階では、monomorphic な candidate だけを accepted lowering とし、それ以外は typed error で fail-closed にします。
+//:
+//: [責務/せきむ]:
+//: - `check/expr` は callable candidate と argument match evidence を作る責務を持ちます。
+//: - `hir/hir` は HIR record のデータモデルと constructor を持ちます。
+//: - この module は両者を接続する lowering 層であり、checker の初期 reduction module に HIR 依存を持ち込まないために分離されています。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostCallableCandidate.def_id` は signature table から来た DefId-linked evidence です。この値を `Option::Some` として HIR identity に入れます。
+//: - `SelfhostGenericInferenceState::NoneRequired` 以外の candidate は、現 checkpoint では `GenericUnsupported` として拒否します。`Unique` であっても型引数の stable range / canonical key をまだ HIR identity に保存できないため、受理しません。
+//: - `SelfhostFunctionValueLowerError` は表示用文言ではなく、後続 diagnostic projection が参照する機械的な error payload です。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate payload の確認と identity 生成は O(1) です。
+
+#import "core/result" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostFunctionValueLowerErrorKind: function value lowering の失敗分類
+//:
+//: [目的/もくてき]:
+//: - `GenericUnsupported` は、candidate が型引数を必要とし、現 checkpoint の HIR identity payload では安全に表現できない場合です。
+//: - `IdentityBuildFailed` は、HIR identity constructor が内部不変条件を拒否した場合です。現時点では `type_arg_count = 0` を渡すため通常は起きませんが、constructor の `Result` を潰さず保持するために分類を分けます。
+pub enum SelfhostFunctionValueLowerErrorKind:
+    GenericUnsupported
+    IdentityBuildFailed
+
+impl Clone for SelfhostFunctionValueLowerErrorKind:
+    fn clone %fn &SelfhostFunctionValueLowerErrorKind SelfhostFunctionValueLowerErrorKind \self:
+        *self
+
+impl Copy for SelfhostFunctionValueLowerErrorKind:
+    fn copy_mark %fn SelfhostFunctionValueLowerErrorKind SelfhostFunctionValueLowerErrorKind \self:
+        self
+
+//: SelfhostFunctionValueLowerError: HIR function value lowering の typed error payload
+//:
+//: [目的/もくてき]:
+//: - error kind と source span を一緒に保持し、診断側が lowering 失敗の位置を失わないようにします。
+//: - candidate の名前や型だけから文字列診断を作らず、checker は enum payload を返します。
+pub struct SelfhostFunctionValueLowerError:
+    kind %SelfhostFunctionValueLowerErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostFunctionValueLowerError:
+    fn clone %fn &SelfhostFunctionValueLowerError SelfhostFunctionValueLowerError \self:
+        *self
+
+impl Copy for SelfhostFunctionValueLowerError:
+    fn copy_mark %fn SelfhostFunctionValueLowerError SelfhostFunctionValueLowerError \self:
+        self
+
+//: selfhost_function_value_lower_error_new: function value lowering error を[作/つく]る
+pub fn selfhost_function_value_lower_error_new %fn SelfhostFunctionValueLowerErrorKind fn SelfhostSourceSpan SelfhostFunctionValueLowerError \kind\span:
+    SelfhostFunctionValueLowerError kind span
+
+//: selfhost_function_value_lower_error_kind_eq: lowering error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - focused test が表示文言ではなく typed error kind を確認できるようにします。
+pub fn selfhost_function_value_lower_error_kind_eq %fn SelfhostFunctionValueLowerErrorKind fn SelfhostFunctionValueLowerErrorKind bool \a\b:
+    match a:
+        SelfhostFunctionValueLowerErrorKind::GenericUnsupported:
+            match b:
+                SelfhostFunctionValueLowerErrorKind::GenericUnsupported:
+                    true
+                _:
+                    false
+        SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed:
+            match b:
+                SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed:
+                    true
+                _:
+                    false
+
+//: selfhost_function_value_candidate_is_accepted_monomorphic: candidate が現在の function value lowering で受理できるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `@ident` の function value lowering は、型引数の実体を HIR identity に保存できるようになるまで monomorphic candidate だけを受け入れます。
+//: - この predicate を公開し、argument checker と HIR lowering が同じ安全境界を共有できるようにします。
+pub fn selfhost_function_value_candidate_is_accepted_monomorphic %fn SelfhostCallableCandidate bool \candidate:
+    match candidate.generic_state:
+        SelfhostGenericInferenceState::NoneRequired:
+            true
+        _:
+            false
+
+//: selfhost_function_value_identity_from_candidate: callable candidate を HIR function value identity へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostCallableCandidate` に保持された DefId-linked evidence を、HIR の `SelfhostHirFunctionValueIdentity` へ移します。
+//: - `candidate.name` は表示・symbol 用、`candidate.def_id` は定義 identity 用、`candidate.callable_type` は関数値 expression の型用、`candidate.effect` は effect proof 用として保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(identity)`: monomorphic な named function value として HIR に保存できます。
+//: - `Err(GenericUnsupported)`: generic 実体を HIR identity に保存する設計がまだないため、この candidate は accepted path へ進めません。
+//: - `Err(IdentityBuildFailed)`: HIR identity constructor の不変条件に違反しました。
+pub fn selfhost_function_value_identity_from_candidate %fn SelfhostCallableCandidate Result SelfhostHirFunctionValueIdentity SelfhostFunctionValueLowerError \candidate:
+    if:
+        not selfhost_function_value_candidate_is_accepted_monomorphic candidate
+        then:
+            Result::Err selfhost_function_value_lower_error_new SelfhostFunctionValueLowerErrorKind::GenericUnsupported candidate.span
+        else:
+            match selfhost_hir_function_value_identity_new_result candidate.name some candidate.def_id candidate.callable_type candidate.effect 0:
+                Result::Ok identity:
+                    Result::Ok identity
+                Result::Err _build_error:
+                    Result::Err selfhost_function_value_lower_error_new SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed candidate.span
+
+//: selfhost_hir_expr_fn_value_from_candidate: callable candidate を HIR `FnValue` expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `@ident` argument のように source 上の関数値 expression span が分かっている場所から、HIR expression record を作ります。
+//: - expression type は candidate の function type そのものです。`FnValue` は関数を呼び出した結果ではなく、関数値を表すためです。
+//:
+//: [契約/けいやく]:
+//: - `span` は candidate 定義位置ではなく、関数値 expression の source span を渡します。これにより後続 diagnostic / HIR dump が使用箇所を失いません。
+pub fn selfhost_hir_expr_fn_value_from_candidate %fn SelfhostCallableCandidate fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError \candidate\span:
+    match selfhost_function_value_identity_from_candidate candidate:
+        Result::Ok identity:
+            Result::Ok selfhost_hir_expr_fn_value candidate.callable_type span identity
+        Result::Err e:
+            Result::Err e

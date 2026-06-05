@@ -1,3 +1,19 @@
+# 2026-06-05 Agent selfhost function value HIR lowering boundary checkpoint
+
+- `SelfhostCallableCandidate` が DefId を持つようになったため、次に候補 identity を HIR の `SelfhostHirFunctionValueIdentity` へ変換する規則を `core/lower/hir/function_value.nepl` として分離した。
+- `selfhost_function_value_identity_from_candidate` は `candidate.name`、`candidate.def_id`、`candidate.callable_type`、`candidate.effect` から identity を作る。DefId は `Option::Some` として保存し、文字列名だけの function value へ戻らない。
+- generic candidate は stable type-argument range / canonical key が未実装のため、現 checkpoint では `SelfhostFunctionValueLowerErrorKind::GenericUnsupported` として fail-closed にする。`SelfhostGenericInferenceState::Unique` も実体を HIR identity に保存できるまでは accepted path に入れない。
+- `selfhost_hir_expr_fn_value_from_candidate` は source 上の関数値 expression span を受け取り、candidate の関数型を expression type とする `FnValue` record を作る。
+- `check/expr` に HIR 依存を持ち込むと既存の call reduction 境界に反するため、lowering 層は checker evidence と HIR model の両方を知る接続層として分けている。
+- この checkpoint は `@ident` argument match payload や call reduction result への接続本体ではない。次は argument consume loop が function value evidence を保持し、HIR lowering 側がそれを使えるようにする。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-lowering-boundary.json`: pass（1/1）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent selfhost callable candidate DefId evidence checkpoint
 
 - `SelfhostCallableSignature` は DefId-linked signature evidence を保持していたが、reducer 用 `SelfhostCallableCandidate` に変換する時点で DefId を落としていた。このままでは HIR `FnValue` identity lowering が name string と function type だけへ戻るため、Zenn 記事の typed data / static check 方針に反する。

@@ -1,0 +1,68 @@
+#indent 4
+
+//: # lower/hir
+//: NEPLg2.1 self-host compiler の typed checker evidence から HIR record へ落とす public facade です。
+//:
+//: [目的/もくてき]:
+//: - `check/expr` が作る call reduction evidence と、`hir/hir` が提供する HIR model の間に、明示的な lowering 層を置きます。
+//: - checker module が HIR record を直接生成し始めると、初期 call reduction と HIR 構築の責務が混ざります。この facade はその混在を避け、HIR 生成規則だけを集めます。
+//:
+//: [契約/けいやく]:
+//: - `check/expr` 側の成功 payload を文字列だけへ潰さず、DefId や TypeId などの typed evidence を HIR payload へ引き継ぎます。
+//: - 未対応の lowering は成功扱いせず、各 split module の typed error として返します。
+//:
+//: [現状/げんじょう]:
+//: - 現 checkpoint では function value identity の lowering boundary だけを持ちます。direct call tree、literal lowering、block lowering、Resource IR lowering は後続 slice で追加します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/call_candidate" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/lower/hir" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 7 10 14
+//:     let def_id %SelfhostDefId selfhost_def_id_new 11
+//:     let function_ty %SelfhostTypeId selfhost_type_id_new 3
+//:     let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" def_id function_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     match selfhost_function_value_identity_from_candidate candidate:
+//:         Result::Ok identity:
+//:             let checks1 checks_push checks0 check selfhost_hir_function_value_identity_has_def_id &identity
+//:             match selfhost_hir_expr_fn_value_from_candidate candidate span:
+//:                 Result::Ok expr:
+//:                     let checks2 checks_push checks1 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &expr SelfhostHirExprKind::FnValue
+//:                     let generic_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "map" def_id function_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::Unique span
+//:                     match selfhost_function_value_identity_from_candidate generic_candidate:
+//:                         Result::Ok _bad_identity:
+//:                             let checks3 checks_push checks2 Result::Err "generic candidate was accepted"
+//:                             let shown checks_print_report checks3
+//:                             checks_exit_code shown
+//:                         Result::Err error:
+//:                             let checks3 checks_push checks2 check selfhost_function_value_lower_error_kind_eq error.kind SelfhostFunctionValueLowerErrorKind::GenericUnsupported
+//:                             let shown checks_print_report checks3
+//:                             checks_exit_code shown
+//:                 Result::Err _expr_error:
+//:                     let checks2 checks_push checks1 Result::Err "FnValue expr lowering failed"
+//:                     let shown checks_print_report checks2
+//:                     checks_exit_code shown
+//:         Result::Err _identity_error:
+//:             let checks1 checks_push checks0 Result::Err "identity lowering failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+pub #import "./hir/function_value" as *
