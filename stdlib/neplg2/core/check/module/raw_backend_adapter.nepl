@@ -19,6 +19,22 @@
 #import "neplg2/core/proof" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 
+//: selfhost_module_raw_backend_item_kind: module item kind を raw backend proof 用 kind へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - typed `SelfhostModuleItemKind` から、raw backend block、raw text、non-raw item の proof 分類を作ります。
+//: - `#wasm` / `#llvmir` block と raw text の順序制約を、source spelling ではなく parser が保存した enum variant から検査できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `WasmBlock` / `LlvmIrBlock` / `WasmText` / `LlvmIrText` だけを raw backend item として扱い、その他の module item は `NonRaw` に畳みます。
+//: - raw text 本文は走査しません。empty block や raw text without block の判定は、kind stream を受け取る proof state が行います。
+//: - 新しい raw backend item kind を追加した場合は、この match を更新しないと proof layer が stream を正しく分類できません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - raw backend proof transition 用の `SelfhostRawBackendItemKind`。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum variant の match だけなので O(1) です。
 fn selfhost_module_raw_backend_item_kind %fn SelfhostModuleItemKind SelfhostRawBackendItemKind \kind:
     match kind:
         SelfhostModuleItemKind::WasmBlock:
@@ -66,6 +82,21 @@ fn selfhost_module_raw_backend_item_kind %fn SelfhostModuleItemKind SelfhostRawB
         SelfhostModuleItemKind::ImplDecl:
             SelfhostRawBackendItemKind::NonRaw
 
+//: selfhost_module_raw_backend_item_fact: module item を raw backend proof fact へ[包/つつ]む
+//:
+//: [目的/もくてき]:
+//: - parser 由来の raw backend item kind と item span を、raw backend proof transition の入力 fact にします。
+//: - raw block / raw text の状態遷移を checker 本体から分離し、typed fact だけを proof layer へ渡せるようにします。
+//:
+//: [契約/けいやく]:
+//: - `item.span` は block または raw text item の parser-provided evidence です。この adapter は source text や raw text payload を読みません。
+//: - diagnostic message は作らず、proof failure の表示化は diagnostic adapter に委譲します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - raw backend kind と span を保持した `SelfhostRawBackendItemFact`。
+//:
+//: [計算量/けいさんりょう]:
+//: - kind 写像と fact 構築だけなので O(1) です。
 fn selfhost_module_raw_backend_item_fact %fn SelfhostModuleItem SelfhostRawBackendItemFact \item:
     selfhost_raw_backend_item_fact_new selfhost_module_raw_backend_item_kind item.kind item.span
 

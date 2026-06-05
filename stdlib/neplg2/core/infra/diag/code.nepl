@@ -115,6 +115,7 @@ impl Copy for SelfhostResolveDiagnosticCode:
 //: SelfhostCheckerDiagnosticCode: checker / typed validation diagnostic の[分類/ぶんるい]
 pub enum SelfhostCheckerDiagnosticCode:
     ModuleItemIndex
+    ModuleUnexpectedProof
     ModuleItemSpanInvalid
     ModuleDeclarationHeaderMissing
     ModuleDeclarationHeaderInvalid
@@ -235,6 +236,8 @@ pub fn selfhost_checker_diag_code_name %fn SelfhostCheckerDiagnosticCode str \co
     match code:
         SelfhostCheckerDiagnosticCode::ModuleItemIndex:
             "checker.module.item_index"
+        SelfhostCheckerDiagnosticCode::ModuleUnexpectedProof:
+            "checker.module.unexpected_proof"
         SelfhostCheckerDiagnosticCode::ModuleItemSpanInvalid:
             "checker.module.item_span_invalid"
         SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderMissing:
