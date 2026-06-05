@@ -1,5 +1,25 @@
 #indent 4
 
+//: # type_resolver/reduce/model: type prefix reduction の共有 model
+//:
+//: [目的/もくてき]:
+//: - `reduce/plan.nepl`、`reduce/build.nepl`、`reduce.nepl` が共有する error enum、dispatch kind、plan item、build state、prefix result payload を定義します。
+//: - 型式縮約は `SelfhostTypePrefixList` を `SelfhostResolvedTypeTreeRoot` へ変換する処理であり、この module はその途中で使う typed payload と owner 移動規則を一箇所に集めます。
+//:
+//: [契約/けいやく]:
+//: - 失敗理由は `SelfhostTypeReduceErrorKind` の enum variant で表し、表示文言や diagnostic formatting とは分離します。
+//: - public reduce error domain は `EmptyInput`, `UnexpectedEnd`, `VoidAsType`, `FunctionMissingArgument`, `FunctionMissingResult`, `GenericTypeArgumentMissing`, `TypeParameterConstructorNameConflict`, `UnsupportedTypePrefixItem`, `TrailingItems`, `OutOfMemory`, `InternalInvariant` です。
+//: - `void` は型ではないため、通常の型位置では `SelfhostTypeReduceErrorKind::VoidAsType` になります。`unit` は通常の unit 型・unit 値であり、`fn unit T` は unit 引数関数です。
+//: - `SelfhostTypeReduceBuildState` は `nodes`、`function_args`、`type_args` の owner をまとめ、成功時は `SelfhostTypeReduceStep` または `SelfhostResolvedTypeTree` へ移し、失敗時は `selfhost_type_reduce_build_state_free` または `selfhost_type_reduce_fail` が閉じます。
+//:
+//: [現状/げんじょう]:
+//: - plan item は source text から切り出した primitive 判定結果を Copy payload として保持し、build 層は source text を再読しません。
+//: - `SelfhostTypeReduceBuildState` は persistent artifact ではなく、1 回の reducer build 内でだけ有効な owner container です。
+//:
+//: [計算量/けいさんりょう]:
+//: - この module の constructor / accessor は基本 `O(1)` です。
+//: - free helper は保持する `Vec` owner の解放に比例します。
+
 #import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/math" as *
@@ -16,6 +36,11 @@
 //: - prefix list が型式として縮約できない理由を、文字列ではなく enum として固定します。
 //: - `VoidAsType` により、0 引数 marker の `void` が型 node として流れることを静的に検査しやすくします。
 //:
+//: [契約/けいやく]:
+//: - `EmptyInput`、`UnexpectedEnd`、`VoidAsType`、`FunctionMissingArgument`、`FunctionMissingResult`、`GenericTypeArgumentMissing`、`TypeParameterConstructorNameConflict`、`UnsupportedTypePrefixItem`、`TrailingItems`、`OutOfMemory`、`InternalInvariant` は reducer の public diagnostic kind です。
+//: - caller は message string ではなくこの enum を `match` し、tests / source policy も typed variant を確認します。表示文言は別層の責務です。
+//: - `void` は型ではないため `VoidAsType` で拒否します。`unit` は通常の型なので、この enum には unit 用の error variant を置きません。
+//:
 //: [場合分/ばあいわ]け:
 //: - `EmptyInput`: `%` の後に型 item がありません。
 //: - `UnexpectedEnd`: 型式の途中で prefix item が尽きました。
@@ -28,6 +53,9 @@
 //: - `TrailingItems`: 1 つの型式を読み終わった後に余分な item が残りました。
 //: - `OutOfMemory`: node table または argument table の拡張に失敗しました。
 //: - `InternalInvariant`: validate/build 間の前提不一致など、通常の source 入力だけでは起きない内部不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum value の比較やコピーは `O(1)` です。
 pub enum SelfhostTypeReduceErrorKind:
     EmptyInput
     UnexpectedEnd
@@ -69,6 +97,16 @@ impl Copy for SelfhostTypeReduceErrorKind:
         self
 
 //: SelfhostTypeReduceError: reduction 失敗の typed diagnostic payload
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeReduceErrorKind` と発生位置 `SelfhostSourceSpan` をまとめ、表示層から独立した typed diagnostic payload として運びます。
+//:
+//: [契約/けいやく]:
+//: - `kind` は reducer が確定した enum variant です。message string や locale はここに入れません。
+//: - `span` は失敗原因になった prefix item または empty input の defensive span です。
+//:
+//: [計算量/けいさんりょう]:
+//: - Copy payload なので構築・コピーは `O(1)` です。
 pub struct SelfhostTypeReduceError:
     kind %SelfhostTypeReduceErrorKind
     span %SelfhostSourceSpan
@@ -86,6 +124,14 @@ impl Copy for SelfhostTypeReduceError:
 //: [目的/もくてき]:
 //: - resolved tree の owner table、読んだ型式の node id、次に読む prefix item index をまとめます。
 //: - parser が括弧で境界を決めないため、reducer は消費済み index を明示的に返します。
+//:
+//: [契約/けいやく]:
+//: - `state` 相当の `nodes`、`function_args`、`type_args` はこの値が owner として保持します。
+//: - `node_id` は今回縮約した subtree root の `SelfhostResolvedTypeNodeId` です。`next_index` は次に読む prefix item index であり、prefix reduce entry はこの値で型式境界を caller へ返します。
+//: - caller は成功 path で `selfhost_type_reduce_step_into_tree` または `selfhost_type_reduce_step_into_build_state` によって owner を必ず移動します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field を保持するだけなので構築と accessor は `O(1)` です。owner を tree / state へ戻す処理も wrapper 変換だけなら `O(1)` です。
 pub struct SelfhostTypeReduceStep:
     nodes %Vec SelfhostResolvedTypeNode
     function_args %Vec SelfhostResolvedTypeNodeId
@@ -111,6 +157,14 @@ pub struct SelfhostTypePrefixReducePrefixResult:
 //: [目的/もくてき]:
 //: - build 内部では `SelfhostResolvedTypeTree` wrapper を一度分解し、node table と function argument table を直接運びます。
 //: - owner を持つ分岐で wrapper field projection を繰り返さず、Resource IR が各 buffer の移動を追いやすい形にします。
+//:
+//: [契約/けいやく]:
+//: - `nodes` は `SelfhostResolvedTypeNode` table、`function_args` は `SelfhostResolvedFunctionArgRange::Range` が参照する argument node id table、`type_args` は `SelfhostResolvedAppliedTypeArgRange` が参照する generic argument node id table です。
+//: - `SelfhostTypeReduceBuildState` は owner payload であり、成功時は `SelfhostTypeReduceStep` または `SelfhostResolvedTypeTree` へ移動します。
+//: - 失敗時は `selfhost_type_reduce_build_state_free` または `selfhost_type_reduce_fail` が 3 つの owner を閉じるため、caller は同じ state を二重解放してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - state の構築と field 移動は `O(1)` です。解放は保持する vector owner の長さに比例します。
 pub struct SelfhostTypeReduceBuildState:
     nodes %Vec SelfhostResolvedTypeNode
     function_args %Vec SelfhostResolvedTypeNodeId
@@ -143,10 +197,31 @@ impl Copy for SelfhostTypeReducePlanItem:
 //: [目的/もくてき]:
 //: - prefix list と source text から、検証と build が共有する dispatch / span / primitive hint を作ります。
 //: - plan は Copy item の `Vec` だけを所有し、resolved tree の owner とは独立して解放できます。
+//:
+//: [契約/けいやく]:
+//: - `items` owner は `selfhost_type_reduce_plan_new` で plan へ移動し、`selfhost_type_reduce_plan_free` で閉じます。
+//: - `items` の要素は `SelfhostTypeReducePlanItem` です。
+//: - plan は `source text` から得た primitive / function / void / named classification の authority です。build 層は source string を再読せず、この plan item を信頼します。
+//: - bound plan を作る関数はこの plan を借用で読みます。bound plan 作成後も caller が plain plan owner を解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 長さ取得と index access は `O(1)` です。plan 作成は item 数と primitive spelling の合計長に比例します。
 pub struct SelfhostTypeReducePlan:
     items %Vec SelfhostTypeReducePlanItem
 
 //: selfhost_type_reduce_error_kind_eq: reduce error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypeReduceErrorKind` を enum の網羅的な `match` で比較し、tests / source policy が typed error classification を使えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `EmptyInput`、`UnexpectedEnd`、`VoidAsType`、`FunctionMissingArgument`、`FunctionMissingResult`、`GenericTypeArgumentMissing`、`TypeParameterConstructorNameConflict`、`UnsupportedTypePrefixItem`、`TrailingItems`、`OutOfMemory`、`InternalInvariant` をすべて明示的に分岐します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 同じ variant なら `true`、違う variant なら `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_error_kind_eq %fn SelfhostTypeReduceErrorKind fn SelfhostTypeReduceErrorKind bool \a\b:
     match a:
         SelfhostTypeReduceErrorKind::EmptyInput:
@@ -217,35 +292,134 @@ pub fn selfhost_type_reduce_error_kind_eq %fn SelfhostTypeReduceErrorKind fn Sel
                     false
 
 //: selfhost_type_reduce_error_new: reduce error payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - typed error kind と source span を `SelfhostTypeReduceError` にまとめます。
+//:
+//: [契約/けいやく]:
+//: - 表示文言は作らず、`SelfhostTypeReduceErrorKind` と `SelfhostSourceSpan` だけを保存します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 指定された `kind` と `span` を持つ error payload です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_error_new %fn SelfhostTypeReduceErrorKind fn SelfhostSourceSpan SelfhostTypeReduceError \kind\span:
     SelfhostTypeReduceError kind span
 
+//: selfhost_type_reduce_build_state_new: build state owner payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - node table、function argument table、type argument table の owner を `SelfhostTypeReduceBuildState` としてまとめます。
+//:
+//: [契約/けいやく]:
+//: - `nodes`、`function_args`、`type_args` の owner は返却 state へ移動します。
+//: - caller は返却後に元の vector owner を直接使わず、state 経由で移動または解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 3 つの owner を持つ `SelfhostTypeReduceBuildState` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_new %impure fn Vec SelfhostResolvedTypeNode impure fn Vec SelfhostResolvedTypeNodeId impure fn Vec SelfhostResolvedTypeNodeId SelfhostTypeReduceBuildState \nodes\function_args\type_args:
     SelfhostTypeReduceBuildState nodes function_args type_args
 
+//: selfhost_type_reduce_build_state_from_tree: resolved tree owner を build state へ[分解/ぶんかい]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeTree` の `nodes`、`function_args`、`type_args` owner を取り出し、build 中に更新しやすい state へ移します。
+//:
+//: [契約/けいやく]:
+//: - `tree` owner は消費され、返却 state が 3 つの vector owner を引き継ぎます。
+//: - この関数は allocation を行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `tree` 由来の owner を持つ `SelfhostTypeReduceBuildState` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_from_tree %impure fn SelfhostResolvedTypeTree SelfhostTypeReduceBuildState \tree:
     let nodes %Vec SelfhostResolvedTypeNode field::get tree "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get tree "function_args"
     let type_args %Vec SelfhostResolvedTypeNodeId field::get tree "type_args"
     selfhost_type_reduce_build_state_new nodes function_args type_args
 
+//: selfhost_type_reduce_build_state_free: build state の owner を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - build 失敗時や中間 state を破棄する境界で、`nodes`、`function_args`、`type_args` をまとめて閉じます。
+//:
+//: [契約/けいやく]:
+//: - `state` owner を消費します。呼び出し後に同じ state や field owner を参照してはいけません。
+//: - `SelfhostResolvedAppliedTypeArgRange` と `SelfhostResolvedFunctionArgRange` はこれらの table を参照するため、range を含む tree を返さない失敗 path では必ずこの cleanup を通ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `unit` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 保持する 3 つの vector owner の解放に比例します。
 pub fn selfhost_type_reduce_build_state_free %impure fn SelfhostTypeReduceBuildState unit \state:
     v::free field::get state "nodes"
     v::free field::get state "function_args"
     v::free field::get state "type_args"
 
+//: selfhost_type_reduce_build_state_node_len: node table 長を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 次に追加する `SelfhostResolvedTypeNode` の `SelfhostResolvedTypeNodeId` を作るため、現在の node table 長を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `nodes` vector の長さです。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_node_len %fn &SelfhostTypeReduceBuildState i32 \state:
     let nodes %&Vec SelfhostResolvedTypeNode field::get_ref state "nodes"
     v::len nodes
 
+//: selfhost_type_reduce_build_state_function_arg_len: function argument table 長を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 新しい `SelfhostResolvedFunctionArgRange::Range` の `first_arg` を決めるため、現在の function argument table 長を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `function_args` vector の長さです。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_function_arg_len %fn &SelfhostTypeReduceBuildState i32 \state:
     let function_args %&Vec SelfhostResolvedTypeNodeId field::get_ref state "function_args"
     v::len function_args
 
+//: selfhost_type_reduce_build_state_type_arg_len: applied type argument table 長を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 新しい `SelfhostResolvedAppliedTypeArgRange` の `first_arg` を決めるため、現在の type argument table 長を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `type_args` vector の長さです。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_type_arg_len %fn &SelfhostTypeReduceBuildState i32 \state:
     let type_args %&Vec SelfhostResolvedTypeNodeId field::get_ref state "type_args"
     v::len type_args
 
+//: selfhost_type_reduce_build_state_get_node: node id から resolved node を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function flattening など、build 中に既存 node の payload を確認するために node table を参照します。
+//:
+//: [契約/けいやく]:
+//: - `state` は借用で読み、owner は移動しません。
+//: - 負の index や範囲外 index は panic ではなく `Option::None` として返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(node)`: 指定 node id が存在します。
+//: - `None`: index が負または範囲外です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_get_node %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNode \state\node_id:
     if:
         lt node_id.index 0
@@ -255,6 +429,21 @@ pub fn selfhost_type_reduce_build_state_get_node %fn &SelfhostTypeReduceBuildSta
             let nodes %&Vec SelfhostResolvedTypeNode field::get_ref state "nodes"
             v::get nodes node_id.index
 
+//: selfhost_type_reduce_build_state_function_arg_count: function node の argument 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `fn A fn B C` を flatten してよいか判断するため、result node が function node かどうかと、その argument 数を確認します。
+//:
+//: [契約/けいやく]:
+//: - `state` は借用で読みます。
+//: - 指定 node が存在しない、または `SelfhostResolvedTypeNode::Function` でない場合は `None` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(count)`: function node の argument 数です。`fn void T` なら `0` です。
+//: - `None`: function node として読めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_function_arg_count %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId Option i32 \state\node_id:
     match selfhost_type_reduce_build_state_get_node state node_id:
         Option::Some node:
@@ -266,6 +455,21 @@ pub fn selfhost_type_reduce_build_state_function_arg_count %fn &SelfhostTypeRedu
         Option::None:
             none
 
+//: selfhost_type_reduce_build_state_function_result: function node の result node id を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - non-empty inner function を flatten するとき、inner function の result type を外側 function の result として引き継ぎます。
+//:
+//: [契約/けいやく]:
+//: - 指定 node が存在しない、または function node でない場合は `None` です。
+//: - owner は移動せず、`SelfhostResolvedTypeNodeId` だけを Copy で返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(result)`: function node の result node id です。
+//: - `None`: function result として読めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_function_result %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNodeId \state\node_id:
     match selfhost_type_reduce_build_state_get_node state node_id:
         Option::Some node:
@@ -277,6 +481,23 @@ pub fn selfhost_type_reduce_build_state_function_result %fn &SelfhostTypeReduceB
         Option::None:
             none
 
+//: selfhost_type_reduce_build_state_function_arg: function node の n 番目 argument node id を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - inner function の argument range を外側 function の temporary vector へコピーするとき、range 内の node id を順に読みます。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostResolvedFunctionArgRange::Empty` は `None` を返します。
+//: - `SelfhostResolvedFunctionArgRange::Range` は `first_arg + arg_idx` から `function_args` table を読みます。
+//: - `arg_idx` が負または range 外なら `None` を返し、caller が `InternalInvariant` へ畳みます。
+//: - `state` は借用で読み、owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(node_id)`: range 内の argument node id です。
+//: - `None`: function node / argument range として読めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_build_state_function_arg %fn &SelfhostTypeReduceBuildState fn SelfhostResolvedTypeNodeId fn i32 Option SelfhostResolvedTypeNodeId \state\node_id\arg_idx:
     match selfhost_type_reduce_build_state_get_node state node_id:
         Option::Some node:
@@ -299,6 +520,19 @@ pub fn selfhost_type_reduce_build_state_function_arg %fn &SelfhostTypeReduceBuil
             none
 
 //: selfhost_type_reduce_step_new: reduction step payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - build state owner と、直近で構築した subtree root node id、次に読む prefix index を `SelfhostTypeReduceStep` にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `state` owner は返却 step へ移動します。
+//: - `node_id` は state 内の `nodes` table に存在することを caller が保証します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - owner table と cursor を持つ `SelfhostTypeReduceStep` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_step_new %impure fn SelfhostTypeReduceBuildState impure fn SelfhostResolvedTypeNodeId impure fn i32 SelfhostTypeReduceStep \state\node_id\next_index:
     let nodes %Vec SelfhostResolvedTypeNode field::get state "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get state "function_args"
@@ -306,20 +540,58 @@ pub fn selfhost_type_reduce_step_new %impure fn SelfhostTypeReduceBuildState imp
     SelfhostTypeReduceStep nodes function_args type_args node_id next_index
 
 //: selfhost_type_reduce_step_node_id: step の node id を[返/かえ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - step が構築した subtree root の `SelfhostResolvedTypeNodeId` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_step_node_id %fn &SelfhostTypeReduceStep SelfhostResolvedTypeNodeId \step:
     *field::get_ref step "node_id"
 
 //: selfhost_type_reduce_step_next_index: step の次 index を[返/かえ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - reducer が次に読むべき prefix item index です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_step_next_index %fn &SelfhostTypeReduceStep i32 \step:
     *field::get_ref step "next_index"
 
 //: selfhost_type_reduce_step_into_tree: step から tree owner を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - whole-list reducer が最終 root id を得たあと、step 内の owner table を `SelfhostResolvedTypeTree` に戻します。
+//:
+//: [契約/けいやく]:
+//: - `step` owner を消費し、返却 tree が `nodes`、`function_args`、`type_args` owner を引き継ぎます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - step 由来の `SelfhostResolvedTypeTree` owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_step_into_tree %impure fn SelfhostTypeReduceStep SelfhostResolvedTypeTree \step:
     let nodes %Vec SelfhostResolvedTypeNode field::get step "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get step "function_args"
     let type_args %Vec SelfhostResolvedTypeNodeId field::get step "type_args"
     SelfhostResolvedTypeTree nodes function_args type_args
 
+//: selfhost_type_reduce_step_into_build_state: step を build state に[戻/もど]す
+//:
+//: [目的/もくてき]:
+//: - parent type subtree が child subtree の build 結果を受け取り、同じ owner table へさらに node を追加できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `step` owner を消費し、返却 state が owner table を引き継ぎます。
+//: - `node_id` と `next_index` はここでは保持しません。caller が必要な値を先に Copy で取り出してから呼びます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - step 由来の `SelfhostTypeReduceBuildState` owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_step_into_build_state %impure fn SelfhostTypeReduceStep SelfhostTypeReduceBuildState \step:
     let nodes %Vec SelfhostResolvedTypeNode field::get step "nodes"
     let function_args %Vec SelfhostResolvedTypeNodeId field::get step "function_args"
@@ -327,28 +599,107 @@ pub fn selfhost_type_reduce_step_into_build_state %impure fn SelfhostTypeReduceS
     selfhost_type_reduce_build_state_new nodes function_args type_args
 
 //: selfhost_type_prefix_reduce_prefix_result_new: prefix reduce result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 先頭 1 型式だけを縮約する API の返却 payload を作ります。
+//:
+//: [契約/けいやく]:
+//: - `root` owner は返却 result へ移動します。caller は projection 後に `selfhost_type_prefix_reduce_prefix_result_free` で閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - resolved root owner と `next_index` を持つ `SelfhostTypePrefixReducePrefixResult` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_prefix_reduce_prefix_result_new %impure fn SelfhostResolvedTypeTreeRoot impure fn i32 SelfhostTypePrefixReducePrefixResult \root\next_index:
     SelfhostTypePrefixReducePrefixResult root next_index
 
 //: selfhost_type_prefix_reduce_prefix_result_root: resolved type root を borrow で[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - result owner は移動せず、borrowed `SelfhostResolvedTypeTreeRoot` だけを返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - prefix result 内の resolved root への借用です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_prefix_reduce_prefix_result_root %fn &SelfhostTypePrefixReducePrefixResult &SelfhostResolvedTypeTreeRoot \result:
     field::get_ref result "root"
 
 //: selfhost_type_prefix_reduce_prefix_result_next_index: 消費済み type prefix item 数を[返/かえ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - `%` を除いた type prefix list 内で、次に expression 側が読むべき item index です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_prefix_reduce_prefix_result_next_index %fn &SelfhostTypePrefixReducePrefixResult i32 \result:
     *field::get_ref result "next_index"
 
 //: selfhost_type_prefix_reduce_prefix_result_free: prefix reduce result の resolved tree owner を[解放/かいほう]する
+//:
+//: [契約/けいやく]:
+//: - `result` owner を消費し、内部の `SelfhostResolvedTypeTreeRoot` owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `unit` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - resolved tree の vector owner 解放に比例します。
 pub fn selfhost_type_prefix_reduce_prefix_result_free %impure fn SelfhostTypePrefixReducePrefixResult unit \result:
     selfhost_resolved_type_tree_root_free field::get result "root"
 
+//: selfhost_type_reduce_fail: build state を[閉/と]じて typed reduce error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - build 中に `SelfhostTypeReduceErrorKind` が確定したとき、保持中の owner を閉じて `Result::Err` に変換します。
+//:
+//: [契約/けいやく]:
+//: - `state` owner を `selfhost_type_reduce_build_state_free` で閉じます。
+//: - error の表示文字列は作らず、typed `SelfhostTypeReduceErrorKind` と `SelfhostSourceSpan` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `Result::Err SelfhostTypeReduceError` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - cleanup 対象 vector owner の解放に比例します。error payload 作成は `O(1)` です。
 pub fn selfhost_type_reduce_fail %impure fn SelfhostTypeReduceBuildState impure fn SelfhostTypeReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostTypeReduceStep SelfhostTypeReduceError \state\kind\span:
     selfhost_type_reduce_build_state_free state
     Result::Err selfhost_type_reduce_error_new kind span
 
+//: selfhost_type_reduce_empty_span: reducer 用の empty span を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - empty input や defensive out-of-range error など、特定 token span を持てない場合の fallback span を作ります。
+//:
+//: [契約/けいやく]:
+//: - `void` 引数は 0 引数関数 marker であり、値として使いません。
+//: - span は diagnostic の fallback authority であり、source text を再読しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `source_span_empty_unchecked 0 0` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_empty_span %fn void SelfhostSourceSpan \void:
     source_span_empty_unchecked 0 0
 
+//: selfhost_type_reduce_dispatch_kind_error: dispatch kind を reduce error kind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - validate/build dispatch が型式として不正な item を見つけたとき、typed error kind を決定します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeReduceDispatchKind::VoidMarker` は `SelfhostTypeReduceErrorKind::VoidAsType` です。
+//: - `UnsupportedTypePrefixItem` は同名の error kind です。
+//: - それ以外の dispatch mismatch は defensive `UnexpectedEnd` に畳み、caller が fail-closed に扱います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - dispatch kind に対応する `SelfhostTypeReduceErrorKind` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_type_reduce_dispatch_kind_error %fn SelfhostTypeReduceDispatchKind SelfhostTypeReduceErrorKind \kind:
     match kind:
         SelfhostTypeReduceDispatchKind::VoidMarker:
