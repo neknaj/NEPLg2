@@ -38,6 +38,7 @@ review gate は次の順で行う。
 
 subagent review は、単に承認を得るためではなく、実装者と独立した観点で次の観点を確認するために使う。
 
+- 詳細な review 入力、確認項目、指摘分類、`note.n.md` 記録形式は `doc/neplg2/self_host_zenn_review_checklist.md` を正とする。
 - 失敗経路が `Result` / `Option` / enum error で表現され、表示文字列や sentinel 値で分岐していないこと。
 - `match` の網羅性が効く形で variant が設計され、数値 tag や文字列 tag を公開 API にしていないこと。
 - parser、checker、HIR、Resource IR、backend の authority が混ざっていないこと。

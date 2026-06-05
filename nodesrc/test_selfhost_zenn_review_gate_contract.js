@@ -13,6 +13,7 @@ function read(relPath) {
 
 const design = read("doc/neplg2/self_host_neplg21_compiler_design.md");
 const executionPlan = read("doc/neplg2/self_host_execution_plan.md");
+const checklist = read("doc/neplg2/self_host_zenn_review_checklist.md");
 const docCommentPolicy = read("doc/stdlib_doc_comment_policy.md");
 
 function assertIncludes(needle, message) {
@@ -90,6 +91,10 @@ assertIncludes(
     "実装行数やドキュメントコメントの長さそのものを制限してはならない",
     "source policy must not restrict explanation volume instead of structural responsibility",
 );
+assertIncludes(
+    "self_host_zenn_review_checklist.md",
+    "selfhost design must link to the detailed subagent review checklist",
+);
 
 assertPlanIncludes(
     "## 2.1 Zenn 方針 review gate",
@@ -115,6 +120,10 @@ assertPlanIncludes(
     "commit の大きさは行数では判定しない",
     "selfhost execution plan must judge commit scope by responsibility boundary",
 );
+assertPlanIncludes(
+    "self_host_zenn_review_checklist.md",
+    "selfhost execution plan must link to the detailed subagent review checklist",
+);
 assert.doesNotMatch(
     executionPlan,
     /500 行/,
@@ -123,6 +132,66 @@ assert.doesNotMatch(
 assert.ok(
     docCommentPolicy.includes("`stdlib/neplg2/` セルフホストコンパイラ実装にも同じ水準を適用"),
     "stdlib documentation policy must explicitly cover the current selfhost compiler implementation",
+);
+
+for (const needle of [
+    "## review の入力",
+    "## 必須確認項目",
+    "### 静的検査と error model",
+    "### pure core と platform boundary",
+    "### authority boundary",
+    "### documentation comment",
+    "### performance と探索範囲",
+    "### prototype policy",
+    "## 指摘分類",
+    "## note checkpoint 形式",
+    "## source policy 化の基準",
+]) {
+    assert.ok(checklist.includes(needle), `selfhost checklist must include ${needle}`);
+}
+
+for (const needle of [
+    "対象 branch と対象 commit",
+    "`AGENTS.md` の関連方針",
+    "今回変更した file list",
+    "実行した検証、未実行の検証、既存 warning と今回差分由来の warning の区別",
+    "review の観点が `policy/spec` と `implementation/test` の 2 軸に分かれていること",
+    "### review の 2 軸",
+    "`policy/spec`",
+    "`implementation/test`",
+    "Result",
+    "Option",
+    "enum diagnostic",
+    "match",
+    "sentinel",
+    "pure / impure",
+    "parser が prefix call boundary",
+    "HIR lowering が source text や token lexeme を再読して型証拠を作り直していない",
+    "目的",
+    "契約",
+    "戻り値",
+    "error variant",
+    "計算量",
+    "探索範囲",
+    "cache key",
+    "暫定実装",
+    "Blocker",
+    "Non-blocker",
+    "Question",
+    "Approve",
+    "classification: Blocker | Non-blocker | Question | Approve",
+    "decision: fixed | issue | open | not-applicable",
+    "source_policy: added | updated | not-needed | follow-up",
+    "AGENTS.md の関連方針を確認した",
+    "新規 source policy を追加した場合に `nodesrc/run_source_policy_regressions.js` へ登録されていること",
+]) {
+    assert.ok(checklist.includes(needle), `selfhost checklist must cover ${needle}`);
+}
+
+assert.doesNotMatch(
+    checklist,
+    /行数制限、ファイル長制限、doc comment 長制限は source policy に入れない。[\s\S]*500 行/,
+    "selfhost checklist must reject line-count limits without introducing numeric size thresholds",
 );
 
 console.log("selfhost Zenn review gate contract passed");

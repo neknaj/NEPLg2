@@ -51211,3 +51211,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/stdlib_doc_comment_policy.md` に、現在の `stdlib/neplg2/` セルフホストコンパイラ実装にも同じ doc comment 水準を適用することを明記した。
 - `nodesrc/test_selfhost_zenn_review_gate_contract.js` を追加し、Zenn URL、subagent review、Blocker 処理、doc comment 必須項目、行数制限禁止、実行計画側の gate、`stdlib/neplg2` への doc comment policy 適用を検査するようにした。`nodesrc/run_source_policy_regressions.js` にも登録した。
 - subagent review の Non-blocker として、`stdlib/neplg2` 全体の doc comment coverage、error enum chain の完全写像、`check/expr` と `lower/hir` の authority 逆流禁止をより広く検査する提案があった。これは次の selfhost implementation slice で、対象 module に合わせて個別 source policy へ追加する。
+
+## 2026-06-05 Agent selfhost Zenn review checklist checkpoint
+
+- `selfhost/zenn-review-checklist-20260605` branch で、前回追加した Zenn 方針 review gate を subagent が毎回同じ基準で使える checklist へ具体化した。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` と `AGENTS.md` の関連方針を再確認し、静的検査、`Option` / `Result` / enum diagnostic、pure core と host boundary、丁寧な doc comment、performance の探索範囲削減、試作段階でも技術的負債を残さない方針を checklist に反映した。
+- `doc/neplg2/self_host_zenn_review_checklist.md` を追加し、review 入力、`policy/spec` と `implementation/test` の 2 軸、静的検査、pure core / platform boundary、authority boundary、documentation comment、performance、prototype policy、指摘分類、note checkpoint 形式、source policy 化の基準を固定した。
+- subagent review 3 件では、前回の gate だけでは「レビューした」という記録に寄りやすく、OK/NG の粒度、2 軸レビュー、指摘別の `classification` / `decision` / `source_policy` / `verify` が必要と指摘された。
+- 指摘に従い、checklist に `AGENTS.md` 確認、`policy/spec` と `implementation/test` の 2 軸、Rust 側 bug や仕様未確定を selfhost workaround で隠さないこと、指摘別 field、source policy 登録漏れ確認を追加した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `doc/neplg2/self_host_execution_plan.md` から checklist を参照し、詳細な review 入力、確認項目、指摘分類、`note.n.md` 記録形式は checklist を正とした。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` を更新し、checklist の章、review 入力、2 軸 review、doc comment 項目、performance 項目、指摘分類、指摘別 field、行数制限禁止、source policy regression 登録確認を検査するようにした。
+- Non-blocker として、実装 slice ごとの個別 source policy で `check/expr` から HIR への逆依存禁止、`lower/hir` の source/token 再読禁止、error enum chain の完全写像、`TypedExpression` の accepted lowering 禁止をより広く固定する提案が残る。これは対象 module を触る slice で追加する。
