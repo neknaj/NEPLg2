@@ -2,8 +2,8 @@
 //: SHA-256 incremental public API
 //:
 //: ### [目的/もくてき]
-//: - `new_sha256` / `sha256_update` / `sha256_finalize` を所有します。
-//: - block compression と digest output は専用 module に委譲し、public API の所有権契約を読みやすくします。
+//: - `new_sha256` / `sha256_update` / `sha256_free` / `sha256_finalize` を所有します。
+//: - block compression と digest output は専用 module に委譲し、public API の所有権契約と副作用境界を読みやすくします。
 
 #indent 4
 

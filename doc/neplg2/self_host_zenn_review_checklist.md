@@ -1,6 +1,6 @@
 # NEPLg2.1 self-host Zenn review checklist
 
-最終更新: 2026-06-05
+最終更新: 2026-06-06
 
 ## 目的
 
@@ -67,6 +67,7 @@ subagent は、次の項目を確認する。
 - 将来も守る契約と、今後変わり得る現状実装の説明が分離されていること。
 - `Option`、`Result`、enum を返す場合は、どの条件でどの variant になるかが記載されていること。
 - コメントを短くするための行数制限、説明削減、機械的な boilerplate 化が入っていないこと。
+- `doc/neplg2/self_host_zenn_review_checklist.md` と `doc/neplg2/self_host_zenn_review_prompt.md` 自体にも、行数、byte数、file size、comment量、doc comment長を理由に説明を削る制限を入れないこと。これらの運用文書は reviewer と agent の authority なので、source policy と同じく制限混入を検査対象にする。
 
 ### performance と探索範囲
 

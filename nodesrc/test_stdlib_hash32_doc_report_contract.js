@@ -107,6 +107,8 @@ for (const snippet of [
 }
 
 for (const snippet of [
+    "`new_sha256` / `sha256_update` / `sha256_free` / `sha256_finalize`",
+    "public API の所有権契約と副作用境界",
     "buffer 解放は副作用境界なので、この helper は `impure fn`",
     "`ctx` owner を消費し",
     "`Sha256.buffer` field",
