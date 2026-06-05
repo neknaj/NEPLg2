@@ -20,6 +20,7 @@ const prompt = read("doc/neplg2/self_host_zenn_review_prompt.md");
 const docCommentPolicy = read("doc/stdlib_doc_comment_policy.md");
 const packetHelper = read("nodesrc/selfhost_zenn_review_packet.js");
 const responseHelper = read("nodesrc/selfhost_zenn_review_response_check.js");
+const sourcePolicyRunner = read("nodesrc/run_source_policy_regressions.js");
 
 function assertIncludes(needle, message) {
     assert.ok(design.includes(needle), message);
@@ -27,6 +28,12 @@ function assertIncludes(needle, message) {
 
 function assertPlanIncludes(needle, message) {
     assert.ok(executionPlan.includes(needle), message);
+}
+
+function sourcePolicyRunnerChecks() {
+    const match = sourcePolicyRunner.match(/const checks = \[\s*([\s\S]*?)\s*\];/);
+    assert.ok(match, "source policy runner must expose a checks array");
+    return new Set([...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]));
 }
 
 assertIncludes(
@@ -381,6 +388,22 @@ for (const needle of [
 ]) {
     assert.ok(responseHelper.includes(needle), `selfhost review response checker must include ${needle}`);
 }
+
+const selfhostPolicyTests = fs.readdirSync(path.join(repoRoot, "nodesrc"))
+    .filter((name) => /^test_selfhost.*\.js$/.test(name))
+    .map((name) => `nodesrc/${name}`)
+    .sort();
+const registeredSourcePolicyChecks = sourcePolicyRunnerChecks();
+const missingSelfhostPolicyTests = selfhostPolicyTests.filter((relPath) => !registeredSourcePolicyChecks.has(relPath));
+assert.deepEqual(
+    missingSelfhostPolicyTests,
+    [],
+    [
+        "selfhost source-policy tests must be registered in nodesrc/run_source_policy_regressions.js",
+        "so Zenn-policy review gates cannot be bypassed by adding an unrun test file",
+        ...missingSelfhostPolicyTests,
+    ].join("\n"),
+);
 
 const helperHelp = spawnSync(process.execPath, ["nodesrc/selfhost_zenn_review_packet.js", "--help"], {
     cwd: repoRoot,

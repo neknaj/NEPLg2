@@ -1,5 +1,19 @@
 #indent 4
 
+//: # check/module/summary
+//: module checker が後続 stage へ渡す item 集計 record と accessor を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - parser item stream の件数、directive 件数、declaration 件数、raw backend item 件数を typed summary として保持します。
+//: - 後続 stage や source policy test が module text を再走査せずに、checker が見た構造上の規模と分類を確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 各 count は `summary_update.nepl` の `SelfhostModuleItemKind` match によってのみ更新します。
+//: - 新しい module item kind を追加した場合は、summary field 追加の有無と update match を同時に確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - summary record の構築と accessor は O(1) です。item stream 全体の集計は `summary_update.nepl` 側で O(n) です。
+
 #import "core/traits/copy" as *
 
 //: SelfhostModuleCheckSummary: module item stream の[集計/しゅうけい][結果/けっか]
@@ -28,38 +42,122 @@ impl Copy for SelfhostModuleCheckSummary:
     fn copy_mark %fn SelfhostModuleCheckSummary SelfhostModuleCheckSummary \self:
         self
 
+//: selfhost_module_check_summary_item_count: module item の総数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - checker stage の smoke test と後続集計が、doc comment や directive を含む item stream 全体の件数を参照できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_item_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.item_count
 
+//: selfhost_module_check_summary_doc_comment_count: doc comment item 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - parser が doc comment token を module item として保持していることを後続 stage や test が確認できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_doc_comment_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.doc_comment_count
 
+//: selfhost_module_check_summary_directive_count: directive item 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - module-level directive がどれだけ含まれたかを、再走査せずに確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_directive_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.directive_count
 
+//: selfhost_module_check_summary_entry_count: `#entry` directive 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - singleton directive proof と diagnostic test が `#entry` の個数を確認できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_entry_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.entry_count
 
+//: selfhost_module_check_summary_target_count: `#target` directive 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - target directive の重複や欠落を、module item の再分類なしに確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_target_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.target_count
 
+//: selfhost_module_check_summary_import_count: import directive 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - module graph / loader の後続 slice が import edge 数を summary から参照できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_import_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.import_count
 
+//: selfhost_module_check_summary_declaration_count: declaration item 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function / type / impl を含む宣言総数を、typed module item stream の summary として返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_declaration_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.declaration_count
 
+//: selfhost_module_check_summary_function_count: function declaration 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - callable signature collection の前提になる function declaration 数を summary から確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_function_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.function_count
 
+//: selfhost_module_check_summary_type_declaration_count: type declaration 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - struct / enum / trait などの型宣言数を、後続 type resolver の入力規模として参照します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_type_declaration_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.type_declaration_count
 
+//: selfhost_module_check_summary_impl_count: impl declaration 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - trait / inherent impl の個数を、coherence proof や stage test が再分類なしに参照できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_impl_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.impl_count
 
+//: selfhost_module_check_summary_raw_block_count: raw backend block item 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `#wasm` / `#llvmir` block の開始 item 数を、raw backend proof の smoke test が確認できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_raw_block_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.raw_block_count
 
+//: selfhost_module_check_summary_raw_text_count: raw backend text item 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - raw backend block 内に保持された text line 数を、backend text の保持確認に使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access だけなので O(1) です。
 pub fn selfhost_module_check_summary_raw_text_count %fn SelfhostModuleCheckSummary i32 \summary:
     summary.raw_text_count

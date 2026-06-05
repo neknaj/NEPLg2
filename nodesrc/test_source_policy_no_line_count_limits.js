@@ -10,6 +10,11 @@ const scanRoots = [
     "nodesrc",
     "nodesrc/source_policy",
 ];
+const extraScanFiles = [
+    "nodesrc/run_source_policy_regressions.js",
+    "nodesrc/selfhost_zenn_review_packet.js",
+    "nodesrc/selfhost_zenn_review_response_check.js",
+];
 
 function read(relPath) {
     return fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
@@ -37,14 +42,24 @@ for (const root of scanRoots) {
         scanned.add(relPath);
     }
 }
+for (const relPath of extraScanFiles) {
+    if (fs.existsSync(path.join(repoRoot, relPath))) {
+        scanned.add(relPath);
+    }
+}
 
 const forbidden = [
     /\bimplementationLineCount\b/,
     /\bassertLineLimit\b/,
     /\blineLimits\b/,
     /\bmaxLines\b/,
-    /\blineCount\b[\s\S]*<=/,
+    /\blineCount\b[\s\S]{0,80}(?:<=|>=|<|>)\s*\d+/,
+    /\b(?:lines|implementationLines)\.length\b\s*(?:<=|>=|<|>)\s*\d+/,
+    /\b[A-Za-z_][A-Za-z0-9_]*(?:Lines|LineCount)\.length\b\s*(?:<=|>=|<|>)\s*\d+/,
+    /\d+\s*(?:<=|>=|<|>)\s*\b(?:lineCount|lines\.length|implementationLines\.length)\b/,
     /\.split\(["']\\n["']\)\.length\s*<=/,
+    /\d+\s*行以内/,
+    /(?:within|under|below|less than|fewer than)\s+\d+\s+lines/i,
     /line budget/i,
     /line limit/i,
     /split threshold/i,

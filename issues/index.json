@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T14:35:33.121Z",
+  "generated_at": "2026-06-05T15:12:58.110Z",
   "counts": {
-    "total": 1344,
-    "open": 42,
+    "total": 1345,
+    "open": 43,
     "resolved": 1302,
     "by_area": {
       "stdlib": {
@@ -17,8 +17,8 @@
         "resolved": 637
       },
       "selfhost": {
-        "total": 118,
-        "open": 3,
+        "total": 119,
+        "open": 4,
         "resolved": 115
       },
       "neplg21": {
@@ -533,6 +533,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md"
+    },
+    {
+      "id": "ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41",
+      "title": "selfhost compiler doc comments need Zenn-policy section coverage",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-06-05",
+      "updated": "2026-06-05",
+      "target": "stdlib/neplg2/**, nodesrc/test_selfhost_documentation_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",

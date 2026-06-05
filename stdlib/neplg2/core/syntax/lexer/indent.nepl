@@ -14,6 +14,17 @@
 #import "neplg2/core/syntax/lexer/byte" as *
 #import "neplg2/core/syntax/lexer/diagnostic" as *
 
+//: lex_line_indent_width: line start から horizontal indent 幅を[数/かぞ]える
+//:
+//: [目的/もくてき]:
+//: - offside rule の indent / dedent 判定で使う論理 indent 幅を計算します。
+//:
+//: [契約/けいやく]:
+//: - space は 1、tab は現在の `indent_unit` 幅として加算します。
+//: - `\r` は幅を増やさず読み飛ばします。newline や非 whitespace byte で停止します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 行頭 whitespace の長さを k として O(k) です。
 pub fn lex_line_indent_width %fn str fn i32 fn i32 fn i32 fn i32 i32 \source\n\idx\indent_unit\width:
     if:
         ge idx n

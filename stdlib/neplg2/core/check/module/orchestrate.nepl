@@ -1,5 +1,19 @@
 #indent 4
 
+//: # check/module/orchestrate
+//: module AST item stream を module checker proof state へ[流/なが]す orchestrator です。
+//:
+//: [目的/もくてき]:
+//: - parser が作った `SelfhostModuleAst` を 1 item ずつ処理し、summary、raw backend proof、directive proof、declaration header proof を同じ順序で更新します。
+//: - 個別 proof の失敗は typed diagnostic に変換し、後続 stage が未検査の module を受け取らないようにします。
+//:
+//: [契約/けいやく]:
+//: - source text や directive spelling を再走査せず、`SelfhostModuleItem` の kind / span / header evidence を authority として扱います。
+//: - proof state の更新順序は item stream の順序に従います。raw backend text と singleton directive の制約は adapter 経由で proof layer に委譲します。
+//:
+//: [計算量/けいさんりょう]:
+//: - module item 数を n として O(n) です。各 item の proof transition は O(1) です。
+
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -71,6 +85,16 @@ fn selfhost_check_module_ast_loop %fn &SelfhostModuleAst fn i32 fn i32 fn Selfho
                     Result::Err selfhost_module_check_index_unavailable_diag
 
 //: selfhost_check_module_ast: module item stream を[検査/けんさ]して summary を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - module-level proof boundary の入口として、raw backend、directive singleton、declaration header、span の検査を item stream 全体へ適用します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: すべての item が module checker の proof boundary を通過し、分類 count を持つ summary を返します。
+//: - `Err(diagnostic)`: raw text without block、empty raw block、duplicate directive、invalid span、declaration header 欠落などを typed diagnostic として返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - module item 数を n として O(n) です。各 item の proof transition と summary 更新は O(1) です。
 pub fn selfhost_check_module_ast %fn &SelfhostModuleAst Result SelfhostModuleCheckSummary SelfhostDiagnostic \ast:
     let n %i32 selfhost_module_ast_len ast
     selfhost_check_module_ast_loop ast n 0 selfhost_module_check_summary_new SelfhostRawBackendState::Normal SelfhostModuleDirectiveState::NoneSeen
