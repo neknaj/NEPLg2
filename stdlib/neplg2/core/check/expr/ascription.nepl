@@ -35,6 +35,11 @@
 //: [目的/もくてき]:
 //: - syntax range 自体の不備、type prefix list 生成失敗、type resolver 失敗、TypeArena 投影失敗、内側 expression 欠落を enum として分けます。
 //: - diagnostic display はこの enum を後続で投影し、この module は source span と typed sub-error だけを保持します。
+//:
+//: [契約/けいやく]:
+//: - `EmptyExpressionRange` / `InvalidExpressionRange` / `NotTypeAscription` / `MissingExpressionTail` は、この module が検出した syntax range 境界の失敗を表します。
+//: - `TypePrefixBuildFailed` / `TypeReduceFailed` / `TypeProjectFailed` は、それぞれ type prefix build、type resolver、type arena projection の typed error を保持します。
+//: - この enum は表示済み文字列を持ちません。diagnostic 文字列化は後段の display/report 層で行い、checker 内部では variant と span/sub-error を権威にします。
 pub enum SelfhostExprAscriptionError:
     EmptyExpressionRange %SelfhostSourceSpan
     InvalidExpressionRange %SelfhostSourceSpan
@@ -57,6 +62,14 @@ impl Copy for SelfhostExprAscriptionError:
 //: [目的/もくてき]:
 //: - projected TypeArena owner、明示注釈由来の expected type、内側 expression range を 1 つにまとめます。
 //: - owner と Copy evidence を混ぜるため、この構造は Copy にしません。caller は `into_arena` または `free` で owner を閉じます。
+//:
+//: [契約/けいやく]:
+//: - `allocated` は projection が所有する `SelfhostTypeArena` owner wrapper です。
+//: - `expectation` と `expression_tail` は Copy payload なので、owner を `into_arena` / `free` で消費する前に必要な値を読み出します。
+//: - この構造は line-head `%T expr` 用です。argument-scope の `%T expr next` では `SelfhostExprAscriptionHeadProjection` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構造体の生成と accessor は O(1) です。保持している arena owner の解放コストは arena の内容に依存します。
 pub struct SelfhostExprAscriptionProjection:
     allocated %SelfhostTypeArenaAlloc
     expectation %SelfhostTypeExpectation
@@ -72,6 +85,9 @@ pub struct SelfhostExprAscriptionProjection:
 //: - `expression_first_token` は source token buffer 上の index です。prefix item index ではありません。
 //: - caller はこの token index から対応する `SelfhostExprPrefixItem` を探し、実引数式の消費幅を決めます。
 //: - owner を含むため、この構造は Copy にしません。caller は `into_arena` または `free` で owner を閉じます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構造体の生成と accessor は O(1) です。token index から prefix item を探す走査は caller 側の責務であり、この構造体自体は探索を行いません。
 pub struct SelfhostExprAscriptionHeadProjection:
     allocated %SelfhostTypeArenaAlloc
     expectation %SelfhostTypeExpectation
@@ -86,50 +102,142 @@ fn selfhost_expr_ascription_head_projection_new %impure fn SelfhostTypeArenaAllo
     SelfhostExprAscriptionHeadProjection allocated expectation expression_first_token
 
 //: selfhost_expr_ascription_projection_expectation: 注釈由来 expected type を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `%T expr` の投影結果から、内側 expression checker に渡す expected type を読み出します。
+//: - caller が `SelfhostExprAscriptionProjection` の owner を消費する前に、Copy payload として型期待を確認できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeExpectation`: 注釈型の `SelfhostTypeId`、期待の由来、注釈 span を含む値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構造体 field の読み出しだけなので O(1) です。
 pub fn selfhost_expr_ascription_projection_expectation %fn &SelfhostExprAscriptionProjection SelfhostTypeExpectation \projection:
     *field::get_ref projection "expectation"
 
 //: selfhost_expr_ascription_projection_tail: 注釈を除いた内側 expression range を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - line-head `%T expr` から、`%T` と型式 token を取り除いた expression range を読み出します。
+//: - expression checker はこの range だけを再帰的に検査し、type ascription token を通常の prefix call item として扱いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostSyntaxRange`: 内側 expression の token 範囲と span です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構造体 field の読み出しだけなので O(1) です。
 pub fn selfhost_expr_ascription_projection_tail %fn &SelfhostExprAscriptionProjection SelfhostSyntaxRange \projection:
     *field::get_ref projection "expression_tail"
 
 //: selfhost_expr_ascription_projection_type_id: 注釈型の TypeId を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - projection の expected type から、注釈で指定された型の arena-local `SelfhostTypeId` を取り出します。
+//: - caller が expected type 全体を必要としない場合でも、型一致や diagnostic payload のための最小情報を取得できます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeId`: projection が保持する arena owner 内で有効な型 ID です。
+//:
+//: [計算量/けいさんりょう]:
+//: - expected type の Copy field を読むだけなので O(1) です。
 pub fn selfhost_expr_ascription_projection_type_id %fn &SelfhostExprAscriptionProjection SelfhostTypeId \projection:
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation projection
     expectation.expected_type
 
 //: selfhost_expr_ascription_head_projection_expectation: 注釈由来 expected type を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - argument-scope `%T expr` の head projection から、先頭実引数式に適用する expected type を読み出します。
+//: - source-backed argument checker が `%T` と parameter type の衝突を、arity error へ潰さず typed error として返すために使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeExpectation`: 注釈型の type id、由来、span を保持する Copy payload です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構造体 field の読み出しだけなので O(1) です。
 pub fn selfhost_expr_ascription_head_projection_expectation %fn &SelfhostExprAscriptionHeadProjection SelfhostTypeExpectation \projection:
     *field::get_ref projection "expectation"
 
 //: selfhost_expr_ascription_head_projection_expression_first_token: 型式直後の expression token index を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - argument-scope `%T expr next` で、`expr` の先頭 token index を返します。
+//: - caller はこの token index から prefix item を探し、`expr` だけを 1 実引数式として消費します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `i32`: source token buffer 上の index です。prefix item index ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構造体 field の読み出しだけなので O(1) です。
 pub fn selfhost_expr_ascription_head_projection_expression_first_token %fn &SelfhostExprAscriptionHeadProjection i32 \projection:
     *field::get_ref projection "expression_first_token"
 
 //: selfhost_expr_ascription_projection_into_arena: projection を消費して TypeArena owner を[取/と]り[出/だ]す
 //:
+//: [目的/もくてき]:
+//: - `%T expr` の projection から、型投影で更新された `SelfhostTypeArena` owner を取り出します。
+//: - projection 内に閉じ込めていた owner を caller の通常の owner 管理へ戻します。
+//:
 //: [契約/けいやく]:
 //: - `SelfhostTypeArenaAlloc` wrapper を消費して arena owner を返します。
 //: - この後、同じ projection から `expectation` や `tail` を読むことはできません。必要な Copy payload は先に読んでください。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeArena`: projection が所有していた arena owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - owner wrapper の field 取り出しだけなので O(1) です。
 pub fn selfhost_expr_ascription_projection_into_arena %impure fn SelfhostExprAscriptionProjection SelfhostTypeArena \projection:
     let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
     selfhost_type_arena_alloc_into_arena allocated
 
 //: selfhost_expr_ascription_head_projection_into_arena: head projection を消費して TypeArena owner を[取/と]り[出/だ]す
 //:
+//: [目的/もくてき]:
+//: - argument-scope projection が保持する `SelfhostTypeArena` owner を caller へ戻します。
+//: - `%T` の型投影後に、実引数式そのものの型検査を同じ arena owner で続けるために使います。
+//:
 //: [契約/けいやく]:
 //: - `SelfhostTypeArenaAlloc` wrapper を消費して arena owner を返します。
 //: - `expectation` と `expression_first_token` は Copy payload なので、必要ならこの関数を呼ぶ前に読んでください。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeArena`: head projection が所有していた arena owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - owner wrapper の field 取り出しだけなので O(1) です。
 pub fn selfhost_expr_ascription_head_projection_into_arena %impure fn SelfhostExprAscriptionHeadProjection SelfhostTypeArena \projection:
     let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
     selfhost_type_arena_alloc_into_arena allocated
 
 //: selfhost_expr_ascription_projection_free: projection が保持する arena owner を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - `%T expr` projection を使用しない経路で、projection が保持する arena owner を明示的に閉じます。
+//: - error path や早期 return で owner が残らないようにするための cleanup API です。
+//:
+//: [契約/けいやく]:
+//: - `projection` を消費します。この関数の呼び出し後に projection 内の expected type や tail を読むことはできません。
+//: - arena owner は `selfhost_type_arena_free` へ渡されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - field 取り出しと arena cleanup だけです。arena cleanup の実コストは arena が保持する型 node 数に依存します。
 pub fn selfhost_expr_ascription_projection_free %impure fn SelfhostExprAscriptionProjection unit \projection:
     let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
     selfhost_type_arena_free selfhost_type_arena_alloc_into_arena allocated
 
 //: selfhost_expr_ascription_head_projection_free: head projection が保持する arena owner を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - argument-scope projection を実引数検査へ渡さない経路で、保持している arena owner を明示的に閉じます。
+//: - `%T` の投影に成功した後、式側の検査へ進めない場合の cleanup 境界です。
+//:
+//: [契約/けいやく]:
+//: - `projection` を消費します。この関数の呼び出し後に `expression_first_token` や expected type を読むことはできません。
+//: - arena owner は `selfhost_type_arena_free` へ渡されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - field 取り出しと arena cleanup だけです。arena cleanup の実コストは arena が保持する型 node 数に依存します。
 pub fn selfhost_expr_ascription_head_projection_free %impure fn SelfhostExprAscriptionHeadProjection unit \projection:
     let allocated %SelfhostTypeArenaAlloc field::get projection "allocated"
     selfhost_type_arena_free selfhost_type_arena_alloc_into_arena allocated
@@ -314,6 +422,19 @@ fn selfhost_expr_ascription_project_head_reduced %impure fn &Vec SelfhostToken i
 //: [目的/もくてき]:
 //: - named constructor table を使わない最小入口です。primitive type、function type、type parameter projection が必要ない focused slice で使います。
 //: - expression checker の `%` 処理はこの関数を通し、`selfhost_call_reduce_prefix` に `%` item を直接渡しません。
+//:
+//: [契約/けいやく]:
+//: - 成功時は projection が arena owner を保持します。caller は `into_arena` または `free` で必ず owner を閉じます。
+//: - 失敗時はこの関数が arena owner を解放し、typed sub-error を `SelfhostExprAscriptionError` に保持します。
+//: - named type constructor を必要とする注釈はこの入口では解決しません。constructor table が必要な場合は `selfhost_expr_ascription_project_expectation_with_constructors` を使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(projection)`: expected type、inner expression range、更新済み arena owner を含む projection です。
+//: - `Err(error)`: range 不備、型式縮約失敗、型投影失敗、inner expression 欠落のいずれかを示す typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - type prefix candidate の走査は注釈範囲の token 数を k として O(k) です。
+//: - 型式縮約と arena projection は縮約された型式 tree の node 数に比例します。
 pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\source\arena\syntax_range:
     match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
         Result::Ok type_prefix:
@@ -338,6 +459,14 @@ pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToke
 //: [契約/けいやく]:
 //: - named constructor table を使わない最小入口です。primitive type と function type の focused slice で使います。
 //: - 成功時は projection が arena owner を保持します。失敗時はこの関数が arena owner を解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(projection)`: expected type、型式直後の expression token index、更新済み arena owner を含む head projection です。
+//: - `Err(error)`: `%T` として解釈できない range、型式縮約失敗、型投影失敗、式欠落のいずれかです。
+//:
+//: [計算量/けいさんりょう]:
+//: - 注釈範囲の token 数を k として、type prefix item 収集は O(k) です。
+//: - 型式縮約と arena projection は型式 tree の node 数に比例します。
 pub fn selfhost_expr_ascription_project_head_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionHeadProjection SelfhostExprAscriptionError \tokens\source\arena\syntax_range:
     match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
         Result::Ok type_prefix:
@@ -358,6 +487,19 @@ pub fn selfhost_expr_ascription_project_head_expectation %impure fn &Vec Selfhos
 //: [目的/もくてき]:
 //: - module surface から得た named type constructor table を使い、`%Vec i32 expr` のような ascription を expected type へ変換します。
 //: - 型式境界は constructor arity を見て決めるため、generic type の直後に式 token が続いても parser が境界を推測しません。
+//:
+//: [契約/けいやく]:
+//: - 成功時は projection が arena owner を保持します。caller は `into_arena` または `free` で必ず owner を閉じます。
+//: - 失敗時はこの関数が arena owner を解放し、type reduce / type project の typed error を保持します。
+//: - constructor table は読み取り専用 input として扱い、この関数は table を更新しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(projection)`: named constructor を解決した expected type、inner expression range、更新済み arena owner です。
+//: - `Err(error)`: range 不備、type prefix build/reduce/project 失敗、inner expression 欠落のいずれかです。
+//:
+//: [計算量/けいさんりょう]:
+//: - 注釈範囲の token 数を k、型式 tree の node 数を t として、おおよそ O(k + t) です。
+//: - named constructor lookup の実コストは constructor table 実装に依存しますが、この関数は expression tail 全体を探索しません。
 pub fn selfhost_expr_ascription_project_expectation_with_constructors %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError \tokens\source\constructors\arena\syntax_range:
     match selfhost_expr_ascription_type_prefix_list_from_range tokens syntax_range:
         Result::Ok type_prefix:

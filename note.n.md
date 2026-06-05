@@ -1,3 +1,20 @@
+# 2026-06-06 Agent selfhost Zenn policy correction checkpoint
+
+- `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:20:39+09:00 に再確認した。
+- subagent review で、selfhost documentation gate が raw file count / declaration count の下限を使っており、正当な削除や責務分割を妨げ得る size-ish gate になっていることを Blocker として確認した。これを受け、`nodesrc/test_selfhost_documentation_contract.js` から file/declaration count 下限を撤廃した。
+- 残る selfhost documentation gap は品質合格ではなく未解決負債として扱う。`ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` の存在を selfhost documentation contract の前提にし、issue 本文にも baseline が許容値ではなく fail-closed debt boundary であることを明記した。
+- `stdlib/neplg2/core/check/expr/ascription.nepl` を fixed documentation slice に追加した。public projection/accessor/owner cleanup/projector API には `[目的]`、`[契約]`、`[戻り値]`、`[計算量]` のうち必要な section を要求し、owner transfer、typed error、constructor table の扱い、source token index と prefix item index の違いを説明する doc comment へ補強した。
+- 今回の修正は、doc comment の量を減らす制限ではなく、Zenn 方針で必要な説明項目を増やす方向の検査である。行数、ファイル長、doc comment 長による上限は追加していない。
+- 最終 subagent review では、`SelfhostExprAscriptionError` / `SelfhostExprAscriptionProjection` / `SelfhostExprAscriptionHeadProjection` の section requirement と issue metadata / baseline 記述検査を追加した後、Blocker なしと確認された。
+- focused verification:
+  - `node nodesrc/test_selfhost_documentation_contract.js`: pass
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass（既存 documentation gap samples と Node WASI ExperimentalWarning は非回帰）
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+
 # 2026-06-05 Agent 2 SegmentTree documentation contract checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum error による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。

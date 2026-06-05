@@ -7,12 +7,11 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
+const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    files: 179,
     moduleNoDoc: 77,
     moduleNoDoctest: 60,
-    declarations: 1745,
     declarationNoDoc: 304,
     declarationNoDoctest: 1434,
     publicNoDoc: 51,
@@ -23,6 +22,7 @@ const BASELINE = {
 
 const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/cli/args/emit.nepl",
+    "stdlib/neplg2/core/check/expr/ascription.nepl",
     "stdlib/neplg2/core/check/module/",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
@@ -39,6 +39,21 @@ const PUBLIC_DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_empty", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_all", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/cli/args/emit.nepl", "selfhost_cli_emit_set_add", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "SelfhostExprAscriptionError", ["purpose", "contract"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "SelfhostExprAscriptionProjection", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "SelfhostExprAscriptionHeadProjection", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_projection_expectation", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_projection_tail", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_projection_type_id", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_head_projection_expectation", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_head_projection_expression_first_token", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_projection_into_arena", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_head_projection_into_arena", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_projection_free", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_head_projection_free", ["purpose", "contract", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_expectation", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_head_expectation", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/check/expr/ascription.nepl", "selfhost_expr_ascription_project_expectation_with_constructors", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/declaration_adapter.nepl", "selfhost_module_check_directive_fact", ["purpose", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/declaration_adapter.nepl", "selfhost_module_check_item_directive_state", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/declaration_adapter.nepl", "selfhost_module_check_item_span", ["purpose", "returns", "complexity"]),
@@ -294,11 +309,35 @@ for (const repoPath of REQUIRED_SCANNER_SENTINELS) {
         `${repoPath} must be included in the selfhost documentation scan`,
     );
 }
-assert(stats.files >= BASELINE.files, `selfhost file count decreased unexpectedly: ${stats.files} < ${BASELINE.files}`);
 assert(
-    stats.declarations >= BASELINE.declarations,
-    `selfhost declaration count decreased unexpectedly: ${stats.declarations} < ${BASELINE.declarations}`,
+    fs.existsSync(path.join(repoRoot, DOC_GAP_TRACKING_ISSUE)),
+    `selfhost documentation baseline gaps must be tracked by ${DOC_GAP_TRACKING_ISSUE}`,
 );
+const docGapTrackingIssueText = fs.readFileSync(path.join(repoRoot, DOC_GAP_TRACKING_ISSUE), "utf8").replace(/\r\n/g, "\n");
+assert.match(
+    docGapTrackingIssueText,
+    /^status:\s*open$/m,
+    "selfhost documentation baseline issue must remain open while baseline gaps remain",
+);
+assert.match(
+    docGapTrackingIssueText,
+    /^resolved:\s*false$/m,
+    "selfhost documentation baseline issue must remain unresolved while baseline gaps remain",
+);
+assert.ok(
+    docGapTrackingIssueText.includes("not an accepted quality level"),
+    "selfhost documentation baseline issue must state that the baseline is not an accepted quality level",
+);
+assert.ok(
+    docGapTrackingIssueText.includes("fail-closed debt boundary"),
+    "selfhost documentation baseline issue must state that the baseline is a fail-closed debt boundary",
+);
+for (const [key, value] of Object.entries(BASELINE)) {
+    assert.ok(
+        docGapTrackingIssueText.includes(`${key}=${value}`),
+        `selfhost documentation baseline issue must record ${key}=${value}`,
+    );
+}
 assert(
     stats.moduleNoDoc <= BASELINE.moduleNoDoc,
     `selfhost module doc gaps increased: ${stats.moduleNoDoc} > ${BASELINE.moduleNoDoc}`,
