@@ -257,14 +257,19 @@ fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec 
 //: - 成功時は更新済み `SelfhostTypeArena` owner を返します。
 //: - 失敗時、この関数または argument checker が arena owner を解放します。
 //: - `param_idx` が `param_count` に到達した時点で `item_index == item_count` なら完全飽和です。
-fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostExprPrefixItem Result SelfhostTypeArena SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidate\param_count\param_idx\item_index\item_count\head:
+fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem Result SelfhostTypeArena SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidate\param_count\param_idx\item_index\item_count\trailing_block\head:
     if:
         ge param_idx param_count
         then:
             if:
                 eq item_index item_count
                 then:
-                    Result::Ok arena
+                    match trailing_block:
+                        Option::Some block_arg:
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument block_arg.span
+                        Option::None:
+                            Result::Ok arena
                 else:
                     selfhost_type_arena_free arena
                     Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadNoCandidate head.span
@@ -272,8 +277,13 @@ fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec Sel
             if:
                 ge item_index item_count
                 then:
-                    selfhost_type_arena_free arena
-                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
+                    match trailing_block:
+                        Option::Some block_arg:
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported block_arg.span
+                        Option::None:
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
                 else:
                     match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
                         Option::Some expected_arg_type:
@@ -281,7 +291,7 @@ fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec Sel
                                 Result::Ok owned_match:
                                     let argument_match %SelfhostExprArgumentMatch selfhost_expr_argument_owned_match_match &owned_match
                                     let next_arena %SelfhostTypeArena selfhost_expr_argument_owned_match_into_arena owned_match
-                                    selfhost_call_reduce_argument_type_check_loop_with_source tokens source next_arena prefix scope value_types signatures candidate param_count add param_idx 1 argument_match.next_index item_count head
+                                    selfhost_call_reduce_argument_type_check_loop_with_source tokens source next_arena prefix scope value_types signatures candidate param_count add param_idx 1 argument_match.next_index item_count trailing_block head
                                 Result::Err e:
                                     Result::Err e
                         Option::None:
@@ -307,12 +317,12 @@ fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn &Selfho
         Result::Err e:
             Result::Err e
 
-fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn SelfhostExprPrefixItem impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_count\head\candidate\expected:
+fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn SelfhostExprPrefixItem impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_count\head\candidate\expected\trailing_block:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _:
             match selfhost_type_arena_function_arg_count &arena candidate.callable_type:
                 Option::Some param_count:
-                    match selfhost_call_reduce_argument_type_check_loop_with_source tokens source arena prefix scope value_types signatures candidate param_count 0 1 item_count head:
+                    match selfhost_call_reduce_argument_type_check_loop_with_source tokens source arena prefix scope value_types signatures candidate param_count 0 1 item_count trailing_block head:
                         Result::Ok checked_arena:
                             match selfhost_call_reduce_expected_result &checked_arena candidate expected:
                                 Result::Ok result_type:
@@ -345,7 +355,7 @@ fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &SelfhostExprPref
                         Option::None:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
-fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\head\item_count:
+fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\trailing_block\head\item_count:
     let candidate_count %i32 v::len candidates
     if:
         eq candidate_count 0
@@ -359,9 +369,12 @@ fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken i
                 else:
                     match v::get candidates 0:
                         Option::Some candidate:
-                            selfhost_call_reduce_single_named_candidate_with_source tokens source arena prefix scope value_types signatures item_count head candidate expected
+                            selfhost_call_reduce_single_named_candidate_with_source tokens source arena prefix scope value_types signatures item_count head candidate expected trailing_block
                         Option::None:
                             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\head\item_count:
+    selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena prefix scope value_types signatures candidates expected none head item_count
 
 //: selfhost_call_reduce_prefix: prefix expression list を direct call plan へ[縮約/しゅくやく]する
 //:
@@ -393,17 +406,19 @@ pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefix
                 Option::None:
                     Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
 
-//: selfhost_call_reduce_prefix_with_source: source-backed argument checker を使って prefix expression list を[縮約/しゅくやく]する
+//: selfhost_call_reduce_prefix_with_source_and_trailing_block: source-backed argument checker と末尾 block argument evidence で prefix expression list を[縮約/しゅくやく]する
 //:
 //: [目的/もくてき]:
 //: - `add %i32 1 2`、`add %i32 x 2`、`add add 1 2 3` のように、実引数位置の `%T expr` や nested named call が source text、token span、scope、値型証拠、callable signature table を必要とする場合に使う owner-returning entry です。
+//: - `add 1:` のような `BlockIntro` は、`head` の prefix item と `body` の nested body envelope を同じ flat list へ混ぜず、`trailing_block` として別に受け取ります。
 //: - borrowed `selfhost_call_reduce_prefix` は source-less / fail-closed の契約を保ち、この関数だけが ascription projection による `SelfhostTypeArena` 更新を caller へ返します。
 //:
 //: [契約/けいやく]:
 //: - 成功時は `SelfhostCallReduceOwnedResult` が更新済み arena owner と direct call plan を保持します。
 //: - 失敗時はこの reducer または argument checker が受け取った arena owner を解放します。caller は失敗後に同じ arena を使いません。
 //: - `NamedValue` argument は scope binding と value type evidence がそろう場合だけ成功します。nested named call は callable signature table から候補を集め、expected parameter type を result expectation として検査します。
-pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected:
+//: - `trailing_block` が `Some` の場合、この checkpoint では block body result checker が未接続であるため、必要な parameter 位置では `TrailingBlockArgumentUnsupported`、余分な block では `UnexpectedTrailingBlockArgument` を返します。どちらも partial application や overload failure へ潰しません。
+pub fn selfhost_call_reduce_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\trailing_block:
     let item_count %i32 selfhost_expr_prefix_list_len prefix
     if:
         eq item_count 0
@@ -414,8 +429,16 @@ pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken imp
                 Option::Some head:
                     match head.kind:
                         SelfhostExprPrefixItemKind::NamedValue:
-                            selfhost_call_reduce_named_prefix_with_source tokens source arena prefix scope value_types signatures candidates expected head item_count
+                            selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena prefix scope value_types signatures candidates expected trailing_block head item_count
                         _:
                             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
                 Option::None:
                     selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+
+//: selfhost_call_reduce_prefix_with_source: source-backed argument checker を使って prefix expression list を[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - 末尾 block argument を持たない通常の expression line 用入口です。
+//: - 実装は `selfhost_call_reduce_prefix_with_source_and_trailing_block` に `None` を渡し、BlockIntro 専用経路と通常経路の規則を一箇所に集めます。
+pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected:
+    selfhost_call_reduce_prefix_with_source_and_trailing_block tokens source arena prefix scope value_types signatures candidates expected none

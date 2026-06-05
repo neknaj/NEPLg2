@@ -58,6 +58,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostTrailingBlockArgument:[\s\S]*body %SelfhostSyntaxRange[\s\S]*span %SelfhostSourceSpan/,
+    "trailing block arguments must be represented as body-envelope evidence instead of prefix items",
+);
+assert.match(
+    source,
     /pub struct SelfhostCallableSignatureTable:[\s\S]*entries %Vec SelfhostCallableSignature/,
     "callable candidate collection must use an explicit signature table boundary",
 );
@@ -120,6 +125,11 @@ assert.match(
     source,
     /pub enum SelfhostCallReduceErrorKind:[\s\S]*ArgumentNestedCandidatePendingBinding[\s\S]*ArgumentNestedCandidateMissingSignature[\s\S]*ArgumentNestedCandidateHeadTokenOutOfBounds[\s\S]*ArgumentNestedCandidateOutOfMemory[\s\S]*ArgumentNestedCandidateInternalInvariant/,
     "nested named call candidate collection failures must remain typed at the call-reduction boundary",
+);
+assert.match(
+    source,
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*TrailingBlockArgumentUnsupported[\s\S]*UnexpectedTrailingBlockArgument[\s\S]*UnsupportedArgumentExpression/,
+    "trailing block argument failures must stay typed instead of collapsing into partial application or generic unsupported argument errors",
 );
 assert.match(
     source,
@@ -243,6 +253,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_call_reduce_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError/,
+    "source-backed call reduction must expose a dedicated trailing block argument boundary",
+);
+assert.match(
+    source,
     /pub fn selfhost_expr_ascription_project_expectation %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostSyntaxRange Result SelfhostExprAscriptionProjection SelfhostExprAscriptionError/,
     "type ascription must expose an arena-owner projection boundary",
 );
@@ -358,6 +373,11 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_check_expr_stage1_trailing_block_argument_segment[\s\S]*SelfhostBodySegmentKind::BlockIntro[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_typed_error[\s\S]*SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported/,
+    "stage1 must smoke-test that a trailing block argument reaches a dedicated typed error",
+);
+assert.match(
+    source,
     /selfhost_check_expr_stage1_value_context_with_shadowed_function_value[\s\S]*SelfhostDefKind::Function[\s\S]*SelfhostDefKind::Local[\s\S]*selfhost_check_expr_stage1_make_shadowed_function_argument_tokens[\s\S]*"add add 2"[\s\S]*selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence/,
     "stage1 must smoke-test that a latest local binding shadows an older same-name function candidate",
 );
@@ -375,6 +395,16 @@ assert.match(
     bodyLine,
     /SelfhostBodySegmentKind::BlockIntro:[\s\S]*SelfhostExpressionLineCheckError::NotExpressionLine/,
     "BlockIntro must be rejected instead of being flattened through expression reduction",
+);
+assert.match(
+    bodyLine,
+    /pub fn selfhost_check_expr_reduce_block_intro_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError/,
+    "BlockIntro must have a dedicated owner-returning reduction boundary",
+);
+assert.match(
+    bodyLine,
+    /selfhost_trailing_block_argument_new segment\.body block_span[\s\S]*selfhost_call_reduce_prefix_with_source_and_trailing_block tokens source arena &prefix scope value_types signatures candidates expected some trailing/,
+    "BlockIntro reduction must pass the body envelope as trailing-block evidence without flattening it",
 );
 assert.match(
     bodyLine,

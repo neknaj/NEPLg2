@@ -16,8 +16,9 @@
 //:
 //: [現状/げんじょう]:
 //: - この slice は direct named call の最小 reduction plan だけを扱います。
-//: - `ExpressionLine` は `body_line.nepl` で受理し、`BlockIntro` は nested body として明示的に拒否します。
-//: - literal argument item と DefId-linked な `NamedValue` argument の型証拠は `argument.nepl` / `value_evidence.nepl` で扱います。literal lowering、nested argument expression、block recursion、indirect function value、trait method、memo_call primitive、HIR 生成は後続 slice で追加します。
+//: - `ExpressionLine` は `body_line.nepl` で受理し、通常入口に渡された `BlockIntro` は nested body として明示的に拒否します。
+//: - `BlockIntro` 専用入口では、head prefix と body envelope を分け、末尾 block argument を typed error として fail-closed にします。block body result checker は後続 slice で `BlockResult` expectation に接続します。
+//: - literal argument item と DefId-linked な `NamedValue` argument の型証拠は `argument.nepl` / `value_evidence.nepl` で扱います。literal lowering、block recursion の成功受理、indirect function value、trait method、memo_call primitive、HIR 生成は後続 slice で追加します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 現在の reduction は候補数 c と prefix item 数 k のうち、候補数検査 O(1)、先頭 item / arity 検査 O(1)、literal argument evidence 照合 O(k) を行います。

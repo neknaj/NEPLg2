@@ -5,11 +5,13 @@
 //:
 //: [目的/もくてき]:
 //: - `SelfhostBodySegmentKind::ExpressionLine` の `head` range から `SelfhostExprPrefixList` を作り、`selfhost_call_reduce_prefix` へ渡します。
+//: - `BlockIntro` は通常の expression line 入口では拒否し、専用の trailing block argument 入口だけが `head` と `body` を分けて扱います。
 //: - parser / body segmenter は token range evidence だけを作り、call boundary、expected type、candidate、generic、partial application の判断は checker 側に閉じます。
 //: - prefix list 生成失敗と call reduction 失敗を別の enum variant として保持し、入力 range の不備を call reduction の通常失敗へ潰さないようにします。
 //:
 //: [契約/けいやく]:
-//: - `ExpressionLine` だけが reduction 対象です。`BlockIntro.body` は nested body envelope なので、この関数で flat prefix list に直接変換しません。
+//: - 通常の expression line reduction は `ExpressionLine` だけを対象にします。`BlockIntro.body` は nested body envelope なので、この関数で flat prefix list に直接変換しません。
+//: - `BlockIntro` を扱う場合も、`head` は prefix list、`body` は `SelfhostTrailingBlockArgument` として分離します。item 数を水増しして arity を合わせる実装にしてはいけません。
 //: - prefix list owner はこの関数の内部で作り、call reduction 後に必ず解放します。返り値は prefix list の owner や参照を保持しません。
 //: - `expected` は `SelfhostTypeExpectation` として受け取り、dummy type id や sentinel で expected type の欠如を表しません。
 //: - `candidates` は、この expression line の先頭 item / name resolver scope に対して caller がすでに収集した候補列です。この関数は global candidate table を探索せず、受け取った候補列だけを call reduction へ渡します。
@@ -51,6 +53,7 @@
 //: - `SelfhostTypeExpectation.expected_type` は arena-local なので、arena を解放したあとに返る error payload には直接入れません。型そのものの安定表示は canonical type key / diagnostic projection の後続 slice で接続します。
 pub enum SelfhostExpressionLineCheckError:
     NotExpressionLine %SelfhostSourceSpan
+    NotBlockIntro %SelfhostSourceSpan
     PrefixBuildFailed %SelfhostExprPrefixBuildError
     CallReduceFailed %SelfhostCallReduceError
     AscriptionFailed %SelfhostExprAscriptionError
@@ -144,6 +147,17 @@ pub fn selfhost_expression_line_check_error_is_not_expression_line %fn SelfhostE
         _:
             false
 
+//: selfhost_expression_line_check_error_is_not_block_intro: block-intro 専用入口に別 segment が渡されたか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - BlockIntro 専用入口の caller bug を、prefix build や call reduction の通常失敗へ潰さずに検査します。
+pub fn selfhost_expression_line_check_error_is_not_block_intro %fn SelfhostExpressionLineCheckError bool \error:
+    match error:
+        SelfhostExpressionLineCheckError::NotBlockIntro _span:
+            true
+        _:
+            false
+
 //: selfhost_expression_line_check_error_is_prefix_build: prefix build error か[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -219,6 +233,13 @@ fn selfhost_check_expr_body_segment_head_span %fn SelfhostBodySegment SelfhostSo
         SelfhostSyntaxRange::Empty:
             source_span_empty_unchecked 0 0
 
+fn selfhost_check_expr_syntax_range_span %fn SelfhostSyntaxRange SelfhostSourceSpan \range:
+    match range:
+        SelfhostSyntaxRange::Range item:
+            item.span
+        SelfhostSyntaxRange::Empty:
+            source_span_empty_unchecked 0 0
+
 fn selfhost_check_expr_head_starts_with_percent %fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \tokens\head:
     match head:
         SelfhostSyntaxRange::Empty:
@@ -272,6 +293,33 @@ fn selfhost_check_expr_reduce_expression_line_prefix_with_arena %impure fn &Vec 
     match selfhost_expr_prefix_list_from_syntax_range tokens head:
         Result::Ok prefix:
             let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source tokens source arena &prefix scope value_types signatures candidates expected
+            selfhost_expr_prefix_list_free prefix
+            match reduced:
+                Result::Ok owned:
+                    let result %SelfhostCallReduceResult *selfhost_call_reduce_owned_result_result &owned
+                    let next_arena %SelfhostTypeArena selfhost_call_reduce_owned_result_into_arena owned
+                    Result::Ok selfhost_expression_line_check_success_new next_arena result
+                Result::Err e:
+                    Result::Err SelfhostExpressionLineCheckError::CallReduceFailed e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err SelfhostExpressionLineCheckError::PrefixBuildFailed e
+
+//: selfhost_check_expr_reduce_block_intro_prefix_with_arena: BlockIntro head と trailing block evidence を reducer へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.head` だけを prefix list に変換し、`BlockIntro.body` は `SelfhostTrailingBlockArgument` として source-backed reducer へ渡します。
+//: - block body は nested body envelope であり、flat prefix list の一部ではありません。この helper は body range を直接 prefix 化しません。
+//:
+//: [契約/けいやく]:
+//: - 現 checkpoint では block body result checker が未接続なので、必要な末尾 block argument は `TrailingBlockArgumentUnsupported` として返ります。
+//: - それでも `PartialApplicationRejected` や raw arity failure ではなく、BlockIntro 専用境界を通ったことを typed error として残します。
+fn selfhost_check_expr_reduce_block_intro_prefix_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\scope\value_types\signatures\candidates\expected:
+    match selfhost_expr_prefix_list_from_syntax_range tokens segment.head:
+        Result::Ok prefix:
+            let block_span %SelfhostSourceSpan selfhost_check_expr_syntax_range_span segment.body
+            let trailing %SelfhostTrailingBlockArgument selfhost_trailing_block_argument_new segment.body block_span
+            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source_and_trailing_block tokens source arena &prefix scope value_types signatures candidates expected some trailing
             selfhost_expr_prefix_list_free prefix
             match reduced:
                 Result::Ok owned:
@@ -374,3 +422,21 @@ pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec Selfho
         SelfhostBodySegmentKind::BlockIntro:
             selfhost_type_arena_free arena
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment
+
+//: selfhost_check_expr_reduce_block_intro_with_arena: BlockIntro を trailing block argument 境界で[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro` 専用の入口として、通常の `ExpressionLine` reducer と分けて公開します。
+//: - head prefix と nested body envelope を別々に扱い、body を flat prefix expression list に直接渡す退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `arena` は owner として受け取り、成功時は `SelfhostExpressionLineCheckSuccess` が保持します。
+//: - 失敗時はこの関数または reducer が arena owner を解放します。
+//: - `ExpressionLine` が渡された場合は caller bug として `NotBlockIntro` を返します。
+pub fn selfhost_check_expr_reduce_block_intro_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\scope\value_types\signatures\candidates\expected:
+    match segment.kind:
+        SelfhostBodySegmentKind::BlockIntro:
+            selfhost_check_expr_reduce_block_intro_prefix_with_arena tokens source segment arena scope value_types signatures candidates expected
+        SelfhostBodySegmentKind::ExpressionLine:
+            selfhost_type_arena_free arena
+            Result::Err SelfhostExpressionLineCheckError::NotBlockIntro selfhost_check_expr_body_segment_head_span segment

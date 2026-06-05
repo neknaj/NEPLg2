@@ -15,6 +15,7 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/ty" as *
 #import "./call_candidate" as *
 
@@ -28,6 +29,28 @@ pub struct SelfhostReducedCall:
     argument_count %i32
     result_type %SelfhostTypeId
     span %SelfhostSourceSpan
+
+//: SelfhostTrailingBlockArgument: `BlockIntro` が持つ末尾 block argument の evidence
+//:
+//: [目的/もくてき]:
+//: - `head:` の `head` 部分は flat prefix list として扱えますが、`:` の後ろの nested body は prefix item ではありません。
+//: - この payload は、nested body を prefix list に混ぜず、source-backed checker が expected parameter type 付きで検査するための境界です。
+//:
+//: [契約/けいやく]:
+//: - `body` は `SelfhostBodySegmentKind::BlockIntro` の nested body envelope です。
+//: - 現 checkpoint では block body result model が未接続なので、これを受け取った reducer は成功扱いせず専用 error を返します。
+//: - 後続 slice で単一 `ExpressionLine` body を `BlockResult` expectation で再帰検査するときも、この payload をそのまま入力境界として使います。
+pub struct SelfhostTrailingBlockArgument:
+    body %SelfhostSyntaxRange
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostTrailingBlockArgument:
+    fn clone %fn &SelfhostTrailingBlockArgument SelfhostTrailingBlockArgument \self:
+        *self
+
+impl Copy for SelfhostTrailingBlockArgument:
+    fn copy_mark %fn SelfhostTrailingBlockArgument SelfhostTrailingBlockArgument \self:
+        self
 
 impl Clone for SelfhostReducedCall:
     fn clone %fn &SelfhostReducedCall SelfhostReducedCall \self:
@@ -71,6 +94,8 @@ pub struct SelfhostCallReduceOwnedResult:
 //: - `ArgumentAscriptionProjectionFailed` と `ArgumentAscriptionExpectedTypeConflict` は、argument-scope `%T expr` の型注釈自体の不備と expected parameter type との衝突を分けます。
 //: - `ArgumentNamedValue*` は、argument position の名前が値として解決できない場合と、値は解決できるが型証拠がまだ無い場合を分けます。
 //: - `ArgumentNestedCandidate*` は、nested named call argument の head を function candidate として収集する段階の不整合を分けます。
+//: - `TrailingBlockArgumentUnsupported` は、末尾 block argument を検出したが block body result checker がまだ未接続である場合です。partial application や raw arity error へ潰してはいけません。
+//: - `UnexpectedTrailingBlockArgument` は、candidate の parameter をすでにすべて消費した後に `BlockIntro.body` が残った場合です。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
     UnsupportedPrefixItem
@@ -89,6 +114,8 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentNestedCandidateHeadTokenOutOfBounds
     ArgumentNestedCandidateOutOfMemory
     ArgumentNestedCandidateInternalInvariant
+    TrailingBlockArgumentUnsupported
+    UnexpectedTrailingBlockArgument
     UnsupportedArgumentExpression
     OverloadNoCandidate
     OverloadAmbiguous
@@ -140,6 +167,14 @@ impl Copy for SelfhostCallReduceError:
 //: selfhost_reduced_call_new: direct call reduction payload を[作/つく]る
 pub fn selfhost_reduced_call_new %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan SelfhostReducedCall \candidate_index\argument_count\result_type\span:
     SelfhostReducedCall candidate_index argument_count result_type span
+
+//: selfhost_trailing_block_argument_new: 末尾 block argument evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` の syntax range と diagnostic 用 span をまとめ、call reducer へ typed payload として渡します。
+//: - nested body はここで prefix 化しません。block result checker が expected type を持って再帰検査するまで、range evidence として保持します。
+pub fn selfhost_trailing_block_argument_new %fn SelfhostSyntaxRange fn SelfhostSourceSpan SelfhostTrailingBlockArgument \body\span:
+    SelfhostTrailingBlockArgument body span
 
 //: selfhost_call_reduce_error_new: non-generic call reduction error を[作/つく]る
 pub fn selfhost_call_reduce_error_new %fn SelfhostCallReduceErrorKind fn SelfhostSourceSpan SelfhostCallReduceError \kind\span:
@@ -251,6 +286,18 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::TrailingBlockArgumentUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument:
+            match b:
+                SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument:
                     true
                 _:
                     false

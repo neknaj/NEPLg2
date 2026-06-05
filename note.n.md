@@ -1,3 +1,20 @@
+# 2026-06-05 Agent selfhost trailing block argument checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事の fail-closed、enum error、責務分割、丁寧なコメント方針に合わせ、BlockIntro を flat prefix item に混ぜず、trailing block argument の専用境界を追加した。
+- `stdlib/neplg2/core/check/expr/model.nepl` に `SelfhostTrailingBlockArgument`、`TrailingBlockArgumentUnsupported`、`UnexpectedTrailingBlockArgument` を追加した。nested body envelope は syntax range evidence として保持し、block body result checker が接続されるまでは成功扱いしない。
+- `stdlib/neplg2/core/check/expr/call_reduce.nepl` に `selfhost_call_reduce_prefix_with_source_and_trailing_block` を追加した。通常の source-backed reducer は `None` を渡す薄い入口として残し、`add 1:` 相当で不足 parameter に末尾 block が来た場合は partial application ではなく `TrailingBlockArgumentUnsupported` を返す。
+- `stdlib/neplg2/core/check/expr/body_line.nepl` に `selfhost_check_expr_reduce_block_intro_with_arena` を追加した。通常の expression line 入口では `BlockIntro` を引き続き `NotExpressionLine` として拒否し、専用入口だけが `head` prefix と `body` envelope を分離して扱う。
+- `stdlib/neplg2/core/check/expr/stage1.nepl` と `nodesrc/test_selfhost_expr_call_reduce_contract.js` に focused smoke / source policy を追加し、末尾 block argument が typed fail-closed になることと、`BlockIntro.body` を直接 prefix list 化しない契約を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` を更新し、残件を block body result checker、lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call として整理した。
+- subagent review では、BlockIntro を prefix item に押し込むと nested body envelope、scope、最後の式結果、`BlockResult` expectation を復元できなくなるため、`body_line` と `call_reduce` の間に trailing block evidence 境界を置くべきだと確認した。今回の実装はその方針に合わせ、成功受理ではなく専用 typed error までを入れた。
+- 検証:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree -o tmp/selfhost-call-reduce-block-argument.json -j 1`: pass（2/2）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -o tmp/selfhost-check-block-argument.json -j 1`: pass（3/3）
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0、ただし既存の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` が warn-only failure。今回の selfhost expr contract は pass。
+
 # 2026-06-05 Agent selfhost nested named call argument checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の静的検査・enum error・Result/Option・fail-closed・責務分割の方針に沿って、source-backed call reducer に nested named call argument の consume-width 縮約を追加した。
