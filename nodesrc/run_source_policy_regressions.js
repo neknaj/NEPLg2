@@ -144,6 +144,7 @@ const checks = [
     "nodesrc/test_examples_string_direct_imports.js",
     "nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_vec_borrowed_observers.js",
+    "nodesrc/test_stdlib_vec_doc_report_contract.js",
     "nodesrc/test_stdlib_memptr_owner_field_policy.js",
     "nodesrc/test_stdlib_mem_internal_region_new_docs.js",
     "nodesrc/test_stdlib_core_mem_boundary.js",

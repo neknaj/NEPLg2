@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: doc
 created: 2026-06-04
-updated: 2026-06-05
+updated: 2026-06-06
 target: "stdlib/core, stdlib/alloc, stdlib/std"
 ---
 
@@ -38,6 +38,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 同日の SegmentTree slice で `stdlib/alloc/collections/segment_tree/api/diagnostic.nepl`、`layout.nepl`、`storage.nepl`、`range.nepl`、`mutation.nepl` の diagnostic / base layout / typed storage / range traversal / point update helper docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=244`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし sparse_set / vec / diag などに declaration doc gap が残るため、この issue は open のまま継続する。
 
 同日の SparseSet slice で `stdlib/alloc/collections/sparse_set/api/diagnostic.nepl`、`storage.nepl`、`membership.nepl`、`mutation.nepl` の diagnostic / typed dense-sparse storage / membership / insert-remove helper docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=234`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし vec / diag / io などに declaration doc gap が残るため、この issue は open のまま継続する。
+
+2026-06-06 の Vec slice で `stdlib/alloc/collections/vec/invariant.nepl`、`mutation/push.nepl`、`storage/fill.nepl`、`transform/filter/select.nepl` の invariant adapter / push overload / filled constructor / Copy filter docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=229`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし diag / io / string builder などに declaration doc gap が残るため、この issue は open のまま継続する。
 
 ## 対象
 
@@ -79,6 +81,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 同日 SegmentTree slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=244`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_segment_tree_doc_report_contract.js` により、SegmentTree の `base` / `2 * base` storage invariant、`n == 0` でも base は 1、typed `Vec i32` storage boundary、diagnostic enum kind、`Option::Some` / `Option::None` range query contract、owner-preserving `SegmentTreeUpdateError`、storage invariant failure で rollback を契約しないこと、O(log n) / O(1) contract を module 固有にも固定する。
 
 同日 SparseSet slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=234`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_sparse_set_doc_report_contract.js` により、SparseSet の `[0, n)` domain、`new 0` valid empty set、typed `Vec i32` dense/sparse storage boundary、diagnostic enum kind、`Option::Some` / `Option::None` mutation contract、borrowed membership fail-closed contract、owner-preserving `SparseSetUpdateError`、storage invariant failure で rollback を契約しないこと、O(1) / O(n) contract を module 固有にも固定する。
+
+2026-06-06 Vec slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=229`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_vec_doc_report_contract.js` により、Vec の storage invariant adapter が enum proof を bool / message へ畳まないこと、Copy / Drop `push` overload の `VecPushRejected .T` owner recovery、`filled` の initialized storage contract、Copy `filter` の input owner recovery と Drop payload との差分、storage invariant failure で rollback を契約しないこと、O(1) / O(n) contract を module 固有にも固定する。
 
 ## 影響
 
