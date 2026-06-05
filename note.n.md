@@ -1,3 +1,14 @@
+# 2026-06-05 Agent selfhost ascription outer expected conflict checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の静的検査・enum error・Result/Option・fail-closed 方針に沿って、`%T expr` の明示 ascription と外側 context から渡る expected type の矛盾を typed error として分離した。
+- `stdlib/neplg2/core/check/expr/body_line.nepl` に `SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict` と `SelfhostAscriptionExpectedTypeConflict` を追加した。衝突は内側 expression の call reduction へ進む前に検出し、candidate / arity / argument type error へ潰さない。
+- subagent review で、`SelfhostTypeExpectation.expected_type` は arena-local `TypeId` なので arena 解放後の error payload に入れてはいけないという blocking 指摘を受けた。これを反映し、conflict payload は ascription 側と outer 側の source / span evidence だけを保持する形にした。型そのものの安定表示は canonical type key / diagnostic projection の後続 slice で扱う。
+- `check/expr/stage1.nepl` に `%i32 add 1 2` へ outer `bool` expected type を渡す negative smoke を追加した。期待される失敗は `selfhost_expression_line_check_error_is_ascription_expected_type_conflict` で確認し、成功 path と同じ owner-returning API を通す。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` を更新し、ascription conflict error、arena-local TypeId を返さない payload、outer expected validation、stage1 negative smoke を source policy で固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` を更新し、ascription / outer expected conflict diagnostic を完了済みに移した。
+- 検証済み: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_ascription_conflict_tests.json`（2/2 pass）、`node nodesrc/issues.js check --dir issues`、`git diff --check`。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した selfhost policy が pass し、既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけが warning として残った。
+- 残件は nested / ascribed argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、memo_call の Phase 1 境界である。
+
 # 2026-06-05 Agent selfhost literal argument type evidence checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の静的検査・enum error・fail-closed・責務分割の方針に沿って、call reducer が arity と expected result だけで direct call を成功させる経路を閉じた。
