@@ -28,6 +28,18 @@
 #import "./summary_update" as *
 
 //: SelfhostModuleCheckStep: 1 item 検査後の summary と raw/directive state
+//:
+//: [目的/もくてき]:
+//: - module item を1件受理した後の summary、raw backend proof state、directive proof state をまとめます。
+//: - loop が複数の proof state を同じ item order で進めた結果を、次の再帰呼び出しへ値として渡せるようにします。
+//:
+//: [契約/けいやく]:
+//: - この record は検査済み state の snapshot であり、source text、diagnostic message、未処理 owner を保持しません。
+//: - `summary`、`raw_state`、`directive_state` は copyable な小さい値 state として扱い、cleanup obligation を持たせません。
+//: - summary は span / declaration / raw / directive proof がすべて成功した item だけを反映します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field access と copy は O(1) です。
 struct SelfhostModuleCheckStep:
     summary %SelfhostModuleCheckSummary
     raw_state %SelfhostRawBackendState
@@ -41,9 +53,41 @@ impl Copy for SelfhostModuleCheckStep:
     fn copy_mark %fn SelfhostModuleCheckStep SelfhostModuleCheckStep \self:
         self
 
+//: selfhost_module_check_step_new: module check step state を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 1 item の検査で得た summary と proof state を、loop の次 step に渡す record へまとめます。
+//:
+//: [契約/けいやく]:
+//: - 渡された3つの state はすべて「現在 item の proof が成功した後」の値でなければなりません。
+//: - この関数は追加検査や diagnostic 生成を行わず、state の順序関係を呼び出し側の proof 成功列に委ねます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 次の item へ渡す `SelfhostModuleCheckStep`。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
 fn selfhost_module_check_step_new %fn SelfhostModuleCheckSummary fn SelfhostRawBackendState fn SelfhostModuleDirectiveState SelfhostModuleCheckStep \summary\raw_state\directive_state:
     SelfhostModuleCheckStep summary raw_state directive_state
 
+//: selfhost_module_check_item: module item 1件を proof boundary に[通/とお]す
+//:
+//: [目的/もくてき]:
+//: - span、declaration header、raw backend state、directive singleton state を固定順序で検査し、成功した item だけ summary に反映します。
+//: - module checker の中心 boundary として、proof refutation を diagnostic に変換して早期 return します。
+//:
+//: [契約/けいやく]:
+//: - 検査順序は span -> declaration header -> raw backend -> directive -> summary update です。この順序は、source evidence の妥当性を先に確定してから状態を進めるための契約です。
+//: - `SelfhostModuleItem` の typed evidence と proof layer の refutation が authority です。checker 本体は source text や表示 message を再読して分岐しません。
+//: - diagnostic message はここで作らず、adapter から返った `SelfhostProofRefutation` を `selfhost_module_check_refutation_diag` に委譲します。
+//: - `summary` はすべての proof が成功した後だけ更新します。途中の `Err` で count を進めてはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(step)`: item を受理し、次の summary / raw state / directive state を返します。
+//: - `Err(diagnostic)`: span、header、raw backend、directive のいずれかの proof failure を typed diagnostic に変換した値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 各 proof transition と summary 更新は O(1) なので、1 item あたり O(1) です。
 fn selfhost_module_check_item %fn SelfhostModuleCheckSummary fn SelfhostRawBackendState fn SelfhostModuleDirectiveState fn SelfhostModuleItem Result SelfhostModuleCheckStep SelfhostDiagnostic \summary\raw_state\directive_state\item:
     match selfhost_module_check_item_span item:
         Result::Ok _:
@@ -64,6 +108,23 @@ fn selfhost_module_check_item %fn SelfhostModuleCheckSummary fn SelfhostRawBacke
         Result::Err refutation:
             Result::Err selfhost_module_check_refutation_diag refutation
 
+//: selfhost_check_module_ast_loop: module item stream を順に[検査/けんさ]する tail-recursive loop
+//:
+//: [目的/もくてき]:
+//: - `idx` から始まる module item stream を、item order を保ったまま module checker state に流します。
+//: - stream 末尾では raw backend proof に stream-end fact を渡し、末尾に残った raw block の空判定を確定します。
+//:
+//: [契約/けいやく]:
+//: - `idx >= n` は正常な stream end であり、raw backend の finish proof を必ず実行します。
+//: - `idx < n` なのに `selfhost_module_ast_get` が `Option::None` を返した場合は、AST length と index access の内部不整合として diagnostic を返します。
+//: - loop は item を飛ばさず、成功した step の state だけを次の index に渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: 全 item と stream-end raw proof が成功した summary。
+//: - `Err(diagnostic)`: item proof failure、stream-end raw failure、または internal index diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - item 数を n、開始 index を i として O(n - i) です。各 item と stream end の proof は O(1) です。
 fn selfhost_check_module_ast_loop %fn &SelfhostModuleAst fn i32 fn i32 fn SelfhostModuleCheckSummary fn SelfhostRawBackendState fn SelfhostModuleDirectiveState Result SelfhostModuleCheckSummary SelfhostDiagnostic \ast\n\idx\summary\raw_state\directive_state:
     if:
         ge idx n

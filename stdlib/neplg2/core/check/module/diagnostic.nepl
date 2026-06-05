@@ -18,19 +18,93 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof" as *
 
+//: selfhost_module_check_diag: checker diagnostic code と message から error diagnostic を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module checker 固有の `SelfhostCheckerDiagnosticCode` を、共通 diagnostic payload の checker category に載せます。
+//: - 表示文と diagnostic code を同じ関数で結びつけますが、分岐の authority は code enum に残します。
+//:
+//: [契約/けいやく]:
+//: - `message` は人間向け表示であり、後続処理がこの文字列を解析して分岐してはいけません。
+//: - diagnostic の分類は `SelfhostDiagnosticCode::Checker code` が保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - checker category と code を持つ error diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload 構築だけなので O(1) です。
 fn selfhost_module_check_diag %fn SelfhostCheckerDiagnosticCode fn str SelfhostDiagnostic \code\message:
     selfhost_diag_error SelfhostDiagnosticCode::Checker code message
 
+//: selfhost_module_check_labeled_diag: primary label 付き checker diagnostic を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module checker の typed diagnostic に、source span と label を1つ付けます。
+//: - raw backend、directive、declaration header などの adapter が同じ label 付与規則を使えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `span` は parser/proof layer が保存した source evidence を使います。checker が source text を再読して span を作り直してはいけません。
+//: - `label` は表示補助であり、diagnostic kind の authority ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - checker error diagnostic に primary label を追加した diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - diagnostic と label を1件ずつ構築するだけなので O(1) です。
 fn selfhost_module_check_labeled_diag %fn SelfhostCheckerDiagnosticCode fn str fn SelfhostSourceSpan fn str SelfhostDiagnostic \code\message\span\label:
     selfhost_diag_with_primary_label selfhost_module_check_diag code message selfhost_diag_label_new span label
 
+//: selfhost_module_check_raw_block_empty_diag: empty raw backend block diagnostic を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - raw backend proof が「block が空で終端した」と判断した refutation を checker diagnostic へ写像します。
+//: - `#wasm` / `#llvmir` block の構文上の開始 span を primary label にし、raw text の有無判定は proof layer の結果に従います。
+//:
+//: [契約/けいやく]:
+//: - この関数は raw text 本文を走査せず、渡された span と typed code だけから diagnostic を作ります。
+//: - raw backend の block/text state machine は `proof` 側が authority です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `RawBlockEmpty` 相当の checker diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - label 付き diagnostic の構築だけなので O(1) です。
 fn selfhost_module_check_raw_block_empty_diag %fn SelfhostSourceSpan SelfhostDiagnostic \span:
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items" span "raw backend block starts here"
 
+//: selfhost_module_check_unexpected_proof_diag: module checker 責務外の proof refutation を[表/あらわ]す diagnostic を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module checker adapter が扱うべきでない proof subsystem の refutation を、fail-closed な内部 diagnostic へ畳みます。
+//: - 型・trait・lifetime・resource などの refutation を module checker が勝手に表示分類しないようにします。
+//:
+//: [契約/けいやく]:
+//: - source 上の特定 item を安全に指せないため empty span を使います。
+//: - unexpected proof を成功扱いや string fallback にしてはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostCheckerDiagnosticCode::ModuleUnexpectedProof` code を持つ unexpected proof diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - empty span と diagnostic の構築だけなので O(1) です。
 fn selfhost_module_check_unexpected_proof_diag %fn void SelfhostDiagnostic \void:
     let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
-    selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module checker received an unexpected proof result" span "unexpected proof result"
+    selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleUnexpectedProof "module checker received an unexpected proof result" span "unexpected proof result"
 
+//: selfhost_module_check_directive_duplicate_message: duplicate directive kind の message を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `#entry`、`#target`、その他 singleton directive の重複を人間向け message へ写像します。
+//: - diagnostic code は別に保持しつつ、kind ごとの表示文を一箇所に集めます。
+//:
+//: [契約/けいやく]:
+//: - この文字列は表示専用です。重複判定や directive kind 判定は `SelfhostModuleDirectiveKind` と proof state が authority です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - duplicate directive diagnostic の message 文字列。
+//:
+//: [計算量/けいさんりょう]:
+//: - directive kind の match だけなので O(1) です。
 fn selfhost_module_check_directive_duplicate_message %fn SelfhostModuleDirectiveKind str \kind:
     match kind:
         SelfhostModuleDirectiveKind::Entry:
@@ -40,6 +114,20 @@ fn selfhost_module_check_directive_duplicate_message %fn SelfhostModuleDirective
         SelfhostModuleDirectiveKind::Other:
             "module singleton directive appeared more than once"
 
+//: selfhost_module_check_directive_duplicate_label: duplicate directive kind の label を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - duplicate directive の primary label text を directive kind に応じて選びます。
+//: - message と label の表示文を分離し、label が source span の意味だけを説明するようにします。
+//:
+//: [契約/けいやく]:
+//: - label は表示補助であり、重複判定や kind 判定の authority ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - duplicate directive の label 文字列。
+//:
+//: [計算量/けいさんりょう]:
+//: - directive kind の match だけなので O(1) です。
 fn selfhost_module_check_directive_duplicate_label %fn SelfhostModuleDirectiveKind str \kind:
     match kind:
         SelfhostModuleDirectiveKind::Entry:
@@ -49,14 +137,59 @@ fn selfhost_module_check_directive_duplicate_label %fn SelfhostModuleDirectiveKi
         SelfhostModuleDirectiveKind::Other:
             "duplicate directive appears here"
 
+//: selfhost_module_check_directive_duplicate_diag: directive duplicate refutation を diagnostic へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - proof layer が検出した singleton directive duplicate を、checker diagnostic code、duplicate span、note へ変換します。
+//: - 重複判定の authority を proof refutation に置き、diagnostic 層では表示用 payload だけを作ります。
+//:
+//: [契約/けいやく]:
+//: - `duplicate.duplicate_span` は重複側 directive の span です。最初の directive を再探索する処理はここでは行いません。
+//: - note は後続 stage の前提を説明するための補助であり、機械判定には使いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `ModuleDirectiveDuplicate` code と primary label / note を持つ diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - directive kind の表示文選択と diagnostic 構築だけなので O(1) です。
 fn selfhost_module_check_directive_duplicate_diag %fn SelfhostModuleDirectiveDuplicate SelfhostDiagnostic \duplicate:
     let diag %SelfhostDiagnostic selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDirectiveDuplicate selfhost_module_check_directive_duplicate_message duplicate.kind duplicate.duplicate_span selfhost_module_check_directive_duplicate_label duplicate.kind
     selfhost_diag_with_note diag "module-level singleton directives must be proven unique before resolve/type/effect stages"
 
+//: selfhost_module_check_declaration_header_missing_diag: declaration header 欠落 refutation を diagnostic へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - declaration item に parser-provided header evidence がないことを checker diagnostic として報告します。
+//: - checker が keyword 文字列や source text から header を復元する退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `issue.span` は proof layer が refutation に保持した declaration item span です。
+//: - この diagnostic は header evidence 欠落を表し、header shape の不整合は別 diagnostic に分けます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderMissing` code と label / note を持つ diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - diagnostic 構築だけなので O(1) です。
 fn selfhost_module_check_declaration_header_missing_diag %fn SelfhostModuleDeclarationHeaderIssue SelfhostDiagnostic \issue:
     let diag %SelfhostDiagnostic selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderMissing "declaration item is missing parser-provided header evidence" issue.span "declaration header evidence is required here"
     selfhost_diag_with_note diag "declaration well-formedness must be proven from typed parser evidence, not reconstructed from keyword strings"
 
+//: selfhost_module_check_declaration_header_invalid_diag: declaration header 不整合 refutation を diagnostic へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - parser-provided header evidence が declaration kind と整合しない場合を checker diagnostic として報告します。
+//: - type / trait / effect check の前に、declaration head の authority が壊れていないことを fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - `issue.span` は不整合な declaration header 周辺を指す span です。
+//: - 不整合を文字列比較で補正せず、typed proof refutation をそのまま diagnostic へ写像します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid` code と label / note を持つ diagnostic。
+//:
+//: [計算量/けいさんりょう]:
+//: - diagnostic 構築だけなので O(1) です。
 fn selfhost_module_check_declaration_header_invalid_diag %fn SelfhostModuleDeclarationHeaderIssue SelfhostDiagnostic \issue:
     let diag %SelfhostDiagnostic selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid "declaration header evidence is not valid for this declaration kind" issue.span "invalid declaration header evidence"
     selfhost_diag_with_note diag "the parser must preserve a valid header span, keyword span, and declaration head before type/trait/effect checks run"

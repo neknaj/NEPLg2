@@ -75,6 +75,11 @@ assert.doesNotMatch(
 
 assert.match(diagnostic, /pub fn\s+selfhost_module_check_refutation_diag\b/);
 assert.match(diagnostic, /SelfhostProofRefutation::UnexpectedEvidence\s+_issue:/);
+assert.match(
+    diagnostic,
+    /SelfhostCheckerDiagnosticCode::ModuleUnexpectedProof/,
+    "unexpected proof refutations must use a dedicated checker diagnostic code instead of ModuleItemIndex message text",
+);
 assert.doesNotMatch(diagnostic, /selfhost_proof_[a-z0-9_]+\s+/, "diagnostic mapping must not invoke proof solvers");
 
 assert.match(rawAdapter, /pub fn\s+selfhost_module_check_raw_backend_fact\b/);

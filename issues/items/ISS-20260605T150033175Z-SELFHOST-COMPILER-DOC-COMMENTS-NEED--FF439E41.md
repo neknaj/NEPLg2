@@ -62,6 +62,8 @@ The later 2026-06-06 stage1 continuation correction expands the fixed slice to t
 
 The same correction also closes two process gaps found by subagent review. First, `nodesrc/test_source_policy_no_line_count_limits.js` scans the selfhost Zenn review checklist and prompt in addition to source-policy helpers, so line-count, byte-count, file-size, comment-volume, or doc-comment-length limits cannot be introduced through review authority documents. Second, `nodesrc/selfhost_zenn_review_response_check.js` rejects `MERGE_APPROVED` responses whose `policy/spec` or `implementation/test` section is still classified as `Blocker` or `Question`, so approval cannot depend only on a contradictory summary.
 
+The later 2026-06-06 module checker correction expands the fixed slice to `stdlib/neplg2/core/check/module/diagnostic.nepl`, `declaration_adapter.nepl`, `raw_backend_adapter.nepl`, and `orchestrate.nepl`. It documents checker diagnostic code authority, display message / label separation, parser/proof typed evidence authority, source spelling re-read prohibition, raw backend stream fact boundaries, declaration header fact boundaries, item-level proof order, stream-end raw proof, and copyable state without cleanup obligation. `nodesrc/test_selfhost_documentation_contract.js` now pins the accepted module-check declarations to purpose, contract, return/error cases, complexity, and targeted `errorVariant` / `authorityBoundary` / `ownerBoundary` concept requirements. These requirements are content/contract checks only; they do not add line-count, file-size, comment-volume, or doc-comment-length gates.
+
 ## 完了条件
 
 - `moduleNoDoc`, `declarationNoDoc`, `publicNoDoc`, and `privateNoDoc` for `stdlib/neplg2/**` reach zero, or each remaining root cause is split into a narrower open issue with an owner boundary, impact, completion conditions, and verification plan.
@@ -76,6 +78,7 @@ The same correction also closes two process gaps found by subagent review. First
 - 2026-06-06: ascription, argument/call-reduce, stage0, and stage1 slices used subagent review to identify missing section requirements and owner-cleanup ambiguities, then fixed Blocker findings in the same slice.
 - 2026-06-06: review continuity follow-up found that packet/response checks were not enough unless the accepted response was also recorded. The response checker and note checkpoint contract now cover this persistence requirement.
 - 2026-06-06: stage1 continuation review found that reducer wrapper / run-entry / body-line smoke helper comments were still missing, docs were outside the line-count-limit scan, and `MERGE_APPROVED` could conflict with section classifications. The branch fixed the comments and the two source-policy holes.
+- 2026-06-06: module checker review found missing comments on private typed-evidence adapters and orchestrator helpers, and found that section-only checks did not preserve authority/error/owner boundary explanations. The branch fixed the comments and added targeted concept requirements to the documentation contract.
 - Any future Blocker that cannot be fixed in the same branch must be added to this issue or split into a narrower issue with root cause, impact, completion conditions, fail-closed boundary, and verification plan before merge.
 
 ## 検証

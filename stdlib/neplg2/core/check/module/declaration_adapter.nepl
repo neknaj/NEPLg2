@@ -19,6 +19,22 @@
 #import "neplg2/core/proof" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 
+//: selfhost_module_directive_item_kind: module item kind を singleton directive proof 用 kind へ[畳/たた]む
+//:
+//: [目的/もくてき]:
+//: - parser が保存した typed `SelfhostModuleItemKind` から、module directive proof が必要とする `#entry` / `#target` / other の分類を作ります。
+//: - singleton 制約の対象を typed enum の match で固定し、source spelling や diagnostic message を再読して directive kind を復元する退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `EntryDirective` は `Entry`、`TargetDirective` は `Target`、それ以外は singleton proof 対象外の `Other` に写像します。
+//: - 新しい singleton directive kind を追加した場合は、この match を更新しないと proof state が重複を検出できません。
+//: - この関数は表示文を作らず、typed kind だけを proof layer へ渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - directive singleton proof 用の `SelfhostModuleDirectiveKind`。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum variant の match だけなので O(1) です。
 fn selfhost_module_directive_item_kind %fn SelfhostModuleItemKind SelfhostModuleDirectiveKind \kind:
     match kind:
         SelfhostModuleItemKind::EntryDirective:
@@ -66,6 +82,21 @@ fn selfhost_module_directive_item_kind %fn SelfhostModuleItemKind SelfhostModule
         SelfhostModuleItemKind::ImplDecl:
             SelfhostModuleDirectiveKind::Other
 
+//: selfhost_module_directive_item_fact: module item を directive proof fact へ[包/つつ]む
+//:
+//: [目的/もくてき]:
+//: - parser 由来の item kind と span を、module directive proof transition の入力 fact に変換します。
+//: - checker 本体が item の文字列表現を持たず、typed fact だけを proof layer へ渡せるようにします。
+//:
+//: [契約/けいやく]:
+//: - `item.span` は parser/proof が保存した source evidence であり、この adapter は source text を再走査しません。
+//: - diagnostic message は作りません。proof failure は `SelfhostProofRefutation` として別 layer が扱います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - directive kind と span を保持した `SelfhostModuleDirectiveFact`。
+//:
+//: [計算量/けいさんりょう]:
+//: - kind 写像と fact 構築だけなので O(1) です。
 fn selfhost_module_directive_item_fact %fn SelfhostModuleItem SelfhostModuleDirectiveFact \item:
     selfhost_module_directive_fact_new selfhost_module_directive_item_kind item.kind item.span
 
@@ -122,6 +153,21 @@ pub fn selfhost_module_check_item_span %fn SelfhostModuleItem Result unit Selfho
         Result::Err refutation:
             Result::Err refutation
 
+//: selfhost_module_declaration_item_fact: module item を declaration header proof fact へ[包/つつ]む
+//:
+//: [目的/もくてき]:
+//: - parser が保存した item kind、declaration header evidence、item span を declaration proof の入力 fact にします。
+//: - declaration header の有無や整合性を、keyword 文字列ではなく typed parser evidence から検査できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `item.declaration` をそのまま保持し、adapter は header を補完したり source text から再構築したりしません。
+//: - value を proof fact へ写すだけで、owner 変換、diagnostic 生成、summary 更新は行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - declaration proof が検査する `SelfhostModuleDeclarationFact`。
+//:
+//: [計算量/けいさんりょう]:
+//: - field copy と fact 構築だけなので O(1) です。
 fn selfhost_module_declaration_item_fact %fn SelfhostModuleItem SelfhostModuleDeclarationFact \item:
     selfhost_module_declaration_fact_new item.kind item.declaration item.span
 
