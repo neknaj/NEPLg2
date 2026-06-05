@@ -101,7 +101,7 @@ assert.doesNotMatch(apiUpdateCode, /fn\s+(?:insert|remove)\s+<\(AdjacencyMatrix,
 assert.match(apiUpdateCode, /let\s+e\s+<AdjacencyMatrixUpdateError>\s+AdjacencyMatrixUpdateError\s+g\s+d[\s\S]*err\s+e/, 'AdjacencyMatrix mutating Err paths must return the input owner in AdjacencyMatrixUpdateError');
 assert.match(apiBulkCode, /fn\s+adjacency_matrix_fill_value\s+<\(AdjacencyMatrix,i32\)\*>AdjacencyMatrix>[\s\S]*adjacency_matrix_fill_bytes\s+bits\s+nbytes\s+byte_value/, 'AdjacencyMatrix bulk module must centralize byte fill updates');
 assert.match(apiBulkCode, /fn\s+clear\s+<\(AdjacencyMatrix\)\*>AdjacencyMatrix>\s+\(g\):[\s\S]*adjacency_matrix_fill_value\s+g\s+0/, 'AdjacencyMatrix.clear must use the bulk fill helper');
-assert.match(apiCleanupCode, /fn\s+free\s+<\(AdjacencyMatrix\)->unit>[\s\S]*field::get\s+g\s+"bits"[\s\S]*vec::free\s+bits/, 'AdjacencyMatrix.free must consume and close typed Vec<u8> storage');
+assert.match(apiCleanupCode, /fn\s+free\s+<\(AdjacencyMatrix\)\*>unit>[\s\S]*field::get\s+g\s+"bits"[\s\S]*vec::free\s+bits/, 'AdjacencyMatrix.free must consume and close typed Vec<u8> storage through an impure owner-consuming boundary');
 
 assert.doesNotMatch(code, /\bMemPtr\b/, 'AdjacencyMatrix must not expose raw MemPtr storage');
 assert.doesNotMatch(code, /\bmem_ptr_wrap\b/, 'AdjacencyMatrix must not use raw pointer arithmetic');

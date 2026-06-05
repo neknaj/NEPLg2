@@ -236,7 +236,10 @@ pub fn vec_partition_with <.T,.R> %impure fn VecPartition .T impure fn impure fn
 //:     vec_partition_free parts;
 //:     0
 //: ```
-pub fn vec_partition_free <.T: Copy> %fn VecPartition .T unit \parts:
+//:
+//: ### [注意/ちゅうい]
+//: - matched/rest の 2 つの `Vec` owner を解放するため、`impure fn` です。
+pub fn vec_partition_free <.T: Copy> %impure fn VecPartition .T unit \parts:
     let matched %Vec .T field::get parts "matched"
     let rest %Vec .T field::get parts "rest"
     vec_cleanup::free<.T> matched

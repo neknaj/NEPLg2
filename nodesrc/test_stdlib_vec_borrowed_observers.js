@@ -136,14 +136,14 @@ for (const [name, signature] of [
 assert.match(vecCode, /fn\s+borrow_at_predicate_or\s+<\.T>\s+<\(&Vec<\.T>,i32,\(&\.T\)->bool,bool\)->bool>/, "Vec borrowed predicate helpers must route through the scoped slot observer");
 
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, "Vec.pop must return a named owner-bearing result");
-assert.match(vecCode, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->VecPop<\.T>>[\s\S]*fn\s+pop\s+<\.T:\s*Drop>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, "Vec.pop must expose Copy and Drop owner-consuming overloads after move-out cell state is proven");
+assert.match(vecCode, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)\*>VecPop<\.T>>[\s\S]*fn\s+pop\s+<\.T:\s*Drop>\s+<\(Vec<\.T>\)\*>VecPop<\.T>>/, "Vec.pop must expose Copy and Drop owner-consuming impure overloads after move-out cell state is proven");
 assert.match(vecCode, /fn\s+vec_pop_with\s+<\.T,\.R>\s+<\(VecPop<\.T>,\(Vec<\.T>,Option<\.T>\)\*>\.R\)\*>\.R>/, "Vec.pop Drop recovery must pass the Vec and popped Option owners to the same callback");
 assert.match(vecCode, /fn\s+vec_pop_item\s+<\.T:\s*Copy>\s+<\(&VecPop<\.T>\)->Option<\.T>>/, "Vec.pop item observer must remain Copy-only because it copies the Option payload");
 assert.match(vecCode, /fn\s+vec_pop_vec\s+<\.T:\s*Copy>\s+<\(VecPop<\.T>\)->Vec<\.T>>/, "Vec.pop Vec-only accessor must remain Copy-only because it discards the popped Option owner");
 assert.doesNotMatch(vecCode, /fn\s+pop\s+<\.T>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, "Vec.pop must not accept payloads that are neither Copy nor Drop");
 assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s\S]*rest\s+<Vec<\.T>>/, "Vec.partition must return named owner-bearing fields");
 assert.match(vecCode, /struct\s+VecTransformError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>/, "Vec transform failures must return the consumed input owner");
-assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\s*,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>\s*,\s*VecTransformError<\.T>>>/, "Vec.partition must not return an untyped Pair and must return input owner on failure");
+assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\s*,\s*\(\.T\)->bool\)\*>Result<VecPartition<\.T>\s*,\s*VecTransformError<\.T>>>/, "Vec.partition must be impure, must not return an untyped Pair, and must return input owner on failure");
 assert.doesNotMatch(vecCode, /->\.Pair\b/, "Vec must not expose owner-bearing results as .Pair");
 
 for (const testRelPath of [

@@ -21,7 +21,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_vec_clear %fn Vec CleanupPayload unit \v:
+fn close_vec_clear %impure fn Vec CleanupPayload unit \v:
     let next %Vec CleanupPayload clear v
     unit
 
@@ -43,7 +43,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_vec_free %fn Vec CleanupPayload unit \v:
+fn close_vec_free %impure fn Vec CleanupPayload unit \v:
     free v
 
 fn main %fn void i32 \void:
@@ -421,7 +421,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_stack %fn Stack CleanupPayload unit \s:
+fn close_stack %impure fn Stack CleanupPayload unit \s:
     free s
 
 fn main %fn void i32 \void:
@@ -442,7 +442,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_queue %fn Queue CleanupPayload unit \q:
+fn close_queue %impure fn Queue CleanupPayload unit \q:
     free q
 
 fn main %fn void i32 \void:
@@ -463,7 +463,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_deque %fn Deque CleanupPayload unit \dq:
+fn close_deque %impure fn Deque CleanupPayload unit \dq:
     free dq
 
 fn main %fn void i32 \void:
@@ -484,7 +484,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_ringbuffer %fn RingBuffer CleanupPayload unit \rb:
+fn close_ringbuffer %impure fn RingBuffer CleanupPayload unit \rb:
     free rb
 
 fn main %fn void i32 \void:
@@ -505,7 +505,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_binary_heap %fn BinaryHeap CleanupPayload unit \heap:
+fn close_binary_heap %impure fn BinaryHeap CleanupPayload unit \heap:
     free heap
 
 fn main %fn void i32 \void:
@@ -526,7 +526,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_btreeset %fn BTreeSet CleanupPayload unit \set0:
+fn close_btreeset %impure fn BTreeSet CleanupPayload unit \set0:
     free set0
 
 fn main %fn void i32 \void:
@@ -547,7 +547,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_btreemap_key %fn BTreeMap CleanupPayload i32 unit \hm:
+fn close_btreemap_key %impure fn BTreeMap CleanupPayload i32 unit \hm:
     free hm
 
 fn main %fn void i32 \void:
@@ -568,7 +568,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_btreemap_value %fn BTreeMap i32 CleanupPayload unit \hm:
+fn close_btreemap_value %impure fn BTreeMap i32 CleanupPayload unit \hm:
     free hm
 
 fn main %fn void i32 \void:
@@ -611,7 +611,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_list %fn List CleanupPayload unit \lst:
+fn close_list %impure fn List CleanupPayload unit \lst:
     free lst
 
 fn main %fn void i32 \void:
@@ -798,7 +798,7 @@ diag_code: type.trait_bound.unsatisfied
 struct CleanupPayload:
     value %i32
 
-fn close_hashmap_value %fn HashMap i32 CleanupPayload DefaultHash32 unit \hm:
+fn close_hashmap_value %impure fn HashMap i32 CleanupPayload DefaultHash32 unit \hm:
     free hm
 
 fn main %fn void i32 \void:
@@ -831,7 +831,7 @@ impl HashKey for NonCopyHashKey:
     fn hash32 %fn NonCopyHashKey i32 \_self:
         0
 
-fn close_hashset_key %fn HashSet NonCopyHashKey DefaultHash32 unit \hs:
+fn close_hashset_key %impure fn HashSet NonCopyHashKey DefaultHash32 unit \hs:
     free hs
 
 fn main %fn void i32 \void:
@@ -860,7 +860,7 @@ impl Hasher<i32> for StatefulHasher:
     fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_hashset_hasher %fn HashSet i32 StatefulHasher unit \hs:
+fn close_hashset_hasher %impure fn HashSet i32 StatefulHasher unit \hs:
     free hs
 
 fn main %fn void i32 \void:
@@ -893,7 +893,7 @@ impl HashKey for NonCopyHashKey:
     fn hash32 %fn NonCopyHashKey i32 \_self:
         0
 
-fn close_hashmap_key %fn HashMap NonCopyHashKey i32 DefaultHash32 unit \hm:
+fn close_hashmap_key %impure fn HashMap NonCopyHashKey i32 DefaultHash32 unit \hm:
     free hm
 
 fn main %fn void i32 \void:
@@ -922,7 +922,7 @@ impl Hasher<i32> for StatefulHasher:
     fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_hashmap_hasher %fn HashMap i32 i32 StatefulHasher unit \hm:
+fn close_hashmap_hasher %impure fn HashMap i32 i32 StatefulHasher unit \hm:
     free hm
 
 fn main %fn void i32 \void:
@@ -1125,7 +1125,7 @@ impl Hasher<i32> for StatefulHasher:
     fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_bloom_filter %fn BloomFilter i32 StatefulHasher unit \bf:
+fn close_bloom_filter %impure fn BloomFilter i32 StatefulHasher unit \bf:
     free bf
 
 fn main %fn void i32 \void:
@@ -1183,7 +1183,7 @@ impl Hasher<i32> for StatefulHasher:
     fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_counting_bloom_filter %fn CountingBloomFilter i32 StatefulHasher unit \bf:
+fn close_counting_bloom_filter %impure fn CountingBloomFilter i32 StatefulHasher unit \bf:
     free bf
 
 fn main %fn void i32 \void:

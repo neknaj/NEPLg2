@@ -5,6 +5,7 @@
 //: 目的:
 //: - byte fill / typed copy / typed move を `MemPtr` ベースの checked API として提供します。
 //: - raw address 操作はこの raw-memory-boundary implementation 内でだけ使います。
+//: - fill / copy / move は Resource IR raw boundary 内でだけ使う checked wrapper として扱います。
 //:
 //: neplg2:test
 //: ```neplg2

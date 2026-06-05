@@ -103,7 +103,7 @@ pub fn hashset_store_tombstone <.T: Copy> %impure fn &HashSetStorage .T impure f
 //:
 //: ### [目的/もくてき]
 //: - states / keys の 2 本の Vec owner を[閉/と]じます。
-pub fn hashset_free_storage <.T: Copy> %fn HashSetStorage .T unit \storage:
+pub fn hashset_free_storage <.T: Copy> %impure fn HashSetStorage .T unit \storage:
     let states %Vec HashSetBucketState field::get storage "states"
     let keys %Vec Option .T field::get storage "keys"
     vec::free states

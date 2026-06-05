@@ -147,8 +147,8 @@ assert.match(btreeMapSource, /values\s+<Vec<Option<\.V>>>/, 'BTreeMap values mus
 assert.match(btreeMapStorageSource, /match\s+btreemap_key_at<\.K>/, 'BTreeMap storage must branch on Option key slots');
 assert.match(btreeMapSearchSource, /fn\s+btreemap_key_eq\s+<\.K:\s*Ord&Copy>\s+<\(\.K,\.K\)->bool>/, 'BTreeMap key equality must remain Copy-only until borrowed key comparison exists');
 assert.doesNotMatch(btreeMapSearchSource, /fn\s+btreemap_key_eq\s+<\.K:\s*Ord>\s+<\(\.K,\.K\)->bool>/, 'BTreeMap key equality must not accept non-Copy Ord keys by value');
-assert.match(btreeMapStorageSource, /fn\s+btreemap_free_storage\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMapStorage<\.K,\.V>\)->(?:\(\)|unit)>/, 'BTreeMap storage cleanup must remain Copy-only until OwnedBuffer element drop traversal exists');
-assert.match(sourceWithoutComments(btreeMapCleanupFile), /fn\s+free\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMap<\.K,\.V>\)->(?:\(\)|unit)>/, 'BTreeMap.free must expose the same Copy-only cleanup contract as its storage');
+assert.match(btreeMapStorageSource, /fn\s+btreemap_free_storage\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMapStorage<\.K,\.V>\)\*>(?:\(\)|unit)>/, 'BTreeMap storage cleanup must remain Copy-only and impure until OwnedBuffer element drop traversal exists');
+assert.match(sourceWithoutComments(btreeMapCleanupFile), /fn\s+free\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMap<\.K,\.V>\)\*>(?:\(\)|unit)>/, 'BTreeMap.free must expose the same Copy-only impure cleanup contract as its storage');
 
 const btreeSetTypesSource = sourceWithoutComments(btreeSetTypesFile);
 const btreeSetStorageSource = sourceWithoutComments(btreeSetStorageFile);
@@ -176,8 +176,8 @@ assert.match(btreeSetSource, /keys\s+<Vec<Option<\.T>>>/, 'BTreeSet keys must us
 assert.match(btreeSetStorageSource, /match\s+btreeset_key_at<\.T>/, 'BTreeSet storage must branch on Option key slots');
 assert.match(btreeSetSearchSource, /fn\s+btreeset_key_eq\s+<\.T:\s*Ord&Copy>\s+<\(\.T,\.T\)->bool>/, 'BTreeSet key equality must remain Copy-only until borrowed key comparison exists');
 assert.doesNotMatch(btreeSetSearchSource, /fn\s+btreeset_key_eq\s+<\.T:\s*Ord>\s+<\(\.T,\.T\)->bool>/, 'BTreeSet key equality must not accept non-Copy Ord keys by value');
-assert.match(btreeSetStorageSource, /fn\s+btreeset_free_storage\s+<\.T:\s*Copy>\s+<\(BTreeSetStorage<\.T>\)->(?:\(\)|unit)>/, 'BTreeSet storage cleanup must remain Copy-only until OwnedBuffer element drop traversal exists');
-assert.match(sourceWithoutComments(btreeSetCleanupFile), /fn\s+free\s+<\.T:\s*Copy>\s+<\(BTreeSet<\.T>\)->(?:\(\)|unit)>/, 'BTreeSet.free must expose the same Copy-only cleanup contract as its storage');
+assert.match(btreeSetStorageSource, /fn\s+btreeset_free_storage\s+<\.T:\s*Copy>\s+<\(BTreeSetStorage<\.T>\)\*>(?:\(\)|unit)>/, 'BTreeSet storage cleanup must remain Copy-only and impure until OwnedBuffer element drop traversal exists');
+assert.match(sourceWithoutComments(btreeSetCleanupFile), /fn\s+free\s+<\.T:\s*Copy>\s+<\(BTreeSet<\.T>\)\*>(?:\(\)|unit)>/, 'BTreeSet.free must expose the same Copy-only impure cleanup contract as its storage');
 
 const rawStoragePatterns = [
     /\bMemPtr\b/,

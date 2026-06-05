@@ -3,6 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - owner を[消費/しょうひ]し、要素と次の owner を named struct で[返/かえ]す `pop` を[所有/しょゆう]します。
+//: - slot lifecycle を変更するため、Copy payload の path も含めて mutation API は `impure fn` として表します。
 
 #indent 4
 
@@ -25,7 +26,7 @@
 //: - `pop` は caller に removed payload owner を返すため、removed tail slot を raw load します。
 //: - raw load だけでは backing storage 上の initialized slot state が残るため、同じ source boundary で `collection_slot_move_out` marker を[発行/はっこう]します。
 //: - public `pop` body は raw pointer operation や lifecycle marker を open-code せず、`VecStorageInvariant` で metadata / extent を[検査/けんさ]してからこの helper に委譲します。
-fn vec_pop_move_out_initialized_slot <.T> %fn &RegionToken .T fn i32 .T \storage\byte_off:
+fn vec_pop_move_out_initialized_slot <.T> %impure fn &RegionToken .T impure fn i32 .T \storage\byte_off:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -40,7 +41,7 @@ fn vec_pop_move_out_initialized_slot <.T> %fn &RegionToken .T fn i32 .T \storage
 //: - `VecStorageInvariant` により `len`、`initialized_len`、`cap`、backing storage extent の相関を確認します。
 //: - 要素があるときだけ `vec_pop_move_out_initialized_slot` へ末尾 slot の move-out proof を委譲し、metadata を `next_len` にそろえた `VecPop` を返します。
 //: - Copy / Drop の public overload はこの helper を共有し、API 型境界だけを外側で表します。
-fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
+fn vec_pop_storage_checked <.T> %impure fn Vec .T VecPop .T \v:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let v_len %i32 *field::get_ref v_buffer_ref "len"
     let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
@@ -151,7 +152,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:     vec_pop_with<NonCopyPayload,i32> p @ignore_plain
 //:     0
 //: ```
-pub fn pop <.T: Copy> %fn Vec .T VecPop .T \v:
+pub fn pop <.T: Copy> %impure fn Vec .T VecPop .T \v:
     vec_pop_storage_checked<.T> v
 
 //: ## pop
@@ -163,7 +164,7 @@ pub fn pop <.T: Copy> %fn Vec .T VecPop .T \v:
 //:
 //: ### [注意/ちゅうい]
 //: - `vec_pop_vec`（`.T: Copy`）は item owner を捨てる accessor なので、Drop payload では使えません。`vec_pop_with`（`.T`, `.R`）を使います。
-pub fn pop <.T: Drop> %fn Vec .T VecPop .T \v:
+pub fn pop <.T: Drop> %impure fn Vec .T VecPop .T \v:
     vec_pop_storage_checked<.T> v
 
 //: ## vec_drop_last_copy_initialized_slot
@@ -172,7 +173,7 @@ pub fn pop <.T: Drop> %fn Vec .T VecPop .T \v:
 //: ### [目的/もくてき]
 //: - `.T: Copy` では destructor 実行は不要ですが、`drop_last` が removed tail slot の initialized state を metadata だけで消したことにしないよう、raw load witness と `collection_slot_drop_initialized` marker を同じ private helper に[閉/と]じます。
 //: - caller は `VecStorageInvariant` で `len == initialized_len` と backing extent を[確認/かくにん]してから、この helper に末尾 byte offset を[渡/わた]します。
-fn vec_drop_last_copy_initialized_slot <.T: Copy> %fn &RegionToken .T fn i32 unit \storage\byte_off:
+fn vec_drop_last_copy_initialized_slot <.T: Copy> %impure fn &RegionToken .T impure fn i32 unit \storage\byte_off:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -225,7 +226,7 @@ fn vec_drop_last_drop_initialized_slot <.T: Drop> %impure fn &RegionToken .T imp
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn drop_last <.T: Copy> %fn Vec .T Vec .T \v:
+pub fn drop_last <.T: Copy> %impure fn Vec .T Vec .T \v:
     vec_drop_last_storage_checked_copy<.T> v
 
 //: ## drop_last
@@ -261,7 +262,7 @@ pub fn drop_last <.T: Drop> %impure fn Vec .T Vec .T \v:
 
 //: ## vec_drop_last_storage_checked_copy
 //: Copy payload の `drop_last` 本体
-fn vec_drop_last_storage_checked_copy <.T: Copy> %fn Vec .T Vec .T \v:
+fn vec_drop_last_storage_checked_copy <.T: Copy> %impure fn Vec .T Vec .T \v:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let v_len %i32 *field::get_ref v_buffer_ref "len"
     let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"

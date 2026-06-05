@@ -93,7 +93,7 @@ pub fn btreemap_store_key_slot <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage .
 pub fn btreemap_store_value_slot <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage .K .V impure fn i32 impure fn Option .V unit \storage\idx\value:
     btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage idx value
 
-pub fn btreemap_free_storage <.K: Copy,.V: Copy> %fn BTreeMapStorage .K .V unit \storage:
+pub fn btreemap_free_storage <.K: Copy,.V: Copy> %impure fn BTreeMapStorage .K .V unit \storage:
     let keys %Vec Option .K field::get storage "keys"
     let values %Vec Option .V field::get storage "values"
     vec::free keys

@@ -318,6 +318,6 @@ pub fn len <.K,.V,.H> %fn &HashMap .K .V .H i32 \hm:
 //:     free hm;
 //:     0
 //: ```
-pub fn free <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn HashMap .K .V .H unit \hm:
+pub fn free <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap .K .V .H unit \hm:
     let storage %HashMapStorage .K .V field::get hm "storage"
     hashmap_free_storage<.K,.V> storage

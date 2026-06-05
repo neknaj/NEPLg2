@@ -283,6 +283,6 @@ pub fn len <.T,.H> %fn &HashSet .T .H i32 \hs:
 //:     free hs;
 //:     0
 //: ```
-pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn HashSet .T .H unit \hs:
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H unit \hs:
     let storage %HashSetStorage .T field::get hs "storage"
     hashset_free_storage<.T> storage

@@ -54,7 +54,7 @@ assert.match(code, /fn\s+push\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>,\.T\)\*>Resul
 assert.match(code, /fn\s+push\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*(?:Result::Err<RingBuffer<\.T>,\s*RingBufferPushError<\.T>>|Result::Err)\s+RingBufferPushError<\.T>\s+\(RingBuffer<\.T>\s+len0\s+cap0\s+head0\s+items\)\s+d/, 'RingBuffer push grow failure must return the consumed buffer owner in RingBufferPushError');
 assert.doesNotMatch(code, /Result::Err\s+d:[\s\S]{0,120}vec::free\s+items[\s\S]{0,120}err<RingBuffer<\.T>,\s*Diag>\s+d/, 'RingBuffer push grow failure must not destroy the consumed owner and return Diag only');
 assert.match(code, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)\*>RingBufferPop<\.T>>[\s\S]*ringbuffer_store_slot<\.T>\s+&items\s+head0\s+none(?:<\.T>)?[\s\S]*RingBufferPop<\.T>/, 'RingBuffer pop_front must clear the consumed slot and return the updated owner');
-assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)->(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+rb\s+"items"/, 'RingBuffer.free must close the Copy-only Vec<Option<T>> owner');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)\*>(?:\(\)|unit)>[\s\S]*vec::free\s+field::get\s+rb\s+"items"/, 'RingBuffer.free must close the Copy-only Vec<Option<T>> owner through an impure owner-consuming boundary');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'RingBuffer must not reintroduce raw header or raw element storage');
 
 for (const testPath of [

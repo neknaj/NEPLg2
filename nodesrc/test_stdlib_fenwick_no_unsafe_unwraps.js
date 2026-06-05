@@ -84,7 +84,7 @@ assert.match(typesCode, /fn\s+add_error_tree\s+<\(FenwickAddError\)->Fenwick>/, 
 assert.match(storageCode, /fn\s+fenwick_load_owned\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*vec::get\s+bit\s+idx/, 'Fenwick must read tree cells through Vec.get and expose missing cells as Option');
 assert.match(storageCode, /fn\s+fenwick_store_owned\s+<\(&Vec<i32>,i32,i32\)\*>unit>[\s\S]*vec::replace\s+bit\s+idx\s+value/, 'Fenwick must update tree cells through Vec.replace');
 assert.match(storageCode, /fn\s+fenwick_alloc_bit\s+<\(i32\)\*>Result<Vec<i32>,\s*Diag>>[\s\S]*vec::filled\s+bit_len\s+0/, 'Fenwick.new must allocate initialized typed storage through storage helper');
-assert.match(storageCode, /fn\s+fenwick_free_bit\s+<\(Vec<i32>\)->unit>[\s\S]*vec::free\s+bit/, 'Fenwick storage module must centralize Vec cleanup');
+assert.match(storageCode, /fn\s+fenwick_free_bit\s+<\(Vec<i32>\)\*>unit>[\s\S]*vec::free\s+bit/, 'Fenwick storage module must centralize Vec cleanup through an impure owner-consuming boundary');
 assert.match(mutationCode, /fn\s+fenwick_add_storage\s+<\(&Vec<i32>,i32,i32,i32\)\*>bool>[\s\S]*fenwick_load_owned[\s\S]*fenwick_store_owned/, 'Fenwick mutation module must own add traversal');
 assert.match(queryCode, /fn\s+fenwick_sum_prefix_storage\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*fenwick_load_owned[\s\S]*some\s+acc\s+none/, 'Fenwick query module must own prefix traversal');
 assert.match(apiDiagnosticCode, /fn\s+fenwick_diag_len\s+<\(\)\*>Diag>/, 'Fenwick diagnostic module must own invalid length diagnostics');

@@ -106,7 +106,7 @@ assert.match(apiUpdateCode, /fn\s+replace\s+<\(SegmentTree,i32,i32\)\*>Result<Se
 assert.match(apiUpdateCode, /fn\s+add\s+<\(SegmentTree,i32,i32\)\*>Result<SegmentTree,\s*SegmentTreeUpdateError>>\s+\(st,\s*idx,\s*delta\):/, 'SegmentTree.add must return an owner-carrying error type');
 assert.doesNotMatch(apiUpdateCode, /fn\s+(?:replace|add)\s+<\(SegmentTree,i32,i32\)\*>Result<SegmentTree,\s*Diag>>/, 'SegmentTree mutating APIs must not lose the owner through Err(Diag)');
 assert.match(apiUpdateCode, /seg_update_err\s+st\s+d/, 'SegmentTree mutating Err paths must return the input owner in SegmentTreeUpdateError');
-assert.match(apiCleanupCode, /fn\s+free\s+<\(SegmentTree\)->unit>\s+\(st\):[\s\S]*field::get\s+st\s+"data"[\s\S]*vec::free\s+data/, 'SegmentTree.free must consume and close typed Vec<i32> storage');
+assert.match(apiCleanupCode, /fn\s+free\s+<\(SegmentTree\)\*>unit>\s+\(st\):[\s\S]*field::get\s+st\s+"data"[\s\S]*vec::free\s+data/, 'SegmentTree.free must consume and close typed Vec<i32> storage through an impure owner-consuming boundary');
 assert.doesNotMatch(apiCleanupCode, /fn\s+free\s+<\(SegmentTree\)->unit>\s+\(st\):[\s\S]*field::get_ref\s+&st\s+"data"/, 'SegmentTree.free must not borrow-read the data owner field');
 
 assert.doesNotMatch(code, /\bMemPtr\b/, 'SegmentTree must not expose raw MemPtr storage');

@@ -5,6 +5,8 @@
 //: 目的:
 //: - compiler-owned raw-memory-boundary 内でだけ使う低レベル操作を集めます。
 //: - 型安全・所有権安全は呼び出し側の Resource IR / wrapper API が検査します。
+//: - raw operation は source signature 上は純粋に見えますが、通常 source からの使用は Resource IR の raw boundary が拒否します。
+//: - 抽象値を組み立てる内部 storage 操作は compiler-known boundary として扱い、外から観測できる effect は wrapper API 側で表します。
 //:
 //: neplg2:test[compile_fail]
 //: diag_code: resource.raw.memory_outside_boundary

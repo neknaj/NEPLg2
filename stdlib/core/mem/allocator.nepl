@@ -5,6 +5,7 @@
 //: 目的:
 //: - free list / bump allocator と compiler runtime ABI の入口を所有します。
 //: - raw byte 操作は mem/raw に委譲し、MemPtr wrapper は mem/pointer に分離します。
+//: - allocator state は raw-memory-boundary 内の compiler-known internal allocation effect として扱います。
 //:
 //: neplg2:test[compile_fail]
 //: diag_code: resource.raw.memory_outside_boundary

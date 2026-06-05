@@ -32,6 +32,6 @@
 //:     free bs
 //:     0
 //: ```
-pub fn free %fn BitSet unit \bs:
+pub fn free %impure fn BitSet unit \bs:
     let bits %Vec u8 field::get bs "bits"
     vec::free bits

@@ -13,6 +13,7 @@
 //: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result (Vec .T) (VecTransformError .T)` を[返/かえ]します。
 //: - [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]も入力 `Vec .T` は `VecTransformError` に[戻/もど]ります。
 //: - `p` は `(.T)->bool` の[純粋/じゅんすい][関数/かんすう]です。
+//: - 入力 owner の cleanup と output storage [構築/こうちく]を行うため、Copy payload の path も `impure fn` です。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -121,7 +122,7 @@ fn vec_filter_release_storage <.T> %impure fn RegionToken .T unit \region:
     allocator::dealloc_raw raw total_size
     #intrinsic "collection_slot_storage_dealloc" <.T> (&region)
 
-pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformError .T \v\p:
+pub fn filter <.T: Copy> %impure fn Vec .T impure fn fn .T bool Result Vec .T VecTransformError .T \v\p:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let src_len %i32 *field::get_ref v_buffer_ref "len"
     match vec_buffer_current_copy_invariant<.T> v_buffer_ref:

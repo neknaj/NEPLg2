@@ -90,7 +90,7 @@ assert.match(
 );
 assert.match(
     storageCode,
-    /fn\s+list_free_items\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->(?:\(\)|unit)>[\s\S]*field::get\s+lst\s+"items"[\s\S]*vec::free\s+items/,
+    /fn\s+list_free_items\s+<\.T:\s*Copy>\s+<\(List<\.T>\)\*>(?:\(\)|unit)>[\s\S]*field::get\s+lst\s+"items"[\s\S]*vec::free\s+items/,
     'List storage helper must close the Copy-only Vec<T> owner',
 );
 assert.match(
@@ -115,8 +115,8 @@ assert.doesNotMatch(
 );
 assert.match(
     basicCode,
-    /fn\s+tail\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->Option<List<\.T>>>[\s\S]*vec::pop\s+items[\s\S]*some(?:<List<\.T>>)?\s+List<\.T>\s+next_items/,
-    'List.tail must remove the logical head by returning the Vec.pop owner',
+    /fn\s+tail\s+<\.T:\s*Copy>\s+<\(List<\.T>\)\*>Option<List<\.T>>>[\s\S]*vec::pop\s+items[\s\S]*some(?:<List<\.T>>)?\s+List<\.T>\s+next_items/,
+    'List.tail must be impure and remove the logical head by returning the Vec.pop owner',
 );
 assert.match(
     basicCode,
@@ -125,7 +125,7 @@ assert.match(
 );
 assert.match(
     basicCode,
-    /fn\s+free\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->(?:\(\)|unit)>[\s\S]*list_free_items<\.T>\s+lst/,
+    /fn\s+free\s+<\.T:\s*Copy>\s+<\(List<\.T>\)\*>(?:\(\)|unit)>[\s\S]*list_free_items<\.T>\s+lst/,
     'List.free must close the Copy-only Vec<T> owner',
 );
 assert.match(

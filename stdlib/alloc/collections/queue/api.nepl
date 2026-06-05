@@ -123,5 +123,5 @@ pub fn clear <.T: Copy> %impure fn Queue .T Queue .T \q:
 
 //: ## free
 //: queue が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn Queue .T unit \q:
+pub fn free <.T: Copy> %impure fn Queue .T unit \q:
     vec::free field::get q "items"

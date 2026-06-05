@@ -28,5 +28,5 @@
 //:     free hp;
 //:     0
 //: ```
-pub fn free <.T: Copy> %fn BinaryHeap .T unit \hp:
+pub fn free <.T: Copy> %impure fn BinaryHeap .T unit \hp:
     vec::free field::get hp "items"

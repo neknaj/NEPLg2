@@ -215,6 +215,6 @@ pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFilt
 //:     free bf;
 //:     0
 //: ```
-pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn CountingBloomFilter .T .H unit \bf:
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFilter .T .H unit \bf:
     let counters %Vec u8 field::get bf "counters"
     counting_bloom_free_counters counters

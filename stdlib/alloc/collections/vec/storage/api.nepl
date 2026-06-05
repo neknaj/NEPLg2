@@ -4,6 +4,7 @@
 //: ### [目的/もくてき]
 //: - `new` / `with_capacity` を public API として[提供/ていきょう]します。
 //: - 実際の backing storage allocation は `storage/alloc` の internal helper に[委譲/いじょう]し、root facade から `vec_alloc_empty` を[直接/ちょくせつ]公開しません。
+//: - public constructor は抽象 `Vec` 値を返す API であり、raw allocation identity は `RegionToken` owner proof 内に閉じます。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -44,6 +45,7 @@
 //: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
 //: - この overload は `.T: Copy` payload 用です。`.T: Drop` payload は、Drop traversal proof を持つ別 overload が[受/う]け[持/も]ちます。
 //: - `.T` が `Copy` でも `Drop` でもない場合、allocated storage を安全に閉じる capability がないため[受/う]け[付/つ]けません。
+//: - raw allocation identity は `Vec` の抽象 owner 内に閉じ、caller は Result と owner 型だけを観測します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]も O(1) です。

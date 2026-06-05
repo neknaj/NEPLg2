@@ -297,6 +297,6 @@ pub fn clear <.T: Copy> %impure fn Stack .T Stack .T \stk:
 
 //: ## free
 //: stack が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn Stack .T unit \stk:
+pub fn free <.T: Copy> %impure fn Stack .T unit \stk:
     let items %Vec Option .T field::get stk "items"
     vec_cleanup::free items

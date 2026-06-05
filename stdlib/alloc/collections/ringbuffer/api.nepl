@@ -142,5 +142,5 @@ pub fn clear <.T: Copy> %impure fn RingBuffer .T RingBuffer .T \rb:
 
 //: ## free
 //: buffer が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn RingBuffer .T unit \rb:
+pub fn free <.T: Copy> %impure fn RingBuffer .T unit \rb:
     vec::free field::get rb "items"

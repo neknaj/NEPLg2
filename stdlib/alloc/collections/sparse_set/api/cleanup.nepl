@@ -35,7 +35,7 @@
 //:     free s
 //:     0
 //: ```
-pub fn free %fn SparseSet unit \s:
+pub fn free %impure fn SparseSet unit \s:
     let dense %Vec i32 field::get s "dense"
     let sparse %Vec i32 field::get s "sparse"
     sparse_set_free_arrays dense sparse

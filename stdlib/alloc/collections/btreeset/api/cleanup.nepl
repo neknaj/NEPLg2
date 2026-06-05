@@ -28,6 +28,6 @@
 //:     free s;
 //:     0
 //: ```
-pub fn free <.T: Copy> %fn BTreeSet .T unit \set0:
+pub fn free <.T: Copy> %impure fn BTreeSet .T unit \set0:
     let storage %BTreeSetStorage .T field::get set0 "storage"
     btreeset_free_storage<.T> storage

@@ -39,6 +39,7 @@
 //: ### [注意/ちゅうい]
 //: - 2 [本/ほん]の[新規/しんき] `Vec` を[確保/かくほ]するので `Result (VecPartition .T) (VecTransformError .T)` を[返/かえ]します。
 //: - [途中/とちゅう]で[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]、入力 `Vec .T` owner は error payload に[戻/もど]ります。
+//: - 入力 owner の cleanup と 2 つの output storage [構築/こうちく]を行うため、`partition` 自体は `impure fn` です。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -65,7 +66,7 @@
 //:     vec_partition_free parts;
 //:     if ok 0 1
 //: ```
-pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecTransformError .T \v\p:
+pub fn partition <.T: Copy> %impure fn Vec .T impure fn fn .T bool Result VecPartition .T VecTransformError .T \v\p:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let src_len %i32 *field::get_ref v_buffer_ref "len"
     match vec_buffer_current_copy_invariant<.T> v_buffer_ref:

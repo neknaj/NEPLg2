@@ -26,5 +26,5 @@ pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
         Result::Ok bit:
             ok bit
 
-pub fn fenwick_free_bit %fn Vec i32 unit \bit:
+pub fn fenwick_free_bit %impure fn Vec i32 unit \bit:
     vec::free bit
