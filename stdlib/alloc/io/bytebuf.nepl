@@ -80,15 +80,155 @@ pub struct ByteBuf:
     storage %ByteBufStorage
     len %i32
 
+//: io_bytebuf_empty: owner payload を[持/も]たない空 `ByteBuf` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - byte 長が 0 の binary I/O buffer を、`RegionToken` sentinel ではなく `ByteBufStorage::Empty` として[表/あらわ]します。
+//:
+//: ### [契約/けいやく]
+//: - 返り値の `len` は 0 です。
+//: - 返り値は解放対象の owner payload を[持/も]ちませんが、`io_bytebuf_free` に[渡/わた]しても安全です。
+//: - 空状態は enum variant で[表/あらわ]し、raw pointer や zero-size region の値に[依存/いそん]しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `ByteBuf ByteBufStorage::Empty 0` をそのまま[構築/こうちく]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_empty_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"empty len\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"empty ptr is none\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "core/option" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_empty
+//:     let ptr_is_none %i32 match io_bytebuf_ptr_ref &bytes:
+//:         Option::Some _ptr:
+//:             0
+//:         Option::None:
+//:             1
+//:     let empty_len %i32 io_bytebuf_len_ref &bytes
+//:     let report:
+//:         test_report_new "io_bytebuf_empty_doc"
+//:         |> test_report_push assert_eq_i32 "empty len" 0 empty_len
+//:         |> test_report_push assert_eq_i32 "empty ptr is none" 1 ptr_is_none
+//:     io_bytebuf_free bytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_empty %fn void ByteBuf \void:
     ByteBuf ByteBufStorage::Empty 0
 
+//: io_bytebuf_len: `ByteBuf` の byte 長を[借用/しゃくよう]して[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - owner を[移動/いどう]せず、binary payload の有効 byte 数を[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - 戻り値は `ByteBuf.len` field の値です。
+//: - capacity や確保 size ではなく、I/O に[渡/わた]す有効 payload 長だけを[返/かえ]します。
+//: - 関数は `&ByteBuf` を受け取るため、caller は同じ buffer を後続で `io_bytebuf_free` できます。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `len` field を `get_ref` で[読/よ]みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_len_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"borrowed len\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_from_str "AB"
+//:     let report:
+//:         test_report_new "io_bytebuf_len_doc"
+//:         |> test_report_push assert_eq_i32 "borrowed len" 2 io_bytebuf_len &bytes
+//:     io_bytebuf_free bytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_len %fn &ByteBuf i32 \buf:
     *get_ref buf "len"
 
+//: io_bytebuf_len_ref: `ByteBuf` の byte 長を[借用/しゃくよう]して[読/よ]む互換名
+//:
+//: ### [目的/もくてき]
+//: - 既存の `*_ref` naming を使う call site からも、owner を[移動/いどう]せずに byte 長を[読/よ]めるようにします。
+//:
+//: ### [契約/けいやく]
+//: - `io_bytebuf_len` と同じ値を[返/かえ]します。
+//: - buffer owner は消費しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `len` field を `get_ref` で[読/よ]みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_len_ref_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"len_ref\" expected=\"3\" actual=\"3\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_from_str "ABC"
+//:     let report:
+//:         test_report_new "io_bytebuf_len_ref_doc"
+//:         |> test_report_push assert_eq_i32 "len_ref" 3 io_bytebuf_len_ref &bytes
+//:     io_bytebuf_free bytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_len_ref %fn &ByteBuf i32 \buf:
     *get_ref buf "len"
 
+//: io_bytebuf_data_ptr_ref: `ByteBuf` payload の非所有 pointer view を[得/え]る
+//:
+//: ### [目的/もくてき]
+//: - `std/fs` や `std/stdio` の raw syscall 境界へ渡すため、`RegionToken` owner を[動/うご]かさずに `MemPtr u8` view だけを[借/か]ります。
+//:
+//: ### [契約/けいやく]
+//: - `ByteBufStorage::Owned(region)` では `region_ptr region` を[返/かえ]します。
+//: - `ByteBufStorage::Empty` では sentinel view として `mem_ptr_wrap 0` を[返/かえ]します。
+//: - 返った `MemPtr` は所有権を[持/も]ちません。解放は必ず元の `ByteBuf` owner に対して `io_bytebuf_free` で行います。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `storage` を `match` し、`Owned` branch だけで `RegionToken` から pointer view を[射影/しゃえい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_data_ptr_ref_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"data ptr projected\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_empty
+//:     let _ptr io_bytebuf_data_ptr_ref &bytes
+//:     let report:
+//:         test_report_new "io_bytebuf_data_ptr_ref_doc"
+//:         |> test_report_push assert_eq_i32 "data ptr projected" 1 1
+//:     io_bytebuf_free bytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_data_ptr_ref %fn &ByteBuf MemPtr u8 \buf:
     let storage_ref %&ByteBufStorage get_ref buf "storage"
     match storage_ref:
@@ -97,6 +237,45 @@ pub fn io_bytebuf_data_ptr_ref %fn &ByteBuf MemPtr u8 \buf:
         ByteBufStorage::Owned region:
             region_ptr region
 
+//: io_bytebuf_ptr_ref: 非空 payload だけを `Option MemPtr u8` として[借/か]りる
+//:
+//: ### [目的/もくてき]
+//: - 空 buffer と非空 buffer の pointer projection を `Option` で[分/わ]け、caller が null pointer 値を直接[判定/はんてい]しないようにします。
+//:
+//: ### [契約/けいやく]
+//: - `len <= 0` または `ByteBufStorage::Empty` なら `Option::None` を[返/かえ]します。
+//: - 非空の `Owned` storage なら `Option::Some ptr` を[返/かえ]します。
+//: - `Some` の中の pointer は非所有 view であり、解放責務は `ByteBuf` owner に残ります。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `len` と `storage` enum を[確認/かくにん]し、`io_bytebuf_data_ptr_ref` へ委譲します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_ptr_ref_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"nonempty ptr some\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "core/option" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_from_str "A"
+//:     let is_some %i32 match io_bytebuf_ptr_ref &bytes:
+//:         Option::Some _ptr:
+//:             1
+//:         Option::None:
+//:             0
+//:     let report:
+//:         test_report_new "io_bytebuf_ptr_ref_doc"
+//:         |> test_report_push assert_eq_i32 "nonempty ptr some" 1 is_some
+//:     io_bytebuf_free bytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_ptr_ref %fn &ByteBuf Option MemPtr u8 \buf:
     let byte_len %i32 *get_ref buf "len"
     let storage_ref %&ByteBufStorage get_ref buf "storage"
@@ -111,6 +290,40 @@ pub fn io_bytebuf_ptr_ref %fn &ByteBuf Option MemPtr u8 \buf:
                 else:
                     some io_bytebuf_data_ptr_ref buf
 
+//: io_bytebuf_storage_size: `ByteBuf` storage に必要な byte 数を[正規化/せいきか]する
+//:
+//: ### [目的/もくてき]
+//: - 負または 0 の長さを empty storage として扱い、allocation size と payload length の境界を一箇所に[集約/しゅうやく]します。
+//:
+//: ### [契約/けいやく]
+//: - `byte_len <= 0` なら 0 を[返/かえ]します。
+//: - `byte_len > 0` なら `byte_len` をそのまま[返/かえ]します。
+//: - ここでは allocation を行わず、純粋な size [計算/けいさん]だけを行います。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `if` で 0 以下かどうかを[判定/はんてい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_storage_size_doc\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"negative\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"zero\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"positive\" expected=\"7\" actual=\"7\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let report:
+//:         test_report_new "io_bytebuf_storage_size_doc"
+//:         |> test_report_push assert_eq_i32 "negative" 0 io_bytebuf_storage_size sub 0 1
+//:         |> test_report_push assert_eq_i32 "zero" 0 io_bytebuf_storage_size 0
+//:         |> test_report_push assert_eq_i32 "positive" 7 io_bytebuf_storage_size 7
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_storage_size %fn i32 i32 \byte_len:
     if:
         le byte_len 0
@@ -119,6 +332,52 @@ pub fn io_bytebuf_storage_size %fn i32 i32 \byte_len:
         else:
             byte_len
 
+//: io_bytebuf_byte_at: byte index を bounds check して[読/よ]む
+//:
+//: ### [目的/もくてき]
+//: - raw pointer と index を caller に[組/く]み[立/た]てさせず、`ByteBuf` の長さに基づいて安全に 1 byte を[読/よ]みます。
+//:
+//: ### [契約/けいやく]
+//: - `idx < 0` または `idx >= len` なら `Option::None` を[返/かえ]します。
+//: - 範囲内なら `Option::Some byte` を[返/かえ]します。
+//: - 返す byte は 0 以上 255 以下の `i32` 値です。
+//: - buffer owner は消費しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - bounds check 後に `io_bytebuf_data_ptr_ref` と `mem_ptr_add` から `load_u8` を呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_byte_at_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"second byte\" expected=\"66\" actual=\"66\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"out of range none\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "core/option" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_from_str "AB"
+//:     let second %i32 match io_bytebuf_byte_at &bytes 1:
+//:         Option::Some b:
+//:             b
+//:         Option::None:
+//:             0
+//:     let missing %i32 match io_bytebuf_byte_at &bytes 2:
+//:         Option::Some _b:
+//:             0
+//:         Option::None:
+//:             1
+//:     let report:
+//:         test_report_new "io_bytebuf_byte_at_doc"
+//:         |> test_report_push assert_eq_i32 "second byte" 66 second
+//:         |> test_report_push assert_eq_i32 "out of range none" 1 missing
+//:     io_bytebuf_free bytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_byte_at %fn &ByteBuf fn i32 Option i32 \buf\idx:
     let n %i32 io_bytebuf_len_ref buf
     if:
@@ -128,6 +387,40 @@ pub fn io_bytebuf_byte_at %fn &ByteBuf fn i32 Option i32 \buf\idx:
         else:
             load_u8 mem_ptr_add io_bytebuf_data_ptr_ref buf idx
 
+//: io_bytebuf_free: `ByteBuf` が[持/も]つ storage owner を[閉/と]じる
+//:
+//: ### [目的/もくてき]
+//: - `ByteBufStorage::Owned(region)` の free obligation を消費し、binary buffer の lifetime を[終了/しゅうりょう]します。
+//:
+//: ### [契約/けいやく]
+//: - `ByteBufStorage::Empty` では何も解放しません。
+//: - `ByteBufStorage::Owned(region)` では `dealloc_region<u8>` に owner token を[渡/わた]します。
+//: - 解放器の失敗はここでは外へ出さず、cleanup boundary として `unit` を[返/かえ]します。
+//: - 呼び出し後に同じ `ByteBuf` owner を再利用してはいけません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `storage` enum を `match` し、`Owned` branch だけで `dealloc_region` を呼びます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - allocator の free path に依存します。空 buffer は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"io_bytebuf_free_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"free completes\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let bytes %ByteBuf io_bytebuf_from_str "AB"
+//:     io_bytebuf_free bytes
+//:     let report:
+//:         test_report_new "io_bytebuf_free_doc"
+//:         |> test_report_push assert_eq_i32 "free completes" 1 1
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn io_bytebuf_free %fn ByteBuf unit \buf:
     match get buf "storage":
         ByteBufStorage::Empty:

@@ -246,6 +246,40 @@ pub fn byte_builder_with_len %fn ByteBuilder fn i32 ByteBuilder \builder\new_len
     let cap0 %i32 get builder "cap"
     ByteBuilder get builder "storage" new_len cap0
 
+//: byte_builder_data_ptr_ref: builder storage の非所有 pointer view を[得/え]る
+//:
+//: ### [目的/もくてき]
+//: - append / fd write / finalization の内部境界で、`ByteBuilderStorage::Owned(region)` から byte 書き込み先の `MemPtr u8` view を[借/か]ります。
+//:
+//: ### [契約/けいやく]
+//: - `ByteBuilderStorage::Owned(region)` では `region_ptr region` を[返/かえ]します。
+//: - `ByteBuilderStorage::Empty` では sentinel view として `mem_ptr_wrap 0` を[返/かえ]します。
+//: - 返った `MemPtr` は所有権を[持/も]ちません。解放や grow の責務は builder の `RegionToken` owner に残ります。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `storage` enum を `match` し、`Owned` branch だけで `RegionToken` から pointer view を[射影/しゃえい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"byte_builder_data_ptr_ref_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"builder ptr projected\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let builder %ByteBuilder byte_builder_empty
+//:     let _ptr byte_builder_data_ptr_ref &builder
+//:     let report:
+//:         test_report_new "byte_builder_data_ptr_ref_doc"
+//:         |> test_report_push assert_eq_i32 "builder ptr projected" 1 1
+//:     byte_builder_free builder
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn byte_builder_data_ptr_ref %fn &ByteBuilder MemPtr u8 \builder:
     let storage_ref %&ByteBuilderStorage get_ref builder "storage"
     match storage_ref:
@@ -254,6 +288,50 @@ pub fn byte_builder_data_ptr_ref %fn &ByteBuilder MemPtr u8 \builder:
         ByteBuilderStorage::Owned region:
             region_ptr region
 
+//: byte_builder_ptr_ref: capacity を[持/も]つ builder の pointer view を `Option` で[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - 空 builder と確保済み builder を型付きに[分/わ]け、caller が raw address の 0 判定へ[依存/いそん]しないようにします。
+//:
+//: ### [契約/けいやく]
+//: - `ByteBuilderStorage::Empty` または `cap <= 0` なら `Option::None` を[返/かえ]します。
+//: - `Owned` storage かつ `cap > 0` なら `Option::Some ptr` を[返/かえ]します。
+//: - `Some` の pointer は非所有 view です。free obligation は builder owner に残ります。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `cap` と `storage` enum を[確認/かくにん]し、`byte_builder_data_ptr_ref` へ委譲します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"byte_builder_ptr_ref_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"capacity ptr some\" expected=\"1\" actual=\"1\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let got_some %i32 match byte_builder_with_capacity 4:
+//:         Result::Err _e:
+//:             0
+//:         Result::Ok builder:
+//:             let value %i32 match byte_builder_ptr_ref &builder:
+//:                 Option::Some _ptr:
+//:                     1
+//:                 Option::None:
+//:                     0
+//:             byte_builder_free builder
+//:             value
+//:     let report:
+//:         test_report_new "byte_builder_ptr_ref_doc"
+//:         |> test_report_push assert_eq_i32 "capacity ptr some" 1 got_some
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn byte_builder_ptr_ref %fn &ByteBuilder Option MemPtr u8 \builder:
     let cap0 %i32 *get_ref builder "cap"
     let storage_ref %&ByteBuilderStorage get_ref builder "storage"

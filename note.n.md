@@ -1,3 +1,21 @@
+# 2026-06-06 Agent 2 Alloc IO documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T01:33+09:00 頃に再確認し、静的検査の正確性、Option / Result と enum error、match による場合分け、純粋性と副作用境界、不変性、doc comment / doctest、詳細 test の分離、DAG 的 module boundary を今回の判断基準にした。
+- subagent review では、`stdlib/alloc/io/bytebuf.nepl`、`bytebuilder/types.nepl`、`traits.nepl` の missing declaration docs、owner transfer、非所有 `MemPtr` view、`Option::Some` / `Option::None`、`StdErrorKind` / `Result`、stream trait の `impure` boundary、no-parentheses prefix example style が確認対象として挙げられた。Blocker はなし。
+- `bytebuf.nepl` では `io_bytebuf_empty`、`io_bytebuf_len`、`io_bytebuf_len_ref`、`io_bytebuf_data_ptr_ref`、`io_bytebuf_ptr_ref`、`io_bytebuf_storage_size`、`io_bytebuf_byte_at`、`io_bytebuf_free` の日本語 doc comment と `test_report` doctest を追加した。`ByteBufStorage::Empty` / `Owned RegionToken`、非所有 pointer view、out-of-range `Option::None`、cleanup boundary を明記した。
+- `bytebuilder/types.nepl` では `byte_builder_data_ptr_ref` と `byte_builder_ptr_ref` の日本語 doc comment と `test_report` doctest を追加した。`MemPtr` は borrowed view であり、free obligation は builder owner に残ることを固定した。
+- `traits.nepl` では stream trait と forwarding helper の doc を補強した。trait body 内の doc comment は現行 parser が許可しないため、trait method contract は trait 宣言側の doc に集約した。
+- `nodesrc/test_stdlib_documentation_contract.js` は trait body method を個別 declaration として数えないよう修正した。これは doc comment を置けない構文位置を gap として数えて bad fix を誘導していた根本原因の修正である。新 baseline は `declarations=2488`、`declarationNoDoc=162`、`declarationNoDoctest=1662`、`publicDeclarationNoDoctest=1509`、`privateDeclarationNoDoctest=153`。
+- `nodesrc/test_stdlib_alloc_io_doc_report_contract.js` を追加し、`ByteBuf` / `ByteBuilder` pointer / stream trait helper の report doctest、owner / pointer / Result / Option / impure boundary、trait body scanner contract を source policy として固定した。`nodesrc/run_source_policy_regressions.js` にも登録した。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。Alloc IO slice は進んだが、sample gaps は hash32 / string builder / string integer 系へ残っている。
+- 現時点の検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i stdlib/alloc/io/traits.nepl -i stdlib/alloc/io/bytebuilder/types.nepl --no-tree -o tmp/agent2-alloc-io-doc-smoke-4.json -j 1 --dist web/dist --assert-io`: pass（30/30）
+  - `node nodesrc/test_stdlib_alloc_io_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: pass
+
 # 2026-06-06 Agent selfhost ascription/block body documentation correction checkpoint
 
 - `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:56:07+09:00 に再確認し、doc comment には目的、contract、Result / Option / enum の場合分け、計算量、典型例または実行可能な doc test、契約と現状の分離が必要であることを今回の判断基準にした。

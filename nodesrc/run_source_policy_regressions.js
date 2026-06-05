@@ -242,6 +242,7 @@ const checks = [
     "nodesrc/test_core_traits_doc_report_contract.js",
     "nodesrc/test_stdlib_traits_order_report_contract.js",
     "nodesrc/test_stdlib_traits_hash_report_contract.js",
+    "nodesrc/test_stdlib_alloc_io_doc_report_contract.js",
     "nodesrc/test_stdlib_io_nmd_report_contract.js",
     "nodesrc/test_stdlib_pipe_collections_report_contract.js",
     "nodesrc/test_stdlib_traits_serde_report_contract.js",
