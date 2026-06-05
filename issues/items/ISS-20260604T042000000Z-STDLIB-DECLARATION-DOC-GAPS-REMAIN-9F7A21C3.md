@@ -98,6 +98,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日 StringBuilder fallback wrapper slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=293`、`declarationNoDoc=154`、`declarationNoDoctest=1651`、`publicDeclarationNoDoctest=1498`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_alloc_string_doc_report_contract.js` により、`string_builder_new`、`sb_append`、`sb_append_char`、`sb_append_ascii`、`sb_append_byte`、`sb_build`、`sb_append_i32` の report doctest、入力 builder owner consumption、`Result::Err` からの空 builder / 空文字列 fallback、ASCII / byte / UTF-8 boundary、O(1) / O(n) / O(total_bytes) complexity を module 固有にも固定する。
 
+同日の UTF-8 / core char helper slice 後に baseline を再度締め直した。新しい悪化防止ラインは `declarations=2488`、`moduleNoDoctest=293`、`declarationNoDoc=145`、`declarationNoDoctest=1651`、`publicDeclarationNoDoctest=1498`、`privateDeclarationNoDoctest=153` である。`nodesrc/test_stdlib_utf8_validation_doc_report_contract.js` と `nodesrc/test_core_char_doc_report_contract.js` により、`string_utf8_in_range`、`string_utf8_is_continuation`、`string_utf8_lead_kind`、`string_utf8_byte_at_checked`、2/3/4 byte sequence validator、`char_utf8_step_new`、`char_utf8_cont_byte` の report doctest、closed byte range、continuation byte range、overlong / surrogate / U+10FFFF boundary、`Option::None` から `Result::Err` への変換、non-owning `MemPtr` span、`CharUtf8Step` field contract、O(1) / O(byte_len) complexity を module 固有にも固定する。ただし `char_offsets`、string integer / float parse-format、scanner、slice、core/gui render command などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -118,6 +120,13 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/hash32.nepl -i stdlib/alloc/hash/fnv1a32.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/agent2-hash32-doc-smoke-5.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_hash_string_access_boundary.js`
 - `node nodesrc/test_stdlib_hash_nmd_report_contract.js`
+- `node nodesrc/test_stdlib_utf8_validation_doc_report_contract.js`
+- `node nodesrc/test_core_char_doc_report_contract.js`
+- `node nodesrc/test_stdlib_char_utf8_byte_contract.js`
+- `node nodesrc/test_stdlib_string_utf8_boundary.js`
+- `node nodesrc/test_stdlib_string_storage_boundary.js`
+- `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`
+- `node nodesrc/tests.js -i stdlib/alloc/string/utf8.nepl -i stdlib/core/char.nepl -i tests/stdlib/char_utf8_byte_at.n.md -i tests/stdlib/string_char.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/agent2-utf8-char-doc-slice.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i stdlib/alloc/io/traits.nepl -i stdlib/alloc/io/bytebuilder/types.nepl --no-tree -o tmp/agent2-alloc-io-doc-smoke-4.json -j 1 --dist web/dist --assert-io`
 - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`
 - `node nodesrc/test_stdlib_builder_owner_boundary.js`

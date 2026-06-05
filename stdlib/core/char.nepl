@@ -74,6 +74,39 @@ impl Copy for CharUtf8Step:
     fn copy_mark %fn CharUtf8Step CharUtf8Step \x:
         x
 
+//: char_utf8_step_new: decode 結果と次 byte offset を `CharUtf8Step` にまとめる
+//:
+//: [目的/もくてき]:
+//: - UTF-8 decoder が、decode した scalar value と次に読む byte offset を名前付き field で返せるようにします。
+//:
+//: [契約/けいやく]:
+//: - `value` は decode 済みの `char`、`next` は caller が計算した次 byte offset です。
+//: - この constructor は `next` の範囲検査を行いません。offset の妥当性は decoder 側の責務です。
+//: - `CharUtf8Step` は `Copy` であり、owner cleanup は不要です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"char_utf8_step_new_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"step value\" expected=\"65\" actual=\"65\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"step next\" expected=\"3\" actual=\"3\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/char" as *
+//:| #import "core/field" as field
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let step %CharUtf8Step char_utf8_step_new 'A' 3
+//:     let value_code %i32 char_to_i32 *field::get_ref &step "value"
+//:     let next %i32 *field::get_ref &step "next"
+//:     let report:
+//:         test_report_new "char_utf8_step_new_doc"
+//:         |> test_report_push assert_eq_i32 "step value" 65 value_code
+//:         |> test_report_push assert_eq_i32 "step next" 3 next
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn char_utf8_step_new %fn char fn i32 CharUtf8Step \value\next:
     CharUtf8Step value next
 
@@ -214,6 +247,38 @@ pub fn char_utf8_len %fn char i32 \c:
                         else:
                             4
 
+//: char_utf8_cont_byte: UTF-8 continuation byte を組み立てる
+//:
+//: [目的/もくてき]:
+//: - UTF-8 encode helper が、既に shift 済みの payload bits から `10xxxxxx` 形式の byte を作ります。
+//:
+//: [契約/けいやく]:
+//: - 戻り値は `0x80 | (bits & 0x3F)` です。
+//: - caller は対象 code point のどの 6 bit を渡すかを事前に決めます。この helper は文字長や index の検査を行いません。
+//: - 戻り値は常に `0x80..0xBF` に収まります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"char_utf8_cont_byte_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"continuation byte\" expected=\"130\" actual=\"130\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"continuation range\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/char" as *
+//:| #import "core/math" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let byte %i32 char_utf8_cont_byte 0x42
+//:     let in_range %bool and ge byte 0x80 le byte 0xBF
+//:     let report:
+//:         test_report_new "char_utf8_cont_byte_doc"
+//:         |> test_report_push assert_eq_i32 "continuation byte" 130 byte
+//:         |> test_report_push assert "continuation range" in_range
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn char_utf8_cont_byte %fn i32 i32 \bits:
     or 0x80 and bits 0x3F
 
