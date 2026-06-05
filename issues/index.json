@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T01:21:17.520Z",
+  "generated_at": "2026-06-05T02:08:16.456Z",
   "counts": {
-    "total": 1343,
-    "open": 46,
-    "resolved": 1297,
+    "total": 1344,
+    "open": 45,
+    "resolved": 1299,
     "by_area": {
       "stdlib": {
-        "total": 350,
+        "total": 351,
         "open": 10,
-        "resolved": 340
+        "resolved": 341
       },
       "core": {
         "total": 665,
@@ -18,8 +18,8 @@
       },
       "examples": {
         "total": 22,
-        "open": 4,
-        "resolved": 18
+        "open": 3,
+        "resolved": 19
       },
       "selfhost": {
         "total": 118,
@@ -548,21 +548,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T034206360Z-LIFE-GUI-EXAMPLE-RENDERS-PRESET-PATT-A9CAC1AF.md"
-    },
-    {
-      "id": "ISS-20260604T034207064Z-BREAKOUT-GUI-EXAMPLE-USES-TIMEOUT-NO-EA0E4163",
-      "title": "Breakout GUI example uses timeout None as animation tick instead of GuiEvent Timer",
-      "area": "examples",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-04",
-      "updated": "2026-06-04",
-      "target": "examples/gui_breakout.nepl, stdlib/platforms/gui/web/input.nepl, stdlib/std/gui/runtime.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260604T034207064Z-BREAKOUT-GUI-EXAMPLE-USES-TIMEOUT-NO-EA0E4163.md"
     },
     {
       "id": "ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941",
@@ -10765,6 +10750,21 @@
       "file": "items/ISS-20260604T034206714Z-PAINT-GUI-EXAMPLE-USES-FIXED-STROKE--B21EFEC7.md"
     },
     {
+      "id": "ISS-20260604T034207064Z-BREAKOUT-GUI-EXAMPLE-USES-TIMEOUT-NO-EA0E4163",
+      "title": "Breakout GUI example uses timeout None as animation tick instead of GuiEvent Timer",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-04",
+      "updated": "2026-06-05",
+      "target": "examples/gui_breakout.nepl, stdlib/platforms/gui/web/input.nepl, web/src/runtime/worker.ts, web/src/gui-preview/shared-event-queue.ts, web/src/terminal/shell.ts",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260604T034207064Z-BREAKOUT-GUI-EXAMPLE-USES-TIMEOUT-NO-EA0E4163.md"
+    },
+    {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
       "title": "NEPLg2.1 needs postfix-free syntax for type-only layout generic calls",
       "area": "neplg21",
@@ -16073,6 +16073,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T214744868Z-STD-FS-RAW-FD-DIR-STAT-HELPERS-STILL-78981167.md"
+    },
+    {
+      "id": "ISS-20260605T020743241Z-GUI-ARENA-APIS-HIDE-ALLOCATOR-SIDE-E-DA65DAB1",
+      "title": "GUI arena APIs hide allocator side effects behind pure signatures",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-05",
+      "updated": "2026-06-05",
+      "target": "stdlib/alloc/gui/tree/types.nepl, stdlib/alloc/gui/layout/arena.nepl, stdlib/alloc/gui/layout/stack.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260605T020743241Z-GUI-ARENA-APIS-HIDE-ALLOCATOR-SIDE-E-DA65DAB1.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

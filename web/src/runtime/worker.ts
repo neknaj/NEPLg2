@@ -5,6 +5,7 @@ import {
     GUI_WEB_EVENT_KIND_ACTION,
     GUI_WEB_EVENT_KIND_KEYBOARD,
     GUI_WEB_EVENT_KIND_POINTER,
+    GUI_WEB_EVENT_KIND_TIMER,
     GUI_WEB_EVENT_KIND_TEXT_INPUT,
     GUI_WEB_EVENT_KIND_WINDOW,
     GUI_WEB_EVENT_POLL_INVALID,
@@ -120,6 +121,8 @@ class WorkerWASI extends WASI {
             last_event_window_kind: this.nepl_gui_web_last_event_window_kind.bind(this),
             last_event_window_width: this.nepl_gui_web_last_event_window_width.bind(this),
             last_event_window_height: this.nepl_gui_web_last_event_window_height.bind(this),
+            last_event_timer_id: this.nepl_gui_web_last_event_timer_id.bind(this),
+            last_event_timer_tick: this.nepl_gui_web_last_event_timer_tick.bind(this),
         };
     }
 
@@ -368,6 +371,26 @@ class WorkerWASI extends WASI {
         return this.lastGuiWebInputEvent.event.height;
     }
 
+    nepl_gui_web_last_event_timer_id(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'timer') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.timerId;
+    }
+
+    nepl_gui_web_last_event_timer_tick(): number {
+        if (this.lastGuiWebInputEvent.kind !== 'event') {
+            return 0;
+        }
+        if (this.lastGuiWebInputEvent.event.kind !== 'timer') {
+            return 0;
+        }
+        return this.lastGuiWebInputEvent.event.tick;
+    }
+
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
         if (result.kind === 'empty') {
             this.lastGuiWebInputEvent = { kind: 'empty' };
@@ -395,6 +418,9 @@ class WorkerWASI extends WASI {
         }
         if (result.event.kind === 'window') {
             return GUI_WEB_EVENT_KIND_WINDOW;
+        }
+        if (result.event.kind === 'timer') {
+            return GUI_WEB_EVENT_KIND_TIMER;
         }
         this.lastGuiWebInputEvent = { kind: 'empty' };
         return GUI_WEB_EVENT_POLL_INVALID;

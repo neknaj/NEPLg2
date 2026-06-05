@@ -357,7 +357,7 @@ fn focus_arena_last_loop %fn &ViewTreeArena fn i32 fn i32 fn Option WidgetId Opt
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn run_case %fn void i32 \void:
+//: fn run_case %impure fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 8 1
 //:     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -415,7 +415,7 @@ pub fn focus_next_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn run_case %fn void i32 \void:
+//: fn run_case %impure fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 8 1
 //:     let root %WidgetDescriptor widget_label root_id "root" root_hint

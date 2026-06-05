@@ -45,11 +45,13 @@ async function runWebGuiStdoutProtocolRegression() {
     assert.equal(events[2].text, "after frame\n");
 
     parser.reset();
-    events = parser.pushText("NEPLG2_GUI_SESSION_STATE counter:1\nNEPLG2_GUI_ANIMATE_MS 16\n");
+    events = parser.pushText("NEPLG2_GUI_SESSION_STATE counter:1\nNEPLG2_GUI_ANIMATE_MS 7 1 16\n");
     assert.equal(events.length, 2);
     assert.equal(events[0].kind, "session-state");
     assert.equal(events[0].state, "counter:1");
     assert.equal(events[1].kind, "animation-timer");
+    assert.equal(events[1].windowId, 7);
+    assert.equal(events[1].timerId, 1);
     assert.equal(events[1].intervalMs, 16);
 
     parser.reset();
@@ -112,6 +114,8 @@ async function runWebGuiStdoutProtocolRegression() {
     assert.match(protocolSource, /GuiWebStdoutProtocolErrorKind/);
     assert.match(shellSource, /GuiWebStdoutProtocolParser/);
     assert.match(shellSource, /presentGuiWebRuntimeFrame/);
+    assert.match(shellSource, /configureGuiRuntimeTimer/);
+    assert.match(shellSource, /clearGuiRuntimeTimers/);
     assert.match(shellSource, /message\.fd === 1/, "GUI stdout protocol must only parse stdout fd=1");
     assert.match(panelSource, /renderGuiPreviewFrameToCanvas/);
     assert.match(panelSource, /GuiPreviewDebugSink/);

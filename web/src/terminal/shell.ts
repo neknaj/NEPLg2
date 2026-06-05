@@ -72,6 +72,16 @@ type WorkerProcessOptions = {
     keepWorkerAlive?: boolean;
 };
 
+type GuiRuntimeTimerState = {
+    handle: ReturnType<typeof setInterval>;
+    windowId: number;
+    timerId: number;
+    intervalMs: number;
+    tick: number;
+};
+
+const GUI_RUNTIME_TIMER_MAX_TICK = 2147483647;
+
 export class Shell {
     terminal: any;
     editor: any;
@@ -88,6 +98,7 @@ export class Shell {
     private guiInputSab: SharedArrayBuffer | null;
     private guiRuntimeInputActive: boolean;
     private guiRuntimeInputWindowIds: Set<number>;
+    private guiRuntimeTimers: Map<string, GuiRuntimeTimerState>;
     private guiInputUnavailableReported: boolean;
     private currentProcessReject: ((reason?: any) => void) | null;
     private guiStdoutProtocolParser: GuiWebStdoutProtocolParser;
@@ -112,6 +123,7 @@ export class Shell {
         this.guiInputSab = null;
         this.guiRuntimeInputActive = false;
         this.guiRuntimeInputWindowIds = new Set();
+        this.guiRuntimeTimers = new Map();
         this.guiInputUnavailableReported = false;
         this.currentProcessReject = null;
         this.guiStdoutProtocolParser = new GuiWebStdoutProtocolParser();
@@ -522,6 +534,7 @@ export class Shell {
             Atomics.store(this.stdinBuffer, 0, 0);
         }
         if (request.type === 'run-wasm') {
+            this.clearGuiRuntimeTimers();
             this.guiRuntimeInputActive = true;
             this.guiRuntimeInputWindowIds = new Set();
             this.guiInputUnavailableReported = false;
@@ -540,6 +553,7 @@ export class Shell {
             const finish = (forceTerminate: boolean = false) => {
                 this.handleGuiStdoutProtocolEvents(this.guiStdoutProtocolParser.flush());
                 if (request.type === 'run-wasm') {
+                    this.clearGuiRuntimeTimers();
                     this.closeGuiRuntimeWindows();
                     this.guiRuntimeInputActive = false;
                     this.guiRuntimeInputWindowIds = new Set();
@@ -614,11 +628,78 @@ export class Shell {
             } else if (event.kind === 'session-state') {
                 continue;
             } else if (event.kind === 'animation-timer') {
-                continue;
+                this.configureGuiRuntimeTimer(event);
             } else {
                 this.printGuiProtocolError(`GUI stdout protocol error: ${event.error.kind} ${event.error.path}`);
             }
         }
+    }
+
+    private configureGuiRuntimeTimer(event: Extract<GuiWebStdoutProtocolEvent, { kind: 'animation-timer' }>) {
+        const key = this.guiRuntimeTimerKey(event.windowId, event.timerId);
+        if (!this.guiRuntimeInputActive) {
+            this.clearGuiRuntimeTimer(key);
+            return;
+        }
+        if (!this.guiRuntimeInputWindowIds.has(event.windowId)) {
+            this.printGuiProtocolError(`GUI timer rejected: window ${event.windowId} is not active`);
+            this.clearGuiRuntimeTimer(key);
+            return;
+        }
+        if (event.intervalMs === 0) {
+            this.clearGuiRuntimeTimer(key);
+            return;
+        }
+        const existing = this.guiRuntimeTimers.get(key);
+        if (existing && existing.intervalMs === event.intervalMs) {
+            return;
+        }
+        this.clearGuiRuntimeTimer(key);
+        const handle = setInterval(() => this.queueGuiRuntimeTimerTick(key), event.intervalMs);
+        this.guiRuntimeTimers.set(key, {
+            handle,
+            windowId: event.windowId,
+            timerId: event.timerId,
+            intervalMs: event.intervalMs,
+            tick: 0,
+        });
+    }
+
+    private queueGuiRuntimeTimerTick(key: string) {
+        const timer = this.guiRuntimeTimers.get(key);
+        if (!timer) {
+            return;
+        }
+        if (!this.guiRuntimeInputActive || !this.guiRuntimeInputWindowIds.has(timer.windowId)) {
+            this.clearGuiRuntimeTimer(key);
+            return;
+        }
+        timer.tick = timer.tick >= GUI_RUNTIME_TIMER_MAX_TICK ? 0 : timer.tick + 1;
+        this.handleGuiInputEvent({
+            kind: 'timer',
+            windowId: timer.windowId,
+            timerId: timer.timerId,
+            tick: timer.tick,
+        });
+    }
+
+    private clearGuiRuntimeTimer(key: string) {
+        const timer = this.guiRuntimeTimers.get(key);
+        if (!timer) {
+            return;
+        }
+        clearInterval(timer.handle);
+        this.guiRuntimeTimers.delete(key);
+    }
+
+    private clearGuiRuntimeTimers() {
+        for (const key of this.guiRuntimeTimers.keys()) {
+            this.clearGuiRuntimeTimer(key);
+        }
+    }
+
+    private guiRuntimeTimerKey(windowId: number, timerId: number): string {
+        return `${windowId}:${timerId}`;
     }
 
     private printGuiProtocolError(message: string) {
@@ -752,6 +833,7 @@ export class Shell {
             this.compilerWorkerAssetKey = null;
         }
         this.closeGuiRuntimeWindows();
+        this.clearGuiRuntimeTimers();
         this.guiRuntimeInputActive = false;
         this.guiRuntimeInputWindowIds = new Set();
         this.activeWorker.terminate();
