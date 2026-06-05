@@ -52,7 +52,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: user-defined type constructor header を `SelfhostTypeConstructorKind` へ正規化し、負 arity、予約名、同一 table 内の重複名を `SelfhostTypeConstructorTableErrorKind` として登録時に拒否するようにした。constructor / type parameter lookup は `SelfhostTypeBoundPlan` に束縛し、validate と build が同じ lookup 結果を共有するため、reducer は raw `arity` や source span lookup を通常経路で繰り返さない。旧 constructor-aware validate/build helper は削除し、公開 API から bound plan を迂回できないようにした。
 - 2026-06-05: constructor-aware projection でも `Applied` node の `SelfhostNamedTypeId` を constructor table で再検査し、constructor kind の型引数数と applied argument range が一致しない resolved tree を `GenericConstructorArgumentArityMismatch` として拒否するようにした。reducer 由来でない public resolved-tree constructor から不正な `SelfhostTypeRecord::Applied` が TypeArena に入る経路を閉じた。
 - 2026-06-05: `syntax/ast/prefix_expr.nepl` を追加し、parser / focused test 由来の `SelfhostSyntaxRange` を pre-HIR の flat `SelfhostExprPrefixList` へ変換する入力境界を作った。`%` type annotation marker、lambda marker、`@function` marker、literal、identifier、control form marker を token index / span 付き enum payload として保持し、call tree / HIR / TypeId / DefId allocation は行わない。`void` は expression start として拒否し、legacy grouping token 混入は typed build error にする。
-- 残件: function body から expression range を切り出す parser 接続、expected type / overload / generic / no partial application を含む call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `module_parser/body_range.nepl` を追加し、declaration body block の envelope と first expression segment を `SelfhostSyntaxRange` として保持するようにした。parser は body を HIR / call tree へ落とさず、単純な function body では `declaration_body.first_expression` から `SelfhostExprPrefixList` を構築できることを focused doctest で確認した。複数式 body / nested block は envelope を後段 segmenter へ渡す設計にした。
+- 残件: declaration body envelope からの expression segmenter、expected type / overload / generic / no partial application を含む call reduction、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -133,6 +134,16 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_expr_prefix.n.md -o tmp\selfhost-expr-prefix-tests.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i stdlib\neplg2\core\syntax\ast\prefix_expr.nepl -o tmp\selfhost-expr-prefix-module-doctest.json --no-tree -j 1 --assert-io --dist web\dist`
 - `node nodesrc/tests.js -i stdlib\neplg2\core\syntax -o tmp\selfhost-syntax-focused.json --no-tree -j 2 --assert-io --dist web\dist`
+
+2026-06-05 function body range checkpoint:
+
+- `node nodesrc/test_selfhost_function_body_prefix_range_contract.js`
+- `node nodesrc/test_selfhost_module_parser_split_contract.js`
+- `node nodesrc/test_selfhost_parser_current_syntax_boundary.js`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_expr_prefix.n.md -o tmp\selfhost-expr-prefix-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_parser.n.md -o tmp\selfhost-parser-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_checker.n.md -o tmp\selfhost-checker-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i stdlib\neplg2\core\syntax\parser\module_parser.nepl -o tmp\selfhost-module-parser-facade-body-range.json --no-tree -j 1 --assert-io --dist web\dist`
 
 2026-06-05 canonical type key checkpoint:
 

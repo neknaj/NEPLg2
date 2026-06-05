@@ -5,7 +5,7 @@
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
 stdout: mlstr:
-    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
     ##: [0] ok
     ##: [1] ok
     ##: [2] ok
@@ -28,6 +28,7 @@ stdout: mlstr:
     ##: [19] ok
     ##: [20] ok
     ##: [21] ok
+    ##: [22] ok
 ```neplg2
 #entry main
 #target std
@@ -86,6 +87,49 @@ fn check_lambda_header_range %fn SelfhostSyntaxRange Result unit str \syntax_ran
         SelfhostSyntaxRange::Empty:
             Result::Err "expected function lambda header range"
 
+fn check_body_envelope_range %fn SelfhostSyntaxRange Result unit str \syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Range range:
+            if:
+                and:
+                    eq range.first_token 17
+                    and:
+                        eq range.token_count 20
+                        and and eq range.span.start 44 eq range.span.end 193 source_span_is_valid range.span
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err "expected function body envelope token range"
+        SelfhostSyntaxRange::Empty:
+            Result::Err "expected function body envelope range"
+
+fn check_body_first_expression_range %fn SelfhostSyntaxRange Result unit str \syntax_range:
+    match syntax_range:
+        SelfhostSyntaxRange::Range range:
+            if:
+                and:
+                    eq range.first_token 17
+                    and:
+                        eq range.token_count 1
+                        and and eq range.span.start 44 eq range.span.end 60 source_span_is_valid range.span
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err "expected function body first expression token range"
+        SelfhostSyntaxRange::Empty:
+            Result::Err "expected function body first expression range"
+
+fn check_function_declaration_body %fn SelfhostModuleItem Result unit str \item:
+    match item.declaration_body:
+        Option::Some body:
+            match check_body_envelope_range body.envelope:
+                Result::Ok _unit:
+                    check_body_first_expression_range body.first_expression
+                Result::Err e:
+                    Result::Err e
+        Option::None:
+            Result::Err "expected parser declaration body evidence"
+
 fn check_function_declaration_header %fn SelfhostModuleItem Result unit str \item:
     match item.declaration:
         Option::Some header:
@@ -142,8 +186,9 @@ fn main %impure fn void i32 \void:
             let checks10 check_item checks9 &ast 8 "LlvmIrText" "%0 = add i32 %a, %b"
             let checks11 check_item checks10 &ast 9 "LlvmIrText" "ret i32 %0"
             let checks12 checks_push checks11 check_function_declaration_header item_at &ast 1
+            let checks13 checks_push checks12 check_function_declaration_body item_at &ast 1
             selfhost_module_ast_free ast
-            let shown checks_print_report checks12
+            let shown checks_print_report checks13
             checks_exit_code shown
         Result::Err diag:
             let _msg %str diag.message

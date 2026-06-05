@@ -189,7 +189,7 @@ fn selfhost_parser_prefix_range_token_role %fn TokenKind SelfhostParserPrefixRan
 //: [目的/もくてき]:
 //: - `[first_token, after_token)` の token span を結合し、後段 checker に渡す range evidence を作ります。
 //: - token buffer 境界から外れた場合は invalid payload を作らず `Empty` に落とし、function 宣言の必須 range 検査で拒否されるようにします。
-fn selfhost_parser_syntax_range_from_indices %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
+pub fn selfhost_parser_syntax_range_from_indices %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
     if:
         or le after_token first_token or lt first_token 0 gt after_token n
         then:

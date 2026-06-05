@@ -35,15 +35,15 @@ fn main %impure fn void i32 \void:
         Result::Ok ast:
             match selfhost_check_module_ast &ast:
                 Result::Ok summary:
-                    set checks checks_push checks check_eq_i32 10 selfhost_module_check_summary_item_count summary
+                    set checks checks_push checks check_eq_i32 11 selfhost_module_check_summary_item_count summary
                     set checks checks_push checks check_eq_i32 1 selfhost_module_check_summary_doc_comment_count summary
                     set checks checks_push checks check_eq_i32 4 selfhost_module_check_summary_directive_count summary
                     set checks checks_push checks check_eq_i32 1 selfhost_module_check_summary_entry_count summary
                     set checks checks_push checks check_eq_i32 1 selfhost_module_check_summary_target_count summary
                     set checks checks_push checks check_eq_i32 1 selfhost_module_check_summary_import_count summary
-                    set checks checks_push checks check_eq_i32 4 selfhost_module_check_summary_declaration_count summary
+                    set checks checks_push checks check_eq_i32 5 selfhost_module_check_summary_declaration_count summary
                     set checks checks_push checks check_eq_i32 1 selfhost_module_check_summary_function_count summary
-                    set checks checks_push checks check_eq_i32 2 selfhost_module_check_summary_type_declaration_count summary
+                    set checks checks_push checks check_eq_i32 3 selfhost_module_check_summary_type_declaration_count summary
                     set checks checks_push checks check_eq_i32 1 selfhost_module_check_summary_impl_count summary
                     set checks checks_push checks check_eq_i32 1 selfhost_module_check_summary_raw_text_count summary
                     selfhost_module_ast_free ast
