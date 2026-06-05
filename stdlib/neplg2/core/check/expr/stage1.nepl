@@ -22,20 +22,23 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
 #import "neplg2/core/syntax/parser/body_segmenter" as *
 #import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty" as *
 #import "./call_candidate" as *
+#import "./candidate_collection" as *
 #import "./model" as *
 #import "./body_line" as *
 
-//: selfhost_check_expr_stage1_make_candidate_vec: smoke 用 callable candidate list を[作/つく]る
+//: selfhost_check_expr_stage1_make_candidate_vec: ascription smoke 用 callable candidate list を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - `add` という名前の pure direct call candidate を 1 件だけ持つ list を作ります。
-//: - overload ambiguity ではなく、body line connector と arity 検査だけを確認する fixture にします。
+//: - `%i32 add 1 2` の ascription projection 後に渡す、最小の callable candidate list を作ります。
+//: - direct expression line の候補収集は `selfhost_check_expr_stage1_collect_candidates_from_fixture_scope` で name scope と signature table を通します。
 //:
 //: [契約/けいやく]:
 //: - 成功時は caller が `Vec SelfhostCallableCandidate` の owner を受け取り、検査後に解放します。
@@ -54,6 +57,52 @@ fn selfhost_check_expr_stage1_make_candidate_vec %impure fn SelfhostTypeId Resul
                     Result::Err error
         Result::Err e:
             Result::Err e
+
+//: selfhost_check_expr_stage1_collect_candidates_from_fixture_scope: fixture scope から `add` candidate を[集/あつ]める
+//:
+//: [目的/もくてき]:
+//: - `"add 1 2"` の先頭 identifier を `SelfhostNameScope` で解決し、DefId 経由で callable signature table に接続します。
+//: - direct line smoke test が手作り candidate ではなく、実際の checker 境界と同じ candidate collection API を通ることを確認します。
+//:
+//: [契約/けいやく]:
+//: - scope と signature table はこの helper 内で所有し、collection の成功・失敗にかかわらず解放します。
+//: - `Ok(candidates)` の場合だけ caller が candidate vector owner を受け取り、call reduction 後に解放します。
+//: - fixture 構築中の allocation failure は `OutOfMemory`、prefix list 構築失敗は `PrefixBuildFailed` として typed error に落とします。
+fn selfhost_check_expr_stage1_collect_candidates_from_fixture_scope %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostBodySegment impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \source\tokens\segment\add_type:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
+    match selfhost_name_scope_new:
+        Result::Ok scope0:
+            let binding %SelfhostNameBinding selfhost_name_binding_pending "add" SelfhostDefKind::Function span
+            match selfhost_name_scope_add_binding scope0 binding:
+                Result::Ok scope_add:
+                    let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &scope_add
+                    let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope scope_add
+                    match selfhost_callable_signature_table_new:
+                        Result::Ok table0:
+                            let signature %SelfhostCallableSignature selfhost_callable_signature_new def_id add_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+                            match selfhost_callable_signature_table_add table0 signature:
+                                Result::Ok table1:
+                                    match selfhost_expr_prefix_list_from_syntax_range tokens segment.head:
+                                        Result::Ok prefix:
+                                            let result %Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError selfhost_callable_candidates_collect_for_prefix source tokens &prefix &scope1 &table1
+                                            selfhost_expr_prefix_list_free prefix
+                                            selfhost_callable_signature_table_free table1
+                                            selfhost_name_scope_free scope1
+                                            result
+                                        Result::Err prefix_error:
+                                            selfhost_callable_signature_table_free table1
+                                            selfhost_name_scope_free scope1
+                                            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::PrefixBuildFailed prefix_error.span
+                                Result::Err _e:
+                                    selfhost_name_scope_free scope1
+                                    Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory span
+                        Result::Err _e:
+                            selfhost_name_scope_free scope1
+                            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory span
+                Result::Err _e:
+                    Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory span
+        Result::Err _e:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory span
 
 //: selfhost_check_expr_stage1_add_two_i32_function: `i32 i32 -> i32` の関数型を arena に[追加/ついか]する
 //:
@@ -276,7 +325,8 @@ fn selfhost_check_expr_stage1_ascription_ok_with_candidate %impure fn Vec Selfho
 //: - 成功・失敗どちらの経路でも candidate vector、type arena、token vector を解放します。
 //: - 戻り値は CLI や doctest で扱いやすい status code とし、`0` だけを成功とします。
 fn selfhost_check_expr_stage1_run_with_candidate %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\add_type:
-    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_expression_segment
+    match selfhost_check_expr_stage1_collect_candidates_from_fixture_scope "add 1 2" &tokens segment add_type:
         Result::Ok candidates:
             let ok0 %bool selfhost_check_expr_stage1_direct_ok &tokens &arena &candidates
             let ok1 %bool selfhost_check_expr_stage1_block_intro_rejected &tokens &arena &candidates

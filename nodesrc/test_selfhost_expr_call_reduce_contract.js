@@ -53,6 +53,46 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostCallableSignature:[\s\S]*def_id %SelfhostDefId[\s\S]*callable_type %SelfhostTypeId[\s\S]*effect %SelfhostEffectKind[\s\S]*generic_state %SelfhostGenericInferenceState[\s\S]*span %SelfhostSourceSpan/,
+    "callable candidate collection must preserve DefId-linked signature evidence",
+);
+assert.match(
+    source,
+    /pub struct SelfhostCallableSignatureTable:[\s\S]*entries %Vec SelfhostCallableSignature/,
+    "callable candidate collection must use an explicit signature table boundary",
+);
+assert.match(
+    source,
+    /pub enum SelfhostCallableCandidateCollectErrorKind:[\s\S]*EmptyPrefix[\s\S]*PrefixBuildFailed[\s\S]*UnsupportedHead[\s\S]*HeadTokenOutOfBounds[\s\S]*PendingBinding[\s\S]*MissingSignature[\s\S]*OutOfMemory/,
+    "callable candidate collection errors must fail closed with typed causes",
+);
+assert.match(
+    source,
+    /pub fn selfhost_callable_candidates_collect_for_prefix %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError/,
+    "callable candidate collection must expose a scope-and-signature-table boundary",
+);
+assert.match(
+    source,
+    /selfhost_token_lexeme source token[\s\S]*selfhost_callable_candidates_collect_from_scope_name name scope signatures head\.span/,
+    "callable candidate collection must route the prefix head through the scope-name collector",
+);
+assert.match(
+    source,
+    /selfhost_name_scope_get scope selfhost_def_id_new idx[\s\S]*string_search::str_eq binding\.name name[\s\S]*selfhost_def_kind_eq binding\.kind SelfhostDefKind::Function[\s\S]*selfhost_callable_candidates_push_binding out binding signatures/,
+    "callable candidate collection must scan all same-name function bindings instead of latest-only lookup",
+);
+assert.match(
+    source,
+    /selfhost_callable_signature_table_find signatures def_id[\s\S]*selfhost_callable_candidates_push_signature out binding\.name signature binding\.span/,
+    "callable candidate collection must use DefId to recover callable signature evidence",
+);
+assert.match(
+    source,
+    /selfhost_callable_candidate_new name signature\.callable_type signature\.effect signature\.generic_state signature\.span/,
+    "callable candidate collection must build reducer candidates from signature records",
+);
+assert.match(
+    source,
     /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
     "call reduction errors must distinguish partial application, overload, generic, and expectation failures",
 );
@@ -110,6 +150,11 @@ assert.match(
     bodyLine,
     /SelfhostBodySegmentKind::ExpressionLine:[\s\S]*selfhost_check_expr_reduce_expression_line_prefix tokens segment\.head arena candidates expected/,
     "ExpressionLine.head must be routed to the expression-line prefix reducer",
+);
+assert.match(
+    source,
+    /selfhost_name_scope_add_binding scope0 binding[\s\S]*selfhost_callable_signature_table_add table0 signature[\s\S]*selfhost_expr_prefix_list_from_syntax_range tokens segment\.head[\s\S]*selfhost_callable_candidates_collect_for_prefix source tokens &prefix &scope1 &table1/,
+    "stage1 smoke path must collect direct call candidates through scope and signature tables",
 );
 assert.match(
     bodyLine,

@@ -1,0 +1,332 @@
+#indent 4
+
+//: # check/expr/candidate_collection
+//: expression line の先頭名から callable candidate list を[構築/こうちく]する module です。
+//:
+//: [目的/もくてき]:
+//: - parser は prefix expression の call boundary を決めず、name resolver は scope 内の binding を保持します。
+//: - この module は、その 2 つを call reduction 用の `SelfhostCallableCandidate` 列へ変換します。
+//: - 候補の型は `SelfhostCallableSignatureTable` から取り、文字列名だけで call reduction を進めないようにします。
+//:
+//: [契約/けいやく]:
+//: - 先頭 item が `NamedValue` のときだけ function binding を探します。
+//: - 同名 function binding が複数ある場合は、scope の宣言順にすべて candidate list へ追加します。overload の曖昧性や narrowing は call reduction 側で扱います。
+//: - 名前が見つからない場合は空の candidate list を返します。最終的な `UnresolvedName` diagnostic は call reduction 側が同じ error model で作ります。
+//: - binding があるのに DefId や signature が欠けている場合は、この module の typed error として fail-closed にします。
+//: - signature table は caller が scope 構築時に事前構築します。この module は import graph や module AST を再探索しません。
+//:
+//: [現状/げんじょう]:
+//: - table の内部実装は insertion order の `Vec` であり、DefId lookup は O(s) です。
+//: - public API は table 表現を隠しているため、後続の interface artifact slice で DefId index 直引き table や hash table に置き換えられます。
+//:
+//: [計算量/けいさんりょう]:
+//: - prefix head の確認は O(1) です。
+//: - scope 走査は現在の `SelfhostNameScope` 実装に従い O(b) です。
+//: - signature lookup は現在 O(s) です。同名 function binding 数を m とすると全体は O(b + m*s) です。
+//: - b は binding 数、s は callable signature 数です。
+
+#import "alloc/collections/vec" as v
+#import "alloc/string/search" as string_search
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+#import "./call_candidate" as *
+
+//: SelfhostCallableSignature: DefId に対応する callable signature record
+//:
+//: [目的/もくてき]:
+//: - name resolver が返す DefId と、type checker が使う function type/effect/generic state を結びます。
+//: - DefId を保存することで、同名関数や将来の imported interface candidate を文字列だけで区別しないようにします。
+pub struct SelfhostCallableSignature:
+    def_id %SelfhostDefId
+    callable_type %SelfhostTypeId
+    effect %SelfhostEffectKind
+    generic_state %SelfhostGenericInferenceState
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostCallableSignature:
+    fn clone %fn &SelfhostCallableSignature SelfhostCallableSignature \self:
+        *self
+
+impl Copy for SelfhostCallableSignature:
+    fn copy_mark %fn SelfhostCallableSignature SelfhostCallableSignature \self:
+        self
+
+//: SelfhostCallableSignatureTable: callable signature record の owning table
+//:
+//: [契約/けいやく]:
+//: - table は caller が scope と同じ phase で構築し、expression line ごとに module AST を走査し直さないようにします。
+//: - 現在の Vec 実装は表現詳細です。lookup API の外へ `entries` を公開しないでください。
+pub struct SelfhostCallableSignatureTable:
+    entries %Vec SelfhostCallableSignature
+
+//: SelfhostCallableCandidateCollectErrorKind: candidate collection の失敗分類
+//:
+//: [目的/もくてき]:
+//: - prefix 入力不正、token table 不整合、scope / signature 不整合、allocation failure を enum として分けます。
+//: - 名前が存在しないだけの場合は call reduction の `UnresolvedName` へ流すため、この error にはしません。
+pub enum SelfhostCallableCandidateCollectErrorKind:
+    EmptyPrefix
+    PrefixBuildFailed
+    UnsupportedHead
+    HeadTokenOutOfBounds
+    PendingBinding
+    MissingSignature
+    OutOfMemory
+
+impl Clone for SelfhostCallableCandidateCollectErrorKind:
+    fn clone %fn &SelfhostCallableCandidateCollectErrorKind SelfhostCallableCandidateCollectErrorKind \self:
+        *self
+
+impl Copy for SelfhostCallableCandidateCollectErrorKind:
+    fn copy_mark %fn SelfhostCallableCandidateCollectErrorKind SelfhostCallableCandidateCollectErrorKind \self:
+        self
+
+//: SelfhostCallableCandidateCollectError: candidate collection 失敗の typed payload
+pub struct SelfhostCallableCandidateCollectError:
+    kind %SelfhostCallableCandidateCollectErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostCallableCandidateCollectError:
+    fn clone %fn &SelfhostCallableCandidateCollectError SelfhostCallableCandidateCollectError \self:
+        *self
+
+impl Copy for SelfhostCallableCandidateCollectError:
+    fn copy_mark %fn SelfhostCallableCandidateCollectError SelfhostCallableCandidateCollectError \self:
+        self
+
+//: selfhost_callable_signature_new: callable signature record を[作/つく]る
+pub fn selfhost_callable_signature_new %fn SelfhostDefId fn SelfhostTypeId fn SelfhostEffectKind fn SelfhostGenericInferenceState fn SelfhostSourceSpan SelfhostCallableSignature \def_id\callable_type\effect\generic_state\span:
+    SelfhostCallableSignature def_id callable_type effect generic_state span
+
+//: selfhost_callable_signature_table_new: [空/から]の callable signature table を[作/つく]る
+pub fn selfhost_callable_signature_table_new %impure fn void Result SelfhostCallableSignatureTable StdErrorKind \void:
+    let entries_result %Result Vec SelfhostCallableSignature StdErrorKind v::new
+    match entries_result:
+        Result::Ok entries:
+            Result::Ok SelfhostCallableSignatureTable entries
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_callable_signature_table_free: signature table の buffer を[解放/かいほう]する
+pub fn selfhost_callable_signature_table_free %impure fn SelfhostCallableSignatureTable unit \table:
+    v::free field::get table "entries"
+
+//: selfhost_callable_signature_table_add: signature record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - table owner を[消費/しょうひ]し、追加後の owner を[返/かえ]します。
+//: - `Vec::push` の owner 更新を含むため、この関数は impure です。
+pub fn selfhost_callable_signature_table_add %impure fn SelfhostCallableSignatureTable impure fn SelfhostCallableSignature Result SelfhostCallableSignatureTable StdErrorKind \table\signature:
+    let entries %Vec SelfhostCallableSignature field::get table "entries"
+    match v::push entries signature:
+        Result::Ok next_entries:
+            Result::Ok SelfhostCallableSignatureTable next_entries
+        Result::Err e:
+            let push_error_kind %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err push_error_kind
+
+//: selfhost_callable_signature_table_find_loop: DefId lookup を末尾から[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - signature table の現在の内部表現である insertion-order `Vec` を線形探索します。
+//: - public API から内部表現を隠し、後続で DefId indexed table へ差し替えられるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - signature 数を s として O(s) です。
+fn selfhost_callable_signature_table_find_loop %fn &SelfhostCallableSignatureTable fn SelfhostDefId fn i32 Option SelfhostCallableSignature \table\def_id\idx:
+    if:
+        lt idx 0
+        then:
+            none
+        else:
+            let entries %&Vec SelfhostCallableSignature field::get_ref table "entries"
+            match v::get entries idx:
+                Option::Some signature:
+                    if:
+                        selfhost_def_id_eq signature.def_id def_id
+                        then:
+                            some signature
+                        else:
+                            selfhost_callable_signature_table_find_loop table def_id sub idx 1
+                Option::None:
+                    none
+
+//: selfhost_callable_signature_table_find: DefId に対応する signature を[返/かえ]す
+//:
+//: [現状/げんじょう]:
+//: - 同じ DefId が複数回登録された場合、後から追加された record を優先します。
+//: - この挙動は scope の後勝ち shadowing と揃えるためで、duplicate を許す契約ではありません。
+pub fn selfhost_callable_signature_table_find %fn &SelfhostCallableSignatureTable fn SelfhostDefId Option SelfhostCallableSignature \table\def_id:
+    let entries %&Vec SelfhostCallableSignature field::get_ref table "entries"
+    selfhost_callable_signature_table_find_loop table def_id sub v::len entries 1
+
+//: selfhost_callable_candidate_collect_error_new: collection error payload を[作/つく]る
+pub fn selfhost_callable_candidate_collect_error_new %fn SelfhostCallableCandidateCollectErrorKind fn SelfhostSourceSpan SelfhostCallableCandidateCollectError \kind\span:
+    SelfhostCallableCandidateCollectError kind span
+
+//: selfhost_callable_candidates_empty: 空 candidate list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - name scope に該当 function binding がない場合でも、collection 自体は成功として reducer へ渡します。
+//: - reducer が同じ `UnresolvedName` error model で diagnostic を作れるよう、ここでは名前なしを別 error にしません。
+fn selfhost_callable_candidates_empty %impure fn SelfhostSourceSpan Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \span:
+    let out_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
+    match out_result:
+        Result::Ok out:
+            Result::Ok out
+        Result::Err _e:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory span
+
+//: selfhost_callable_candidates_push_signature: signature record を candidate list へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - DefId で復元した callable signature を、call reducer が扱う candidate payload へ変換します。
+//: - `Vec::push` 失敗時は戻された vector owner を解放し、allocation failure を collection error へ正規化します。
+fn selfhost_callable_candidates_push_signature %impure fn Vec SelfhostCallableCandidate impure fn str impure fn SelfhostCallableSignature impure fn SelfhostSourceSpan Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \out\name\signature\head_span:
+    let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new name signature.callable_type signature.effect signature.generic_state signature.span
+    match v::push out candidate:
+        Result::Ok next_out:
+            Result::Ok next_out
+        Result::Err e:
+            v::free v::vec_push_error_vec e
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory head_span
+
+//: selfhost_callable_candidates_one: 1 件だけの candidate list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 単一 binding を candidate list へ変換する小さな入口です。
+//: - 複数 overload の収集では `selfhost_callable_candidates_push_binding` が既存 list に追加します。
+fn selfhost_callable_candidates_one %impure fn str impure fn SelfhostCallableSignature impure fn SelfhostSourceSpan Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \name\signature\head_span:
+    let out_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
+    match out_result:
+        Result::Ok out0:
+            selfhost_callable_candidates_push_signature out0 name signature head_span
+        Result::Err _e:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory head_span
+
+//: selfhost_callable_candidates_from_binding: 1 binding から candidate list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - scope binding の DefId を signature table へ照合し、候補 1 件の list を返します。
+//: - public collection API の単一 binding 経路と複数 binding 経路で同じ invariant check を共有します。
+fn selfhost_callable_candidates_from_binding %impure fn SelfhostNameBinding impure fn &SelfhostCallableSignatureTable Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \binding\signatures:
+    match binding.def_id:
+        Option::Some def_id:
+            match selfhost_callable_signature_table_find signatures def_id:
+                Option::Some signature:
+                    selfhost_callable_candidates_one binding.name signature binding.span
+                Option::None:
+                    Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::MissingSignature binding.span
+        Option::None:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::PendingBinding binding.span
+
+//: selfhost_callable_candidates_push_binding: 1 binding を既存 candidate list へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - 同名 function binding をすべて候補に残すため、既存 list owner に 1 件ずつ追加します。
+//: - binding と signature の不整合は caller が見逃せない compiler invariant なので、空候補へ丸めず typed error として返します。
+fn selfhost_callable_candidates_push_binding %impure fn Vec SelfhostCallableCandidate impure fn SelfhostNameBinding impure fn &SelfhostCallableSignatureTable Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \out\binding\signatures:
+    match binding.def_id:
+        Option::Some def_id:
+            match selfhost_callable_signature_table_find signatures def_id:
+                Option::Some signature:
+                    selfhost_callable_candidates_push_signature out binding.name signature binding.span
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::MissingSignature binding.span
+        Option::None:
+            v::free out
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::PendingBinding binding.span
+
+//: selfhost_callable_candidates_collect_scope_loop: scope 全体から同名 function binding を[集/あつ]める
+//:
+//: [目的/もくてき]:
+//: - 後勝ち lookup ではなく、overload candidate collection として同名 function binding をすべて list 化します。
+//: - parser や reducer に scope の内部走査を持たせず、この module に名前解決から candidate list への変換を集約します。
+//:
+//: [計算量/けいさんりょう]:
+//: - binding 数を b、signature 数を s、同名 function 数を m とすると、現実装では O(b + m*s) です。
+//: - 後続の signature table index 化により、同じ public API のまま O(b + m) へ近づけます。
+fn selfhost_callable_candidates_collect_scope_loop %impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn Vec SelfhostCallableCandidate Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \name\scope\signatures\idx\end\out:
+    if:
+        ge idx end
+        then:
+            Result::Ok out
+        else:
+            match selfhost_name_scope_get scope selfhost_def_id_new idx:
+                Option::Some binding:
+                    match and string_search::str_eq binding.name name selfhost_def_kind_eq binding.kind SelfhostDefKind::Function:
+                        true:
+                            match selfhost_callable_candidates_push_binding out binding signatures:
+                                Result::Ok next_out:
+                                    selfhost_callable_candidates_collect_scope_loop name scope signatures add idx 1 end next_out
+                                Result::Err e:
+                                    Result::Err e
+                        false:
+                            selfhost_callable_candidates_collect_scope_loop name scope signatures add idx 1 end out
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::PendingBinding source_span_empty_unchecked 0 0
+
+//: selfhost_callable_candidates_collect_from_scope_name: 名前に対応する function candidate list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - scope 内の同名 function binding を宣言順に集め、overload 判定へ渡せる candidate list にします。
+//: - 名前が 1 件も見つからない場合でも空 list を返し、diagnostic の統一は reducer に任せます。
+fn selfhost_callable_candidates_collect_from_scope_name %impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostSourceSpan Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \name\scope\signatures\head_span:
+    let out_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
+    match out_result:
+        Result::Ok out:
+            selfhost_callable_candidates_collect_scope_loop name scope signatures 0 selfhost_name_scope_len scope out
+        Result::Err _e:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::OutOfMemory head_span
+
+//: selfhost_callable_candidates_collect_named: head token の名前から candidate list を[集/あつ]める
+//:
+//: [目的/もくてき]:
+//: - token index から identifier spelling を復元し、scope / signature table 境界へ渡します。
+//: - token table 範囲外は source と scope の不整合なので、空候補ではなく `HeadTokenOutOfBounds` として返します。
+fn selfhost_callable_candidates_collect_named %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostExprPrefixItem impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \source\tokens\head\scope\signatures:
+    match v::get tokens head.token_index:
+        Option::Some token:
+            let name %str selfhost_token_lexeme source token
+            selfhost_callable_candidates_collect_from_scope_name name scope signatures head.span
+        Option::None:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::HeadTokenOutOfBounds head.span
+
+//: selfhost_callable_candidates_collect_for_prefix: prefix 先頭名から callable candidate list を[集/あつ]める
+//:
+//: [目的/もくてき]:
+//: - `SelfhostExprPrefixList` の head token を name resolver scope で解決し、call reduction が受け取る候補列を作ります。
+//: - source text は head identifier の spelling を復元するためだけに使い、call boundary や型を文字列から推測しません。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Ok(empty)`: head name に対応する function binding がありません。call reduction が `UnresolvedName` を返すための入力です。
+//: - `Ok(nonempty)`: function binding と signature table が対応し、candidate list を構築できました。
+//: - `Err(PendingBinding)`: scope に DefId 未割当の binding が残っています。
+//: - `Err(MissingSignature)`: binding に対応する callable signature が table にありません。
+pub fn selfhost_callable_candidates_collect_for_prefix %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable Result Vec SelfhostCallableCandidate SelfhostCallableCandidateCollectError \source\tokens\prefix\scope\signatures:
+    let item_count %i32 selfhost_expr_prefix_list_len prefix
+    if:
+        eq item_count 0
+        then:
+            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::EmptyPrefix source_span_empty_unchecked 0 0
+        else:
+            match selfhost_expr_prefix_list_get prefix 0:
+                Option::Some head:
+                    match head.kind:
+                        SelfhostExprPrefixItemKind::NamedValue:
+                            selfhost_callable_candidates_collect_named source tokens head scope signatures
+                        _:
+                            Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::UnsupportedHead head.span
+                Option::None:
+                    Result::Err selfhost_callable_candidate_collect_error_new SelfhostCallableCandidateCollectErrorKind::EmptyPrefix source_span_empty_unchecked 0 0

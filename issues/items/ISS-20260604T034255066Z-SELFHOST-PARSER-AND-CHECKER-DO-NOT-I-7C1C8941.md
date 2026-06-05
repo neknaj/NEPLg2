@@ -59,8 +59,9 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `resolve/type_resolver` に先頭 1 型式だけを縮約して `next_index` を返す `selfhost_type_prefix_list_reduce_prefix*` API を追加した。`TrailingItems` を返す full annotation reducer と分け、`%i32 add 1 2` のような ascription 入力で後続 expression token を誤って型式 trailing item として拒否しない境界にした。
 - 2026-06-05: `check/expr/ascription.nepl` を追加し、`%T expr` を `SelfhostTypeExpectationSource::ExplicitAscription` と内側 `SelfhostSyntaxRange` へ投影する owner 付き入口を実装した。`body_line.nepl` には arena owner を受け取る `selfhost_check_expr_reduce_body_segment_with_arena` を追加し、`%` で始まる expression line は call reduction へ直接渡さず、ascription projection 後の内側 expression だけを縮約する。
 - 2026-06-05: `stage1` smoke helper に `%i32 add 1 2` の固定 token fixture を追加した。lexer / parser の詳細ではなく、type resolver が返す型式消費境界と body line connector の owner 戻しを確認する fixture とした。
+- 2026-06-05: `check/expr/candidate_collection.nepl` を追加し、`ExpressionLine.head` の identifier を `SelfhostNameScope` の function namespace で解決し、DefId に対応する `SelfhostCallableSignatureTable` record から call reducer 用 `SelfhostCallableCandidate` list を構築する初期境界を実装した。名前なしは空候補として reducer の `UnresolvedName` に集約し、DefId / signature 不整合は `PendingBinding` / `MissingSignature` として fail-closed にする。
 - 2026-06-05: focused doctest を止めていた既存 effect 境界も修正した。`selfhost_diagnostics_push` / `selfhost_diagnostics_free` / `lex_stack_drop_top` は `Vec` owner の更新または解放を行うため `impure fn` に正規化し、`lex_stack_drop_top` は引き続き public `drop_last` API へ委譲して `Vec` 内部 storage layout へ依存しない。
-- 残件: line head に対する candidate collection、argument type checking、generic instantiation inference、trait solving、ascription と外側 expected type の diagnostic 統合、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 残件: argument type checking、generic instantiation inference、trait solving、ascription と外側 expected type の diagnostic 統合、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 

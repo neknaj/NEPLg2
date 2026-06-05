@@ -1,3 +1,17 @@
+# 2026-06-05 Agent selfhost callable candidate collection checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser / body segmenter が call boundary や候補解決を所有せず、checker 側で typed evidence を集める境界を進めた。
+- `stdlib/neplg2/core/check/expr/candidate_collection.nepl` を追加し、`SelfhostExprPrefixList` の先頭 `NamedValue` を token span から spelling 復元し、`SelfhostNameScope` と `SelfhostCallableSignatureTable` から `SelfhostCallableCandidate` list を構築するようにした。
+- `SelfhostCallableSignature` は DefId、callable type、effect、generic inference state、span を保持する。候補収集は source 文字列だけで型を推測せず、DefId-linked signature evidence から reducer input を作る。
+- 名前が存在しない場合は空候補 list を返し、`UnresolvedName` は call reducer 側へ集約する。binding に DefId がない場合や signature table に対応 record がない場合は `PendingBinding` / `MissingSignature` として fail-closed にした。
+- subagent review では、当初の実装が `selfhost_name_scope_find_kind` による最新 1 件 lookup で同名 function overload を候補列にできないこと、helper doc comment が不足していること、note 未更新が指摘された。これを受けて scope 全体を走査し、同名 `SelfhostDefKind::Function` binding をすべて candidate list へ追加する実装に修正した。
+- 現行の signature table は `Vec` による insertion-order table で DefId lookup が O(s) である。同名 function 数 m、binding 数 b の collection は O(b + m*s) だが、public API は表現を隠しているため、後続の `.neplmeta` interface artifact / indexed signature table で O(b + m) へ近づける。
+- `check/expr/stage1.nepl` の direct smoke helper は手作り candidate vector ではなく、fixture scope と signature table を構築して `selfhost_callable_candidates_collect_for_prefix` を通すようにした。ascription smoke は projection 経路確認のため既存の最小 candidate helper を維持している。
+- `stdlib/neplg2/core/check/expr.nepl` facade と `nodesrc/selfhost_check_expr_sources.js`、`nodesrc/test_selfhost_expr_call_reduce_contract.js` を更新し、candidate collection module の re-export、typed error、scope scan、signature table lookup、stage1 縦切りを source policy で固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` を更新し、candidate collection を完了済みに移し、残件を argument type checking、generic instantiation inference、trait solving、ascription と外側 expected type の diagnostic 統合などへ絞った。
+- 検証済み: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`、`node nodesrc/test_selfhost_type_resolver_prefix_input.js`、`node nodesrc/test_selfhost_module_checker_split_contract.js`、`node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_candidate_collection_tests.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check`。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した selfhost candidate collection policy が pass し、既存の `test_resource_gate_order.js` と `test_diagnostic_code_first_boundary.js` だけを warning として報告した。
+
 # 2026-06-05 Agent selfhost expression ascription expectation checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の試作段階方針に沿って、parser が `%T expr` の型式境界を推測せず、type resolver / checker が typed evidence と owner を持って解決する境界へ寄せた。
