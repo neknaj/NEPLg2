@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - pixel-only draw target より[高水準/こうすいじゅん]な command stream を、allocator なしで[受/う]け[渡/わた]せる[型/かた]として[定義/ていぎ]します。
-//: - TUI/terminal backend は `TextCellRun` command を[受/う]け、ANSI などの[具体/ぐたい]出力は platform [層/そう]で[処理/しょり]します。
+//: - TUI text-grid backend は `TextCellRun` command を[受/う]け、具体的な output encoding は platform [層/そう]で[処理/しょり]します。
 //:
 //: ### [注意/ちゅうい]
 //: - text/image の[実体/じったい]は `TextRunId` / `ImageId` で[参照/さんしょう]します。文字列 buffer や image buffer は core では[保持/ほじ]しません。
@@ -105,7 +105,7 @@ impl Copy for Transform2d:
     fn copy_mark %fn Transform2d Transform2d \transform:
         transform
 
-//: TextGridPoint: terminal/text grid の cell [位置/いち]
+//: TextGridPoint: text-grid surface の cell [位置/いち]
 pub struct TextGridPoint:
     column %i32
     row %i32
@@ -134,7 +134,7 @@ impl Copy for TextCellStyle:
 //: TextCellRun: text grid surface へ[渡/わた]す cell run
 //:
 //: [目的/もくてき]:
-//: - terminal backend が[表示/ひょうじ]する text run id、開始 cell、cell count、style を 1 value に[束/たば]ねます。
+//: - text-grid backend が[表示/ひょうじ]する text run id、開始 cell、cell count、style を 1 value に[束/たば]ねます。
 pub struct TextCellRun:
     point %TextGridPoint
     run_id %TextRunId
@@ -149,6 +149,51 @@ impl Copy for TextCellRun:
     fn copy_mark %fn TextCellRun TextCellRun \run:
         run
 
+//: FillRectCommand: [塗/ぬ]り[潰/つぶ]し[矩形/くけい] command の payload
+//:
+//: ### [目的/もくてき]
+//: - `GuiRect` と `GuiPaint` を 1 value に[束/たば]ね、command stream の `FillRect` variant に[載/の]せます。
+//:
+//: ### [契約/けいやく]
+//: - geometry の[正当性/せいとうせい]や clipping はこの型では[検査/けんさ]しません。layout、rasterizer、backend が `GuiError::InvalidGeometry` などで[扱/あつか]います。
+//: - `GuiPaint` は color value だけを[持/も]ち、theme や platform-specific brush を core に[持/も]ち[込/こ]みません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `GuiRect` と `GuiPaint` を保持する no_alloc / Copy value です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction と copy は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_fill_rect_command_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/geometry" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new full zero zero full
+//:     let paint %GuiPaint gui_paint_solid color
+//:     let rect %GuiRect gui_rect_new 1 2 30 40
+//:     let _command %FillRectCommand FillRectCommand rect paint
+//:     0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_fill_rect_command_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
 pub struct FillRectCommand:
     rect %GuiRect
     paint %GuiPaint
@@ -161,6 +206,51 @@ impl Copy for FillRectCommand:
     fn copy_mark %fn FillRectCommand FillRectCommand \command:
         command
 
+//: StrokeRectCommand: [枠線/わくせん][矩形/くけい] command の payload
+//:
+//: ### [目的/もくてき]
+//: - `GuiRect` と `GuiStroke` を[束/たば]ね、矩形の border/stroke を command stream に[渡/わた]します。
+//:
+//: ### [契約/けいやく]
+//: - stroke width の 0 以下や rect の[負/ふ]の size はこの型では[拒否/きょひ]しません。validation は renderer/layout [境界/きょうかい]の責務です。
+//: - `GuiStroke` は color と width だけを[持/も]つため、dash pattern や backend brush は alloc/std/platform [層/そう]の extension として[扱/あつか]います。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `GuiRect` と `GuiStroke` を保持する no_alloc / Copy value です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction と copy は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_stroke_rect_command_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/geometry" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new zero full zero full
+//:     let stroke %GuiStroke gui_stroke_new color 2
+//:     let rect %GuiRect gui_rect_new 1 2 30 40
+//:     let _command %StrokeRectCommand StrokeRectCommand rect stroke
+//:     0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_stroke_rect_command_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
 pub struct StrokeRectCommand:
     rect %GuiRect
     stroke %GuiStroke
@@ -173,6 +263,52 @@ impl Copy for StrokeRectCommand:
     fn copy_mark %fn StrokeRectCommand StrokeRectCommand \command:
         command
 
+//: LineCommand: 2 [点/てん]を[結/むす]ぶ line command の payload
+//:
+//: ### [目的/もくてき]
+//: - start/end point と stroke を[保持/ほじ]し、backend が line segment として[解釈/かいしゃく]できる command にします。
+//:
+//: ### [契約/けいやく]
+//: - rasterization algorithm、anti-aliasing、subpixel policy は core の責務ではありません。backend は `GuiStroke` と geometry を[受/う]けて target に[合/あ]わせて[描画/びょうが]します。
+//: - start と end が[同一/どういつ]の[場合/ばあい]でも、この型は command を表せます。点として描くか無視するかは renderer contract で[決/き]めます。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `GuiPoint` 2 つと `GuiStroke` を保持する no_alloc / Copy value です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction と copy は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_line_command_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/geometry" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new zero zero full full
+//:     let stroke %GuiStroke gui_stroke_new color 1
+//:     let start %GuiPoint gui_point_new 1 2
+//:     let end %GuiPoint gui_point_new 10 12
+//:     let _command %LineCommand LineCommand start end stroke
+//:     0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_line_command_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
 pub struct LineCommand:
     start %GuiPoint
     end %GuiPoint
@@ -186,6 +322,52 @@ impl Copy for LineCommand:
     fn copy_mark %fn LineCommand LineCommand \command:
         command
 
+//: TextRunCommand: text run [参照/さんしょう] command の payload
+//:
+//: ### [目的/もくてき]
+//: - text buffer や glyph buffer の[実体/じったい]を core に[持/も]たせず、`TextRunId`、position、`TextPaint` だけを command stream に[載/の]せます。
+//:
+//: ### [契約/けいやく]
+//: - `TextRunId` の[解決/かいけつ]、font shaping、line breaking、IME composition は alloc/std/platform [層/そう]の責務です。
+//: - core は `TextRunId` を opaque handle として[運/はこ]び、missing resource は renderer 側が `Result` / `GuiError` で[返/かえ]します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `TextRunId`、`GuiPoint`、`TextPaint` を保持する no_alloc / Copy value です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction と copy は O(1) です。text measure や glyph layout はこの型では[行/おこな]いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_text_run_command_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/geometry" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new full full full full
+//:     let paint %TextPaint text_paint_solid color
+//:     let run_id %TextRunId text_run_id_new 9
+//:     let position %GuiPoint gui_point_new 3 4
+//:     let _command %TextRunCommand TextRunCommand run_id position paint
+//:     0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_text_run_command_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
 pub struct TextRunCommand:
     run_id %TextRunId
     position %GuiPoint
@@ -199,6 +381,46 @@ impl Copy for TextRunCommand:
     fn copy_mark %fn TextRunCommand TextRunCommand \command:
         command
 
+//: ImageRectCommand: image resource [参照/さんしょう] command の payload
+//:
+//: ### [目的/もくてき]
+//: - image buffer の[実体/じったい]を core に[持/も]たせず、`ImageId` と[配置/はいち]先 `GuiRect` だけを command stream に[載/の]せます。
+//:
+//: ### [契約/けいやく]
+//: - decode、cache、texture upload、scaling quality は alloc/std/platform [層/そう]の責務です。
+//: - `ImageId` が[見/み]つからない[場合/ばあい]や target が image command を[扱/あつか]えない[場合/ばあい]は、renderer 側が `Result` / `GuiError` で[返/かえ]します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `ImageId` と `GuiRect` を保持する no_alloc / Copy value です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction と copy は O(1) です。image decode や scale はこの型では[行/おこな]いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_image_rect_command_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/gui/geometry" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let image %ImageId image_id_new 12
+//:     let rect %GuiRect gui_rect_new 1 2 30 40
+//:     let _command %ImageRectCommand ImageRectCommand image rect
+//:     0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_image_rect_command_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
 pub struct ImageRectCommand:
     image_id %ImageId
     rect %GuiRect
@@ -211,6 +433,52 @@ impl Copy for ImageRectCommand:
     fn copy_mark %fn ImageRectCommand ImageRectCommand \command:
         command
 
+//: TextCellRunCommand: text-grid run command の payload
+//:
+//: ### [目的/もくてき]
+//: - GUI と TUI が[共有/きょうゆう]する command stream 上で、cell-based surface に[渡/わた]す `TextCellRun` を 1 variant の payload として[保持/ほじ]します。
+//:
+//: ### [契約/けいやく]
+//: - `TextCellRun` は cell position、text run id、cell count、style を[持/も]ちます。文字列そのものや escape sequence は core に[持/も]ち[込/こ]みません。
+//: - cell width、wide character、fallback glyph の[扱/あつか]いは text measurement / backend [層/そう]の責務です。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `TextCellRun` を保持する no_alloc / Copy value です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction と copy は O(1) です。cell expansion はこの型では[行/おこな]いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_text_cell_run_command_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let fg %Rgba8888 rgba8888_new full full full full
+//:     let bg %Rgba8888 rgba8888_new zero zero zero full
+//:     let style %TextCellStyle text_cell_style_new fg bg
+//:     let point %TextGridPoint text_grid_point_new 2 3
+//:     let run %TextCellRun text_cell_run_new point text_run_id_new 5 4 style
+//:     let _command %TextCellRunCommand TextCellRunCommand run
+//:     0
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_text_cell_run_command_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
 pub struct TextCellRunCommand:
     run %TextCellRun
 
@@ -223,6 +491,56 @@ impl Copy for TextCellRunCommand:
         command
 
 //: RenderCommand: backend へ[渡/わた]す command stream の 1 command
+//:
+//: ### [目的/もくてき]
+//: - GUI/TUI [共通/きょうつう]の render output を enum として[表/あらわ]し、backend は `match` で[扱/あつか]える variant だけを[処理/しょり]します。
+//:
+//: ### [契約/けいやく]
+//: - unsupported variant は silent no-op にせず、renderer/host [層/そう]で `Result` / `GuiError::Unsupported` として[返/かえ]します。
+//: - resource handle と command payload は typed value として[渡/わた]し、platform handle や string sentinel は core public API に[出/だ]しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - Fill/stroke/line/text/image/clip/transform/text-cell command を持つ Copy enum です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - construction、copy、variant match は O(1) です。描画 cost は backend の variant [処理/しょり]に[依存/いぞん]します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_render_command_enum_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"return value\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/geometry" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn command_code %fn RenderCommand i32 \command:
+//:     match command:
+//:         RenderCommand::FillRect _payload:
+//:             0
+//:         _:
+//:             1
+//:
+//: fn run_case %fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new full zero zero full
+//:     let paint %GuiPaint gui_paint_solid color
+//:     let rect %GuiRect gui_rect_new 1 2 30 40
+//:     command_code render_command_fill_rect rect paint
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_render_command_enum_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "return value" 0 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
 pub enum RenderCommand:
     FillRect %FillRectCommand
     StrokeRect %StrokeRectCommand

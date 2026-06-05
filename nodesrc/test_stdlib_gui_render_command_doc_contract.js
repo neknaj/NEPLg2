@@ -1,0 +1,92 @@
+#!/usr/bin/env node
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const repoRoot = path.resolve(__dirname, "..");
+
+function source(relPath) {
+    return fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
+}
+
+function precedingDoc(code, declarationNeedle) {
+    const index = code.indexOf(declarationNeedle);
+    assert.notEqual(index, -1, `missing declaration: ${declarationNeedle}`);
+    const before = code.slice(0, index).split("\n");
+    const doc = [];
+    let cursor = before.length - 1;
+    while (cursor >= 0 && before[cursor].trim() === "") {
+        cursor -= 1;
+    }
+    while (cursor >= 0 && before[cursor].trimStart().startsWith("//:")) {
+        doc.push(before[cursor]);
+        cursor -= 1;
+    }
+    return doc.reverse().join("\n");
+}
+
+function assertIncludes(code, needle, message) {
+    assert.ok(code.includes(needle), message);
+}
+
+function assertReportDoc(code, declarationNeedle, reportName) {
+    const doc = precedingDoc(code, declarationNeedle);
+    assertIncludes(doc, "neplg2:test[stdio, normalize_newlines]", `${reportName} must use runnable report doctest metadata`);
+    assertIncludes(doc, `test_report_new "${reportName}"`, `${reportName} report doctest is missing`);
+    assertIncludes(doc, "### [契約/けいやく]", `${reportName} must document stable contract`);
+    assertIncludes(doc, "### [現在/げんざい]の[実装/じっそう]", `${reportName} must separate current implementation notes`);
+    assertIncludes(doc, "### [計算量/けいさんりょう]", `${reportName} must document complexity`);
+    return doc;
+}
+
+const renderCommand = source("stdlib/core/gui/render_command.nepl");
+
+assert.doesNotMatch(
+    renderCommand,
+    /^\s*#import\s+"(?:alloc|std|platforms)\//m,
+    "core/gui render_command must not import alloc/std/platform modules",
+);
+
+for (const [declaration, reportName] of [
+    ["pub struct FillRectCommand:", "core_gui_fill_rect_command_doc"],
+    ["pub struct StrokeRectCommand:", "core_gui_stroke_rect_command_doc"],
+    ["pub struct LineCommand:", "core_gui_line_command_doc"],
+    ["pub struct TextRunCommand:", "core_gui_text_run_command_doc"],
+    ["pub struct ImageRectCommand:", "core_gui_image_rect_command_doc"],
+    ["pub struct TextCellRunCommand:", "core_gui_text_cell_run_command_doc"],
+    ["pub enum RenderCommand:", "core_gui_render_command_enum_doc"],
+]) {
+    assertReportDoc(renderCommand, declaration, reportName);
+}
+
+for (const snippet of [
+    "GUI/TUI [共通/きょうつう] render command",
+    "allocator なし",
+    "TUI text-grid backend",
+    "具体的な output encoding は platform [層/そう]",
+    "text/image の[実体/じったい]は `TextRunId` / `ImageId`",
+    "geometry の[正当性/せいとうせい]や clipping はこの型では[検査/けんさ]しません",
+    "validation は renderer/layout [境界/きょうかい]の責務",
+    "rasterization algorithm、anti-aliasing、subpixel policy は core の責務ではありません",
+    "`TextRunId` の[解決/かいけつ]、font shaping、line breaking、IME composition",
+    "missing resource は renderer 側が `Result` / `GuiError`",
+    "decode、cache、texture upload、scaling quality は alloc/std/platform [層/そう]の責務",
+    "GUI と TUI が[共有/きょうゆう]する command stream",
+    "文字列そのものや escape sequence は core に[持/も]ち[込/こ]みません",
+    "unsupported variant は silent no-op にせず",
+    "`GuiError::Unsupported`",
+    "platform handle や string sentinel は core public API に[出/だ]しません",
+    "backend は `match` で[扱/あつか]える variant だけを[処理/しょり]",
+]) {
+    assertIncludes(renderCommand, snippet, `render_command docs must pin GUI/TUI substrate and backend boundary: ${snippet}`);
+}
+
+assert.doesNotMatch(
+    renderCommand,
+    /\b(?:DOM|Canvas|ANSI|TTY|Win32|UIKit|AndroidView|HtmlCanvas|Ssd1306|Skia|terminal)\b|端末/,
+    "core/gui render_command docs must not expose concrete platform implementation names",
+);
+
+console.log("stdlib GUI render command doc contract passed");
