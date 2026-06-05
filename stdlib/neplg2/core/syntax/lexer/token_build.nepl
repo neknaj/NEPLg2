@@ -6,6 +6,16 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/token" as *
 
+//: lex_token_slice: source byte range から token を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - lexer の各 scanner が確定した token kind と byte range を、共通の `SelfhostToken` record へまとめます。
+//:
+//: [契約/けいやく]:
+//: - `start` と `end` は lexer が確定した半開区間 `[start, end)` です。この helper は range validation を行わず、scanner 側の境界証拠をそのまま token span に保存します。
+//:
+//: [計算量/けいさんりょう]:
+//: - token と span の構築だけなので O(1) です。
 pub fn lex_token_slice %fn TokenKind fn str fn i32 fn i32 fn i32 SelfhostToken \kind\source\file_id\start\end:
     selfhost_token_new kind source_span_new_unchecked file_id start end
 

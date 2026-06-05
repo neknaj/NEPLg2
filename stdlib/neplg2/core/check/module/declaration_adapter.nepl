@@ -1,5 +1,19 @@
 #indent 4
 
+//: # check/module/declaration_adapter
+//: module AST item を declaration / directive proof fact へ[写像/しゃぞう]する adapter module です。
+//:
+//: [目的/もくてき]:
+//: - parser が作った typed module item evidence を、proof layer が扱う fact へ変換します。
+//: - checker が source token や keyword 文字列を再読して directive / declaration を復元する退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - directive singleton と declaration header の検査は proof transition に委譲し、この module は adapter 境界だけを担当します。
+//: - proof の失敗は `SelfhostProofRefutation` として返し、diagnostic message への変換は `diagnostic.nepl` が担当します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 1 item あたり O(1) です。
+
 #import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/proof" as *
@@ -55,6 +69,17 @@ fn selfhost_module_directive_item_kind %fn SelfhostModuleItemKind SelfhostModule
 fn selfhost_module_directive_item_fact %fn SelfhostModuleItem SelfhostModuleDirectiveFact \item:
     selfhost_module_directive_fact_new selfhost_module_directive_item_kind item.kind item.span
 
+//: selfhost_module_check_directive_fact: module directive proof state を 1 fact 進める
+//:
+//: [目的/もくてき]:
+//: - `#entry` / `#target` の singleton など、module directive の静的制約を proof transition に委譲します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_state)`: fact を受理し、次の directive proof state を返します。
+//: - `Err(refutation)`: 重複などの proof refutation を typed value として返します。表示文は diagnostic adapter が担当します。
+//:
+//: [計算量/けいさんりょう]:
+//: - proof transition 1 回なので O(1) です。
 pub fn selfhost_module_check_directive_fact %fn SelfhostModuleDirectiveState fn SelfhostModuleDirectiveFact Result SelfhostModuleDirectiveState SelfhostProofRefutation \state\item:
     match selfhost_proof_module_directive_transition state item:
         Result::Ok next_state:
@@ -62,9 +87,34 @@ pub fn selfhost_module_check_directive_fact %fn SelfhostModuleDirectiveState fn 
         Result::Err refutation:
             Result::Err refutation
 
+//: selfhost_module_check_item_directive_state: module item を directive proof state に[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - parser の `SelfhostModuleItem` を proof 用 fact に変換し、module directive transition に渡します。
+//:
+//: [契約/けいやく]:
+//: - item kind から directive kind への写像は `selfhost_module_directive_item_kind` に閉じます。checker は source spelling を再読しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_state)`: item を受理した次 state です。
+//: - `Err(refutation)`: singleton directive 重複などの typed proof refutation です。
+//:
+//: [計算量/けいさんりょう]:
+//: - fact 構築と proof transition 1 回なので O(1) です。
 pub fn selfhost_module_check_item_directive_state %fn SelfhostModuleDirectiveState fn SelfhostModuleItem Result SelfhostModuleDirectiveState SelfhostProofRefutation \state\item:
     selfhost_module_check_directive_fact state selfhost_module_directive_item_fact item
 
+//: selfhost_module_check_item_span: module item の span proof を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - parser が保存した item span が source range として妥当であることを、module checker の早い段階で確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(unit)`: span は proof 層で妥当と判定されました。
+//: - `Err(refutation)`: invalid span を typed refutation として返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - span proof 1 回なので O(1) です。
 pub fn selfhost_module_check_item_span %fn SelfhostModuleItem Result unit SelfhostProofRefutation \item:
     match selfhost_proof_source_span_valid item.span:
         Result::Ok _:
@@ -75,6 +125,18 @@ pub fn selfhost_module_check_item_span %fn SelfhostModuleItem Result unit Selfho
 fn selfhost_module_declaration_item_fact %fn SelfhostModuleItem SelfhostModuleDeclarationFact \item:
     selfhost_module_declaration_fact_new item.kind item.declaration item.span
 
+//: selfhost_module_check_item_declaration_header: declaration header evidence を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - function / struct / enum / trait / impl item が、parser 由来の declaration header evidence を持つことを確認します。
+//: - checker が keyword 文字列を再読して declaration header を復元する退行を防ぎます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(unit)`: 非 declaration item、または header proof が成功した declaration item です。
+//: - `Err(refutation)`: declaration item なのに header が欠落または不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - item kind 判定と proof 1 回なので O(1) です。
 pub fn selfhost_module_check_item_declaration_header %fn SelfhostModuleItem Result unit SelfhostProofRefutation \item:
     match selfhost_module_item_kind_declaration item.kind:
         Option::Some kind:

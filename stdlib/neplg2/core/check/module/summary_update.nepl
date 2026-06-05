@@ -1,13 +1,47 @@
 #indent 4
 
+//: # check/module/summary_update
+//: module item kind を summary count へ[畳/たた]み[込/こ]む更新処理を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - checker orchestrator が module item stream を 1 item ずつ処理するとき、summary の全 count を typed item kind から更新します。
+//: - source spelling や token kind を再読せず、parser が確定した `SelfhostModuleItemKind` を集計の authority とします。
+//:
+//: [契約/けいやく]:
+//: - `item_count` はすべての item で増えます。分類別 count は match の該当 branch だけが更新します。
+//: - 新しい item kind を追加した場合、この match が網羅性検査で更新を要求する形を保ちます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 1 item あたり O(1) です。
+
 #import "core/math" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "./summary" as *
 
 //: selfhost_module_check_summary_new: [空/から]の module check summary を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module checker が item stream の左端から集計を始めるための初期 summary を作ります。
+//:
+//: [契約/けいやく]:
+//: - すべての count は 0 です。checker はこの値を初期 accumulator とし、`selfhost_module_check_summary_record` 以外で count を更新しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
 pub fn selfhost_module_check_summary_new %fn void SelfhostModuleCheckSummary \void:
     SelfhostModuleCheckSummary 0 0 0 0 0 0 0 0 0 0 0 0
 
+//: selfhost_module_check_summary_record: module item kind を summary に[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - parser が作った typed module item stream を 1 item ずつ集計し、後続 stage が source を再走査せずに module の概要を参照できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `item_count` はすべての item kind で 1 増えます。
+//: - directive / declaration / raw backend text などの分類 count は、`SelfhostModuleItemKind` の match で網羅的に更新します。新しい item kind を追加した場合は、この関数の match も同時に更新します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 1 item あたり O(1) です。
 pub fn selfhost_module_check_summary_record %fn SelfhostModuleCheckSummary fn SelfhostModuleItemKind SelfhostModuleCheckSummary \summary\kind:
     let item_count %i32 add summary.item_count 1
     match kind:

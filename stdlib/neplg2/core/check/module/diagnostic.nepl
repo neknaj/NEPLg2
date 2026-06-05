@@ -1,5 +1,19 @@
 #indent 4
 
+//: # check/module/diagnostic
+//: module checker の proof refutation を diagnostic へ[写像/しゃぞう]する module です。
+//:
+//: [目的/もくてき]:
+//: - proof layer の typed refutation を、checker diagnostic code、primary label、note を持つ diagnostic record に変換します。
+//: - error enum と表示文を分離し、後続 report 層が code-first に扱える形を保ちます。
+//:
+//: [契約/けいやく]:
+//: - module checker が直接扱う raw backend、span、directive duplicate、declaration header の refutation は専用 diagnostic に変換します。
+//: - 他 proof subsystem の refutation は unexpected proof diagnostic に畳み、module checker の責務外であることを明確にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - refutation variant の match だけなので O(1) です。
+
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof" as *
@@ -47,10 +61,31 @@ fn selfhost_module_check_declaration_header_invalid_diag %fn SelfhostModuleDecla
     let diag %SelfhostDiagnostic selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid "declaration header evidence is not valid for this declaration kind" issue.span "invalid declaration header evidence"
     selfhost_diag_with_note diag "the parser must preserve a valid header span, keyword span, and declaration head before type/trait/effect checks run"
 
+//: selfhost_module_check_index_unavailable_diag: module item index 欠落 diagnostic を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker が module AST item を取得できなかった内部境界を、typed checker diagnostic code として報告します。
+//:
+//: [契約/けいやく]:
+//: - source 上の特定 item を指せないため empty span を使います。表示文だけで分岐してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - diagnostic record 構築だけなので O(1) です。
 pub fn selfhost_module_check_index_unavailable_diag %fn void SelfhostDiagnostic \void:
     let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module AST item index was unavailable" span "unavailable module item"
 
+//: selfhost_module_check_refutation_diag: proof refutation を checker diagnostic へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - proof 層の typed refutation を、checker の diagnostic code / label / note へ変換します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - raw backend、span、directive duplicate、declaration header の module-check refutation は専用 diagnostic を返します。
+//: - この adapter の責務外である type / trait / lifetime / resource 系 refutation は unexpected proof diagnostic へまとめます。
+//:
+//: [計算量/けいさんりょう]:
+//: - refutation variant の match だけなので O(1) です。
 pub fn selfhost_module_check_refutation_diag %fn SelfhostProofRefutation SelfhostDiagnostic \refutation:
     match refutation:
         SelfhostProofRefutation::RawBackendTextWithoutBlock item:

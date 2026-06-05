@@ -7,6 +7,17 @@
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 
+//: LexDiagnostic: lexer が返す typed diagnostic record
+//:
+//: [目的/もくてき]:
+//: - lexer の失敗を表示文字列だけに丸めず、diagnostic code、span、message をまとめて後続 report 層へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `code` は機械判定用の authority です。`message` は人間向け補助文であり、分岐条件として使ってはいけません。
+//: - `span` は source 上の問題箇所を指します。source が不足する内部 invariant error では empty span を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - copy と field access は O(1) です。
 pub struct LexDiagnostic:
     code %SelfhostLexerDiagnosticCode
     span %SelfhostSourceSpan

@@ -1,5 +1,19 @@
 #indent 4
 
+//: # check/module/raw_backend_adapter
+//: module AST item を raw backend proof fact へ[写像/しゃぞう]する adapter module です。
+//:
+//: [目的/もくてき]:
+//: - `#wasm` / `#llvmir` block と raw text item の順序制約を、typed proof state で検査できるようにします。
+//: - checker が raw backend directive の source spelling を再読せず、parser が保存した item kind を authority として扱います。
+//:
+//: [契約/けいやく]:
+//: - raw block の空判定、raw text without block、stream end の検査は proof transition に委譲します。
+//: - proof の失敗は `SelfhostProofRefutation` として返し、diagnostic 表示は別 adapter が担当します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 1 item あたり O(1) です。raw text 本文の内容走査は行いません。
+
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/proof" as *
@@ -55,6 +69,17 @@ fn selfhost_module_raw_backend_item_kind %fn SelfhostModuleItemKind SelfhostRawB
 fn selfhost_module_raw_backend_item_fact %fn SelfhostModuleItem SelfhostRawBackendItemFact \item:
     selfhost_raw_backend_item_fact_new selfhost_module_raw_backend_item_kind item.kind item.span
 
+//: selfhost_module_check_raw_backend_fact: raw backend proof state を 1 fact 進める
+//:
+//: [目的/もくてき]:
+//: - `#wasm` / `#llvmir` block と raw text item の順序制約を proof transition に委譲します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_state)`: fact を受理し、raw backend proof state を更新しました。
+//: - `Err(refutation)`: raw text without block や empty block などを typed refutation として返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - proof transition 1 回なので O(1) です。
 pub fn selfhost_module_check_raw_backend_fact %fn SelfhostRawBackendState fn SelfhostRawBackendItemFact Result SelfhostRawBackendState SelfhostProofRefutation \state\item:
     match selfhost_proof_raw_backend_transition state item:
         Result::Ok next_state:
@@ -62,9 +87,34 @@ pub fn selfhost_module_check_raw_backend_fact %fn SelfhostRawBackendState fn Sel
         Result::Err refutation:
             Result::Err refutation
 
+//: selfhost_module_check_item_raw_state: module item を raw backend proof state に[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - parser の module item kind を raw backend proof fact に変換し、raw block / raw text の順序制約を検査します。
+//:
+//: [契約/けいやく]:
+//: - raw 判定は typed item kind から行います。`#wasm` や `#llvmir` の source spelling を checker で再読してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_state)`: item を受理した次 state です。
+//: - `Err(refutation)`: raw text without block などの typed proof refutation です。
+//:
+//: [計算量/けいさんりょう]:
+//: - fact 構築と proof transition 1 回なので O(1) です。
 pub fn selfhost_module_check_item_raw_state %fn SelfhostRawBackendState fn SelfhostModuleItem Result SelfhostRawBackendState SelfhostProofRefutation \state\item:
     selfhost_module_check_raw_backend_fact state selfhost_module_raw_backend_item_fact item
 
+//: selfhost_module_check_finish_raw_state: raw backend stream end fact を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - module item stream の末尾で、開いた raw backend block が空または未完了でないかを確定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_state)`: stream end を受理しました。
+//: - `Err(refutation)`: raw backend block が不正な終端状態です。
+//:
+//: [計算量/けいさんりょう]:
+//: - stream-end fact 1 回の proof transition なので O(1) です。
 pub fn selfhost_module_check_finish_raw_state %fn SelfhostRawBackendState Result SelfhostRawBackendState SelfhostProofRefutation \state:
     let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
     let item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
