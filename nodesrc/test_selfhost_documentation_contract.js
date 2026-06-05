@@ -39,6 +39,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/check/expr/call_reduce.nepl",
     "stdlib/neplg2/core/check/module/",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
+    "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
 ];
 const REQUIRED_SCANNER_SENTINELS = [
@@ -46,6 +47,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/check/module/summary.nepl",
     "stdlib/neplg2/core/check/module/declaration_adapter.nepl",
     "stdlib/neplg2/core/hir/hir/expr.nepl",
+    "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
 ];
 const DOC_SECTION_REQUIREMENTS = [
@@ -266,6 +268,142 @@ const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_module_check_item", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast_loop", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/check/module/orchestrate.nepl", "selfhost_check_module_ast", ["purpose", "returns", "complexity"]),
+    resourceSolverRequirement("selfhost_proof_resource_cell_proven", ["purpose", "contract", "returns", "complexity", "resourceBoundary"], [
+        requiredPattern("resource cell transition evidence", /\bSelfhostProofEvidence::ResourceCellTransition\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_resource_cell_invalid", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "resourceBoundary"], [
+        requiredPattern("resource cell transition refutation", /\bSelfhostProofRefutation::ResourceCellTransitionInvalid\b/),
+        requiredPattern("resource cell transition error", /\bSelfhostResourceCellTransitionError\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_resource_cell_uninitialized", ["purpose", "contract", "returns", "complexity", "errorVariant", "resourceBoundary"], [
+        requiredPattern("uninitialized state", /\bSelfhostResourceCellState::Uninitialized\b/),
+        requiredPattern("initialize event", /\bSelfhostResourceCellEventKind::Initialize\b/),
+        requiredPattern("move uninitialized error", /\bSelfhostResourceCellTransitionError::MoveUninitialized\b/),
+        requiredPattern("drop uninitialized error", /\bSelfhostResourceCellTransitionError::DropUninitialized\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_resource_cell_initialized", ["purpose", "contract", "returns", "complexity", "errorVariant", "resourceBoundary"], [
+        requiredPattern("initialized state", /\bSelfhostResourceCellState::Initialized\b/),
+        requiredPattern("already initialized error", /\bSelfhostResourceCellTransitionError::InitializeAlreadyInitialized\b/),
+        requiredPattern("move target state", /\bSelfhostResourceCellState::Moved\b/),
+        requiredPattern("drop target state", /\bSelfhostResourceCellState::Dropped\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_resource_cell_moved", ["purpose", "contract", "returns", "complexity", "errorVariant", "resourceBoundary"], [
+        requiredPattern("moved state", /\bSelfhostResourceCellState::Moved\b/),
+        requiredPattern("move after move error", /\bSelfhostResourceCellTransitionError::MoveAfterMove\b/),
+        requiredPattern("drop after move error", /\bSelfhostResourceCellTransitionError::DropAfterMove\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_resource_cell_dropped", ["purpose", "contract", "returns", "complexity", "errorVariant", "resourceBoundary"], [
+        requiredPattern("dropped state", /\bSelfhostResourceCellState::Dropped\b/),
+        requiredPattern("initialize after drop error", /\bSelfhostResourceCellTransitionError::InitializeAfterDrop\b/),
+        requiredPattern("move after drop error", /\bSelfhostResourceCellTransitionError::MoveAfterDrop\b/),
+        requiredPattern("double drop error", /\bSelfhostResourceCellTransitionError::DoubleDrop\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_resource_cell_transition", ["purpose", "contract", "returns", "complexity", "errorVariant", "resourceBoundary"], [
+        requiredPattern("all resource cell states", /\bSelfhostResourceCellState::Uninitialized\b[\s\S]*\bSelfhostResourceCellState::Initialized\b[\s\S]*\bSelfhostResourceCellState::Moved\b[\s\S]*\bSelfhostResourceCellState::Dropped\b/),
+        requiredPattern("resource cell evidence", /\bSelfhostProofEvidence::ResourceCellTransition\b/),
+        requiredPattern("resource cell refutation", /\bSelfhostProofRefutation::ResourceCellTransitionInvalid\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_owner_transition_proven", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("owner transition evidence", /\bSelfhostProofEvidence::OwnerTransition\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_owner_transition_invalid", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("owner transition refutation", /\bSelfhostProofRefutation::OwnerTransitionInvalid\b/),
+        requiredPattern("owner transition error", /\bSelfhostOwnerTransitionError\b/),
+        requiredPattern("owner storage authority", /\bfact\.storage\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_owner_transition_storage_mismatch", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("storage mismatch error", /\bSelfhostOwnerTransitionError::StorageIdMismatch\b/),
+        requiredPattern("no owner mismatch branch", /\bSelfhostOwnerState::NoOwner\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_owner_transition_with_storage", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("owned state", /\bSelfhostOwnerState::Owned\b/),
+        requiredPattern("moved state", /\bSelfhostOwnerState::Moved\b/),
+        requiredPattern("released state", /\bSelfhostOwnerState::Released\b/),
+        requiredPattern("acquire event", /\bSelfhostOwnerEventKind::Acquire\b/),
+        requiredPattern("move event", /\bSelfhostOwnerEventKind::MoveOut\b/),
+        requiredPattern("release event", /\bSelfhostOwnerEventKind::Release\b/),
+        requiredPattern("borrow view event", /\bSelfhostOwnerEventKind::BorrowView\b/),
+        requiredPattern("acquire while owned error", /\bSelfhostOwnerTransitionError::AcquireWhileOwned\b/),
+        requiredPattern("view after release error", /\bSelfhostOwnerTransitionError::ViewAfterRelease\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_owner_transition_no_owner", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("no owner state", /\bSelfhostOwnerState::NoOwner\b/),
+        requiredPattern("acquire event", /\bSelfhostOwnerEventKind::Acquire\b/),
+        requiredPattern("move without owner error", /\bSelfhostOwnerTransitionError::MoveWithoutOwner\b/),
+        requiredPattern("release without owner error", /\bSelfhostOwnerTransitionError::ReleaseWithoutOwner\b/),
+        requiredPattern("view without owner error", /\bSelfhostOwnerTransitionError::ViewWithoutOwner\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_owner_transition", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("invalid storage id error", /\bSelfhostOwnerTransitionError::InvalidStorageId\b/),
+        requiredPattern("owner transition evidence", /\bSelfhostProofEvidence::OwnerTransition\b/),
+        requiredPattern("owner transition refutation", /\bSelfhostProofRefutation::OwnerTransitionInvalid\b/),
+        requiredPattern("no-owner state", /\bSelfhostOwnerState::NoOwner\b/),
+        requiredPattern("owned state", /\bSelfhostOwnerState::Owned\b/),
+        requiredPattern("moved state", /\bSelfhostOwnerState::Moved\b/),
+        requiredPattern("released state", /\bSelfhostOwnerState::Released\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_borrow_access_proven", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("borrow access evidence", /\bSelfhostProofEvidence::ResourceBorrowAccess\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_borrow_access_invalid", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("borrow access refutation", /\bSelfhostProofRefutation::BorrowAccessInvalid\b/),
+        requiredPattern("borrow access error", /\bSelfhostBorrowAccessError\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_borrow_access_invalid_shared_count", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("invalid shared count error", /\bSelfhostBorrowAccessError::InvalidSharedBorrowCount\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_borrow_access_unborrowed", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("unborrowed state", /\bSelfhostBorrowState::Unborrowed\b/),
+        requiredPattern("start shared request", /\bSelfhostBorrowRequestKind::StartShared\b/),
+        requiredPattern("start mutable request", /\bSelfhostBorrowRequestKind::StartMutable\b/),
+        requiredPattern("end shared without shared error", /\bSelfhostBorrowAccessError::EndSharedWithoutSharedBorrow\b/),
+        requiredPattern("end mutable without mutable error", /\bSelfhostBorrowAccessError::EndMutableWithoutMutableBorrow\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_borrow_access_shared_valid", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("shared state", /\bSelfhostBorrowState::Shared\b/),
+        requiredPattern("mutable while shared error", /\bSelfhostBorrowAccessError::MutableBorrowWhileShared\b/),
+        requiredPattern("shared count one transition", /count が 1/),
+        requiredPattern("end mutable without mutable error", /\bSelfhostBorrowAccessError::EndMutableWithoutMutableBorrow\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_borrow_access_shared", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("shared state", /\bSelfhostBorrowState::Shared\b/),
+        requiredPattern("shared count validity helper", /\bselfhost_borrow_shared_count_is_valid\b/),
+        requiredPattern("invalid shared count error", /\bSelfhostBorrowAccessError::InvalidSharedBorrowCount\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_borrow_access_mutable", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("mutable state", /\bSelfhostBorrowState::Mutable\b/),
+        requiredPattern("shared while mutable error", /\bSelfhostBorrowAccessError::SharedBorrowWhileMutable\b/),
+        requiredPattern("mutable while mutable error", /\bSelfhostBorrowAccessError::MutableBorrowWhileMutable\b/),
+        requiredPattern("end shared without shared error", /\bSelfhostBorrowAccessError::EndSharedWithoutSharedBorrow\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_borrow_access", ["purpose", "contract", "returns", "complexity", "errorVariant", "ownerBoundary", "resourceBoundary"], [
+        requiredPattern("all borrow states", /\bSelfhostBorrowState::Unborrowed\b[\s\S]*\bShared count\b[\s\S]*\bMutable\b/),
+        requiredPattern("borrow access evidence", /\bSelfhostProofEvidence::ResourceBorrowAccess\b/),
+        requiredPattern("borrow access refutation", /\bSelfhostProofRefutation::BorrowAccessInvalid\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_lifetime_outlives_proven", ["purpose", "contract", "returns", "complexity", "resourceBoundary"], [
+        requiredPattern("lifetime outlives evidence", /\bSelfhostProofEvidence::LifetimeOutlives\b/),
+        requiredPattern("same lifetime success relation", /\bSelfhostLifetimeRelation::SameLifetime\b/),
+        requiredPattern("subject outlives success relation", /\bSubjectOutlivesRequired\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_lifetime_outlives_invalid", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "resourceBoundary"], [
+        requiredPattern("lifetime outlives refutation", /\bSelfhostProofRefutation::LifetimeOutlivesInvalid\b/),
+        requiredPattern("lifetime outlives error", /\bSelfhostLifetimeOutlivesError\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_lifetime_outlives_relation", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "resourceBoundary"], [
+        requiredPattern("invalid subject relation", /\bSelfhostLifetimeRelation::InvalidSubject\b/),
+        requiredPattern("invalid required relation", /\bSelfhostLifetimeRelation::InvalidRequired\b/),
+        requiredPattern("same lifetime relation", /\bSelfhostLifetimeRelation::SameLifetime\b/),
+        requiredPattern("subject outlives relation", /\bSelfhostLifetimeRelation::SubjectOutlivesRequired\b/),
+        requiredPattern("subject shorter error", /\bSelfhostLifetimeOutlivesError::SubjectDoesNotOutliveRequired\b/),
+        requiredPattern("unrelated error", /\bSelfhostLifetimeOutlivesError::UnrelatedLifetimes\b/),
+    ]),
+    resourceSolverRequirement("selfhost_proof_solve_lifetime_outlives", ["purpose", "contract", "returns", "complexity", "errorVariant", "authorityBoundary", "resourceBoundary"], [
+        requiredPattern("required lifetime mismatch error", /\bSelfhostLifetimeOutlivesError::RequiredLifetimeMismatch\b/),
+        requiredPattern("lifetime id equality authority", /\bselfhost_lifetime_id_eq\b/),
+        requiredPattern("lifetime evidence", /\bSelfhostProofEvidence::LifetimeOutlives\b/),
+        requiredPattern("lifetime refutation", /\bSelfhostProofRefutation::LifetimeOutlivesInvalid\b/),
+    ]),
     requirement("stdlib/neplg2/core/proof/solver/effect.nepl", "selfhost_proof_effect_allowed_result", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "effectBoundary"], {
         requiredPatterns: [
             requiredPattern("typed effect evidence", /\bSelfhostProofEvidence::EffectAllowed\b/),
@@ -362,9 +500,10 @@ const SECTION_PATTERNS = {
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
     doctest: /\bneplg2:test\b/,
-    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+)\b/,
+    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
     authorityBoundary: /\b(authority|typed evidence|parser-provided evidence|parser\/proof|proof layer|source spelling|source text|kind stream|message .*authority|diagnostic kind の authority|表示.*authority)\b/,
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
+    resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
     ownerBoundary: /\b(owner|cleanup obligation|cleanup|borrow|未処理 owner|owner 変換|解放)\b/,
 };
 
@@ -376,6 +515,12 @@ function requirement(relPath, name, sections, options = {}) {
         doctestUses: options.doctestUses || [],
         requiredPatterns: options.requiredPatterns || [],
     };
+}
+
+function resourceSolverRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/proof/solver/resource.nepl", name, sections, {
+        requiredPatterns,
+    });
 }
 
 function requiredPattern(label, pattern) {

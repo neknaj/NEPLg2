@@ -6,6 +6,14 @@
 //: [目的/もくてき]:
 //: - initialized/moved/drop state、free obligation owner、borrow state、lifetime relation を typed rule として集約します。
 //: - メモリ安全に関わる proof を checker-local allowlist にせず、fact/obligation/evidence/refutation の enum payload で扱います。
+//:
+//: [契約/けいやく]:
+//: - このモジュールは proof fact と obligation を読んで `SelfhostProofEvidence::*` または `SelfhostProofRefutation::*` を返すだけです。
+//: - diagnostic message は作らず、source span と typed reason を refutation payload に残します。
+//: - 各 solver は小さい enum state machine であり、Resource IR の lowering や source spelling を読み直しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 各 proof query は固定個数の enum match と id 比較だけを行うため O(1) です。
 
 #import "core/math" as *
 #import "neplg2/core/proof/fact" as *
@@ -15,13 +23,55 @@
 #import "neplg2/core/resource/init/cell" as *
 #import "neplg2/core/resource/owner" as *
 
+//: selfhost_proof_resource_cell_proven: Resource cell transition の成功 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - cell state machine が有効な遷移を認めたとき、次の `SelfhostResourceCellState` を typed evidence として返します。
+//:
+//: [契約/けいやく]:
+//: - evidence payload は必ず `SelfhostProofEvidence::ResourceCellTransition` です。
+//: - この helper は state の妥当性を再検査せず、呼び出し側の branch が選んだ次 state を包みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Proven (SelfhostProofEvidence::ResourceCellTransition state)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。enum payload を 1 つ構築するだけです。
 fn selfhost_proof_resource_cell_proven %fn SelfhostResourceCellState SelfhostProofResult \state:
     selfhost_proof_result_proven SelfhostProofEvidence::ResourceCellTransition state
 
+//: selfhost_proof_resource_cell_invalid: Resource cell transition の反証 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResourceCellEventKind::*` が現在 state で許可されない理由を、typed refutation として保持します。
+//:
+//: [契約/けいやく]:
+//: - refutation payload は必ず `SelfhostProofRefutation::ResourceCellTransitionInvalid` です。
+//: - `SelfhostResourceCellTransitionError::*` は solver が選んだ具体 reason であり、diagnostic layer はこの reason を表示へ写像します。
+//: - `event_fact.span` はエラー表示の authority であり、この helper は source text を読み直しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Refuted` として、元 state、event、span、reason を含む issue を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。issue payload を 1 つ構築するだけです。
 fn selfhost_proof_resource_cell_invalid %fn SelfhostResourceCellState fn SelfhostResourceCellEventFact fn SelfhostResourceCellTransitionError SelfhostProofResult \state\event_fact\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::ResourceCellTransitionInvalid selfhost_resource_cell_transition_issue_new state event_fact.event event_fact.span reason
 
 //: selfhost_proof_solve_resource_cell_uninitialized: 未初期化 cell の event transition を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResourceCellState::Uninitialized` から `Initialize` / `MoveOut` / `Drop` を処理します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostResourceCellEventKind::Initialize` だけを成功させ、次 state を `SelfhostResourceCellState::Initialized` にします。
+//: - `MoveOut` は `SelfhostResourceCellTransitionError::MoveUninitialized`、`Drop` は `SelfhostResourceCellTransitionError::DropUninitialized` で拒否します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostProofEvidence::ResourceCellTransition`、失敗時は `SelfhostProofRefutation::ResourceCellTransitionInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。event enum を 1 回 match します。
 fn selfhost_proof_solve_resource_cell_uninitialized %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
@@ -32,6 +82,19 @@ fn selfhost_proof_solve_resource_cell_uninitialized %fn SelfhostResourceCellEven
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Uninitialized event_fact SelfhostResourceCellTransitionError::DropUninitialized
 
 //: selfhost_proof_solve_resource_cell_initialized: 初期化済み cell の event transition を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResourceCellState::Initialized` からの再初期化、move out、drop を検査します。
+//:
+//: [契約/けいやく]:
+//: - `Initialize` は `SelfhostResourceCellTransitionError::InitializeAlreadyInitialized` で拒否します。
+//: - `MoveOut` は `SelfhostResourceCellState::Moved`、`Drop` は `SelfhostResourceCellState::Dropped` への正当な遷移です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は次 state の `SelfhostProofEvidence::ResourceCellTransition`、失敗時は typed refutation を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。event enum を 1 回 match します。
 fn selfhost_proof_solve_resource_cell_initialized %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
@@ -42,6 +105,19 @@ fn selfhost_proof_solve_resource_cell_initialized %fn SelfhostResourceCellEventF
             selfhost_proof_resource_cell_proven SelfhostResourceCellState::Dropped
 
 //: selfhost_proof_solve_resource_cell_moved: move 済み cell の event transition を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResourceCellState::Moved` の cell に対する再初期化、再 move、drop を処理します。
+//:
+//: [契約/けいやく]:
+//: - `Initialize` は moved slot への再代入として `SelfhostResourceCellState::Initialized` へ戻します。
+//: - `MoveOut` は `SelfhostResourceCellTransitionError::MoveAfterMove`、`Drop` は `SelfhostResourceCellTransitionError::DropAfterMove` で拒否します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostProofEvidence::ResourceCellTransition`、失敗時は `SelfhostProofRefutation::ResourceCellTransitionInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。event enum を 1 回 match します。
 fn selfhost_proof_solve_resource_cell_moved %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
@@ -52,6 +128,20 @@ fn selfhost_proof_solve_resource_cell_moved %fn SelfhostResourceCellEventFact Se
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Moved event_fact SelfhostResourceCellTransitionError::DropAfterMove
 
 //: selfhost_proof_solve_resource_cell_dropped: drop 済み cell の event transition を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResourceCellState::Dropped` に対する全 event を拒否し、drop 後利用を typed reason に分けます。
+//:
+//: [契約/けいやく]:
+//: - `Initialize` は `SelfhostResourceCellTransitionError::InitializeAfterDrop` です。
+//: - `MoveOut` は `SelfhostResourceCellTransitionError::MoveAfterDrop` です。
+//: - `Drop` は `SelfhostResourceCellTransitionError::DoubleDrop` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 常に `SelfhostProofRefutation::ResourceCellTransitionInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。event enum を 1 回 match します。
 fn selfhost_proof_solve_resource_cell_dropped %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
@@ -62,6 +152,21 @@ fn selfhost_proof_solve_resource_cell_dropped %fn SelfhostResourceCellEventFact 
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Dropped event_fact SelfhostResourceCellTransitionError::DoubleDrop
 
 //: selfhost_proof_solve_resource_cell_transition: Resource cell transition obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResourceCellState::*` と `SelfhostResourceCellEventKind::*` の組を cell state machine として検査します。
+//:
+//: [契約/けいやく]:
+//: - `Uninitialized` / `Initialized` / `Moved` / `Dropped` を exhaustive match し、各状態専用 helper に委譲します。
+//: - 対象 state は `SelfhostResourceCellState::Uninitialized` / `SelfhostResourceCellState::Initialized` / `SelfhostResourceCellState::Moved` / `SelfhostResourceCellState::Dropped` です。
+//: - 成功 evidence は `SelfhostProofEvidence::ResourceCellTransition`、失敗 refutation は `SelfhostProofRefutation::ResourceCellTransitionInvalid` に固定します。
+//: - この public entry は diagnostic message を作らず、typed proof result だけを返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 次の cell state または `SelfhostResourceCellTransitionError::*` を含む refutation を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。state と event を固定回数 match します。
 pub fn selfhost_proof_solve_resource_cell_transition %fn SelfhostResourceCellEventFact fn SelfhostResourceCellState SelfhostProofResult \event_fact\state:
     match state:
         SelfhostResourceCellState::Uninitialized:
@@ -73,15 +178,76 @@ pub fn selfhost_proof_solve_resource_cell_transition %fn SelfhostResourceCellEve
         SelfhostResourceCellState::Dropped:
             selfhost_proof_solve_resource_cell_dropped event_fact
 
+//: selfhost_proof_owner_transition_proven: owner transition の成功 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - free obligation owner state machine が許可した次 state を typed evidence として返します。
+//:
+//: [契約/けいやく]:
+//: - evidence payload は必ず `SelfhostProofEvidence::OwnerTransition` です。
+//: - `BorrowView` のように state が変わらない成功も、同じ evidence variant で現在 state を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Proven (SelfhostProofEvidence::OwnerTransition state)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。enum payload を 1 つ構築するだけです。
 fn selfhost_proof_owner_transition_proven %fn SelfhostOwnerState SelfhostProofResult \state:
     selfhost_proof_result_proven SelfhostProofEvidence::OwnerTransition state
 
+//: selfhost_proof_owner_transition_invalid: owner transition の反証 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - owner event が現在 state / storage id と整合しない理由を typed refutation にします。
+//:
+//: [契約/けいやく]:
+//: - refutation payload は必ず `SelfhostProofRefutation::OwnerTransitionInvalid` です。
+//: - `SelfhostOwnerTransitionError::*` は `InvalidStorageId`、`StorageIdMismatch`、move/release/view の状態違反を具体的に表します。
+//: - `fact.storage` と `fact.span` が issue の authority であり、raw pointer や source spelling から推測し直しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Refuted` として、state、event、storage、span、reason を保持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。issue payload を 1 つ構築するだけです。
 fn selfhost_proof_owner_transition_invalid %fn SelfhostOwnerState fn SelfhostOwnerEventFact fn SelfhostOwnerTransitionError SelfhostProofResult \state\fact\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::OwnerTransitionInvalid selfhost_owner_transition_issue_new state fact.event fact.storage fact.span reason
 
+//: selfhost_proof_owner_transition_storage_mismatch: storage id 不一致を typed reason にする
+//:
+//: [目的/もくてき]:
+//: - state が保持する `SelfhostOwnerStorageId` と fact が観測した storage が一致しない場合を、専用 reason に集約します。
+//:
+//: [契約/けいやく]:
+//: - reason は必ず `SelfhostOwnerTransitionError::StorageIdMismatch` です。
+//: - `SelfhostOwnerState::NoOwner` に storage 付き helper が誤って届いた場合も、owner authority の不整合として同じ reason にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofRefutation::OwnerTransitionInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。反証 helper を 1 回呼びます。
 fn selfhost_proof_owner_transition_storage_mismatch %fn SelfhostOwnerState fn SelfhostOwnerEventFact SelfhostProofResult \state\fact:
     selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::StorageIdMismatch
 
+//: selfhost_proof_owner_transition_with_storage: storage 付き owner state の event transition を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `Owned` / `Moved` / `Released` が保持する storage id と event storage を照合してから owner event を検査します。
+//:
+//: [契約/けいやく]:
+//: - state 内の `SelfhostOwnerStorageId` と `fact.storage` の一致が owner authority です。
+//: - storage id が一致しない場合は `SelfhostOwnerTransitionError::StorageIdMismatch` です。
+//: - `SelfhostOwnerState::Owned` では `SelfhostOwnerEventKind::MoveOut` が `SelfhostOwnerState::Moved`、`SelfhostOwnerEventKind::Release` が `SelfhostOwnerState::Released`、`SelfhostOwnerEventKind::BorrowView` が state 維持の成功です。
+//: - `SelfhostOwnerState::Owned` での `SelfhostOwnerEventKind::Acquire` は `SelfhostOwnerTransitionError::AcquireWhileOwned` です。
+//: - `SelfhostOwnerState::Moved` では `SelfhostOwnerTransitionError::AcquireAfterMove` / `SelfhostOwnerTransitionError::MoveAfterMove` / `SelfhostOwnerTransitionError::ReleaseAfterMove` / `SelfhostOwnerTransitionError::ViewAfterMove` を返します。
+//: - `SelfhostOwnerState::Released` では `SelfhostOwnerTransitionError::AcquireAfterRelease` / `SelfhostOwnerTransitionError::MoveAfterRelease` / `SelfhostOwnerTransitionError::ReleaseAfterRelease` / `SelfhostOwnerTransitionError::ViewAfterRelease` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostProofEvidence::OwnerTransition`、失敗時は `SelfhostProofRefutation::OwnerTransitionInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。storage id 比較と固定個数の enum match だけです。
 fn selfhost_proof_owner_transition_with_storage %fn SelfhostOwnerState fn SelfhostOwnerEventFact fn SelfhostOwnerStorageId SelfhostProofResult \state\fact\storage:
     if:
         selfhost_owner_storage_id_eq storage fact.storage
@@ -122,6 +288,22 @@ fn selfhost_proof_owner_transition_with_storage %fn SelfhostOwnerState fn Selfho
         else:
             selfhost_proof_owner_transition_storage_mismatch state fact
 
+//: selfhost_proof_solve_owner_transition_no_owner: owner がない状態の event transition を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostOwnerState::NoOwner` に対する acquire / move / release / view を検査します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostOwnerEventKind::Acquire` だけを成功させ、`SelfhostOwnerState::Owned fact.storage` にします。
+//: - `MoveOut` は `SelfhostOwnerTransitionError::MoveWithoutOwner` です。
+//: - `Release` は `SelfhostOwnerTransitionError::ReleaseWithoutOwner` です。
+//: - `BorrowView` は `SelfhostOwnerTransitionError::ViewWithoutOwner` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostProofEvidence::OwnerTransition`、失敗時は `SelfhostProofRefutation::OwnerTransitionInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。event enum を 1 回 match します。
 fn selfhost_proof_solve_owner_transition_no_owner %fn SelfhostOwnerEventFact SelfhostProofResult \fact:
     match fact.event:
         SelfhostOwnerEventKind::Acquire:
@@ -134,6 +316,21 @@ fn selfhost_proof_solve_owner_transition_no_owner %fn SelfhostOwnerEventFact Sel
             selfhost_proof_owner_transition_invalid SelfhostOwnerState::NoOwner fact SelfhostOwnerTransitionError::ViewWithoutOwner
 
 //: selfhost_proof_solve_owner_transition: free obligation owner transition obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - free obligation の acquire / move / release / borrow-view を owner state machine として検査します。
+//:
+//: [契約/けいやく]:
+//: - `fact.storage` が無効なら `SelfhostOwnerTransitionError::InvalidStorageId` で即座に拒否します。
+//: - `SelfhostOwnerState::NoOwner` は storage を持たないため、`Acquire` だけが新しい owner を作れます。
+//: - `SelfhostOwnerState::Owned` / `SelfhostOwnerState::Moved` / `SelfhostOwnerState::Released` は state 内の `SelfhostOwnerStorageId` と fact storage の一致を authority とします。
+//: - 成功 evidence は `SelfhostProofEvidence::OwnerTransition`、失敗 refutation は `SelfhostProofRefutation::OwnerTransitionInvalid` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 次の owner state または `SelfhostOwnerTransitionError::*` を含む refutation を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。storage id 妥当性検査、id 比較、state/event match だけです。
 pub fn selfhost_proof_solve_owner_transition %fn SelfhostOwnerEventFact fn SelfhostOwnerState SelfhostProofResult \fact\state:
     if:
         selfhost_owner_storage_id_is_valid fact.storage
@@ -150,15 +347,73 @@ pub fn selfhost_proof_solve_owner_transition %fn SelfhostOwnerEventFact fn Selfh
         else:
             selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::InvalidStorageId
 
+//: selfhost_proof_borrow_access_proven: borrow access の成功 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - borrow request が alias rule を満たしたとき、次の `SelfhostBorrowState` を typed evidence として返します。
+//:
+//: [契約/けいやく]:
+//: - evidence payload は必ず `SelfhostProofEvidence::ResourceBorrowAccess` です。
+//: - shared count の正当性は solver branch が検査し、この helper は選ばれた state を包みます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Proven (SelfhostProofEvidence::ResourceBorrowAccess state)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。enum payload を 1 つ構築するだけです。
 fn selfhost_proof_borrow_access_proven %fn SelfhostBorrowState SelfhostProofResult \state:
     selfhost_proof_result_proven SelfhostProofEvidence::ResourceBorrowAccess state
 
+//: selfhost_proof_borrow_access_invalid: borrow access の反証 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - shared / mutable borrow request が現在 state で許可されない理由を typed refutation にします。
+//:
+//: [契約/けいやく]:
+//: - refutation payload は必ず `SelfhostProofRefutation::BorrowAccessInvalid` です。
+//: - `SelfhostBorrowAccessError::*` は shared count 不正、shared/mutable 排他違反、borrow 終了対象なしを具体的に表します。
+//: - `fact.request` と `fact.span` を issue authority とし、caller はこの reason を diagnostic へ写像します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Refuted` として、state、request、span、reason を保持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。issue payload を 1 つ構築するだけです。
 fn selfhost_proof_borrow_access_invalid %fn SelfhostBorrowState fn SelfhostBorrowAccessFact fn SelfhostBorrowAccessError SelfhostProofResult \state\fact\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::BorrowAccessInvalid selfhost_borrow_access_issue_new state fact.request fact.span reason
 
+//: selfhost_proof_borrow_access_invalid_shared_count: shared count 不正を typed reason にする
+//:
+//: [目的/もくてき]:
+//: - `SelfhostBorrowState::Shared count` の count が 1 未満のような不正状態を、通常の request 違反と分けます。
+//:
+//: [契約/けいやく]:
+//: - reason は必ず `SelfhostBorrowAccessError::InvalidSharedBorrowCount` です。
+//: - request の種類に関係なく、borrow state invariant の破損を先に報告します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofRefutation::BorrowAccessInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。反証 helper を 1 回呼びます。
 fn selfhost_proof_borrow_access_invalid_shared_count %fn SelfhostBorrowState fn SelfhostBorrowAccessFact SelfhostProofResult \state\fact:
     selfhost_proof_borrow_access_invalid state fact SelfhostBorrowAccessError::InvalidSharedBorrowCount
 
+//: selfhost_proof_solve_borrow_access_unborrowed: borrow がない状態の request を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostBorrowState::Unborrowed` から shared / mutable borrow を開始できるか検査します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostBorrowRequestKind::StartShared` は `SelfhostBorrowState::Shared 1` へ遷移します。
+//: - `SelfhostBorrowRequestKind::StartMutable` は `SelfhostBorrowState::Mutable` へ遷移します。
+//: - `SelfhostBorrowRequestKind::EndShared` は `SelfhostBorrowAccessError::EndSharedWithoutSharedBorrow`、`SelfhostBorrowRequestKind::EndMutable` は `SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostProofEvidence::ResourceBorrowAccess`、失敗時は `SelfhostProofRefutation::BorrowAccessInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。request enum を 1 回 match します。
 fn selfhost_proof_solve_borrow_access_unborrowed %fn SelfhostBorrowAccessFact SelfhostProofResult \fact:
     match fact.request:
         SelfhostBorrowRequestKind::StartShared:
@@ -170,6 +425,22 @@ fn selfhost_proof_solve_borrow_access_unborrowed %fn SelfhostBorrowAccessFact Se
         SelfhostBorrowRequestKind::EndMutable:
             selfhost_proof_borrow_access_invalid SelfhostBorrowState::Unborrowed fact SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow
 
+//: selfhost_proof_solve_borrow_access_shared_valid: 有効な shared count の request を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostBorrowState::Shared shared_count` で count が有効な場合の追加 shared、mutable 開始、shared 終了、mutable 終了を処理します。
+//:
+//: [契約/けいやく]:
+//: - `StartShared` は count を 1 増やします。
+//: - `StartMutable` は shared 中の mutable borrow として `SelfhostBorrowAccessError::MutableBorrowWhileShared` です。
+//: - `EndShared` は count が 1 なら `Unborrowed`、2 以上なら count を 1 減らします。
+//: - `EndMutable` は `SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は次 borrow state、失敗時は typed borrow refutation を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。request enum と count 比較を固定回数だけ行います。
 fn selfhost_proof_solve_borrow_access_shared_valid %fn i32 fn SelfhostBorrowAccessFact SelfhostProofResult \shared_count\fact:
     match fact.request:
         SelfhostBorrowRequestKind::StartShared:
@@ -186,6 +457,21 @@ fn selfhost_proof_solve_borrow_access_shared_valid %fn i32 fn SelfhostBorrowAcce
         SelfhostBorrowRequestKind::EndMutable:
             selfhost_proof_borrow_access_invalid (SelfhostBorrowState::Shared shared_count) fact SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow
 
+//: selfhost_proof_solve_borrow_access_shared: shared borrow 状態の count invariant を検査して request を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - shared borrow 数が有効かを確認してから、shared borrow 中の request rule を適用します。
+//:
+//: [契約/けいやく]:
+//: - 入力 state は `SelfhostBorrowState::Shared shared_count` です。
+//: - `selfhost_borrow_shared_count_is_valid` が false のときは `SelfhostBorrowAccessError::InvalidSharedBorrowCount` を返します。
+//: - count が有効な場合だけ `selfhost_proof_solve_borrow_access_shared_valid` へ委譲します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 次 borrow state または `SelfhostProofRefutation::BorrowAccessInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。count 妥当性検査と request match だけです。
 fn selfhost_proof_solve_borrow_access_shared %fn i32 fn SelfhostBorrowAccessFact SelfhostProofResult \shared_count\fact:
     let state %SelfhostBorrowState selfhost_borrow_state_shared shared_count
     if:
@@ -195,6 +481,22 @@ fn selfhost_proof_solve_borrow_access_shared %fn i32 fn SelfhostBorrowAccessFact
         else:
             selfhost_proof_borrow_access_invalid_shared_count state fact
 
+//: selfhost_proof_solve_borrow_access_mutable: mutable borrow 中の request を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - `SelfhostBorrowState::Mutable` 中に shared / mutable borrow の開始や終了が許されるかを検査します。
+//:
+//: [契約/けいやく]:
+//: - `StartShared` は `SelfhostBorrowAccessError::SharedBorrowWhileMutable` です。
+//: - `StartMutable` は `SelfhostBorrowAccessError::MutableBorrowWhileMutable` です。
+//: - `EndShared` は `SelfhostBorrowAccessError::EndSharedWithoutSharedBorrow` です。
+//: - `EndMutable` だけが成功し、`SelfhostBorrowState::Unborrowed` へ戻します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は `SelfhostProofEvidence::ResourceBorrowAccess`、失敗時は `SelfhostProofRefutation::BorrowAccessInvalid` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。request enum を 1 回 match します。
 fn selfhost_proof_solve_borrow_access_mutable %fn SelfhostBorrowAccessFact SelfhostProofResult \fact:
     match fact.request:
         SelfhostBorrowRequestKind::StartShared:
@@ -207,6 +509,20 @@ fn selfhost_proof_solve_borrow_access_mutable %fn SelfhostBorrowAccessFact Selfh
             selfhost_proof_borrow_access_proven SelfhostBorrowState::Unborrowed
 
 //: selfhost_proof_solve_borrow_access: Resource borrow access obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - shared / mutable borrow の開始と終了を、`SelfhostBorrowState::*` と `SelfhostBorrowRequestKind::*` の state machine として検査します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostBorrowState::Unborrowed`、`SelfhostBorrowState::Shared count`、`SelfhostBorrowState::Mutable` を exhaustive match します。
+//: - `SelfhostBorrowState::Shared count` では `SelfhostBorrowAccessError::InvalidSharedBorrowCount` を先に検査し、count が不正な state を通常 request と混同しません。
+//: - 成功 evidence は `SelfhostProofEvidence::ResourceBorrowAccess`、失敗 refutation は `SelfhostProofRefutation::BorrowAccessInvalid` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 次の borrow state または `SelfhostBorrowAccessError::*` を含む refutation を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。state/request match と count 比較だけです。
 pub fn selfhost_proof_solve_borrow_access %fn SelfhostBorrowAccessFact fn SelfhostBorrowState SelfhostProofResult \fact\state:
     match state:
         SelfhostBorrowState::Unborrowed:
@@ -216,13 +532,59 @@ pub fn selfhost_proof_solve_borrow_access %fn SelfhostBorrowAccessFact fn Selfho
         SelfhostBorrowState::Mutable:
             selfhost_proof_solve_borrow_access_mutable fact
 
+//: selfhost_proof_lifetime_outlives_proven: lifetime outlives の成功 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source scope graph 由来の relation が outlives を証明できるとき、その relation を typed evidence として返します。
+//:
+//: [契約/けいやく]:
+//: - evidence payload は必ず `SelfhostProofEvidence::LifetimeOutlives` です。
+//: - `SelfhostLifetimeRelation::SameLifetime` と `SubjectOutlivesRequired` のように、証明に使った relation を失わずに残します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Proven (SelfhostProofEvidence::LifetimeOutlives relation)` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。enum payload を 1 つ構築するだけです。
 fn selfhost_proof_lifetime_outlives_proven %fn SelfhostLifetimeRelation SelfhostProofResult \relation:
     selfhost_proof_result_proven SelfhostProofEvidence::LifetimeOutlives relation
 
+//: selfhost_proof_lifetime_outlives_invalid: lifetime outlives の反証 result を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - required lifetime の不一致、invalid lifetime、短すぎる lifetime、unrelated lifetime を typed refutation にします。
+//:
+//: [契約/けいやく]:
+//: - refutation payload は必ず `SelfhostProofRefutation::LifetimeOutlivesInvalid` です。
+//: - `SelfhostLifetimeOutlivesError::*` は `RequiredLifetimeMismatch`、`InvalidSubjectLifetime`、`InvalidRequiredLifetime`、`SubjectDoesNotOutliveRequired`、`UnrelatedLifetimes` を具体的に表します。
+//: - `fact.subject`、`expected_required`、`fact.required`、`fact.relation`、`fact.use_kind`、`fact.span` を lifetime authority として issue に残します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostProofResult::Refuted` として lifetime issue を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。issue payload を 1 つ構築するだけです。
 fn selfhost_proof_lifetime_outlives_invalid %fn SelfhostLifetimeOutlivesFact fn SelfhostLifetimeId fn SelfhostLifetimeOutlivesError SelfhostProofResult \fact\expected_required\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::LifetimeOutlivesInvalid selfhost_lifetime_outlives_issue_new fact.subject expected_required fact.required fact.relation fact.use_kind fact.span reason
 
 //: selfhost_proof_solve_lifetime_outlives_relation: source-derived lifetime relation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - source scope graph から導出された `SelfhostLifetimeRelation::*` が outlives evidence になるか判定します。
+//:
+//: [契約/けいやく]:
+//: - source scope graph の relation fact を authority とし、depth や名前から推測し直しません。
+//: - `SelfhostLifetimeRelation::InvalidSubject` は `SelfhostLifetimeOutlivesError::InvalidSubjectLifetime` です。
+//: - `SelfhostLifetimeRelation::InvalidRequired` は `SelfhostLifetimeOutlivesError::InvalidRequiredLifetime` です。
+//: - `SelfhostLifetimeRelation::SameLifetime` と `SelfhostLifetimeRelation::SubjectOutlivesRequired` だけが `SelfhostProofEvidence::LifetimeOutlives` になります。
+//: - `SelfhostLifetimeRelation::SubjectShorterThanRequired` は `SelfhostLifetimeOutlivesError::SubjectDoesNotOutliveRequired` です。
+//: - `SelfhostLifetimeRelation::Unrelated` は `SelfhostLifetimeOutlivesError::UnrelatedLifetimes` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時は relation evidence、失敗時は typed lifetime refutation を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。relation enum を 1 回 match します。
 fn selfhost_proof_solve_lifetime_outlives_relation %fn SelfhostLifetimeOutlivesFact fn SelfhostLifetimeId SelfhostProofResult \fact\expected_required:
     match fact.relation:
         SelfhostLifetimeRelation::InvalidSubject:
@@ -239,6 +601,21 @@ fn selfhost_proof_solve_lifetime_outlives_relation %fn SelfhostLifetimeOutlivesF
             selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::UnrelatedLifetimes
 
 //: selfhost_proof_solve_lifetime_outlives: lifetime outlives obligation を[解/と]く
+//:
+//: [目的/もくてき]:
+//: - obligation が要求する lifetime と fact 内の required lifetime を照合し、subject が required を outlive するか検査します。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_lifetime_id_eq fact.required expected_required` が required lifetime authority です。
+//: - `fact.required` が `expected_required` と一致しない場合は `SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch` です。
+//: - lifetime relation の意味判定は `selfhost_proof_solve_lifetime_outlives_relation` に委譲します。
+//: - 成功 evidence は `SelfhostProofEvidence::LifetimeOutlives`、失敗 refutation は `SelfhostProofRefutation::LifetimeOutlivesInvalid` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - outlives を証明した relation または `SelfhostLifetimeOutlivesError::*` を含む refutation を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。lifetime id 比較と relation match だけです。
 pub fn selfhost_proof_solve_lifetime_outlives %fn SelfhostLifetimeOutlivesFact fn SelfhostLifetimeId SelfhostProofResult \fact\expected_required:
     if:
         selfhost_lifetime_id_eq fact.required expected_required
