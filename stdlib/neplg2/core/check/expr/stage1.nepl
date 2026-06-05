@@ -8,6 +8,8 @@
 //: - `BlockIntro` を誤って expression line reduction へ渡した場合に、typed error として拒否されることを確認します。
 //: - `%i32 add 1 2` のような明示 type ascription が、`%` を call reduction へ渡さず expected type と内側 expression range に分解されることを確認します。
 //: - `add %i32 1 2` のような argument-scope ascription が、raw prefix item 数ではなく実引数式 cursor と source-backed ascription checker で縮約されることを確認します。
+//: - `takes @add` のような明示 function value argument が、expected function type と named callable signature の一致でだけ縮約されることを確認します。
+//: - `takes add` のような bare function name は、NEPLg2.1 の no partial application 規則に従って function value へ暗黙変換されないことを確認します。
 //:
 //: [契約/けいやく]:
 //: - この module は focused smoke helper だけを持ち、production の接続規則は `body_line.nepl` に置きます。
@@ -236,11 +238,11 @@ fn selfhost_check_expr_stage1_value_context_with_shadowed_function_value %impure
 //: [契約/けいやく]:
 //: - 成功時は caller が `Vec SelfhostCallableCandidate` の owner を受け取り、検査後に解放します。
 //: - `v::push` が失敗した場合は中間 vector owner を解放し、`StdErrorKind` だけを返します。
-fn selfhost_check_expr_stage1_make_candidate_vec %impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate StdErrorKind \callable_type:
+fn selfhost_check_expr_stage1_make_named_candidate_vec %impure fn str impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate StdErrorKind \name\callable_type:
     let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
     match candidates_result:
         Result::Ok candidates0:
-            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" callable_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
+            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new name callable_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
             match v::push candidates0 candidate:
                 Result::Ok candidates1:
                     Result::Ok candidates1
@@ -250,6 +252,9 @@ fn selfhost_check_expr_stage1_make_candidate_vec %impure fn SelfhostTypeId Resul
                     Result::Err error
         Result::Err e:
             Result::Err e
+
+fn selfhost_check_expr_stage1_make_candidate_vec %impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate StdErrorKind \callable_type:
+    selfhost_check_expr_stage1_make_named_candidate_vec "add" callable_type
 
 //: selfhost_check_expr_stage1_collect_candidates_from_fixture_scope: fixture scope から `add` candidate を[集/あつ]める
 //:
@@ -328,6 +333,38 @@ fn selfhost_check_expr_stage1_add_two_i32_function %impure fn SelfhostTypeArena 
             selfhost_type_arena_free arena
             Result::Err e
 
+fn selfhost_check_expr_stage1_add_one_i32_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\i32_type:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 i32_type:
+                Result::Ok params1:
+                    selfhost_type_arena_add_function arena params1 i32_type
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+fn selfhost_check_expr_stage1_add_function_value_consumer %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\function_value_type\result_type:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 function_value_type:
+                Result::Ok params1:
+                    selfhost_type_arena_add_function arena params1 result_type
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
 //: selfhost_check_expr_stage1_expression_segment: `add 1 2` 全体を指す expression segment を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -376,6 +413,14 @@ fn selfhost_check_expr_stage1_nested_call_argument_segment %fn void SelfhostBody
 //: - 3 token 全体が外側 call であり、2個目の `add` は 1 item の `NamedValue` argument として消費されます。
 fn selfhost_check_expr_stage1_shadowed_function_argument_segment %fn void SelfhostBodySegment \void:
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 9
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
+fn selfhost_check_expr_stage1_function_value_argument_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 10
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
+fn selfhost_check_expr_stage1_implicit_function_value_argument_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 2 source_span_new_unchecked 0 0 9
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
 //: selfhost_check_expr_stage1_block_intro_segment: 拒否確認用の block-intro segment を[作/つく]る
@@ -534,6 +579,39 @@ fn selfhost_check_expr_stage1_make_shadowed_function_argument_tokens %impure fn 
                             selfhost_check_expr_stage1_push_token tokens2 outer_arg1
                         Result::Err e:
                             Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_check_expr_stage1_make_function_value_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let consumer %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 5
+            match selfhost_check_expr_stage1_push_token tokens0 consumer:
+                Result::Ok tokens1:
+                    let at_token %SelfhostToken selfhost_token_new TokenKind::At source_span_new_unchecked 0 6 7
+                    match selfhost_check_expr_stage1_push_token tokens1 at_token:
+                        Result::Ok tokens2:
+                            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 7 10
+                            selfhost_check_expr_stage1_push_token tokens2 add_token
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_check_expr_stage1_make_implicit_function_value_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let consumer %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 5
+            match selfhost_check_expr_stage1_push_token tokens0 consumer:
+                Result::Ok tokens1:
+                    let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 6 9
+                    selfhost_check_expr_stage1_push_token tokens1 add_token
                 Result::Err e:
                     Result::Err e
         Result::Err e:
@@ -739,6 +817,12 @@ fn selfhost_check_expr_stage1_success_is_two_arg_direct_call %fn &SelfhostExpres
     match *reduced:
         SelfhostCallReduceResult::DirectCall call:
             eq call.argument_count 2
+
+fn selfhost_check_expr_stage1_success_is_one_arg_direct_call %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let reduced %&SelfhostCallReduceResult selfhost_expression_line_check_success_result success
+    match *reduced:
+        SelfhostCallReduceResult::DirectCall call:
+            eq call.argument_count 1
 
 fn selfhost_check_expr_stage1_segment_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
     match segment.head:
@@ -1116,6 +1200,62 @@ fn selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence %im
             v::free tokens
             false
 
+fn selfhost_check_expr_stage1_function_value_argument_ok_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\add_type\takes_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_function_value_argument_segment
+    match selfhost_check_expr_stage1_make_named_candidate_vec "takes" takes_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 7 10
+            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "takes @add" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool selfhost_check_expr_stage1_success_is_one_arg_direct_call &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
+fn selfhost_check_expr_stage1_bare_function_value_argument_rejected %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\add_type\takes_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_implicit_function_value_argument_segment
+    match selfhost_check_expr_stage1_make_named_candidate_vec "takes" takes_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 6 9
+            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "takes add" segment arena context &candidates none:
+                        Result::Ok success:
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            false
+                        Result::Err e:
+                            let ok %bool selfhost_expression_line_check_error_is_call_reduce_kind e SelfhostCallReduceErrorKind::PartialApplicationRejected
+                            v::free candidates
+                            v::free tokens
+                            ok
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_run_with_candidate: token / arena / candidate owner を閉じて smoke result を[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -1346,6 +1486,70 @@ fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32 %impure fn
             v::free tokens
             1
 
+fn selfhost_check_expr_stage1_run_function_value_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            match selfhost_check_expr_stage1_add_function_value_consumer arena1 add_type i32_type:
+                Result::Ok takes_alloc:
+                    let takes_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &takes_alloc
+                    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena takes_alloc
+                    if selfhost_check_expr_stage1_function_value_argument_ok_with_scope tokens arena2 add_type takes_type 0 1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_bare_function_value_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            match selfhost_check_expr_stage1_add_function_value_consumer arena1 add_type i32_type:
+                Result::Ok takes_alloc:
+                    let takes_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &takes_alloc
+                    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena takes_alloc
+                    if selfhost_check_expr_stage1_bare_function_value_argument_rejected tokens arena2 add_type takes_type 0 1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_function_value_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_function_value_argument_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+fn selfhost_check_expr_stage1_run_bare_function_value_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_bare_function_value_argument_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 fn selfhost_check_expr_stage1_run_named_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -1514,6 +1718,23 @@ fn selfhost_check_expr_stage1_nested_call_argument_body_line %impure fn void i32
         Result::Err _e:
             1
 
+fn selfhost_check_expr_stage1_function_value_argument_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_function_value_argument_tokens:
+        Result::Ok tokens:
+            let ok_result %i32 selfhost_check_expr_stage1_run_function_value_argument_with_tokens tokens
+            if:
+                eq ok_result 0
+                then:
+                    match selfhost_check_expr_stage1_make_implicit_function_value_argument_tokens:
+                        Result::Ok implicit_tokens:
+                            selfhost_check_expr_stage1_run_bare_function_value_argument_with_tokens implicit_tokens
+                        Result::Err _e:
+                            1
+                else:
+                    1
+        Result::Err _e:
+            1
+
 fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_trailing_block_argument_tokens:
         Result::Ok tokens:
@@ -1530,6 +1751,8 @@ fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void 
 //: - `NamedValue` argument は、scope binding と value type evidence が揃う場合だけ通り、binding だけでは拒否されることを確認します。
 //: - nested named call argument は、scope と callable signature table から inner head の候補を集め、消費後 index を外側 call へ返すことを確認します。
 //: - 同名 local が function を shadow している場合は、古い function candidate を復活させず、NamedValue value evidence fallback を使うことも確認します。
+//: - 明示 `@ident` function value argument は、expected function type と同じ signature を持つ monomorphic named function だけを受理することを確認します。
+//: - bare function name を expected function type の位置に置いても、暗黙 function value や部分適用として成功しないことを確認します。
 //: - `BlockIntro` 専用入口では、末尾 block argument が nested body を `BlockResult` expectation として検査し、outer call の不足 parameter を満たすことを確認します。
 //:
 //: [戻/もど]り[値/ち]:
@@ -1558,7 +1781,13 @@ pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
                                             if:
                                                 eq nested_argument 0
                                                 then:
-                                                    selfhost_check_expr_stage1_trailing_block_argument_body_line
+                                                    let function_value_argument %i32 selfhost_check_expr_stage1_function_value_argument_body_line
+                                                    if:
+                                                        eq function_value_argument 0
+                                                        then:
+                                                            selfhost_check_expr_stage1_trailing_block_argument_body_line
+                                                        else:
+                                                            1
                                                 else:
                                                     1
                                         else:

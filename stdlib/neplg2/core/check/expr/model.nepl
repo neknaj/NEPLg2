@@ -88,11 +88,12 @@ pub struct SelfhostCallReduceOwnedResult:
 //: SelfhostCallReduceErrorKind: call reduction の失敗分類
 //:
 //: [目的/もくてき]:
-//: - parser 入力不正、名前解決失敗、callable でない値、partial application、argument type mismatch、argument ascription failure、argument name evidence failure、未対応の実引数式、overload、generic、expected type mismatch を enum として分けます。
+//: - parser 入力不正、名前解決失敗、callable でない値、partial application、argument type mismatch、argument ascription failure、argument name evidence failure、argument function value evidence failure、未対応の実引数式、overload、generic、expected type mismatch を enum として分けます。
 //: - display text は別 module の diagnostic projection へ移し、checker 本体はこの分類を返します。
 //: - `UnsupportedArgumentExpression` は、ascription 付き引数や nested call のように 1 個の prefix item では型証拠を得られないが、raw item 数で overload 失敗へ潰してはいけない場合に使います。
 //: - `ArgumentAscriptionProjectionFailed` と `ArgumentAscriptionExpectedTypeConflict` は、argument-scope `%T expr` の型注釈自体の不備と expected parameter type との衝突を分けます。
 //: - `ArgumentNamedValue*` は、argument position の名前が値として解決できない場合と、値は解決できるが型証拠がまだ無い場合を分けます。
+//: - `ArgumentFunctionValue*` は、明示 `@ident` を function value argument として扱うための expected function type、callable identity、signature、monomorphic check、型一致の失敗を分けます。
 //: - `ArgumentNestedCandidate*` は、nested named call argument の head を function candidate として収集する段階の不整合を分けます。
 //: - `TrailingBlockBody*` は、末尾 block argument の nested body を `BlockResult` expectation で検査する前の入力構築失敗を分けます。partial application や raw arity error へ潰してはいけません。
 //: - `UnexpectedTrailingBlockArgument` は、candidate の parameter をすでにすべて消費した後に `BlockIntro.body` が残った場合です。
@@ -109,6 +110,16 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentNamedValuePendingBinding
     ArgumentNamedValueUnsupportedBinding
     ArgumentNamedValueEvidenceMissing
+    ArgumentFunctionValueExpectedFunctionType
+    ArgumentFunctionValueMissingName
+    ArgumentFunctionValueUnresolved
+    ArgumentFunctionValueAmbiguous
+    ArgumentFunctionValuePendingBinding
+    ArgumentFunctionValueMissingSignature
+    ArgumentFunctionValueHeadTokenOutOfBounds
+    ArgumentFunctionValueOutOfMemory
+    ArgumentFunctionValueGenericUnsupported
+    ArgumentFunctionValueTypeMismatch
     ArgumentNestedCandidatePendingBinding
     ArgumentNestedCandidateMissingSignature
     ArgumentNestedCandidateHeadTokenOutOfBounds
@@ -261,6 +272,66 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueExpectedFunctionType:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueExpectedFunctionType:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingName:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingName:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueUnresolved:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueUnresolved:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueAmbiguous:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueAmbiguous:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValuePendingBinding:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValuePendingBinding:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingSignature:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingSignature:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueHeadTokenOutOfBounds:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueHeadTokenOutOfBounds:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueOutOfMemory:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueOutOfMemory:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch:
                     true
                 _:
                     false

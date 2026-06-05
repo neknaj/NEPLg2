@@ -187,7 +187,7 @@ lexer は offside rule と directive を最初の authority として扱う。
 
 - identifier、integer、string、doc comment、line comment
 - `#entry`、`#target`、`#indent`、`#import`、`#include`、`#no_prelude`、`#test`
-- `%`、`\`、`:`、`|>`、`.`、`,`、`@function`
+- `%`、`\`、`:`、`|>`、`.`、`,`、`@`
 - `unit`、`void`、`fn`、`impure`
 - `Indent`、`Dedent`、`Newline`、`Eof`
 
@@ -223,7 +223,7 @@ ParsedType:
 
 `%T expr` は expected type boundary として保持する。runtime operation ではない。
 
-現行 self-host 実装では、`stdlib/neplg2/core/syntax/ast/prefix_expr.nepl` が `SelfhostExprPrefixList` を提供する。これは `SelfhostSyntaxRange` から作る pre-HIR の flat expression item list であり、`%` type annotation marker、lambda marker、`@function` marker、literal、identifier、control form marker を token index と span 付きで保持する。`SelfhostExprPrefixList` は HIR ではなく、`SelfhostHirExprPayload::Call` のような解決済み call tree を作らない。body parser は `module_parser/body_range.nepl` で declaration body envelope と first expression segment を `SelfhostSyntaxRange` として切り出す。`parser/body_segmenter.nepl` は body envelope を top-level segment 列へ分解し、flat prefix expression にできる `ExpressionLine` と nested body を持つ `BlockIntro` を型で分ける。`BlockIntro.body` は recursive segmenter の入力であり、`SelfhostExprPrefixList` へ直接渡さない。
+現行 self-host 実装では、`stdlib/neplg2/core/syntax/ast/prefix_expr.nepl` が `SelfhostExprPrefixList` を提供する。これは `SelfhostSyntaxRange` から作る pre-HIR の flat expression item list であり、`%` type annotation marker、lambda marker、`@` marker、literal、identifier、control form marker を token index と span 付きで保持する。`SelfhostExprPrefixList` は HIR ではなく、`SelfhostHirExprPayload::Call` のような解決済み call tree を作らない。body parser は `module_parser/body_range.nepl` で declaration body envelope と first expression segment を `SelfhostSyntaxRange` として切り出す。`parser/body_segmenter.nepl` は body envelope を top-level segment 列へ分解し、flat prefix expression にできる `ExpressionLine` と nested body を持つ `BlockIntro` を型で分ける。`BlockIntro.body` は recursive segmenter の入力であり、`SelfhostExprPrefixList` へ直接渡さない。
 
 `fn void T` は parser/type resolver boundary で `params = []` へ正規化する。`void` は result type、type argument、expression、parameter name として受理しない。
 
@@ -279,7 +279,7 @@ type checker は prefix call reduction を担当する。
 - callable arity / effect / parameter matching
 - indirect function value call
 - no partial application enforcement
-- `@function name` function value identity construction
+- `@ident` function value identity construction
 - `memo_call` compiler-known primitive
 
 現行 self-host 実装では、`stdlib/neplg2/core/check/expr/` が expression checker の初期境界を持つ。`SelfhostTypeExpectation` は expected type の `SelfhostTypeId` だけでなく、`ExplicitAscription` / `BlockResult` / `OuterConsumerArgument` の由来と span を保持する。`SelfhostCallableCandidate` は候補名、function type であるべき TypeId、effect、generic inference state、span を保持する。call reduction はこれらと `SelfhostExprPrefixList` を受け取り、HIR をまだ生成せず `SelfhostCallReduceResult::DirectCall` または `SelfhostCallReduceError` を返す。`check/expr/body_line.nepl` は `SelfhostBodySegmentKind::ExpressionLine.head` から prefix list を作ってこの境界へ渡す接続口である。`check/expr/candidate_collection.nepl` は prefix head の identifier spelling を token span から復元し、`SelfhostNameScope` の function namespace と `SelfhostCallableSignatureTable` の DefId-linked signature evidence から reducer 用 candidate vector を作る。通常の expression line 入口に渡された `BlockIntro` は nested body envelope なので `NotExpressionLine` として拒否し、prefix list 生成失敗と call reduction 失敗は別の enum variant に保つ。BlockIntro 専用入口では `head` だけを prefix list 化し、`body` は `SelfhostTrailingBlockArgument` として source-backed reducer へ渡す。`check/expr/block_body.nepl` はこの nested body envelope を body segmenter で再帰分解し、単一 `ExpressionLine` の prefix list と callable candidate list を構築する。call reducer は不足 parameter の expected type を `BlockResult` expectation として nested expression へ渡し、成功時に末尾 block を 1 実引数式として消費する。空 body、複数 top-level segment、nested `BlockIntro`、prefix build failure、candidate collection failure は `TrailingBlockBody*` error として fail-closed にし、余分な block は `UnexpectedTrailingBlockArgument` として拒否する。
@@ -288,7 +288,7 @@ type checker は prefix call reduction を担当する。
 
 2026-06-05 candidate collection checkpoint では、line head に対する最初の名前解決境界を追加した。`SelfhostCallableSignatureTable` は現在 `Vec` による insertion-order table で、DefId lookup は O(s) だが、public API は表現を隠している。これにより後続の `.neplmeta` interface artifact や prechecked signature index へ差し替えるとき、call reducer や parser の契約を変えずに lookup 実装だけを置き換えられる。名前が見つからない場合は空 candidate list を返し、`UnresolvedName` diagnostic は call reduction 側に集約する。同名 function overload は最新の可視 binding が function である場合だけ候補列へ集め、後から local / parameter が同名で追加された場合は古い function を復活させない。binding があるのに DefId や signature が欠ける場合は `PendingBinding` / `MissingSignature` として fail-closed にする。
 
-2026-06-05 argument type evidence checkpoint では、`check/expr/argument.nepl` を追加し、prefix item 1 個で型が一意に決まる literal argument だけを function parameter type と照合する境界を作った。`UnitValue`、`IntLiteral`、`BoolLiteral`、`CharLiteral`、`StringLiteral` はそれぞれ `unit`、`i32`、`bool`、`char`、`str` の証拠を返す。`FloatLiteral` は `f32` / `f64` defaulting が未確定なので成功扱いしない。source-less borrowed 境界では、`NamedValue`、nested call、block、lambda、`@function`、borrow、pipe、ascription 付き argument は full expression checker または source / token backed owner 境界が expected parameter type を使って縮約できるまで fail-closed にする。これは完全な argument expression checker ではなく、arity と expected result だけで `add true 1` のような direct call を通してしまう経路を閉じる初期 boundary である。
+2026-06-05 argument type evidence checkpoint では、`check/expr/argument.nepl` を追加し、prefix item 1 個で型が一意に決まる literal argument だけを function parameter type と照合する境界を作った。`UnitValue`、`IntLiteral`、`BoolLiteral`、`CharLiteral`、`StringLiteral` はそれぞれ `unit`、`i32`、`bool`、`char`、`str` の証拠を返す。`FloatLiteral` は `f32` / `f64` defaulting が未確定なので成功扱いしない。source-less borrowed 境界では、`NamedValue`、nested call、block、lambda、`@ident`、borrow、pipe、ascription 付き argument は full expression checker または source / token backed owner 境界が expected parameter type を使って縮約できるまで fail-closed にする。これは完全な argument expression checker ではなく、arity と expected result だけで `add true 1` のような direct call を通してしまう経路を閉じる初期 boundary である。
 
 2026-06-05 argument expression cursor checkpoint では、call reducer が `item_count - 1` を実引数数として扱う旧方式をやめ、parameter index と prefix item cursor を分けた consume-width 走査へ移した。`SelfhostExprArgumentMatch.next_index` は 1 実引数式を消費した後の prefix item index を返す。この source-less borrowed API で成功するのは単一 literal item だけである。`%T literal` は言語仕様上 1 つの argument expression だが、`SelfhostExprPrefixList` は item kind、token index、span だけを持ち、`T` の source spelling や token buffer を持たないため、parameter expected type と明示 ascription type の一致を安全に検査できない。このため borrowed API の `%T literal` は `UnsupportedArgumentExpression` として拒否し、source / token backed owner API だけで解決する。重要なのは、`add %i32 1 2` のような入力を raw 4 argument と誤分類しないことである。
 
@@ -300,13 +300,15 @@ type checker は prefix call reduction を担当する。
 
 2026-06-05 block body result checkpoint では、`BlockIntro` を flat prefix item に混ぜず、source-backed owner 入口へ optional trailing block evidence として渡す境界に、単一 expression line の block result checker を接続した。`add 1:` のように head prefix の引数が不足し、残る parameter を nested body が満たす位置では、block body envelope を `selfhost_body_segment_list_from_envelope` で再帰的に分解する。body が単一 expression line なら、その head から prefix list と candidate list を構築し、outer parameter type を `BlockResult` expectation として nested expression の source-backed reducer へ渡す。`add 1:\n    add 1 1` のような direct call body は outer call の第2引数として消費できる。`add 1 2:` のように parameter を消費し終えた後に block が残る場合は `UnexpectedTrailingBlockArgument` として拒否する。空 block、複数式 block、nested block は、まだ full block-expression checker が接続されていないため成功扱いせず `TrailingBlockBody*` error として残す。
 
+2026-06-05 explicit function value argument checkpoint では、source / token backed owner 入口で明示 `@ident` argument を検査する境界を追加した。Rust 実装の正規表層構文は `@` token の直後に identifier を置く形であり、`@function name` という keyword 付き構文ではない。`@ident` は expected parameter type が function type であり、対象 identifier が callable signature table から monomorphic named function candidate として一意に得られ、その function type が同じ arena 内で expected function type と構造一致する場合だけ 1 実引数式として成功する。bare `ident` は expected type が function type であっても暗黙 function value や partial application として扱わない。generic candidate、overload ambiguity、missing signature、function type mismatch は typed error として fail-closed にする。この checkpoint は argument typecheck 境界であり、HIR の function value identity lowering、indirect call、`memo_call` primitive は後続 slice に残す。
+
 2026-06-05 ascription expected conflict checkpoint では、`%T expr` が作る `ExplicitAscription` expectation と外側 context から渡る `SelfhostTypeExpectation` を `body_line.nepl` の owner 付き入口で照合するようにした。両者の `expected_type` が同じ `SelfhostTypeArena` 内で構造一致しない場合、内側 expression の call reduction へ進まず `SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict` を返す。これにより、`%i32 expr` が `bool` expected の位置にあるような入力を candidate / arity / argument type error へ誤分類しない。`SelfhostTypeExpectation.expected_type` は arena-local なので、失敗 payload は arena 解放後も安全に読める source / span evidence だけを保持する。型そのものの安定表示は canonical type key / diagnostic projection の後続 slice で接続する。
 
 この境界は owner を明示する。ascription projection は `SelfhostTypeArenaAlloc` を保持する success payload を返し、caller は `into_arena` で arena を受け取るか `free` で破棄する。これは borrowed arena から projection result を取り出す設計では lifetime が表現できないためであり、Rust 実装で得た ownership boundary の知見を self-host stdlib 側へ反映したものである。
 
 この初期境界は fail-closed である。先頭 item が named value で、候補が 1 つだけで、候補 type が function type で、parameter count ぶんの実引数式を prefix cursor が過不足なく消費し、各引数式の型証拠が parameter type と一致し、expected result と候補 result が同じ arena 内で構造一致する場合だけ direct call plan を返す。候補が複数ある場合は、現段階では expected type や argument type による overload narrowing を行わず `OverloadAmbiguous` にする。generic inference state が `EvidenceMissing` / `Conflict` / `Unsupported` の場合は、それぞれ typed error に分ける。これにより、未完成の generic solver や overload solver が成功として後段へ流れない。
 
-部分適用は許可しない。`add 1` が `fn i32 i32` を要求する文脈であっても、NEPLg2.1 の一般規則として関数値を暗黙生成しない。関数値が必要な場合は `@function name` や明示的な lambda を使う。
+部分適用は許可しない。`add 1` が `fn i32 i32` を要求する文脈であっても、NEPLg2.1 の一般規則として関数値を暗黙生成しない。関数値が必要な場合は `@ident` や明示的な lambda を使う。
 
 zero-argument function は実引数なしで呼ぶ。
 
@@ -357,9 +359,9 @@ memo_call:
 
 Phase 1 では、実装範囲を保守的にする。
 
-- 引数は明示的な `@function name` で得た non-capturing named pure function value に限定する。
+- 引数は明示的な `@ident` で得た non-capturing named pure function value に限定する。
 - user が定義した同名の通常関数を `memo_call` primitive として扱わない。compiler-known 判定は stdlib の正確な module / symbol identity に限定する。
-- `memo_call @function f arg` のような即時適用は Phase 1 では受理しない。まず `memo_call @function f` が memoized function value を返す境界を固定する。
+- `memo_call @f arg` のような即時適用は Phase 1 では受理しない。まず `memo_call @f` が memoized function value を返す境界を固定する。
 - `func` は monomorphic な 1 引数 pure function とする。複数引数は tuple key 化を別段階にする。
 - `K` と `V` は Copy または conservative MemoKey / MemoValue として認められる型に限定する。
 - cache region は compiler が fresh に導入し、public type に現れない。
@@ -368,7 +370,7 @@ Phase 1 では、実装範囲を保守的にする。
 
 Resource IR では `MemoizedFunctionValue` と `PrivateCache` / `PrivateState` proof boundary を持つ。cache implementation correctness は trusted stdlib primitive と tests の責務とし、compiler は effect escape と public observation を検査する。
 
-現行 Rust 実装は、`memo_call @function f` の typecheck / HIR 境界を先に持つ段階である。sealed backend cache representation と通常 compile path の private-cache mask proof は未完成のため、セルフホスト設計でも「backend private cache は fail-closed」「SourceCapability と private-cache mask proof は別 authority」として扱う。
+現行 Rust 実装は、`memo_call @f` の typecheck / HIR 境界を先に持つ段階である。sealed backend cache representation と通常 compile path の private-cache mask proof は未完成のため、セルフホスト設計でも「backend private cache は fail-closed」「SourceCapability と private-cache mask proof は別 authority」として扱う。
 
 Phase 2 では、`run_private` / `mask_private` に相当する一般 private region effect へ拡張する。
 
@@ -754,7 +756,7 @@ Performance acceptance:
 ### Phase 6: Type checker and higher-order functions
 
 - prefix call reduction、expected type、overload、generic、trait solving、no partial application を実装する。
-- `@function` と function value identity を Rust 実装に合わせる。
+- `@ident` と function value identity を Rust 実装に合わせる。
 - indirect call と pure / impure call boundary を検査する。
 
 Issue slice:
@@ -763,7 +765,7 @@ Issue slice:
 - generic instantiation inference
 - trait bound solving
 - no partial application diagnostics
-- `@function` identity and indirect call
+- `@ident` identity and indirect call
 - pure context effect diagnostics
 
 Completed checkpoint:
@@ -835,7 +837,7 @@ Performance acceptance:
 
 Issue slice:
 
-- `@function` pure named function restriction
+- `@ident` pure named function restriction
 - MemoKey / MemoValue conservative trait
 - MemoizedFunctionValue HIR and Resource IR lowering
 - PrivateCache exact boundary proof
@@ -913,7 +915,7 @@ Performance acceptance:
 
 | issue | status | phase | 設計への反映 |
 |---|---|---|---|
-| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor kind に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction、binder-indexed type parameter の arena/key projection、constructor kind validation と bound plan、pre-HIR `SelfhostExprPrefixList`、declaration body envelope / first expression range 抽出、body envelope からの `ExpressionLine` / `BlockIntro` segmenter、`ExpressionLine.head` から `check/expr` call reduction 初期境界への接続、`%T expr` から `SelfhostTypeExpectation::ExplicitAscription` と inner expression tail を作る接続、line head の DefId-linked callable candidate collection、literal argument item と parameter type の照合、ascription expectation と outer expected type の conflict diagnostic、source / token backed owner 入口での `%T literal` argument checking と projection failure の typed classification、`NamedValue` / `%T NamedValue` argument の DefId-linked value evidence checking、nested named call argument の callable candidate collection と consume-width reduction を追加した。残件は block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
+| [SELFHOST-PARSER-AND-CHECKER-DO-NOT-IMPLEMENT-FULL-PREFIX...](../../issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md) | open | Phase 3 / Phase 5 / Phase 6 | 2026-06-05 checkpoint で declaration header の `%` type annotation range と lambda header range を typed evidence 化し、module checker / proof solver が function 宣言の range presence と containment を検査するようにした。続く checkpoint で `resolve/type_resolver` の flat type prefix item input、TypeId 割当前の resolved type tree reduction、primitive / function の `SelfhostTypeArena` projection、arity 0 named constructor lookup projection、constructor kind に基づく generic type application reduction / projection、`SelfhostTypeId` を payload に持たない canonical type key projection、generic type parameter environment と `Parameter` resolved node への reduction、binder-indexed type parameter の arena/key projection、constructor kind validation と bound plan、pre-HIR `SelfhostExprPrefixList`、declaration body envelope / first expression range 抽出、body envelope からの `ExpressionLine` / `BlockIntro` segmenter、`ExpressionLine.head` から `check/expr` call reduction 初期境界への接続、`%T expr` から `SelfhostTypeExpectation::ExplicitAscription` と inner expression tail を作る接続、line head の DefId-linked callable candidate collection、literal argument item と parameter type の照合、ascription expectation と outer expected type の conflict diagnostic、source / token backed owner 入口での `%T literal` argument checking と projection failure の typed classification、`NamedValue` / `%T NamedValue` argument の DefId-linked value evidence checking、nested named call argument の callable candidate collection と consume-width reduction、明示 `@ident` function value argument の expected function type / monomorphic signature / structural type equality 検査を追加した。残件は block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、`@ident` function value identity lowering / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity。 |
 | [SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-INVALID...](../../issues/items/ISS-20260604T034255467Z-SELFHOST-TYPE-AND-HIR-RANGES-ALLOW-I-A4509F7E.md) | fixed | Phase 1 | HIR child / parameter range と function type argument range の checked constructor と defensive equality として反映 |
 | [SELFHOST-SOURCESPAN-CAN-REPRESENT-NEGATIVE...](../../issues/items/ISS-20260604T034255819Z-SELFHOST-SOURCESPAN-CAN-REPRESENT-NE-644AA655.md) | open | Phase 1 | SourceSpan validation proof slice として反映 |
 | [SELFHOST-PARSER-MIXES-CURRENT-PERCENT-SYNTAX-WITH-LEGACY...](../../issues/items/ISS-20260604T034256529Z-SELFHOST-PARSER-MIXES-CURRENT-PERCEN-3647B103.md) | open | Phase 2 / Phase 3 | 正規構文と migration diagnostic の分離として反映 |

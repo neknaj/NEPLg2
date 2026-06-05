@@ -14,12 +14,14 @@
 //: - `FloatLiteral` はこの slice では型証拠を返しません。`f32` / `f64` の defaulting が仕様として固定されるまで成功扱いしません。
 //: - source-less borrowed API では `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで fail-closed にします。
 //: - source-less borrowed API は `%T expr` 形式の ascribed argument を成功扱いしません。`%` を見つけた場合、可変幅式を生の item 数へ潰さず `UnsupportedAscribedArgument` として返します。
-//: - source / token backed owner API は、literal、`%T literal`、型証拠が登録済みの `NamedValue`、`%T NamedValue` を成功させます。型式投影に失敗した場合は `AscriptionProjectionFailed` として返し、位置情報を空 span へ潰しません。
+//: - source / token backed owner API は、literal、`%T literal`、型証拠が登録済みの `NamedValue`、`%T NamedValue`、明示 function value の `@ident` を成功させます。型式投影に失敗した場合は `AscriptionProjectionFailed` として返し、位置情報を空 span へ潰しません。
 //: - `NamedValue` は scope binding と DefId-linked value type evidence が両方そろう場合だけ成功させます。名前の spelling だけから型を推測しません。
+//: - `@ident` は callable signature table から monomorphic named function candidate を取り出し、expected parameter type が function type と一致する場合だけ成功します。bare `ident` から暗黙に function value を作ることはありません。
 //:
 //: [計算量/けいさんりょう]:
 //: - item kind の分類と expected kind の比較はいずれも O(1) です。
 //: - source-backed `NamedValue` は scope lookup と value evidence lookup を行います。現行 `SelfhostValueTypeEvidenceTable` は DefId に対して O(n) の線形探索ですが、API が table 表現を隠しているため、後続で index 化しても caller の契約は変わりません。
+//: - source-backed `@ident` は scope lookup と signature table lookup を行います。現行 table では O(b + s) ですが、candidate collection API の外へ表現を出さないため、後続で interface artifact / DefId index に置き換えられます。
 
 #import "alloc/collections/vec" as v
 #import "core/option" as *
@@ -36,6 +38,8 @@
 #import "./expectation" as *
 #import "./ascription" as *
 #import "./value_evidence" as *
+#import "./call_candidate" as *
+#import "./candidate_collection" as *
 
 //: SelfhostExprArgumentMatch: prefix list 上で 1 つの実引数式を消費した結果
 //:
@@ -66,6 +70,7 @@ impl Copy for SelfhostExprArgumentMatch:
 //: - `AscriptionProjectionFailed` は、source / token backed API が `%T` head を型式として投影できなかった場合です。
 //: - `AscriptionExpectedTypeConflict` は、明示 ascription type と parameter expected type が衝突した場合です。
 //: - `NamedValue*` は、argument position の名前に対する binding / DefId / value type evidence が不足した場合を分けます。
+//: - `FunctionValue*` は、明示 `@ident` argument を function value として扱うための callable identity / signature evidence が不足した場合を分けます。`FunctionValueMissingName` は `@` の直後が存在しない場合と、直後の item が identifier ではない場合の両方を表します。
 //: - `UnsupportedArgumentExpression` は、name resolution や nested call reduction が必要で、単一 literal item からは型証拠を得られない場合です。
 //: - `MissingArgument` と `InternalInvariant` は caller 側の cursor と prefix list の不整合を区別します。
 pub enum SelfhostExprArgumentMatchErrorKind:
@@ -78,6 +83,16 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     NamedValuePendingBinding
     NamedValueUnsupportedBinding
     NamedValueEvidenceMissing
+    FunctionValueExpectedFunctionType
+    FunctionValueMissingName
+    FunctionValueUnresolved
+    FunctionValueAmbiguous
+    FunctionValuePendingBinding
+    FunctionValueMissingSignature
+    FunctionValueHeadTokenOutOfBounds
+    FunctionValueOutOfMemory
+    FunctionValueGenericUnsupported
+    FunctionValueTypeMismatch
     UnsupportedArgumentExpression
     InternalInvariant
 
@@ -276,6 +291,104 @@ fn selfhost_expr_argument_match_named_value_with_source %impure fn SelfhostTypeA
             selfhost_type_arena_free arena
             Result::Err e
 
+fn selfhost_expr_argument_expected_type_is_function %fn &SelfhostTypeArena fn SelfhostTypeId bool \arena\expected_type:
+    match selfhost_type_arena_get_kind arena expected_type:
+        Option::Some kind:
+            selfhost_type_kind_eq kind SelfhostTypeKind::Function
+        Option::None:
+            false
+
+fn selfhost_expr_argument_function_value_error_from_candidate_collect %fn SelfhostCallableCandidateCollectError SelfhostExprArgumentMatchError \error:
+    match error.kind:
+        SelfhostCallableCandidateCollectErrorKind::PendingBinding:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValuePendingBinding error.span
+        SelfhostCallableCandidateCollectErrorKind::MissingSignature:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueMissingSignature error.span
+        SelfhostCallableCandidateCollectErrorKind::HeadTokenOutOfBounds:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueHeadTokenOutOfBounds error.span
+        SelfhostCallableCandidateCollectErrorKind::OutOfMemory:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueOutOfMemory error.span
+        _:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant error.span
+
+fn selfhost_expr_argument_function_value_candidate_is_monomorphic %fn SelfhostCallableCandidate bool \candidate:
+    match candidate.generic_state:
+        SelfhostGenericInferenceState::NoneRequired:
+            true
+        _:
+            false
+
+fn selfhost_expr_argument_match_function_value_candidate %impure fn SelfhostTypeArena impure fn SelfhostCallableCandidate impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidate\next_index\expected_type\span:
+    if:
+        not selfhost_expr_argument_function_value_candidate_is_monomorphic candidate
+        then:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueGenericUnsupported span
+        else:
+            if:
+                selfhost_type_arena_types_equal &arena candidate.callable_type expected_type
+                then:
+                    Result::Ok selfhost_expr_argument_owned_match_new arena selfhost_expr_argument_match_new next_index
+                else:
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueTypeMismatch span
+
+fn selfhost_expr_argument_match_function_value_candidates %impure fn SelfhostTypeArena impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\candidates\next_index\expected_type\span:
+    let candidate_count %i32 v::len &candidates
+    if:
+        eq candidate_count 0
+        then:
+            v::free candidates
+            selfhost_type_arena_free arena
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueUnresolved span
+        else:
+            if:
+                gt candidate_count 1
+                then:
+                    v::free candidates
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueAmbiguous span
+                else:
+                    match v::get &candidates 0:
+                        Option::Some candidate:
+                            v::free candidates
+                            selfhost_expr_argument_match_function_value_candidate arena candidate next_index expected_type span
+                        Option::None:
+                            v::free candidates
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant span
+
+fn selfhost_expr_argument_match_function_value_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\signatures\item_index\item_count\expected_type\at_item:
+    if:
+        not selfhost_expr_argument_expected_type_is_function &arena expected_type
+        then:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueExpectedFunctionType at_item.span
+        else:
+            let name_index %i32 add item_index 1
+            if:
+                ge name_index item_count
+                then:
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueMissingName at_item.span
+                else:
+                    match selfhost_expr_prefix_list_get prefix name_index:
+                        Option::Some name_item:
+                            match name_item.kind:
+                                SelfhostExprPrefixItemKind::NamedValue:
+                                    match selfhost_callable_candidates_collect_for_head_item source tokens name_item scope signatures:
+                                        Result::Ok candidates:
+                                            selfhost_expr_argument_match_function_value_candidates arena candidates add name_index 1 expected_type name_item.span
+                                        Result::Err collect_error:
+                                            selfhost_type_arena_free arena
+                                            Result::Err selfhost_expr_argument_function_value_error_from_candidate_collect collect_error
+                                _:
+                                    selfhost_type_arena_free arena
+                                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::FunctionValueMissingName name_item.span
+                        Option::None:
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant at_item.span
+
 //: selfhost_expr_argument_match_at: prefix list の cursor 位置から 1 つの実引数式を[検査/けんさ]する
 //:
 //: [目的/もくてき]:
@@ -370,7 +483,7 @@ fn selfhost_expr_argument_span_from_ascription_error %fn SelfhostExprAscriptionE
         SelfhostExprAscriptionError::MissingExpressionTail span:
             span
 
-fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn SelfhostExprAscriptionHeadProjection impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\scope\value_types\projection\prefix\item_index\item_count\expected_type:
+fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostExprAscriptionHeadProjection impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\scope\value_types\signatures\projection\prefix\item_index\item_count\expected_type:
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_head_projection_expectation &projection
     let expression_token %i32 selfhost_expr_ascription_head_projection_expression_first_token &projection
     let arena %SelfhostTypeArena selfhost_expr_ascription_head_projection_into_arena projection
@@ -383,6 +496,8 @@ fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec Selfhos
                             match expression_item.kind:
                                 SelfhostExprPrefixItemKind::NamedValue:
                                     selfhost_expr_argument_match_named_value_with_source arena tokens source scope value_types expression_item expression_item_index expectation.expected_type
+                                SelfhostExprPrefixItemKind::AtMarker:
+                                    selfhost_expr_argument_match_function_value_with_source tokens source arena prefix scope signatures expression_item_index item_count expectation.expected_type expression_item
                                 _:
                                     if:
                                         selfhost_expr_argument_item_matches_type &arena expression_item expectation.expected_type
@@ -405,12 +520,12 @@ fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec Selfhos
             selfhost_type_arena_free arena
             Result::Err e
 
-fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\item_index\item_count\expected_type:
+fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type:
     match selfhost_expr_argument_range_from_prefix prefix item_index item_count:
         Result::Ok syntax_range:
             match selfhost_expr_ascription_project_head_expectation tokens source arena syntax_range:
                 Result::Ok projection:
-                    selfhost_expr_argument_match_ascribed_with_projection tokens source scope value_types projection prefix item_index item_count expected_type
+                    selfhost_expr_argument_match_ascribed_with_projection tokens source scope value_types signatures projection prefix item_index item_count expected_type
                 Result::Err e:
                     Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed selfhost_expr_argument_span_from_ascription_error e
         Result::Err e:
@@ -427,9 +542,10 @@ fn selfhost_expr_argument_match_ascribed_at_with_source %impure fn &Vec Selfhost
 //: [契約/けいやく]:
 //: - source-backed に成功させる可変幅式は `%T literal` と `%T NamedValue` です。nested call や block などは `UnsupportedArgumentExpression` として fail-closed にします。
 //: - 名前付き値は最新 binding を使います。最新 binding が型名や trait など値として扱えない分類なら、古い同名値へ戻らず `NamedValueUnsupportedBinding` を返します。
+//: - 明示 function value は `@ident` の 2 item だけを受理します。対象名は function namespace の候補収集と callable signature table を通し、generic / overload 未解決は成功扱いしません。
 //: - `%T` と expected parameter type が同じ arena 内で一致しない場合は `AscriptionExpectedTypeConflict` として返し、arity / overload 失敗へ潰しません。
 //: - 失敗時は、この関数が受け取った arena owner を解放します。
-pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\item_index\item_count\expected_type:
+pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type:
     if:
         ge item_index item_count
         then:
@@ -440,9 +556,11 @@ pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken
                 Option::Some item:
                     match item.kind:
                         SelfhostExprPrefixItemKind::TypeAnnotationMarker:
-                            selfhost_expr_argument_match_ascribed_at_with_source tokens source arena prefix scope value_types item_index item_count expected_type
+                            selfhost_expr_argument_match_ascribed_at_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type
                         SelfhostExprPrefixItemKind::NamedValue:
                             selfhost_expr_argument_match_named_value_with_source arena tokens source scope value_types item item_index expected_type
+                        SelfhostExprPrefixItemKind::AtMarker:
+                            selfhost_expr_argument_match_function_value_with_source tokens source arena prefix scope signatures item_index item_count expected_type item
                         _:
                             if:
                                 selfhost_expr_argument_item_matches_type &arena item expected_type

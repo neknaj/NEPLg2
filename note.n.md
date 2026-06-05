@@ -1,3 +1,19 @@
+# 2026-06-05 Agent selfhost explicit function value argument checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。
+- Rust 実装では `@function name` keyword 構文ではなく、`@` token の直後に identifier を置く `@ident` 構文が正規であることを確認した。そのため selfhost 設計文書と issue の古い `@function` 表記を、Rust 実装に合わせて `@ident` / `@f` へ更新した。
+- `stdlib/neplg2/core/check/expr/argument.nepl` は source / token backed owner 入口で明示 `@ident` argument を検査するようにした。expected parameter type が function type で、対象 identifier が callable signature table から monomorphic candidate として一意に解決され、candidate function type が同じ arena 内で expected type と構造一致する場合だけ成功する。
+- `FunctionValueExpectedFunctionType`、`FunctionValueMissingName`、`FunctionValueUnresolved`、`FunctionValueAmbiguous`、`FunctionValuePendingBinding`、`FunctionValueMissingSignature`、`FunctionValueHeadTokenOutOfBounds`、`FunctionValueOutOfMemory`、`FunctionValueGenericUnsupported`、`FunctionValueTypeMismatch` を `SelfhostExprArgumentMatchErrorKind` と `SelfhostCallReduceErrorKind` に追加し、明示 function value argument の失敗を generic unsupported expression へ潰さないようにした。
+- `stage1` smoke は `takes @add` が expected function type と named callable signature の一致でだけ成功すること、`takes add` が bare function name のままでは partial application / implicit function value として成功しないことを確認する。
+- この checkpoint は argument typecheck 境界であり、HIR function value identity lowering、indirect call、`memo_call` Phase 1 primitive は未実装である。`doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`、`todo.md` ではその残件を明示した。
+- 現時点の検証済み:
+  - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_function_value_argument.json`: pass（2/2）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-function-value.json`: pass（3/3）
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: exit 0
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `git diff --check`: pass
+
 # 2026-06-05 Agent selfhost block body result checkpoint
 
 - Zenn 記事を再確認し、静的検査の正確性、enum error、Result/Option による fail-closed、責務分割、丁寧な doc comment、試作段階でも暫定設計を残さない方針を判断基準にした。

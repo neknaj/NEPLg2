@@ -81,6 +81,26 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNamedValueUnsupportedBinding error.span
         SelfhostExprArgumentMatchErrorKind::NamedValueEvidenceMissing:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueExpectedFunctionType:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueExpectedFunctionType error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueMissingName:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingName error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueUnresolved:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueUnresolved error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueAmbiguous:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueAmbiguous error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValuePendingBinding:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValuePendingBinding error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueMissingSignature:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingSignature error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueHeadTokenOutOfBounds:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueHeadTokenOutOfBounds error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueOutOfMemory:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueOutOfMemory error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueGenericUnsupported:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported error.span
+        SelfhostExprArgumentMatchErrorKind::FunctionValueTypeMismatch:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch error.span
         SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedArgumentExpression error.span
         SelfhostExprArgumentMatchErrorKind::InternalInvariant:
@@ -173,8 +193,8 @@ fn selfhost_call_reduce_argument_type_check_loop %fn &SelfhostTypeArena fn &Self
                         Option::None:
                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
-fn selfhost_call_reduce_argument_match_direct_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\item_index\item_count\expected_type\head:
-    match selfhost_expr_argument_match_at_with_source tokens source arena prefix scope value_types item_index item_count expected_type:
+fn selfhost_call_reduce_argument_match_direct_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
+    match selfhost_expr_argument_match_at_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type:
         Result::Ok owned_match:
             Result::Ok owned_match
         Result::Err argument_error:
@@ -232,7 +252,7 @@ fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec Self
         eq candidate_count 0
         then:
             v::free candidates
-            selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types item_index item_count expected_type head
+            selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type head
         else:
             if:
                 gt candidate_count 1
@@ -260,7 +280,7 @@ fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec 
                         Result::Err collect_error:
                             selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_from_candidate_collect collect_error
                 _:
-                    selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types item_index item_count expected_type head
+                    selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type head
         Option::None:
             selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 

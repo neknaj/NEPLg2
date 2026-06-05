@@ -168,7 +168,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*UnsupportedArgumentExpression/,
+    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*UnsupportedArgumentExpression/,
     "argument expression scan failures must stay typed instead of collapsing into a boolean",
 );
 assert.match(
@@ -178,13 +178,33 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument:[\s\S]*SelfhostCallReduceErrorKind::UnsupportedArgumentExpression[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueUnresolved:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueUnresolved[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValuePendingBinding:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValuePendingBinding[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueUnsupportedBinding:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueUnsupportedBinding[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueEvidenceMissing:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing/,
-    "call reducer must map argument-scope ascription and named value evidence failures separately from generic unsupported argument expressions",
+    /SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument:[\s\S]*SelfhostCallReduceErrorKind::UnsupportedArgumentExpression[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionProjectionFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::AscriptionExpectedTypeConflict:[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueUnresolved:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueUnresolved[\s\S]*SelfhostExprArgumentMatchErrorKind::NamedValueEvidenceMissing:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueExpectedFunctionType:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueExpectedFunctionType[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueMissingName:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingName[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueUnresolved:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueUnresolved[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueAmbiguous:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueAmbiguous[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValuePendingBinding:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValuePendingBinding[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueMissingSignature:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingSignature[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueHeadTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueHeadTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueOutOfMemory:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueOutOfMemory[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueGenericUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::FunctionValueTypeMismatch:[\s\S]*SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch/,
+    "call reducer must map argument-scope ascription, named value evidence, and explicit function value failures separately from generic unsupported argument expressions",
 );
 assert.match(
     source,
-    /pub struct SelfhostExprArgumentOwnedMatch:[\s\S]*arena %SelfhostTypeArena[\s\S]*match_value %SelfhostExprArgumentMatch[\s\S]*pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable/,
+    /pub struct SelfhostExprArgumentOwnedMatch:[\s\S]*arena %SelfhostTypeArena[\s\S]*match_value %SelfhostExprArgumentMatch[\s\S]*pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable/,
     "source-backed argument checking must return an updated arena owner with consume-width evidence",
+);
+assert.match(
+    source,
+    /SelfhostExprPrefixItemKind::AtMarker:[\s\S]*selfhost_expr_argument_match_function_value_with_source tokens source arena prefix scope signatures item_index item_count expected_type item/,
+    "source-backed argument checking must treat explicit @ident through the function value boundary",
+);
+assert.match(
+    source,
+    /fn selfhost_expr_argument_match_function_value_with_source[\s\S]*not selfhost_expr_argument_expected_type_is_function &arena expected_type[\s\S]*selfhost_callable_candidates_collect_for_head_item source tokens name_item scope signatures/,
+    "function value arguments must require an expected function type before collecting callable candidate evidence",
+);
+assert.match(
+    source,
+    /fn selfhost_expr_argument_match_function_value_candidate[\s\S]*selfhost_type_arena_types_equal &arena candidate\.callable_type expected_type/,
+    "function value arguments must compare the selected callable signature through arena structural equality",
+);
+assert.match(
+    source,
+    /selfhost_expr_argument_function_value_candidate_is_monomorphic[\s\S]*SelfhostGenericInferenceState::NoneRequired:[\s\S]*true[\s\S]*FunctionValueGenericUnsupported/,
+    "function value arguments must fail closed for unresolved generic callable candidates",
 );
 assert.match(
     source,
@@ -218,7 +238,7 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_argument_match_direct_with_source[\s\S]*selfhost_expr_argument_match_at_with_source tokens source arena prefix scope value_types item_index item_count expected_type[\s\S]*selfhost_call_reduce_error_from_argument_match_owned argument_error head/,
+    /fn selfhost_call_reduce_argument_match_direct_with_source[\s\S]*selfhost_expr_argument_match_at_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type[\s\S]*selfhost_call_reduce_error_from_argument_match_owned argument_error head/,
     "source-backed direct argument fallback must still use token/source-backed argument matching",
 );
 assert.match(
@@ -238,7 +258,7 @@ assert.match(
 );
 assert.match(
     source,
-    /eq candidate_count 0[\s\S]*selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types item_index item_count expected_type head[\s\S]*gt candidate_count 1[\s\S]*SelfhostCallReduceErrorKind::OverloadAmbiguous[\s\S]*selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena prefix scope value_types signatures candidate item_index item_count expected_type head/,
+    /eq candidate_count 0[\s\S]*selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type head[\s\S]*gt candidate_count 1[\s\S]*SelfhostCallReduceErrorKind::OverloadAmbiguous[\s\S]*selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena prefix scope value_types signatures candidate item_index item_count expected_type head/,
     "named argument handling must fall back to value evidence only when no visible function candidates exist",
 );
 assert.match(
