@@ -29,6 +29,7 @@
 #import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty" as *
+#import "./expectation" as *
 #import "./call_candidate" as *
 #import "./candidate_collection" as *
 #import "./model" as *
@@ -316,6 +317,36 @@ fn selfhost_check_expr_stage1_ascription_ok_with_candidate %impure fn Vec Selfho
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_ascription_conflict_rejected_with_candidate: `%i32` と外側 `bool` expected の衝突を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `%i32 add 1 2` が `bool` を要求する外側 context に置かれた場合、body line connector が内側 call reduction へ進む前に typed error を返すことを確認します。
+//: - この fixture は ascription projection の owner 更新と outer expected type の照合を同時に通し、失敗が `CallReduceFailed` へ潰れないことを固定します。
+//:
+//: [契約/けいやく]:
+//: - `arena` は owner として受け取り、この helper 内で成功・失敗にかかわらず閉じます。
+//: - `tokens` と candidate vector も helper 内で解放し、stage1 smoke API の呼び出し側へ owner を残しません。
+fn selfhost_check_expr_stage1_ascription_conflict_rejected_with_candidate %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\add_type\bool_type:
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let segment %SelfhostBodySegment selfhost_check_expr_stage1_ascribed_expression_segment
+            let outer_expected %SelfhostTypeExpectation selfhost_type_expectation_new bool_type SelfhostTypeExpectationSource::OuterConsumerArgument source_span_new_unchecked 0 0 12
+            match selfhost_check_expr_reduce_body_segment_with_arena &tokens "%i32 add 1 2" segment arena &candidates some outer_expected:
+                Result::Ok success:
+                    selfhost_expression_line_check_success_free success
+                    v::free candidates
+                    v::free tokens
+                    false
+                Result::Err e:
+                    let ok %bool selfhost_expression_line_check_error_is_ascription_expected_type_conflict e
+                    v::free candidates
+                    v::free tokens
+                    ok
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_run_with_candidate: token / arena / candidate owner を閉じて smoke result を[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -367,6 +398,16 @@ fn selfhost_check_expr_stage1_run_ascription_with_i32 %impure fn Vec SelfhostTok
             v::free tokens
             1
 
+fn selfhost_check_expr_stage1_run_ascription_conflict_with_types %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId i32 \tokens\arena\i32_type\bool_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_ascription_conflict_rejected_with_candidate tokens next_arena add_type bool_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_with_tokens: token buffer に対して type arena fixture を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -404,10 +445,42 @@ fn selfhost_check_expr_stage1_run_ascription_with_tokens %impure fn Vec Selfhost
             v::free tokens
             1
 
+fn selfhost_check_expr_stage1_run_ascription_conflict_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::Bool:
+                        Result::Ok bool_alloc:
+                            let bool_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &bool_alloc
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena bool_alloc
+                            selfhost_check_expr_stage1_run_ascription_conflict_with_types tokens arena2 i32_type bool_type
+                        Result::Err _e:
+                            v::free tokens
+                            1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_ascribed_tokens:
         Result::Ok tokens:
-            selfhost_check_expr_stage1_run_ascription_with_tokens tokens
+            let ok_result %i32 selfhost_check_expr_stage1_run_ascription_with_tokens tokens
+            if:
+                eq ok_result 0
+                then:
+                    match selfhost_check_expr_stage1_make_ascribed_tokens:
+                        Result::Ok conflict_tokens:
+                            selfhost_check_expr_stage1_run_ascription_conflict_with_tokens conflict_tokens
+                        Result::Err _e:
+                            1
+                else:
+                    1
         Result::Err _e:
             1
 

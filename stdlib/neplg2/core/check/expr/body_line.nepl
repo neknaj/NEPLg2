@@ -37,13 +37,19 @@
 //: SelfhostExpressionLineCheckError: expression line 接続の失敗分類
 //:
 //: [目的/もくてき]:
-//: - body segment の種類不一致、prefix list 生成失敗、call reduction 失敗を型で分けます。
+//: - body segment の種類不一致、prefix list 生成失敗、call reduction 失敗、type ascription 関連の失敗を型で分けます。
 //: - display text は diagnostic projection 側へ移し、この module は機械的に検査できる payload だけを返します。
+//:
+//: [契約/けいやく]:
+//: - `AscriptionExpectedTypeConflict` は、明示 `%T` が要求した expected type と外側 context から来た expected type が同じ arena 内で同形でない場合に返します。
+//: - この error は通常の call reduction 失敗ではありません。内側 expression を縮約する前に期待型同士が矛盾しているため、candidate / arity / argument の診断へ潰さず、衝突した expectation の由来と span を残します。
+//: - `SelfhostTypeExpectation.expected_type` は arena-local なので、arena を解放したあとに返る error payload には直接入れません。型そのものの安定表示は canonical type key / diagnostic projection の後続 slice で接続します。
 pub enum SelfhostExpressionLineCheckError:
     NotExpressionLine %SelfhostSourceSpan
     PrefixBuildFailed %SelfhostExprPrefixBuildError
     CallReduceFailed %SelfhostCallReduceError
     AscriptionFailed %SelfhostExprAscriptionError
+    AscriptionExpectedTypeConflict %SelfhostAscriptionExpectedTypeConflict
 
 //: SelfhostExpressionLineCheckSuccess: owner 付き expression line check の成功 payload
 //:
@@ -54,9 +60,32 @@ pub struct SelfhostExpressionLineCheckSuccess:
     arena %SelfhostTypeArena
     result %SelfhostCallReduceResult
 
+//: SelfhostAscriptionExpectedTypeConflict: 明示 ascription と外側 expected type の衝突 evidence
+//:
+//: [目的/もくてき]:
+//: - `%T expr` の ascription 側 expectation と、外側 context 側 expectation が矛盾したことを diagnostic projection へ渡します。
+//: - TypeId は `SelfhostTypeArena` に閉じた index なので、この payload には含めません。arena が解放された後でも安全に読める source / span evidence だけを保持します。
+//:
+//: [契約/けいやく]:
+//: - `ascription_source` は通常 `ExplicitAscription` です。構造上は enum payload として保持し、後続の再利用や検査で決め打ち文字列に依存しません。
+//: - `outer_source` は `BlockResult` や `OuterConsumerArgument` など caller 側の期待型由来です。
+//: - 実際の型比較はこの payload を作る前に `selfhost_type_arena_types_equal` で済ませます。
+pub struct SelfhostAscriptionExpectedTypeConflict:
+    ascription_source %SelfhostTypeExpectationSource
+    ascription_span %SelfhostSourceSpan
+    outer_source %SelfhostTypeExpectationSource
+    outer_span %SelfhostSourceSpan
+
 //: selfhost_expression_line_check_success_new: owner 付き成功 payload を[作/つく]る
 pub fn selfhost_expression_line_check_success_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult SelfhostExpressionLineCheckSuccess \arena\result:
     SelfhostExpressionLineCheckSuccess arena result
+
+//: selfhost_ascription_expected_type_conflict_new: expectation 衝突 evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - arena-local TypeId を payload に残さず、diagnostic が必要とする由来と source span だけを抽出します。
+fn selfhost_ascription_expected_type_conflict_new %fn SelfhostTypeExpectation fn SelfhostTypeExpectation SelfhostAscriptionExpectedTypeConflict \ascription_expectation\outer_expectation:
+    SelfhostAscriptionExpectedTypeConflict ascription_expectation.source ascription_expectation.span outer_expectation.source outer_expectation.span
 
 //: selfhost_expression_line_check_success_result: call reduction result を borrow で[返/かえ]す
 pub fn selfhost_expression_line_check_success_result %fn &SelfhostExpressionLineCheckSuccess &SelfhostCallReduceResult \success:
@@ -85,6 +114,14 @@ impl Clone for SelfhostExpressionLineCheckError:
 //: - focused test や小さな checker 境界で、error payload を追加の owner 管理なしに分類できるようにします。
 impl Copy for SelfhostExpressionLineCheckError:
     fn copy_mark %fn SelfhostExpressionLineCheckError SelfhostExpressionLineCheckError \self:
+        self
+
+impl Clone for SelfhostAscriptionExpectedTypeConflict:
+    fn clone %fn &SelfhostAscriptionExpectedTypeConflict SelfhostAscriptionExpectedTypeConflict \self:
+        *self
+
+impl Copy for SelfhostAscriptionExpectedTypeConflict:
+    fn copy_mark %fn SelfhostAscriptionExpectedTypeConflict SelfhostAscriptionExpectedTypeConflict \self:
         self
 
 //: selfhost_expression_line_check_error_is_not_expression_line: non-expression segment error か[返/かえ]す
@@ -131,6 +168,21 @@ pub fn selfhost_expression_line_check_error_is_call_reduce %fn SelfhostExpressio
 pub fn selfhost_expression_line_check_error_is_ascription %fn SelfhostExpressionLineCheckError bool \error:
     match error:
         SelfhostExpressionLineCheckError::AscriptionFailed _ascription_error:
+            true
+        _:
+            false
+
+//: selfhost_expression_line_check_error_is_ascription_expected_type_conflict: 明示 ascription と外側 expected type の衝突か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - focused test が表示文言ではなく enum variant で `%T expr` と外側 context の型要求衝突を確認できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `ExplicitAscription` と外側 expected type が同じ arena 内で一致しませんでした。
+//: - `false`: 他の expression line check error です。
+pub fn selfhost_expression_line_check_error_is_ascription_expected_type_conflict %fn SelfhostExpressionLineCheckError bool \error:
+    match error:
+        SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict _conflict:
             true
         _:
             false
@@ -189,6 +241,29 @@ fn selfhost_check_expr_reduce_expression_line_prefix %impure fn &Vec SelfhostTok
         Result::Err e:
             Result::Err SelfhostExpressionLineCheckError::PrefixBuildFailed e
 
+//: selfhost_check_expr_validate_ascription_outer_expected: 明示 ascription と外側 expected type の整合性を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `%T expr` が内側 expression へ渡す expected type と、caller がこの expression 全体へ要求している expected type を同じ場所で照合します。
+//: - ここで矛盾を検出することで、`%i32 expr` が `bool` を要求する外側 call argument に現れた場合に、内側 call reduction の候補失敗へ誤分類しません。
+//:
+//: [契約/けいやく]:
+//: - `outer_expected` が `None` の場合は、明示 ascription だけが expected type authority になります。
+//: - `outer_expected` が `Some` の場合は、両方の `SelfhostTypeExpectation.expected_type` を同じ `SelfhostTypeArena` 内の structural equality で比較します。
+//: - 失敗時は ascription 側と outer 側の expectation から source / span evidence だけを抽出し、arena-local TypeId を error payload に残しません。
+fn selfhost_check_expr_validate_ascription_outer_expected %fn &SelfhostTypeArena fn SelfhostTypeExpectation fn Option SelfhostTypeExpectation Result unit SelfhostExpressionLineCheckError \arena\ascription_expectation\outer_expected:
+    match outer_expected:
+        Option::Some outer_expectation:
+            if:
+                selfhost_type_arena_types_equal arena ascription_expectation.expected_type outer_expectation.expected_type
+                then:
+                    Result::Ok unit
+                else:
+                    let conflict %SelfhostAscriptionExpectedTypeConflict selfhost_ascription_expected_type_conflict_new ascription_expectation outer_expectation
+                    Result::Err SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict conflict
+        Option::None:
+            Result::Ok unit
+
 //: selfhost_check_expr_reduce_body_segment: body segment を call reduction へ[接続/せつぞく]する
 //:
 //: [目的/もくてき]:
@@ -212,14 +287,19 @@ pub fn selfhost_check_expr_reduce_body_segment %impure fn &Vec SelfhostToken imp
         SelfhostBodySegmentKind::BlockIntro:
             Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment
 
-fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn SelfhostExprAscriptionProjection impure fn &Vec SelfhostCallableCandidate Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\projection\candidates:
+fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn &Vec SelfhostToken impure fn SelfhostExprAscriptionProjection impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\projection\candidates\outer_expected:
     let tail %SelfhostSyntaxRange selfhost_expr_ascription_projection_tail &projection
     let expectation %SelfhostTypeExpectation selfhost_expr_ascription_projection_expectation &projection
     let arena %SelfhostTypeArena selfhost_expr_ascription_projection_into_arena projection
-    let expected %Option SelfhostTypeExpectation some expectation
-    match selfhost_check_expr_reduce_expression_line_prefix tokens tail &arena candidates expected:
-        Result::Ok result:
-            Result::Ok selfhost_expression_line_check_success_new arena result
+    match selfhost_check_expr_validate_ascription_outer_expected &arena expectation outer_expected:
+        Result::Ok _unit:
+            let expected %Option SelfhostTypeExpectation some expectation
+            match selfhost_check_expr_reduce_expression_line_prefix tokens tail &arena candidates expected:
+                Result::Ok result:
+                    Result::Ok selfhost_expression_line_check_success_new arena result
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err e
         Result::Err e:
             selfhost_type_arena_free arena
             Result::Err e
@@ -235,8 +315,10 @@ fn selfhost_check_expr_reduce_body_segment_with_projected_ascription %impure fn 
 //: - 失敗時はこの関数が arena owner を解放します。caller は失敗後に同じ arena を使えません。
 //: - この入口でも candidate collection は行いません。`candidates` は caller が内側 expression の先頭名に対して構築する責務を持ちます。
 //:
-//: [現状/げんじょう]:
-//: - 外側 context から渡された `expected` と明示 ascription の整合検査は、後続の diagnostic projection slice で統合します。現段階では明示 ascription を内側 expression の expected type として優先します。
+//: [場合分/ばあいわ]け:
+//: - ascription がない expression line では、caller から渡された `expected` をそのまま call reduction へ渡します。
+//: - `%T expr` では、まず `%T` を `ExplicitAscription` expectation へ投影し、外側 `expected` があれば同じ arena 内で同形か確認します。
+//: - ascription と外側 expected type が衝突した場合は、内側 expression の call reduction へ進まず `AscriptionExpectedTypeConflict` を返します。
 pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\arena\candidates\expected:
     match segment.kind:
         SelfhostBodySegmentKind::ExpressionLine:
@@ -245,7 +327,7 @@ pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec Selfho
                 then:
                     match selfhost_expr_ascription_project_expectation tokens source arena segment.head:
                         Result::Ok projection:
-                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens projection candidates
+                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens projection candidates expected
                         Result::Err e:
                             Result::Err SelfhostExpressionLineCheckError::AscriptionFailed e
                 else:

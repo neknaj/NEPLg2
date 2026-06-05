@@ -118,8 +118,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostExpressionLineCheckError:[\s\S]*AscriptionFailed %SelfhostExprAscriptionError/,
-    "expression line connector must preserve type-ascription failures separately",
+    /pub enum SelfhostExpressionLineCheckError:[\s\S]*AscriptionFailed %SelfhostExprAscriptionError[\s\S]*AscriptionExpectedTypeConflict %SelfhostAscriptionExpectedTypeConflict/,
+    "expression line connector must preserve type-ascription failures and ascription-vs-outer expectation conflicts separately",
+);
+assert.match(
+    source,
+    /pub struct SelfhostAscriptionExpectedTypeConflict:[\s\S]*ascription_source %SelfhostTypeExpectationSource[\s\S]*ascription_span %SelfhostSourceSpan[\s\S]*outer_source %SelfhostTypeExpectationSource[\s\S]*outer_span %SelfhostSourceSpan/,
+    "ascription conflict error must not return arena-local TypeIds after the owner arena is freed",
 );
 assert.match(
     source,
@@ -183,13 +188,28 @@ assert.match(
 );
 assert.match(
     bodyLine,
-    /selfhost_check_expr_head_starts_with_percent tokens segment\.head[\s\S]*selfhost_expr_ascription_project_expectation tokens source arena segment\.head[\s\S]*selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens projection candidates/,
+    /selfhost_check_expr_head_starts_with_percent tokens segment\.head[\s\S]*selfhost_expr_ascription_project_expectation tokens source arena segment\.head[\s\S]*selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens projection candidates expected/,
     "percent-prefixed expression lines must be projected as type ascriptions before call reduction",
+);
+assert.match(
+    bodyLine,
+    /selfhost_check_expr_validate_ascription_outer_expected[\s\S]*selfhost_type_arena_types_equal arena ascription_expectation\.expected_type outer_expectation\.expected_type[\s\S]*selfhost_ascription_expected_type_conflict_new ascription_expectation outer_expectation[\s\S]*SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict conflict/,
+    "ascription projection must reject conflicts with an outer expected type before reducing the inner expression",
+);
+assert.doesNotMatch(
+    bodyLine,
+    /AscriptionExpectedTypeConflict %SelfhostTypeExpectation %SelfhostTypeExpectation|SelfhostExpressionLineCheckError::AscriptionExpectedTypeConflict\s+ascription_expectation\s+outer_expectation/,
+    "ascription conflict errors must not expose arena-local expectation TypeIds after freeing the arena",
 );
 assert.match(
     source,
     /selfhost_type_prefix_list_reduce_prefix source &type_prefix[\s\S]*SelfhostTypeExpectationSource::ExplicitAscription[\s\S]*selfhost_expr_ascription_projection_new allocated expectation tail/,
     "type ascription projection must use prefix-boundary reduction and explicit expectation evidence",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_ascription_conflict_rejected_with_candidate[\s\S]*SelfhostTypeExpectationSource::OuterConsumerArgument[\s\S]*selfhost_expression_line_check_error_is_ascription_expected_type_conflict/,
+    "stage1 must smoke-test that explicit ascription and outer expected type conflicts stay typed",
 );
 assert.match(
     bodyLine,
