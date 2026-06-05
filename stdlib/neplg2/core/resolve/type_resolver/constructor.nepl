@@ -35,6 +35,12 @@
 //: [error variant]:
 //: - 登録時の失敗は `SelfhostTypeConstructorTableErrorKind::NegativeConstructorArity`、`SelfhostTypeConstructorTableErrorKind::DuplicateTypeConstructor`、`SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName`、`SelfhostTypeConstructorTableErrorKind::OutOfMemory` のいずれかで返します。
 //:
+//: [最小例/さいしょうれい]:
+//: - doctest では `Foo` を arity `0` の named type として `selfhost_type_constructor_table_add_checked` で登録し、`selfhost_type_constructor_add_result_into_table` で成功時の table owner を回収します。
+//:
+//: [典型例/てんけいれい]:
+//: - doctest では `Result` を arity `2` の type constructor として登録し、`selfhost_type_constructor_table_find` と `selfhost_type_constructor_table_find_span` で名前 lookup と span lookup の両方を確認します。
+//:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
 //: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
@@ -772,45 +778,110 @@ fn selfhost_type_constructor_table_add_fail %impure fn SelfhostTypeConstructorTa
 //: [type boundary]:
 //: - raw `arity` は `SelfhostTypeConstructorKind` に変換してから table へ入れます。後続 stage は raw `i32 arity` を再解釈しません。
 //:
+//: [最小例/さいしょうれい]:
+//: - doctest の `check_minimal_success` は、空 table を作り、`Foo` を arity `0` で登録し、成功時の owner を `selfhost_type_constructor_add_result_into_table` で回収して解放します。
+//:
+//: [典型例/てんけいれい]:
+//: - doctest の `check_result_constructor_lookup` は、`Result` を arity `2` で登録し、`selfhost_type_constructor_table_find` と `selfhost_type_constructor_table_find_span` で `SelfhostTypeConstructorKind::TypeConstructor 2` を確認します。
+//:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok]
+//: ##: Checked [ok,ok,ok]
 //: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #indent 4
 //:|
+//:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/resolve/type_resolver/constructor" as *
 //:| #import "std/test" as *
 //:
-//: fn main %impure fn void i32 \void:
-//:     let checks0 checks_new
+//: fn check_minimal_success %impure fn void Result unit str \void:
+//:     match selfhost_type_constructor_table_new:
+//:         Result::Ok table:
+//:             let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+//:             let result %Result SelfhostTypeConstructorAddResult SelfhostTypeConstructorTableError selfhost_type_constructor_table_add_checked table "Foo" 0 span
+//:             match result:
+//:                 Result::Ok added:
+//:                     let next_table %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+//:                     selfhost_type_constructor_table_free next_table
+//:                     Result::Ok unit
+//:                 Result::Err _e:
+//:                     Result::Err "minimal constructor add failed"
+//:         Result::Err _e:
+//:             Result::Err "constructor table allocation failed"
+//:
+//: fn check_result_constructor_lookup %impure fn void Result unit str \void:
+//:     match selfhost_type_constructor_table_new:
+//:         Result::Ok table:
+//:             let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+//:             let result %Result SelfhostTypeConstructorAddResult SelfhostTypeConstructorTableError selfhost_type_constructor_table_add_checked table "Result" 2 span
+//:             match result:
+//:                 Result::Ok added:
+//:                     let next_table %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+//:                     match selfhost_type_constructor_table_find &next_table "Result":
+//:                         Option::Some constructor:
+//:                             if:
+//:                                 selfhost_type_constructor_kind_eq constructor.kind SelfhostTypeConstructorKind::TypeConstructor 2
+//:                                 then:
+//:                                     let source %str "Result"
+//:                                     let result_span %SelfhostSourceSpan source_span_new_unchecked 0 0 6
+//:                                     match selfhost_type_constructor_table_find_span &next_table &source result_span:
+//:                                         Option::Some constructor_from_span:
+//:                                             if:
+//:                                                 selfhost_type_constructor_kind_eq constructor_from_span.kind SelfhostTypeConstructorKind::TypeConstructor 2
+//:                                                 then:
+//:                                                     selfhost_type_constructor_table_free next_table
+//:                                                     Result::Ok unit
+//:                                                 else:
+//:                                                     selfhost_type_constructor_table_free next_table
+//:                                                     Result::Err "span lookup constructor kind mismatch"
+//:                                         Option::None:
+//:                                             selfhost_type_constructor_table_free next_table
+//:                                             Result::Err "span lookup constructor missing"
+//:                                 else:
+//:                                     selfhost_type_constructor_table_free next_table
+//:                                     Result::Err "name lookup constructor kind mismatch"
+//:                         Option::None:
+//:                             selfhost_type_constructor_table_free next_table
+//:                             Result::Err "name lookup constructor missing"
+//:                 Result::Err _e:
+//:                     Result::Err "typical constructor add failed"
+//:         Result::Err _e:
+//:             Result::Err "constructor table allocation failed"
+//:
+//: fn check_reserved_name %impure fn void Result unit str \void:
 //:     match selfhost_type_constructor_table_new:
 //:         Result::Ok table:
 //:             let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
 //:             let result %Result SelfhostTypeConstructorAddResult SelfhostTypeConstructorTableError selfhost_type_constructor_table_add_checked table "unit" 0 span
-//:             let checks1 checks_push checks0:
-//:                 match result:
-//:                     Result::Ok added:
-//:                         selfhost_type_constructor_table_free selfhost_type_constructor_add_result_into_table added
-//:                         Result::Err "reserved constructor name unexpectedly succeeded"
-//:                     Result::Err e:
-//:                         if:
-//:                             selfhost_type_constructor_table_error_kind_eq e.kind SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName
-//:                             then:
-//:                                 Result::Ok unit
-//:                             else:
-//:                                 Result::Err "reserved constructor error kind mismatch"
-//:             let shown checks_print_report checks1
-//:             checks_exit_code shown
+//:             match result:
+//:                 Result::Ok added:
+//:                     selfhost_type_constructor_table_free selfhost_type_constructor_add_result_into_table added
+//:                     Result::Err "reserved constructor name unexpectedly succeeded"
+//:                 Result::Err e:
+//:                     if:
+//:                         selfhost_type_constructor_table_error_kind_eq e.kind SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName
+//:                         then:
+//:                             Result::Ok unit
+//:                         else:
+//:                             Result::Err "reserved constructor error kind mismatch"
 //:         Result::Err _e:
-//:             let checks1 checks_push checks0 Result::Err "constructor table allocation failed"
-//:             let shown checks_print_report checks1
-//:             checks_exit_code shown
+//:             Result::Err "constructor table allocation failed"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check_minimal_success
+//:     let checks2 checks_push checks1 check_result_constructor_lookup
+//:     let checks3 checks_push checks2 check_reserved_name
+//:     let shown checks_print_report checks3
+//:     checks_exit_code shown
 //: ```
 pub fn selfhost_type_constructor_table_add_checked %impure fn SelfhostTypeConstructorTable impure fn str impure fn i32 impure fn SelfhostSourceSpan Result SelfhostTypeConstructorAddResult SelfhostTypeConstructorTableError \table\name\arity\span:
     if:

@@ -112,6 +112,27 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             "SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName",
             "SelfhostTypeConstructorTableErrorKind::DuplicateTypeConstructor",
         ],
+        doctestScenarios: [
+            {
+                name: "simplest constructor registration",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("Foo arity zero registration", /"Foo"[\s\S]*\b0\b/),
+                    requiredPattern("checked add call", /\bselfhost_type_constructor_table_add_checked\b/),
+                    requiredPattern("added table owner recovery", /\bselfhost_type_constructor_add_result_into_table\b/),
+                ],
+            },
+            {
+                name: "typical generic constructor lookup",
+                label: /典型例|typical/i,
+                requiredPatterns: [
+                    requiredPattern("Result arity two registration", /"Result"[\s\S]*\b2\b/),
+                    requiredPattern("name lookup", /\bselfhost_type_constructor_table_find\b/),
+                    requiredPattern("span lookup", /\bselfhost_type_constructor_table_find_span\b/),
+                    requiredPattern("constructor arity kind", /\bSelfhostTypeConstructorKind::TypeConstructor\b[\s\S]*\b2\b/),
+                ],
+            },
+        ],
         requiredPatterns: [
             requiredPattern("constructor table owner", /\bSelfhostTypeConstructorTable\b/),
             requiredPattern("constructor header payload", /\bSelfhostTypeConstructor\b/),
@@ -269,6 +290,28 @@ const DOC_SECTION_REQUIREMENTS = [
             "selfhost_type_constructor_table_error_kind_eq",
             "SelfhostTypeConstructorTableErrorKind::ReservedTypeConstructorName",
             "selfhost_type_constructor_table_free",
+        ],
+        doctestScenarios: [
+            {
+                name: "simplest successful checked add",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("new table", /\bselfhost_type_constructor_table_new\b/),
+                    requiredPattern("Foo arity zero", /"Foo"[\s\S]*\b0\b/),
+                    requiredPattern("checked add", /\bselfhost_type_constructor_table_add_checked\b/),
+                    requiredPattern("owner recovery", /\bselfhost_type_constructor_add_result_into_table\b/),
+                ],
+            },
+            {
+                name: "typical Result constructor lookup",
+                label: /典型例|typical/i,
+                requiredPatterns: [
+                    requiredPattern("Result arity two", /"Result"[\s\S]*\b2\b/),
+                    requiredPattern("name lookup", /\bselfhost_type_constructor_table_find\b/),
+                    requiredPattern("span lookup", /\bselfhost_type_constructor_table_find_span\b/),
+                    requiredPattern("constructor kind", /\bSelfhostTypeConstructorKind::TypeConstructor\b[\s\S]*\b2\b/),
+                ],
+            },
         ],
     }),
     typeConstructorRequirement("selfhost_type_constructor_table_get", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
@@ -1279,6 +1322,7 @@ function requirement(relPath, name, sections, options = {}) {
         name,
         sections,
         doctestUses: options.doctestUses || [],
+        doctestScenarios: options.doctestScenarios || [],
         requiredPatterns: options.requiredPatterns || [],
     };
 }
@@ -1288,6 +1332,7 @@ function moduleRequirement(relPath, sections, options = {}) {
         relPath,
         sections,
         doctestUses: options.doctestUses || [],
+        doctestScenarios: options.doctestScenarios || [],
         requiredPatterns: options.requiredPatterns || [],
     };
 }
@@ -1308,6 +1353,7 @@ function typeConstructorRequirement(name, sections, requiredPatterns = [], optio
     return requirement("stdlib/neplg2/core/resolve/type_resolver/constructor.nepl", name, sections, {
         requiredPatterns,
         doctestUses: options.doctestUses || [],
+        doctestScenarios: options.doctestScenarios || [],
     });
 }
 
@@ -1388,6 +1434,44 @@ function toRepoPath(filePath) {
 
 function hasDoctest(docLines) {
     return docLines.some((line) => /\bneplg2:test\b/.test(line));
+}
+
+function validateDoctestScenarios(docLines, scenarios, location, gaps) {
+    if (scenarios.length === 0) {
+        return;
+    }
+    const docText = docLines.join("\n");
+    const doctestText = doctestCodeText(docLines);
+    for (const scenario of scenarios) {
+        if (!scenario.label.test(docText)) {
+            gaps.push(`${location} doctest must label ${scenario.name}`);
+        }
+        for (const requiredDocPattern of scenario.requiredPatterns) {
+            if (!requiredDocPattern.pattern.test(doctestText)) {
+                gaps.push(`${location} doctest ${scenario.name} executable code must contain ${requiredDocPattern.label}`);
+            }
+        }
+    }
+}
+
+function doctestCodeText(docLines) {
+    const codeLines = [];
+    let inFence = false;
+    for (const rawLine of docLines) {
+        const content = rawLine.replace(/^\s*\/\/:\s?/, "");
+        if (/^```\s*neplg2\b/.test(content)) {
+            inFence = true;
+            continue;
+        }
+        if (inFence && /^```\s*$/.test(content)) {
+            inFence = false;
+            continue;
+        }
+        if (inFence) {
+            codeLines.push(content.replace(/^\| ?/, ""));
+        }
+    }
+    return codeLines.join("\n");
 }
 
 function declarationAt(line) {
@@ -1502,6 +1586,12 @@ for (const filePath of walkNeplFiles(selfhostRoot).sort()) {
                     docSectionGaps.push(`${repoPath}: module doc doctest must explain representative use of ${usageName}`);
                 }
             }
+            validateDoctestScenarios(
+                moduleDoc,
+                moduleSectionRequirement.doctestScenarios,
+                `${repoPath}: module doc`,
+                docSectionGaps,
+            );
             for (const requiredDocPattern of moduleSectionRequirement.requiredPatterns) {
                 if (!moduleDoc.some((docLine) => requiredDocPattern.pattern.test(docLine))) {
                     docSectionGaps.push(`${repoPath}: module doc must mention ${requiredDocPattern.label}`);
@@ -1567,6 +1657,12 @@ for (const filePath of walkNeplFiles(selfhostRoot).sort()) {
                         docSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc doctest must explain representative use of ${usageName}`);
                     }
                 }
+                validateDoctestScenarios(
+                    doc,
+                    sectionRequirement.doctestScenarios,
+                    `${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc`,
+                    docSectionGaps,
+                );
                 for (const requiredDocPattern of sectionRequirement.requiredPatterns) {
                     if (!doc.some((docLine) => requiredDocPattern.pattern.test(docLine))) {
                         docSectionGaps.push(`${repoPath}:${index + 1}: ${declaration[2]} ${declaration[3]} doc must mention ${requiredDocPattern.label}`);

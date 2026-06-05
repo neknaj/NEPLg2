@@ -27,6 +27,11 @@ subagent review を依頼するときは、少なくとも次を渡す。
 - review response を `nodesrc/selfhost_zenn_review_response_check.js` で検査し、必須 section / field が欠けた返答を受理しないこと。
 - 最終受理時は `nodesrc/selfhost_zenn_review_response_check.js --record <note-or-issue.md>` で、response の要約と判断根拠が `note.n.md` または `issues/items/*.md` の関連 issue に残っていることを検査すること。一時ファイルや repo 外ファイルは durable な review 証跡ではない。
 - review response と durable record には `subagent_review_ids` と `subagent_review_count` を残すこと。`subagent review` という文字列だけでは、どの独立 review を受理したかの証跡として扱わない。
+- selfhost Zenn 方針の最終受理には、2 件以上の独立 subagent review が必要である。1 件だけの review、同一 subagent id の重複、または件数と id list が一致しない response は受理しない。
+- `source_policy: required` または `source_policy: follow-up` が残る `MERGE_APPROVED` は受理しない。必要な source policy は同じ branch で追加・更新するか、merge 前に `not-needed` の根拠へ落とし込む。
+- 今回差分由来 warning が残る `MERGE_APPROVED` は受理しない。既存 warning は既存として記録し、今回差分で増えた warning は修正する。review response と durable record の両方に `existing_warnings` / `new_warnings` または同等の warning 区分を残す。
+- durable record 側にも `policy/spec` と `implementation/test` の両方の `source_policy`、`residual_risk`、`unexecuted_verification`、`existing warnings`、`new warnings` または同等の機械可読 field を残す。`MERGE_APPROVED` の durable record に `source_policy: required` / `source_policy: follow-up`、残リスク、未実行検証、今回差分由来 warning が残る場合は受理しない。
+- `zenn_check` は対象 file、関数、test、source policy、authority boundary などの具体的な根拠を要求する。`` `Result` ``、`` `enum` ``、`` `match` `` のように抽象語だけを code span にしたものは、Zenn 方針を確認した証跡として扱わない。
 
 ## 必須確認項目
 
@@ -104,7 +109,7 @@ source_policy: added | updated | not-needed | follow-up
 verify: <実行した検証、または未実行理由>
 ```
 
-`MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count` が記録されている場合だけ受理する。`nodesrc/selfhost_zenn_review_response_check.js` は、この最小条件と必須 section / field を検査する。
+`MERGE_APPROVED` は、`blockers` と `questions` が空で、`approve` が明示的に承認を示し、`files_read`、`not_reviewed`、2 件以上の `subagent_review_ids`、`subagent_review_count`、`existing_warnings`、`new_warnings` が記録され、source policy 不足、今回差分由来 warning、未実行検証、未説明 residual risk が残っていない場合だけ受理する。`nodesrc/selfhost_zenn_review_response_check.js` は、この最小条件と必須 section / field を検査する。
 
 ## note checkpoint 形式
 
@@ -121,6 +126,7 @@ commit 前に `note.n.md` へ次を記録する。
 - 今回の設計判断と、Zenn 方針のどの項目に対応するか。
 - `policy/spec` と `implementation/test` の review 観点。
 - subagent review の件数、`subagent_review_ids`、Blocker、Non-blocker、Question、Approve の要約。
+- 2 件以上の独立 subagent review を受けたこと。1 件だけの場合は受理せず、追加 review を依頼する。
 - Blocker の修正内容、または issue 化した場合の issue ID。
 - 指摘別の `classification`、`decision`、`source_policy`、`verify`。
 - source policy / doctest / focused test / broad regression の検証結果。
@@ -140,6 +146,7 @@ commit 前に `note.n.md` へ次を記録する。
 - doc comment が目的、契約、戻り値、error variant、計算量、制約、現状説明を保持していること。
 - Zenn review gate と subagent review の証跡が実行計画、設計文書、`note.n.md` に残ること。
 - subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js` で検査していること。
+- selfhost Zenn review の最終受理で 2 件以上の独立 subagent review、具体的な `zenn_check` 根拠、source policy 不足なし、今回差分由来 warning なしを検査していること。
 - 新規 source policy を追加した場合に `nodesrc/run_source_policy_regressions.js` へ登録されていること。
 
 行数制限、ファイル長制限、doc comment 長制限は source policy に入れない。大きさの問題は、責務混在、依存方向、facade への実装流入、テスト不能な単位、review 不能な境界として検査する。

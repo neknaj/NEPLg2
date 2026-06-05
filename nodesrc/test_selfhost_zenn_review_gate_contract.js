@@ -291,7 +291,9 @@ for (const needle of [
     "source_policy: added | updated | not-needed | follow-up",
     "AGENTS.md の関連方針を確認した",
     "subagent review response の必須 section / field を `nodesrc/selfhost_zenn_review_response_check.js` で検査していること",
+    "2 件以上の独立 subagent review",
     "`MERGE_APPROVED` は、`blockers` と `questions` が空",
+    "source policy 不足、今回差分由来 warning、未実行検証",
     "`subagent_review_ids` と `subagent_review_count`",
     "新規 source policy を追加した場合に `nodesrc/run_source_policy_regressions.js` へ登録されていること",
 ]) {
@@ -329,6 +331,7 @@ for (const needle of [
     "doc/neplg2/self_host_zenn_review_checklist.md",
     "編集しないでレビューのみ行ってください",
     "policy/spec と implementation/test の 2 軸",
+    "最終受理には 2 件以上の独立 subagent review が必要です",
     "files_read",
     "not_reviewed",
     "行数制限、ファイル長制限、doc comment 長制限、コメント削減を理由にしないでください",
@@ -363,6 +366,9 @@ for (const needle of [
     "zero-cost/performance:",
     "prototype/fail-closed:",
     "## evidence_to_record",
+    "## warnings",
+    "existing_warnings:",
+    "new_warnings:",
     "## summary",
     "blockers:",
     "non_blockers:",
@@ -373,6 +379,9 @@ for (const needle of [
     "node nodesrc/selfhost_zenn_review_response_check.js --input <review-response.md>",
     "response checker が失敗した返答は review 記録として扱わず",
     "`MERGE_APPROVED` は、`blockers` と `questions` が空",
+    "2 件以上の独立 `subagent_review_ids`",
+    "`existing_warnings` と `new_warnings` を response から省いてはならない",
+    "`source_policy: required` または `source_policy: follow-up` が残る `MERGE_APPROVED` は受理しない",
     "`subagent_review_ids` と `subagent_review_count`",
 ]) {
     assert.ok(prompt.includes(needle), `selfhost review prompt must include ${needle}`);
@@ -389,7 +398,9 @@ for (const needle of [
     "一時ファイルや repo 外ファイルを指定してはならない",
     "Zenn 記事 URL、`AGENTS.md`、checklist、対象 branch / commit / issue を省いた依頼を出してはならない",
     "`policy/spec` と `implementation/test` のどちらか片方だけで approve してはならない",
-    "`files_read`、`not_reviewed`、`subagent_review_ids`、`subagent_review_count` を省いてはならない",
+    "2 件以上の独立 `subagent_review_ids`",
+    "1 件だけの subagent review または同一 subagent id の重複を最終受理してはならない",
+    "`source_policy: required` または `source_policy: follow-up` を残したまま `MERGE_APPROVED` にしてはならない",
     "`source_policy: not-needed` の理由を省いてはならない",
     "行数制限、ファイル長制限、doc comment 長制限を review 条件にしてはならない",
     "warning を既存か今回差分由来か分けずに扱ってはならない",
@@ -430,6 +441,8 @@ for (const needle of [
     "not_reviewed",
     "existing warnings",
     "new warnings",
+    "最終受理には 2 件以上の独立 subagent review が必要です",
+    "`zenn_check` は `yes` や `確認済み` だけで済ませず",
     "Blocker は同じ branch 内で修正が必要なものとして分類してください",
     "返答は `nodesrc/selfhost_zenn_review_response_check.js` で検査します",
     "必ず `doc/neplg2/self_host_zenn_review_prompt.md` の response 形式で返してください",
@@ -465,6 +478,7 @@ for (const needle of [
     "implementation/test",
     "zenn_check",
     "evidence_to_record",
+    "warnings",
     "summary",
     "missing_section",
     "missing_field",
@@ -475,6 +489,7 @@ for (const needle of [
     "missing_files_read",
     "missing_subagent_review_ids",
     "invalid_subagent_review_count",
+    "too_few_subagent_reviews",
     "subagent_review_count_mismatch",
     "duplicate_subagent_review_id",
     "missing_record_evidence",
@@ -483,6 +498,17 @@ for (const needle of [
     "approved_with_questions",
     "approved_with_blocker_classification",
     "approved_with_question_classification",
+    "approved_with_required_source_policy",
+    "approved_with_follow_up_source_policy",
+    "approved_with_residual_risk",
+    "approved_with_unexecuted_verification",
+    "approved_with_new_warnings",
+    "weak_zenn_check",
+    "record_has_residual_risk",
+    "record_has_unexecuted_verification",
+    "record_has_required_source_policy",
+    "record_has_follow_up_source_policy",
+    "record_has_new_warnings",
     "weak_approval",
     "selfhost Zenn review response contract passed",
 ]) {
@@ -678,7 +704,8 @@ try {
         "- not_reviewed: unrelated stdlib files",
         "- subagent_review_ids:",
         "  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e",
-        "- subagent_review_count: 1",
+        "  - 019e9936-d0de-75ae-923b-996ad05bf1d3",
+        "- subagent_review_count: 2",
         "",
         "## decision",
         "- MERGE_APPROVED",
@@ -708,15 +735,15 @@ try {
         "- verify: node nodesrc/test_selfhost_zenn_review_gate_contract.js",
         "",
         "## zenn_check",
-        "- Result/Option: invalid responses exit non-zero",
-        "- enum error/display separation: checker emits stable error codes",
-        "- match exhaustiveness: required sections are enumerated",
-        "- pure/impure boundary: file IO is isolated to the helper boundary",
-        "- authority boundary: review evidence is validated before acceptance",
-        "- owner/free: not-applicable",
-        "- zero-cost/performance: linear text scan",
-        "- doc comment: prompt contract stays explicit",
-        "- prototype/fail-closed: weak approvals are rejected",
+        "- Result/Option: `nodesrc/selfhost_zenn_review_response_check.js` returns non-zero for invalid response evidence.",
+        "- enum error/display separation: `nodesrc/selfhost_zenn_review_response_check.js` emits stable `reviewError` code strings before display text.",
+        "- match exhaustiveness: `nodesrc/selfhost_zenn_review_response_check.js` keeps `requiredSections` and `sectionFields` as the accepted response shape.",
+        "- pure/impure boundary: file IO stays in the Node helper boundary, not in `stdlib/neplg2` compiler core.",
+        "- authority boundary: `--record` validates durable `note.n.md` or `issues/items/*.md` evidence before acceptance.",
+        "- owner/free: not-applicable because `nodesrc/selfhost_zenn_review_response_check.js` does not manipulate NEPL owner/free state.",
+        "- zero-cost/performance: `nodesrc/selfhost_zenn_review_response_check.js` uses a linear text scan over the review response and record.",
+        "- doc comment: `doc/neplg2/self_host_zenn_review_prompt.md` keeps the review contract explicit.",
+        "- prototype/fail-closed: `nodesrc/test_selfhost_zenn_review_gate_contract.js` rejects weak approvals and weak `zenn_check` evidence.",
         "",
         "## evidence_to_record",
         "- note: record response checker pass",
@@ -724,12 +751,16 @@ try {
         "- source policy: updated",
         "- tests: node nodesrc/test_selfhost_zenn_review_gate_contract.js",
         "",
+        "## warnings",
+        "- existing_warnings: none",
+        "- new_warnings: none",
+        "",
         "## summary",
         "- blockers: 0",
         "- non_blockers: 0",
         "- questions: 0",
         "- approve: yes",
-        "- residual_risk: none for this checker slice",
+        "- residual_risk: none",
         "- unexecuted_verification: none",
         "",
     ].join("\n"), "utf8");
@@ -743,7 +774,8 @@ try {
         "- subagent review response を `nodesrc/selfhost_zenn_review_response_check.js --input valid.md --record record.md` で検査した。",
         "- subagent_review_ids:",
         "  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e",
-        "- subagent_review_count: 1",
+        "  - 019e9936-d0de-75ae-923b-996ad05bf1d3",
+        "- subagent_review_count: 2",
         "- files_read: nodesrc/selfhost_zenn_review_packet.js",
         "- not_reviewed: unrelated stdlib files",
         "- decision: MERGE_APPROVED",
@@ -752,6 +784,8 @@ try {
         "- summary Blocker: 0 / Non-blocker: 0 / Question: 0 / Approve: yes",
         "- executed: node nodesrc/test_selfhost_zenn_review_gate_contract.js",
         "- not executed: none",
+        "- residual_risk: none",
+        "- unexecuted_verification: none",
         "- existing warnings: none",
         "- new warnings: none",
         "- 次 slice: none",
@@ -850,8 +884,8 @@ try {
     fs.writeFileSync(
         missingSubagentReviewIdPath,
         fs.readFileSync(validReviewResponsePath, "utf8").replace(
-            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 1\n",
-            "- subagent_review_ids:\n- subagent_review_count: 1\n",
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n  - 019e9936-d0de-75ae-923b-996ad05bf1d3\n- subagent_review_count: 2\n",
+            "- subagent_review_ids:\n- subagent_review_count: 2\n",
         ),
         "utf8",
     );
@@ -873,10 +907,37 @@ try {
         "selfhost review response checker must explain missing subagent review ids",
     );
 
+    const tooFewSubagentReviewsPath = path.join(responseCheckTempDir, "too-few-subagent-reviews.md");
+    fs.writeFileSync(
+        tooFewSubagentReviewsPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace(
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n  - 019e9936-d0de-75ae-923b-996ad05bf1d3\n- subagent_review_count: 2\n",
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 1\n",
+        ),
+        "utf8",
+    );
+    const responseCheckTooFewSubagentReviews = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        tooFewSubagentReviewsPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckTooFewSubagentReviews.status,
+        0,
+        "selfhost review response checker must reject single-review acceptance",
+    );
+    assert.ok(
+        responseCheckTooFewSubagentReviews.stderr.includes("too_few_subagent_reviews"),
+        "selfhost review response checker must explain the two independent review requirement",
+    );
+
     const mismatchedSubagentReviewCountPath = path.join(responseCheckTempDir, "mismatched-subagent-review-count.md");
     fs.writeFileSync(
         mismatchedSubagentReviewCountPath,
-        fs.readFileSync(validReviewResponsePath, "utf8").replace("- subagent_review_count: 1", "- subagent_review_count: 2"),
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- subagent_review_count: 2", "- subagent_review_count: 3"),
         "utf8",
     );
     const responseCheckMismatchedSubagentReviewCount = spawnSync(process.execPath, [
@@ -900,7 +961,7 @@ try {
     const invalidSubagentReviewCountPath = path.join(responseCheckTempDir, "invalid-subagent-review-count.md");
     fs.writeFileSync(
         invalidSubagentReviewCountPath,
-        fs.readFileSync(validReviewResponsePath, "utf8").replace("- subagent_review_count: 1", "- subagent_review_count: 1abc"),
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- subagent_review_count: 2", "- subagent_review_count: 2abc"),
         "utf8",
     );
     const responseCheckInvalidSubagentReviewCount = spawnSync(process.execPath, [
@@ -925,7 +986,7 @@ try {
     fs.writeFileSync(
         duplicateSubagentReviewIdPath,
         fs.readFileSync(validReviewResponsePath, "utf8").replace(
-            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 1\n",
+            "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n  - 019e9936-d0de-75ae-923b-996ad05bf1d3\n- subagent_review_count: 2\n",
             "- subagent_review_ids:\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n  - 019e9935-ca9d-72d2-aba5-2f1be90bfd5e\n- subagent_review_count: 2\n",
         ),
         "utf8",
@@ -1120,6 +1181,501 @@ try {
     assert.ok(
         responseCheckApprovedWithImplementationQuestionClassification.stderr.includes("approved_with_question_classification"),
         "selfhost review response checker must cover implementation/test approval/question conflicts",
+    );
+
+    const approvedWithRequiredSourcePolicyPath = path.join(responseCheckTempDir, "approved-with-required-source-policy.md");
+    fs.writeFileSync(
+        approvedWithRequiredSourcePolicyPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- source_policy: updated", "- source_policy: required"),
+        "utf8",
+    );
+    const responseCheckApprovedWithRequiredSourcePolicy = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithRequiredSourcePolicyPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithRequiredSourcePolicy.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED responses with required source policy work",
+    );
+    assert.ok(
+        responseCheckApprovedWithRequiredSourcePolicy.stderr.includes("approved_with_required_source_policy"),
+        "selfhost review response checker must explain required source policy approval conflicts",
+    );
+
+    const approvedWithFollowUpSourcePolicyPath = path.join(responseCheckTempDir, "approved-with-follow-up-source-policy.md");
+    fs.writeFileSync(
+        approvedWithFollowUpSourcePolicyPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- source_policy: updated", "- source_policy: follow-up"),
+        "utf8",
+    );
+    const responseCheckApprovedWithFollowUpSourcePolicy = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithFollowUpSourcePolicyPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithFollowUpSourcePolicy.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED responses with follow-up source policy work",
+    );
+    assert.ok(
+        responseCheckApprovedWithFollowUpSourcePolicy.stderr.includes("approved_with_follow_up_source_policy"),
+        "selfhost review response checker must explain follow-up source policy approval conflicts",
+    );
+
+    const approvedWithResidualRiskPath = path.join(responseCheckTempDir, "approved-with-residual-risk.md");
+    fs.writeFileSync(
+        approvedWithResidualRiskPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- residual_risk: none", "- residual_risk: doc policy evidence is incomplete"),
+        "utf8",
+    );
+    const responseCheckApprovedWithResidualRisk = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithResidualRiskPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithResidualRisk.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED responses with residual risk",
+    );
+    assert.ok(
+        responseCheckApprovedWithResidualRisk.stderr.includes("approved_with_residual_risk"),
+        "selfhost review response checker must explain residual risk approval conflicts",
+    );
+
+    const approvedWithMisleadingNoResidualRiskPath = path.join(responseCheckTempDir, "approved-with-misleading-no-residual-risk.md");
+    fs.writeFileSync(
+        approvedWithMisleadingNoResidualRiskPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- residual_risk: none", "- residual_risk: none, but documentation evidence is incomplete"),
+        "utf8",
+    );
+    const responseCheckApprovedWithMisleadingNoResidualRisk = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithMisleadingNoResidualRiskPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithMisleadingNoResidualRisk.status,
+        0,
+        "selfhost review response checker must reject misleading residual-risk no-work prefixes",
+    );
+    assert.ok(
+        responseCheckApprovedWithMisleadingNoResidualRisk.stderr.includes("approved_with_residual_risk"),
+        "selfhost review response checker must explain misleading residual-risk approval conflicts",
+    );
+
+    const approvedWithUnexecutedVerificationPath = path.join(responseCheckTempDir, "approved-with-unexecuted-verification.md");
+    fs.writeFileSync(
+        approvedWithUnexecutedVerificationPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- unexecuted_verification: none", "- unexecuted_verification: trunk build"),
+        "utf8",
+    );
+    const responseCheckApprovedWithUnexecutedVerification = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithUnexecutedVerificationPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithUnexecutedVerification.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED responses with unexecuted verification",
+    );
+    assert.ok(
+        responseCheckApprovedWithUnexecutedVerification.stderr.includes("approved_with_unexecuted_verification"),
+        "selfhost review response checker must explain unexecuted verification approval conflicts",
+    );
+
+    const approvedWithMisleadingNoUnexecutedVerificationPath = path.join(responseCheckTempDir, "approved-with-misleading-no-unexecuted-verification.md");
+    fs.writeFileSync(
+        approvedWithMisleadingNoUnexecutedVerificationPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- unexecuted_verification: none", "- unexecuted_verification: none, but trunk build was skipped"),
+        "utf8",
+    );
+    const responseCheckApprovedWithMisleadingNoUnexecutedVerification = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithMisleadingNoUnexecutedVerificationPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithMisleadingNoUnexecutedVerification.status,
+        0,
+        "selfhost review response checker must reject misleading unexecuted-verification no-work prefixes",
+    );
+    assert.ok(
+        responseCheckApprovedWithMisleadingNoUnexecutedVerification.stderr.includes("approved_with_unexecuted_verification"),
+        "selfhost review response checker must explain misleading unexecuted-verification approval conflicts",
+    );
+
+    const approvedWithNewWarningsPath = path.join(responseCheckTempDir, "approved-with-new-warnings.md");
+    fs.writeFileSync(
+        approvedWithNewWarningsPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- new_warnings: none", "- new_warnings: selfhost documentation warning from this diff"),
+        "utf8",
+    );
+    const responseCheckApprovedWithNewWarnings = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithNewWarningsPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithNewWarnings.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED responses with new warnings",
+    );
+    assert.ok(
+        responseCheckApprovedWithNewWarnings.stderr.includes("approved_with_new_warnings"),
+        "selfhost review response checker must explain current-diff warning approval conflicts in the response",
+    );
+
+    const approvedWithMisleadingNoNewWarningsPath = path.join(responseCheckTempDir, "approved-with-misleading-no-new-warnings.md");
+    fs.writeFileSync(
+        approvedWithMisleadingNoNewWarningsPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace("- new_warnings: none", "- new_warnings: none, but a selfhost documentation warning remains"),
+        "utf8",
+    );
+    const responseCheckApprovedWithMisleadingNoNewWarnings = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        approvedWithMisleadingNoNewWarningsPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckApprovedWithMisleadingNoNewWarnings.status,
+        0,
+        "selfhost review response checker must reject misleading current-diff warning no-work prefixes",
+    );
+    assert.ok(
+        responseCheckApprovedWithMisleadingNoNewWarnings.stderr.includes("approved_with_new_warnings"),
+        "selfhost review response checker must explain misleading current-diff warning approval conflicts",
+    );
+
+    const weakZennCheckPath = path.join(responseCheckTempDir, "weak-zenn-check.md");
+    fs.writeFileSync(
+        weakZennCheckPath,
+        fs.readFileSync(validReviewResponsePath, "utf8").replace(
+            "- Result/Option: `nodesrc/selfhost_zenn_review_response_check.js` returns non-zero for invalid response evidence.",
+            "- Result/Option: yes",
+        ),
+        "utf8",
+    );
+    const responseCheckWeakZennCheck = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        weakZennCheckPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckWeakZennCheck.status,
+        0,
+        "selfhost review response checker must reject empty Zenn-policy confirmations",
+    );
+    assert.ok(
+        responseCheckWeakZennCheck.stderr.includes("weak_zenn_check"),
+        "selfhost review response checker must explain weak Zenn-policy evidence",
+    );
+
+    const keywordOnlyZennCheckPath = path.join(responseCheckTempDir, "keyword-only-zenn-check.md");
+    fs.writeFileSync(
+        keywordOnlyZennCheckPath,
+        fs.readFileSync(validReviewResponsePath, "utf8")
+            .replace(
+                "- Result/Option: `nodesrc/selfhost_zenn_review_response_check.js` returns non-zero for invalid response evidence.",
+                "- Result/Option: Result",
+            )
+            .replace(
+                "- enum error/display separation: `nodesrc/selfhost_zenn_review_response_check.js` emits stable `reviewError` code strings before display text.",
+                "- enum error/display separation: enum",
+            )
+            .replace(
+                "- match exhaustiveness: `nodesrc/selfhost_zenn_review_response_check.js` keeps `requiredSections` and `sectionFields` as the accepted response shape.",
+                "- match exhaustiveness: match",
+            )
+            .replace(
+                "- pure/impure boundary: file IO stays in the Node helper boundary, not in `stdlib/neplg2` compiler core.",
+                "- pure/impure boundary: pure",
+            )
+            .replace(
+                "- authority boundary: `--record` validates durable `note.n.md` or `issues/items/*.md` evidence before acceptance.",
+                "- authority boundary: authority",
+            )
+            .replace(
+                "- owner/free: not-applicable because `nodesrc/selfhost_zenn_review_response_check.js` does not manipulate NEPL owner/free state.",
+                "- owner/free: owner",
+            )
+            .replace(
+                "- zero-cost/performance: `nodesrc/selfhost_zenn_review_response_check.js` uses a linear text scan over the review response and record.",
+                "- zero-cost/performance: performance",
+            )
+            .replace(
+                "- doc comment: `doc/neplg2/self_host_zenn_review_prompt.md` keeps the review contract explicit.",
+                "- doc comment: doc comment",
+            )
+            .replace(
+                "- prototype/fail-closed: `nodesrc/test_selfhost_zenn_review_gate_contract.js` rejects weak approvals and weak `zenn_check` evidence.",
+                "- prototype/fail-closed: fail-closed",
+            ),
+        "utf8",
+    );
+    const responseCheckKeywordOnlyZennCheck = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        keywordOnlyZennCheckPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckKeywordOnlyZennCheck.status,
+        0,
+        "selfhost review response checker must reject keyword-only Zenn-policy confirmations",
+    );
+    assert.ok(
+        responseCheckKeywordOnlyZennCheck.stderr.includes("weak_zenn_check"),
+        "selfhost review response checker must explain keyword-only Zenn-policy evidence",
+    );
+
+    const quotedKeywordOnlyZennCheckPath = path.join(responseCheckTempDir, "quoted-keyword-only-zenn-check.md");
+    fs.writeFileSync(
+        quotedKeywordOnlyZennCheckPath,
+        fs.readFileSync(validReviewResponsePath, "utf8")
+            .replace(
+                "- Result/Option: `nodesrc/selfhost_zenn_review_response_check.js` returns non-zero for invalid response evidence.",
+                "- Result/Option: `Result`",
+            )
+            .replace(
+                "- enum error/display separation: `nodesrc/selfhost_zenn_review_response_check.js` emits stable `reviewError` code strings before display text.",
+                "- enum error/display separation: `enum`",
+            )
+            .replace(
+                "- match exhaustiveness: `nodesrc/selfhost_zenn_review_response_check.js` keeps `requiredSections` and `sectionFields` as the accepted response shape.",
+                "- match exhaustiveness: `match`",
+            )
+            .replace(
+                "- pure/impure boundary: file IO stays in the Node helper boundary, not in `stdlib/neplg2` compiler core.",
+                "- pure/impure boundary: `pure`",
+            )
+            .replace(
+                "- authority boundary: `--record` validates durable `note.n.md` or `issues/items/*.md` evidence before acceptance.",
+                "- authority boundary: `authority`",
+            )
+            .replace(
+                "- owner/free: not-applicable because `nodesrc/selfhost_zenn_review_response_check.js` does not manipulate NEPL owner/free state.",
+                "- owner/free: `owner`",
+            )
+            .replace(
+                "- zero-cost/performance: `nodesrc/selfhost_zenn_review_response_check.js` uses a linear text scan over the review response and record.",
+                "- zero-cost/performance: `performance`",
+            )
+            .replace(
+                "- doc comment: `doc/neplg2/self_host_zenn_review_prompt.md` keeps the review contract explicit.",
+                "- doc comment: `doc comment`",
+            )
+            .replace(
+                "- prototype/fail-closed: `nodesrc/test_selfhost_zenn_review_gate_contract.js` rejects weak approvals and weak `zenn_check` evidence.",
+                "- prototype/fail-closed: `fail-closed`",
+            ),
+        "utf8",
+    );
+    const responseCheckQuotedKeywordOnlyZennCheck = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        quotedKeywordOnlyZennCheckPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckQuotedKeywordOnlyZennCheck.status,
+        0,
+        "selfhost review response checker must reject code-quoted keyword-only Zenn-policy confirmations",
+    );
+    assert.ok(
+        responseCheckQuotedKeywordOnlyZennCheck.stderr.includes("weak_zenn_check"),
+        "selfhost review response checker must explain code-quoted keyword-only Zenn-policy evidence",
+    );
+
+    const reviewRecordWithResidualRiskPath = missingReviewRecordPath;
+    fs.writeFileSync(
+        reviewRecordWithResidualRiskPath,
+        fs.readFileSync(validReviewRecordPath, "utf8").replace("- residual_risk: none", "- residual_risk: documentation evidence is incomplete"),
+        "utf8",
+    );
+    const responseCheckRecordWithResidualRisk = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        reviewRecordWithResidualRiskPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckRecordWithResidualRisk.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED records with residual risk",
+    );
+    assert.ok(
+        responseCheckRecordWithResidualRisk.stderr.includes("record_has_residual_risk"),
+        "selfhost review response checker must explain residual risk conflicts in durable records",
+    );
+
+    const reviewRecordWithUnexecutedVerificationPath = missingReviewRecordPath;
+    fs.writeFileSync(
+        reviewRecordWithUnexecutedVerificationPath,
+        fs.readFileSync(validReviewRecordPath, "utf8").replace("- unexecuted_verification: none", "- unexecuted_verification: trunk build"),
+        "utf8",
+    );
+    const responseCheckRecordWithUnexecutedVerification = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        reviewRecordWithUnexecutedVerificationPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckRecordWithUnexecutedVerification.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED records with unexecuted verification",
+    );
+    assert.ok(
+        responseCheckRecordWithUnexecutedVerification.stderr.includes("record_has_unexecuted_verification"),
+        "selfhost review response checker must explain unexecuted verification conflicts in durable records",
+    );
+
+    const reviewRecordWithSourcePolicyTextOnlyPath = missingReviewRecordPath;
+    fs.writeFileSync(
+        reviewRecordWithSourcePolicyTextOnlyPath,
+        fs.readFileSync(validReviewRecordPath, "utf8").replaceAll("source_policy: updated", "source_policy checked"),
+        "utf8",
+    );
+    const responseCheckRecordWithSourcePolicyTextOnly = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        reviewRecordWithSourcePolicyTextOnlyPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckRecordWithSourcePolicyTextOnly.status,
+        0,
+        "selfhost review response checker must reject records that mention source_policy without machine-readable fields",
+    );
+    assert.ok(
+        responseCheckRecordWithSourcePolicyTextOnly.stderr.includes("missing_record_evidence"),
+        "selfhost review response checker must explain missing machine-readable source policy fields",
+    );
+
+    const reviewRecordWithRequiredSourcePolicyPath = missingReviewRecordPath;
+    fs.writeFileSync(
+        reviewRecordWithRequiredSourcePolicyPath,
+        fs.readFileSync(validReviewRecordPath, "utf8").replace("source_policy: updated", "source_policy: required"),
+        "utf8",
+    );
+    const responseCheckRecordWithRequiredSourcePolicy = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        reviewRecordWithRequiredSourcePolicyPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckRecordWithRequiredSourcePolicy.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED records with required source policy work",
+    );
+    assert.ok(
+        responseCheckRecordWithRequiredSourcePolicy.stderr.includes("record_has_required_source_policy"),
+        "selfhost review response checker must explain required source policy conflicts in durable records",
+    );
+
+    const reviewRecordWithFollowUpSourcePolicyPath = missingReviewRecordPath;
+    fs.writeFileSync(
+        reviewRecordWithFollowUpSourcePolicyPath,
+        fs.readFileSync(validReviewRecordPath, "utf8").replace("source_policy: updated", "source_policy: follow-up"),
+        "utf8",
+    );
+    const responseCheckRecordWithFollowUpSourcePolicy = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        reviewRecordWithFollowUpSourcePolicyPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckRecordWithFollowUpSourcePolicy.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED records with follow-up source policy work",
+    );
+    assert.ok(
+        responseCheckRecordWithFollowUpSourcePolicy.stderr.includes("record_has_follow_up_source_policy"),
+        "selfhost review response checker must explain follow-up source policy conflicts in durable records",
+    );
+
+    const reviewRecordWithNewWarningsPath = missingReviewRecordPath;
+    fs.writeFileSync(
+        reviewRecordWithNewWarningsPath,
+        fs.readFileSync(validReviewRecordPath, "utf8").replace("- new warnings: none", "- new warnings: selfhost documentation warning from this diff"),
+        "utf8",
+    );
+    const responseCheckRecordWithNewWarnings = spawnSync(process.execPath, [
+        "nodesrc/selfhost_zenn_review_response_check.js",
+        "--input",
+        validReviewResponsePath,
+        "--record",
+        reviewRecordWithNewWarningsPath,
+    ], {
+        cwd: repoRoot,
+        encoding: "utf8",
+    });
+    assert.notEqual(
+        responseCheckRecordWithNewWarnings.status,
+        0,
+        "selfhost review response checker must reject MERGE_APPROVED records with new warnings",
+    );
+    assert.ok(
+        responseCheckRecordWithNewWarnings.stderr.includes("record_has_new_warnings"),
+        "selfhost review response checker must explain current-diff warning approval conflicts",
     );
 } finally {
     fs.rmSync(responseCheckTempDir, { recursive: true, force: true });

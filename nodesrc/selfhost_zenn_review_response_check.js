@@ -18,6 +18,7 @@ const requiredSections = [
     "implementation/test",
     "zenn_check",
     "evidence_to_record",
+    "warnings",
     "summary",
 ];
 
@@ -59,6 +60,7 @@ const sectionFields = new Map([
         "prototype/fail-closed",
     ]],
     ["evidence_to_record", ["note", "issue", "source policy", "tests"]],
+    ["warnings", ["existing_warnings", "new_warnings"]],
     ["summary", [
         "blockers",
         "non_blockers",
@@ -161,11 +163,13 @@ function validateReviewResponse(source) {
     validateClassificationValue(sections.get("implementation/test"), "implementation/test", errors);
     validateSourcePolicyValue(sections.get("policy/spec"), "policy/spec", errors);
     validateSourcePolicyValue(sections.get("implementation/test"), "implementation/test", errors);
+    validateZennCheckEvidence(sections.get("zenn_check"), errors);
     validateMergeApproval(
         sections.get("decision"),
         sections.get("summary"),
         sections.get("policy/spec"),
         sections.get("implementation/test"),
+        sections.get("warnings"),
         errors,
     );
     validateReviewDoesNotAcceptWarnings(sections.get("summary"), errors);
@@ -207,7 +211,8 @@ function validateReviewRecordEvidence(source, record, errors) {
 
     for (const [section, fields] of [
         ["review_scope", ["branch", "base", "head", "subagent_review_ids", "subagent_review_count"]],
-        ["summary", ["blockers", "questions", "approve"]],
+        ["warnings", ["existing_warnings", "new_warnings"]],
+        ["summary", ["blockers", "questions", "approve", "residual_risk", "unexecuted_verification"]],
     ]) {
         for (const field of fields) {
             const value = fieldValue(sections.get(section), field);
@@ -245,7 +250,7 @@ function validateReviewRecordEvidence(source, record, errors) {
             "record file must include executed verification evidence",
         ));
     }
-    if (!recordIncludesAny(record, ["not executed", "未実行", "未実行の検証"])) {
+    if (!recordIncludesAny(record, ["unexecuted_verification", "not executed", "未実行", "未実行の検証"])) {
         errors.push(reviewError(
             "missing_record_evidence",
             "record file must include unexecuted verification evidence",
@@ -261,6 +266,71 @@ function validateReviewRecordEvidence(source, record, errors) {
         errors.push(reviewError(
             "missing_record_evidence",
             "record file must distinguish warnings introduced by the current diff",
+        ));
+    }
+    const residualRisk = recordFieldValue(record, ["residual_risk", "residual risk", "残リスク"]);
+    const unexecutedVerification = recordFieldValue(record, ["unexecuted_verification", "not executed", "未実行の検証", "未実行"]);
+    const existingWarnings = recordFieldValue(record, ["existing warnings", "existing_warnings", "既存 warning"]);
+    const newWarnings = recordFieldValue(record, ["new warnings", "new_warnings", "今回差分由来 warning"]);
+    const sourcePolicyValues = recordFieldValues(record, ["source_policy", "source policy"]);
+    if (!residualRisk) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must include a machine-readable residual_risk field",
+        ));
+    }
+    if (!unexecutedVerification) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must include a machine-readable unexecuted_verification field",
+        ));
+    }
+    if (!existingWarnings) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must include a machine-readable existing warnings field",
+        ));
+    }
+    if (!newWarnings) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must include a machine-readable new warnings field",
+        ));
+    }
+    if (sourcePolicyValues.length < 2) {
+        errors.push(reviewError(
+            "missing_record_evidence",
+            "record file must include machine-readable source_policy fields for both policy/spec and implementation/test",
+        ));
+    }
+    if (decision && decision[1] === "MERGE_APPROVED" && residualRisk && !isNoWorkValue(residualRisk)) {
+        errors.push(reviewError(
+            "record_has_residual_risk",
+            "MERGE_APPROVED review records must not leave residual risk",
+        ));
+    }
+    if (decision && decision[1] === "MERGE_APPROVED" && unexecutedVerification && !isNoWorkValue(unexecutedVerification)) {
+        errors.push(reviewError(
+            "record_has_unexecuted_verification",
+            "MERGE_APPROVED review records must not leave unexecuted verification",
+        ));
+    }
+    if (decision && decision[1] === "MERGE_APPROVED" && sourcePolicyValues.some((value) => /^required\b/.test(value))) {
+        errors.push(reviewError(
+            "record_has_required_source_policy",
+            "MERGE_APPROVED review records must not leave required source policy work",
+        ));
+    }
+    if (decision && decision[1] === "MERGE_APPROVED" && sourcePolicyValues.some((value) => /^follow-up\b/.test(value))) {
+        errors.push(reviewError(
+            "record_has_follow_up_source_policy",
+            "MERGE_APPROVED review records must not leave follow-up source policy work",
+        ));
+    }
+    if (decision && decision[1] === "MERGE_APPROVED" && newWarnings && !isNoWorkValue(newWarnings)) {
+        errors.push(reviewError(
+            "record_has_new_warnings",
+            "MERGE_APPROVED review records must not leave warnings introduced by the current diff",
         ));
     }
 }
@@ -345,6 +415,45 @@ function fieldValue(section, field) {
     return "";
 }
 
+function recordFieldValue(record, fields) {
+    for (const field of fields) {
+        const value = fieldValue(record, field);
+        if (value !== "") {
+            return value;
+        }
+    }
+    return "";
+}
+
+function recordFieldValues(record, fields) {
+    const values = [];
+    for (const field of fields) {
+        values.push(...allFieldValues(record, field));
+    }
+    return values;
+}
+
+function allFieldValues(section, field) {
+    const values = [];
+    const lines = section.split("\n");
+    const fieldPattern = new RegExp(`^-\\s*${escapeRegExp(field)}\\s*:\\s*(.*)$`);
+    const inlineFieldPattern = new RegExp(`(?:^|[,\\s])${escapeRegExp(field)}\\s*:\\s*([^,\\r\\n]+)`, "g");
+    for (const line of lines) {
+        const match = line.match(fieldPattern);
+        if (match && match[1].trim() !== "") {
+            values.push(match[1].trim());
+            continue;
+        }
+        for (const inlineMatch of line.matchAll(inlineFieldPattern)) {
+            const value = inlineMatch[1].trim();
+            if (value !== "") {
+                values.push(value);
+            }
+        }
+    }
+    return values;
+}
+
 function validateSourcePolicyValue(section, sectionName, errors) {
     const value = fieldValue(section, "source_policy");
     if (!/^(added|updated|required|not-needed|follow-up)\b/.test(value)) {
@@ -403,6 +512,12 @@ function validateSubagentReviewEvidence(section, errors) {
         return;
     }
     const count = Number.parseInt(countValue, 10);
+    if (count < 2) {
+        errors.push(reviewError(
+            "too_few_subagent_reviews",
+            "## review_scope subagent_review_count must be at least 2 for selfhost Zenn-policy acceptance",
+        ));
+    }
     if (uniqueIds.size !== count) {
         errors.push(reviewError(
             "subagent_review_count_mismatch",
@@ -416,7 +531,7 @@ function subagentReviewIds(value) {
     return matches || [];
 }
 
-function validateMergeApproval(decisionSection, summarySection, policySection, implementationSection, errors) {
+function validateMergeApproval(decisionSection, summarySection, policySection, implementationSection, warningSection, errors) {
     if (!/\bMERGE_APPROVED\b/.test(decisionSection)) {
         return;
     }
@@ -446,7 +561,63 @@ function validateMergeApproval(decisionSection, summarySection, policySection, i
                 `MERGE_APPROVED responses must not leave ## ${sectionName} classified as Question`,
             ));
         }
+        const sourcePolicy = fieldValue(section, "source_policy");
+        if (/^required\b/.test(sourcePolicy)) {
+            errors.push(reviewError(
+                "approved_with_required_source_policy",
+                `MERGE_APPROVED responses must not leave ## ${sectionName} source_policy as required`,
+            ));
+        }
+        if (/^follow-up\b/.test(sourcePolicy)) {
+            errors.push(reviewError(
+                "approved_with_follow_up_source_policy",
+                `MERGE_APPROVED responses must not leave ## ${sectionName} source_policy as follow-up`,
+            ));
+        }
     }
+    if (!isNoWorkValue(fieldValue(summarySection, "residual_risk"))) {
+        errors.push(reviewError(
+            "approved_with_residual_risk",
+            "MERGE_APPROVED responses must not leave residual_risk",
+        ));
+    }
+    if (!isNoWorkValue(fieldValue(summarySection, "unexecuted_verification"))) {
+        errors.push(reviewError(
+            "approved_with_unexecuted_verification",
+            "MERGE_APPROVED responses must not leave unexecuted verification",
+        ));
+    }
+    if (!isNoWorkValue(fieldValue(warningSection, "new_warnings"))) {
+        errors.push(reviewError(
+            "approved_with_new_warnings",
+            "MERGE_APPROVED responses must not leave warnings introduced by the current diff",
+        ));
+    }
+}
+
+function validateZennCheckEvidence(section, errors) {
+    for (const field of sectionFields.get("zenn_check")) {
+        const value = fieldValue(section, field);
+        if (isWeakZennCheckValue(value) || !hasConcreteZennEvidence(value)) {
+            errors.push(reviewError(
+                "weak_zenn_check",
+                `## zenn_check ${field}: must cite concrete files, functions, tests, source policy, or boundary evidence`,
+            ));
+        }
+    }
+}
+
+function isWeakZennCheckValue(value) {
+    return /^(yes|ok|checked|done|true|pass|none|not-applicable|n\/a|確認済み|済み|不要)$/i.test(value.trim());
+}
+
+function hasConcreteZennEvidence(value) {
+    return [
+        /\b(?:nodesrc|stdlib|doc|issues)\/[A-Za-z0-9_./-]+\b/,
+        /\b(?:note\.n\.md|AGENTS\.md)\b/,
+        /\bnode\s+nodesrc\/[A-Za-z0-9_./-]+\.js\b/,
+        /\b[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+\b/,
+    ].some((pattern) => pattern.test(value));
 }
 
 function validateReviewDoesNotAcceptWarnings(section, errors) {
@@ -471,7 +642,7 @@ function isPlaceholderValue(value) {
 }
 
 function isNoWorkValue(value) {
-    return /^(0|none|なし|無し|no|not-applicable|n\/a)\b/i.test(value.trim());
+    return /^(?:0|none|なし|無し|no|not-applicable|n\/a)$/i.test(value.trim());
 }
 
 function isAffirmative(value) {
