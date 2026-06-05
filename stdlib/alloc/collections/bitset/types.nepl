@@ -17,8 +17,37 @@
 //: ### [目的/もくてき]
 //: - bit [長/ちょう]と byte [長/ちょう]と typed byte storage owner を 1 [値/あたい]として[受/う]け[渡/わた]せるようにします。
 //:
+//: ### [契約/けいやく]
+//: - public constructor `new` が作る値では `nbits > 0` です。
+//: - `nbytes` は `ceil nbits / 8` で、`bits` は長さ `nbytes` の `Vec u8` owner です。
+//: - 最後の byte にある未使用 bit は `contains` から観測できません。public API は常に `idx < nbits` を検査します。
+//:
 //: ### [注意/ちゅうい]
 //: - `free` しないかぎり[内部/ないぶ] `Vec u8` の[所有権/しょゆうけん]を[保持/ほじ]します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_type_invariant_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"bit length\" expected=\"9\" actual=\"9\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"rounded byte length\" expected=\"2\" actual=\"2\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bs %BitSet unwrap_ok new 9
+//:     let nbits %i32 *field::get_ref &bs "nbits"
+//:     let nbytes %i32 *field::get_ref &bs "nbytes"
+//:     free bs
+//:     let report:
+//:         test_report_new "bitset_type_invariant_doc"
+//:         |> test_report_push assert_eq_i32 "bit length" 9 nbits
+//:         |> test_report_push assert_eq_i32 "rounded byte length" 2 nbytes
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct BitSet:
     nbits %i32
     nbytes %i32
@@ -34,14 +63,121 @@ pub struct BitSet:
 //: ### [注意/ちゅうい]
 //: - `Result::Err` を[受/う]け[取/と]った caller は `bitset_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
 //: - `diag` は `Diag` の Copy [値/あたい]で、`bitset_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_update_error_type_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"error kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"recovered len\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bs0 %BitSet unwrap_ok new 4
+//:     let kind %str:
+//:         match insert bs0 4:
+//:             Result::Ok next:
+//:                 free next
+//:                 "unexpected"
+//:             Result::Err e:
+//:                 let name %str diag_std_error_kind_str bitset_update_error_diag &e
+//:                 let recovered %BitSet bitset_update_error_owner e
+//:                 free recovered
+//:                 name
+//:     let bs1 %BitSet unwrap_ok new 4
+//:     let recovered_len %i32:
+//:         match remove bs1 4:
+//:             Result::Ok next:
+//:                 free next
+//:                 0
+//:             Result::Err e:
+//:                 let recovered %BitSet bitset_update_error_owner e
+//:                 let size %i32 len &recovered
+//:                 free recovered
+//:                 size
+//:     let report:
+//:         test_report_new "bitset_update_error_type_doc"
+//:         |> test_report_push assert_str_eq "error kind" "IndexOutOfBounds" kind
+//:         |> test_report_push assert_eq_i32 "recovered len" 4 recovered_len
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub struct BitSetUpdateError:
     owner %BitSet
     diag %Diag
 
 //: bitset_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+//:
+//: ### [契約/けいやく]
+//: - `BitSetUpdateError` を借用し、`owner` field は消費しません。
+//: - caller はこの accessor の後で `bitset_update_error_owner` を呼んで owner を回収できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_update_error_diag_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"diag kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bs %BitSet unwrap_ok new 4
+//:     let kind %str:
+//:         match insert bs 4:
+//:             Result::Ok next:
+//:                 free next
+//:                 "unexpected"
+//:             Result::Err e:
+//:                 let name %str diag_std_error_kind_str bitset_update_error_diag &e
+//:                 let recovered %BitSet bitset_update_error_owner e
+//:                 free recovered
+//:                 name
+//:     let report:
+//:         test_report_new "bitset_update_error_diag_doc"
+//:         |> test_report_push assert_str_eq "diag kind" "IndexOutOfBounds" kind
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bitset_update_error_diag %fn &BitSetUpdateError Diag \e:
     *field::get_ref e "diag"
 
 //: bitset_update_error_owner: update [失敗/しっぱい]で[戻/もど]された `BitSet` owner を[取/と]り[出/だ]す
+//:
+//: ### [契約/けいやく]
+//: - `BitSetUpdateError` を消費し、内部の `BitSet` owner を返します。
+//: - 回収した owner は通常の `BitSet` と同じく、不要になった時点で `free` します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_update_error_owner_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"owner len\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bs %BitSet unwrap_ok new 4
+//:     let recovered_len %i32:
+//:         match insert bs 4:
+//:             Result::Ok next:
+//:                 free next
+//:                 0
+//:             Result::Err e:
+//:                 let recovered %BitSet bitset_update_error_owner e
+//:                 let size %i32 len &recovered
+//:                 free recovered
+//:                 size
+//:     let report:
+//:         test_report_new "bitset_update_error_owner_doc"
+//:         |> test_report_push assert_eq_i32 "owner len" 4 recovered_len
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bitset_update_error_owner %fn BitSetUpdateError BitSet \e:
     field::get e "owner"

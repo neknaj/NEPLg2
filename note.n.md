@@ -51048,6 +51048,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は今回差分由来の warning はなく、既存別件の `nodesrc/test_resource_gate_order.js` と `nodesrc/test_diagnostic_code_first_boundary.js` の 2 warning のみ残った。
 - 実装後 subagent review 2 件で blocker なし、mergeable と確認した。
 
+## 2026-06-05 Agent2 BitSet doc report checkpoint
+
+- `agent2/zenn-stdlib-examples-audit-next` branch で、`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` のうち `stdlib/alloc/collections/bitset` slice を進めた。`plan.md` は確認のみで変更していない。
+- Zenn 記事の doc comment 方針を再確認し、contract、現状実装、計算量、Option / Result / enum の分岐条件、simple report doctest を declaration 近傍に追加した。
+- `bitset.nepl` と `bitset/api.nepl` に facade import path の lifecycle doctest を追加し、`types.nepl` では `BitSet` invariant と `BitSetUpdateError` の owner recovery 契約を public failure path から確認する doctest にした。
+- `layout.nepl`、`storage.nepl`、`mutation.nepl`、`api/diagnostic.nepl` の helper docs を追加し、byte index / mask / valid index / byte length、typed byte storage、masked write、typed diagnostic kind を `std/test` report 形式で固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline は `moduleNoDoctest=303`、`declarationNoDoc=350`、`declarationNoDoctest=1686`、`publicDeclarationNoDoctest=1527` へ締め直した。
+- `nodesrc/test_stdlib_bitset_doc_report_contract.js` を追加し、BitSet doc が report doctest、typed error kind、public update failure path、owner recovery を保つことを source policy で検査する。
+- subagent review では bitset slice に blocker はなく、report doctest と owner-backed error の実経路確認を強めるべきと指摘されたため、直接 `BitSetUpdateError` constructor を使わず `insert` / `remove` の Err 経路へ修正した。
+- focused verification は BitSet doctest 27/27、documentation contract、BitSet source-policy 4 件を通した。残件は adjacency_matrix / binary_heap / bloom_filter / btree 系などの declaration doc gap である。
+
 ## 2026-06-05 Agent2 Mandelbrot stdout row payload checkpoint
 
 - `agent2/gui-mandelbrot-tile-transport` branch で、`ISS-20260604T034206002Z-MANDELBROT-GUI-EXAMPLE-CANNOT-MEET-H-86DB03F0` の Web/stdout fallback slice を修正した。`plan.md` は確認のみで変更していない。

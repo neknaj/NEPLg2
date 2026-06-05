@@ -12,6 +12,45 @@
 #import "alloc/collections/vec/types" as *
 #import "./storage" as *
 
+//: ## bitset_write_masked
+//: byte を[読/よ]んで mask bit だけを on/off する
+//:
+//: ### [契約/けいやく]
+//: - `bits` owner は[消費/しょうひ]しません。
+//: - byte が[存在/そんざい]すれば更新して `true`、存在しなければ storage invariant failure として `false` を返します。
+//: - `false` は public API 層で `BitSetUpdateError` に変換し、owner を caller へ返します。
+//: - 時間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"bitset_write_masked_doc\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"write reports success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"mask writes bit\" expected=\"4\" actual=\"4\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/bitset/mutation" as *
+//:| #import "alloc/collections/bitset/storage" as *
+//:| #import "alloc/collections/vec" as vec
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let bits %Vec u8 unwrap_ok bitset_alloc_bits 1 0
+//:     let wrote %bool bitset_write_masked &bits 0 4 true
+//:     let observed %i32:
+//:         match bitset_byte_at &bits 0:
+//:             Option::Some byte:
+//:                 byte
+//:             Option::None:
+//:                 0
+//:     vec::free bits
+//:     let report:
+//:         test_report_new "bitset_write_masked_doc"
+//:         |> test_report_push assert "write reports success" wrote
+//:         |> test_report_push assert_eq_i32 "mask writes bit" 4 observed
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn bitset_write_masked %impure fn &Vec u8 impure fn i32 impure fn i32 impure fn bool bool \bits\byte_idx\mask\set_bit:
     match bitset_byte_at bits byte_idx:
         Option::Some cur:

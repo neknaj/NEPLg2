@@ -101,6 +101,7 @@ const checks = [
     "nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_bitset_borrowed_observers.js",
     "nodesrc/test_stdlib_bitset_update_error_owner.js",
+    "nodesrc/test_stdlib_bitset_doc_report_contract.js",
     "nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js",
     "nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js",

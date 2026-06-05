@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-05T03:55:06.628Z",
+  "generated_at": "2026-06-05T08:23:22.931Z",
   "counts": {
     "total": 1344,
     "open": 42,
@@ -573,7 +573,7 @@
       "priority": "P1",
       "type": "doc",
       "created": "2026-06-04",
-      "updated": "2026-06-04",
+      "updated": "2026-06-05",
       "target": "stdlib/core, stdlib/alloc, stdlib/std",
       "legacy_id": "",
       "source": "",
