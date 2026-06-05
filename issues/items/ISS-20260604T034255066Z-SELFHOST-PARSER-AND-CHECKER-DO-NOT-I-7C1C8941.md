@@ -55,7 +55,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `module_parser/body_range.nepl` を追加し、declaration body block の envelope と first expression segment を `SelfhostSyntaxRange` として保持するようにした。parser は body を HIR / call tree へ落とさず、単純な function body では `declaration_body.first_expression` から `SelfhostExprPrefixList` を構築できることを focused doctest で確認した。複数式 body / nested block は envelope を後段 segmenter へ渡す設計にした。
 - 2026-06-05: `syntax/parser/body_segmenter.nepl` を追加し、declaration body envelope を `ExpressionLine` / `BlockIntro` の typed segment list へ分解するようにした。`ExpressionLine.head` は `SelfhostExprPrefixList` の入力候補、`BlockIntro.body` は recursive segmenter の入力として分離し、nested body を flat prefix list に直接渡さない契約を source policy と doctest で固定した。
 - 2026-06-05: `check/expr` を追加し、`SelfhostExprPrefixList` と callable candidate list を受け取る call reduction の初期境界を実装した。`SelfhostTypeExpectation` は expected type の由来と span を保持し、generic inference state / overload rejection / call reduction error は enum payload で分ける。現段階では named direct call の arity / expected result / no partial application / ambiguity / generic fail-closed を検査し、HIR lowering は行わない。
-- 残件: `%T` ascription から `SelfhostTypeExpectation` を作る接続、body segment から expression checker への実接続、argument type checking、candidate collection、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-05: `check/expr/body_line.nepl` を追加し、`SelfhostBodySegmentKind::ExpressionLine.head` から `SelfhostExprPrefixList` を作って `selfhost_call_reduce_prefix` へ渡す接続を実装した。`BlockIntro` は `NotExpressionLine`、prefix build failure は `PrefixBuildFailed`、call reduction failure は `CallReduceFailed` として分け、nested body を flat prefix list に直接渡さない契約を source policy と focused doctest で固定した。
+- 残件: `%T` ascription から `SelfhostTypeExpectation` を作る接続、argument type checking、candidate collection、generic instantiation inference、trait solving、`@function` / indirect call、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -161,6 +162,15 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_selfhost_module_checker_split_contract.js`
 - `node nodesrc/test_selfhost_expr_prefix_contract.js`
 - `node nodesrc/tests.js -i tests\stdlib\neplg2_call_reduce.n.md -o tmp\selfhost-call-reduce.json --no-tree -j 1 --assert-io --dist web\dist`
+
+2026-06-05 expression line call reduction connector checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_body_segmenter_contract.js`
+- `node nodesrc/test_selfhost_expr_prefix_contract.js`
+- `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- `node nodesrc/tests.js -i tests\stdlib\neplg2_call_reduce.n.md -o tmp\selfhost-call-reduce-body-line-final.json --no-tree -j 1 --assert-io --dist web\dist`
+- `node nodesrc/tests.js -i stdlib\neplg2\core\check\expr.nepl -o tmp\selfhost-check-expr-facade-body-line-final.json --no-tree -j 1 --assert-io --dist web\dist`
 
 2026-06-05 canonical type key checkpoint:
 

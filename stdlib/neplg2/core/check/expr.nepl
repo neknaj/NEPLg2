@@ -5,6 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - parser が作った `SelfhostExprPrefixList` を、checker が扱う typed call reduction input へ渡す入口を提供します。
+//: - body segmenter が作った `ExpressionLine.head` を prefix list に変換し、同じ call reduction 境界へ接続する入口も提供します。
 //: - expected type、callable candidate、generic inference state、overload rejection を enum / struct で表し、未対応の推論を曖昧な成功として扱わないようにします。
 //: - HIR lowering、trait solving、effect proof、Resource IR proof はこの facade から後続 module へ段階的に接続します。
 //:
@@ -15,6 +16,7 @@
 //:
 //: [現状/げんじょう]:
 //: - この slice は direct named call の最小 reduction plan だけを扱います。
+//: - `ExpressionLine` は `body_line.nepl` で受理し、`BlockIntro` は nested body として明示的に拒否します。
 //: - literal lowering、block recursion、indirect function value、trait method、memo_call primitive、HIR 生成は後続 slice で追加します。
 //:
 //: [計算量/けいさんりょう]:
@@ -34,4 +36,6 @@ pub #import "./expr/expectation" as *
 pub #import "./expr/call_candidate" as *
 pub #import "./expr/model" as *
 pub #import "./expr/call_reduce" as *
+pub #import "./expr/body_line" as *
 pub #import "./expr/stage0" as *
+pub #import "./expr/stage1" as *

@@ -23,6 +23,7 @@ const moduleChecker = readRepoFile(repoRoot, "stdlib/neplg2/core/check/module.ne
 const parserPrefix = readRepoFile(repoRoot, "stdlib/neplg2/core/syntax/ast/prefix_expr.nepl")
     + "\n"
     + readRepoFile(repoRoot, "stdlib/neplg2/core/syntax/parser/body_segmenter.nepl");
+const bodyLine = readRepoFile(repoRoot, "stdlib/neplg2/core/check/expr/body_line.nepl");
 
 for (const relPath of CHECK_EXPR_SPLIT_FILES) {
     const importPath = relPath
@@ -57,8 +58,18 @@ assert.match(
 );
 assert.match(
     source,
+    /pub enum SelfhostExpressionLineCheckError:[\s\S]*NotExpressionLine %SelfhostSourceSpan[\s\S]*PrefixBuildFailed %SelfhostExprPrefixBuildError[\s\S]*CallReduceFailed %SelfhostCallReduceError/,
+    "expression line connector must preserve segment, prefix-build, and call-reduction failures separately",
+);
+assert.match(
+    source,
     /pub fn selfhost_call_reduce_prefix %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostCallReduceError/,
     "call reduction input must keep expected type as Option SelfhostTypeExpectation",
+);
+assert.match(
+    source,
+    /pub fn selfhost_check_expr_reduce_body_segment %impure fn &Vec SelfhostToken impure fn SelfhostBodySegment impure fn &SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostExpressionLineCheckError/,
+    "body segment connector must expose a typed expression-line reduction boundary",
 );
 assert.match(
     source,
@@ -74,6 +85,26 @@ assert.match(
     source,
     /SelfhostGenericInferenceState::EvidenceMissing:[\s\S]*GenericInferenceEvidenceMissing[\s\S]*SelfhostGenericInferenceState::Conflict:[\s\S]*GenericInferenceConflict[\s\S]*SelfhostGenericInferenceState::Unsupported:[\s\S]*GenericInferenceUnsupported/,
     "generic inference failure states must fail closed with distinct errors",
+);
+assert.match(
+    bodyLine,
+    /SelfhostBodySegmentKind::ExpressionLine:[\s\S]*selfhost_check_expr_reduce_expression_line_prefix tokens segment\.head arena candidates expected/,
+    "ExpressionLine.head must be routed to the expression-line prefix reducer",
+);
+assert.match(
+    bodyLine,
+    /selfhost_expr_prefix_list_from_syntax_range tokens head[\s\S]*selfhost_call_reduce_prefix arena &prefix candidates expected[\s\S]*selfhost_expr_prefix_list_free prefix/,
+    "expression-line prefix reducer must build and free a prefix list around call reduction",
+);
+assert.match(
+    bodyLine,
+    /SelfhostBodySegmentKind::BlockIntro:[\s\S]*SelfhostExpressionLineCheckError::NotExpressionLine/,
+    "BlockIntro must be rejected instead of being flattened through expression reduction",
+);
+assert.doesNotMatch(
+    bodyLine,
+    /selfhost_expr_prefix_list_from_syntax_range\s+tokens\s+segment\.body/,
+    "BlockIntro.body must not be passed directly to flat prefix expression reduction",
 );
 assert.doesNotMatch(
     implementation,

@@ -1,0 +1,158 @@
+#indent 4
+
+//: # check/expr/body_line
+//: body segmenter が切り出した expression line を expression checker へ渡す接続 module です。
+//:
+//: [目的/もくてき]:
+//: - `SelfhostBodySegmentKind::ExpressionLine` の `head` range から `SelfhostExprPrefixList` を作り、`selfhost_call_reduce_prefix` へ渡します。
+//: - parser / body segmenter は token range evidence だけを作り、call boundary、expected type、candidate、generic、partial application の判断は checker 側に閉じます。
+//: - prefix list 生成失敗と call reduction 失敗を別の enum variant として保持し、入力 range の不備を call reduction の通常失敗へ潰さないようにします。
+//:
+//: [契約/けいやく]:
+//: - `ExpressionLine` だけが reduction 対象です。`BlockIntro.body` は nested body envelope なので、この関数で flat prefix list に直接変換しません。
+//: - prefix list owner はこの関数の内部で作り、call reduction 後に必ず解放します。返り値は prefix list の owner や参照を保持しません。
+//: - `expected` は `SelfhostTypeExpectation` として受け取り、dummy type id や sentinel で expected type の欠如を表しません。
+//: - `candidates` は、この expression line の先頭 item / name resolver scope に対して caller がすでに収集した候補列です。この関数は global candidate table を探索せず、受け取った候補列だけを call reduction へ渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - expression line の token 数を k、candidate 数を c とすると、現在の接続は prefix list 生成 O(k) と初期 call reduction O(1) です。
+//: - 将来 candidate narrowing を追加しても、candidate table を外側で構築し、この関数は与えられた候補列を 1 回だけ扱う境界を維持します。
+
+#import "alloc/collections/vec" as v
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/ty" as *
+#import "./expectation" as *
+#import "./call_candidate" as *
+#import "./model" as *
+#import "./call_reduce" as *
+
+//: SelfhostExpressionLineCheckError: expression line 接続の失敗分類
+//:
+//: [目的/もくてき]:
+//: - body segment の種類不一致、prefix list 生成失敗、call reduction 失敗を型で分けます。
+//: - display text は diagnostic projection 側へ移し、この module は機械的に検査できる payload だけを返します。
+pub enum SelfhostExpressionLineCheckError:
+    NotExpressionLine %SelfhostSourceSpan
+    PrefixBuildFailed %SelfhostExprPrefixBuildError
+    CallReduceFailed %SelfhostCallReduceError
+
+//: `SelfhostExpressionLineCheckError` の値をそのまま複製する実装です。
+//:
+//: [契約/けいやく]:
+//: - この error enum は owner を持つ collection を内包しないため、`Copy` と同じ payload 複製で十分です。
+//: - diagnostic display 用の文字列はここでは生成せず、後続の diagnostic projection が error variant を見て表示を決めます。
+impl Clone for SelfhostExpressionLineCheckError:
+    fn clone %fn &SelfhostExpressionLineCheckError SelfhostExpressionLineCheckError \self:
+        *self
+
+//: `SelfhostExpressionLineCheckError` を by-value で受け渡すための marker 実装です。
+//:
+//: [目的/もくてき]:
+//: - focused test や小さな checker 境界で、error payload を追加の owner 管理なしに分類できるようにします。
+impl Copy for SelfhostExpressionLineCheckError:
+    fn copy_mark %fn SelfhostExpressionLineCheckError SelfhostExpressionLineCheckError \self:
+        self
+
+//: selfhost_expression_line_check_error_is_not_expression_line: non-expression segment error か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - smoke test が表示文言ではなく enum variant で `BlockIntro` rejection を確認できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `ExpressionLine` 以外の segment を渡したことによる拒否です。
+//: - `false`: prefix build または call reduction 側の失敗です。
+pub fn selfhost_expression_line_check_error_is_not_expression_line %fn SelfhostExpressionLineCheckError bool \error:
+    match error:
+        SelfhostExpressionLineCheckError::NotExpressionLine _span:
+            true
+        _:
+            false
+
+//: selfhost_expression_line_check_error_is_prefix_build: prefix build error か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - syntax range から pre-HIR prefix list を作れなかった失敗を、call reduction の通常失敗と分けて検査します。
+pub fn selfhost_expression_line_check_error_is_prefix_build %fn SelfhostExpressionLineCheckError bool \error:
+    match error:
+        SelfhostExpressionLineCheckError::PrefixBuildFailed _prefix_error:
+            true
+        _:
+            false
+
+//: selfhost_expression_line_check_error_is_call_reduce: call reduction error か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - prefix list は構築できたが、candidate / arity / expected type の規則で fail-closed になったことを検査します。
+pub fn selfhost_expression_line_check_error_is_call_reduce %fn SelfhostExpressionLineCheckError bool \error:
+    match error:
+        SelfhostExpressionLineCheckError::CallReduceFailed _reduce_error:
+            true
+        _:
+            false
+
+//: selfhost_check_expr_body_segment_head_span: segment head の span を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro` をこの入口で拒否するとき、diagnostic projection が source location を持てるようにします。
+//:
+//: [契約/けいやく]:
+//: - 通常の segment は nonempty `head` を持つ想定です。
+//: - defensive fallback として `Empty` も扱いますが、これは成功扱いではなく `NotExpressionLine` payload の位置情報だけを補うためです。
+fn selfhost_check_expr_body_segment_head_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
+    match segment.head:
+        SelfhostSyntaxRange::Range range:
+            range.span
+        SelfhostSyntaxRange::Empty:
+            source_span_empty_unchecked 0 0
+
+//: selfhost_check_expr_reduce_expression_line_prefix: expression head range を prefix list にして call reduction する
+//:
+//: [目的/もくてき]:
+//: - `ExpressionLine.head` から `SelfhostExprPrefixList` を作り、`selfhost_call_reduce_prefix` の既存境界へ渡します。
+//:
+//: [契約/けいやく]:
+//: - prefix list の owner はこの関数が必ず解放します。
+//: - prefix build failure と call reduction failure は別 variant に包み、どの段階の失敗かを失わないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - token range 長を k とすると prefix list 構築は O(k) です。現行の call reduction は direct call 最小境界だけなので O(1) です。
+fn selfhost_check_expr_reduce_expression_line_prefix %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange impure fn &SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostExpressionLineCheckError \tokens\head\arena\candidates\expected:
+    match selfhost_expr_prefix_list_from_syntax_range tokens head:
+        Result::Ok prefix:
+            let reduced %Result SelfhostCallReduceResult SelfhostCallReduceError selfhost_call_reduce_prefix arena &prefix candidates expected
+            selfhost_expr_prefix_list_free prefix
+            match reduced:
+                Result::Ok plan:
+                    Result::Ok plan
+                Result::Err e:
+                    Result::Err SelfhostExpressionLineCheckError::CallReduceFailed e
+        Result::Err e:
+            Result::Err SelfhostExpressionLineCheckError::PrefixBuildFailed e
+
+//: selfhost_check_expr_reduce_body_segment: body segment を call reduction へ[接続/せつぞく]する
+//:
+//: [目的/もくてき]:
+//: - body segmenter の `ExpressionLine.head` を expression prefix list に変換し、call reduction の初期境界へ渡します。
+//: - `BlockIntro` は nested body を持つ構文なので、この関数では明示的に拒否します。
+//:
+//: [前提/ぜんてい]:
+//: - `candidates` は caller が line head の callable name と現在 scope から収集した候補列です。
+//: - この関数は candidate collection を行わず、parser / segmenter / prefix builder と call reduction の責務境界だけを接続します。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Ok(DirectCall)`: expression line が direct named call として縮約できました。
+//: - `Err(NotExpressionLine)`: caller が `BlockIntro` など expression line 以外を渡しました。
+//: - `Err(PrefixBuildFailed)`: `head` range から prefix expression list を作れませんでした。
+//: - `Err(CallReduceFailed)`: prefix list は作れたが、call reduction が fail-closed で拒否しました。
+pub fn selfhost_check_expr_reduce_body_segment %impure fn &Vec SelfhostToken impure fn SelfhostBodySegment impure fn &SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceResult SelfhostExpressionLineCheckError \tokens\segment\arena\candidates\expected:
+    match segment.kind:
+        SelfhostBodySegmentKind::ExpressionLine:
+            selfhost_check_expr_reduce_expression_line_prefix tokens segment.head arena candidates expected
+        SelfhostBodySegmentKind::BlockIntro:
+            Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment

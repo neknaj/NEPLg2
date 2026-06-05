@@ -1,0 +1,263 @@
+#indent 4
+
+//: # check/expr/stage1
+//: body expression line から call reduction までの smoke test API を置く module です。
+//:
+//: [目的/もくてき]:
+//: - token buffer、`SelfhostBodySegmentKind::ExpressionLine`、type arena、callable candidate を組み合わせ、`body_line.nepl` の接続が実際に direct call plan を返すことを確認します。
+//: - `BlockIntro` を誤って expression line reduction へ渡した場合に、typed error として拒否されることを確認します。
+//:
+//: [契約/けいやく]:
+//: - この module は focused smoke helper だけを持ち、production の接続規則は `body_line.nepl` に置きます。
+//: - fixture は `SelfhostToken` と `SelfhostBodySegment` を直接作り、lexer と module parser の詳細はそれぞれの doctest に任せます。
+//: - smoke helper は所有する type arena、candidate vec、token vec をすべて閉じてから整数 status を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 source `"add 1 2"` の token 数と固定 candidate 数だけを扱うため O(1) です。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+#import "./call_candidate" as *
+#import "./model" as *
+#import "./body_line" as *
+
+//: selfhost_check_expr_stage1_make_candidate_vec: smoke 用 callable candidate list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `add` という名前の pure direct call candidate を 1 件だけ持つ list を作ります。
+//: - overload ambiguity ではなく、body line connector と arity 検査だけを確認する fixture にします。
+//:
+//: [契約/けいやく]:
+//: - 成功時は caller が `Vec SelfhostCallableCandidate` の owner を受け取り、検査後に解放します。
+//: - `v::push` が失敗した場合は中間 vector owner を解放し、`StdErrorKind` だけを返します。
+fn selfhost_check_expr_stage1_make_candidate_vec %impure fn SelfhostTypeId Result Vec SelfhostCallableCandidate StdErrorKind \callable_type:
+    let candidates_result %Result Vec SelfhostCallableCandidate StdErrorKind v::new
+    match candidates_result:
+        Result::Ok candidates0:
+            let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" callable_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired source_span_new_unchecked 0 0 3
+            match v::push candidates0 candidate:
+                Result::Ok candidates1:
+                    Result::Ok candidates1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_add_two_i32_function: `i32 i32 -> i32` の関数型を arena に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `add 1 2` の direct call reduction に必要な callable type を fixture 内で構築します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `SelfhostTypeArenaAlloc` を返し、caller が `selfhost_type_arena_alloc_into_arena` で arena owner に戻します。
+//: - 途中で parameter vector 追加に失敗した場合は、受け取った arena owner を解放してから error を返します。
+fn selfhost_check_expr_stage1_add_two_i32_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\i32_type:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 i32_type:
+                Result::Ok params1:
+                    match v::push params1 i32_type:
+                        Result::Ok params2:
+                            selfhost_type_arena_add_function arena params2 i32_type
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            selfhost_type_arena_free arena
+                            Result::Err error
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_check_expr_stage1_expression_segment: `add 1 2` 全体を指す expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - token buffer の 0..3 を `ExpressionLine.head` として使い、body line connector が flat expression だけを処理する経路を確認します。
+//:
+//: [契約/けいやく]:
+//: - `body` は空にし、nested block を含まない単一 expression line として扱います。
+fn selfhost_check_expr_stage1_expression_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 7
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
+//: selfhost_check_expr_stage1_block_intro_segment: 拒否確認用の block-intro segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` が `SelfhostExprPrefixList` へ直接渡されない契約を smoke test で確認します。
+//:
+//: [契約/けいやく]:
+//: - 返す segment は nested body envelope を持つ扱いなので、`selfhost_check_expr_reduce_body_segment` では `NotExpressionLine` になります。
+fn selfhost_check_expr_stage1_block_intro_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 1 source_span_new_unchecked 0 0 3
+    let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 1 2 source_span_new_unchecked 0 4 7
+    selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
+
+//: selfhost_check_expr_stage1_push_token: token fixture へ 1 token を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - fixture token construction の owner cleanup を 1 箇所に集め、`v::push` failure 時に vector を漏らさないようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_tokens)`: token が追加された vector owner です。
+//: - `Err(error)`: allocation などで追加できなかったため、受け取った vector owner は解放済みです。
+fn selfhost_check_expr_stage1_push_token %impure fn Vec SelfhostToken impure fn SelfhostToken Result Vec SelfhostToken StdErrorKind \tokens\token:
+    match v::push tokens token:
+        Result::Ok next_tokens:
+            Result::Ok next_tokens
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_check_expr_stage1_make_tokens: `add 1 2` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - lexer に依存しない固定 token buffer を作り、expression checker connector の focused smoke test を高速に保ちます。
+//:
+//: [現状/げんじょう]:
+//: - token spelling は持たず、現行の prefix builder が必要とする token kind と span だけを fixture として用意します。
+fn selfhost_check_expr_stage1_make_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 add_token:
+                Result::Ok tokens1:
+                    let arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 4 5
+                    match selfhost_check_expr_stage1_push_token tokens1 arg0:
+                        Result::Ok tokens2:
+                            let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 6 7
+                            selfhost_check_expr_stage1_push_token tokens2 arg1
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_direct_ok: expression segment が direct call として[縮約/しゅくやく]できるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `ExpressionLine.head` から作った prefix list が `DirectCall` になり、引数数が 2 として保持されることを確認します。
+//:
+//: [契約/けいやく]:
+//: - この helper は所有権を受け取らず、token / arena / candidate は参照として借用します。
+fn selfhost_check_expr_stage1_direct_ok %impure fn &Vec SelfhostToken impure fn &SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate bool \tokens\arena\candidates:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_expression_segment
+    match selfhost_check_expr_reduce_body_segment tokens segment arena candidates none:
+        Result::Ok reduced:
+            match reduced:
+                SelfhostCallReduceResult::DirectCall call:
+                    eq call.argument_count 2
+        Result::Err _e:
+            false
+
+//: selfhost_check_expr_stage1_block_intro_rejected: block-intro segment が拒否されるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - nested body envelope を flat expression として扱う退行を検出します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `NotExpressionLine` として拒否されました。
+//: - `false`: 成功してしまった、または別の error に潰れました。
+fn selfhost_check_expr_stage1_block_intro_rejected %impure fn &Vec SelfhostToken impure fn &SelfhostTypeArena impure fn &Vec SelfhostCallableCandidate bool \tokens\arena\candidates:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_block_intro_segment
+    match selfhost_check_expr_reduce_body_segment tokens segment arena candidates none:
+        Result::Ok _reduced:
+            false
+        Result::Err e:
+            selfhost_expression_line_check_error_is_not_expression_line e
+
+//: selfhost_check_expr_stage1_run_with_candidate: token / arena / candidate owner を閉じて smoke result を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - direct call success と block-intro rejection を同じ arena / candidate table で確認します。
+//:
+//: [契約/けいやく]:
+//: - 成功・失敗どちらの経路でも candidate vector、type arena、token vector を解放します。
+//: - 戻り値は CLI や doctest で扱いやすい status code とし、`0` だけを成功とします。
+fn selfhost_check_expr_stage1_run_with_candidate %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\add_type:
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let ok0 %bool selfhost_check_expr_stage1_direct_ok &tokens &arena &candidates
+            let ok1 %bool selfhost_check_expr_stage1_block_intro_rejected &tokens &arena &candidates
+            v::free candidates
+            selfhost_type_arena_free arena
+            v::free tokens
+            if and ok0 ok1 0 1
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_with_i32: primitive i32 を使って callable function type を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - fixture の primitive `i32` 型を引数・返り値に持つ `add` candidate type へ拡張します。
+//:
+//: [契約/けいやく]:
+//: - function type allocation が成功した場合は、arena owner を次の helper へ渡します。
+//: - 失敗時は token owner を解放し、status `1` を返します。
+fn selfhost_check_expr_stage1_run_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            selfhost_check_expr_stage1_run_with_candidate tokens next_arena add_type
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_with_tokens: token buffer に対して type arena fixture を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - smoke helper 全体の初期化入口として、`SelfhostTypeArena` と primitive `i32` 型を用意します。
+//:
+//: [契約/けいやく]:
+//: - arena 初期化や primitive 追加が失敗した場合でも、受け取った token owner は解放します。
+fn selfhost_check_expr_stage1_run_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_body_line: body expression line 接続の smoke API
+//:
+//: [目的/もくてき]:
+//: - `ExpressionLine.head` から prefix list を作り、direct named call reduction へ渡す縦切りを確認します。
+//: - `BlockIntro` が同じ入口から拒否されることも確認し、nested body を flat expression として扱う退行を防ぎます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: expression line reduction と block intro rejection が期待通りでした。
+//: - `1`: setup または検査のいずれかが失敗しました。
+pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_tokens:
+        Result::Ok tokens:
+            selfhost_check_expr_stage1_run_with_tokens tokens
+        Result::Err _e:
+            1
