@@ -43,6 +43,7 @@ NEPLg2.1 self-host の各 checkpoint は、Zenn 記事 `https://zenn.dev/bem130/
 
 subagent review では、少なくとも次を確認する。
 
+- 詳細な review 入力、確認項目、指摘分類、`note.n.md` 記録形式は `doc/neplg2/self_host_zenn_review_checklist.md` に従う。
 - 失敗が `Option` / `Result` / enum diagnostic で表され、文字列や sentinel 値で分岐していないこと。
 - `match` の網羅性検査が効く設計であり、公開 API が数値 tag や文字列 tag に依存していないこと。
 - core / CLI boundary、parser / checker / HIR / Resource IR / backend boundary が混ざっていないこと。
