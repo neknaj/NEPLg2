@@ -61,6 +61,41 @@ const contracts = [
         name: 'string_to_bool_doc',
         count: 3,
     },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'builder', 'append.nepl'],
+        name: 'sb_append_char_doc',
+        count: 1,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'builder', 'append.nepl'],
+        name: 'sb_append_ascii_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'builder', 'append.nepl'],
+        name: 'sb_append_byte_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'builder', 'append.nepl'],
+        name: 'sb_append_doc',
+        count: 1,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'builder', 'build.nepl'],
+        name: 'sb_build_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'builder', 'reserve.nepl'],
+        name: 'string_builder_new_doc',
+        count: 2,
+    },
+    {
+        rel: ['stdlib', 'alloc', 'string', 'builder_ext.nepl'],
+        name: 'sb_append_i32_doc',
+        count: 1,
+    },
 ];
 
 for (const { rel, index, name, count } of contracts) {
@@ -89,6 +124,54 @@ for (const { rel, index, name, count } of contracts) {
     assert.match(doctest.code, /test_report_exit_code shown/, `${name} must derive exit code from the shown report`);
     assert.doesNotMatch(source, /\bchecks_exit_code\b/, `${rel.join('/')} must not hide report details behind checks_exit_code`);
     assert.doesNotMatch(source, /\bresult_exit_code\b/, `${rel.join('/')} must not hide report details behind result_exit_code`);
+}
+
+for (const [rel, snippets] of [
+    [
+        ['stdlib', 'alloc', 'string', 'builder', 'append.nepl'],
+        [
+            '空 builder fallback',
+            '入力 builder owner',
+            'UTF-8 妥当性はこの helper では検査しません',
+            '既存 byte 数に応じた再確保 cost',
+            'Result::Err',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'builder', 'build.nepl'],
+        [
+            '空文字列 fallback',
+            '蓄積 byte 列を UTF-8 として検証',
+            'sb_build_result',
+            'O(total_bytes)',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'builder', 'reserve.nepl'],
+        [
+            'string_builder_new_result',
+            '空 builder fallback',
+            'error reason が必要な場合',
+            'state access 自体は O(1)',
+        ],
+    ],
+    [
+        ['stdlib', 'alloc', 'string', 'builder_ext.nepl'],
+        [
+            'from_i32_radix v 10',
+            '空 builder fallback',
+            'O(d) + builder append',
+        ],
+    ],
+]) {
+    const source = fs.readFileSync(path.join(repoRoot, ...rel), 'utf8');
+    for (const snippet of snippets) {
+        assert.match(
+            source,
+            new RegExp(snippet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+            `${rel.join('/')} must preserve StringBuilder fallback/owner contract snippet: ${snippet}`,
+        );
+    }
 }
 
 console.log('alloc string doc report contract passed');

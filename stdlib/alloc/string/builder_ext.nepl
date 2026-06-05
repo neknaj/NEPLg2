@@ -95,6 +95,43 @@ pub fn sb_append_i32_result %fn StringBuilder fn i32 Result StringBuilder str \s
         Result::Err _e:
             Result::Err "string.builder append_i32 conversion failed"
 
+//: sb_append_i32: i32 を 10 進文字列化して builder に追加する互換 API
+//:
+//: ### [目的/もくてき]
+//: - diagnostic や log の builder pipeline で、数値を `from_i32_radix v 10` 相当の文字列として追加します。
+//:
+//: ### [契約/けいやく]
+//: - `sb` owner を消費し、成功時は `v` の 10 進表現を末尾へ追加した builder owner を返します。
+//: - 数値変換または builder append の失敗時は入力 owner を閉じ、この helper は空 builder fallback を返します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `sb_append_i32_result` の `Result` を `match` し、`Result::Err` を空 builder fallback に畳みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(d) + builder append の cost です。`d` は 10 進桁数です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sb_append_i32_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"append i32\" expected=\"code=404\" actual=\"code=404\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "alloc/string/builder_ext" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let text %str:
+//:         string_builder_new
+//:         |> sb_append "code="
+//:         |> sb_append_i32 404
+//:         |> sb_build
+//:     let report:
+//:         test_report_new "sb_append_i32_doc"
+//:         |> test_report_push assert_str_eq "append i32" "code=404" text
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sb_append_i32 %fn StringBuilder fn i32 StringBuilder \sb\v:
     match sb_append_i32_result sb v:
         Result::Ok next:

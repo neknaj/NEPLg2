@@ -45,6 +45,48 @@ pub fn sb_build_result %fn StringBuilder Result str str \sb:
                 Result::Err e:
                     Result::Err string_builder_error e
 
+//: sb_build: builder の内容を str に確定する互換 API
+//:
+//: ### [目的/もくてき]
+//: - allocation / UTF-8 error を扱わない既存 call site 向けに、builder を直接 `str` へ変換します。
+//:
+//: ### [契約/けいやく]
+//: - `sb` owner を消費し、成功時は蓄積 byte 列を UTF-8 として検証した owned `str` を返します。
+//: - 失敗時は `sb_build_result` が入力 builder の内部 buffer を閉じ、この helper は空文字列 fallback を返します。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - `sb_build_result` の `Result` を `match` し、`Result::Err` を `""` に畳みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(total_bytes)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"sb_build_doc\" count=2 failed=0\nassertion index=0 status=ok kind=str_eq label=\"build text\" expected=\"done\" actual=\"done\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"invalid utf8 fallback\" expected=\"\" actual=\"\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/string/builder" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let text %str:
+//:         string_builder_new
+//:         |> sb_append "done"
+//:         |> sb_build
+//:     let invalid %str match sb_append_byte_result string_builder_new 255:
+//:         Result::Ok bad:
+//:             sb_build bad
+//:         Result::Err _e:
+//:             "unexpected"
+//:     let report:
+//:         test_report_new "sb_build_doc"
+//:         |> test_report_push assert_str_eq "build text" "done" text
+//:         |> test_report_push assert_str_eq "invalid utf8 fallback" "" invalid
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn sb_build %fn StringBuilder str \sb:
     match sb_build_result sb:
         Result::Ok out:
