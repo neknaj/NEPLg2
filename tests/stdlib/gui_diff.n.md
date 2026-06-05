@@ -152,7 +152,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn run_case %fn void i32 \void:
+fn run_case %impure fn void i32 \void:
     let root_id %WidgetId widget_id 1
     let parent_id %WidgetId widget_id 2
     let nested_id %WidgetId widget_id 3

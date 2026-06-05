@@ -36,7 +36,7 @@ export type GuiWebStdoutProtocolEvent =
     | { kind: 'text'; text: string }
     | { kind: 'frame'; frame: GuiPreviewCommandFrame & { windowId: number } }
     | { kind: 'session-state'; state: string }
-    | { kind: 'animation-timer'; intervalMs: number }
+    | { kind: 'animation-timer'; windowId: number; timerId: number; intervalMs: number }
     | { kind: 'error'; error: GuiWebStdoutProtocolError };
 
 type GuiWebStdoutProtocolState =
@@ -264,11 +264,24 @@ export class GuiWebStdoutProtocolParser {
             );
         }
         const tokens = splitFields(line);
-        const intervalMs = readNonNegativeInteger(tokens, 1, '$.intervalMs', 'invalid-animation-timer');
+        const windowId = readPositiveInteger(tokens, 1, '$.windowId', 'invalid-animation-timer');
+        if (windowId.kind === 'err') {
+            return [{ kind: 'error', error: windowId.error }];
+        }
+        const timerId = readPositiveInteger(tokens, 2, '$.timerId', 'invalid-animation-timer');
+        if (timerId.kind === 'err') {
+            return [{ kind: 'error', error: timerId.error }];
+        }
+        const intervalMs = readNonNegativeInteger(tokens, 3, '$.intervalMs', 'invalid-animation-timer');
         if (intervalMs.kind === 'err') {
             return [{ kind: 'error', error: intervalMs.error }];
         }
-        return [{ kind: 'animation-timer', intervalMs: intervalMs.value }];
+        return [{
+            kind: 'animation-timer',
+            windowId: windowId.value,
+            timerId: timerId.value,
+            intervalMs: intervalMs.value,
+        }];
     }
 
     private abortFrameWithError(error: GuiWebStdoutProtocolError): GuiWebStdoutProtocolEvent[] {

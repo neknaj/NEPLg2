@@ -62,6 +62,12 @@ export type GuiWebInputEvent =
         windowId: number;
         windowKind: GuiWebWindowEventKind;
         size: GuiWebInputSize;
+    }
+    | {
+        kind: 'timer';
+        windowId: number;
+        timerId: number;
+        tick: number;
     };
 
 export type GuiWebInputErrorKind =
@@ -70,7 +76,8 @@ export type GuiWebInputErrorKind =
     | 'invalid-pointer-event'
     | 'invalid-keyboard-event'
     | 'invalid-text-input-event'
-    | 'invalid-window-event';
+    | 'invalid-window-event'
+    | 'invalid-timer-event';
 
 export type GuiWebInputError = {
     kind: GuiWebInputErrorKind;
@@ -165,12 +172,18 @@ export function decodeGuiWebInputEvent(input: unknown): GuiWebInputResult<GuiWeb
     if (kind.value === 'window') {
         return decodeGuiWebWindowInputEvent(event.value);
     }
-    return err('invalid-input-event', '$.kind', 'action, pointer, keyboard, text-input, or window', kind.value);
+    if (kind.value === 'timer') {
+        return decodeGuiWebTimerInputEvent(event.value);
+    }
+    return err('invalid-input-event', '$.kind', 'action, pointer, keyboard, text-input, window, or timer', kind.value);
 }
 
 function guiWebInputEventsWithQueuedEvent(events: GuiWebInputEvent[], event: GuiWebInputEvent): GuiWebInputEvent[] {
     if (event.kind === 'pointer' && event.pointerKind === 'move') {
         return guiWebInputEventsWithPointerMove(events, event);
+    }
+    if (event.kind === 'timer') {
+        return guiWebInputEventsWithTimer(events, event);
     }
     return [
         ...events,
@@ -191,6 +204,29 @@ function guiWebInputEventsWithPointerMove(
         && lastEvent.windowId === event.windowId
         && lastEvent.pointerId === event.pointerId
         && lastEvent.button === event.button
+    ) {
+        return [
+            ...events.slice(0, lastIndex),
+            event,
+        ];
+    }
+    return [
+        ...events,
+        event,
+    ];
+}
+
+function guiWebInputEventsWithTimer(
+    events: GuiWebInputEvent[],
+    event: Extract<GuiWebInputEvent, { kind: 'timer' }>,
+): GuiWebInputEvent[] {
+    const lastIndex = events.length - 1;
+    const lastEvent = events[lastIndex];
+    if (
+        lastEvent
+        && lastEvent.kind === 'timer'
+        && lastEvent.windowId === event.windowId
+        && lastEvent.timerId === event.timerId
     ) {
         return [
             ...events.slice(0, lastIndex),
@@ -329,6 +365,30 @@ function decodeGuiWebWindowInputEvent(event: UnknownRecord): GuiWebInputResult<G
             windowId: windowId.value,
             windowKind: windowKind.value,
             size: size.value,
+        },
+    };
+}
+
+function decodeGuiWebTimerInputEvent(event: UnknownRecord): GuiWebInputResult<GuiWebInputEvent> {
+    const windowId = readPositiveInteger(event, 'windowId', '$.windowId', 'invalid-timer-event');
+    if (windowId.kind === 'err') {
+        return windowId;
+    }
+    const timerId = readPositiveInteger(event, 'timerId', '$.timerId', 'invalid-timer-event');
+    if (timerId.kind === 'err') {
+        return timerId;
+    }
+    const tick = readNonNegativeInteger(event, 'tick', '$.tick', 'invalid-timer-event');
+    if (tick.kind === 'err') {
+        return tick;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            kind: 'timer',
+            windowId: windowId.value,
+            timerId: timerId.value,
+            tick: tick.value,
         },
     };
 }

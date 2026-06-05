@@ -20,7 +20,7 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn run_case %fn void i32 \void:
+//: fn run_case %impure fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 20 10
 //:     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -363,7 +363,7 @@ fn layout_stack_child_geometry_is_valid %fn StackOverflowPolicy fn &GuiRect fn i
             and size_and_wrap_ok bounds_inside
 
 //: layout_view_tree_arena_stack_loop: stack policy で arena node を[配置/はいち]する
-fn layout_view_tree_arena_stack_loop %fn StackLayoutPolicy fn &ViewTreeArena fn LayoutTreeArena fn LayoutConstraints fn i32 fn i32 Result LayoutTreeArena GuiError \policy\view_tree\layout_tree\constraints\count\index:
+fn layout_view_tree_arena_stack_loop %impure fn StackLayoutPolicy impure fn &ViewTreeArena impure fn LayoutTreeArena impure fn LayoutConstraints impure fn i32 impure fn i32 Result LayoutTreeArena GuiError \policy\view_tree\layout_tree\constraints\count\index:
     if ge index count:
         then Result::Ok layout_tree
         else:
@@ -417,7 +417,7 @@ fn layout_view_tree_arena_stack_loop %fn StackLayoutPolicy fn &ViewTreeArena fn 
 //: [制約/せいやく]:
 //: - 現 checkpoint は cross-axis alignment と overflow rejection を[扱/あつか]います。flex grow、grid、scroll state は後続 phase で[追加/ついか]します。
 //: - widget size は `LayoutHint.min_size` を constraints へ clamp して[決/き]めます。text buffer と node の対応付けは後続 phase で[追加/ついか]します。
-pub fn layout_view_tree_arena_stack <.TextMeasurerImpl: Copy> %fn &LayoutContext .TextMeasurerImpl fn &ViewTreeArena fn StackLayoutPolicy Result LayoutTreeArena GuiError \context\view_tree\policy:
+pub fn layout_view_tree_arena_stack <.TextMeasurerImpl: Copy> %impure fn &LayoutContext .TextMeasurerImpl impure fn &ViewTreeArena impure fn StackLayoutPolicy Result LayoutTreeArena GuiError \context\view_tree\policy:
     let count %i32 view_tree_arena_len view_tree
     if le count 0:
         then Result::Err GuiError::InvalidCommand

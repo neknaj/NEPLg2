@@ -133,6 +133,22 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.equal(takenWindow.event.height, 480);
 
     sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    const queuedTimer = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+        kind: "timer",
+        windowId: 4,
+        timerId: 2,
+        tick: 15,
+    });
+    assert.equal(queuedTimer.kind, "ok");
+    assert.equal(sharedQueue.takeGuiWebSharedActionId(created.value), 0);
+    const takenTimer = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(takenTimer.kind, "event");
+    assert.equal(takenTimer.event.kind, "timer");
+    assert.equal(takenTimer.event.windowId, 4);
+    assert.equal(takenTimer.event.timerId, 2);
+    assert.equal(takenTimer.event.tick, 15);
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
     const rawQueue = new Int32Array(created.value);
     Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
     Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH, 99);
@@ -169,6 +185,16 @@ async function runWebGuiSharedEventQueueRegression() {
     const invalidWindowSizeRecord = sharedQueue.takeGuiWebSharedInputEvent(created.value);
     assert.equal(invalidWindowSizeRecord.kind, "invalid");
     assert.equal(invalidWindowSizeRecord.rawKind, sharedQueue.GUI_WEB_EVENT_KIND_WINDOW);
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_WRITE_INDEX, 1);
+    Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH, sharedQueue.GUI_WEB_EVENT_KIND_TIMER);
+    Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH + 1, 4);
+    Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH + 2, 0);
+    Atomics.store(rawQueue, sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH + 5, 12);
+    const invalidTimerIdRecord = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(invalidTimerIdRecord.kind, "invalid");
+    assert.equal(invalidTimerIdRecord.rawKind, sharedQueue.GUI_WEB_EVENT_KIND_TIMER);
 
     sharedQueue.resetGuiWebSharedEventBuffer(created.value);
     const actionQueueBase = sharedQueue.GUI_WEB_EVENT_QUEUE_HEADER_LENGTH
@@ -282,6 +308,23 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.equal(coalescedWindow.event.kind, "window");
     assert.equal(coalescedWindow.event.windowKind, "resized");
     assert.equal(coalescedWindow.event.width, 600 + sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2 - 1);
+    assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
+
+    sharedQueue.resetGuiWebSharedEventBuffer(created.value);
+    for (let i = 1; i < sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2; i++) {
+        const result = sharedQueue.writeGuiWebSharedInputEvent(created.value, {
+            kind: "timer",
+            windowId: 3,
+            timerId: 1,
+            tick: i,
+        });
+        assert.equal(result.kind, "ok");
+    }
+    const coalescedTimer = sharedQueue.takeGuiWebSharedInputEvent(created.value);
+    assert.equal(coalescedTimer.kind, "event");
+    assert.equal(coalescedTimer.event.kind, "timer");
+    assert.equal(coalescedTimer.event.timerId, 1);
+    assert.equal(coalescedTimer.event.tick, sharedQueue.GUI_WEB_EVENT_QUEUE_CAPACITY * 2 - 1);
     assert.equal(sharedQueue.takeGuiWebSharedInputEvent(created.value).kind, "empty");
 
     sharedQueue.resetGuiWebSharedEventBuffer(created.value);
@@ -408,6 +451,7 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(queueSource, /GUI_WEB_EVENT_KIND_KEYBOARD/);
     assert.match(queueSource, /GUI_WEB_EVENT_KIND_TEXT_INPUT/);
     assert.match(queueSource, /GUI_WEB_EVENT_KIND_WINDOW/);
+    assert.match(queueSource, /GUI_WEB_EVENT_KIND_TIMER/);
     assert.match(queueSource, /GUI_WEB_WINDOW_KIND_RESIZED/);
     assert.match(queueSource, /GUI_WEB_ACTION_QUEUE_WRITE_INDEX/);
     assert.match(queueSource, /guiWebSharedPointerKindToRaw/);
@@ -415,6 +459,7 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(queueSource, /guiWebSharedWindowKindToRaw/);
     assert.match(queueSource, /guiWebSharedWindowKindFromRaw/);
     assert.match(queueSource, /guiWebSharedIsUnicodeScalarValue/);
+    assert.match(queueSource, /guiWebSharedFindTimerSlot/);
     assert.match(queueSource, /pointXMilli/);
     assert.match(queueSource, /GUI_WEB_EVENT_POLL_INVALID/);
     assert.doesNotMatch(queueSource, /guiWebSharedActionIdFromTakeResult/);
@@ -438,10 +483,13 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(workerSource, /last_event_window_kind/);
     assert.match(workerSource, /last_event_window_width/);
     assert.match(workerSource, /last_event_window_height/);
+    assert.match(workerSource, /last_event_timer_id/);
+    assert.match(workerSource, /last_event_timer_tick/);
     assert.match(workerSource, /GUI_WEB_EVENT_KIND_POINTER/);
     assert.match(workerSource, /GUI_WEB_EVENT_KIND_KEYBOARD/);
     assert.match(workerSource, /GUI_WEB_EVENT_KIND_TEXT_INPUT/);
     assert.match(workerSource, /GUI_WEB_EVENT_KIND_WINDOW/);
+    assert.match(workerSource, /GUI_WEB_EVENT_KIND_TIMER/);
     assert.match(workerSource, /lastGuiWebInputEvent = \{ kind: 'empty' \}/);
     assert.match(workerSource, /return -1;/);
     assert.match(shellSource, /registerGuiWebInputEventListener/);
@@ -453,6 +501,8 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(shellSource, /stopActiveGuiProcessFromWindowClose/);
     assert.match(shellSource, /closeGuiRuntimeWindows/);
     assert.match(shellSource, /closeGuiWebRuntimeHostFrameWindow/);
+    assert.match(shellSource, /configureGuiRuntimeTimer/);
+    assert.match(shellSource, /queueGuiRuntimeTimerTick/);
     assert.match(windowManagerSource, /queueHostWindowEvent/);
     assert.match(windowManagerSource, /closeHostFrameWindow/);
     assert.doesNotMatch(windowManagerSource, /source-path|preview-kind/);
@@ -468,11 +518,14 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(webInputSource, /#extern "nepl_gui_web" "last_event_window_kind"/);
     assert.match(webInputSource, /#extern "nepl_gui_web" "last_event_window_width"/);
     assert.match(webInputSource, /#extern "nepl_gui_web" "last_event_window_height"/);
+    assert.match(webInputSource, /#extern "nepl_gui_web" "last_event_timer_id"/);
+    assert.match(webInputSource, /#extern "nepl_gui_web" "last_event_timer_tick"/);
     assert.match(webInputSource, /pub struct GuiWebEvent/);
     assert.match(webInputSource, /pub fn gui_web_event_pointer %fn &GuiWebEvent Option PointerEvent/);
     assert.match(webInputSource, /pub fn gui_web_event_keyboard %fn &GuiWebEvent Option KeyboardEvent/);
     assert.match(webInputSource, /pub fn gui_web_event_text_input %fn &GuiWebEvent Option TextInputEvent/);
     assert.match(webInputSource, /pub fn gui_web_event_window %fn &GuiWebEvent Option WindowEvent/);
+    assert.match(webInputSource, /pub fn gui_web_event_timer %fn &GuiWebEvent Option TimerEvent/);
     assert.match(webInputSource, /pub fn gui_web_wait_event_result %impure fn i32 Result Option GuiWebEvent GuiError/);
     assert.match(webInputSource, /pub fn gui_web_wait_action %impure fn i32 Option ActionId/);
     assert.match(webInputSource, /pub fn gui_web_wait_action_result %impure fn i32 Result Option ActionId GuiError/);
@@ -502,7 +555,9 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(paintSource, /PointerButton::Primary/);
     assert.match(breakoutSource, /gui_web_wait_event_result/);
     assert.match(breakoutSource, /breakout_tick/);
-    assert.match(breakoutSource, /timeout_ms %i32 if animate 33 60000/);
+    assert.match(breakoutSource, /gui_web_event_timer/);
+    assert.match(breakoutSource, /gui_web_stdout_animation_timer/);
+    assert.doesNotMatch(breakoutSource, /timeout_ms %i32 if animate 33 60000/);
     assert.doesNotMatch(queueSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(queueSource, /\|\s*null|\|\s*undefined/);
     assert.doesNotMatch(queueSource, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
@@ -525,11 +580,12 @@ async function runWebGuiSharedEventQueueRegression() {
             "Web GUI shared event queue exposes keyboard records without consuming the legacy action projection",
             "Web GUI shared event queue exposes Unicode scalar text input records without consuming the legacy action projection",
             "Web GUI shared event queue exposes window records with a fixed eight-slot layout",
+            "Web GUI shared event queue exposes timer records with coalesced animation ticks",
             "Web GUI shared event queue reports invalid records instead of collapsing them into no event",
             "Web GUI shared event queue coalesces high-frequency state without producer overflow",
             "Web runtime worker exposes a dedicated nepl_gui_web host import module",
             "Web runtime worker exposes event-kind and last-event field imports for GuiEvent polling",
-            "Web runtime worker exposes window event field imports for GuiEvent polling",
+            "Web runtime worker exposes window and timer event field imports for GuiEvent polling",
             "NEPL web GUI input wrapper returns Result Option ActionId instead of public raw sentinels",
             "NEPL web GUI input wrapper exposes Result Option GuiWebEvent for full event polling",
             "Web shell filters GUI action input to windows presented by the active run",

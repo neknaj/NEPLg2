@@ -20,7 +20,7 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn run_case %fn void i32 \void:
+//: fn run_case %impure fn void i32 \void:
 //:     let root_id %WidgetId widget_id 1
 //:     let root_hint %LayoutHint layout_hint_fixed 8 1
 //:     let root %WidgetDescriptor widget_label root_id "root" root_hint
@@ -103,7 +103,7 @@ fn layout_arena_hint_height %fn &LayoutConstraints fn &WidgetDescriptor i32 \con
 //: [注意/ちゅうい]:
 //: - `layout_tree` owner を[受/う]け[取/と]り、成功時だけ次の owner として[返/かえ]します。
 //: - 失敗時は owner を[解放/かいほう]してから error を[返/かえ]します。
-fn layout_view_tree_arena_linear_loop %fn &ViewTreeArena fn LayoutTreeArena fn LayoutConstraints fn i32 fn i32 fn i32 Result LayoutTreeArena GuiError \view_tree\layout_tree\constraints\count\index\cursor_y:
+fn layout_view_tree_arena_linear_loop %impure fn &ViewTreeArena impure fn LayoutTreeArena impure fn LayoutConstraints impure fn i32 impure fn i32 impure fn i32 Result LayoutTreeArena GuiError \view_tree\layout_tree\constraints\count\index\cursor_y:
     if ge index count:
         then Result::Ok layout_tree
         else:
@@ -137,7 +137,7 @@ fn layout_view_tree_arena_linear_loop %fn &ViewTreeArena fn LayoutTreeArena fn L
 //: - 現 checkpoint は stack / flex / grid の本実装ではありません。各 widget の `LayoutHint` を constraints へ clamp し、root から順に y 方向へ[並/なら]べます。
 //: - `TextRunId` / `FontId` / cell count hint は API compatibility のため[受/う]け[取/と]ります。text buffer と arena node の対応付けは後続 phase で[追加/ついか]します。
 //: - full layout policy は `alloc/gui/layout/stack` 以降でこの contract の上に[追加/ついか]します。
-pub fn layout_view_tree_arena_linear <.TextMeasurerImpl: Copy> %fn &LayoutContext .TextMeasurerImpl fn &ViewTreeArena fn TextRunId fn FontId fn i32 Result LayoutTreeArena GuiError \context\view_tree\_run_id\_font_id\_cell_count:
+pub fn layout_view_tree_arena_linear <.TextMeasurerImpl: Copy> %impure fn &LayoutContext .TextMeasurerImpl impure fn &ViewTreeArena impure fn TextRunId impure fn FontId impure fn i32 Result LayoutTreeArena GuiError \context\view_tree\_run_id\_font_id\_cell_count:
     let count %i32 view_tree_arena_len view_tree
     if le count 0:
         then Result::Err GuiError::InvalidCommand

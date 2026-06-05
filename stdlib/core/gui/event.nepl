@@ -317,6 +317,14 @@ pub fn window_event_size %fn &WindowEvent GuiSize \event:
 pub fn timer_event_new %fn i32 fn i32 TimerEvent \timer_id\tick:
     TimerEvent timer_id tick
 
+//: timer_event_timer_id: timer id を[読/よ]む
+pub fn timer_event_timer_id %fn &TimerEvent i32 \event:
+    *field::get_ref event "timer_id"
+
+//: timer_event_tick: timer tick number を[読/よ]む
+pub fn timer_event_tick %fn &TimerEvent i32 \event:
+    *field::get_ref event "tick"
+
 //: gui_event_pointer: pointer event を `GuiEvent` に[包/つつ]む
 pub fn gui_event_pointer %fn PointerEvent GuiEvent \event:
     GuiEvent::Pointer event

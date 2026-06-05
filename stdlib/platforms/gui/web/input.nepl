@@ -15,8 +15,8 @@
 //: - raw host import の 0 / 負 sentinel はこの module の境界内でだけ扱います。
 //:
 //: ### [現状/げんじょう]
-//: - Phase 3 では Web Playground の action、pointer、keyboard、text input、window event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
-//: - Web backend は pointer move を SharedArrayBuffer publish 前の backend 境界で順序保存 coalescing できます。IME composition、timer、lifecycle などの full event union は後続 phase で追加します。
+//: - Phase 3 では Web Playground の action、pointer、keyboard、text input、window、timer event を扱い、window id と pointer position milli-unit を `GuiWebEvent` に保持します。
+//: - Web backend は pointer move と連続 timer tick を SharedArrayBuffer publish 前の backend 境界で順序保存 coalescing できます。IME composition、lifecycle などの full event union は後続 phase で追加します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -54,6 +54,8 @@
 #extern "nepl_gui_web" "last_event_window_kind" fn gui_web_last_event_window_kind_raw %impure fn void i32
 #extern "nepl_gui_web" "last_event_window_width" fn gui_web_last_event_window_width_raw %impure fn void i32
 #extern "nepl_gui_web" "last_event_window_height" fn gui_web_last_event_window_height_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_timer_id" fn gui_web_last_event_timer_id_raw %impure fn void i32
+#extern "nepl_gui_web" "last_event_timer_tick" fn gui_web_last_event_timer_tick_raw %impure fn void i32
 
 //: GuiWebEvent: Web backend が[取/と]り[出/だ]した typed GUI event record
 //:
@@ -148,6 +150,18 @@ pub fn gui_web_event_window %fn &GuiWebEvent Option WindowEvent \event:
         _:
             Option::None
 
+//: gui_web_event_timer: timer event なら `TimerEvent` を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - event が `GuiEvent::Timer` の場合は `Option::Some` を返します。
+//: - それ以外の event variant は `Option::None` を返します。
+pub fn gui_web_event_timer %fn &GuiWebEvent Option TimerEvent \event:
+    match gui_web_event_gui_event event:
+        GuiEvent::Timer timer:
+            Option::Some timer
+        _:
+            Option::None
+
 //: gui_web_action_result_from_raw: host raw action id を `Result Option ActionId GuiError` へ[正規化/せいきか]する
 //:
 //: [目的/もくてき]:
@@ -190,52 +204,39 @@ fn gui_web_action_result_from_raw %fn i32 Result Option ActionId GuiError \raw:
 //: - raw kind 3 は keyboard event です。
 //: - raw kind 4 は text input event です。
 //: - raw kind 5 は window event です。
+//: - raw kind 6 は timer event です。
 //: - raw kind 0 は timeout / empty queue です。
 //: - raw kind -1 は unsupported host queue です。
 //: - raw kind -2 または未知の kind は invalid command です。
 fn gui_web_event_result_from_kind_raw %impure fn i32 Result Option GuiWebEvent GuiError \raw:
     if:
-        gt raw 0
+        lt raw 0
         then:
             if:
-                eq raw 1
+                eq raw -1
                 then:
-                    gui_web_action_event_result_from_last
+                    Result::Err GuiError::Unsupported
                 else:
-                    if:
-                        eq raw 2
-                        then:
-                            gui_web_pointer_event_result_from_last
-                        else:
-                            if:
-                                eq raw 3
-                                then:
-                                    gui_web_keyboard_event_result_from_last
-                                else:
-                                    if:
-                                        eq raw 4
-                                        then:
-                                            gui_web_text_input_event_result_from_last
-                                        else:
-                                            if:
-                                                eq raw 5
-                                                then:
-                                                    gui_web_window_event_result_from_last
-                                                else:
-                                                    Result::Err GuiError::InvalidCommand
+                    Result::Err GuiError::InvalidCommand
         else:
-            if:
-                eq raw 0
-                then:
+            match raw:
+                0:
                     let none %Option GuiWebEvent Option::None
                     Result::Ok none
-                else:
-                    if:
-                        eq raw -1
-                        then:
-                            Result::Err GuiError::Unsupported
-                        else:
-                            Result::Err GuiError::InvalidCommand
+                1:
+                    gui_web_action_event_result_from_last
+                2:
+                    gui_web_pointer_event_result_from_last
+                3:
+                    gui_web_keyboard_event_result_from_last
+                4:
+                    gui_web_text_input_event_result_from_last
+                5:
+                    gui_web_window_event_result_from_last
+                6:
+                    gui_web_timer_event_result_from_last
+                _:
+                    Result::Err GuiError::InvalidCommand
 
 fn gui_web_web_event_from_gui_event %impure fn GuiEvent Result Option GuiWebEvent GuiError \gui_event:
     let x_milli %i32 gui_web_last_event_point_x_milli_raw
@@ -424,6 +425,18 @@ fn gui_web_window_event_result_from_last %impure fn void Result Option GuiWebEve
             gui_web_window_event_result_from_parts kind
         Result::Err error:
             Result::Err error
+
+fn gui_web_timer_event_result_from_last %impure fn void Result Option GuiWebEvent GuiError \void:
+    let timer_id %i32 gui_web_last_event_timer_id_raw
+    let tick %i32 gui_web_last_event_timer_tick_raw
+    if:
+        and gt timer_id 0 ge tick 0
+        then:
+            let timer_event %TimerEvent timer_event_new timer_id tick
+            let gui_event %GuiEvent gui_event_timer timer_event
+            gui_web_web_event_from_gui_event gui_event
+        else:
+            Result::Err GuiError::InvalidCommand
 
 //: gui_web_action_from_raw: host raw action id を legacy `Option ActionId` へ[正規化/せいきか]する
 //:
