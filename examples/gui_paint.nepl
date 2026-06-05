@@ -6,11 +6,12 @@
 //:
 //: [目的/もくてき]:
 //: - button action だけでなく、full `GuiWebEvent` の pointer position を model update に使います。
-//: - model は直近 3 stroke slot、選択色、次 slot を field として保持します。
+//: - model は `Option PaintCell` の bounded stroke storage、選択色、stroke count を field として保持します。
 //: - host の raw `ActionId` は `PaintAction` へ decode し、application update は enum と `match` で扱います。
+//: - capacity overflow や canvas 外 pointer は `PaintUpdateError` として返し、event loop 側で owner を回収します。
 //:
 //: [注意/ちゅうい]:
-//: - 現在は stdout fallback の軽量 example なので、永続 canvas は 3 stroke slot だけです。
+//: - 現在は stdout fallback の軽量 example なので、stroke storage は固定容量です。
 //: - 任意長 stroke buffer は `alloc/gui` の collection-backed widget state が安定した後に拡張します。
 #entry main
 #indent 4
@@ -65,12 +66,49 @@ impl Copy for PaintAction:
     fn copy_mark %fn PaintAction PaintAction \action:
         action
 
-struct PaintModel:
-    slot0 %i32
-    slot1 %i32
-    slot2 %i32
+//: PaintCell: canvas 上の 1 stroke point
+//:
+//: [目的/もくてき]:
+//: - cell index と描画時点の色をまとめ、現在選択中の色とは独立して stroke を再描画します。
+//: - 欠如は `Option PaintCell` で表し、数値 sentinel は使いません。
+struct PaintCell:
+    slot %i32
     color %PaintColor
-    next_slot %i32
+
+impl Clone for PaintCell:
+    fn clone %fn &PaintCell PaintCell \cell:
+        *cell
+
+impl Copy for PaintCell:
+    fn copy_mark %fn PaintCell PaintCell \cell:
+        cell
+
+//: PaintUpdateErrorKind: paint model update の失敗理由
+//:
+//: [目的/もくてき]:
+//: - capacity overflow と pointer outside canvas を enum として分け、呼び出し側が `match` で扱えるようにします。
+enum PaintUpdateErrorKind:
+    CapacityFull
+    PointerOutsideCanvas
+
+impl Clone for PaintUpdateErrorKind:
+    fn clone %fn &PaintUpdateErrorKind PaintUpdateErrorKind \kind:
+        *kind
+
+impl Copy for PaintUpdateErrorKind:
+    fn copy_mark %fn PaintUpdateErrorKind PaintUpdateErrorKind \kind:
+        kind
+
+struct PaintModel:
+    slot0 %Option PaintCell
+    slot1 %Option PaintCell
+    slot2 %Option PaintCell
+    color %PaintColor
+    count %i32
+
+struct PaintUpdateError:
+    model %PaintModel
+    kind %PaintUpdateErrorKind
 
 impl Clone for PaintModel:
     fn clone %fn &PaintModel PaintModel \model:
@@ -80,19 +118,48 @@ impl Copy for PaintModel:
     fn copy_mark %fn PaintModel PaintModel \model:
         model
 
-fn paint_model_new %fn i32 fn i32 fn i32 fn PaintColor fn i32 PaintModel \slot0\slot1\slot2\color\next_slot:
-    PaintModel slot0 slot1 slot2 color next_slot
+impl Clone for PaintUpdateError:
+    fn clone %fn &PaintUpdateError PaintUpdateError \error:
+        *error
+
+impl Copy for PaintUpdateError:
+    fn copy_mark %fn PaintUpdateError PaintUpdateError \error:
+        error
+
+fn paint_cell_new %fn i32 fn PaintColor PaintCell \slot\color:
+    PaintCell slot color
+
+fn paint_cell_slot %fn &PaintCell i32 \cell:
+    *field::get_ref cell "slot"
+
+fn paint_cell_color %fn &PaintCell PaintColor \cell:
+    *field::get_ref cell "color"
+
+fn paint_model_new %fn Option PaintCell fn Option PaintCell fn Option PaintCell fn PaintColor fn i32 PaintModel \slot0\slot1\slot2\color\count:
+    PaintModel slot0 slot1 slot2 color count
 
 fn paint_model_empty %fn void PaintModel \void:
-    paint_model_new 255 255 255 PaintColor::A 0
+    let empty0 %Option PaintCell none
+    let empty1 %Option PaintCell none
+    let empty2 %Option PaintCell none
+    paint_model_new empty0 empty1 empty2 PaintColor::A 0
 
-fn paint_slot0 %fn &PaintModel i32 \model:
+fn paint_update_error_new %fn PaintModel fn PaintUpdateErrorKind PaintUpdateError \model\kind:
+    PaintUpdateError model kind
+
+fn paint_update_error_model %fn &PaintUpdateError PaintModel \error:
+    *field::get_ref error "model"
+
+fn paint_update_error_kind %fn &PaintUpdateError PaintUpdateErrorKind \error:
+    *field::get_ref error "kind"
+
+fn paint_slot0 %fn &PaintModel Option PaintCell \model:
     *field::get_ref model "slot0"
 
-fn paint_slot1 %fn &PaintModel i32 \model:
+fn paint_slot1 %fn &PaintModel Option PaintCell \model:
     *field::get_ref model "slot1"
 
-fn paint_slot2 %fn &PaintModel i32 \model:
+fn paint_slot2 %fn &PaintModel Option PaintCell \model:
     *field::get_ref model "slot2"
 
 fn paint_color %fn &PaintModel PaintColor \model:
@@ -111,8 +178,11 @@ fn paint_model_color_index %fn &PaintModel i32 \model:
     let color %PaintColor paint_color model
     paint_color_index color
 
-fn paint_next_slot %fn &PaintModel i32 \model:
-    *field::get_ref model "next_slot"
+fn paint_count %fn &PaintModel i32 \model:
+    *field::get_ref model "count"
+
+fn paint_capacity %fn void i32 \void:
+    3
 
 fn paint_canvas_x %fn void i32 \void:
     20
@@ -174,57 +244,46 @@ fn paint_slot_x %fn i32 i32 \slot:
 fn paint_slot_y %fn i32 i32 \slot:
     div_s slot 16
 
-fn paint_next_slot_index %fn i32 i32 \slot:
-    let next %i32 add slot 1
-    rem_s next 3
-
-fn paint_set_cell %fn PaintModel fn i32 fn i32 PaintModel \model\cell_x\cell_y:
+//: paint_set_cell_result: stroke point を model に追加する
+//:
+//: [契約/けいやく]:
+//: - capacity に空きがある場合は、現在選択中の色を持つ `PaintCell` を `Option::Some` として格納します。
+//: - capacity が尽きている場合は model owner を `PaintUpdateError` へ入れて返し、caller が回収できるようにします。
+fn paint_set_cell_result %fn PaintModel fn i32 fn i32 Result PaintModel PaintUpdateError \model\cell_x\cell_y:
     let slot_value %i32 paint_slot_from_cell cell_x cell_y
-    let next_slot %i32 paint_next_slot &model
     let color %PaintColor paint_color &model
-    let slot0 %i32 paint_slot0 &model
-    let slot1 %i32 paint_slot1 &model
-    let slot2 %i32 paint_slot2 &model
-    let out0 %i32:
-        if:
-            eq next_slot 0
-            then:
-                slot_value
-            else:
-                slot0
-    let out1 %i32:
-        if:
-            eq next_slot 1
-            then:
-                slot_value
-            else:
-                slot1
-    let out2 %i32:
-        if:
-            eq next_slot 2
-            then:
-                slot_value
-            else:
-                slot2
-    let next_index %i32 paint_next_slot_index next_slot
-    paint_model_new out0 out1 out2 color next_index
+    let cell %PaintCell paint_cell_new slot_value color
+    let cell_opt %Option PaintCell some cell
+    let slot0 %Option PaintCell paint_slot0 &model
+    let slot1 %Option PaintCell paint_slot1 &model
+    let slot2 %Option PaintCell paint_slot2 &model
+    let count %i32 paint_count &model
+    match count:
+        0:
+            Result::Ok paint_model_new cell_opt slot1 slot2 color 1
+        1:
+            Result::Ok paint_model_new slot0 cell_opt slot2 color 2
+        2:
+            Result::Ok paint_model_new slot0 slot1 cell_opt color 3
+        _:
+            Result::Err paint_update_error_new model PaintUpdateErrorKind::CapacityFull
 
 fn paint_set_color %fn PaintModel fn PaintColor PaintModel \model\color:
-    let slot0 %i32 paint_slot0 &model
-    let slot1 %i32 paint_slot1 &model
-    let slot2 %i32 paint_slot2 &model
-    let next_slot %i32 paint_next_slot &model
-    paint_model_new slot0 slot1 slot2 color next_slot
+    let slot0 %Option PaintCell paint_slot0 &model
+    let slot1 %Option PaintCell paint_slot1 &model
+    let slot2 %Option PaintCell paint_slot2 &model
+    let count %i32 paint_count &model
+    paint_model_new slot0 slot1 slot2 color count
 
-fn paint_update_action %fn PaintModel fn ActionId PaintModel \model\action:
+fn paint_update_action_result %fn PaintModel fn ActionId Result PaintModel PaintUpdateError \model\action:
     let typed %PaintAction paint_decode_action action
     match typed:
         PaintAction::Select color:
-            paint_set_color model color
+            Result::Ok paint_set_color model color
         PaintAction::Clear:
-            paint_model_empty
+            Result::Ok paint_model_empty
         PaintAction::Unknown:
-            model
+            Result::Ok model
 
 fn paint_point_to_cell_x %fn GuiPoint i32 \point_milli:
     let x_milli %i32 gui_point_x &point_milli
@@ -263,7 +322,7 @@ fn paint_pointer_should_draw %fn &PointerEvent bool \pointer:
         _:
             false
 
-fn paint_update_pointer %fn PaintModel fn GuiWebEvent fn PointerEvent PaintModel \model\web_event\pointer:
+fn paint_update_pointer_result %fn PaintModel fn GuiWebEvent fn PointerEvent Result PaintModel PaintUpdateError \model\web_event\pointer:
     if:
         paint_pointer_should_draw &pointer
         then:
@@ -273,22 +332,22 @@ fn paint_update_pointer %fn PaintModel fn GuiWebEvent fn PointerEvent PaintModel
             if:
                 paint_cell_is_inside cell_x cell_y
                 then:
-                    paint_set_cell model cell_x cell_y
+                    paint_set_cell_result model cell_x cell_y
                 else:
-                    model
+                    Result::Err paint_update_error_new model PaintUpdateErrorKind::PointerOutsideCanvas
         else:
-            model
+            Result::Ok model
 
-fn paint_update_event %fn PaintModel fn GuiWebEvent PaintModel \model\web_event:
+fn paint_update_event_result %fn PaintModel fn GuiWebEvent Result PaintModel PaintUpdateError \model\web_event:
     match gui_web_event_action &web_event:
         Option::Some action:
-            paint_update_action model action
+            paint_update_action_result model action
         Option::None:
             match gui_web_event_pointer &web_event:
                 Option::Some pointer:
-                    paint_update_pointer model web_event pointer
+                    paint_update_pointer_result model web_event pointer
                 Option::None:
-                    model
+                    Result::Ok model
 
 fn paint_color_background %fn void Rgba8888 \void:
     let r %u8 cast 11
@@ -337,29 +396,29 @@ fn paint_color_value %fn PaintColor Rgba8888 \color:
             let b %u8 cast 70
             rgba8888_new r g b a
 
-fn paint_present_slot %impure fn PaintModel impure fn i32 Result unit GuiError \model\slot:
-    if:
-        eq slot 255
-        then:
-            Result::Ok unit
-        else:
-            let cell_x %i32 paint_slot_x slot
-            let cell_y %i32 paint_slot_y slot
+fn paint_present_slot %impure fn Option PaintCell Result unit GuiError \slot:
+    match slot:
+        Option::Some cell:
+            let slot_index %i32 paint_cell_slot &cell
+            let cell_x %i32 paint_slot_x slot_index
+            let cell_y %i32 paint_slot_y slot_index
             let x_offset %i32 mul cell_x paint_cell_size
             let y_offset %i32 mul cell_y paint_cell_size
             let x %i32 add paint_canvas_x x_offset
             let y %i32 add paint_canvas_y y_offset
             let draw_size %i32 sub paint_cell_size 4
             let rect %GuiRect gui_rect_new x y draw_size draw_size
-            let color %Rgba8888 paint_color_value paint_color &model
+            let color %Rgba8888 paint_color_value paint_cell_color &cell
             gui_web_stdout_fill_rect rect color
+        Option::None:
+            Result::Ok unit
 
 fn paint_present_slots %impure fn PaintModel Result unit GuiError \model:
-    match paint_present_slot model paint_slot0 &model:
+    match paint_present_slot paint_slot0 &model:
         Result::Ok _:
-            match paint_present_slot model paint_slot1 &model:
+            match paint_present_slot paint_slot1 &model:
                 Result::Ok _:
-                    paint_present_slot model paint_slot2 &model
+                    paint_present_slot paint_slot2 &model
                 Result::Err error:
                     Result::Err error
         Result::Err error:
@@ -469,20 +528,24 @@ fn paint_has_once_flag %impure fn void bool \void:
     paint_has_once_flag_loop 1 count
 
 fn paint_print_status %impure fn PaintModel unit \model:
-    print "paint slot0 = "
-    let slot0 %i32 paint_slot0 &model
-    println_i32 slot0
+    print "paint strokes = "
+    let count %i32 paint_count &model
+    println_i32 count
     print "paint color = "
     let color %i32 paint_model_color_index &model
     println_i32 color
 
 fn paint_run_once %impure fn PaintModel unit \model:
-    let model1 %PaintModel paint_set_cell model 2 3
-    match paint_present_frame model1:
-        Result::Ok _:
-            paint_print_status model1
-        Result::Err _:
-            println "paint gui protocol error"
+    match paint_set_cell_result model 2 3:
+        Result::Ok model1:
+            match paint_present_frame model1:
+                Result::Ok _:
+                    paint_print_status model1
+                Result::Err _:
+                    println "paint gui protocol error"
+        Result::Err update_error:
+            let recovered %PaintModel paint_update_error_model &update_error
+            paint_print_status recovered
 
 fn paint_event_loop %impure fn PaintModel unit \initial_model:
     let mut model %PaintModel initial_model
@@ -493,13 +556,23 @@ fn paint_event_loop %impure fn PaintModel unit \initial_model:
                 Result::Ok event_result:
                     match event_result:
                         Option::Some web_event:
-                            set model paint_update_event model web_event
-                            match paint_present_frame model:
-                                Result::Ok _:
-                                    unit
-                                Result::Err _:
-                                    println "paint gui protocol error";
-                                    set running false
+                            match paint_update_event_result model web_event:
+                                Result::Ok next_model:
+                                    set model next_model
+                                    match paint_present_frame model:
+                                        Result::Ok _:
+                                            unit
+                                        Result::Err _:
+                                            println "paint gui protocol error";
+                                            set running false
+                                Result::Err update_error:
+                                    set model paint_update_error_model &update_error
+                                    match paint_present_frame model:
+                                        Result::Ok _:
+                                            unit
+                                        Result::Err _:
+                                            println "paint gui protocol error";
+                                            set running false
                         Option::None:
                             unit
                 Result::Err _:
