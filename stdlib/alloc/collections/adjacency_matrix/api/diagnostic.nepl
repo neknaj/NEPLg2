@@ -10,8 +10,56 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
+//: ## adjacency_matrix_invalid_len_diag
+//: `new` の不正な vertex [長/ちょう]を[表/あらわ]す診断を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `StdErrorKind::CapacityExceeded` を持つ `Diag` を返します。
+//: - 表示文言は caller が match する契約ではありません。静的に扱うべき分類は `StdErrorKind` です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_invalid_len_diag_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"invalid len kind\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag adjacency_matrix_invalid_len_diag
+//:     let report:
+//:         test_report_new "adjacency_matrix_invalid_len_diag_doc"
+//:         |> test_report_push assert_str_eq "invalid len kind" "CapacityExceeded" diag_std_error_kind_str d
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_invalid_len_diag %impure fn void Diag \void:
     diag_error StdErrorKind::CapacityExceeded "invalid adjacency matrix vertex length"
 
+//: ## adjacency_matrix_vertex_diag
+//: `contains` / `insert` / `remove` の[範囲外/はんいがい] vertex 診断を[作/つく]る
+//:
+//: ### [契約/けいやく]
+//: - `StdErrorKind::IndexOutOfBounds` を持つ `Diag` を返します。
+//: - observer と update は同じ helper を使うため、同じ失敗分類を返します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_vertex_diag_doc\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"vertex kind\" expected=\"IndexOutOfBounds\" actual=\"IndexOutOfBounds\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/api/diagnostic" as *
+//:| #import "alloc/diag/error" as *
+//: fn main %impure fn void i32 \void:
+//:     let d %Diag adjacency_matrix_vertex_diag
+//:     let report:
+//:         test_report_new "adjacency_matrix_vertex_diag_doc"
+//:         |> test_report_push assert_str_eq "vertex kind" "IndexOutOfBounds" diag_std_error_kind_str d
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_vertex_diag %impure fn void Diag \void:
     diag_error StdErrorKind::IndexOutOfBounds "adjacency matrix vertex out of bounds"

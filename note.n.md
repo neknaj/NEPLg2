@@ -51110,6 +51110,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では bitset slice に blocker はなく、report doctest と owner-backed error の実経路確認を強めるべきと指摘されたため、直接 `BitSetUpdateError` constructor を使わず `insert` / `remove` の Err 経路へ修正した。
 - focused verification は BitSet doctest 27/27、documentation contract、BitSet source-policy 4 件を通した。残件は adjacency_matrix / binary_heap / bloom_filter / btree 系などの declaration doc gap である。
 
+## 2026-06-05 Agent2 AdjacencyMatrix doc report checkpoint
+
+- `agent2/adjacency-matrix-doc-contract` branch で、`ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` のうち `stdlib/alloc/collections/adjacency_matrix` slice を進めた。`plan.md` は確認のみで変更していない。
+- Zenn 記事の doc comment / static checking 方針を再確認し、`AdjacencyMatrix` の `nverts` / `nbytes` / `bits` invariant、row-major edge bit layout、typed byte storage、`Option::None`、`StdErrorKind`、owner recovery を宣言近傍に記録した。
+- `adjacency_matrix.nepl` と `adjacency_matrix/api.nepl` に facade lifecycle report doctest を追加し、`types.nepl` では `AdjacencyMatrixUpdateError` を direct constructor ではなく public `insert` / `remove` の Err 経路から取得して `diag` と owner recovery を検査する形にした。
+- `storage.nepl`、`mutation.nepl`、`api/diagnostic.nepl`、`api/observer.nepl`、`api/update.nepl`、`api/bulk.nepl`、`api/cleanup.nepl` の helper / public API docs を report doctest 形式へ揃えた。
+- `nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js` を拡張し、AdjacencyMatrix の report doctest 名、typed diagnostic kind、borrowed observer、public update failure path、owner recovery を source-policy で固定した。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline は `moduleNoDoctest=301`、`declarationNoDoc=343`、`declarationNoDoctest=1679`、`publicDeclarationNoDoctest=1520` へ締め直した。残件は binary_heap / bloom_filter / btree 系などの declaration doc gap である。
+- subagent review では storage / mutation / diagnostic を P0、types / observer / update / bulk を P1、既存 simple doctest の report 化を P2 と確認した。今回の checkpoint ではこの範囲をまとめて対応した。
+- focused verification は adjacency_matrix doctest 35/35、documentation contract、AdjacencyMatrix source-policy を通した。
+
 ## 2026-06-05 Agent2 Mandelbrot stdout row payload checkpoint
 
 - `agent2/gui-mandelbrot-tile-transport` branch で、`ISS-20260604T034206002Z-MANDELBROT-GUI-EXAMPLE-CANNOT-MEET-H-86DB03F0` の Web/stdout fallback slice を修正した。`plan.md` は確認のみで変更していない。

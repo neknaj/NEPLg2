@@ -15,22 +15,33 @@
 //: ## free
 //: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
 //:
-//: ### [仕様/しよう]
+//: ### [契約/けいやく]
 //: - `AdjacencyMatrix` は `new` が[確保/かくほ]した `nbytes > 0` の matrix byte `Vec u8` を[所有/しょゆう]します。
 //: - `free` はその owner invariant に[基/もと]づき、`Vec u8` owner を[閉/と]じます。
 //: - caller は `free` [後/ご]の `AdjacencyMatrix` を[再利用/さいりよう]してはいけません。
 //:
-//: neplg2:test
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は backing `Vec.free` と同じで、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_free_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"len before free\" expected=\"3\" actual=\"3\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "std/test" as *
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn void i32 \void:
-//:     let g %AdjacencyMatrix unwrap_ok new 3;
+//:     let g %AdjacencyMatrix unwrap_ok new 3
+//:     let size %i32 len &g
 //:     free g
-//:     0
+//:     let report:
+//:         test_report_new "adjacency_matrix_free_doc"
+//:         |> test_report_push assert_eq_i32 "len before free" 3 size
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
 //: ```
 pub fn free %impure fn AdjacencyMatrix unit \g:
     let bits %Vec u8 field::get g "bits"

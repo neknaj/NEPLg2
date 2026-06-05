@@ -8,6 +8,30 @@
 //: ### [注意/ちゅうい]
 //: - `len` / `contains` は `&AdjacencyMatrix` を[受/う]け[取/と]り、matrix storage の owner を[移動/いどう]せずに[観察/かんさつ]します。
 //: - `insert` / `remove` の失敗は owner を失わないように `AdjacencyMatrixUpdateError` で元の `AdjacencyMatrix` と `Diag` を返します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_facade_lifecycle_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"matrix len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"inserted edge is visible\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let g0 %AdjacencyMatrix unwrap_ok new 3
+//:     let g1 %AdjacencyMatrix unwrap_ok insert g0 0 2
+//:     let size %i32 len &g1
+//:     let present %bool unwrap_ok contains &g1 0 2
+//:     free g1
+//:     let report:
+//:         test_report_new "adjacency_matrix_facade_lifecycle_doc"
+//:         |> test_report_push assert_eq_i32 "matrix len" 3 size
+//:         |> test_report_push assert "inserted edge is visible" present
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 

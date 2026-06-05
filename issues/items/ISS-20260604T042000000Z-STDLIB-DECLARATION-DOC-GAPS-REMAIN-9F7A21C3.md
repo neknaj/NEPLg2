@@ -17,7 +17,9 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 `nodesrc/test_stdlib_documentation_contract.js` の current baseline を再集計した時点で、stdlib は `declarationNoDoc=361`、`declarationNoDoctest=1690`、`publicDeclarationNoDoctest=1531` を持つ。これは Zenn 記事の「契約、現状実装、enum の場合分け、計算量、simple/typical example、doc test」を doc comment に書く方針に対して未達である。
 
-2026-06-05 の BitSet slice で `stdlib/alloc/collections/bitset` の facade / type / layout / storage / mutation / diagnostic helper docs と report doctest を追加し、baseline は `moduleNoDoctest=303`、`declarationNoDoc=350`、`declarationNoDoctest=1686`、`publicDeclarationNoDoctest=1527` まで改善した。ただし adjacency_matrix / binary_heap / bloom_filter / btree などに declaration doc gap が残るため、この issue は open のまま継続する。
+2026-06-05 の BitSet slice で `stdlib/alloc/collections/bitset` の facade / type / layout / storage / mutation / diagnostic helper docs と report doctest を追加し、baseline は `moduleNoDoctest=303`、`declarationNoDoc=350`、`declarationNoDoctest=1686`、`publicDeclarationNoDoctest=1527` まで改善した。
+
+同日の AdjacencyMatrix slice で `stdlib/alloc/collections/adjacency_matrix` の facade / type / storage / mutation / diagnostic / observer / update / bulk / cleanup docs と report doctest を追加し、baseline は `moduleNoDoctest=301`、`declarationNoDoc=343`、`declarationNoDoctest=1679`、`publicDeclarationNoDoctest=1520` まで改善した。ただし binary_heap / bloom_filter / btree などに declaration doc gap が残るため、この issue は open のまま継続する。
 
 ## 対象
 
@@ -40,6 +42,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日 BitSet slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=303`、`declarationNoDoc=350`、`declarationNoDoctest=1686`、`publicDeclarationNoDoctest=1527` である。`nodesrc/test_stdlib_bitset_doc_report_contract.js` により、BitSet の report doctest と owner recovery doc contract は total count だけでなく module 固有にも固定する。
 
+同日 AdjacencyMatrix slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=301`、`declarationNoDoc=343`、`declarationNoDoctest=1679`、`publicDeclarationNoDoctest=1520` である。`nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js` により、AdjacencyMatrix の facade lifecycle、type invariant、typed byte storage、mutation、diagnostic kind、borrowed observer、owner recovery doc contract を module 固有にも固定する。
+
 ## 影響
 
 stdlib の修正時に、契約ではなく実装断片や既存挙動の記憶へ依存しやすくなる。特に collection / IO / GUI のように owner、Result、capability、platform boundary が絡む module では、doc gap が静的検査の活用不足やテスト観点漏れにつながる。
@@ -55,3 +59,5 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - 追加される cfg-test-style regular tests
 - `node nodesrc/test_stdlib_bitset_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/bitset/types.nepl -i stdlib/alloc/collections/bitset/layout.nepl -i stdlib/alloc/collections/bitset/storage.nepl -i stdlib/alloc/collections/bitset/mutation.nepl -i stdlib/alloc/collections/bitset/api.nepl -i stdlib/alloc/collections/bitset/api/diagnostic.nepl -i stdlib/alloc/collections/bitset/api/create.nepl -i stdlib/alloc/collections/bitset/api/observer.nepl -i stdlib/alloc/collections/bitset/api/update.nepl -i stdlib/alloc/collections/bitset/api/bulk.nepl -i stdlib/alloc/collections/bitset/api/cleanup.nepl -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/agent2-bitset-doc-slice-2.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/test_stdlib_adjacency_matrix_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl -i stdlib/alloc/collections/adjacency_matrix/types.nepl -i stdlib/alloc/collections/adjacency_matrix/layout.nepl -i stdlib/alloc/collections/adjacency_matrix/storage.nepl -i stdlib/alloc/collections/adjacency_matrix/mutation.nepl -i stdlib/alloc/collections/adjacency_matrix/api.nepl -i stdlib/alloc/collections/adjacency_matrix/api/diagnostic.nepl -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl -i stdlib/alloc/collections/adjacency_matrix/api/observer.nepl -i stdlib/alloc/collections/adjacency_matrix/api/update.nepl -i stdlib/alloc/collections/adjacency_matrix/api/bulk.nepl -i stdlib/alloc/collections/adjacency_matrix/api/cleanup.nepl -i tests/stdlib/adjacency_matrix_collections.n.md -i stdlib/tests/adjacency_matrix.n.md --no-tree -o tmp/agent2-adjacency-matrix-doc-slice.json -j 1 --dist web/dist --assert-io`
