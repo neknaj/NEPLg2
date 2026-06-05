@@ -206,6 +206,22 @@ pub fn selfhost_expr_argument_item_matches_type %fn &SelfhostTypeArena fn Selfho
         Option::None:
             false
 
+//: selfhost_expr_argument_checked_simple_item: 1 item argument の checked payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker が `unit` literal であることを確定した場合は `UnitValue` payload として保存します。
+//: - HIR lowering はこの payload を使い、source token や lexeme を再読せずに unit expression を構築できます。
+//:
+//: [現状/げんじょう]:
+//: - 数値、bool、char、string literal は値 payload の設計がまだ必要なため、従来どおり `TypedExpression` に留めます。
+//: - named value は DefId-linked variable identity が HIR 側に未接続のため、この helper では扱いません。
+fn selfhost_expr_argument_checked_simple_item %fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId SelfhostCheckedArgument \item\start_index\next_index\value_type:
+    match item.kind:
+        SelfhostExprPrefixItemKind::UnitValue:
+            selfhost_checked_argument_unit_value start_index next_index value_type item.span
+        _:
+            selfhost_checked_argument_typed_expression start_index next_index value_type item.span
+
 //: selfhost_expr_argument_named_value_kind_supported: argument value として扱える binding kind かを[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -516,7 +532,7 @@ fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec Selfhos
                                         then:
                                             let next_index %i32 add expression_item_index 1
                                             let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
-                                            let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_typed_expression expression_item_index next_index expectation.expected_type expression_item.span
+                                            let checked_argument %SelfhostCheckedArgument selfhost_expr_argument_checked_simple_item expression_item expression_item_index next_index expectation.expected_type
                                             Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
                                         else:
                                             selfhost_type_arena_free arena
@@ -582,7 +598,7 @@ pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken
                                 then:
                                     let next_index %i32 add item_index 1
                                     let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
-                                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_typed_expression item_index next_index expected_type item.span
+                                    let checked_argument %SelfhostCheckedArgument selfhost_expr_argument_checked_simple_item item item_index next_index expected_type
                                     Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
                                 else:
                                     selfhost_type_arena_free arena

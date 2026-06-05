@@ -163,8 +163,13 @@ assert.match(
 );
 assert.match(
     source,
-    /# check\/expr\/argument_payload[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
+    /# check\/expr\/argument_payload[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
     "checked argument payload must preserve function value, nested call, block-result, range, type, and span evidence",
+);
+assert.match(
+    source,
+    /selfhost_checked_argument_unit_value[\s\S]*SelfhostCheckedArgumentKind::UnitValue[\s\S]*fn selfhost_expr_argument_checked_simple_item[\s\S]*SelfhostExprPrefixItemKind::UnitValue:[\s\S]*selfhost_checked_argument_unit_value/,
+    "unit literal arguments must be preserved as a dedicated checked payload instead of a source-reread TypedExpression",
 );
 assert.match(
     source,

@@ -65,8 +65,8 @@ assert.match(
 );
 assert.match(
     directCall,
-    /pub fn selfhost_hir_lower_checked_argument[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate:[\s\S]*selfhost_hir_expr_fn_value_from_candidate candidate argument\.span[\s\S]*SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind/,
-    "direct call lowering must lower FunctionValue payloads through the function-value boundary and fail closed for unsupported argument kinds",
+    /pub fn selfhost_hir_lower_checked_argument[\s\S]*SelfhostCheckedArgumentKind::UnitValue:[\s\S]*selfhost_hir_expr_unit argument\.value_type argument\.span[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate:[\s\S]*selfhost_hir_expr_fn_value_from_candidate candidate argument\.span[\s\S]*SelfhostDirectCallLowerErrorKind::UnsupportedArgumentKind/,
+    "direct call lowering must lower UnitValue and FunctionValue payloads without re-reading source and fail closed for unsupported argument kinds",
 );
 assert.match(
     directCall,
