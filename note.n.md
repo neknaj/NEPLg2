@@ -1,3 +1,28 @@
+# 2026-06-05 Agent 2 BTreeSet documentation contract checkpoint
+
+- `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。
+- subagent review では、`stdlib/alloc/collections/btreeset/search.nepl` と `storage.nepl` の lower_bound / is_at / key-only owner-backed storage helper に declaration doc gap が残ることが blocker として指摘された。BTreeMap と同じ search 契約は共有しつつ、BTreeSet は value storage を持たないため `.V: Copy`、key/value 同期、value 側 partial allocation cleanup を入れないことを確認した。
+- `search.nepl` では `btreeset_lower_bound`、`btreeset_is_at`、`btreeset_lower_bound_storage`、`btreeset_is_at_storage` の日本語 doc comment と `test_report` 形式の doctest を追加した。`Option::None` は storage invariant failure、missing slot と `idx >= len0` は `false`、storage wrapper は owner 非消費であることを明記した。
+- `storage.nepl` では key slot accessor、store helper、borrowed key storage view、alloc/free、copy/clear/shift/grow helper に日本語 doc comment と `test_report` 形式の doctest を追加した。`Vec Option .T` の key-only storage、`diag_out_of_memory` 正規化、`BTreeSetInsertError` の owner recovery、grow 成功時の旧 storage free、remove 後の old last slot `Option::None` を契約として固定した。
+- `nodesrc/test_stdlib_btree_search_doc_report_contract.js` を BTreeSet search の複数 doctest に対応させ、`nodesrc/test_stdlib_btreeset_storage_doc_report_contract.js` を追加した。BTreeMap の value-storage-only 契約を BTreeSet に誤って移さないことも source policy で検査する。
+- `nodesrc/test_stdlib_documentation_contract.js` の baseline を実測値に締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=272`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。
+- `ISS-20260604T042000000Z-STDLIB-DECLARATION-DOC-GAPS-REMAIN-9F7A21C3` は open のまま維持した。BTreeSet slice は進んだが、sample gaps は disjoint_set / fenwick / segment_tree 系へ残っている。
+- 現時点の検証済み:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset/search.nepl -i stdlib/alloc/collections/btreeset/storage.nepl -i stdlib/tests/btreeset.n.md --no-tree -o tmp/agent2-btreeset-doc-slice.json -j 1 --dist web/dist --assert-io`: pass（22/22）
+  - `node nodesrc/test_stdlib_btree_search_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_btreeset_storage_doc_report_contract.js`: pass
+  - `node nodesrc/test_stdlib_documentation_contract.js`: pass
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+  - `git diff --check`: pass（CRLF warning のみ）
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: pass
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: pass
+  - `node nodesrc/test_stdlib_btreeset_report_contract.js`: pass
+  - `trunk build`: pass
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-btreeset-doc-playground-editor.json`: pass（13/13）
+  - subagent final review: Blocker なし、`MERGE_APPROVED`
+
 # 2026-06-05 Agent 2 BTreeMap documentation contract checkpoint
 
 - `plan.md` は確認のみで変更していない。Zenn 記事を再確認し、静的検査の正確性、Option / Result と enum による失敗表現、所有権と不変性の明示、contract と current implementation の分離、doc test と詳細テストの分離、責務分割を今回の判断基準にした。

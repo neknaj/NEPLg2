@@ -29,6 +29,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 
 同日の BTreeMap slice で `stdlib/alloc/collections/btreemap/search.nepl` と `storage.nepl` の search / owner-backed storage helper docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=287`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし btreeset / disjoint_set / fenwick などに declaration doc gap が残るため、この issue は open のまま継続する。
 
+同日の BTreeSet slice で `stdlib/alloc/collections/btreeset/search.nepl` と `storage.nepl` の search / key-only owner-backed storage helper docs と report doctest を追加し、baseline は `moduleNoDoctest=295`、`declarationNoDoc=272`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` まで改善した。ただし disjoint_set / fenwick / segment_tree などに declaration doc gap が残るため、この issue は open のまま継続する。
+
 ## 対象
 
 - `stdlib/core`
@@ -38,7 +40,7 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 ## 根拠
 
 - `node nodesrc/test_stdlib_documentation_contract.js` の再集計で、current baseline は `files=456`、`declarationNoDoc=361`、`declarationNoDoctest=1690` だった。
-- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだったが、その後の BitSet / AdjacencyMatrix / BinaryHeap / BloomFilter / CountingBloomFilter / BTreeMap slice により sample gaps は btreeset / disjoint_set / fenwick 系へ進んでいる。
+- `stdlib/alloc/collections/adjacency_matrix/layout.nepl` の layout helper 5件には doc comment と doctest を追加済みだったが、その後の BitSet / AdjacencyMatrix / BinaryHeap / BloomFilter / CountingBloomFilter / BTreeMap / BTreeSet slice により sample gaps は disjoint_set / fenwick / segment_tree 系へ進んでいる。
 - baseline refresh はこれ以上の悪化を止める regression guard であり、既存 gap を解消したことを意味しない。
 - `stdlib/alloc/collections/bitset` では、owner-backed `BitSetUpdateError` を直接構築する doctest を避け、public `insert` / `remove` の Err 経路から error を取得して `bitset_update_error_diag` と `bitset_update_error_owner` の契約を確認する形にした。
 
@@ -59,6 +61,8 @@ target: "stdlib/core, stdlib/alloc, stdlib/std"
 同日 CountingBloomFilter slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=306`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_counting_bloom_filter_doc_report_contract.js` により、CountingBloomFilter の facade lifecycle、type invariant、invalid length error kind、borrowed observer、false positive / false negative、counter saturation / lower-bound remove、typed counter storage、hash / storage / mutation helper doc contract を module 固有にも固定する。
 
 同日 BTreeMap slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=287`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_btree_search_doc_report_contract.js` と `nodesrc/test_stdlib_btreemap_storage_doc_report_contract.js` により、BTreeMap の lower_bound / is_at、`Vec Option .K` / `Vec Option .V` storage、partial allocation cleanup、owner recovery、grow failure、storage invariant failure、Copy boundary、O(cap) / O(len0) contract を module 固有にも固定する。
+
+同日 BTreeSet slice 後に baseline を再度締め直した。新しい悪化防止ラインは `moduleNoDoctest=295`、`declarationNoDoc=272`、`declarationNoDoctest=1668`、`publicDeclarationNoDoctest=1509` である。`nodesrc/test_stdlib_btree_search_doc_report_contract.js` と `nodesrc/test_stdlib_btreeset_storage_doc_report_contract.js` により、BTreeSet の lower_bound / is_at、`Vec Option .T` key-only storage、`Option::Some key` / `Option::None` slot state、`diag_out_of_memory`、`BTreeSetInsertError` owner recovery、旧 storage free、old last slot clear、storage invariant failure、Copy boundary、O(cap) / O(len0) contract を module 固有にも固定する。
 
 ## 影響
 
@@ -87,3 +91,5 @@ module family ごとに分割して、declaration doc と declaration doctest �
 - `node nodesrc/test_stdlib_btree_search_doc_report_contract.js`
 - `node nodesrc/test_stdlib_btreemap_storage_doc_report_contract.js`
 - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap/search.nepl -i stdlib/alloc/collections/btreemap/storage.nepl -i stdlib/tests/btreemap.n.md --no-tree -o tmp/agent2-btreemap-doc-slice.json -j 1 --dist web/dist --assert-io`
+- `node nodesrc/test_stdlib_btreeset_storage_doc_report_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset/search.nepl -i stdlib/alloc/collections/btreeset/storage.nepl -i stdlib/tests/btreeset.n.md --no-tree -o tmp/agent2-btreeset-doc-slice.json -j 1 --dist web/dist --assert-io`
