@@ -1,3 +1,25 @@
+# 2026-06-06 Agent selfhost stage0 fixture documentation checkpoint
+
+- `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T02:36:00+09:00 に再確認し、doc comment には目的、contract、Result / Option / enum の場合分け、計算量、例または検証可能な代表利用、契約と現状の分離が必要であることを今回の判断基準にした。
+- `stdlib/neplg2/core/check/expr/stage0.nepl` では、call reduction smoke の fixture helper に `[目的]`、`[契約]`、`[戻り値]`、`[計算量]` を追加した。対象は prefix fixture、candidate Vec fixture、reducer 共通入口、typed error kind check、direct call success、partial application rejection、expected result mismatch、generic evidence missing、overload ambiguity、`i32, i32 -> i32` function type allocation である。
+- stage0 の doc comment は production rule を stage0 側に移したように見せないよう、lexer / parser / module surface / overload candidate collection を責務外にし、`call_reduce.nepl` へ渡す最小 evidence を作る fixture であることを明記した。
+- owner cleanup については、成功時に caller が閉じる owner、Vec push error payload から回収して解放する owner、arena owner を消費しない borrow 境界、function type allocation failure 時に helper が閉じる arena owner をそれぞれ分けて記述した。
+- `nodesrc/test_selfhost_documentation_contract.js` は stage0 fixed slice の section requirement を追加した。これは行数、文字数、doc comment 長、ファイル数のような size gate ではなく、Zenn 方針の目的 / contract / 戻り値 / 計算量が該当宣言に書かれていることを固定する検査である。
+- `node nodesrc/test_selfhost_documentation_contract.js` の現時点結果は pass。declarationNoDoc は 251 から 241、privateNoDoc は 200 から 190 へ減少した。no-doctest counters は引き続き report-only debt であり、丁寧な doc comment 追加を阻害する gate にはしていない。
+- subagent review では、typed failure boundary である `selfhost_check_expr_stage0_argument_type_rejected`、`selfhost_check_expr_stage0_ascribed_argument_unsupported`、その prefix fixture helper、public smoke API `selfhost_check_expr_stage0` が section requirement から漏れていることと、`selfhost_check_expr_stage0_add_two_i32_function` の function type allocation 失敗時 owner cleanup 説明が曖昧であることが Blocker として指摘された。
+- Blocker 対応として、typed failure boundary helper と public smoke API に `[契約]` と `[計算量]` を追加し、`DOC_SECTION_REQUIREMENTS` に固定した。`selfhost_check_expr_stage0_add_two_i32_function` は parameter Vec 作成/push 失敗時にこの helper が arena を直接閉じ、function type allocation 失敗時は `selfhost_type_arena_add_function` が arena owner と parameter Vec owner を消費して閉じる、と分担を明確化した。
+- 再レビューでは Blocker なし。stage0 の高リスク helper が section requirement に入り、owner cleanup 説明の誤解が解消されたことを確認した。
+- 現時点の検証済み:
+  - `node nodesrc/issues.js index --dir issues`: pass
+  - `node nodesrc/issues.js check --dir issues`: pass
+  - `node nodesrc/test_selfhost_documentation_contract.js`: pass（declarationNoDoc 241、privateNoDoc 190）
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass（既存 documentation gap samples と Node WASI ExperimentalWarning は非回帰）
+  - `git diff --check`: pass（CRLF warning のみ）
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/stage0.nepl --no-tree -o tmp/selfhost-stage0-doc-tests.json -j 1 --dist web/dist --assert-io`: no runnable doctests。`stage0.nepl` は helper/smoke module であり、この slice では doc section contract と source policy regression を検証対象にした。
+- 残る selfhost expression check の大きな sample gap は `stdlib/neplg2/core/check/expr/stage1.nepl` へ移った。stage1 は value context、function value argument、ascription/named/nested/trailing block argument の高階関数境界を含むため、次 slice では stage1 を分けて doc と検査を追加する必要がある。
+
 # 2026-06-06 Agent selfhost ascription/block body documentation correction checkpoint
 
 - `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T00:56:07+09:00 に再確認し、doc comment には目的、contract、Result / Option / enum の場合分け、計算量、典型例または実行可能な doc test、契約と現状の分離が必要であることを今回の判断基準にした。
