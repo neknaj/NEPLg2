@@ -53027,3 +53027,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - executed verification: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-core-nested-block.json`。
 - verification note: `nodesrc/tests.js` は stdlib のみの修正時は `trunk build` 不要と固定メッセージを出したため、ここまで `trunk build` は実行していない。Node WASI ExperimentalWarning と Git CRLF conversion warning は既存 warning で、今回の test failure ではない。
 - residual work after this slice: lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 境界、既存 heavy selfhost doctest timeout の高速化 / focused test分割。
+
+## 2026-06-06 Agent README current NEPLg2.1 reality checkpoint
+
+- `agent2/readme-current-neplg2-reality` branch で、README を現在の NEPLg2.1 実体に合わせて改稿している。`plan.md` は確認のみで変更していない。
+- remote/main は作業前に fast-forward で取り込み、現行 self-host authority が `stdlib/neplg2/` と `doc/neplg2/self_host_neplg21_compiler_design.md` であることを再確認した。
+- README は「現在の NEPL は NEPLg2.1」と明記し、NEPLg3 は完全に検討段階で未着手であり、`doc/neplg3/` や `stdlib/neplg3/` が存在しても現行仕様・現行実装・進行中 self-host 実装として扱わない方針に修正した。
+- README に NEPLg2.1 の簡単な構文説明を追加した。式指向、前置記法、`%T expr`、prefix 型式、`unit` / `void` 分離、部分適用を導入しないこと、`if` / `match` / `block` が式であること、呼び出し側 explicit generic postfix を正規構文で使わないことを説明している。
+- README の quick sample は `#import`、`%` 型注釈、`fn main %impure fn void unit \void:` を使う現行 NEPLg2.1 source へ置き換えた。旧 `use core::math as *` と NEPLg2.0 / NEPLg3 を現行扱いする説明は削除した。
+- `nodesrc/test_readme_current_neplg2_reality.js` を追加し、README が NEPLg2.1 現行、NEPLg3 未着手、`#import` / `%` / `\void` sample、GUI / LSP / self-host の現行入口を保持することを source policy として固定した。`nodesrc/run_source_policy_regressions.js` にも組み込んだ。
+- focused verification: `node nodesrc/test_readme_current_neplg2_reality.js` と `git diff --check` は通過。README から抽出した NEPLg2.1 sample は `cargo run -p nepl-cli -- --check --input tmp/readme_sample.nepl --target std` で `Check successful` を確認した。一時 sample file は削除済み。
+- subagent plan review `019e9c15-85b5-78f0-af13-1d03f8294917` には、NEPLg3 を現行実装として扱わず、現行は NEPLg2.1 と明記する review gate を追加済み。
+- subagent diff review `019e9c15-85b5-78f0-af13-1d03f8294917` は Blocker なし、Merge 可。Non-blocker として、`add 1` が部分適用にならない説明の曖昧さと、README test が同一行の mixed statement を見逃す可能性を指摘した。README の説明は「必要な引数が揃わない呼び出しとして扱われる」に修正し、test は `現在の NEPL は ... NEPLg3` と `stdlib/neplg3/` への active self-host 誘導を別 pattern で禁止するよう強化した。
+- final verification: `node nodesrc/test_readme_current_neplg2_reality.js`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js check --dir issues`; `git diff --check`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-readme-current-reality-playground-editor.json`。
+- verification JSON checked: `tmp/agent2-readme-current-reality-playground-editor.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。`run_source_policy_regressions` の documentation sample gaps、Node WASI ExperimentalWarning、Git CRLF conversion warning、trunk update notice、wasm-bindgen version mismatch notice は既存 warning で今回の失敗ではない。
