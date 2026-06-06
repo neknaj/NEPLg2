@@ -10,7 +10,8 @@
 //:
 //: [契約/けいやく]:
 //: - この module は HIR を import しません。出力は `SelfhostCheckedArgument` だけです。
-//: - `IntLiteral` は現 checkpoint では 10 進 i32 だけを accepted payload にします。hex literal は lexer が token 化できても `I32RadixUnsupported` として fail-closed にします。
+//: - `IntLiteral` は Rust 実装と同じく、接頭辞なしの 10 進表記と `0x` / `0X` 接頭辞付き 16 進表記を i32 payload へ正規化します。
+//: - numeric suffix は現行 lexer が integer token に含めないため、この境界では扱いません。suffix 付き表記は token 列の段階で別 item になり、後続の expression checker が fail-closed に処理します。
 //: - `StringLiteral` は quote を外し、Rust lexer と同じ simple escape と `\xHH` escape を semantic string value へ decode して accepted payload にします。raw quoted lexeme を payload へ入れてはいけません。
 //: - `CharLiteral` は Rust lexer と同じく Unicode scalar value として decode し、checked payload には `char` 値だけを保存します。後続 HIR lowering はこの値を i32-backed char literal へ変換します。
 //:
@@ -42,8 +43,8 @@
 //: [分類/ぶんるい]:
 //: - `TokenOutOfBounds`: prefix item が指す token index が token buffer の範囲外です。
 //: - `BoolInvalid`: bool token の lexeme が `true` / `false` ではありません。
-//: - `I32Invalid`: 10 進 i32 として解析できない integer lexeme です。
-//: - `I32RadixUnsupported`: `0x` / `0X` 形式など、現 checkpoint で未対応の整数基数です。
+//: - `I32Invalid`: i32 として解析できない integer lexeme です。空の 16 進本体、無効 digit、表現域外の値もここに含めます。
+//: - `I32RadixUnsupported`: 将来 lexer が `0b` / `0o` などを 1 token として渡した場合に、selfhost checker が silent fallback せず拒否するための予約済み分類です。
 //: - `StringMalformed`: quote 境界を確認できない string literal token です。
 //: - `StringEscapeUnsupported`: Rust 側 string literal と対応していない escape spelling です。
 //: - `StringEscapeMalformed`: `\xHH` の hex digit 不足など、escape spelling の構造が壊れています。
@@ -206,60 +207,197 @@ fn selfhost_literal_argument_bool_from_lexeme %fn str fn SelfhostSourceSpan Resu
                 else:
                     Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::BoolInvalid span
 
-//: selfhost_literal_argument_i32_has_unsupported_radix: 現 checkpoint で未対応の整数基数か[判定/はんてい]する
+//: SelfhostLiteralI32RadixPlan: integer literal の解析基数と digit 範囲を[保持/ほじ]する
 //:
 //: [目的/もくてき]:
-//: - `string::to_i32` へ渡す前に、`0x` / `0X` 形式を明示的に拒否します。
-//: - radix 対応を暗黙の parse 失敗に丸めると、将来 hex / binary / suffix を実装するときに診断と仕様境界が曖昧になります。
+//: - lexer が保持した raw lexeme から、`string::to_i32_radix` に渡す本体範囲と基数を分離します。
+//: - prefix 判定と数値変換を 1 つの関数に混ぜると、将来 suffix / binary / octal を追加するときに診断境界が曖昧になるため、typed record として切り出します。
 //:
 //: [契約/けいやく]:
-//: - この関数は「整数として不正か」ではなく「10 進 i32 payload slice では扱わない基数か」だけを判定します。
-//: - `true` を返した場合、caller は `I32RadixUnsupported` を返します。
+//: - `digits_start` は `lexeme` 内の byte offset です。
+//: - `has_minus` が `true` の場合、caller は `digits_start` から末尾までの slice の前に ASCII `-` を付けて radix parser へ渡します。
+//: - `radix` は現時点では `10` または `16` です。unsupported radix は plan を作らず typed error として返します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 先頭 2 byte だけを見るため O(1) です。
-fn selfhost_literal_argument_i32_has_unsupported_radix %fn str bool \lexeme:
+//: - 構築と copy は O(1) です。
+struct SelfhostLiteralI32RadixPlan:
+    radix %i32
+    digits_start %i32
+    has_minus %bool
+
+impl Clone for SelfhostLiteralI32RadixPlan:
+    fn clone %fn &SelfhostLiteralI32RadixPlan SelfhostLiteralI32RadixPlan \self:
+        *self
+
+impl Copy for SelfhostLiteralI32RadixPlan:
+    fn copy_mark %fn SelfhostLiteralI32RadixPlan SelfhostLiteralI32RadixPlan \self:
+        self
+
+//: selfhost_literal_i32_radix_plan_new: i32 literal radix plan を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - prefix 判定済みの解析情報を 1 record にまとめ、実際の数値 parse 関数へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `digits_start` は byte offset です。char index や source 全体の offset ではありません。
+//: - `has_minus` は lexeme 先頭が負号である場合だけ `true` にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_i32_radix_plan_new %fn i32 fn i32 fn bool SelfhostLiteralI32RadixPlan \radix\digits_start\has_minus:
+    SelfhostLiteralI32RadixPlan radix digits_start has_minus
+
+//: selfhost_literal_argument_i32_unsupported_radix_marker: 対応しない基数接頭辞か[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - 現行 lexer では `0b` / `0o` を 1 個の integer token にしませんが、将来 token 化されたときに 10 進 parse へ落ちて別の値として扱われないようにします。
+//: - 対応する基数を追加する場合は、この関数と radix plan の双方を変更する必要があります。
+//:
+//: [契約/けいやく]:
+//: - `marker` は prefix の 2 byte 目です。`0x` / `0X` は対応済みなので `false` です。
+//: - `true` の場合、caller は `I32RadixUnsupported` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_i32_unsupported_radix_marker %fn i32 bool \marker:
+    or or eq marker 'b' eq marker 'B' or eq marker 'o' eq marker 'O'
+
+//: selfhost_literal_argument_i32_radix_plan_from_lexeme: integer lexeme の基数 plan を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - Rust lexer と同じ `0x` / `0X` 付き 16 進整数を i32 payload として受理できるよう、token spelling から radix と digit 範囲を決めます。
+//: - 10 進と 16 進のどちらも、最終的な桁検査と overflow 検査は `alloc/string` の integer parser に委譲します。
+//:
+//: [契約/けいやく]:
+//: - `0x` / `0X` は 16 進として扱います。接頭辞そのものは `to_i32_radix` に渡さず、digit 本体だけを渡します。
+//: - 先頭 `-` の直後に `0x` / `0X` がある場合も plan としては保持します。現行 selfhost lexer は `-` を別 token にしますが、将来 parser が Rust 側と同じ結合を行っても符号を失わないためです。
+//: - `0b` / `0o` など未対応接頭辞が同一 token として渡った場合は `I32RadixUnsupported` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(plan)`: `plan.radix` と `plan.digits_start` に従って数値本体を parse できます。
+//: - `Err(I32RadixUnsupported)`: 未対応基数の接頭辞がありました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭 3 byte だけを調べるため O(1) です。
+fn selfhost_literal_argument_i32_radix_plan_from_lexeme %fn str fn SelfhostSourceSpan Result SelfhostLiteralI32RadixPlan SelfhostLiteralArgumentError \lexeme\span:
+    let n %i32 string::len lexeme
     if:
-        lt string::len lexeme 2
+        lt n 2
         then:
-            false
+            Result::Ok selfhost_literal_i32_radix_plan_new 10 0 false
         else:
             match string::byte_at lexeme 0:
                 Option::Some first:
-                    match string::byte_at lexeme 1:
-                        Option::Some second:
-                            let first_is_zero %bool eq first '0'
-                            let second_is_radix_marker %bool or eq second 'x' eq second 'X'
-                            and first_is_zero second_is_radix_marker
-                        Option::None:
-                            false
+                    let has_minus %bool eq first '-'
+                    let prefix_index %i32 if has_minus:
+                        then 1
+                        else 0
+                    if:
+                        lt n add prefix_index 2
+                        then:
+                            Result::Ok selfhost_literal_i32_radix_plan_new 10 0 has_minus
+                        else:
+                            match string::byte_at lexeme prefix_index:
+                                Option::Some prefix_first:
+                                    match string::byte_at lexeme add prefix_index 1:
+                                        Option::Some prefix_second:
+                                            if:
+                                                eq prefix_first '0'
+                                                then:
+                                                    if:
+                                                        or eq prefix_second 'x' eq prefix_second 'X'
+                                                        then:
+                                                            Result::Ok selfhost_literal_i32_radix_plan_new 16 add prefix_index 2 has_minus
+                                                        else:
+                                                            if:
+                                                                selfhost_literal_argument_i32_unsupported_radix_marker prefix_second
+                                                                then:
+                                                                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32RadixUnsupported span
+                                                                else:
+                                                                    Result::Ok selfhost_literal_i32_radix_plan_new 10 0 has_minus
+                                                else:
+                                                    Result::Ok selfhost_literal_i32_radix_plan_new 10 0 has_minus
+                                        Option::None:
+                                            Result::Ok selfhost_literal_i32_radix_plan_new 10 0 has_minus
+                                Option::None:
+                                    Result::Ok selfhost_literal_i32_radix_plan_new 10 0 has_minus
                 Option::None:
-                    false
+                    Result::Ok selfhost_literal_i32_radix_plan_new 10 0 false
 
-//: selfhost_literal_argument_i32_from_lexeme: 10 [進/しん] i32 literal を[意味値/いみち]へ[変換/へんかん]する
+//: selfhost_literal_argument_i32_body_from_plan: radix parser に渡す body 文字列を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `0x` / `0X` 接頭辞を取り除いた digit body を作ります。
+//: - 負号付き 16 進が将来 parser から渡された場合でも、`-` を保持した body にして `to_i32_radix` へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `Result::Ok` で返す文字列は接頭辞を含みません。
+//: - `plan.has_minus` が `true` かつ `plan.digits_start` が 0 でない場合だけ builder を使います。通常の 10 進 literal と正の 16 進 literal は `str_slice_result` の fast path です。
+//: - body が空の場合でもここでは `Ok("")` になり得ます。空 digit の拒否は `to_i32_radix` に委譲し、数値 parser の contract に集約します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(body)`: `body` は radix parser へ渡せる接頭辞なしの digit 文字列です。負号が必要な場合は先頭に `-` を含みます。
+//: - `Err(I32Invalid)`: slice / builder / UTF-8 境界の不整合により body を作れませんでした。
+//:
+//: [計算量/けいさんりょう]:
+//: - slice fast path は O(n) の文字列構築です。負号付き prefix 除去 path も O(n) です。
+fn selfhost_literal_argument_i32_body_from_plan %fn str fn SelfhostLiteralI32RadixPlan fn SelfhostSourceSpan Result str SelfhostLiteralArgumentError \lexeme\plan\span:
+    let n %i32 string::len lexeme
+    if:
+        and plan.has_minus gt plan.digits_start 0
+        then:
+            match string::string_builder_with_capacity_result n:
+                Result::Ok sb0:
+                    match string::sb_append_result sb0 "-":
+                        Result::Ok sb1:
+                            match string::sb_append_slice_result sb1 lexeme plan.digits_start n:
+                                Result::Ok sb2:
+                                    match string::sb_build_result sb2:
+                                        Result::Ok body:
+                                            Result::Ok body
+                                        Result::Err _e:
+                                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+                                Result::Err _e:
+                                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+                        Result::Err _e:
+                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+                Result::Err _e:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+        else:
+            match string::str_slice_result lexeme plan.digits_start n:
+                Result::Ok body:
+                    Result::Ok body
+                Result::Err _e:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+
+//: selfhost_literal_argument_i32_from_lexeme: i32 literal を[意味値/いみち]へ[変換/へんかん]する
 //:
 //: [目的/もくてき]:
 //: - type checker が expected type として i32 を確認した literal を、HIR `I32Literal` payload に渡せる値へ変換します。
-//: - numeric suffix、基数、defaulting を lowering へ持ち込まず、未実装の構文は typed error として分けます。
+//: - 10 進 / 16 進の default i32 化をこの境界で行い、numeric suffix や別基数の未対応状態を lowering へ持ち込みません。
+//: - Rust 側の `parse_i32_literal` と同じく、`0x` / `0X` 接頭辞は 16 進として扱い、値が i32 に収まる場合だけ accepted payload にします。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(value)`: lexeme は現 checkpoint で扱う 10 進 i32 として解析できました。
-//: - `Err(I32RadixUnsupported)`: `0x` / `0X` 形式など、今は受理しない基数です。
-//: - `Err(I32Invalid)`: 10 進 i32 として解析できない spelling です。
+//: - `Ok(value)`: lexeme は i32 として解析できました。
+//: - `Err(I32RadixUnsupported)`: selfhost checker がまだ受理しない基数接頭辞です。
+//: - `Err(I32Invalid)`: digit 不正、空本体、表現域外などにより i32 として解析できません。
 //:
 //: [計算量/けいさんりょう]:
-//: - radix prefix 判定は O(1)、10 進 parse は lexeme 長 n に対して O(n) です。
+//: - radix plan 作成は O(1)、body 構築と parse は lexeme 長 n に対して O(n) です。
 fn selfhost_literal_argument_i32_from_lexeme %fn str fn SelfhostSourceSpan Result i32 SelfhostLiteralArgumentError \lexeme\span:
-    if:
-        selfhost_literal_argument_i32_has_unsupported_radix lexeme
-        then:
-            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32RadixUnsupported span
-        else:
-            match string::to_i32 lexeme:
-                Result::Ok value:
-                    Result::Ok value
-                Result::Err _e:
-                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+    match selfhost_literal_argument_i32_radix_plan_from_lexeme lexeme span:
+        Result::Ok plan:
+            match selfhost_literal_argument_i32_body_from_plan lexeme plan span:
+                Result::Ok body:
+                    match string::to_i32_radix body plan.radix:
+                        Result::Ok value:
+                            Result::Ok value
+                        Result::Err _e:
+                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid span
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_literal_argument_lexeme_contains_byte_loop: lexeme 範囲に byte が[含/ふく]まれるか[調/しら]べる
 //:

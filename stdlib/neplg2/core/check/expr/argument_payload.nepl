@@ -191,8 +191,9 @@ pub fn selfhost_checked_argument_bool_literal %fn i32 fn i32 fn SelfhostTypeId f
 //: - numeric defaulting や suffix 解決を lowering へ持ち込まず、型検査済みの `i32` argument として扱います。
 //:
 //: [契約/けいやく]:
-//: - caller は token kind が `IntLiteral` で、現在の checkpoint が扱う 10 進 i32 literal として解析済みであることを保証します。
-//: - hex / binary / suffix / defaulting はこの constructor へ入る前に拒否または別 payload に分解します。
+//: - caller は token kind が `IntLiteral` で、現在の checkpoint が扱う i32 literal spelling として解析済みであることを保証します。
+//: - 10 進 / `0x` / `0X` 16 進の表記差は constructor へ入る前に semantic `i32` へ正規化されます。
+//: - suffix / binary / octal / float defaulting はこの constructor へ入る前に拒否または別 payload に分解します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 構築は O(1) です。

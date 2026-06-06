@@ -52737,3 +52737,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - residual_risk: none.
 - unexecuted_verification: none.
 - next-slice residual work: selfhost documentation gaps remain open in `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41`; next likely slices are `stdlib/neplg2/core/resolve/type_resolver/model.nepl`, `resolved.nepl`, `stage0.nepl`, `name_resolver`, HIR, diagnostics, and CLI args modules.
+
+## 2026-06-06 Agent selfhost numeric literal radix payload checkpoint
+
+- `selfhost/numeric-literal-payload-20260606` branch で、`ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の numeric literal slice を進めている。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、`Result` / enum error、責務分割、token-local authority、source 再読禁止、試作段階でも不適切な暫定設計を残さない方針を今回の変更に反映した。
+- subagent review `019e9b11-8ecf-77b1-82a4-f1150d214189` で、現行 Rust 実装には numeric suffix / 汎用 defaulting がなく、`IntLiteral` は `i32`、`FloatLiteral` は `f32` 固定であること、suffix は lexer token に含まれず `IntLiteral("1") + Ident("i32")` 相当になること、selfhost HIR にはまだ `F32Literal` payload がないことを確認した。
+- review 結論に従い、この slice は suffix/defaulting を先行実装せず、Rust parity の decimal / `0x` / `0X` i32 payload authority に絞った。suffix を checker が token 外へ後読みする設計は採用しない。
+- `stdlib/neplg2/core/check/expr/literal_payload.nepl` に `SelfhostLiteralI32RadixPlan` を追加し、token lexeme から radix と digit body 範囲を分けた。`0x` / `0X` は接頭辞を除去して `string::to_i32_radix body 16` に渡し、接頭辞なし整数は `string::to_i32_radix body 10` に統一した。
+- 空 hex body、無効 digit、decimal / hex overflow は `I32Invalid` として fail-closed にする。将来 `0b` / `0o` が同一 token として渡った場合は `I32RadixUnsupported` に分けるが、現行 lexer ではその形式は numeric token に含まれない。
+- `stdlib/neplg2/core/check/expr/argument_payload.nepl` の `I32Literal` constructor comment を更新し、10 進 / 16 進表記差は constructor 手前で semantic `i32` に正規化済みであり、suffix / binary / octal / float defaulting は別 payload または後続設計で扱うと明記した。
+- `tests/stdlib/neplg2_call_reduce.n.md` に `literal_i32_radix_payload_decode` を追加し、`42`、`0x2a`、`0X2A`、`2147483647` を payload 値として確認し、`2147483648`、`0x`、`0x80000000` を `I32Invalid` として確認した。
+- `nodesrc/test_selfhost_expr_call_reduce_contract.js` を更新し、radix plan、`string::to_i32_radix`、source 再読なしの checked payload、suffix 後読み禁止を source policy で固定した。
+- executed verification: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_numeric_literal_tests.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-numeric-literal.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-numeric-literal.json`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-numeric-literal-playground-editor.json`; `git diff --check`。
+- verification JSON checked: `tmp/neplg2_call_reduce_numeric_literal_tests.json` は `summary.total=5`, `passed=5`, `failed=0`, `errored=0`。
+- verification JSON checked: `tmp/selfhost-numeric-literal-playground-editor.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- existing warnings: `run_source_policy_regressions` の selfhost / stdlib documentation sample gaps は既存 issue の残件を示す。Node WASI ExperimentalWarning、trunk update notice、wasm-bindgen version mismatch notice、Git CRLF conversion warning は既存 warning で、今回の空白エラーや test failure ではない。
+- remaining verification for this branch: none before commit.
+- residual work after this slice: float literal `f32` checked payload / HIR `F32Literal`, Rust parser parity for negative numeric literal consume-width, numeric suffix language design if adopted, `NestedDirectCall` / `BlockResult` HIR expression tree lowering.

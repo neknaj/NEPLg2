@@ -284,8 +284,13 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_literal_argument_i32_has_unsupported_radix[\s\S]*first_is_zero %bool eq first '0'[\s\S]*second_is_radix_marker %bool or eq second 'x' eq second 'X'[\s\S]*and first_is_zero second_is_radix_marker[\s\S]*I32RadixUnsupported[\s\S]*string::to_i32 lexeme[\s\S]*selfhost_checked_argument_i32_literal/,
-    "i32 literal arguments must parse decimal i32 values and fail closed for unsupported radix forms",
+    /SelfhostLiteralI32RadixPlan[\s\S]*selfhost_literal_argument_i32_radix_plan_from_lexeme[\s\S]*or eq prefix_second 'x' eq prefix_second 'X'[\s\S]*selfhost_literal_i32_radix_plan_new 16[\s\S]*selfhost_literal_argument_i32_unsupported_radix_marker[\s\S]*I32RadixUnsupported[\s\S]*selfhost_literal_argument_i32_body_from_plan[\s\S]*string::to_i32_radix body plan\.radix[\s\S]*selfhost_checked_argument_i32_literal/,
+    "i32 literal arguments must normalize decimal and hex spelling to semantic i32 payloads without rereading source during HIR lowering",
+);
+assert.doesNotMatch(
+    source,
+    /selfhost_literal_argument_i32_from_lexeme[\s\S]*(?:string::str_starts_with_at lexeme [0-9]+ "i32"|byte_at lexeme add [^\n]+(?:'i'|'u'|'f'))/,
+    "i32 literal payload parsing must not scan past the numeric token to recover suffix syntax",
 );
 assert.match(
     source,
@@ -307,7 +312,10 @@ for (const name of [
     "selfhost_literal_char_decode_new",
     "selfhost_literal_string_decode_new",
     "selfhost_literal_argument_bool_from_lexeme",
-    "selfhost_literal_argument_i32_has_unsupported_radix",
+    "selfhost_literal_i32_radix_plan_new",
+    "selfhost_literal_argument_i32_unsupported_radix_marker",
+    "selfhost_literal_argument_i32_radix_plan_from_lexeme",
+    "selfhost_literal_argument_i32_body_from_plan",
     "selfhost_literal_argument_i32_from_lexeme",
     "selfhost_literal_argument_lexeme_contains_byte_loop",
     "selfhost_literal_argument_string_quotes_valid",
@@ -335,6 +343,8 @@ for (const name of [
 }
 for (const name of [
     "selfhost_literal_argument_bool_from_lexeme",
+    "selfhost_literal_argument_i32_radix_plan_from_lexeme",
+    "selfhost_literal_argument_i32_body_from_plan",
     "selfhost_literal_argument_i32_from_lexeme",
     "selfhost_literal_argument_string_quotes_valid",
     "selfhost_literal_argument_string_append_decode",
@@ -360,7 +370,10 @@ for (const name of [
 }
 for (const name of [
     "selfhost_literal_argument_error_new",
-    "selfhost_literal_argument_i32_has_unsupported_radix",
+    "selfhost_literal_i32_radix_plan_new",
+    "selfhost_literal_argument_i32_unsupported_radix_marker",
+    "selfhost_literal_argument_i32_radix_plan_from_lexeme",
+    "selfhost_literal_argument_i32_body_from_plan",
     "selfhost_literal_argument_lexeme_contains_byte_loop",
     "selfhost_literal_char_decode_new",
     "selfhost_literal_string_decode_new",
