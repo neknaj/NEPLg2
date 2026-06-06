@@ -5,12 +5,13 @@
 //:
 //: [目的/もくてき]:
 //: - `argument.nepl` は argument の型一致と consume-width を管理します。この module は、その成功済み literal item について、source text から意味値を一度だけ取り出して `SelfhostCheckedArgument` に保存します。
-//: - HIR lowering が token buffer や source text を再読しないよう、bool / i32 / char / string の値 payload を check/expr 側で確定します。
+//: - HIR lowering が token buffer や source text を再読しないよう、bool / i32 / f32 / char / string の値 payload を check/expr 側で確定します。
 //: - literal decode の失敗を `UnsupportedArgumentExpression` や文字列診断に潰さず、enum error として caller へ返します。
 //:
 //: [契約/けいやく]:
 //: - この module は HIR を import しません。出力は `SelfhostCheckedArgument` だけです。
 //: - `IntLiteral` は Rust 実装と同じく、接頭辞なしの 10 進表記と `0x` / `0X` 接頭辞付き 16 進表記を i32 payload へ正規化します。
+//: - `FloatLiteral` は Rust 実装の現 checkpoint と同じく f32 payload へ正規化します。`f64` defaulting や suffix 解決は後続の numeric literal 設計で扱います。
 //: - numeric suffix は現行 lexer が integer token に含めないため、この境界では扱いません。suffix 付き表記は token 列の段階で別 item になり、後続の expression checker が fail-closed に処理します。
 //: - `StringLiteral` は quote を外し、Rust lexer と同じ simple escape と `\xHH` escape を semantic string value へ decode して accepted payload にします。raw quoted lexeme を payload へ入れてはいけません。
 //: - `CharLiteral` は Rust lexer と同じく Unicode scalar value として decode し、checked payload には `char` 値だけを保存します。後続 HIR lowering はこの値を i32-backed char literal へ変換します。
@@ -45,6 +46,7 @@
 //: - `BoolInvalid`: bool token の lexeme が `true` / `false` ではありません。
 //: - `I32Invalid`: i32 として解析できない integer lexeme です。空の 16 進本体、無効 digit、表現域外の値もここに含めます。
 //: - `I32RadixUnsupported`: 将来 lexer が `0b` / `0o` などを 1 token として渡した場合に、selfhost checker が silent fallback せず拒否するための予約済み分類です。
+//: - `F32Invalid`: f32 として解析できない float lexeme です。parser/lexer の不整合を 0.0 などに丸めず fail-closed にします。
 //: - `StringMalformed`: quote 境界を確認できない string literal token です。
 //: - `StringEscapeUnsupported`: Rust 側 string literal と対応していない escape spelling です。
 //: - `StringEscapeMalformed`: `\xHH` の hex digit 不足など、escape spelling の構造が壊れています。
@@ -59,6 +61,7 @@ pub enum SelfhostLiteralArgumentErrorKind:
     BoolInvalid
     I32Invalid
     I32RadixUnsupported
+    F32Invalid
     StringMalformed
     StringEscapeUnsupported
     StringEscapeMalformed
@@ -398,6 +401,30 @@ fn selfhost_literal_argument_i32_from_lexeme %fn str fn SelfhostSourceSpan Resul
                     Result::Err e
         Result::Err e:
             Result::Err e
+
+//: selfhost_literal_argument_f32_from_lexeme: f32 literal を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - type checker が expected type として f32 を確認した literal を、HIR `F32Literal` payload に渡せる値へ変換します。
+//: - Rust 実装では float literal が `ctx.f32()` と `HirExprKind::LiteralF32` へ落ちるため、selfhost でも同じ checkpoint 境界に合わせます。
+//:
+//: [契約/けいやく]:
+//: - `lexeme` は `FloatLiteral` token の spelling です。別 token の spelling を渡した場合は `F32Invalid` として失敗させます。
+//: - 失敗時に 0.0 などへ silent fallback してはいけません。Zenn 方針に従い、typed enum error を返して caller が診断へ写像します。
+//: - suffix 付き float や f64 defaulting はこの関数では扱いません。現行 lexer が suffix を別 token にする境界を維持し、後続 issue で仕様化します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(value)`: lexeme は f32 として解析できました。
+//: - `Err(F32Invalid)`: digit 不正、途中で切れた指数部、別 token spelling などにより f32 として解析できません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `alloc/string` の float parser に従い、lexeme 長 n に対して O(n) です。
+fn selfhost_literal_argument_f32_from_lexeme %fn str fn SelfhostSourceSpan Result f32 SelfhostLiteralArgumentError \lexeme\span:
+    match string::to_f32 lexeme:
+        Result::Ok value:
+            Result::Ok value
+        Result::Err _e:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::F32Invalid span
 
 //: selfhost_literal_argument_lexeme_contains_byte_loop: lexeme 範囲に byte が[含/ふく]まれるか[調/しら]べる
 //:
@@ -1024,7 +1051,7 @@ fn selfhost_literal_argument_char_value_from_lexeme %fn str fn SelfhostSourceSpa
 //:
 //: [目的/もくてき]:
 //: - prefix item の literal kind ごとに、checker が保存すべき payload variant を選びます。
-//: - bool / i32 / char / string は値 payload にし、値 payload がまだ設計されていない literal は `TypedExpression` として fail-closed lowering に残します。
+//: - bool / i32 / f32 / char / string は値 payload にし、値 payload がまだ設計されていない literal は `TypedExpression` として fail-closed lowering に残します。
 //: - `CharLiteral` は semantic `char` payload として保存します。後続 lowering は Rust 実装と同じ i32-backed HIR literal へ変換します。
 //:
 //: [契約/けいやく]:
@@ -1036,7 +1063,7 @@ fn selfhost_literal_argument_char_value_from_lexeme %fn str fn SelfhostSourceSpa
 //: - `Err(error)`: literal spelling を意味値にできません。caller は owner を解放し、call reduction error へ写像します。
 //:
 //: [計算量/けいさんりょう]:
-//: - Unit / unsupported literal は O(1)、bool / i32 / string は lexeme 長 n に対して O(n) です。
+//: - Unit / unsupported literal は O(1)、bool / i32 / f32 / string は lexeme 長 n に対して O(n) です。
 fn selfhost_literal_argument_checked_from_lexeme %fn str fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId Result SelfhostCheckedArgument SelfhostLiteralArgumentError \lexeme\item\start_index\next_index\value_type:
     match item.kind:
         SelfhostExprPrefixItemKind::UnitValue:
@@ -1051,6 +1078,12 @@ fn selfhost_literal_argument_checked_from_lexeme %fn str fn SelfhostExprPrefixIt
             match selfhost_literal_argument_i32_from_lexeme lexeme item.span:
                 Result::Ok value:
                     Result::Ok selfhost_checked_argument_i32_literal start_index next_index value_type item.span value
+                Result::Err e:
+                    Result::Err e
+        SelfhostExprPrefixItemKind::FloatLiteral:
+            match selfhost_literal_argument_f32_from_lexeme lexeme item.span:
+                Result::Ok value:
+                    Result::Ok selfhost_checked_argument_f32_literal start_index next_index value_type item.span value
                 Result::Err e:
                     Result::Err e
         SelfhostExprPrefixItemKind::StringLiteral:

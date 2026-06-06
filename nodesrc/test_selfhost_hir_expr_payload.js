@@ -45,7 +45,7 @@ assert.doesNotMatch(exprStruct, /\b(?:first_child|child_count|name|int_value|boo
 
 assert.deepEqual(
     enumVariants(hir, "SelfhostHirExprPayload"),
-    ["Error", "Unit", "BoolLiteral", "I32Literal", "StrLiteral", "Var", "FnValue", "Call", "Block", "If"],
+    ["Error", "Unit", "BoolLiteral", "I32Literal", "F32Literal", "StrLiteral", "Var", "FnValue", "Call", "Block", "If"],
     "expression payload variants must cover the current expression kind set",
 );
 assert.match(hir, /(?:pub\s+)?struct SelfhostHirCallExpr:[\s\S]*?\bname\s+<str>[\s\S]*?\bargs\s+<SelfhostHirChildRange>/, "call payload must own callee name and argument range");
@@ -92,6 +92,7 @@ for (const fnName of [
     "selfhost_hir_expr_unit",
     "selfhost_hir_expr_bool_literal",
     "selfhost_hir_expr_i32_literal",
+    "selfhost_hir_expr_f32_literal",
     "selfhost_hir_expr_str_literal",
     "selfhost_hir_expr_var",
     "selfhost_hir_expr_fn_value",

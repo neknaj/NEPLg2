@@ -139,6 +139,7 @@ pub enum SelfhostCallReduceErrorKind:
     ArgumentLiteralBoolInvalid
     ArgumentLiteralI32Invalid
     ArgumentLiteralI32RadixUnsupported
+    ArgumentLiteralF32Invalid
     ArgumentLiteralStringMalformed
     ArgumentLiteralStringEscapeUnsupported
     ArgumentLiteralStringEscapeMalformed
@@ -404,6 +405,12 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported:
             match b:
                 SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::ArgumentLiteralF32Invalid:
+            match b:
+                SelfhostCallReduceErrorKind::ArgumentLiteralF32Invalid:
                     true
                 _:
                     false

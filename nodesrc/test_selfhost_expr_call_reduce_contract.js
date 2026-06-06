@@ -198,12 +198,12 @@ assert.match(
 );
 assert.match(
     source,
-    /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*BoolLiteral %bool[\s\S]*I32Literal %i32[\s\S]*CharLiteral %char[\s\S]*StrLiteral %str[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
+    /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*BoolLiteral %bool[\s\S]*I32Literal %i32[\s\S]*F32Literal %f32[\s\S]*CharLiteral %char[\s\S]*StrLiteral %str[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
     "checked argument payload must preserve literal value, function value, nested call, block-result, range, type, and span evidence",
 );
 assert.match(
     argumentPayload,
-    /`TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool \/ i32 \/ char \/ string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。/,
+    /`TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool \/ i32 \/ f32 \/ char \/ string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。/,
     "TypedExpression documentation must not describe implemented char/simple literal payloads as unsupported fallbacks",
 );
 assertArgumentPayloadDoc("SelfhostCheckedArgumentKind", "pub enum", [
@@ -223,7 +223,7 @@ assertArgumentPayloadDoc("selfhost_checked_argument_typed_expression", "pub fn",
     "[目的/もくてき]",
     "[契約/けいやく]",
     "[計算量/けいさんりょう]",
-    "char literal は `CharLiteral` payload 実装済みなので",
+    "f32 / char literal は専用 payload 実装済みなので",
 ]);
 assertArgumentPayloadDoc("selfhost_checked_argument_nested_direct_call", "pub fn", [
     "[目的/もくてき]",
@@ -271,6 +271,7 @@ assertContainsInOrder(source, [
     "StringEscapeMalformed",
     "StringSliceFailed",
     "StringBuildFailed",
+    "F32Invalid",
     "CharMalformed",
     "CharEscapeUnsupported",
     "CharInvalidScalar",
@@ -286,6 +287,11 @@ assert.match(
     source,
     /SelfhostLiteralI32RadixPlan[\s\S]*selfhost_literal_argument_i32_radix_plan_from_lexeme[\s\S]*or eq prefix_second 'x' eq prefix_second 'X'[\s\S]*selfhost_literal_i32_radix_plan_new 16[\s\S]*selfhost_literal_argument_i32_unsupported_radix_marker[\s\S]*I32RadixUnsupported[\s\S]*selfhost_literal_argument_i32_body_from_plan[\s\S]*string::to_i32_radix body plan\.radix[\s\S]*selfhost_checked_argument_i32_literal/,
     "i32 literal arguments must normalize decimal and hex spelling to semantic i32 payloads without rereading source during HIR lowering",
+);
+assert.match(
+    source,
+    /selfhost_literal_argument_f32_from_lexeme[\s\S]*string::to_f32 lexeme[\s\S]*SelfhostLiteralArgumentErrorKind::F32Invalid[\s\S]*SelfhostExprPrefixItemKind::FloatLiteral:[\s\S]*selfhost_checked_argument_f32_literal/,
+    "f32 literal arguments must normalize float spelling to semantic f32 payloads without rereading source during HIR lowering",
 );
 assert.doesNotMatch(
     source,
@@ -317,6 +323,7 @@ for (const name of [
     "selfhost_literal_argument_i32_radix_plan_from_lexeme",
     "selfhost_literal_argument_i32_body_from_plan",
     "selfhost_literal_argument_i32_from_lexeme",
+    "selfhost_literal_argument_f32_from_lexeme",
     "selfhost_literal_argument_lexeme_contains_byte_loop",
     "selfhost_literal_argument_string_quotes_valid",
     "selfhost_literal_argument_string_builder_error",
@@ -346,6 +353,7 @@ for (const name of [
     "selfhost_literal_argument_i32_radix_plan_from_lexeme",
     "selfhost_literal_argument_i32_body_from_plan",
     "selfhost_literal_argument_i32_from_lexeme",
+    "selfhost_literal_argument_f32_from_lexeme",
     "selfhost_literal_argument_string_quotes_valid",
     "selfhost_literal_argument_string_append_decode",
     "selfhost_literal_argument_string_simple_escape",
@@ -374,6 +382,7 @@ for (const name of [
     "selfhost_literal_argument_i32_unsupported_radix_marker",
     "selfhost_literal_argument_i32_radix_plan_from_lexeme",
     "selfhost_literal_argument_i32_body_from_plan",
+    "selfhost_literal_argument_f32_from_lexeme",
     "selfhost_literal_argument_lexeme_contains_byte_loop",
     "selfhost_literal_char_decode_new",
     "selfhost_literal_string_decode_new",
@@ -412,12 +421,12 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostExprPrefixItemKind::UnitValue:[\s\S]*SelfhostTypeKind::Unit[\s\S]*SelfhostExprPrefixItemKind::IntLiteral:[\s\S]*SelfhostTypeKind::I32[\s\S]*SelfhostExprPrefixItemKind::BoolLiteral:[\s\S]*SelfhostTypeKind::Bool/,
+    /SelfhostExprPrefixItemKind::UnitValue:[\s\S]*SelfhostTypeKind::Unit[\s\S]*SelfhostExprPrefixItemKind::IntLiteral:[\s\S]*SelfhostTypeKind::I32[\s\S]*SelfhostExprPrefixItemKind::FloatLiteral:[\s\S]*SelfhostTypeKind::F32[\s\S]*SelfhostExprPrefixItemKind::BoolLiteral:[\s\S]*SelfhostTypeKind::Bool/,
     "argument evidence must map simple literal items to typed primitive evidence",
 );
 assert.match(
     source,
-    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*LiteralTokenOutOfBounds[\s\S]*LiteralBoolInvalid[\s\S]*LiteralI32Invalid[\s\S]*LiteralI32RadixUnsupported[\s\S]*LiteralStringMalformed[\s\S]*LiteralStringEscapeUnsupported[\s\S]*LiteralStringEscapeMalformed[\s\S]*LiteralStringSliceFailed[\s\S]*LiteralStringBuildFailed[\s\S]*LiteralCharMalformed[\s\S]*LiteralCharEscapeUnsupported[\s\S]*LiteralCharInvalidScalar[\s\S]*LiteralCharMultipleScalars[\s\S]*UnsupportedArgumentExpression/,
+    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*LiteralTokenOutOfBounds[\s\S]*LiteralBoolInvalid[\s\S]*LiteralI32Invalid[\s\S]*LiteralI32RadixUnsupported[\s\S]*LiteralF32Invalid[\s\S]*LiteralStringMalformed[\s\S]*LiteralStringEscapeUnsupported[\s\S]*LiteralStringEscapeMalformed[\s\S]*LiteralStringSliceFailed[\s\S]*LiteralStringBuildFailed[\s\S]*LiteralCharMalformed[\s\S]*LiteralCharEscapeUnsupported[\s\S]*LiteralCharInvalidScalar[\s\S]*LiteralCharMultipleScalars[\s\S]*UnsupportedArgumentExpression/,
     "argument expression scan failures must stay typed instead of collapsing into a boolean",
 );
 assert.match(
@@ -432,7 +441,7 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringBuildFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringBuildFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharInvalidScalar:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars/,
+    /SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralF32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralF32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringBuildFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringBuildFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharInvalidScalar:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars/,
     "call reducer must preserve literal payload decode failures as typed call-reduction errors",
 );
 assert.match(

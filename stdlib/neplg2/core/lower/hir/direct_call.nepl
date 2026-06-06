@@ -5,7 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - `check/expr` は direct call として縮約できることを証明しますが、HIR record は生成しません。この module は、その checker-side plan と checked argument payload を HIR module の expression table へ落とします。
-//: - `BoolLiteral` / `I32Literal` / `CharLiteral` / `StrLiteral` argument は `SelfhostCheckedArgumentKind` に保存済みの意味値を HIR literal payload へ写像します。lowering では literal lexeme を解析しません。
+//: - `BoolLiteral` / `I32Literal` / `F32Literal` / `CharLiteral` / `StrLiteral` argument は `SelfhostCheckedArgumentKind` に保存済みの意味値を HIR literal payload へ写像します。lowering では literal lexeme を解析しません。
 //: - `NamedValue` argument は `SelfhostCheckedArgumentKind::NamedValue` として DefId-linked value identity を保持しています。この identity を `SelfhostHirExprPayload::Var` に変換します。
 //: - 明示 `@ident` argument は `SelfhostCheckedArgumentKind::FunctionValue` として `SelfhostCallableCandidate` を保持しています。この candidate を `lower/hir/function_value.nepl` 経由で `SelfhostHirExprPayload::FnValue` に変換します。
 //: - lowering が prefix token を再読して function identity を探すと、checker が選んだ DefId-linked candidate とずれる危険があります。そのため、ここでは checked argument list と selected candidate table だけを authority とします。
@@ -13,12 +13,13 @@
 //: [契約/けいやく]:
 //: - 入力 module は owner として受け取り、成功時は `SelfhostHirModuleExprAlloc` の中で更新済み owner を返します。
 //: - 失敗時は入力 module owner と、この module が作った一時 Vec owner を解放してから typed error を返します。
-//: - `UnitValue`、bool / i32 / char / string literal、`NamedValue`、`FunctionValue` argument は accepted HIR lowering です。
+//: - `UnitValue`、bool / i32 / f32 / char / string literal、`NamedValue`、`FunctionValue` argument は accepted HIR lowering です。
 //: - `TypedExpression`、`NestedDirectCall`、`BlockResult` は、この module が必要な checked tree payload を受け取るまでは `UnsupportedArgumentKind` として fail-closed にします。
 //: - string literal は `check/expr/literal_payload.nepl` が quote 除去と対応済み escape decode を終えた `StrLiteral` payload として渡します。この module は raw lexeme を再解析しません。
 //: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
 //:
 //: [現状実装/げんじょうじっそう]:
+//: - float literal は Rust 実装の現在の HIR と同じく `F32Literal` payload に変換します。`f64` defaulting や suffix 解決はこの lowering 境界では扱いません。
 //: - char literal は Rust 実装の現在の HIR と同じく、型を `char` とした i32-backed literal payload に変換します。char の source spelling を lowering で再解析してはいけません。
 //:
 //: [計算量/けいさんりょう]:
@@ -410,7 +411,7 @@ fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impu
 //:
 //: [目的/もくてき]:
 //: - 引数ごとの checked payload を HIR expression record へ変換します。
-//: - bool / i32 / string literal は checker が保存した意味値をそのまま HIR literal payload へ入れます。
+//: - bool / i32 / f32 / string literal は checker が保存した意味値をそのまま HIR literal payload へ入れます。
 //: - char literal は checker が保存した `char` 値を code point に変換し、型は `char` のまま i32-backed HIR literal へ入れます。
 //: - `NamedValue` は checker が確定した DefId-linked identity を HIR value identity へ写像します。lowering では scope lookup や token lexeme 復元を行いません。
 //: - `FunctionValue` は DefId-linked candidate を `selfhost_hir_expr_fn_value_from_candidate` へ渡します。
@@ -446,6 +447,13 @@ pub fn selfhost_hir_lower_checked_argument %impure fn SelfhostHirModule impure f
                     Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
         SelfhostCheckedArgumentKind::I32Literal value:
             let expr %SelfhostHirExpr selfhost_hir_expr_i32_literal argument.value_type argument.span value
+            match selfhost_hir_module_add_expr module expr:
+                Result::Ok alloc:
+                    Result::Ok alloc
+                Result::Err _e:
+                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildExprAllocFailed argument.span
+        SelfhostCheckedArgumentKind::F32Literal value:
+            let expr %SelfhostHirExpr selfhost_hir_expr_f32_literal argument.value_type argument.span value
             match selfhost_hir_module_add_expr module expr:
                 Result::Ok alloc:
                     Result::Ok alloc

@@ -11,7 +11,7 @@
 //:
 //: [契約/けいやく]:
 //: - `IntLiteral` は現 checkpoint の stage0 fixture と同じく `i32` として扱います。整数 suffix と expected type による numeric literal defaulting は後続 slice の責務です。
-//: - `FloatLiteral` はこの slice では型証拠を返しません。`f32` / `f64` の defaulting が仕様として固定されるまで成功扱いしません。
+//: - `FloatLiteral` は Rust 実装の現 checkpoint と同じく `f32` として扱います。`f64` defaulting や suffix 解決は後続の numeric literal 設計で扱います。
 //: - source-less borrowed API では `NamedValue`、block、control form、lambda、borrow、pipe などは、full expression checker が型を返せるようになるまで fail-closed にします。
 //: - source-less borrowed API は `%T expr` 形式の ascribed argument を成功扱いしません。`%` を見つけた場合、可変幅式を生の item 数へ潰さず `UnsupportedAscribedArgument` として返します。
 //: - source / token backed owner API は、literal、`%T literal`、型証拠が登録済みの `NamedValue`、`%T NamedValue`、明示 function value の `@ident` を成功させます。型式投影に失敗した場合は `AscriptionProjectionFailed` として返し、位置情報を空 span へ潰しません。
@@ -105,6 +105,7 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     LiteralBoolInvalid
     LiteralI32Invalid
     LiteralI32RadixUnsupported
+    LiteralF32Invalid
     LiteralStringMalformed
     LiteralStringEscapeUnsupported
     LiteralStringEscapeMalformed
@@ -281,6 +282,8 @@ pub fn selfhost_expr_argument_item_literal_type_kind %fn SelfhostExprPrefixItem 
             some SelfhostTypeKind::Unit
         SelfhostExprPrefixItemKind::IntLiteral:
             some SelfhostTypeKind::I32
+        SelfhostExprPrefixItemKind::FloatLiteral:
+            some SelfhostTypeKind::F32
         SelfhostExprPrefixItemKind::BoolLiteral:
             some SelfhostTypeKind::Bool
         SelfhostExprPrefixItemKind::CharLiteral:
@@ -353,6 +356,8 @@ fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentEr
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid error.span
         SelfhostLiteralArgumentErrorKind::I32RadixUnsupported:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported error.span
+        SelfhostLiteralArgumentErrorKind::F32Invalid:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralF32Invalid error.span
         SelfhostLiteralArgumentErrorKind::StringMalformed:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed error.span
         SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported:
@@ -380,6 +385,7 @@ fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentEr
 //:
 //: [契約/けいやく]:
 //: - 失敗時には `arena` を解放してから `SelfhostExprArgumentMatchError` を返します。
+//: - `FloatLiteral` は `literal_payload.nepl` で semantic `f32` payload に変換され、direct-call HIR lowering 側では `F32Literal` HIR payload へ変換されます。
 //: - `CharLiteral` は `literal_payload.nepl` で semantic `char` payload に変換され、direct-call HIR lowering 側では Rust 実装と同じ i32-backed char literal へ変換されます。
 //: - この関数は HIR 型や HIR record を扱いません。source-backed literal decode の結果は `SelfhostCheckedArgument` だけに閉じます。
 //:

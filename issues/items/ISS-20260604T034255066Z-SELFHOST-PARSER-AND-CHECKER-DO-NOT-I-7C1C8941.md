@@ -362,3 +362,18 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/issues.js check --dir issues`
 - `node nodesrc/run_source_policy_regressions.js --warn-only`
 - `git diff --check`
+
+2026-06-06 f32 literal checked payload and HIR lowering checkpoint:
+
+- Rust 実装の現 checkpoint と同じく、selfhost `FloatLiteral` を `f32` 固定の literal として扱う境界を追加した。`f64` defaulting と numeric suffix 解決はこの issue の後続 slice に残す。
+- `check/expr/argument.nepl` は `SelfhostExprPrefixItemKind::FloatLiteral` を `SelfhostTypeKind::F32` 証拠へ写像する。
+- `check/expr/literal_payload.nepl` は `string::to_f32` で lexeme を一度だけ semantic `f32` へ変換し、失敗時は `F32Invalid` に写像する。Rust 側の `unwrap_or(0.0)` のような silent fallback は採用しない。
+- `check/expr/argument_payload.nepl` に `SelfhostCheckedArgumentKind::F32Literal %f32` と constructor を追加し、HIR lowering が source token / lexeme を再読しない payload 境界を保った。
+- `check/expr/model.nepl` / `call_reduce.nepl` に `LiteralF32Invalid` / `ArgumentLiteralF32Invalid` の写像を追加し、literal decode failure を unsupported expression へ潰さない。
+- `hir/hir/expr.nepl` に `SelfhostHirExprKind::F32Literal`、`SelfhostHirExprPayload::F32Literal %f32`、`selfhost_hir_expr_f32_literal` を追加し、kind equality と child range accessor を明示分岐で更新した。
+- `lower/hir/direct_call.nepl` は checked `F32Literal` payload を `SelfhostHirExprPayload::F32Literal` へ下ろす。lowering では float lexeme を解析しない。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` は、`FloatLiteral` 未対応という旧checkpoint説明を、現行の `f32` checked payload / HIR lowering 境界へ更新した。
+- contract: `node nodesrc/test_selfhost_expr_call_reduce_contract.js` pass、`node nodesrc/test_selfhost_hir_expr_payload.js` pass、`node nodesrc/test_selfhost_hir_lowering_contract.js` pass、`node nodesrc/test_selfhost_checker_report_contract.js` pass、`node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass、`node nodesrc/test_source_policy_no_line_count_limits.js` pass。
+- focused module verification: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-f32-literal.json` pass 5/5、`node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-f32-literal.json` pass 2/2。
+- focused doctest verification: `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --assert-io -j 1 -o tmp/selfhost-f32-literal-call-reduce.json` は total 6 中 5 pass。追加した `literal_f32_payload_decode` は pass したが、既存 `expression_line_segment_connects_to_call_reduction` 相当の doctest#5 が compile timeout 60s で errored。今回の f32 payload correctness ではなく、`check/expr` facade全体を読む既存 heavy compile path として継続監視する。
+- 残件: 負数 literal の `Minus + IntLiteral/FloatLiteral` consume-width、numeric suffix language design、`NestedDirectCall` / `BlockResult` checked tree payload、既存 heavy doctest timeout の高速化 / focused test分割。

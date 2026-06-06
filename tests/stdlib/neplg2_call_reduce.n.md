@@ -261,6 +261,93 @@ fn main %impure fn void i32 \void:
             checks_exit_code shown
 ```
 
+## literal_f32_payload_decode
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/check/expr/argument_payload" as *
+#import "neplg2/core/check/expr/literal_payload" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn float_token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
+    unwrap v::get tokens idx
+
+fn float_item_for %fn SelfhostToken fn i32 SelfhostExprPrefixItem \token\token_index:
+    SelfhostExprPrefixItem SelfhostExprPrefixItemKind::FloatLiteral token_index field::get token "span"
+
+fn f32_payload_value_is %fn Result SelfhostCheckedArgument SelfhostLiteralArgumentError fn f32 Result unit str \result\expected:
+    match result:
+        Result::Ok argument:
+            match field::get argument "kind":
+                SelfhostCheckedArgumentKind::F32Literal value:
+                    check eq value expected
+                _:
+                    Result::Err "checked argument was not F32Literal"
+        Result::Err _error:
+            Result::Err "f32 literal payload decode failed"
+
+fn f32_payload_error_is_invalid %fn Result SelfhostCheckedArgument SelfhostLiteralArgumentError Result unit str \result:
+    match result:
+        Result::Err error:
+            match error.kind:
+                SelfhostLiteralArgumentErrorKind::F32Invalid:
+                    Result::Ok unit
+                _:
+                    Result::Err "f32 literal error was not F32Invalid"
+        Result::Ok _argument:
+            Result::Err "invalid f32 literal unexpectedly decoded"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let source %str "1.5 0.25 invalid"
+    match lex_all source:
+        Result::Ok tokens:
+            let f32_ty %SelfhostTypeId selfhost_type_id_new 54
+            let t0 %SelfhostToken float_token_at &tokens 0
+            let t1 %SelfhostToken float_token_at &tokens 1
+            let t2 %SelfhostToken float_token_at &tokens 2
+            let item0 %SelfhostExprPrefixItem float_item_for t0 0
+            let item1 %SelfhostExprPrefixItem float_item_for t1 1
+            let item2 %SelfhostExprPrefixItem float_item_for t2 2
+            let decoded0 %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item0 0 1 f32_ty
+            let decoded1 %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item1 1 2 f32_ty
+            let invalid %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item2 2 3 f32_ty
+            let expected0 %f32 1.5
+            let expected1 %f32 0.25
+            let checks1:
+                checks0
+                |> checks_push f32_payload_value_is decoded0 expected0
+                |> checks_push f32_payload_value_is decoded1 expected1
+                |> checks_push f32_payload_error_is_invalid invalid
+            v::free tokens
+            let shown checks_print_report checks1
+            checks_exit_code shown
+        Result::Err _diag:
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## expression_line_segment_connects_to_call_reduction
 
 neplg2:test[stdio, normalize_newlines]

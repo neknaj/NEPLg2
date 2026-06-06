@@ -11,10 +11,10 @@
 //: - この module は HIR record を生成しません。HIR への変換は `neplg2/core/lower/hir` が担当します。
 //: - `FunctionValue` は、`@ident` argument が expected function type と照合済みで、monomorphic candidate として一意に解決されたことを表します。
 //: - `UnitValue` は、値 payload を持たずに HIR `Unit` へ下ろせる `unit` literal argument を表します。
-//: - `BoolLiteral`、`I32Literal`、`CharLiteral` は、source-backed checker が token lexeme を一度だけ解析して得た意味値を保持します。lowering は source text を再読しません。
+//: - `BoolLiteral`、`I32Literal`、`F32Literal`、`CharLiteral` は、source-backed checker が token lexeme を一度だけ解析して得た意味値を保持します。lowering は source text を再読しません。
 //: - `StrLiteral` は、source-backed checker が quote 除去と対応済み escape decode を行って得た意味値を保持します。この payload に raw quoted lexeme を入れてはいけません。
 //: - `NamedValue` は、scope と value type evidence で照合済みの値参照を、DefId-linked identity として表します。
-//: - `TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool / i32 / char / string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。
+//: - `TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool / i32 / f32 / char / string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。
 //: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
 //:
 //: [計算量/けいさんりょう]:
@@ -67,7 +67,7 @@ pub fn selfhost_checked_value_identity_new %fn str fn SelfhostDefId fn SelfhostD
 //: - `NamedValue`、`FunctionValue`、`NestedDirectCall` は identity payload を保持し、名前文字列だけへ戻る退行を防ぎます。
 //:
 //: [分類/ぶんるい]:
-//: - `UnitValue`、`BoolLiteral`、`I32Literal`、`CharLiteral`、`StrLiteral` は、source-backed checker が確定した literal argument payload です。
+//: - `UnitValue`、`BoolLiteral`、`I32Literal`、`F32Literal`、`CharLiteral`、`StrLiteral` は、source-backed checker が確定した literal argument payload です。
 //: - `NamedValue` は、scope lookup と value type evidence によって DefId-linked value identity が確定した argument です。
 //: - `FunctionValue` は、明示 `@ident` が expected function type と照合され、一意の callable candidate として確定した argument です。
 //: - `TypedExpression` は、型照合は済んでいるが、現 checkpoint で HIR child を source 再読なしに構築する payload がまだない expression です。
@@ -75,11 +75,12 @@ pub fn selfhost_checked_value_identity_new %fn str fn SelfhostDefId fn SelfhostD
 //:
 //: [現状/げんじょう]:
 //: - `NestedDirectCall` と `BlockResult` は candidate や範囲の evidence だけを持つため、direct-call HIR lowering では fail-closed にします。
-//: - bool / i32 / char / string literal は専用 payload を持ちます。これらを `TypedExpression` へ戻すと、lowering が source token を再読する設計へ退行します。
+//: - bool / i32 / f32 / char / string literal は専用 payload を持ちます。これらを `TypedExpression` へ戻すと、lowering が source token を再読する設計へ退行します。
 pub enum SelfhostCheckedArgumentKind:
     UnitValue
     BoolLiteral %bool
     I32Literal %i32
+    F32Literal %f32
     CharLiteral %char
     StrLiteral %str
     NamedValue %SelfhostCheckedValueIdentity
@@ -147,7 +148,7 @@ pub fn selfhost_checked_argument_new %fn SelfhostCheckedArgumentKind fn i32 fn i
 //: - ascription 付き複合式など、関数値 identity や literal 値をまだ payload 化していない argument の共通 constructor です。
 //:
 //: [契約/けいやく]:
-//: - `TypedExpression` は「型だけは一致したが、HIR child を source 再読なしに作る payload が未実装」という分類です。char literal は `CharLiteral` payload 実装済みなので、この constructor へ渡してはいけません。
+//: - `TypedExpression` は「型だけは一致したが、HIR child を source 再読なしに作る payload が未実装」という分類です。f32 / char literal は専用 payload 実装済みなので、この constructor へ渡してはいけません。
 //: - HIR lowering はこの variant を accepted として扱わず、より詳細な checked tree payload が入るまで fail-closed にします。
 //:
 //: [計算量/けいさんりょう]:
@@ -199,6 +200,22 @@ pub fn selfhost_checked_argument_bool_literal %fn i32 fn i32 fn SelfhostTypeId f
 //: - 構築は O(1) です。
 pub fn selfhost_checked_argument_i32_literal %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn i32 SelfhostCheckedArgument \start_index\next_index\value_type\span\value:
     selfhost_checked_argument_new SelfhostCheckedArgumentKind::I32Literal value start_index next_index value_type span
+
+//: selfhost_checked_argument_f32_literal: f32 literal argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-backed checker が浮動小数 token を f32 の意味値へ解析した後、その値を checked payload として保存します。
+//: - Rust 実装の現行 surface では float literal は `f32` HIR literal へ下がるため、selfhost 側でもこの境界で f32 として固定します。
+//:
+//: [契約/けいやく]:
+//: - caller は token kind が `FloatLiteral` で、現在の checkpoint が扱う 10 進浮動小数 spelling として解析済みであることを保証します。
+//: - `value_type` は `f32` 型と照合済みでなければなりません。`f64` defaulting や suffix 解決はこの constructor の責務ではありません。
+//: - `value` は raw lexeme ではなく semantic `f32` です。lowering が source text を再読して parse し直す設計へ戻してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+pub fn selfhost_checked_argument_f32_literal %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn f32 SelfhostCheckedArgument \start_index\next_index\value_type\span\value:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::F32Literal value start_index next_index value_type span
 
 //: selfhost_checked_argument_char_literal: char literal argument を[作/つく]る
 //:

@@ -37,6 +37,7 @@ pub enum SelfhostHirExprKind:
     Unit
     BoolLiteral
     I32Literal
+    F32Literal
     StrLiteral
     Var
     FnValue
@@ -166,6 +167,7 @@ pub enum SelfhostHirExprPayload:
     Unit
     BoolLiteral %bool
     I32Literal %i32
+    F32Literal %f32
     StrLiteral %str
     Var %SelfhostHirValueIdentity
     FnValue %SelfhostHirFunctionValueIdentity
@@ -223,6 +225,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::I32Literal:
                     false
+                SelfhostHirExprKind::F32Literal:
+                    false
                 SelfhostHirExprKind::StrLiteral:
                     false
                 SelfhostHirExprKind::Var:
@@ -244,6 +248,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::BoolLiteral:
                     false
                 SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::F32Literal:
                     false
                 SelfhostHirExprKind::StrLiteral:
                     false
@@ -267,6 +273,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     true
                 SelfhostHirExprKind::I32Literal:
                     false
+                SelfhostHirExprKind::F32Literal:
+                    false
                 SelfhostHirExprKind::StrLiteral:
                     false
                 SelfhostHirExprKind::Var:
@@ -288,6 +296,32 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::BoolLiteral:
                     false
                 SelfhostHirExprKind::I32Literal:
+                    true
+                SelfhostHirExprKind::F32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::FnValue:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::F32Literal:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::F32Literal:
                     true
                 SelfhostHirExprKind::StrLiteral:
                     false
@@ -311,6 +345,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::I32Literal:
                     false
+                SelfhostHirExprKind::F32Literal:
+                    false
                 SelfhostHirExprKind::StrLiteral:
                     true
                 SelfhostHirExprKind::Var:
@@ -332,6 +368,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::BoolLiteral:
                     false
                 SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::F32Literal:
                     false
                 SelfhostHirExprKind::StrLiteral:
                     false
@@ -355,6 +393,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::I32Literal:
                     false
+                SelfhostHirExprKind::F32Literal:
+                    false
                 SelfhostHirExprKind::StrLiteral:
                     false
                 SelfhostHirExprKind::Var:
@@ -376,6 +416,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::BoolLiteral:
                     false
                 SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::F32Literal:
                     false
                 SelfhostHirExprKind::StrLiteral:
                     false
@@ -399,6 +441,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::I32Literal:
                     false
+                SelfhostHirExprKind::F32Literal:
+                    false
                 SelfhostHirExprKind::StrLiteral:
                     false
                 SelfhostHirExprKind::Var:
@@ -420,6 +464,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::BoolLiteral:
                     false
                 SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::F32Literal:
                     false
                 SelfhostHirExprKind::StrLiteral:
                     false
@@ -514,6 +560,21 @@ pub fn selfhost_hir_expr_bool_literal %fn SelfhostTypeId fn SelfhostSourceSpan f
 pub fn selfhost_hir_expr_i32_literal %fn SelfhostTypeId fn SelfhostSourceSpan fn i32 SelfhostHirExpr \ty\span\value:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::I32Literal value
 
+//: selfhost_hir_expr_f32_literal: f32 literal expression record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker が確定した `f32` literal payload を、typed HIR expression として保存します。
+//: - HIR 以降の phase が source token や float lexeme を再読せず、semantic `f32` 値だけを使えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `ty` は `f32` 型を指す `SelfhostTypeId` です。payload variant だけから型を推測し直してはいけません。
+//: - `value` は source spelling ではなく、literal payload checker が一度だけ解析した `f32` 値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+pub fn selfhost_hir_expr_f32_literal %fn SelfhostTypeId fn SelfhostSourceSpan fn f32 SelfhostHirExpr \ty\span\value:
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::F32Literal value
+
 //: selfhost_hir_expr_str_literal: str literal expression record を[作/つく]る
 pub fn selfhost_hir_expr_str_literal %fn SelfhostTypeId fn SelfhostSourceSpan fn str SelfhostHirExpr \ty\span\value:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::StrLiteral value
@@ -560,6 +621,8 @@ pub fn selfhost_hir_expr_kind %fn &SelfhostHirExpr SelfhostHirExprKind \expr:
             SelfhostHirExprKind::BoolLiteral
         SelfhostHirExprPayload::I32Literal _value:
             SelfhostHirExprKind::I32Literal
+        SelfhostHirExprPayload::F32Literal _value:
+            SelfhostHirExprKind::F32Literal
         SelfhostHirExprPayload::StrLiteral _value:
             SelfhostHirExprKind::StrLiteral
         SelfhostHirExprPayload::Var _name:
@@ -583,6 +646,8 @@ pub fn selfhost_hir_expr_child_range %fn &SelfhostHirExpr SelfhostHirChildRange 
         SelfhostHirExprPayload::BoolLiteral _value:
             selfhost_hir_child_range_empty
         SelfhostHirExprPayload::I32Literal _value:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::F32Literal _value:
             selfhost_hir_child_range_empty
         SelfhostHirExprPayload::StrLiteral _value:
             selfhost_hir_child_range_empty

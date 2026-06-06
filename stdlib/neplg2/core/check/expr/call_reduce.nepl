@@ -102,7 +102,7 @@ fn selfhost_call_reduce_expected_result %fn &SelfhostTypeArena fn SelfhostCallab
 //: - literal decode、named value evidence、function value evidence、ascription failure を、`UnsupportedArgumentExpression` や arity error へ潰さず保持します。
 //:
 //: [契約/けいやく]:
-//: - `LiteralBoolInvalid` / `LiteralI32Invalid` / `LiteralI32RadixUnsupported` / `LiteralString*` / `LiteralChar*` は、対応する `ArgumentLiteral*` error へ 1 対 1 で写像します。
+//: - `LiteralBoolInvalid` / `LiteralI32Invalid` / `LiteralI32RadixUnsupported` / `LiteralF32Invalid` / `LiteralString*` / `LiteralChar*` は、対応する `ArgumentLiteral*` error へ 1 対 1 で写像します。
 //: - `MissingArgument` だけは call 全体の head span を使い、partial application rejection として扱います。それ以外は元 error span を保持します。
 //:
 //: [戻/もど]り[値/ち]:
@@ -158,6 +158,8 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid error.span
         SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralF32Invalid:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralF32Invalid error.span
         SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed error.span
         SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:
