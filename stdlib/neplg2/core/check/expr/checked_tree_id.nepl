@@ -1,0 +1,271 @@
+#indent 4
+
+//: # check/expr/checked_tree_id
+//: checked expression tree の arena-local id と range payload を[定義/ていぎ]する module です。
+//:
+//: [目的/もくてき]:
+//: - `NestedDirectCall` や `BlockResult` のような複合 argument を、source token の再読ではなく checked tree node id で参照できるようにします。
+//: - owner を持つ child argument list は checked tree 本体へ置き、`SelfhostCheckedArgumentKind` には Copy できる id / range だけを入れる設計にします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostCheckedExprId` は 1 つの `SelfhostCheckedExprTree` の中だけで有効な arena-local id です。別の tree や HIR module の id と混ぜてはいけません。
+//: - `SelfhostCheckedArgumentRange` は checked tree の argument table 上の半開範囲 `[first_argument, first_argument + argument_count)` を表します。
+//: - 空 argument range は `Empty` variant で表し、`-1` などの sentinel 値を使いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - id / range の構築と accessor は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/checked_tree_id" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_checked_argument_range_new_result 2 3:
+//:         Result::Ok range:
+//:             let checks1 checks_push checks0 check_eq_i32 2 selfhost_checked_argument_range_first range
+//:             let checks2 checks_push checks1 check_eq_i32 3 selfhost_checked_argument_range_count range
+//:             match selfhost_checked_argument_range_new_result 0 0:
+//:                 Result::Ok empty:
+//:                     let checks3 checks_push checks2 check_eq_i32 0 selfhost_checked_argument_range_count empty
+//:                     match selfhost_checked_argument_range_new_result sub 0 1 1:
+//:                         Result::Ok _bad:
+//:                             let checks4 checks_push checks3 Result::Err "negative first was accepted"
+//:                             let shown checks_print_report checks4
+//:                             checks_exit_code shown
+//:                         Result::Err e:
+//:                             match e:
+//:                                 SelfhostCheckedTreeRangeBuildError::NegativeFirst:
+//:                                     let checks4 checks_push checks3 check true
+//:                                     let shown checks_print_report checks4
+//:                                     checks_exit_code shown
+//:                                 _:
+//:                                     let checks4 checks_push checks3 Result::Err "unexpected negative-first error kind"
+//:                                     let shown checks_print_report checks4
+//:                                     checks_exit_code shown
+//:                 Result::Err _e:
+//:                     let checks3 checks_push checks2 Result::Err "empty range rejected"
+//:                     let shown checks_print_report checks3
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "valid range rejected"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: SelfhostCheckedExprId: checked expression tree 内の expression node id
+//:
+//: [目的/もくてき]:
+//: - 複合 argument payload が checked expression tree の node を参照するための typed id です。
+//:
+//: [契約/けいやく]:
+//: - `index` は tree-local の 0-based index です。
+//: - 負の値は構築時に拒否するのが通常経路です。unchecked constructor は test fixture や同じ関数内で証明済みの場合だけ使います。
+pub struct SelfhostCheckedExprId:
+    index %i32
+
+impl Clone for SelfhostCheckedExprId:
+    fn clone %fn &SelfhostCheckedExprId SelfhostCheckedExprId \self:
+        *self
+
+impl Copy for SelfhostCheckedExprId:
+    fn copy_mark %fn SelfhostCheckedExprId SelfhostCheckedExprId \self:
+        self
+
+//: SelfhostCheckedArgumentRangeItems: nonempty checked argument table 範囲
+//:
+//: [目的/もくてき]:
+//: - checked direct call node が持つ実引数列を、tree の argument table 上の連続範囲として保持します。
+pub struct SelfhostCheckedArgumentRangeItems:
+    first_argument %i32
+    argument_count %i32
+
+impl Clone for SelfhostCheckedArgumentRangeItems:
+    fn clone %fn &SelfhostCheckedArgumentRangeItems SelfhostCheckedArgumentRangeItems \self:
+        *self
+
+impl Copy for SelfhostCheckedArgumentRangeItems:
+    fn copy_mark %fn SelfhostCheckedArgumentRangeItems SelfhostCheckedArgumentRangeItems \self:
+        self
+
+//: SelfhostCheckedArgumentRange: checked argument table 上の連続範囲
+//:
+//: [目的/もくてき]:
+//: - 0 引数 call と、引数 table の 0 番目から始まる nonempty range を enum で区別します。
+//: - 後続 lowering は range variant を match し、child count を数値 tag ではなく型で確認できます。
+pub enum SelfhostCheckedArgumentRange:
+    Empty
+    Range %SelfhostCheckedArgumentRangeItems
+
+impl Clone for SelfhostCheckedArgumentRange:
+    fn clone %fn &SelfhostCheckedArgumentRange SelfhostCheckedArgumentRange \self:
+        *self
+
+impl Copy for SelfhostCheckedArgumentRange:
+    fn copy_mark %fn SelfhostCheckedArgumentRange SelfhostCheckedArgumentRange \self:
+        self
+
+//: SelfhostCheckedTreeRangeBuildError: checked tree range 構築失敗分類
+//:
+//: [目的/もくてき]:
+//: - range の負 index、負 count、非正規 empty、overflow、table 外参照を enum で分けます。
+pub enum SelfhostCheckedTreeRangeBuildError:
+    NegativeFirst
+    NegativeCount
+    NonCanonicalEmpty
+    EndOverflow
+    OutOfBounds
+
+impl Clone for SelfhostCheckedTreeRangeBuildError:
+    fn clone %fn &SelfhostCheckedTreeRangeBuildError SelfhostCheckedTreeRangeBuildError \self:
+        *self
+
+impl Copy for SelfhostCheckedTreeRangeBuildError:
+    fn copy_mark %fn SelfhostCheckedTreeRangeBuildError SelfhostCheckedTreeRangeBuildError \self:
+        self
+
+//: selfhost_checked_expr_id_new_unchecked: 証明済み checked expression id を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - `index >= 0` と tree node table 内であることを検査しません。
+//: - 通常の caller は tree へ node を追加した結果から id を受け取ります。
+//:
+//: [契約/けいやく]:
+//: - この constructor は、同じ関数内で node table の現在長から id を作るなど、範囲が別の処理で証明済みの場合だけ使います。
+//: - 外部入力や serialized artifact から来た index には使わず、`selfhost_checked_expr_id_new_result` などの検査付き経路を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+fn selfhost_checked_expr_id_new_unchecked %fn i32 SelfhostCheckedExprId \index:
+    SelfhostCheckedExprId index
+
+//: selfhost_checked_expr_id_new_result: checked expression id を検査して[作/つく]る
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(id)`: `index` は負ではありません。
+//: - `Err(NegativeFirst)`: id index が負でした。
+pub fn selfhost_checked_expr_id_new_result %fn i32 Result SelfhostCheckedExprId SelfhostCheckedTreeRangeBuildError \index:
+    if:
+        lt index 0
+        then:
+            Result::Err SelfhostCheckedTreeRangeBuildError::NegativeFirst
+        else:
+            Result::Ok selfhost_checked_expr_id_new_unchecked index
+
+//: selfhost_checked_expr_id_index: checked expression id の index を[返/かえ]す
+pub fn selfhost_checked_expr_id_index %fn SelfhostCheckedExprId i32 \expr_id:
+    expr_id.index
+
+//: selfhost_checked_argument_range_empty: checked argument の空範囲を[返/かえ]す
+pub fn selfhost_checked_argument_range_empty %fn void SelfhostCheckedArgumentRange \void:
+    SelfhostCheckedArgumentRange::Empty
+
+//: selfhost_checked_argument_range_new_unchecked: 証明済み nonempty checked argument range を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - `first_argument >= 0`、`argument_count > 0`、end が table 内であることを検査しません。
+//:
+//: [契約/けいやく]:
+//: - この constructor は、tree の argument table へ checked argument list を追加した直後など、開始位置と個数が同じ owner 操作で証明済みの場合だけ使います。
+//: - 空 range には使わず、必ず `selfhost_checked_argument_range_empty` を使います。
+//: - table length をまたぐ可能性がある外部入力には使わず、`selfhost_checked_argument_range_new_bounded_result` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+fn selfhost_checked_argument_range_new_unchecked %fn i32 fn i32 SelfhostCheckedArgumentRange \first_argument\argument_count:
+    SelfhostCheckedArgumentRange::Range SelfhostCheckedArgumentRangeItems first_argument argument_count
+
+//: selfhost_checked_argument_range_new_result: checked argument range を検査して[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `first_argument = 0` かつ `argument_count = 0` だけを canonical empty として受理します。
+//: - `argument_count > 0` の場合は end overflow を検査します。table length までは確認しません。
+pub fn selfhost_checked_argument_range_new_result %fn i32 fn i32 Result SelfhostCheckedArgumentRange SelfhostCheckedTreeRangeBuildError \first_argument\argument_count:
+    if:
+        lt first_argument 0
+        then:
+            Result::Err SelfhostCheckedTreeRangeBuildError::NegativeFirst
+        else:
+            if:
+                lt argument_count 0
+                then:
+                    Result::Err SelfhostCheckedTreeRangeBuildError::NegativeCount
+                else:
+                    if:
+                        eq argument_count 0
+                        then:
+                            if:
+                                eq first_argument 0
+                                then:
+                                    Result::Ok selfhost_checked_argument_range_empty
+                                else:
+                                    Result::Err SelfhostCheckedTreeRangeBuildError::NonCanonicalEmpty
+                        else:
+                            if:
+                                gt argument_count sub 2147483647 first_argument
+                                then:
+                                    Result::Err SelfhostCheckedTreeRangeBuildError::EndOverflow
+                                else:
+                                    Result::Ok selfhost_checked_argument_range_new_unchecked first_argument argument_count
+
+//: selfhost_checked_argument_range_new_bounded_result: table 長で checked argument range を検査する
+//:
+//: [目的/もくてき]:
+//: - checked tree の argument table から range を読む前に、範囲が table 内に収まることを確認します。
+pub fn selfhost_checked_argument_range_new_bounded_result %fn i32 fn i32 fn i32 Result SelfhostCheckedArgumentRange SelfhostCheckedTreeRangeBuildError \first_argument\argument_count\table_len:
+    match selfhost_checked_argument_range_new_result first_argument argument_count:
+        Result::Ok range:
+            if:
+                lt table_len 0
+                then:
+                    Result::Err SelfhostCheckedTreeRangeBuildError::OutOfBounds
+                else:
+                    match range:
+                        SelfhostCheckedArgumentRange::Empty:
+                            Result::Ok range
+                        SelfhostCheckedArgumentRange::Range items:
+                            if:
+                                gt items.first_argument table_len
+                                then:
+                                    Result::Err SelfhostCheckedTreeRangeBuildError::OutOfBounds
+                                else:
+                                    if:
+                                        gt items.argument_count sub table_len items.first_argument
+                                        then:
+                                            Result::Err SelfhostCheckedTreeRangeBuildError::OutOfBounds
+                                        else:
+                                            Result::Ok range
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_checked_argument_range_first: checked argument range の開始 index を[返/かえ]す
+pub fn selfhost_checked_argument_range_first %fn SelfhostCheckedArgumentRange i32 \range:
+    match range:
+        SelfhostCheckedArgumentRange::Empty:
+            0
+        SelfhostCheckedArgumentRange::Range items:
+            items.first_argument
+
+//: selfhost_checked_argument_range_count: checked argument range の要素数を[返/かえ]す
+pub fn selfhost_checked_argument_range_count %fn SelfhostCheckedArgumentRange i32 \range:
+    match range:
+        SelfhostCheckedArgumentRange::Empty:
+            0
+        SelfhostCheckedArgumentRange::Range items:
+            items.argument_count

@@ -79,13 +79,13 @@ assert.match(
 );
 assert.match(
     source,
-    /# lower\/hir\/direct_call[\s\S]*pub enum SelfhostDirectCallLowerErrorKind:[\s\S]*UnsupportedArgumentKind[\s\S]*FunctionValueFailed %SelfhostFunctionValueLowerErrorKind[\s\S]*ChildExprAllocFailed[\s\S]*ParentCallAllocFailed/,
+    /# lower\/hir\/direct_call[\s\S]*pub enum SelfhostDirectCallLowerErrorKind:[\s\S]*UnsupportedArgumentKind[\s\S]*FunctionValueFailed %SelfhostFunctionValueLowerErrorKind[\s\S]*CheckedTreeNodeMissing[\s\S]*CheckedTreeCycleDetected[\s\S]*CheckedTreeArgumentMissing[\s\S]*ChildExprAllocFailed[\s\S]*ParentCallAllocFailed/,
     "direct call lowering must live in its own typed-error lower/hir split module",
 );
 assert.match(
     directCall,
-    /#import "neplg2\/core\/check\/expr\/argument_payload" as \*[\s\S]*#import "neplg2\/core\/check\/expr\/body_line" as \*[\s\S]*#import "neplg2\/core\/hir\/hir" as \*[\s\S]*#import "\.\/function_value" as \*/,
-    "direct call lowering must be the explicit layer that knows checked arguments, body-line success, HIR, and function-value lowering",
+    /#import "neplg2\/core\/check\/expr\/argument_payload" as \*[\s\S]*#import "neplg2\/core\/check\/expr\/body_line" as \*[\s\S]*#import "neplg2\/core\/check\/expr\/checked_tree" as \*[\s\S]*#import "neplg2\/core\/check\/expr\/checked_tree_id" as \*[\s\S]*#import "neplg2\/core\/hir\/hir" as \*[\s\S]*#import "\.\/function_value" as \*/,
+    "direct call lowering must be the explicit layer that knows checked arguments, checked tree ranges, body-line success, HIR, and function-value lowering",
 );
 assert.match(
     directCall,
@@ -120,6 +120,11 @@ for (const name of [
     "selfhost_hir_lower_checked_argument",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
+    "selfhost_hir_lower_checked_tree_argument",
+    "selfhost_hir_lower_checked_tree_argument_range",
+    "selfhost_hir_lower_checked_tree_direct_call_node",
+    "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr",
     "selfhost_hir_lower_direct_call_result",
     "selfhost_hir_lower_expression_line_success_direct_call",
 ]) {
@@ -132,6 +137,11 @@ for (const name of [
     "selfhost_direct_call_lower_free_state_error",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
+    "selfhost_hir_lower_checked_tree_argument",
+    "selfhost_hir_lower_checked_tree_argument_range",
+    "selfhost_hir_lower_checked_tree_direct_call_node",
+    "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr",
 ]) {
     assertDirectCallDoc(name, ["[契約/けいやく]"]);
 }
@@ -142,6 +152,11 @@ for (const name of [
     "selfhost_hir_lower_checked_argument",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
+    "selfhost_hir_lower_checked_tree_argument",
+    "selfhost_hir_lower_checked_tree_argument_range",
+    "selfhost_hir_lower_checked_tree_direct_call_node",
+    "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr",
     "selfhost_hir_lower_direct_call_result",
     "selfhost_hir_lower_expression_line_success_direct_call",
 ]) {
@@ -156,6 +171,11 @@ for (const name of [
     "selfhost_hir_lower_checked_argument",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
+    "selfhost_hir_lower_checked_tree_argument",
+    "selfhost_hir_lower_checked_tree_argument_range",
+    "selfhost_hir_lower_checked_tree_direct_call_node",
+    "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr",
     "selfhost_hir_lower_direct_call_result",
     "selfhost_hir_lower_expression_line_success_direct_call",
 ]) {
@@ -175,6 +195,36 @@ assert.match(
     directCall,
     /pub fn selfhost_hir_lower_expression_line_success_direct_call[\s\S]*selfhost_expression_line_check_success_result success[\s\S]*selfhost_expression_line_check_success_checked_arguments success/,
     "body-line success lowering must consume the checked argument list exposed by expression checking",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_checked_tree_argument[\s\S]*SelfhostCheckedArgumentKind::CheckedExpr expr_id:[\s\S]*selfhost_hir_lower_checked_tree_expr_with_fuel module tree expr_id argument\.span fuel[\s\S]*_:[\s\S]*selfhost_hir_lower_checked_argument module argument/,
+    "checked tree argument lowering must recursively lower CheckedExpr ids and delegate simple payloads to existing checked argument lowering",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_checked_tree_argument_range[\s\S]*selfhost_checked_argument_range_count argument_range[\s\S]*selfhost_checked_expr_tree_get_argument tree argument_range idx[\s\S]*selfhost_hir_lower_checked_tree_argument module tree argument fuel[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeArgumentMissing/,
+    "checked tree argument range lowering must enumerate the typed range, recursively lower CheckedExpr payloads, and fail closed when an argument slot is missing",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_checked_tree_direct_call_node[\s\S]*selfhost_hir_lower_checked_tree_argument_range module child_ids tree call_payload\.arguments 0 node\.span fuel[\s\S]*selfhost_hir_expr_call node\.ty node\.span call_payload\.candidate\.name child_range/,
+    "checked tree direct-call lowering must build HIR calls from selected candidate payload and checked child arguments",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_checked_tree_block_result_node[\s\S]*selfhost_hir_lower_checked_tree_expr_with_fuel module tree body_expr node\.span fuel[\s\S]*selfhost_hir_expr_block node\.ty node\.span child_range/,
+    "checked tree block-result lowering must lower the checked body expression id without rebuilding a prefix list",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_checked_tree_expr_with_fuel[\s\S]*le fuel 0[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeCycleDetected[\s\S]*selfhost_checked_expr_tree_get_node tree expr_id[\s\S]*SelfhostCheckedExprNodeKind::DirectCall call_payload:[\s\S]*selfhost_hir_lower_checked_tree_direct_call_node module tree node call_payload next_fuel[\s\S]*SelfhostCheckedExprNodeKind::BlockResult body_expr:[\s\S]*selfhost_hir_lower_checked_tree_block_result_node module tree node body_expr next_fuel[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing fallback_span/,
+    "checked tree fuel lowering must dispatch by checked node kind, detect cycles, and fail closed on missing node ids",
+);
+assert.match(
+    directCall,
+    /pub fn selfhost_hir_lower_checked_tree_expr[\s\S]*selfhost_hir_lower_checked_tree_expr_with_fuel module tree expr_id fallback_span selfhost_checked_expr_tree_node_len tree/,
+    "checked tree root lowering must dispatch by checked node kind and fail closed on missing node ids with caller-provided diagnostic span",
 );
 assert.doesNotMatch(
     directCall,

@@ -1,3 +1,106 @@
+# 2026-06-06 Agent selfhost checked tree HIR lowering checkpoint
+
+## review_scope
+
+- branch: selfhost/nested-block-hir-lowering-20260606
+- 対象 branch: `selfhost/nested-block-hir-lowering-20260606`
+- base: `origin/main before slice`
+- head: `working-tree-before-commit`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / `checked expression tree payload and HIR lowering boundary`
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- files_read: `plan.md`; `AGENTS.md`; `note.n.md`; `todo.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/checked_tree_id.nepl`; `stdlib/neplg2/core/check/expr/checked_tree.nepl`; `stdlib/neplg2/core/check/expr/argument_payload.nepl`; `stdlib/neplg2/core/check/expr.nepl`; `stdlib/neplg2/core/lower/hir/direct_call.nepl`; `nodesrc/selfhost_check_expr_sources.js`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_selfhost_hir_lowering_contract.js`; `nodesrc/test_selfhost_documentation_contract.js`; `nodesrc/test_selfhost_zenn_review_gate_contract.js`; `nodesrc/test_source_policy_no_line_count_limits.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: reducer が `SelfhostCheckedExprTree` を生成して `NestedDirectCall` / `BlockResult` summary argument を `CheckedExpr` id payload へ接続する処理; block / lambda / borrow / pipe argument expression checking; generic instantiation inference; trait solving; indirect call; `memo_call` Phase 1 private-cache boundary; serialized checked tree artifact 復元時の validation.
+- subagent_review_ids:
+  - 019e9b11-8ecf-77b1-82a4-f1150d214189
+  - 019e9b23-11f6-77f1-bf82-7aa52185f6e3
+- subagent_review_count: 2
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- file/function: `stdlib/neplg2/core/check/expr/checked_tree_id.nepl`; `stdlib/neplg2/core/check/expr/checked_tree.nepl`; `stdlib/neplg2/core/check/expr/argument_payload.nepl`; `stdlib/neplg2/core/check/expr.nepl`; `stdlib/neplg2/core/lower/hir/direct_call.nepl`; `nodesrc/selfhost_check_expr_sources.js`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_selfhost_hir_lowering_contract.js`
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/checked_tree_id.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-checked-tree-id.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/checked_tree.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-checked-tree.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/direct_call.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-direct-call-tree.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-checked-tree.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-tree-lowering.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`; `nodesrc/selfhost_zenn_review_response_check.js`
+- recommended_fix: none
+- finding: `NestedDirectCall` / `BlockResult` を HIR lowering へ渡すには、source token、scope lookup、callable candidate collection を下流で再実行するのではなく、checker が一度解決した複合 expression を owner 付き checked tree と typed id payload として保持する必要があった。
+- root_cause: 直前の `argument_payload.nepl` は simple argument の evidence を HIR lowering へ渡せたが、nested direct call と block result は summary enum のままで、child expression の候補・引数・型・span の authority が tree として保存されていなかった。
+- reason: Zenn 記事は Result / Option、enum error、match 網羅性、責務のDAG分割、pure core、丁寧なドキュメントコメント、試作段階でも技術的負債を残さないことを要求している。今回の slice は `SelfhostCheckedExprId`、`SelfhostCheckedArgumentRange`、`SelfhostCheckedExprTree`、`SelfhostCheckedArgumentKind::CheckedExpr`、`CheckedTree*` lowering error を追加し、sentinel や raw index ではなく typed model と fail-closed Result 境界にした。
+- source_policy_reason: `nodesrc/test_selfhost_expr_call_reduce_contract.js` は checked tree source list、`CheckedExpr` payload、unchecked constructor の非 public 化、追加時 validation、bounded range construction を固定する。`nodesrc/test_selfhost_hir_lowering_contract.js` は checked tree lowering が source token / scope lookup / candidate collection を再実行せず、fuel 付き recursion と `CheckedTreeCycleDetected` で壊れた tree を停止する契約を固定する。行数制限、file size、comment volume、doc comment 長制限は追加していない。
+- doc_issue_note: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md` records the checked tree HIR lowering checkpoint and keeps the issue open for reducer connection, indirect call, generic inference, trait solving, and `memo_call` Phase 1.
+
+## implementation/test
+
+- classification: Approve
+- file/function: `selfhost_checked_expr_id_new_result`; `selfhost_checked_argument_range_new_bounded_result`; `selfhost_checked_expr_tree_add_argument_range`; `selfhost_checked_expr_tree_add_node`; `selfhost_checked_expr_node_refs_existing_before_append`; `selfhost_checked_argument_range_refs_existing_before_append`; `selfhost_hir_lower_checked_tree_expr`; `selfhost_hir_lower_checked_tree_expr_with_fuel`; `selfhost_hir_lower_checked_tree_argument`
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/checked_tree_id.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-checked-tree-id.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/checked_tree.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-checked-tree.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/direct_call.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-direct-call-tree.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-checked-tree.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-tree-lowering.json`
+- recommended_fix: none
+- finding: public API から作る tree は追加済み node だけを参照する DAG とし、future id / self-reference / broken range は `StdErrorKind::InvalidOperation` で失敗させる必要があった。
+- root_cause: 初期案では doc comment 上の「同じ tree の既存 node id」という契約に対して、unchecked constructor が public で、tree builder も node id や argument range の既存性を追加時に検査していなかった。そのままでは serialized / 手作り tree 由来の cycle や missing node が HIR lowering の停止性を壊す。
+- reason: unchecked constructor は module private helper に落とし、外部入力や serialized boundary は `*_new_result` と bounded range constructor を通す。tree builder は `DirectCall` argument range と `BlockResult` body id を append 前 node count に対して検査し、HIR lowering は node count を fuel として渡すことで corrupted tree にも fail-closed で停止する。
+- source_policy_reason: subagent review の Blocker を受け、checked tree builder validation と fuel contract を source policy に追加した。`InvalidOperation` は現段階の std error enum に合わせた最小の typed failure であり、diagnostic 表示文字列へ依存しない。将来の user-facing diagnostic slice では `SelfhostCheckedTreeBuildError` のような専用 enum へ分ける余地を残す。
+- doc_issue_note: `todo.md` keeps the next slice as reducer-side `SelfhostCheckedExprTree` generation and replacement of summary payloads with `CheckedExpr` ids.
+
+## subagent review
+
+- 019e9b11-8ecf-77b1-82a4-f1150d214189:
+  - Blocker: none after fixes. The previous blocker about unchecked constructor visibility and DAG invariant enforcement is closed.
+  - Non-blocker: `StdErrorKind::InvalidOperation` currently collapses future node, self-reference, and broken range details. A dedicated `SelfhostCheckedTreeBuildError` can be added when diagnostics are surfaced.
+  - Question: none.
+  - Approve: merge-quality implementation; Zenn policy points for Result/enum error, source re-read ban, owner boundary, DAG module split, doc comment, and no line/comment restriction are satisfied.
+- 019e9b23-11f6-77f1-bf82-7aa52185f6e3:
+  - Blocker: none.
+  - Non-blocker: reducer connection remains the next slice; cycle/missing-node behavior for corrupted serialized trees should be revisited when artifact restoration is implemented.
+  - Question: none.
+  - Approve: checked tree lowering consumes checked payload only, no source token / scope lookup / candidate collection retry was found, and fuel-based `CheckedTreeCycleDetected` is pinned by contract tests.
+- classification / decision / source_policy / verify: both subagent reviews classify this slice as approved; the earlier Blocker was fixed in implementation and source_policy; verification includes focused contracts, doctests, source policy, issue check/index, and whitespace check.
+
+## zenn_check
+
+- Result/Option: id / range constructors return `Result` for invalid external input, tree accessors return `Option`, and lowering reports typed `Result::Err` variants instead of sentinel values.
+- enum error/display separation: checked tree lowering adds `CheckedTreeNodeMissing`, `CheckedTreeArgumentMissing`, and `CheckedTreeCycleDetected`; range construction uses `SelfhostCheckedTreeRangeBuildError`; display text is not used for control flow.
+- match exhaustiveness: checked tree node kind, checked argument kind, range build errors, and lowering errors are all represented as enum variants and consumed through explicit branches pinned by source policy.
+- pure/impure boundary: the selfhost compiler core receives module/tree/value owners through arguments and returns updated owners through Result values; no FileSystem, StdIO, host authority, or platform boundary is introduced.
+- authority boundary: HIR lowering consumes selected candidates, checked argument ranges, typed ids, and checked payloads; it does not re-open source text, prefix tokens, scope lookup, value evidence lookup, or callable candidate collection.
+- owner/free: owner-backed `Vec` storage stays in `SelfhostCheckedExprTree`; `SelfhostCheckedArgumentKind::CheckedExpr` carries only `SelfhostCheckedExprId`, so Copy payloads do not own or free tree storage.
+- zero-cost/performance: nested expression lowering follows prechecked ids and ranges, so the expensive search space is bounded to the checked tree shape rather than reopening parser/checker candidate search.
+- doc comment: `checked_tree_id.nepl`, `checked_tree.nepl`, `argument_payload.nepl`, and `direct_call.nepl` document purpose, contract, result branches, failure conditions, ownership, DAG invariant, fuel fallback, current limitation, and doctest examples. No 行数制限, file-size gate, comment-volume gate, or doc comment 長制限 was introduced.
+- prototype/fail-closed: the public checked tree builder rejects invalid ids and ranges instead of accepting a temporary weak model. The issue remains open for reducer connection, generic inference, trait solving, indirect call, and `memo_call` rather than pretending this checkpoint completes expression checking.
+
+## evidence_to_record
+
+- note: this checkpoint records the Zenn 記事 URL, AGENTS.md policy, branch, issue / slice, subagent IDs, Blocker / Non-blocker / Question / Approve classification, source_policy status, verify commands, existing warnings, current-diff warnings, and next slice.
+- issue: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md` records the checked tree checkpoint and keeps the issue open for reducer connection and later higher-order work.
+- todo: `todo.md` keeps reducer-generated checked tree wiring as the next selfhost task.
+- source policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js`, `nodesrc/test_selfhost_hir_lowering_contract.js`, `nodesrc/test_selfhost_documentation_contract.js`, and `nodesrc/test_source_policy_no_line_count_limits.js` pin the source policy for this slice; `nodesrc/run_source_policy_regressions.js --warn-only` is part of verification.
+- tests: focused contract tests, checked tree doctests, direct-call lowering doctests, selfhost check/lower suites, issue check/index, source-policy regressions, review gate, `nodesrc/selfhost_zenn_review_response_check.js`, and `git diff --check` are the acceptance evidence.
+
+## warnings
+
+- existing_warnings: Node WASI `ExperimentalWarning` appears in doctest/source-policy runs; Git may report LF to CRLF replacement warnings for modified text files. These are existing environment warnings and not introduced by this slice.
+- new_warnings: none
+- 既存 warning: Node WASI `ExperimentalWarning`; Git LF to CRLF replacement warnings.
+- 今回差分由来 warning: none
+
+## summary
+
+- blockers: none
+- non_blockers: dedicated checked tree build error enum and serialized artifact validation are future improvements, not blockers for this owner-backed API slice.
+- questions: none
+- approve: approved by two subagent reviews and local verification
+- residual_risk: reducer still needs to generate `SelfhostCheckedExprTree`; until that slice lands, legacy `NestedDirectCall` / `BlockResult` summary arguments remain fail-closed in the legacy lowering path.
+- unexecuted_verification: none
+- 検証済み: focused contract tests, checked tree doctests, direct-call lowering doctests, selfhost check/lower suites, review gate, source policy, issue index/check, and whitespace check.
+- 行数制限: not added
+- doc comment 長制限: not added
+- 次 slice: reducer generates `SelfhostCheckedExprTree` and replaces `NestedDirectCall` / `BlockResult` summary argument payloads with `CheckedExpr` ids without source token re-read.
+
 # 2026-06-06 Agent selfhost string literal escape decode checkpoint
 
 ## review_scope

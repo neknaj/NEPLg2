@@ -83,7 +83,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-06: string literal payload の escape decode を追加した。Rust string literal と同じ `\n` / `\r` / `\t` / `\\` / `\"` / `\0` / `\xHH` だけを semantic `str` へ decode し、char 専用の `\b` / `\f` / `\'` / `\u{...}` は `StringEscapeUnsupported` として fail-closed にした。escape なしは `str_slice_result` fast path のまま、escape ありは `StringBuilder` owner path で `StringEscapeMalformed` / `StringBuildFailed` / `StringSliceFailed` を typed error として分けた。`SelfhostCheckedArgumentKind::StrLiteral` が decode 済み value を持つため、HIR lowering は source token を再読しない。
 - 2026-06-06: numeric literal payload の Rust parity slice として、source-backed checker が接頭辞なし 10 進 `IntLiteral` と `0x` / `0X` 16 進 `IntLiteral` を semantic `i32` payload へ正規化するようにした。`SelfhostLiteralI32RadixPlan` が token-local lexeme から radix と digit body 範囲を分け、接頭辞除去後の body を `string::to_i32_radix` に渡す。空 hex body、無効 digit、decimal / hex overflow は `I32Invalid`、将来同一 token として渡る未対応 `0b` / `0o` は `I32RadixUnsupported` へ fail-closed にする。suffix は現行 Rust/selfhost lexer とも numeric token に含めないため checker が token 外へ後読みせず、別 item として後続 checker が扱う境界を source policy で固定した。subagent review `019e9b11-8ecf-77b1-82a4-f1150d214189` は suffix/defaulting を先行実装せず token-local numeric payload authority へ絞る判断を承認した。
 - 2026-06-06: 負数 numeric literal の source-backed consume-width を追加した。`syntax/ast/prefix_expr.nepl` は `Minus` を `MinusMarker` として 1 token item のまま保持し、source-backed argument checker が `MinusMarker + IntLiteral/FloatLiteral` だけを expected type と照合して 2 item を 1 checked argument として消費する。operand 欠落、非 numeric operand、span 結合失敗、expected type mismatch は `NegativeLiteral*` / `ArgumentNegativeLiteral*` error として分ける。literal payload は joined span を診断範囲として使い、semantic lexeme は operand token spelling と `-` の連結で作るため、`- 1` の token 間 whitespace を数値 parser へ渡さない。HIR lowering は既存の literal checked payload を消費するため source token を再読しない。
-- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-06: `check/expr/checked_tree_id.nepl` と `check/expr/checked_tree.nepl` を追加し、複合 expression の checked payload を owner 付き tree table へ保存するモデルを固定した。`SelfhostCheckedExprId` と `SelfhostCheckedArgumentRange` は sentinel を使わず typed id / typed range とし、範囲構築失敗は `SelfhostCheckedTreeRangeBuildError` で分類する。unchecked constructor は module private helper に落とし、外部入力や serialized boundary は `*_new_result` と bounded range constructor を通す。`SelfhostCheckedArgumentKind::CheckedExpr` は tree node id だけを持つ Copy payload とし、owner 付き Vec を argument enum へ入れない。tree builder は `DirectCall` argument range、`CheckedExpr` child id、`BlockResult` body id が追加前の既存 node だけを参照することを append 前に検査し、future id / self-reference / broken range は `StdErrorKind::InvalidOperation` として fail-closed にする。`lower/hir/direct_call.nepl` には `selfhost_hir_lower_checked_tree_expr` を追加し、checked tree の `DirectCall` node を selected candidate + checked argument range から HIR `Call` へ、`BlockResult` node を body expression id から HIR `Block` へ下ろす。lowering は source token、scope lookup、callable candidate collection を再実行せず、壊れた node / argument range は `CheckedTreeNodeMissing` / `CheckedTreeArgumentMissing`、fuel exhaustion は `CheckedTreeCycleDetected` として fail-closed にする。Zenn 方針に照らした subagent review `019e9b11-8ecf-77b1-82a4-f1150d214189` と `019e9b23-11f6-77f1-bf82-7aa52185f6e3` は、前回の DAG invariant blocker が閉じていることを確認し、この slice を approve した。
+- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、reducer が `SelfhostCheckedExprTree` を生成して `NestedDirectCall` / `BlockResult` summary argument を tree node id payload に接続する処理、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -145,6 +146,23 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/ast/prefix_expr.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-negative-prefix-expr.json`
 - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-negative-literal.json`
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_negative_literal.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-negative-literal-tests.json`
+
+2026-06-06 checked tree HIR lowering checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- `node nodesrc/test_selfhost_documentation_contract.js`
+- `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- `node nodesrc/test_source_policy_no_line_count_limits.js`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/checked_tree_id.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-checked-tree-id.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/checked_tree.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-checked-tree.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/direct_call.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-direct-call-tree.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-checked-tree.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-tree-lowering.json`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `node nodesrc/issues.js index --dir issues`
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
 
 2026-06-05 type resolver input checkpoint:
 

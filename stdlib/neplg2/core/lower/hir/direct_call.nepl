@@ -14,7 +14,8 @@
 //: - 入力 module は owner として受け取り、成功時は `SelfhostHirModuleExprAlloc` の中で更新済み owner を返します。
 //: - 失敗時は入力 module owner と、この module が作った一時 Vec owner を解放してから typed error を返します。
 //: - `UnitValue`、bool / i32 / f32 / char / string literal、`NamedValue`、`FunctionValue` argument は accepted HIR lowering です。
-//: - `TypedExpression`、`NestedDirectCall`、`BlockResult` は、この module が必要な checked tree payload を受け取るまでは `UnsupportedArgumentKind` として fail-closed にします。
+//: - 従来の `selfhost_hir_lower_direct_call_result` 経路では、tree node id を持たない `TypedExpression` / `NestedDirectCall` / `BlockResult` summary argument を `UnsupportedArgumentKind` として fail-closed にします。
+//: - `SelfhostCheckedArgumentKind::CheckedExpr` を含む複合 expression は、`SelfhostCheckedExprTree` を受け取る `selfhost_hir_lower_checked_tree_expr` 経路で HIR `Call` / `Block` へ下ろします。
 //: - string literal は `check/expr/literal_payload.nepl` が quote 除去と対応済み escape decode を終えた `StrLiteral` payload として渡します。この module は raw lexeme を再解析しません。
 //: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
 //:
@@ -167,6 +168,114 @@
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/argument_payload" as *
+//:| #import "neplg2/core/check/expr/call_candidate" as *
+//:| #import "neplg2/core/check/expr/checked_tree" as *
+//:| #import "neplg2/core/check/expr/checked_tree_id" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/lower/hir" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 4 10 20
+//:     let ty %SelfhostTypeId selfhost_type_id_new 6
+//:     let inner_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "inner" selfhost_def_id_new 44 ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     let outer_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "outer" selfhost_def_id_new 45 ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     match selfhost_checked_expr_tree_new:
+//:         Result::Ok tree0:
+//:             let inner_args %Vec SelfhostCheckedArgument unwrap_ok v::new
+//:             match selfhost_checked_expr_tree_add_direct_call tree0 inner_candidate ty span inner_args:
+//:                 Result::Ok inner_alloc:
+//:                     let inner_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &inner_alloc
+//:                     let tree1 %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree inner_alloc
+//:                     let outer_arg %SelfhostCheckedArgument selfhost_checked_argument_checked_expr 1 2 ty span inner_id
+//:                     let outer_args0 %Vec SelfhostCheckedArgument unwrap_ok v::new
+//:                     let outer_args1 %Vec SelfhostCheckedArgument unwrap_ok v::push outer_args0 outer_arg
+//:                     match selfhost_checked_expr_tree_add_direct_call tree1 outer_candidate ty span outer_args1:
+//:                         Result::Ok outer_alloc:
+//:                             let outer_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &outer_alloc
+//:                             let tree2 %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree outer_alloc
+//:                             match selfhost_hir_module_new:
+//:                                 Result::Ok module0:
+//:                                     match selfhost_hir_lower_checked_tree_expr module0 &tree2 outer_id span:
+//:                                         Result::Ok hir_alloc:
+//:                                             let root_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &hir_alloc
+//:                                             let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module hir_alloc
+//:                                             let checks1 checks_push checks0 check_eq_i32 2 selfhost_hir_module_expr_len &module1
+//:                                             match selfhost_hir_module_get_expr &module1 root_id:
+//:                                                 Option::Some root_expr:
+//:                                                     let checks2 checks_push checks1 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &root_expr SelfhostHirExprKind::Call
+//:                                                     let root_range %SelfhostHirChildRange selfhost_hir_expr_child_range &root_expr
+//:                                                     let checks3 checks_push checks2 check_eq_i32 1 selfhost_hir_child_range_count root_range
+//:                                                     match selfhost_hir_module_get_child &module1 root_range 0:
+//:                                                         Option::Some child_id:
+//:                                                             match selfhost_hir_module_get_expr &module1 child_id:
+//:                                                                 Option::Some child_expr:
+//:                                                                     let checks4 checks_push checks3 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &child_expr SelfhostHirExprKind::Call
+//:                                                                     selfhost_hir_module_free module1
+//:                                                                     selfhost_checked_expr_tree_free tree2
+//:                                                                     let shown checks_print_report checks4
+//:                                                                     checks_exit_code shown
+//:                                                                 Option::None:
+//:                                                                     let checks4 checks_push checks3 Result::Err "missing child expr"
+//:                                                                     selfhost_hir_module_free module1
+//:                                                                     selfhost_checked_expr_tree_free tree2
+//:                                                                     let shown checks_print_report checks4
+//:                                                                     checks_exit_code shown
+//:                                                         Option::None:
+//:                                                             let checks4 checks_push checks3 Result::Err "missing child id"
+//:                                                             selfhost_hir_module_free module1
+//:                                                             selfhost_checked_expr_tree_free tree2
+//:                                                             let shown checks_print_report checks4
+//:                                                             checks_exit_code shown
+//:                                                 Option::None:
+//:                                                     let checks2 checks_push checks1 Result::Err "missing root expr"
+//:                                                     selfhost_hir_module_free module1
+//:                                                     selfhost_checked_expr_tree_free tree2
+//:                                                     let shown checks_print_report checks2
+//:                                                     checks_exit_code shown
+//:                                         Result::Err _error:
+//:                                             selfhost_checked_expr_tree_free tree2
+//:                                             let checks1 checks_push checks0 Result::Err "checked tree lowering failed"
+//:                                             let shown checks_print_report checks1
+//:                                             checks_exit_code shown
+//:                                 Result::Err _e:
+//:                                     selfhost_checked_expr_tree_free tree2
+//:                                     let checks1 checks_push checks0 Result::Err "HIR module allocation failed"
+//:                                     let shown checks_print_report checks1
+//:                                     checks_exit_code shown
+//:                         Result::Err _e:
+//:                             let checks1 checks_push checks0 Result::Err "outer tree node allocation failed"
+//:                             let shown checks_print_report checks1
+//:                             checks_exit_code shown
+//:                 Result::Err _e:
+//:                     let checks1 checks_push checks0 Result::Err "inner tree node allocation failed"
+//:                     let shown checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "tree allocation failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
 
 #import "alloc/collections/vec" as v
 #import "core/char" as *
@@ -178,6 +287,8 @@
 #import "neplg2/core/check/expr/argument_payload" as *
 #import "neplg2/core/check/expr/body_line" as *
 #import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/check/expr/checked_tree" as *
+#import "neplg2/core/check/expr/checked_tree_id" as *
 #import "neplg2/core/check/expr/model" as *
 #import "neplg2/core/hir/hir" as *
 #import "neplg2/core/infra/span" as *
@@ -193,8 +304,9 @@
 //: - `NotDirectCall` は、呼び出し側が direct call 以外の reduce result をこの module に渡した場合です。
 //: - `SelectedCandidateMissing` は、reducer が保持した candidate index が candidate table に存在しない場合です。
 //: - `CheckedArgumentCountMismatch` と `CheckedArgumentMissing` は、reducer の argument count と checked argument list の整合性が壊れている場合です。
-//: - `UnsupportedArgumentKind` は、`TypedExpression`、`NestedDirectCall`、`BlockResult` など、現 checkpoint で HIR child payload が不足している argument を fail-closed した場合です。
+//: - `UnsupportedArgumentKind` は、`TypedExpression`、tree node id を持たない `NestedDirectCall` / `BlockResult` summary など、HIR child payload が不足している argument を fail-closed した場合です。
 //: - `FunctionValueFailed` は、`@ident` function value lowering が monomorphic candidate 以外を拒否した場合など、function value 専用 error を包みます。
+//: - `CheckedTreeNodeMissing`、`CheckedTreeCycleDetected`、`CheckedTreeArgumentMissing` は、checked expression tree の node / recursion / argument range が壊れている場合です。
 //: - `ChildIdsAllocFailed`、`ChildExprAllocFailed`、`ChildIdPushFailed`、`ChildRangeAllocFailed`、`ParentCallAllocFailed` は、HIR module または一時 Vec の owner 境界で起きた allocation failure です。
 //:
 //: [契約/けいやく]:
@@ -208,6 +320,9 @@ pub enum SelfhostDirectCallLowerErrorKind:
     CheckedArgumentMissing
     UnsupportedArgumentKind
     FunctionValueFailed %SelfhostFunctionValueLowerErrorKind
+    CheckedTreeNodeMissing
+    CheckedTreeCycleDetected
+    CheckedTreeArgumentMissing
     ChildIdsAllocFailed
     ChildExprAllocFailed
     ChildIdPushFailed
@@ -323,6 +438,24 @@ pub fn selfhost_direct_call_lower_error_kind_eq %fn SelfhostDirectCallLowerError
             match b:
                 SelfhostDirectCallLowerErrorKind::FunctionValueFailed b_kind:
                     selfhost_function_value_lower_error_kind_eq a_kind b_kind
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing:
+            match b:
+                SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::CheckedTreeCycleDetected:
+            match b:
+                SelfhostDirectCallLowerErrorKind::CheckedTreeCycleDetected:
+                    true
+                _:
+                    false
+        SelfhostDirectCallLowerErrorKind::CheckedTreeArgumentMissing:
+            match b:
+                SelfhostDirectCallLowerErrorKind::CheckedTreeArgumentMissing:
+                    true
                 _:
                     false
         SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed:
@@ -581,6 +714,214 @@ fn selfhost_hir_lower_direct_call_plan %impure fn SelfhostHirModule impure fn Se
                             Result::Err e
                 Result::Err _e:
                     selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed call.span
+
+//: selfhost_hir_lower_checked_tree_argument: checked tree 内の 1 argument を HIR expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `CheckedExpr` argument は同じ checked tree 内の expression node を再帰的に lowering し、それ以外の simple payload は既存の checked argument lowering に委譲します。
+//:
+//: [契約/けいやく]:
+//: - `CheckedExpr` の `expr_id` は `tree` 内の node id として扱います。見つからない場合は argument 自身の span を diagnostic fallback として使います。
+//: - `fuel` は caller が現在 node を消費した後の残り recursion budget です。0 以下なら checked tree cycle として拒否されます。
+//: - source token、scope lookup、candidate collection は再実行しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: argument expression が HIR module に追加されました。
+//: - `Err(error)`: checked tree lookup または simple payload lowering に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - `CheckedExpr` では参照先 expression tree の大きさに比例します。simple payload では `selfhost_hir_lower_checked_argument` のコストに従います。
+fn selfhost_hir_lower_checked_tree_argument %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedArgument impure fn i32 Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\argument\fuel:
+    match argument.kind:
+        SelfhostCheckedArgumentKind::CheckedExpr expr_id:
+            selfhost_hir_lower_checked_tree_expr_with_fuel module tree expr_id argument.span fuel
+        _:
+            selfhost_hir_lower_checked_argument module argument
+
+//: selfhost_hir_lower_checked_tree_argument_range: checked tree argument range を HIR child list へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - checked expression tree の argument table に保存された checked argument list を、HIR parent call の child expression list へ変換します。
+//: - lowering は `SelfhostCheckedArgumentRange` と `SelfhostCheckedArgument` payload だけを読み、source token や scope lookup を再実行しません。
+//:
+//: [契約/けいやく]:
+//: - `idx` は range 内の相対 index です。
+//: - `fuel` は child expression に渡す recursion budget です。
+//: - argument range が壊れている場合は `CheckedTreeArgumentMissing` として fail-closed にし、dummy child を作りません。
+//: - 途中で child lowering が失敗した場合は、この関数が保持している child id Vec owner を解放します。module owner の扱いは下位 lowering の契約に従います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(state)`: `state.module` に全 child expression が追加され、`state.child_ids` は parent call の child range に使えます。
+//: - `Err(error)`: argument lookup、child expression 追加、child id push のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - range 内の argument 数 n に対して O(n) です。各 argument の lowering コストは payload variant に依存します。
+fn selfhost_hir_lower_checked_tree_argument_range %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedArgumentRange impure fn i32 impure fn SelfhostSourceSpan impure fn i32 Result SelfhostDirectCallArgumentLowerState SelfhostDirectCallLowerError \module\child_ids\tree\argument_range\idx\call_span\fuel:
+    let argument_count %i32 selfhost_checked_argument_range_count argument_range
+    if:
+        ge idx argument_count
+        then:
+            Result::Ok selfhost_direct_call_argument_lower_state_new module child_ids
+        else:
+            match selfhost_checked_expr_tree_get_argument tree argument_range idx:
+                Option::Some argument:
+                    match selfhost_hir_lower_checked_tree_argument module tree argument fuel:
+                        Result::Ok alloc:
+                            let expr_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc
+                            let next_module %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc
+                            match v::push child_ids expr_id:
+                                Result::Ok next_child_ids:
+                                    selfhost_hir_lower_checked_tree_argument_range next_module next_child_ids tree argument_range add idx 1 call_span fuel
+                                Result::Err e:
+                                    selfhost_hir_module_free next_module
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildIdPushFailed call_span
+                        Result::Err e:
+                            v::free child_ids
+                            Result::Err e
+                Option::None:
+                    selfhost_direct_call_lower_free_state_error module child_ids SelfhostDirectCallLowerErrorKind::CheckedTreeArgumentMissing call_span
+
+//: selfhost_hir_lower_checked_tree_direct_call_node: checked direct call node を HIR call expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - checked tree node に保存された selected candidate と argument range から、HIR child expressions と parent `Call` expression を作ります。
+//:
+//: [契約/けいやく]:
+//: - `call_payload.candidate` が callee identity の authority です。lowering は name scope や candidate table を再探索しません。
+//: - `node.ty` は parent call expression の result type として使います。
+//: - `fuel` は child expression に渡す recursion budget です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: parent call expression が HIR module に追加されました。
+//: - `Err(error)`: child lowering、child range allocation、parent call allocation のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - child argument 数 n に対して O(n) です。
+fn selfhost_hir_lower_checked_tree_direct_call_node %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprNode impure fn SelfhostCheckedDirectCall impure fn i32 Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\node\call_payload\fuel:
+    let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+    match child_ids_result:
+        Result::Ok child_ids:
+            match selfhost_hir_lower_checked_tree_argument_range module child_ids tree call_payload.arguments 0 node.span fuel:
+                Result::Ok state:
+                    let child_module %SelfhostHirModule field::get state "module"
+                    let lowered_child_ids %Vec SelfhostHirExprId field::get state "child_ids"
+                    match selfhost_hir_module_add_child_range child_module lowered_child_ids:
+                        Result::Ok range_alloc:
+                            let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                            let parent_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                            let parent_expr %SelfhostHirExpr selfhost_hir_expr_call node.ty node.span call_payload.candidate.name child_range
+                            match selfhost_hir_module_add_expr parent_module parent_expr:
+                                Result::Ok alloc:
+                                    Result::Ok alloc
+                                Result::Err _e:
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed node.span
+                        Result::Err _e:
+                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed node.span
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed node.span
+
+//: selfhost_hir_lower_checked_tree_block_result_node: checked block result node を HIR block expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - trailing block argument の body result expression を先に HIR へ下ろし、それを 1 child の `Block` expression として包みます。
+//:
+//: [契約/けいやく]:
+//: - `body_expr` は同じ checked tree 内の node id です。見つからない場合は再検査せず `CheckedTreeNodeMissing` を返します。
+//: - block body を parent call の flat argument list へ混ぜず、HIR 上でも `Block` node として境界を残します。
+//: - `fuel` は body expression に渡す recursion budget です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: HIR block expression が module に追加されました。
+//: - `Err(error)`: body expression lowering、child id Vec、child range、block expr allocation のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - body expression lowering のコストに 1 child の range allocation を加えたものです。
+fn selfhost_hir_lower_checked_tree_block_result_node %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprNode impure fn SelfhostCheckedExprId impure fn i32 Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\node\body_expr\fuel:
+    match selfhost_hir_lower_checked_tree_expr_with_fuel module tree body_expr node.span fuel:
+        Result::Ok body_alloc:
+            let body_hir_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &body_alloc
+            let body_module %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module body_alloc
+            let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+            match child_ids_result:
+                Result::Ok child_ids0:
+                    match v::push child_ids0 body_hir_id:
+                        Result::Ok child_ids1:
+                            match selfhost_hir_module_add_child_range body_module child_ids1:
+                                Result::Ok range_alloc:
+                                    let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                                    let block_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                                    let block_expr %SelfhostHirExpr selfhost_hir_expr_block node.ty node.span child_range
+                                    match selfhost_hir_module_add_expr block_module block_expr:
+                                        Result::Ok alloc:
+                                            Result::Ok alloc
+                                        Result::Err _e:
+                                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed node.span
+                                Result::Err _e:
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed node.span
+                        Result::Err e:
+                            selfhost_hir_module_free body_module
+                            v::free v::vec_push_error_vec e
+                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildIdPushFailed node.span
+                Result::Err _e:
+                    selfhost_direct_call_lower_free_module_error body_module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed node.span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_hir_lower_checked_tree_expr_with_fuel: cycle 検出つき checked tree node lowering
+//:
+//: [目的/もくてき]:
+//: - public entry が与えた recursion budget を使い、手作り tree や壊れた serialized tree が cycle を持っていても非停止せず typed error で止めます。
+//:
+//: [契約/けいやく]:
+//: - `fuel <= 0` の場合は `CheckedTreeCycleDetected` を返します。
+//: - node lookup に失敗した場合は `CheckedTreeNodeMissing` として fail-closed にし、`fallback_span` を diagnostic span として使います。
+//: - direct call node は selected candidate と checked argument range を authority とします。
+//: - block result node は body expression id を authority とし、HIR `Block` node として境界を保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: HIR expression が module に追加されました。
+//: - `Err(error)`: checked tree lookup または HIR allocation / child lowering に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - direct call node では child argument 数に比例します。block result node では body expression lowering のコストに比例します。
+fn selfhost_hir_lower_checked_tree_expr_with_fuel %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\expr_id\fallback_span\fuel:
+    if:
+        le fuel 0
+        then:
+            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::CheckedTreeCycleDetected fallback_span
+        else:
+            let next_fuel %i32 sub fuel 1
+            match selfhost_checked_expr_tree_get_node tree expr_id:
+                Option::Some node:
+                    match node.kind:
+                        SelfhostCheckedExprNodeKind::DirectCall call_payload:
+                            selfhost_hir_lower_checked_tree_direct_call_node module tree node call_payload next_fuel
+                        SelfhostCheckedExprNodeKind::BlockResult body_expr:
+                            selfhost_hir_lower_checked_tree_block_result_node module tree node body_expr next_fuel
+                Option::None:
+                    selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing fallback_span
+
+//: selfhost_hir_lower_checked_tree_expr: checked expression tree node を HIR expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - checked tree に保存された複合 expression node を、source 再読なしで HIR expression へ下ろします。
+//: - nested direct call と block result の両方をこの入口で扱い、direct call lowering の recursive child として再利用します。
+//:
+//: [契約/けいやく]:
+//: - recursion budget は `tree.nodes` の個数から作ります。DAG なら各 path は node 数以内で終わるため、budget を使い切った場合は cycle または壊れた tree として拒否します。
+//: - node lookup に失敗した場合は `CheckedTreeNodeMissing` として fail-closed にし、`fallback_span` を diagnostic span として使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: HIR expression が module に追加されました。
+//: - `Err(error)`: checked tree lookup、cycle detection、または HIR allocation / child lowering に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - acyclic tree では到達 node と child argument 数に比例します。cycle を含む壊れた tree では node 数を上限に停止します。
+pub fn selfhost_hir_lower_checked_tree_expr %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprId impure fn SelfhostSourceSpan Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\expr_id\fallback_span:
+    selfhost_hir_lower_checked_tree_expr_with_fuel module tree expr_id fallback_span selfhost_checked_expr_tree_node_len tree
 
 //: selfhost_hir_lower_direct_call_result: call reduction result を HIR call expression へ[変換/へんかん]する
 //:

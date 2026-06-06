@@ -39,7 +39,9 @@ pub #import "./expr/expectation" as *
 pub #import "./expr/call_candidate" as *
 pub #import "./expr/candidate_collection" as *
 pub #import "./expr/value_evidence" as *
+pub #import "./expr/checked_tree_id" as *
 pub #import "./expr/argument_payload" as *
+pub #import "./expr/checked_tree" as *
 pub #import "./expr/literal_payload" as *
 pub #import "./expr/model" as *
 pub #import "./expr/argument" as *

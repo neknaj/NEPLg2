@@ -198,8 +198,43 @@ assert.match(
 );
 assert.match(
     source,
-    /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*BoolLiteral %bool[\s\S]*I32Literal %i32[\s\S]*F32Literal %f32[\s\S]*CharLiteral %char[\s\S]*StrLiteral %str[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
-    "checked argument payload must preserve literal value, function value, nested call, block-result, range, type, and span evidence",
+    /# check\/expr\/argument_payload[\s\S]*pub struct SelfhostCheckedValueIdentity:[\s\S]*name %str[\s\S]*def_id %SelfhostDefId[\s\S]*kind %SelfhostDefKind[\s\S]*pub enum SelfhostCheckedArgumentKind:[\s\S]*UnitValue[\s\S]*BoolLiteral %bool[\s\S]*I32Literal %i32[\s\S]*F32Literal %f32[\s\S]*CharLiteral %char[\s\S]*StrLiteral %str[\s\S]*NamedValue %SelfhostCheckedValueIdentity[\s\S]*TypedExpression[\s\S]*FunctionValue %SelfhostCallableCandidate[\s\S]*CheckedExpr %SelfhostCheckedExprId[\s\S]*NestedDirectCall %SelfhostCallableCandidate[\s\S]*BlockResult[\s\S]*pub struct SelfhostCheckedArgument:[\s\S]*kind %SelfhostCheckedArgumentKind[\s\S]*start_index %i32[\s\S]*next_index %i32[\s\S]*value_type %SelfhostTypeId[\s\S]*span %SelfhostSourceSpan/,
+    "checked argument payload must preserve literal value, function value, checked tree expression ids, nested call, block-result, range, type, and span evidence",
+);
+assert.match(
+    source,
+    /# check\/expr\/checked_tree_id[\s\S]*pub struct SelfhostCheckedExprId:[\s\S]*index %i32[\s\S]*pub enum SelfhostCheckedArgumentRange:[\s\S]*Empty[\s\S]*Range %SelfhostCheckedArgumentRangeItems[\s\S]*pub enum SelfhostCheckedTreeRangeBuildError:[\s\S]*NegativeFirst[\s\S]*NegativeCount[\s\S]*NonCanonicalEmpty[\s\S]*EndOverflow[\s\S]*OutOfBounds/,
+    "checked tree ids and argument ranges must use typed ids, typed ranges, and typed build errors instead of sentinel values",
+);
+assert.doesNotMatch(
+    source,
+    /pub fn selfhost_checked_(?:expr_id|argument_range)_new_unchecked\b/,
+    "checked tree unchecked id/range constructors must not be public API",
+);
+assert.match(
+    source,
+    /# check\/expr\/checked_tree[\s\S]*pub struct SelfhostCheckedDirectCall:[\s\S]*candidate %SelfhostCallableCandidate[\s\S]*arguments %SelfhostCheckedArgumentRange[\s\S]*pub enum SelfhostCheckedExprNodeKind:[\s\S]*DirectCall %SelfhostCheckedDirectCall[\s\S]*BlockResult %SelfhostCheckedExprId[\s\S]*pub struct SelfhostCheckedExprTree:[\s\S]*nodes %Vec SelfhostCheckedExprNode[\s\S]*arguments %Vec SelfhostCheckedArgument/,
+    "checked tree must own complex expression nodes and argument payload tables separately from Copy checked argument summaries",
+);
+assert.match(
+    source,
+    /fn selfhost_checked_expr_node_refs_existing_before_append[\s\S]*SelfhostCheckedExprNodeKind::DirectCall call_payload:[\s\S]*selfhost_checked_argument_range_new_bounded_result[\s\S]*selfhost_checked_argument_range_refs_existing_before_append[\s\S]*SelfhostCheckedExprNodeKind::BlockResult body_expr:[\s\S]*selfhost_checked_expr_id_is_existing_before_append/,
+    "checked tree node insertion must validate argument ranges and require CheckedExpr/BlockResult references to point to existing nodes before append",
+);
+assert.match(
+    source,
+    /pub fn selfhost_checked_expr_tree_add_argument_range[\s\S]*not selfhost_checked_argument_vec_refs_existing_before_append[\s\S]*StdErrorKind::InvalidOperation[\s\S]*selfhost_checked_argument_range_new_bounded_result/,
+    "checked tree argument-range insertion must reject future/self CheckedExpr ids and build bounded typed ranges",
+);
+assert.match(
+    source,
+    /pub fn selfhost_checked_expr_tree_add_direct_call[\s\S]*selfhost_checked_expr_tree_add_argument_range tree arguments_to_add[\s\S]*selfhost_checked_expr_node_direct_call result_type span candidate argument_range[\s\S]*selfhost_checked_expr_tree_add_node next_tree node/,
+    "checked tree direct-call insertion must validate and copy checked arguments into the tree-owned argument table before storing a selected candidate node",
+);
+assert.match(
+    source,
+    /pub fn selfhost_checked_expr_tree_get_argument[\s\S]*SelfhostCheckedArgumentRange::Empty:[\s\S]*none[\s\S]*SelfhostCheckedArgumentRange::Range range:[\s\S]*or lt idx 0 ge idx range\.argument_count[\s\S]*v::get arguments add range\.first_argument idx/,
+    "checked tree argument lookup must bounds-check typed ranges and fail closed with Option::None",
 );
 assert.match(
     argumentPayload,
@@ -211,7 +246,8 @@ assertArgumentPayloadDoc("SelfhostCheckedArgumentKind", "pub enum", [
     "[分類/ぶんるい]",
     "[現状/げんじょう]",
     "`TypedExpression` は、型照合は済んでいるが",
-    "`NestedDirectCall` と `BlockResult` は candidate や範囲の evidence だけを持つため",
+    "`NestedDirectCall` と `BlockResult` は candidate や範囲の summary evidence だけを持つため",
+    "detailed tree payload は `SelfhostCheckedExprTree`",
 ]);
 assertArgumentPayloadDoc("SelfhostCheckedArgument", "pub struct", [
     "[目的/もくてき]",
@@ -225,19 +261,27 @@ assertArgumentPayloadDoc("selfhost_checked_argument_typed_expression", "pub fn",
     "[計算量/けいさんりょう]",
     "f32 / char literal は専用 payload 実装済みなので",
 ]);
+assertArgumentPayloadDoc("selfhost_checked_argument_checked_expr", "pub fn", [
+    "[目的/もくてき]",
+    "[契約/けいやく]",
+    "[計算量/けいさんりょう]",
+    "source token、scope lookup、callable candidate collection を再実行しません",
+    "同じ `SelfhostCheckedExprTree` 内の node id",
+]);
 assertArgumentPayloadDoc("selfhost_checked_argument_nested_direct_call", "pub fn", [
     "[目的/もくてき]",
     "[現状/げんじょう]",
     "[契約/けいやく]",
     "[計算量/けいさんりょう]",
     "lowering は名前文字列から候補を再探索してはいけません",
+    "full payload は `SelfhostCheckedExprTree`",
 ]);
 assertArgumentPayloadDoc("selfhost_checked_argument_block_result", "pub fn", [
     "[目的/もくてき]",
     "[現状/げんじょう]",
     "[契約/けいやく]",
     "[計算量/けいさんりょう]",
-    "direct-call lowering は `UnsupportedArgumentKind` として拒否します",
+    "`selfhost_hir_lower_checked_tree_expr`",
 ]);
 assert.doesNotMatch(
     argumentPayload,

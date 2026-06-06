@@ -15,7 +15,8 @@
 //: - `StrLiteral` は、source-backed checker が quote 除去と対応済み escape decode を行って得た意味値を保持します。この payload に raw quoted lexeme を入れてはいけません。
 //: - `NamedValue` は、scope と value type evidence で照合済みの値参照を、DefId-linked identity として表します。
 //: - `TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool / i32 / f32 / char / string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。
-//: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
+//: - `CheckedExpr` は、詳細な child argument payload を `check/expr/checked_tree.nepl` の tree owner に保存した複合 expression への参照です。
+//: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための旧 summary 分類です。新規の accepted lowering 経路では `CheckedExpr` と checked tree node を使います。
 //:
 //: [計算量/けいさんりょう]:
 //: - payload の構築と分類確認は O(1) です。
@@ -27,6 +28,7 @@
 #import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/ty/ty" as *
 #import "./call_candidate" as *
+#import "./checked_tree_id" as *
 
 //: SelfhostCheckedValueIdentity: checked argument として確定した値参照 identity
 //:
@@ -71,10 +73,12 @@ pub fn selfhost_checked_value_identity_new %fn str fn SelfhostDefId fn SelfhostD
 //: - `NamedValue` は、scope lookup と value type evidence によって DefId-linked value identity が確定した argument です。
 //: - `FunctionValue` は、明示 `@ident` が expected function type と照合され、一意の callable candidate として確定した argument です。
 //: - `TypedExpression` は、型照合は済んでいるが、現 checkpoint で HIR child を source 再読なしに構築する payload がまだない expression です。
-//: - `NestedDirectCall` と `BlockResult` は、argument が単一 item ではなく、後続 slice で checked tree payload を追加する必要がある分類です。
+//: - `CheckedExpr` は、argument が `SelfhostCheckedExprTree` 内の expression node として保存済みであることを示します。
+//: - `NestedDirectCall` と `BlockResult` は、argument が単一 item ではないことを示す旧 summary 分類です。source 再読なし HIR lowering に必要な child payload は `SelfhostCheckedExprTree` 側へ保存します。
 //:
 //: [現状/げんじょう]:
-//: - `NestedDirectCall` と `BlockResult` は candidate や範囲の evidence だけを持つため、direct-call HIR lowering では fail-closed にします。
+//: - `NestedDirectCall` と `BlockResult` は candidate や範囲の summary evidence だけを持つため、legacy checked argument lowering では fail-closed にします。
+//: - detailed tree payload は `SelfhostCheckedExprTree` と `CheckedExpr(SelfhostCheckedExprId)` の経路で扱います。この enum variant に owner 付き Vec を直接入れて Copy contract を壊してはいけません。
 //: - bool / i32 / f32 / char / string literal は専用 payload を持ちます。これらを `TypedExpression` へ戻すと、lowering が source token を再読する設計へ退行します。
 pub enum SelfhostCheckedArgumentKind:
     UnitValue
@@ -86,6 +90,7 @@ pub enum SelfhostCheckedArgumentKind:
     NamedValue %SelfhostCheckedValueIdentity
     TypedExpression
     FunctionValue %SelfhostCallableCandidate
+    CheckedExpr %SelfhostCheckedExprId
     NestedDirectCall %SelfhostCallableCandidate
     BlockResult
 
@@ -274,6 +279,22 @@ pub fn selfhost_checked_argument_named_value %fn i32 fn i32 fn SelfhostTypeId fn
 pub fn selfhost_checked_argument_function_value %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCallableCandidate SelfhostCheckedArgument \start_index\next_index\value_type\span\candidate:
     selfhost_checked_argument_new SelfhostCheckedArgumentKind::FunctionValue candidate start_index next_index value_type span
 
+//: selfhost_checked_argument_checked_expr: checked tree node 参照 argument を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - nested direct call や trailing block result など、単一 literal / value identity では表せない argument を checked expression tree node id として保持します。
+//: - HIR lowering はこの id を使って `SelfhostCheckedExprTree` を再帰的に読み、source token、scope lookup、callable candidate collection を再実行しません。
+//:
+//: [契約/けいやく]:
+//: - `expr_id` は同じ `SelfhostCheckedExprTree` 内の node id でなければなりません。別 tree の id を混ぜてはいけません。
+//: - `value_type` は referenced node の type と一致していなければなりません。lowering はこの型を再推論しません。
+//: - この constructor は id の存在を検査しません。tree 構築側は node 追加結果から id を受け取り、lowering 側は missing node を fail-closed error として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+pub fn selfhost_checked_argument_checked_expr %fn i32 fn i32 fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCheckedExprId SelfhostCheckedArgument \start_index\next_index\value_type\span\expr_id:
+    selfhost_checked_argument_new SelfhostCheckedArgumentKind::CheckedExpr expr_id start_index next_index value_type span
+
 //: selfhost_checked_argument_nested_direct_call: nested direct call argument を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -281,11 +302,11 @@ pub fn selfhost_checked_argument_function_value %fn i32 fn i32 fn SelfhostTypeId
 //:
 //: [現状/げんじょう]:
 //: - この variant は nested call の candidate summary だけを持ち、内側 argument tree の full payload はまだ持ちません。
-//: - HIR lowering で accepted にするには、後続 slice で checked tree payload を追加する必要があります。
+//: - full payload は `SelfhostCheckedExprTree` の direct call node に保存します。この summary variant は、従来の checked argument list だけを受け取る direct-call lowering では accepted にしません。
 //:
 //: [契約/けいやく]:
 //: - `candidate` は nested call の head として選択された callable candidate です。lowering は名前文字列から候補を再探索してはいけません。
-//: - 現 checkpoint では accepted lowering ではありません。caller はこの payload を成功扱いにする前に、内側 checked argument tree を運ぶ構造へ拡張する必要があります。
+//: - 現 checkpoint では legacy checked argument lowering の accepted payload ではありません。caller は source 再読なし lowering が必要な場合、`SelfhostCheckedExprTree` の node id を authority にします。
 //:
 //: [計算量/けいさんりょう]:
 //: - 構築は O(1) です。
@@ -299,11 +320,11 @@ pub fn selfhost_checked_argument_nested_direct_call %fn i32 fn i32 fn SelfhostTy
 //:
 //: [現状/げんじょう]:
 //: - この variant は block result の範囲と型だけを運び、block body の HIR tree payload はまだ持ちません。
-//: - 後続 HIR lowering は、この payload が拡張されるまで fail-closed にします。
+//: - block body payload は `SelfhostCheckedExprTree` の block result node に保存します。この summary variant は、従来の checked argument list だけを受け取る direct-call lowering では accepted にしません。
 //:
 //: [契約/けいやく]:
 //: - `start_index` / `next_index` と `span` は trailing block が 1 個の argument として検査された範囲を示します。
-//: - 現 checkpoint では accepted lowering ではありません。block body の typed HIR payload が追加されるまでは、direct-call lowering は `UnsupportedArgumentKind` として拒否します。
+//: - 現 checkpoint では legacy checked argument lowering の accepted payload ではありません。block body の typed tree payload が必要な経路は、`selfhost_hir_lower_checked_tree_expr` へ渡します。
 //:
 //: [計算量/けいさんりょう]:
 //: - 構築は O(1) です。
