@@ -10,12 +10,12 @@ const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
 const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    moduleNoDoc: 62,
+    moduleNoDoc: 59,
     moduleNoDoctest: 65,
     declarationNoDoc: 57,
-    declarationNoDoctest: 1673,
+    declarationNoDoctest: 1672,
     publicNoDoc: 28,
-    publicNoDoctest: 1255,
+    publicNoDoctest: 1254,
     privateNoDoc: 29,
     privateNoDoctest: 418,
 };
@@ -54,6 +54,8 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/stage0.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/typeparam/",
     "stdlib/neplg2/core/syntax/lexer/",
 ];
 const REQUIRED_SCANNER_SENTINELS = [
@@ -79,6 +81,10 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/stage0.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
 ];
 const MODULE_DOC_SECTION_REQUIREMENTS = [
@@ -253,6 +259,136 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("void and unit distinction", /void.*0 引数[\s\S]*unit.*型|unit.*型[\s\S]*void.*0 引数/),
             requiredPattern("lex failure has no token owner", /Result::Err.*lex_all[\s\S]*token owner.*存在しない|lex_all.*Result::Err[\s\S]*token owner.*存在しない/),
             requiredPattern("no semantic authority", /semantic authority|constructor table.*後段|Resource IR proof.*参照しません/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant", "doctest"], {
+        doctestUses: [
+            "selfhost_type_parameter_env_new",
+            "selfhost_type_parameter_env_add_checked",
+            "selfhost_type_parameter_env_add_result_into_env",
+            "selfhost_type_parameter_env_free",
+        ],
+        requiredPatterns: [
+            requiredPattern("facade re-export boundary", /re-export/),
+            requiredPattern("type parameter environment authority", /\bSelfhostTypeParameterEnv\b/),
+            requiredPattern("parameter id not nominal", /\bSelfhostTypeParameterId\b[\s\S]*(?:\bSelfhostNamedTypeId\b|\bSelfhostTypeId\b)[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeParameterId\b/),
+            requiredPattern("owner recovery helper", /\bselfhost_type_parameter_env_add_result_into_env\b/),
+            requiredPattern("env free helper", /\bselfhost_type_parameter_env_free\b/),
+            requiredPattern("failure closes owner", /Result::Err[\s\S]*owner.*閉じ|失敗時[\s\S]*owner.*閉じ/),
+            requiredPattern("all env error variants", /\bReservedTypeParameterName\b[\s\S]*\bNegativeKindArity\b[\s\S]*\bHigherKindedTypeParameterUnsupported\b[\s\S]*\bDuplicateTypeParameter\b[\s\S]*\bOutOfMemory\b/),
+            requiredPattern("void unit reserved boundary", /void.*0 引数[\s\S]*unit.*型|unit.*型[\s\S]*void.*0 引数/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        doctestUses: [
+            "selfhost_type_parameter_id_new",
+            "selfhost_type_parameter_id_index",
+            "selfhost_type_parameter_id_eq",
+        ],
+        doctestScenarios: [
+            {
+                name: "type parameter id construction and equality",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("id constructor", /\bselfhost_type_parameter_id_new\b/),
+                    requiredPattern("id accessor", /\bselfhost_type_parameter_id_index\b/),
+                    requiredPattern("id equality", /\bselfhost_type_parameter_id_eq\b/),
+                    requiredPattern("expected index", /\b2\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("env-local id authority", /\bSelfhostTypeParameterEnv\b/),
+            requiredPattern("not named constructor id", /\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostNamedTypeId\b/),
+            requiredPattern("not type arena id", /\bSelfhostTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeId\b|type arena/),
+            requiredPattern("not resolved node id", /\bSelfhostResolvedTypeNodeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostResolvedTypeNodeId\b/),
+            requiredPattern("unchecked constructor", /unchecked|範囲検査.*行いません/),
+            requiredPattern("invalid id fail closed", /負.*(?:Option::None|none|fail-closed)|範囲外.*(?:Option::None|none|fail-closed)/),
+            requiredPattern("copy no owner", /Copy.*owner|owner cleanup.*ありません|owner cleanup obligation はありません/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant", "doctest"], {
+        doctestUses: [
+            "SelfhostTypeParameter",
+            "SelfhostTypeParameterEnvErrorKind::NegativeKindArity",
+            "SelfhostTypeParameterEnvErrorKind::HigherKindedTypeParameterUnsupported",
+            "SelfhostTypeParameterEnvErrorKind::DuplicateTypeParameter",
+            "SelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName",
+            "selfhost_type_parameter_env_error_kind_eq",
+        ],
+        doctestScenarios: [
+            {
+                name: "type parameter env error kind equality",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("negative arity variant", /\bSelfhostTypeParameterEnvErrorKind::NegativeKindArity\b/),
+                    requiredPattern("higher kinded variant", /\bSelfhostTypeParameterEnvErrorKind::HigherKindedTypeParameterUnsupported\b/),
+                    requiredPattern("duplicate variant", /\bSelfhostTypeParameterEnvErrorKind::DuplicateTypeParameter\b/),
+                    requiredPattern("reserved variant", /\bSelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName\b/),
+                    requiredPattern("kind equality helper", /\bselfhost_type_parameter_env_error_kind_eq\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("parameter payload fields", /\bname\b[\s\S]*\bparameter_id\b[\s\S]*\bkind_arity\b[\s\S]*\bspan\b/),
+            requiredPattern("span diagnostic only", /span.*diagnostic|diagnostic.*span/),
+            requiredPattern("env owns entries", /\bSelfhostTypeParameterEnv\b[\s\S]*\bVec SelfhostTypeParameter\b/),
+            requiredPattern("add result returns owner and id", /\bSelfhostTypeParameterEnvAddResult\b[\s\S]*\benv\b[\s\S]*\bparameter_id\b/),
+            requiredPattern("all env error variants", /\bNegativeKindArity\b[\s\S]*\bHigherKindedTypeParameterUnsupported\b[\s\S]*\bDuplicateTypeParameter\b[\s\S]*\bReservedTypeParameterName\b[\s\S]*\bOutOfMemory\b/),
+            requiredPattern("display separation", /表示文言|message string|diagnostic identity/),
+            requiredPattern("type parameter id not named", /\bSelfhostTypeParameterId\b[\s\S]*(?:\bSelfhostNamedTypeId\b|\bSelfhostTypeId\b)[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeParameterId\b/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant", "doctest"], {
+        doctestUses: [
+            "selfhost_type_parameter_env_new",
+            "selfhost_type_parameter_env_add_checked",
+            "selfhost_type_parameter_env_add_result_parameter_id",
+            "selfhost_type_parameter_env_add_result_into_env",
+            "selfhost_type_parameter_env_find",
+            "selfhost_type_parameter_env_find_span",
+            "selfhost_type_parameter_env_free",
+            "SelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName",
+            "SelfhostTypeParameterEnvErrorKind::NegativeKindArity",
+            "SelfhostTypeParameterEnvErrorKind::HigherKindedTypeParameterUnsupported",
+            "SelfhostTypeParameterEnvErrorKind::DuplicateTypeParameter",
+        ],
+        doctestScenarios: [
+            {
+                name: "checked add success and lookup lifecycle",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("env new", /\bselfhost_type_parameter_env_new\b/),
+                    requiredPattern("checked add T", /\bselfhost_type_parameter_env_add_checked\b[\s\S]*"T"/),
+                    requiredPattern("owner recovery", /\bselfhost_type_parameter_env_add_result_into_env\b/),
+                    requiredPattern("id recovery", /\bselfhost_type_parameter_env_add_result_parameter_id\b/),
+                    requiredPattern("find by name", /\bselfhost_type_parameter_env_find\b/),
+                    requiredPattern("find by span", /\bselfhost_type_parameter_env_find_span\b/),
+                    requiredPattern("free env", /\bselfhost_type_parameter_env_free\b/),
+                ],
+            },
+            {
+                name: "checked add fail closed variants",
+                label: /失敗例|error|fail/i,
+                requiredPatterns: [
+                    requiredPattern("reserved name failure", /\bReservedTypeParameterName\b[\s\S]*(?:"unit"|"void")/),
+                    requiredPattern("negative arity failure", /\bNegativeKindArity\b[\s\S]*(?:sub 0 1|bad_arity)/),
+                    requiredPattern("higher kinded failure", /\bHigherKindedTypeParameterUnsupported\b[\s\S]*\b1\b/),
+                    requiredPattern("duplicate failure", /\bDuplicateTypeParameter\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("env owner lifecycle", /\bselfhost_type_parameter_env_new\b[\s\S]*\bselfhost_type_parameter_env_free\b/),
+            requiredPattern("add failure closes owner", /\bselfhost_type_parameter_env_add_fail\b[\s\S]*(?:解放|free|owner)/),
+            requiredPattern("push error cleanup", /\bvec_push_error_vec\b|push error/),
+            requiredPattern("reserved names", /void[\s\S]*fn[\s\S]*impure[\s\S]*unit[\s\S]*bool[\s\S]*i32[\s\S]*i64[\s\S]*u8[\s\S]*char[\s\S]*str[\s\S]*f32[\s\S]*f64[\s\S]*never/),
+            requiredPattern("all checked add errors", /\bReservedTypeParameterName\b[\s\S]*\bNegativeKindArity\b[\s\S]*\bHigherKindedTypeParameterUnsupported\b[\s\S]*\bDuplicateTypeParameter\b[\s\S]*\bOutOfMemory\b/),
+            requiredPattern("constructor conflict handled later", /\bSelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict\b|reducer 境界/),
+            requiredPattern("span diagnostic only", /\bSelfhostSourceSpan\b[\s\S]*(?:diagnostic|診断)/),
+            requiredPattern("linear lookup current", /線形探索|線形検索|O\(n\)|末尾から探索/),
+            requiredPattern("option branches", /\bOption::Some\b[\s\S]*\bOption::None\b/),
+            requiredPattern("result branches", /\bResult::Ok\b[\s\S]*\bResult::Err\b/),
         ],
     }),
     moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/resolved.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
@@ -802,6 +938,130 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("caller lookup authority", /caller.*lookup|environment lookup/),
         requiredPattern("not nominal constructor id", /\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|nominal constructor[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*(?:\bSelfhostNamedTypeId\b|nominal constructor)/),
     ]),
+    typeParameterRequirement("id.nepl", "SelfhostTypeParameterId", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("env local authority", /\bSelfhostTypeParameterEnv\b/),
+        requiredPattern("not named constructor id", /\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostNamedTypeId\b/),
+        requiredPattern("not type arena id", /\bSelfhostTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeId\b/),
+        requiredPattern("not resolved node id", /\bSelfhostResolvedTypeNodeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostResolvedTypeNodeId\b/),
+        requiredPattern("invalid id fail closed elsewhere", /負.*(?:none|fail-closed)|範囲外.*(?:none|fail-closed)/),
+        requiredPattern("copy no owner", /Copy.*owner|owner cleanup obligation はありません/),
+    ]),
+    typeParameterRequirement("id.nepl", "selfhost_type_parameter_id_new", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("unchecked constructor", /unchecked constructor|unchecked/),
+        requiredPattern("not named type id", /\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostNamedTypeId\b/),
+        requiredPattern("not type arena id", /\bSelfhostTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeId\b/),
+    ]),
+    typeParameterRequirement("id.nepl", "selfhost_type_parameter_id_index", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("raw index return", /raw index|payload.*index/),
+        requiredPattern("range check elsewhere", /範囲検査 authority|範囲検査.*lookup/),
+    ]),
+    typeParameterRequirement("id.nepl", "selfhost_type_parameter_id_eq", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("true branch", /true/),
+        requiredPattern("false branch", /false/),
+        requiredPattern("env local comparison", /environment-local|同じ environment/),
+    ]),
+    typeParameterRequirement("model.nepl", "SelfhostTypeParameter", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("parameter payload fields", /\bname\b[\s\S]*\bparameter_id\b[\s\S]*\bkind_arity\b[\s\S]*\bspan\b/),
+        requiredPattern("span diagnostic only", /span.*diagnostic|diagnostic.*span/),
+        requiredPattern("kind arity zero current", /\bkind_arity\b[\s\S]*`0`|`0`[\s\S]*\bkind_arity\b/),
+        requiredPattern("parameter id not named", /\bSelfhostTypeParameterId\b[\s\S]*(?:\bSelfhostNamedTypeId\b|\bSelfhostTypeId\b)[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeParameterId\b/),
+    ]),
+    typeParameterRequirement("model.nepl", "SelfhostTypeParameterEnv", ["purpose", "contract", "current", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("entry vector owner", /\bentries\b[\s\S]*owner|\bVec SelfhostTypeParameter\b/),
+        requiredPattern("free helper", /\bselfhost_type_parameter_env_free\b/),
+        requiredPattern("not constructor table", /\bSelfhostTypeConstructorTable\b[\s\S]*(?:ではありません|別)|(?:ではありません|別)[\s\S]*\bSelfhostTypeConstructorTable\b/),
+    ]),
+    typeParameterRequirement("model.nepl", "SelfhostTypeParameterEnvAddResult", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("env owner payload", /\benv\b[\s\S]*owner|environment owner/),
+        requiredPattern("parameter id payload", /\bparameter_id\b/),
+        requiredPattern("owner recovery helper", /\bselfhost_type_parameter_env_add_result_into_env\b/),
+    ]),
+    typeParameterRequirement("model.nepl", "SelfhostTypeParameterEnvErrorKind", ["purpose", "contract", "complexity", "errorVariant", "typeBoundary"], [
+        requiredPattern("all error variants", /\bNegativeKindArity\b[\s\S]*\bHigherKindedTypeParameterUnsupported\b[\s\S]*\bDuplicateTypeParameter\b[\s\S]*\bReservedTypeParameterName\b[\s\S]*\bOutOfMemory\b/),
+        requiredPattern("display separated", /表示文言|message/),
+    ]),
+    typeParameterRequirement("model.nepl", "SelfhostTypeParameterEnvError", ["purpose", "contract", "complexity", "authorityBoundary", "errorVariant"], [
+        requiredPattern("typed error kind", /\bSelfhostTypeParameterEnvErrorKind\b/),
+        requiredPattern("source span authority", /\bSelfhostSourceSpan\b/),
+        requiredPattern("display separated", /message|表示/),
+    ]),
+    typeParameterRequirement("model.nepl", "selfhost_type_parameter_env_error_kind_eq", ["purpose", "contract", "returns", "complexity", "errorVariant"], [
+        requiredPattern("all error variants matched", /\bNegativeKindArity\b[\s\S]*\bHigherKindedTypeParameterUnsupported\b[\s\S]*\bDuplicateTypeParameter\b[\s\S]*\bReservedTypeParameterName\b[\s\S]*\bOutOfMemory\b/),
+        requiredPattern("true false returns", /true[\s\S]*false|false[\s\S]*true/),
+    ]),
+    typeParameterRequirement("model.nepl", "selfhost_type_parameter_env_error_new", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "errorVariant"], [
+        requiredPattern("error payload return", /\bSelfhostTypeParameterEnvError\b/),
+        requiredPattern("typed error kind", /\bSelfhostTypeParameterEnvErrorKind\b/),
+        requiredPattern("display authority separated", /表示|display/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_new", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("ok branch owner", /\bResult::Ok\b[\s\S]*owner/),
+        requiredPattern("err branch no owner", /\bResult::Err\b[\s\S]*owner.*存在しません|owner.*存在しません[\s\S]*\bResult::Err\b/),
+        requiredPattern("std error", /\bStdErrorKind\b/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_free", ["purpose", "contract", "returns", "complexity", "ownerBoundary"], [
+        requiredPattern("entry vector cleanup", /\bentries\b|entry vector/),
+        requiredPattern("owner lifecycle end", /owner lifecycle|owner.*終端/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_len", ["purpose", "contract", "returns", "complexity"], [
+        requiredPattern("borrow accessor", /borrow|owner.*消費しません/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_add_result_parameter_id", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("borrow accessor", /borrow accessor|owner.*消費しません/),
+        requiredPattern("parameter id return", /\bSelfhostTypeParameterId\b/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_add_result_into_env", ["purpose", "contract", "returns", "complexity", "ownerBoundary"], [
+        requiredPattern("consumes add result", /消費/),
+        requiredPattern("env owner return", /\bSelfhostTypeParameterEnv\b[\s\S]*owner/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_name_is_reserved", ["purpose", "contract", "current", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("reserved names", /void[\s\S]*fn[\s\S]*impure[\s\S]*unit[\s\S]*bool[\s\S]*i32[\s\S]*i64[\s\S]*u8[\s\S]*char[\s\S]*str[\s\S]*f32[\s\S]*f64[\s\S]*never/),
+        requiredPattern("void marker reserved", /void.*0 引数/),
+        requiredPattern("unit type value reserved", /unit.*型.*値|unit.*unit 型/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_get", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("option some none", /\bOption::Some\b[\s\S]*\bOption::None\b/),
+        requiredPattern("negative index none", /負 index.*none|負.*index.*none/),
+        requiredPattern("not constructor lookup", /named constructor lookup.*行いません|constructor lookup.*行いません/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_find_loop", ["purpose", "contract", "returns", "complexity"], [
+        requiredPattern("backward linear lookup", /後ろ向き|末尾から|O\(n\)/),
+        requiredPattern("option some none", /\bOption::Some\b[\s\S]*\bOption::None\b|some\(parameter\)[\s\S]*none/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_find", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("constructor fallback boundary", /constructor lookup|unknown named type/),
+        requiredPattern("parameter env authority", /\bSelfhostTypeParameterEnv\b/),
+        requiredPattern("option some none", /\bOption::Some\b[\s\S]*\bOption::None\b|some\(parameter\)[\s\S]*none/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_find_span", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("source span boundary", /\bSelfhostSourceSpan\b/),
+        requiredPattern("temporary lookup key", /一時 lookup key/),
+        requiredPattern("not canonical key", /canonical key.*保存しません|永続 artifact key.*保存しません/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_add_fail", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("env free call", /\bselfhost_type_parameter_env_free\b/),
+        requiredPattern("result err", /\bResult::Err\b/),
+        requiredPattern("typed error kind", /\bSelfhostTypeParameterEnvErrorKind\b/),
+    ]),
+    typeParameterRequirement("env.nepl", "selfhost_type_parameter_env_add_checked", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant", "doctest"], [
+        requiredPattern("reserved name error", /\bSelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName\b/),
+        requiredPattern("negative arity error", /\bSelfhostTypeParameterEnvErrorKind::NegativeKindArity\b/),
+        requiredPattern("higher kinded error", /\bSelfhostTypeParameterEnvErrorKind::HigherKindedTypeParameterUnsupported\b/),
+        requiredPattern("duplicate error", /\bSelfhostTypeParameterEnvErrorKind::DuplicateTypeParameter\b/),
+        requiredPattern("out of memory error", /\bSelfhostTypeParameterEnvErrorKind::OutOfMemory\b/),
+        requiredPattern("push error cleanup", /\bvec_push_error_vec\b/),
+        requiredPattern("constructor conflict reducer boundary", /\bSelfhostTypeReduceErrorKind::TypeParameterConstructorNameConflict\b|reducer 境界/),
+    ], {
+        doctestUses: [
+            "selfhost_type_parameter_env_add_checked",
+            "selfhost_type_parameter_env_error_kind_eq",
+            "SelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName",
+            "SelfhostTypeParameterEnvErrorKind::NegativeKindArity",
+            "SelfhostTypeParameterEnvErrorKind::HigherKindedTypeParameterUnsupported",
+            "SelfhostTypeParameterEnvErrorKind::DuplicateTypeParameter",
+            "selfhost_type_parameter_env_free",
+        ],
+    }),
     typeInputRequirement("SelfhostTypePrefixList", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
         requiredPattern("prefix item owner vector", /\bVec SelfhostTypePrefixItem\b|item vector/),
         requiredPattern("percent marker is excluded", /%.*含め/),
@@ -1863,11 +2123,11 @@ const SECTION_PATTERNS = {
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
     doctest: /\bneplg2:test\b/,
-    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostTypePrefixBuildErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeConstructorTableErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeProjectErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeReduceErrorKind(?:::[A-Za-z0-9_]+)?|StdErrorKind::[A-Za-z0-9_]+|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
+    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostTypePrefixBuildErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeConstructorTableErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeParameterEnvErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeProjectErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeReduceErrorKind(?:::[A-Za-z0-9_]+)?|StdErrorKind::[A-Za-z0-9_]+|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
     authorityBoundary: /\b(authority|typed evidence|parser-provided evidence|parser\/proof|proof layer|source spelling|source text|kind stream|message .*authority|diagnostic kind の authority|表示.*authority)\b/,
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
-    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTypeRecord(?:::)?[A-Za-z0-9_]*|SelfhostTypeArenaAlloc|SelfhostTypeArena|SelfhostTypeId|SelfhostNamedTypeId|SelfhostTypeParameterBinding|SelfhostTypeParameterEnv|SelfhostPrimitiveTypeKind(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeNode(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeTreeRoot|SelfhostResolvedTypeTree|SelfhostResolvedTypeNodeId|SelfhostResolvedAppliedType|SelfhostResolvedAppliedTypeArgRange|SelfhostResolvedFunctionType|SelfhostResolvedFunctionArgRange(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixList|SelfhostTypePrefixItemKind(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixItem|SelfhostTypePrefixBuildErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixBuildError|SelfhostTypeConstructor(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTable|SelfhostTypeConstructorAddResult|SelfhostTypeConstructorTableErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTableError|SelfhostTypeProjectErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceDispatchKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReducePlan|SelfhostTypeReducePlanItem|SelfhostTypeBoundPlan|SelfhostTypeBoundPlanItem|SelfhostTypeReduceBuildState|SelfhostTypeReduceStep|SelfhostTypePrefixReducePrefixResult|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
+    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTypeRecord(?:::)?[A-Za-z0-9_]*|SelfhostTypeArenaAlloc|SelfhostTypeArena|SelfhostTypeId|SelfhostNamedTypeId|SelfhostTypeParameterId|SelfhostTypeParameter|SelfhostTypeParameterEnv|SelfhostTypeParameterEnvAddResult|SelfhostTypeParameterEnvErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeParameterEnvError|SelfhostTypeParameterBinding|SelfhostPrimitiveTypeKind(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeNode(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeTreeRoot|SelfhostResolvedTypeTree|SelfhostResolvedTypeNodeId|SelfhostResolvedAppliedType|SelfhostResolvedAppliedTypeArgRange|SelfhostResolvedFunctionType|SelfhostResolvedFunctionArgRange(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixList|SelfhostTypePrefixItemKind(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixItem|SelfhostTypePrefixBuildErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixBuildError|SelfhostTypeConstructor(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTable|SelfhostTypeConstructorAddResult|SelfhostTypeConstructorTableErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTableError|SelfhostTypeProjectErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceDispatchKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReducePlan|SelfhostTypeReducePlanItem|SelfhostTypeBoundPlan|SelfhostTypeBoundPlanItem|SelfhostTypeReduceBuildState|SelfhostTypeReduceStep|SelfhostTypePrefixReducePrefixResult|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
     rawBoundary: /\b(SelfhostRawBackendKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemFact|SelfhostRawBackendState(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendOpenBlock|SelfhostProofObligation::RawBackendTransition|SelfhostProofEvidence::RawBackendTransition|SelfhostProofRefutation::(RawBackendTextWithoutBlock|RawBackendBlockEmpty)|selfhost_raw_backend_text_matches)\b/,
     directiveBoundary: /\b(SelfhostModuleDirectiveKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveFact|SelfhostModuleDirectiveState(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveSeenBoth|SelfhostModuleDirectiveDuplicate|SelfhostProofObligation::ModuleDirectiveTransition|SelfhostProofEvidence::ModuleDirectiveTransition|SelfhostProofRefutation::ModuleDirectiveDuplicate)\b/,
     moduleBoundary: /\b(SelfhostModuleDeclarationKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeadKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationVisibility(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeader|SelfhostModuleDeclarationFact|SelfhostModuleDeclarationHeaderIssue|SelfhostModuleItemKind(?:::)?[A-Za-z0-9_]*|SelfhostSyntaxRange(?:::)?[A-Za-z0-9_]*|SelfhostSourceSpan|SelfhostProofObligation::ModuleDeclarationHeaderAvailable|SelfhostProofEvidence::ModuleDeclarationHeaderAvailable|SelfhostProofRefutation::(ModuleDeclarationHeaderMissing|ModuleDeclarationHeaderInvalid|FactObligationMismatch)|selfhost_module_item_kind_declaration|selfhost_syntax_range_is_(?:valid|nonempty)|selfhost_syntax_range_span_is_inside|source_span_is_valid|selfhost_proof_span_contains_span)\b/,
@@ -1930,6 +2190,14 @@ function typeResolvedRequirement(name, sections, requiredPatterns = []) {
 function resolvedSubmoduleRequirement(fileName, name, sections, requiredPatterns = []) {
     return requirement(`stdlib/neplg2/core/resolve/type_resolver/resolved/${fileName}`, name, sections, {
         requiredPatterns,
+    });
+}
+
+function typeParameterRequirement(fileName, name, sections, requiredPatterns = [], options = {}) {
+    return requirement(`stdlib/neplg2/core/resolve/type_resolver/typeparam/${fileName}`, name, sections, {
+        requiredPatterns,
+        doctestUses: options.doctestUses || [],
+        doctestScenarios: options.doctestScenarios || [],
     });
 }
 

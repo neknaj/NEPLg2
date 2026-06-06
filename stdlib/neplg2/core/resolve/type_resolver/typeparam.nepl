@@ -19,6 +19,21 @@
 //: [計算量/けいさんりょう]:
 //: - 追加は重複検査を含めて `O(n)`、lookup も `O(n)` です。`n` は 1 つの generic binder list に含まれる type parameter 数です。
 //:
+//: [authority boundary]:
+//: - この facade は `typeparam/id`、`typeparam/model`、`typeparam/env` の public API を re-export する入口です。
+//: - binder header の source spelling / span は parser / declaration checker 由来の evidence であり、constructor table conflict と TypeArena projection は reducer / projector の後段 authority です。
+//:
+//: [owner boundary]:
+//: - `SelfhostTypeParameterEnv` は entry vector owner です。成功時は add result から `selfhost_type_parameter_env_add_result_into_env` で owner を回収し、最後に `selfhost_type_parameter_env_free` で閉じます。
+//: - 失敗時は `selfhost_type_parameter_env_add_checked` が入力 environment owner を閉じ、caller に `Result::Err` だけを返します。
+//:
+//: [type boundary]:
+//: - `SelfhostTypeParameterId` は binder-local identity であり、`SelfhostNamedTypeId` や `SelfhostTypeId` ではありません。
+//: - `void` は 0 引数関数 marker、`unit` は unit 型/値なので、どちらも generic parameter 名にはできません。
+//:
+//: [error variant]:
+//: - 追加失敗は `SelfhostTypeParameterEnvErrorKind::ReservedTypeParameterName`、`NegativeKindArity`、`HigherKindedTypeParameterUnsupported`、`DuplicateTypeParameter`、`OutOfMemory` で分類します。
+//:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
 //: ##: Checked [ok]

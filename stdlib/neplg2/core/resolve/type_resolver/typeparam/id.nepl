@@ -1,5 +1,60 @@
 #indent 4
 
+//: # type_resolver/typeparam/id: type parameter environment-local identity
+//:
+//: [目的/もくてき]:
+//: - generic binder で宣言された `T` / `E` などの type parameter を、named type constructor や TypeArena の型 id と混同しないための local identity を提供します。
+//: - `SelfhostTypeParameterEnv` の entry index を newtype に包み、reduce / project boundary が parameter identity を型安全に受け渡せるようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypeParameterId` は 1 つの `SelfhostTypeParameterEnv` の中だけで有効です。別 environment の同じ index と同一 binder であるとは扱いません。
+//: - `SelfhostTypeParameterId` は `SelfhostNamedTypeId`、`SelfhostTypeId`、`SelfhostResolvedTypeNodeId` ではありません。相互変換してはいけません。
+//: - constructor は unchecked です。負 index や範囲外 index は lookup / projection 側が `Option::None` や typed error で fail-closed に扱います。
+//:
+//: [現状/げんじょう]:
+//: - identity は `i32` index だけを保持します。永続 interface artifact では binder path / signature hash / binder depth を含む stable key へ正規化する必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor、accessor、equality check はすべて `O(1)` です。
+//:
+//: [authority boundary]:
+//: - id の有効性 authority は `SelfhostTypeParameterEnv` です。この module は environment を borrow せず、範囲検査や名前 lookup を行いません。
+//:
+//: [owner boundary]:
+//: - id は `Copy` payload であり、owner cleanup obligation はありません。
+//:
+//: [type boundary]:
+//: - `SelfhostTypeParameterId` は binder-local parameter identity です。named constructor identity、resolved tree node identity、projection 後の type arena identity とは別です。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では id を作り、index accessor と equality helper が同じ environment-local index を保持することを確認します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/type_resolver/typeparam/id" as *
+//:| #import "std/test" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let parameter_id %SelfhostTypeParameterId selfhost_type_parameter_id_new 2
+//:     let same_id %SelfhostTypeParameterId selfhost_type_parameter_id_new 2
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check_eq_i32 2 selfhost_type_parameter_id_index parameter_id
+//:     let checks2 checks_push checks1:
+//:         if selfhost_type_parameter_id_eq parameter_id same_id Result::Ok unit Result::Err "type parameter id equality failed"
+//:     let shown checks_print_report checks2
+//:     checks_exit_code shown
+//: ```
+//:
 #import "core/math" as *
 #import "core/traits/copy" as *
 
@@ -15,6 +70,18 @@
 //:
 //: [現状/げんじょう]:
 //: - constructor は unchecked です。呼び出し側は `selfhost_type_parameter_env_add_checked` の結果から得た id を使うのが通常経路です。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload copy と field access は `O(1)` です。
+//:
+//: [authority boundary]:
+//: - id の有効性 authority は `SelfhostTypeParameterEnv` です。この struct 自体は environment を borrow しません。
+//:
+//: [owner boundary]:
+//: - `Copy` payload なので owner cleanup obligation はありません。
+//:
+//: [type boundary]:
+//: - `SelfhostTypeParameterId` は binder-local identity です。`SelfhostNamedTypeId`、`SelfhostTypeId`、`SelfhostResolvedTypeNodeId` とは別の identity です。
 pub struct SelfhostTypeParameterId:
     index %i32
 
@@ -28,33 +95,63 @@ impl Copy for SelfhostTypeParameterId:
 
 //: selfhost_type_parameter_id_new: type parameter identity を[作/つく]る
 //:
+//: [目的/もくてき]:
+//: - environment-local index を `SelfhostTypeParameterId` payload に包みます。
+//:
 //: [契約/けいやく]:
 //: - この関数は unchecked constructor です。負の index でも値自体は作れます。
 //: - public lookup API は負の index を `none` として扱うため、不正 id が有効 parameter へ解決されることはありません。
 //:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypeParameterId`: 入力 index をそのまま保持する binder-local identity です。
+//:
 //: [計算量/けいさんりょう]:
 //: - `O(1)` で newtype を作ります。
+//:
+//: [type boundary]:
+//: - この id は `SelfhostNamedTypeId` ではありません。
+//: - この id は `SelfhostTypeId` ではありません。
+//: - environment lookup / projection boundary でだけ parameter identity として使います。
 pub fn selfhost_type_parameter_id_new %fn i32 SelfhostTypeParameterId \index:
     SelfhostTypeParameterId index
 
 //: selfhost_type_parameter_id_index: type parameter identity の index を[返/かえ]す
 //:
+//: [目的/もくてき]:
+//: - `SelfhostTypeParameterId` の raw index payload を、diagnostic、doctest、projection helper が確認できる形で返します。
+//:
 //: [契約/けいやく]:
 //: - diagnostic や test で index を確認するための accessor です。
 //: - 返した index を別 environment の id として再利用してはいけません。
 //:
+//: [戻/もど]り[値/ち]:
+//: - `i32`: payload の raw index です。範囲検査済みの index であることは保証しません。
+//:
 //: [計算量/けいさんりょう]:
 //: - `O(1)` です。
+//:
+//: [authority boundary]:
+//: - 範囲検査 authority は `SelfhostTypeParameterEnv` lookup 側にあり、この accessor は payload を読むだけです。
 pub fn selfhost_type_parameter_id_index %fn SelfhostTypeParameterId i32 \parameter_id:
     parameter_id.index
 
 //: selfhost_type_parameter_id_eq: type parameter identity が同じ binder を指すか[返/かえ]す
 //:
+//: [目的/もくてき]:
+//: - 同じ `SelfhostTypeParameterEnv` から得た environment-local identity を比較し、typed doctest や reducer 境界で parameter identity を確認します。
+//:
 //: [契約/けいやく]:
 //: - 同じ environment から得た id 同士を比較するための関数です。
 //: - 異なる environment 由来の id は、同じ index でも同じ binder とは限りません。
 //:
+//: [戻/もど]り[値/ち]:
+//: - `true`: raw index が同じです。
+//: - `false`: raw index が異なります。
+//:
 //: [計算量/けいさんりょう]:
 //: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - 比較結果は environment-local id の比較であり、`SelfhostNamedTypeId` や `SelfhostTypeId` の比較ではありません。
 pub fn selfhost_type_parameter_id_eq %fn SelfhostTypeParameterId fn SelfhostTypeParameterId bool \a\b:
     eq a.index b.index

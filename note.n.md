@@ -1,3 +1,114 @@
+# 2026-06-06 Agent selfhost type parameter documentation contract checkpoint
+
+## review_scope
+
+- branch: selfhost/typeparam-doc-contract-20260606
+- 対象 branch: `selfhost/typeparam-doc-contract-20260606`
+- base: `8b2a51a4`
+- head: `working-tree-before-commit`
+- 対象 issue / slice: `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` / `stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl` and `stdlib/neplg2/core/resolve/type_resolver/typeparam/{id,model,env}.nepl`
+- files_read: `plan.md`; `AGENTS.md`; `note.n.md`; `todo.md`; `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md`; `stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl`; `stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl`; `stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl`; `stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl`; `nodesrc/test_selfhost_documentation_contract.js`; `nodesrc/test_source_policy_no_line_count_limits.js`; `nodesrc/test_selfhost_zenn_review_gate_contract.js`; `tmp/selfhost-typeparam-doc-contract-playground-editor.json`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: unrelated selfhost compiler modules outside this type parameter environment documentation contract slice; runtime Resource IR semantics; memo_call private-cache implementation; compiler algorithm rewrite beyond the RPN profiling observation recorded below
+- subagent_review_ids:
+  - 019e9ad3-46a9-7fa1-a840-ff5f06eb7e8b
+  - 019e9ad3-69c6-77c0-82dd-0111c8ad52a1
+- subagent_review_count: 2
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl; stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl; stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl; stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl; nodesrc/test_selfhost_documentation_contract.js; issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+- recommended_fix: none
+- finding: `typeparam` facade and `typeparam/{id,model,env}.nepl` lacked a scanner-visible contract that tied `SelfhostTypeParameterId`, parameter payload fields, environment owner recovery, `SelfhostTypeParameterEnvErrorKind`, `SelfhostSourceSpan`, and `void` / `unit` reserved-name policy to Zenn-style documentation requirements.
+- root_cause: earlier selfhost type resolver slices had implementation and split contracts, but the type parameter environment still allowed future contributors to infer the owner boundary, result branches, diagnostic span authority, and first-order-only limitation from implementation details rather than from module and declaration documentation.
+- reason: Zenn policy requires static-check-friendly data models, enum-managed errors, Result / Option branch documentation, explicit owner and authority boundaries, runnable documentation examples, and no quality exemption during the prototype stage. This slice fixes those contracts without introducing line-count, file-size, comment-volume, or doc-comment-length gates.
+- source_policy_reason: `nodesrc/test_selfhost_documentation_contract.js` now pins exact sentinels for `typeparam.nepl`, `typeparam/id.nepl`, `typeparam/model.nepl`, and `typeparam/env.nepl`; it requires semantic patterns for `SelfhostTypeParameterEnvErrorKind`, `SelfhostTypeParameterEnvAddResult`, `SelfhostTypeParameter`, `SelfhostTypeParameterId`, reserved names including `void` and `unit`, `Option::Some` / `Option::None`, and `Result::Ok` / `Result::Err` behavior.
+- doc_issue_note: `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md` records the updated baseline `moduleNoDoc=59`, `moduleNoDoctest=65`, `declarationNoDoc=57`, `declarationNoDoctest=1672`, `publicNoDoc=28`, `publicNoDoctest=1254`, `privateNoDoc=29`, `privateNoDoctest=418`; the issue remains open for unrelated selfhost documentation gaps.
+
+## implementation/test
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl; stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl; stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl; stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl; nodesrc/test_selfhost_documentation_contract.js; issues/index.json
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl -n 1`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl -n 1`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl -n 1`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl -n 2`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/typeparam.nepl -n 1`; `node nodesrc/test_selfhost_type_resolver_split_contract.js`; `node nodesrc/test_selfhost_type_resolver_prefix_input.js`; `node nodesrc/test_selfhost_type_resolver_generic_application_contract.js`; `node nodesrc/test_selfhost_type_resolver_type_parameters.js`; `node nodesrc/test_selfhost_prototype_design_contract.js`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-typeparam-doc-contract-playground-editor.json`; `git diff --check`
+- recommended_fix: none
+- finding: implementation diff is limited to documentation comments, doctests, source-policy contract requirements, issue bookkeeping, and generated issue index. No runtime type resolver semantics, Resource IR semantics, or codegen path was changed.
+- root_cause: the public and private helpers around type parameter IDs and environments already encoded the intended ownership and error behavior, but the behavior was not enforced as documentation contract and could regress silently when future selfhost implementation continues.
+- reason: module docs now describe purpose, contract, current limitation, complexity, authority boundary, owner boundary, type boundary, error variants, and executable examples. Declaration docs now pin the observable branches for constructors, accessors, lookup, reserved-name checks, and checked insertion, including cleanup and owner recovery.
+- source_policy_reason: exact-path contract checks ensure the added documentation remains meaningful; `node nodesrc/test_source_policy_no_line_count_limits.js` ensures this quality gate cannot be implemented as a line-count or comment-volume restriction that would conflict with the user's documentation-comment policy.
+- doc_issue_note: this checkpoint reduces the tracked doc contract debt for the type parameter environment, but does not close `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` because the sample gaps in other selfhost modules remain outside this slice.
+
+## subagent review
+
+- 019e9ad3-46a9-7fa1-a840-ff5f06eb7e8b:
+  - Blocker: none.
+  - Non-blocker: `git diff --check` has no whitespace errors; CRLF replacement warnings are environment / line-ending warnings and not a blocker for this slice.
+  - Approve: current worktree fixes the source-policy pin with exact sentinels and semantic requirements, and the issue baseline is synchronized.
+- 019e9ad3-69c6-77c0-82dd-0111c8ad52a1:
+  - Blocker: none.
+  - Non-blocker: remaining `test_selfhost_documentation_contract.js` sample gaps are unrelated existing gaps; Node WASI `ExperimentalWarning` and Git CRLF replacement warnings do not block this slice.
+  - Approve: current worktree fixes `purpose/current/contract/typeBoundary/ownerBoundary/errorVariant/doctest`, the `void` / `unit` boundary, `SelfhostTypeParameterId` separation, owner cleanup, reserved name, duplicate / higher-kinded / negative-arity, source span diagnostic-only, and first-order current limitation.
+- classification / decision / source_policy / verify: both subagent reviews classify the current slice as approved; source policy is updated; verification is local contract tests, no-line-count guard, target doctests, and final aggregate review check.
+
+## zenn_check
+
+- Result/Option: `stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl` documents `Result::Ok` owner recovery through `SelfhostTypeParameterEnvAddResult`, `Result::Err` owner recovery through `SelfhostTypeParameterEnvError`, and lookup branches `Option::Some` / `Option::None` for `selfhost_type_parameter_env_get`, `selfhost_type_parameter_env_find_loop`, and `selfhost_type_parameter_env_find`.
+- enum error/display separation: `stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl` defines `SelfhostTypeParameterEnvErrorKind::{OutOfMemory,DuplicateTypeParameter,HigherKindedTypeParameterUnsupported,NegativeKindArity,ReservedTypeParameterName}` as enum-managed error evidence, and `nodesrc/test_selfhost_documentation_contract.js` requires that concrete enum in `errorVariant` documentation instead of display strings.
+- match exhaustiveness: `selfhost_type_parameter_env_add_checked` docs and doctest cover the successful branch plus duplicate, higher-kinded, negative-arity, and reserved-name failures; allocation failure is documented as `StdErrorKind::OutOfMemory` because it is allocator-dependent.
+- pure/impure boundary: resolver core modules stay under `stdlib/neplg2/core/resolve/type_resolver`; doctests use `std/test` only as executable examples and do not move FileSystem, StdIO, or platform authority into the core model.
+- authority boundary: `stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl` documents `SelfhostTypeParameterId` as a type-parameter environment-local index, not `SelfhostNamedTypeId` or `SelfhostTypeId`; `stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl` documents `SelfhostSourceSpan` as diagnostic-only authority that does not decide equality, hashing, or lookup.
+- owner/free: `stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl` documents that `selfhost_type_parameter_env_add_checked` returns an environment owner on both success and failure, and `nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl -n 2` verifies cleanup/free for those branches.
+- zero-cost/performance: `stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl` documents current linear lookup over the small parameter environment, while `nodesrc/test_selfhost_documentation_contract.js` pins that as a documentation contract without adding runtime wrapper abstractions.
+- doc comment: `nodesrc/test_selfhost_documentation_contract.js` requires meaningful sections and semantic markers rather than line count or comment volume, matching the Zenn doc-comment policy for purpose, contract, current behavior, complexity, examples, and enum branch documentation.
+- prototype/fail-closed: `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md` and `nodesrc/test_selfhost_documentation_contract.js` record this prototype-stage quality requirement as an exact source-policy checkpoint instead of accepting ambiguous comments; remaining gaps stay visible in the open issue.
+
+## profiling_observation
+
+- RPN cold/base measurement command: `NEPL_DISABLE_CHECK_CACHE=1 NEPL_COMPILE_STAGE_TIMING=1 target/release/nepl-cli.exe --check -i examples/rpn.nepl --target std --stdlib-root stdlib`.
+- RPN stage hierarchy, 3 observed runs:
+  - total: `execute_inner` 1689.999ms, 1838.27ms, 1760.83ms; median 1760.83ms.
+  - load: `loader_load` 299.734ms, 334.74ms, 327.80ms; median 327.80ms.
+  - check pipeline: `check_pipeline` 1388.923ms, 1502.22ms, 1431.61ms; median 1431.61ms.
+  - `check_pipeline > resource_typecheck`: 104ms, 114ms, 112ms; median 112ms.
+  - `check_pipeline > resource_static_check`: 1266ms, 1370ms, 1300ms; median 1300ms.
+  - `resource_static_check > resource_initialized_moves`: 889ms, 961ms, 890ms; median 890ms.
+  - `resource_static_check > resource_initialized_function_checks`: 452ms, 493ms, 455ms; median 455ms.
+  - `resource_static_check > resource_owner_obligations`: 294ms, 319ms, 321ms; median 319ms.
+  - `resource_static_check > resource_initialized_raw_init_summaries`: 272ms, 294ms, 272ms; median 272ms.
+- Interpretation: cold/base remains above the target because `resource_static_check`, especially initialized move analysis and owner obligations, dominates. The next compiler-speed slice should reduce the search space and algorithmic complexity in this checker rather than relying only on persisted caches.
+- Target doctest observation: `typeparam/env.nepl` doctests also showed the same shape at larger scale, with `resource_static_initialized_moves` around 24s and `resource_static_check` around 25s for the larger executable examples.
+
+## evidence_to_record
+
+- note: this checkpoint is recorded in `note.n.md` with exact subagent IDs, tests, RPN profiling observation, existing warnings, and new warnings.
+- issue: `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md` records the type parameter environment documentation contract slice and updated selfhost documentation baseline.
+- source policy: `nodesrc/test_selfhost_documentation_contract.js` records exact path sentinels and semantic requirements for the fixed type parameter modules; `nodesrc/test_source_policy_no_line_count_limits.js` confirms no line-count or comment-volume policy was added.
+- tests: focused contract tests, target doctests, source-policy regressions, issue check/index, trunk build, playground editor JSON, `git diff --check`, and final Zenn review response check are the acceptance evidence for this checkpoint.
+
+## warnings
+
+- existing_warnings: Node WASI `ExperimentalWarning` appears in doctest/source-policy runs; Git reports LF to CRLF replacement warnings for modified text files; Trunk reports available updates for trunk and wasm-bindgen/tool version. These are existing environment warnings and not introduced by this slice.
+- new_warnings: none
+- existing warnings: same as `existing_warnings`.
+- 今回差分由来 warning: none
+
+## summary
+
+- blockers: none
+- non_blockers: none
+- questions: none
+- approve: approved by two subagent reviews and local verification
+- residual_risk: none
+- unexecuted_verification: none
+
 # 2026-06-06 Agent selfhost type resolver stage0 documentation contract checkpoint
 
 ## review_scope
