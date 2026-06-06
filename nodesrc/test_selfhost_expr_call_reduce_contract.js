@@ -178,6 +178,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PipeMissingLeftOperand[\s\S]*PipeMissingRightTarget[\s\S]*PipeUnsupportedMultiple[\s\S]*PipeRightTargetUnsupported[\s\S]*PipeTargetPendingBinding[\s\S]*PipeTargetMissingSignature[\s\S]*PipeTargetHeadTokenOutOfBounds[\s\S]*PipeTargetOutOfMemory[\s\S]*PipeTargetInternalInvariant[\s\S]*PipeTargetUnresolved[\s\S]*PipeTargetAmbiguous[\s\S]*PipeTargetRequiresInput[\s\S]*PipeLeftSegmentNotSingleValue/,
+    "pipe reduction failures must remain typed instead of collapsing into generic unsupported-expression or overload errors",
+);
+assert.match(
+    source,
     /# check\/expr\/block_body[\s\S]*pub struct SelfhostBlockBodyResultInput:[\s\S]*prefix %SelfhostExprPrefixList[\s\S]*candidates %Vec SelfhostCallableCandidate[\s\S]*span %SelfhostSourceSpan/,
     "trailing block body checking must own a prefix list and candidate list boundary before recursive reduction",
 );
@@ -623,8 +628,13 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostCallableCandidateCollectErrorKind::PendingBinding:[\s\S]*ArgumentNestedCandidatePendingBinding[\s\S]*SelfhostCallableCandidateCollectErrorKind::MissingSignature:[\s\S]*ArgumentNestedCandidateMissingSignature[\s\S]*SelfhostCallableCandidateCollectErrorKind::HeadTokenOutOfBounds:[\s\S]*ArgumentNestedCandidateHeadTokenOutOfBounds[\s\S]*SelfhostCallableCandidateCollectErrorKind::OutOfMemory:[\s\S]*ArgumentNestedCandidateOutOfMemory/,
-    "nested candidate collection failures must not collapse into UnsupportedArgumentExpression",
+    /selfhost_call_reduce_error_from_candidate_collect[\s\S]*SelfhostCallableCandidateCollectErrorKind::EmptyPrefix:[\s\S]*ArgumentNestedCandidateInternalInvariant[\s\S]*SelfhostCallableCandidateCollectErrorKind::PrefixBuildFailed:[\s\S]*ArgumentNestedCandidateInternalInvariant[\s\S]*SelfhostCallableCandidateCollectErrorKind::UnsupportedHead:[\s\S]*ArgumentNestedCandidateInternalInvariant[\s\S]*SelfhostCallableCandidateCollectErrorKind::PendingBinding:[\s\S]*ArgumentNestedCandidatePendingBinding[\s\S]*SelfhostCallableCandidateCollectErrorKind::MissingSignature:[\s\S]*ArgumentNestedCandidateMissingSignature[\s\S]*SelfhostCallableCandidateCollectErrorKind::HeadTokenOutOfBounds:[\s\S]*ArgumentNestedCandidateHeadTokenOutOfBounds[\s\S]*SelfhostCallableCandidateCollectErrorKind::OutOfMemory:[\s\S]*ArgumentNestedCandidateOutOfMemory/,
+    "nested candidate collection failures must be mapped exhaustively instead of collapsing into UnsupportedArgumentExpression",
+);
+assert.match(
+    source,
+    /selfhost_call_reduce_pipe_error_from_candidate_collect[\s\S]*SelfhostCallableCandidateCollectErrorKind::EmptyPrefix:[\s\S]*PipeTargetInternalInvariant[\s\S]*SelfhostCallableCandidateCollectErrorKind::PrefixBuildFailed:[\s\S]*PipeTargetInternalInvariant[\s\S]*SelfhostCallableCandidateCollectErrorKind::UnsupportedHead:[\s\S]*PipeRightTargetUnsupported[\s\S]*SelfhostCallableCandidateCollectErrorKind::PendingBinding:[\s\S]*PipeTargetPendingBinding[\s\S]*SelfhostCallableCandidateCollectErrorKind::MissingSignature:[\s\S]*PipeTargetMissingSignature[\s\S]*SelfhostCallableCandidateCollectErrorKind::HeadTokenOutOfBounds:[\s\S]*PipeTargetHeadTokenOutOfBounds[\s\S]*SelfhostCallableCandidateCollectErrorKind::OutOfMemory:[\s\S]*PipeTargetOutOfMemory/,
+    "pipe candidate collection failures must be mapped exhaustively to pipe-specific typed errors",
 );
 assert.match(
     source,
@@ -823,8 +833,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
-    "public stage1 body-line smoke must include the block result, block sequence, and nested BlockIntro fixtures",
+    /selfhost_check_expr_stage1_pipe_segment[\s\S]*SelfhostBodySegmentKind::ExpressionLine[\s\S]*selfhost_check_expr_stage1_make_pipe_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_argument_is_i32_literal_range[\s\S]*selfhost_check_expr_stage1_success_has_pipe_argument_order[\s\S]*"1 \|> add 2"[\s\S]*selfhost_check_expr_stage1_pipe_body_line/,
+    "stage1 must smoke-test that a pipe expression is normalized to a direct call with left and suffix argument order preserved",
+);
+assert.match(
+    source,
+    /pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
+    "public stage1 body-line smoke must include pipe, block result, block sequence, and nested BlockIntro fixtures",
 );
 assert.match(
     source,
@@ -875,6 +890,21 @@ assert.match(
     source,
     /fn selfhost_call_reduce_trailing_block_sequence_line_expected[\s\S]*SelfhostTypeId fn SelfhostTypeId[\s\S]*\\expected_type\\unit_type\\idx\\count\\line_span[\s\S]*eq idx sub count 1[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*SelfhostTypeExpectationSource::BlockSequenceDiscardedExpression/,
     "multi-expression trailing block reduction must use the outer expected type only for the last expression and a pre-resolved unit type for discarded earlier expressions",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_operator_index_loop[\s\S]*SelfhostExprPrefixItemKind::PipeOperator[\s\S]*SelfhostCallReduceErrorKind::PipeUnsupportedMultiple[\s\S]*fn selfhost_call_reduce_pipe_prefix_with_source[\s\S]*PipeMissingLeftOperand[\s\S]*PipeMissingRightTarget[\s\S]*selfhost_callable_candidates_collect_for_head_item source tokens rhs_head scope signatures/,
+    "pipe reduction must be detected in the source-backed reducer and must collect the right-hand target from scope and signatures",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_single_candidate_with_source[\s\S]*selfhost_type_arena_function_arg &arena candidate\.callable_type 0[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures 0 pipe_index first_arg_type rhs_head[\s\S]*selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 add pipe_index 2 item_count trailing_block rhs_head[\s\S]*selfhost_checked_expr_tree_add_direct_call_borrowed checked_tree2 candidate result_type call_span &checked_arguments2/,
+    "pipe reduction must type-check the left side as the first argument and then reuse the source-backed argument loop for the right-side suffix",
+);
+assert.match(
+    source,
+    /pub fn selfhost_call_reduce_prefix %fn[\s\S]*SelfhostExprPrefixItemKind::NamedValue:[\s\S]*selfhost_call_reduce_named_prefix arena prefix candidates expected head item_count[\s\S]*SelfhostCallReduceErrorKind::UnsupportedPrefixItem/,
+    "source-less call reduction must remain named-head only and must not accept pipe without source-backed evidence",
 );
 assert.match(
     source,
