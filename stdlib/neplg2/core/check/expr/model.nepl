@@ -20,6 +20,8 @@
 #import "neplg2/core/ty/ty" as *
 #import "./call_candidate" as *
 #import "./argument_payload" as *
+#import "./checked_tree" as *
+#import "./checked_tree_id" as *
 
 //: SelfhostReducedCall: direct named call として縮約できた payload
 //:
@@ -78,26 +80,32 @@ impl Copy for SelfhostCallReduceResult:
 //:
 //: [目的/もくてき]:
 //: - source-backed argument checker は `%T literal` の `T` を TypeArena へ投影するため、call reduction の成功後に更新済み arena owner を caller へ返す必要があります。
+//: - nested direct call や block result は、source 再読なし HIR lowering のため checked expression tree と root expression id も成功 payload に保存します。
 //: - borrowed `selfhost_call_reduce_prefix` は stage0 / fail-closed 用に残し、owner を扱う入口だけがこの payload を返します。
 //:
 //: [契約/けいやく]:
 //: - `result` は `SelfhostCallReduceResult` と同じ direct call plan です。
 //: - `checked_arguments` は source-backed argument checker が得た引数ごとの typed evidence です。HIR lowering はここから function value / nested call / block result を再計算せずに参照できます。
+//: - `checked_tree` と `root_expr` は同じ tree に閉じています。`root_expr` はこの reduction 全体の checked expression node を指します。
 //: - `arena` は成功時に caller が所有します。失敗時、owner-returning reducer は受け取った arena を解放してから error を返します。
 pub struct SelfhostCallReduceOwnedResult:
     arena %SelfhostTypeArena
     result %SelfhostCallReduceResult
     checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+    root_expr %SelfhostCheckedExprId
 
 //: SelfhostCallReduceOwnedResultParts: owned result を消費して取り出す field 群
 //:
 //: [目的/もくてき]:
-//: - arena owner、copyable な reduction result、checked argument list owner をまとめて次の owner payload へ移すための一時構造です。
+//: - arena owner、copyable な reduction result、checked argument list owner、checked tree owner、root expression id をまとめて次の owner payload へ移すための一時構造です。
 //: - caller が `SelfhostCallReduceOwnedResult` から複数 field を個別に取り出して owner を落とす退行を避けます。
 pub struct SelfhostCallReduceOwnedResultParts:
     arena %SelfhostTypeArena
     result %SelfhostCallReduceResult
     checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+    root_expr %SelfhostCheckedExprId
 
 //: SelfhostCallReduceErrorKind: call reduction の失敗分類
 //:
@@ -113,6 +121,7 @@ pub struct SelfhostCallReduceOwnedResultParts:
 //: - `ArgumentNestedCandidate*` は、nested named call argument の head を function candidate として収集する段階の不整合を分けます。
 //: - `TrailingBlockBody*` は、末尾 block argument の nested body を `BlockResult` expectation で検査する前の入力構築失敗を分けます。partial application や raw arity error へ潰してはいけません。
 //: - `UnexpectedTrailingBlockArgument` は、candidate の parameter をすでにすべて消費した後に `BlockIntro.body` が残った場合です。
+//: - `CheckedTreeBuildInvalidOperation` は、nested call / block result / root call を checked expression tree へ追加する段階で、未来 node 参照や壊れた range などの tree invariant 違反を検出した場合です。一般的な internal invariant へ潰さず、tree builder 境界の失敗として保持します。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
     UnsupportedPrefixItem
@@ -173,6 +182,7 @@ pub enum SelfhostCallReduceErrorKind:
     GenericInferenceConflict
     GenericInferenceUnsupported
     ExpectedTypeMismatch
+    CheckedTreeBuildInvalidOperation
     OutOfMemory
     InternalInvariant
 
@@ -185,8 +195,8 @@ impl Copy for SelfhostCallReduceErrorKind:
         self
 
 //: selfhost_call_reduce_owned_result_new: owner 付き call reduction 成功 payload を[作/つく]る
-pub fn selfhost_call_reduce_owned_result_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult impure fn Vec SelfhostCheckedArgument SelfhostCallReduceOwnedResult \arena\result\checked_arguments:
-    SelfhostCallReduceOwnedResult arena result checked_arguments
+pub fn selfhost_call_reduce_owned_result_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree impure fn SelfhostCheckedExprId SelfhostCallReduceOwnedResult \arena\result\checked_arguments\checked_tree\root_expr:
+    SelfhostCallReduceOwnedResult arena result checked_arguments checked_tree root_expr
 
 //: selfhost_call_reduce_owned_result_result: direct call plan を borrow で[返/かえ]す
 pub fn selfhost_call_reduce_owned_result_result %fn &SelfhostCallReduceOwnedResult &SelfhostCallReduceResult \owned:
@@ -196,12 +206,21 @@ pub fn selfhost_call_reduce_owned_result_result %fn &SelfhostCallReduceOwnedResu
 pub fn selfhost_call_reduce_owned_result_checked_arguments %fn &SelfhostCallReduceOwnedResult &Vec SelfhostCheckedArgument \owned:
     field::get_ref owned "checked_arguments"
 
+//: selfhost_call_reduce_owned_result_checked_tree: checked tree を borrow で[返/かえ]す
+pub fn selfhost_call_reduce_owned_result_checked_tree %fn &SelfhostCallReduceOwnedResult &SelfhostCheckedExprTree \owned:
+    field::get_ref owned "checked_tree"
+
+//: selfhost_call_reduce_owned_result_root_expr: reduction 全体の root expression id を[返/かえ]す
+pub fn selfhost_call_reduce_owned_result_root_expr %fn &SelfhostCallReduceOwnedResult SelfhostCheckedExprId \owned:
+    *field::get_ref owned "root_expr"
+
 //: selfhost_call_reduce_owned_result_into_arena: updated arena owner を[取/と]り[出/だ]す
 //:
 //: [注意/ちゅうい]:
-//: - この互換 helper は checked argument list を解放してから arena だけを返します。checked argument を後続へ渡す caller は `selfhost_call_reduce_owned_result_into_parts` を使ってください。
+//: - この互換 helper は checked argument list と checked tree を解放してから arena だけを返します。checked payload を後続へ渡す caller は `selfhost_call_reduce_owned_result_into_parts` を使ってください。
 pub fn selfhost_call_reduce_owned_result_into_arena %impure fn SelfhostCallReduceOwnedResult SelfhostTypeArena \owned:
     v::free field::get owned "checked_arguments"
+    selfhost_checked_expr_tree_free field::get owned "checked_tree"
     field::get owned "arena"
 
 //: selfhost_call_reduce_owned_result_into_parts: owner result を field owner 群へ[分解/ぶんかい]する
@@ -209,11 +228,14 @@ pub fn selfhost_call_reduce_owned_result_into_parts %impure fn SelfhostCallReduc
     let arena %SelfhostTypeArena field::get owned "arena"
     let result %SelfhostCallReduceResult field::get owned "result"
     let checked_arguments %Vec SelfhostCheckedArgument field::get owned "checked_arguments"
-    SelfhostCallReduceOwnedResultParts arena result checked_arguments
+    let checked_tree %SelfhostCheckedExprTree field::get owned "checked_tree"
+    let root_expr %SelfhostCheckedExprId field::get owned "root_expr"
+    SelfhostCallReduceOwnedResultParts arena result checked_arguments checked_tree root_expr
 
 //: selfhost_call_reduce_owned_result_parts_into_arena: parts から arena owner を[取/と]り[出/だ]す
 pub fn selfhost_call_reduce_owned_result_parts_into_arena %impure fn SelfhostCallReduceOwnedResultParts SelfhostTypeArena \parts:
     v::free field::get parts "checked_arguments"
+    selfhost_checked_expr_tree_free field::get parts "checked_tree"
     field::get parts "arena"
 
 //: SelfhostCallReduceError: call reduction 失敗の typed payload
@@ -608,6 +630,12 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::ExpectedTypeMismatch:
             match b:
                 SelfhostCallReduceErrorKind::ExpectedTypeMismatch:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::CheckedTreeBuildInvalidOperation:
+            match b:
+                SelfhostCallReduceErrorKind::CheckedTreeBuildInvalidOperation:
                     true
                 _:
                     false

@@ -37,6 +37,8 @@
 #import "./call_candidate" as *
 #import "./candidate_collection" as *
 #import "./argument_payload" as *
+#import "./checked_tree" as *
+#import "./checked_tree_id" as *
 #import "./model" as *
 #import "./call_reduce" as *
 #import "./ascription" as *
@@ -66,10 +68,13 @@ pub enum SelfhostExpressionLineCheckError:
 //: - `%T expr` は TypeArena に expected type を追加してから内側 expression を検査するため、成功後の arena owner も caller へ返す必要があります。
 //: - call reduction result と arena owner を分けずに運ぶことで、checker 呼び出し側が古い arena owner を誤って使う経路をなくします。
 //: - source-backed reducer が得た checked argument list も保持し、`@ident` function value の DefId evidence を body_line 境界で落とさないようにします。
+//: - checked expression tree と root id も保持し、HIR lowering が nested call / block result の source token や scope lookup を再実行せずに済むようにします。
 pub struct SelfhostExpressionLineCheckSuccess:
     arena %SelfhostTypeArena
     result %SelfhostCallReduceResult
     checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+    root_expr %SelfhostCheckedExprId
 
 //: SelfhostAscriptionExpectedTypeConflict: 明示 ascription と外側 expected type の衝突 evidence
 //:
@@ -88,8 +93,8 @@ pub struct SelfhostAscriptionExpectedTypeConflict:
     outer_span %SelfhostSourceSpan
 
 //: selfhost_expression_line_check_success_new: owner 付き成功 payload を[作/つく]る
-pub fn selfhost_expression_line_check_success_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult impure fn Vec SelfhostCheckedArgument SelfhostExpressionLineCheckSuccess \arena\result\checked_arguments:
-    SelfhostExpressionLineCheckSuccess arena result checked_arguments
+pub fn selfhost_expression_line_check_success_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree impure fn SelfhostCheckedExprId SelfhostExpressionLineCheckSuccess \arena\result\checked_arguments\checked_tree\root_expr:
+    SelfhostExpressionLineCheckSuccess arena result checked_arguments checked_tree root_expr
 
 //: selfhost_ascription_expected_type_conflict_new: expectation 衝突 evidence を[作/つく]る
 //:
@@ -106,18 +111,28 @@ pub fn selfhost_expression_line_check_success_result %fn &SelfhostExpressionLine
 pub fn selfhost_expression_line_check_success_checked_arguments %fn &SelfhostExpressionLineCheckSuccess &Vec SelfhostCheckedArgument \success:
     field::get_ref success "checked_arguments"
 
+//: selfhost_expression_line_check_success_checked_tree: checked expression tree を borrow で[返/かえ]す
+pub fn selfhost_expression_line_check_success_checked_tree %fn &SelfhostExpressionLineCheckSuccess &SelfhostCheckedExprTree \success:
+    field::get_ref success "checked_tree"
+
+//: selfhost_expression_line_check_success_root_expr: success 全体の root expression id を[返/かえ]す
+pub fn selfhost_expression_line_check_success_root_expr %fn &SelfhostExpressionLineCheckSuccess SelfhostCheckedExprId \success:
+    *field::get_ref success "root_expr"
+
 //: selfhost_expression_line_check_success_into_arena: 成功 payload を消費して arena owner を[取/と]り[出/だ]す
 //:
 //: [注意/ちゅうい]:
-//: - この互換 helper は checked argument list を解放して arena だけを返します。checked argument を後続へ渡す caller は、専用の owner 分解 API を後続 slice で追加してください。
+//: - この互換 helper は checked argument list と checked tree を解放して arena だけを返します。checked payload を後続へ渡す caller は専用の owner 分解 API を使ってください。
 pub fn selfhost_expression_line_check_success_into_arena %impure fn SelfhostExpressionLineCheckSuccess SelfhostTypeArena \success:
     v::free field::get success "checked_arguments"
+    selfhost_checked_expr_tree_free field::get success "checked_tree"
     field::get success "arena"
 
 //: selfhost_expression_line_check_success_free: 成功 payload の arena owner を[解放/かいほう]する
 pub fn selfhost_expression_line_check_success_free %impure fn SelfhostExpressionLineCheckSuccess unit \success:
     selfhost_type_arena_free field::get success "arena"
     v::free field::get success "checked_arguments"
+    selfhost_checked_expr_tree_free field::get success "checked_tree"
 
 //: `SelfhostExpressionLineCheckError` の値をそのまま複製する実装です。
 //:
@@ -333,7 +348,7 @@ fn selfhost_check_expr_reduce_expression_line_prefix_with_arena %impure fn &Vec 
             match reduced:
                 Result::Ok owned:
                     let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
-                    Result::Ok selfhost_expression_line_check_success_new field::get parts "arena" field::get parts "result" field::get parts "checked_arguments"
+                    Result::Ok selfhost_expression_line_check_success_new field::get parts "arena" field::get parts "result" field::get parts "checked_arguments" field::get parts "checked_tree" field::get parts "root_expr"
                 Result::Err e:
                     Result::Err SelfhostExpressionLineCheckError::CallReduceFailed e
         Result::Err e:
@@ -359,7 +374,7 @@ fn selfhost_check_expr_reduce_block_intro_prefix_with_arena %impure fn &Vec Self
             match reduced:
                 Result::Ok owned:
                     let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
-                    Result::Ok selfhost_expression_line_check_success_new field::get parts "arena" field::get parts "result" field::get parts "checked_arguments"
+                    Result::Ok selfhost_expression_line_check_success_new field::get parts "arena" field::get parts "result" field::get parts "checked_arguments" field::get parts "checked_tree" field::get parts "root_expr"
                 Result::Err e:
                     Result::Err SelfhostExpressionLineCheckError::CallReduceFailed e
         Result::Err e:

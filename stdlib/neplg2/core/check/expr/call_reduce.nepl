@@ -31,6 +31,8 @@
 #import "./model" as *
 #import "./argument" as *
 #import "./argument_payload" as *
+#import "./checked_tree" as *
+#import "./checked_tree_id" as *
 #import "./value_evidence" as *
 #import "./block_body" as *
 
@@ -265,14 +267,34 @@ fn selfhost_call_reduce_free_argument_error %impure fn SelfhostTypeArena impure 
     selfhost_type_arena_free arena
     Result::Err error
 
+//: selfhost_call_reduce_error_from_checked_tree_std_error: checked tree 追加失敗を call reduction error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - checked tree builder の `StdErrorKind` を call reduction の typed error domain へ移します。
+//: - allocation failure と DAG invariant failure を同じ unsupported expression へ潰さず、OOM と internal invariant に分けます。
+//:
+//: [契約/けいやく]:
+//: - `OutOfMemory` は `SelfhostCallReduceErrorKind::OutOfMemory` です。
+//: - `InvalidOperation` や range / index failure は、checked tree builder 境界の不正操作として `CheckedTreeBuildInvalidOperation` へ写します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
+fn selfhost_call_reduce_error_from_checked_tree_std_error %fn StdErrorKind fn SelfhostSourceSpan SelfhostCallReduceError \error\span:
+    match error:
+        StdErrorKind::OutOfMemory:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory span
+        _:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::CheckedTreeBuildInvalidOperation span
+
 //: SelfhostCallReduceArgumentCheckState: source-backed argument loop の owner 状態
 //:
 //: [目的/もくてき]:
 //: - argument loop は `%T` projection によって更新された type arena owner と、各 argument から得た checked payload vector を一緒に運びます。
 //: - arena だけを返すと、`@ident` が成功した時点の callable candidate / DefId evidence が loop の次の再帰で失われます。
+//: - checked expression tree owner も同じ state に置き、nested direct call や block result が同じ tree 内の node id を返せるようにします。
 //:
 //: [契約/けいやく]:
-//: - `arena` と `checked_arguments` の owner はこの state が保持します。
+//: - `arena`、`checked_arguments`、`checked_tree` の owner はこの state が保持します。
 //: - caller は success path で state を上位 payload へ移すか、`free` / `into_arena` で owner を閉じます。
 //:
 //: [計算量/けいさんりょう]:
@@ -280,6 +302,36 @@ fn selfhost_call_reduce_free_argument_error %impure fn SelfhostTypeArena impure 
 struct SelfhostCallReduceArgumentCheckState:
     arena %SelfhostTypeArena
     checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+
+//: SelfhostCallReduceArgumentMatchState: 1 argument の検査結果と checked tree owner を運ぶ state
+//:
+//: [目的/もくてき]:
+//: - direct argument checker は tree を知らないため、call reducer 側で arena / tree / consume-width / checked argument をまとめ直します。
+//: - nested direct call や block result は同じ state 型を返し、outer argument loop が単純に checked argument を push できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `checked_tree` は `checked_argument` 内の `CheckedExpr` id と同じ tree owner です。
+//: - この state は owner を持つため、成功時は caller が field を取り出して次の state へ移します。失敗時は各 helper が owner を閉じます。
+struct SelfhostCallReduceArgumentMatchState:
+    arena %SelfhostTypeArena
+    checked_tree %SelfhostCheckedExprTree
+    match_value %SelfhostExprArgumentMatch
+    checked_argument %SelfhostCheckedArgument
+
+//: SelfhostCallReduceNestedArgumentState: nested direct call の child argument list を運ぶ state
+//:
+//: [目的/もくてき]:
+//: - nested call の内部引数を、outer checked argument vector へ混ぜず、direct call node の child argument list として保持します。
+//:
+//: [契約/けいやく]:
+//: - `checked_arguments` は nested call node へ渡すための owner です。
+//: - `match_value.next_index` は nested call 全体の直後を指します。
+struct SelfhostCallReduceNestedArgumentState:
+    arena %SelfhostTypeArena
+    checked_tree %SelfhostCheckedExprTree
+    checked_arguments %Vec SelfhostCheckedArgument
+    match_value %SelfhostExprArgumentMatch
 
 //: selfhost_call_reduce_argument_check_state_new: argument loop state を[作/つく]る
 //:
@@ -294,8 +346,16 @@ struct SelfhostCallReduceArgumentCheckState:
 //:
 //: [計算量/けいさんりょう]:
 //: - record 構築だけなので O(1) です。
-fn selfhost_call_reduce_argument_check_state_new %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument SelfhostCallReduceArgumentCheckState \arena\checked_arguments:
-    SelfhostCallReduceArgumentCheckState arena checked_arguments
+fn selfhost_call_reduce_argument_check_state_new %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree SelfhostCallReduceArgumentCheckState \arena\checked_arguments\checked_tree:
+    SelfhostCallReduceArgumentCheckState arena checked_arguments checked_tree
+
+//: selfhost_call_reduce_argument_match_state_new: 1 argument match state を[作/つく]る
+fn selfhost_call_reduce_argument_match_state_new %impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn SelfhostExprArgumentMatch impure fn SelfhostCheckedArgument SelfhostCallReduceArgumentMatchState \arena\checked_tree\match_value\checked_argument:
+    SelfhostCallReduceArgumentMatchState arena checked_tree match_value checked_argument
+
+//: selfhost_call_reduce_nested_argument_state_new: nested argument loop state を[作/つく]る
+fn selfhost_call_reduce_nested_argument_state_new %impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn Vec SelfhostCheckedArgument impure fn SelfhostExprArgumentMatch SelfhostCallReduceNestedArgumentState \arena\checked_tree\checked_arguments\match_value:
+    SelfhostCallReduceNestedArgumentState arena checked_tree checked_arguments match_value
 
 //: selfhost_call_reduce_argument_check_state_free: argument loop state の owner を[解放/かいほう]する
 //:
@@ -310,6 +370,7 @@ fn selfhost_call_reduce_argument_check_state_new %impure fn SelfhostTypeArena im
 fn selfhost_call_reduce_argument_check_state_free %impure fn SelfhostCallReduceArgumentCheckState unit \state:
     selfhost_type_arena_free field::get state "arena"
     v::free field::get state "checked_arguments"
+    selfhost_checked_expr_tree_free field::get state "checked_tree"
 
 //: selfhost_call_reduce_argument_check_state_into_arena: checked argument list を閉じて arena owner だけを[取/と]り[出/だ]す
 //:
@@ -327,6 +388,7 @@ fn selfhost_call_reduce_argument_check_state_free %impure fn SelfhostCallReduceA
 //: - Vec cleanup の実コストは checked argument 数に依存します。arena field 取り出しは O(1) です。
 fn selfhost_call_reduce_argument_check_state_into_arena %impure fn SelfhostCallReduceArgumentCheckState SelfhostTypeArena \state:
     v::free field::get state "checked_arguments"
+    selfhost_checked_expr_tree_free field::get state "checked_tree"
     field::get state "arena"
 
 //: selfhost_call_reduce_free_argument_state_error: argument loop の partial owner を閉じて error を[返/かえ]す
@@ -343,9 +405,10 @@ fn selfhost_call_reduce_argument_check_state_into_arena %impure fn SelfhostCallR
 //:
 //: [計算量/けいさんりょう]:
 //: - error forwarding は O(1) です。owner cleanup は保持要素数に依存します。
-fn selfhost_call_reduce_free_argument_state_error %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCallReduceError Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \arena\checked_arguments\error:
+fn selfhost_call_reduce_free_argument_state_error %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree impure fn SelfhostCallReduceError Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \arena\checked_arguments\checked_tree\error:
     selfhost_type_arena_free arena
     v::free checked_arguments
+    selfhost_checked_expr_tree_free checked_tree
     Result::Err error
 
 //: selfhost_call_reduce_push_checked_argument: checked argument を loop state へ[追加/ついか]する
@@ -363,12 +426,13 @@ fn selfhost_call_reduce_free_argument_state_error %impure fn SelfhostTypeArena i
 //:
 //: [計算量/けいさんりょう]:
 //: - Vec push は償却 O(1) です。失敗時 cleanup は保持要素数に依存します。
-fn selfhost_call_reduce_push_checked_argument %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedArgument impure fn SelfhostSourceSpan Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \arena\checked_arguments\checked_argument\fallback_span:
+fn selfhost_call_reduce_push_checked_argument %impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree impure fn SelfhostCheckedArgument impure fn SelfhostSourceSpan Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \arena\checked_arguments\checked_tree\checked_argument\fallback_span:
     match v::push checked_arguments checked_argument:
         Result::Ok next_arguments:
-            Result::Ok selfhost_call_reduce_argument_check_state_new arena next_arguments
+            Result::Ok selfhost_call_reduce_argument_check_state_new arena next_arguments checked_tree
         Result::Err e:
             selfhost_type_arena_free arena
+            selfhost_checked_expr_tree_free checked_tree
             v::free v::vec_push_error_vec e
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory fallback_span
 
@@ -475,60 +539,79 @@ fn selfhost_call_reduce_argument_type_check_loop %fn &SelfhostTypeArena fn &Self
 //: - この関数は nested candidate の探索を行いません。探索済みで「直接実引数として検査する」と決まった item だけを受け取ります。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(owned_match)`: 実引数が `expected_type` に適合し、checked argument evidence を保持しています。
+//: - `Ok(match_state)`: 実引数が `expected_type` に適合し、checked argument evidence と checked tree owner を保持しています。
 //: - `Err(error)`: 型不一致、ascription 不整合、または argument reducer の内部不整合です。
 //:
 //: [計算量/けいさんりょう]:
 //: - この wrapper 自体は O(1) です。実際の探索範囲と型検査コストは `selfhost_expr_argument_match_at_with_source` に従います。
-fn selfhost_call_reduce_argument_match_direct_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
+fn selfhost_call_reduce_argument_match_direct_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
     match selfhost_expr_argument_match_at_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type:
         Result::Ok owned_match:
-            Result::Ok owned_match
+            let argument_match %SelfhostExprArgumentMatch selfhost_expr_argument_owned_match_match &owned_match
+            let checked_argument %SelfhostCheckedArgument selfhost_expr_argument_owned_match_checked_argument &owned_match
+            let checked_arena %SelfhostTypeArena selfhost_expr_argument_owned_match_into_arena owned_match
+            Result::Ok selfhost_call_reduce_argument_match_state_new checked_arena checked_tree argument_match checked_argument
         Result::Err argument_error:
+            selfhost_checked_expr_tree_free checked_tree
             Result::Err selfhost_call_reduce_error_from_argument_match_owned argument_error head
 
 //: selfhost_call_reduce_argument_consume_loop_with_source: nested direct call の実引数列を[左/ひだり]から[消費/しょうひ]する
 //:
 //: [目的/もくてき]:
 //: - `head arg1 arg2 ...` という prefix 列を、`head` が 1 つの実引数式として期待型に渡される nested direct call に縮約します。
-//: - 各 parameter の期待型で実引数を検査し、最後に `NestedDirectCall` checked argument として呼び出し範囲を保存します。
+//: - 各 parameter の期待型で実引数を検査し、最後に direct call node へ渡す child argument list と checked tree owner を返します。
 //:
 //: [契約/けいやく]:
 //: - partial application は許可しません。parameter が残ったまま item が尽きた場合は `PartialApplicationRejected` を返します。
-//: - 成功時は最終 arena owner と nested direct call evidence を `SelfhostExprArgumentOwnedMatch` に移します。
+//: - 成功時は最終 arena owner、checked tree owner、nested call の child argument list、消費済み範囲を `SelfhostCallReduceNestedArgumentState` に移します。
 //: - `selfhost_call_reduce_argument_match_at_with_source_or_nested` の成功 payload から arena owner を取り出して次の再帰へ渡すため、途中の owner は二重解放されません。
 //: - 失敗時は、下位 reducer またはこの関数の cleanup helper が arena owner を閉じた状態で typed error を返します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(owned_match)`: `call_start_index..item_index` が nested direct call として検査済みです。
+//: - `Ok(state)`: `call_start_index..item_index` が nested direct call の child argument list として検査済みです。
 //: - `Err(error)`: 実引数不足、parameter type 取得失敗、または下位 argument 検査失敗です。
 //:
 //: [計算量/けいさんりょう]:
 //: - loop は parameter 数に対して O(p) 回進みます。各 step の実引数検査コストは、該当 prefix item の ascription/nested call 探索に依存します。
-fn selfhost_call_reduce_argument_consume_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidate\param_count\param_idx\call_start_index\item_index\item_count\head:
+fn selfhost_call_reduce_argument_consume_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn Vec SelfhostCheckedArgument impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostExprPrefixItem Result SelfhostCallReduceNestedArgumentState SelfhostCallReduceError \tokens\source\arena\checked_tree\nested_arguments\prefix\scope\value_types\signatures\candidate\param_count\param_idx\call_start_index\item_index\item_count\head:
     if:
         ge param_idx param_count
         then:
             let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new item_index
-            let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_nested_direct_call call_start_index item_index candidate.callable_type head.span candidate
-            Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
+            Result::Ok selfhost_call_reduce_nested_argument_state_new arena checked_tree nested_arguments match_value
         else:
             if:
                 ge item_index item_count
                 then:
-                    selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
+                    selfhost_type_arena_free arena
+                    selfhost_checked_expr_tree_free checked_tree
+                    v::free nested_arguments
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
                 else:
                     match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
                         Option::Some expected_arg_type:
-                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head:
-                                Result::Ok owned_match:
-                                    let argument_match %SelfhostExprArgumentMatch selfhost_expr_argument_owned_match_match &owned_match
-                                    let next_arena %SelfhostTypeArena selfhost_expr_argument_owned_match_into_arena owned_match
-                                    selfhost_call_reduce_argument_consume_loop_with_source tokens source next_arena prefix scope value_types signatures candidate param_count add param_idx 1 call_start_index argument_match.next_index item_count head
+                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_arg_type head:
+                                Result::Ok match_state:
+                                    let argument_match %SelfhostExprArgumentMatch field::get match_state "match_value"
+                                    let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"
+                                    let next_arena %SelfhostTypeArena field::get match_state "arena"
+                                    let next_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"
+                                    match v::push nested_arguments checked_argument:
+                                        Result::Ok next_nested_arguments:
+                                            selfhost_call_reduce_argument_consume_loop_with_source tokens source next_arena next_tree next_nested_arguments prefix scope value_types signatures candidate param_count add param_idx 1 call_start_index argument_match.next_index item_count head
+                                        Result::Err push_error:
+                                            selfhost_type_arena_free next_arena
+                                            selfhost_checked_expr_tree_free next_tree
+                                            v::free v::vec_push_error_vec push_error
+                                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory head.span
                                 Result::Err e:
+                                    v::free nested_arguments
                                     Result::Err e
                         Option::None:
-                            selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                            selfhost_type_arena_free arena
+                            selfhost_checked_expr_tree_free checked_tree
+                            v::free nested_arguments
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
 //: selfhost_call_reduce_nested_single_named_candidate_with_source: 1 つの named candidate を nested direct call として[検査/けんさ]する
 //:
@@ -539,37 +622,59 @@ fn selfhost_call_reduce_argument_consume_loop_with_source %impure fn &Vec Selfho
 //: [契約/けいやく]:
 //: - generic candidate は現段階では閉じた monomorphic candidate として扱えないため、fail-closed で error にします。
 //: - result type check に失敗した場合は、consumed payload から取り出した arena owner をこの関数が閉じます。
-//: - 成功時は checked argument evidence を保持したまま、新しい owned match として arena owner を返します。
+//: - 成功時は nested call を checked tree node として追加し、外側 argument には同じ tree 内の `CheckedExpr` id だけを保存します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(owned_match)`: nested direct call と外側期待型が両方検査済みです。
+//: - `Ok(match_state)`: nested direct call と外側期待型が両方検査され、外側 argument が `CheckedExpr` payload として得られました。
 //: - `Err(error)`: candidate が callable でない、generic 未対応、内部実引数検査失敗、または result type 不一致です。
 //:
 //: [計算量/けいさんりょう]:
 //: - candidate の parameter 数を p とすると、実引数消費は O(p) 回の検査です。result type check は型照合器のコストに従います。
-fn selfhost_call_reduce_nested_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidate\item_index\item_count\expected_type\head:
+fn selfhost_call_reduce_nested_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidate\item_index\item_count\expected_type\head:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _unit:
             match selfhost_type_arena_function_arg_count &arena candidate.callable_type:
                 Option::Some param_count:
-                    match selfhost_call_reduce_argument_consume_loop_with_source tokens source arena prefix scope value_types signatures candidate param_count 0 item_index add item_index 1 item_count head:
-                        Result::Ok consumed:
-                            let argument_match %SelfhostExprArgumentMatch selfhost_expr_argument_owned_match_match &consumed
-                            let checked_argument %SelfhostCheckedArgument selfhost_expr_argument_owned_match_checked_argument &consumed
-                            let checked_arena %SelfhostTypeArena selfhost_expr_argument_owned_match_into_arena consumed
-                            let expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::OuterConsumerArgument head.span
-                            match selfhost_call_reduce_expected_result &checked_arena candidate some expected:
-                                Result::Ok _result_type:
-                                    Result::Ok selfhost_expr_argument_owned_match_new checked_arena argument_match checked_argument
+                    let nested_arguments_result %Result Vec SelfhostCheckedArgument StdErrorKind v::new
+                    match nested_arguments_result:
+                        Result::Ok nested_arguments:
+                            match selfhost_call_reduce_argument_consume_loop_with_source tokens source arena checked_tree nested_arguments prefix scope value_types signatures candidate param_count 0 item_index add item_index 1 item_count head:
+                                Result::Ok consumed:
+                                    let argument_match %SelfhostExprArgumentMatch field::get consumed "match_value"
+                                    let nested_arguments_result %Vec SelfhostCheckedArgument field::get consumed "checked_arguments"
+                                    let checked_arena %SelfhostTypeArena field::get consumed "arena"
+                                    let consumed_tree %SelfhostCheckedExprTree field::get consumed "checked_tree"
+                                    let expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::OuterConsumerArgument head.span
+                                    match selfhost_call_reduce_expected_result &checked_arena candidate some expected:
+                                        Result::Ok result_type:
+                                            match selfhost_checked_expr_tree_add_direct_call consumed_tree candidate result_type head.span nested_arguments_result:
+                                                Result::Ok alloc:
+                                                    let expr_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &alloc
+                                                    let next_tree %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree alloc
+                                                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_checked_expr item_index argument_match.next_index result_type head.span expr_id
+                                                    Result::Ok selfhost_call_reduce_argument_match_state_new checked_arena next_tree argument_match checked_argument
+                                                Result::Err tree_error:
+                                                    selfhost_type_arena_free checked_arena
+                                                    Result::Err selfhost_call_reduce_error_from_checked_tree_std_error tree_error head.span
+                                        Result::Err e:
+                                            selfhost_type_arena_free checked_arena
+                                            selfhost_checked_expr_tree_free consumed_tree
+                                            v::free nested_arguments_result
+                                            Result::Err e
                                 Result::Err e:
-                                    selfhost_type_arena_free checked_arena
                                     Result::Err e
-                        Result::Err e:
-                            Result::Err e
+                        Result::Err _alloc_error:
+                            selfhost_type_arena_free arena
+                            selfhost_checked_expr_tree_free checked_tree
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory head.span
                 Option::None:
-                    selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::NotCallable candidate.span
+                    selfhost_type_arena_free arena
+                    selfhost_checked_expr_tree_free checked_tree
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::NotCallable candidate.span
         Result::Err e:
-            selfhost_call_reduce_free_argument_error arena e
+            selfhost_type_arena_free arena
+            selfhost_checked_expr_tree_free checked_tree
+            Result::Err e
 
 //: selfhost_call_reduce_nested_named_candidates_with_source: named item の候補数で nested/direct の[分岐/ぶんき]を[決/き]める
 //:
@@ -583,33 +688,37 @@ fn selfhost_call_reduce_nested_single_named_candidate_with_source %impure fn &Ve
 //: - 0 candidate の場合も、named value が通常の値である可能性を残すため、direct argument check を実行します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(owned_match)`: direct argument または nested direct call として検査済みです。
+//: - `Ok(match_state)`: direct argument または nested direct call として検査済みで、arena と checked tree owner も返ります。
 //: - `Err(error)`: ambiguity、candidate vector 不整合、または委譲先 reducer の失敗です。
 //:
 //: [計算量/けいさんりょう]:
 //: - candidate 数判定と 0/1/>1 分岐は O(1) です。実際の検査コストは direct reducer または single-candidate reducer に従います。
-fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\item_index\item_count\expected_type\head:
+fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\item_index\item_count\expected_type\head:
     let candidate_count %i32 v::len &candidates
     if:
         eq candidate_count 0
         then:
             v::free candidates
-            selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type head
+            selfhost_call_reduce_argument_match_direct_with_source tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_type head
         else:
             if:
                 gt candidate_count 1
                 then:
                     v::free candidates
-                    selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
+                    selfhost_type_arena_free arena
+                    selfhost_checked_expr_tree_free checked_tree
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
                 else:
                     match v::get &candidates 0:
                         Option::Some candidate:
-                            let reduced %Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena prefix scope value_types signatures candidate item_index item_count expected_type head
+                            let reduced %Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures candidate item_index item_count expected_type head
                             v::free candidates
                             reduced
                         Option::None:
                             v::free candidates
-                            selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                            selfhost_type_arena_free arena
+                            selfhost_checked_expr_tree_free checked_tree
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
 //: selfhost_call_reduce_argument_match_at_with_source_or_nested: item を direct argument または nested call として[検査/けんさ]する
 //:
@@ -628,20 +737,24 @@ fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec Self
 //:
 //: [計算量/けいさんりょう]:
 //: - named value では candidate 収集コストに加えて nested/direct reducer のコストがかかります。named value 以外では direct reducer のコストだけです。
-fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
+fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
     match selfhost_expr_prefix_list_get prefix item_index:
         Option::Some item:
             match item.kind:
                 SelfhostExprPrefixItemKind::NamedValue:
                     match selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures:
                         Result::Ok nested_candidates:
-                            selfhost_call_reduce_nested_named_candidates_with_source tokens source arena prefix scope value_types signatures nested_candidates item_index item_count expected_type item
+                            selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates item_index item_count expected_type item
                         Result::Err collect_error:
-                            selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_from_candidate_collect collect_error
+                            selfhost_type_arena_free arena
+                            selfhost_checked_expr_tree_free checked_tree
+                            Result::Err selfhost_call_reduce_error_from_candidate_collect collect_error
                 _:
-                    selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type head
+                    selfhost_call_reduce_argument_match_direct_with_source tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_type head
         Option::None:
-            selfhost_call_reduce_free_argument_error arena selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+            selfhost_type_arena_free arena
+            selfhost_checked_expr_tree_free checked_tree
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
 //: selfhost_call_reduce_trailing_block_body_result: 末尾 block argument を `BlockResult` expectation で[縮約/しゅくやく]する
 //:
@@ -653,21 +766,37 @@ fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec 
 //: - 成功時は block body expression が `expected_type` を返すことまで確認済みの arena owner を返します。
 //: - 失敗時は、この関数が受け取った arena owner を閉じるか、再帰 reducer が閉じた状態で typed error を返します。
 //: - block body の prefix/candidate owner は、再帰 reducer が成功しても失敗しても必ず解放します。
-fn selfhost_call_reduce_trailing_block_body_result %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostTypeId impure fn SelfhostTrailingBlockArgument Result SelfhostTypeArena SelfhostCallReduceError \tokens\source\arena\scope\value_types\signatures\expected_type\block_arg:
+fn selfhost_call_reduce_trailing_block_body_result %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostTypeId impure fn SelfhostTrailingBlockArgument impure fn i32 Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\scope\value_types\signatures\expected_type\block_arg\item_index:
     match selfhost_block_body_result_input_from_trailing_block tokens source scope signatures block_arg:
         Result::Ok input:
             let block_expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::BlockResult block_arg.span
             let prefix %&SelfhostExprPrefixList selfhost_block_body_result_input_prefix &input
             let candidates %&Vec SelfhostCallableCandidate selfhost_block_body_result_input_candidates &input
-            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source tokens source arena prefix scope value_types signatures candidates some block_expected
+            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates some block_expected none
             selfhost_block_body_result_input_free input
             match reduced:
                 Result::Ok owned:
-                    Result::Ok selfhost_call_reduce_owned_result_into_arena owned
+                    let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
+                    let checked_arena %SelfhostTypeArena field::get parts "arena"
+                    let body_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
+                    let body_expr %SelfhostCheckedExprId field::get parts "root_expr"
+                    let body_args %Vec SelfhostCheckedArgument field::get parts "checked_arguments"
+                    v::free body_args
+                    match selfhost_checked_expr_tree_add_block_result body_tree expected_type block_arg.span body_expr:
+                        Result::Ok alloc:
+                            let expr_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &alloc
+                            let next_tree %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree alloc
+                            let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new item_index
+                            let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_checked_expr item_index item_index expected_type block_arg.span expr_id
+                            Result::Ok selfhost_call_reduce_argument_match_state_new checked_arena next_tree match_value checked_argument
+                        Result::Err tree_error:
+                            selfhost_type_arena_free checked_arena
+                            Result::Err selfhost_call_reduce_error_from_checked_tree_std_error tree_error block_arg.span
                 Result::Err e:
                     Result::Err e
         Result::Err block_error:
             selfhost_type_arena_free arena
+            selfhost_checked_expr_tree_free checked_tree
             Result::Err selfhost_call_reduce_error_from_block_body_result block_error
 
 //: selfhost_call_reduce_argument_type_check_loop_with_source: source-backed に実引数式 cursor を[照合/しょうごう]する
@@ -681,7 +810,7 @@ fn selfhost_call_reduce_trailing_block_body_result %impure fn &Vec SelfhostToken
 //: - 成功時は更新済み `SelfhostTypeArena` owner と checked argument list owner を返します。
 //: - 失敗時、この関数または argument checker が arena owner を解放します。
 //: - `param_idx` が `param_count` に到達した時点で `item_index == item_count` なら完全飽和です。
-fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \tokens\source\arena\checked_arguments\prefix\scope\value_types\signatures\candidate\param_count\param_idx\item_index\item_count\trailing_block\head:
+fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentCheckState SelfhostCallReduceError \tokens\source\arena\checked_arguments\checked_tree\prefix\scope\value_types\signatures\candidate\param_count\param_idx\item_index\item_count\trailing_block\head:
     if:
         ge param_idx param_count
         then:
@@ -690,11 +819,11 @@ fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec Sel
                 then:
                     match trailing_block:
                         Option::Some block_arg:
-                            selfhost_call_reduce_free_argument_state_error arena checked_arguments selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument block_arg.span
+                            selfhost_call_reduce_free_argument_state_error arena checked_arguments checked_tree selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument block_arg.span
                         Option::None:
-                            Result::Ok selfhost_call_reduce_argument_check_state_new arena checked_arguments
+                            Result::Ok selfhost_call_reduce_argument_check_state_new arena checked_arguments checked_tree
                 else:
-                    selfhost_call_reduce_free_argument_state_error arena checked_arguments selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadNoCandidate head.span
+                    selfhost_call_reduce_free_argument_state_error arena checked_arguments checked_tree selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadNoCandidate head.span
         else:
             if:
                 ge item_index item_count
@@ -703,43 +832,48 @@ fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec Sel
                         Option::Some block_arg:
                             match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
                                 Option::Some expected_arg_type:
-                                    match selfhost_call_reduce_trailing_block_body_result tokens source arena scope value_types signatures expected_arg_type block_arg:
-                                        Result::Ok checked_arena:
-                                            let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_block_result item_index item_index expected_arg_type block_arg.span
-                                            match selfhost_call_reduce_push_checked_argument checked_arena checked_arguments checked_argument block_arg.span:
+                                    match selfhost_call_reduce_trailing_block_body_result tokens source arena checked_tree scope value_types signatures expected_arg_type block_arg item_index:
+                                        Result::Ok match_state:
+                                            let checked_arena %SelfhostTypeArena field::get match_state "arena"
+                                            let next_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"
+                                            let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"
+                                            match selfhost_call_reduce_push_checked_argument checked_arena checked_arguments next_tree checked_argument block_arg.span:
                                                 Result::Ok state:
                                                     let next_arena %SelfhostTypeArena field::get state "arena"
                                                     let next_arguments %Vec SelfhostCheckedArgument field::get state "checked_arguments"
-                                                    selfhost_call_reduce_argument_type_check_loop_with_source tokens source next_arena next_arguments prefix scope value_types signatures candidate param_count add param_idx 1 item_index item_count none head
+                                                    let state_tree %SelfhostCheckedExprTree field::get state "checked_tree"
+                                                    selfhost_call_reduce_argument_type_check_loop_with_source tokens source next_arena next_arguments state_tree prefix scope value_types signatures candidate param_count add param_idx 1 item_index item_count none head
                                                 Result::Err e:
                                                     Result::Err e
                                         Result::Err e:
                                             v::free checked_arguments
                                             Result::Err e
                                 Option::None:
-                                    selfhost_call_reduce_free_argument_state_error arena checked_arguments selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                                    selfhost_call_reduce_free_argument_state_error arena checked_arguments checked_tree selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
                         Option::None:
-                            selfhost_call_reduce_free_argument_state_error arena checked_arguments selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
+                            selfhost_call_reduce_free_argument_state_error arena checked_arguments checked_tree selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
                 else:
                     match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
                         Option::Some expected_arg_type:
-                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head:
-                                Result::Ok owned_match:
-                                    let argument_match %SelfhostExprArgumentMatch selfhost_expr_argument_owned_match_match &owned_match
-                                    let checked_argument %SelfhostCheckedArgument selfhost_expr_argument_owned_match_checked_argument &owned_match
-                                    let next_arena %SelfhostTypeArena selfhost_expr_argument_owned_match_into_arena owned_match
-                                    match selfhost_call_reduce_push_checked_argument next_arena checked_arguments checked_argument head.span:
+                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_arg_type head:
+                                Result::Ok match_state:
+                                    let argument_match %SelfhostExprArgumentMatch field::get match_state "match_value"
+                                    let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"
+                                    let next_arena %SelfhostTypeArena field::get match_state "arena"
+                                    let next_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"
+                                    match selfhost_call_reduce_push_checked_argument next_arena checked_arguments next_tree checked_argument head.span:
                                         Result::Ok state:
                                             let checked_arena %SelfhostTypeArena field::get state "arena"
                                             let next_arguments %Vec SelfhostCheckedArgument field::get state "checked_arguments"
-                                            selfhost_call_reduce_argument_type_check_loop_with_source tokens source checked_arena next_arguments prefix scope value_types signatures candidate param_count add param_idx 1 argument_match.next_index item_count trailing_block head
+                                            let state_tree %SelfhostCheckedExprTree field::get state "checked_tree"
+                                            selfhost_call_reduce_argument_type_check_loop_with_source tokens source checked_arena next_arguments state_tree prefix scope value_types signatures candidate param_count add param_idx 1 argument_match.next_index item_count trailing_block head
                                         Result::Err e:
                                             Result::Err e
                                 Result::Err e:
                                     v::free checked_arguments
                                     Result::Err e
                         Option::None:
-                            selfhost_call_reduce_free_argument_state_error arena checked_arguments selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                            selfhost_call_reduce_free_argument_state_error arena checked_arguments checked_tree selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
 //: selfhost_call_reduce_single_named_candidate: source-less に 1 candidate の direct call を[検査/けんさ]する
 //:
@@ -794,7 +928,7 @@ fn selfhost_call_reduce_single_named_candidate %fn &SelfhostTypeArena fn &Selfho
 //:
 //: [計算量/けいさんりょう]:
 //: - parameter 数を p とすると、実引数消費は O(p) 回の検査です。各 argument の検査コストは ascription/nested call/source token lookup に依存します。
-fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn SelfhostExprPrefixItem impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\item_count\head\candidate\expected\trailing_block:
+fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn SelfhostExprPrefixItem impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\item_count\head\candidate\expected\trailing_block:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _:
             match selfhost_type_arena_function_arg_count &arena candidate.callable_type:
@@ -802,25 +936,38 @@ fn selfhost_call_reduce_single_named_candidate_with_source %impure fn &Vec Selfh
                     let checked_arguments_result %Result Vec SelfhostCheckedArgument StdErrorKind v::new
                     match checked_arguments_result:
                         Result::Ok checked_arguments:
-                            match selfhost_call_reduce_argument_type_check_loop_with_source tokens source arena checked_arguments prefix scope value_types signatures candidate param_count 0 1 item_count trailing_block head:
+                            match selfhost_call_reduce_argument_type_check_loop_with_source tokens source arena checked_arguments checked_tree prefix scope value_types signatures candidate param_count 0 1 item_count trailing_block head:
                                 Result::Ok state:
                                     let checked_arena %SelfhostTypeArena field::get state "arena"
                                     let checked_arguments_result %Vec SelfhostCheckedArgument field::get state "checked_arguments"
+                                    let checked_tree_result %SelfhostCheckedExprTree field::get state "checked_tree"
                                     match selfhost_call_reduce_expected_result &checked_arena candidate expected:
                                         Result::Ok result_type:
-                                            let result %SelfhostCallReduceResult SelfhostCallReduceResult::DirectCall selfhost_reduced_call_new 0 param_count result_type head.span
-                                            Result::Ok selfhost_call_reduce_owned_result_new checked_arena result checked_arguments_result
+                                            match selfhost_checked_expr_tree_add_direct_call_borrowed checked_tree_result candidate result_type head.span &checked_arguments_result:
+                                                Result::Ok root_alloc:
+                                                    let root_expr %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &root_alloc
+                                                    let root_tree %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree root_alloc
+                                                    let result %SelfhostCallReduceResult SelfhostCallReduceResult::DirectCall selfhost_reduced_call_new 0 param_count result_type head.span
+                                                    Result::Ok selfhost_call_reduce_owned_result_new checked_arena result checked_arguments_result root_tree root_expr
+                                                Result::Err tree_error:
+                                                    selfhost_type_arena_free checked_arena
+                                                    v::free checked_arguments_result
+                                                    Result::Err selfhost_call_reduce_error_from_checked_tree_std_error tree_error head.span
                                         Result::Err e:
                                             selfhost_type_arena_free checked_arena
                                             v::free checked_arguments_result
+                                            selfhost_checked_expr_tree_free checked_tree_result
                                             Result::Err e
                                 Result::Err e:
                                     Result::Err e
                         Result::Err _alloc_error:
+                            selfhost_checked_expr_tree_free checked_tree
                             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::OutOfMemory head.span
                 Option::None:
+                    selfhost_checked_expr_tree_free checked_tree
                     selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::NotCallable candidate.span
         Result::Err e:
+            selfhost_checked_expr_tree_free checked_tree
             selfhost_call_reduce_free_existing_error arena e
 
 //: selfhost_call_reduce_named_prefix: source-less に named head の候補数を[確認/かくにん]する
@@ -875,22 +1022,25 @@ fn selfhost_call_reduce_named_prefix %fn &SelfhostTypeArena fn &SelfhostExprPref
 //:
 //: [計算量/けいさんりょう]:
 //: - candidate 数の判定は O(1) です。1 候補の場合の支配的コストは single-candidate reducer に従います。
-fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\trailing_block\head\item_count:
+fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\expected\trailing_block\head\item_count:
     let candidate_count %i32 v::len candidates
     if:
         eq candidate_count 0
         then:
+            selfhost_checked_expr_tree_free checked_tree
             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnresolvedName head.span
         else:
             if:
                 gt candidate_count 1
                 then:
+                    selfhost_checked_expr_tree_free checked_tree
                     selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
                 else:
                     match v::get candidates 0:
                         Option::Some candidate:
-                            selfhost_call_reduce_single_named_candidate_with_source tokens source arena prefix scope value_types signatures item_count head candidate expected trailing_block
+                            selfhost_call_reduce_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures item_count head candidate expected trailing_block
                         Option::None:
+                            selfhost_checked_expr_tree_free checked_tree
                             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant head.span
 
 //: selfhost_call_reduce_named_prefix_with_source: 末尾 block なしで named head を source-backed に[縮約/しゅくやく]する
@@ -909,8 +1059,45 @@ fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &
 //:
 //: [計算量/けいさんりょう]:
 //: - wrapper 自体は O(1) です。支配的コストは委譲先 reducer に従います。
-fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\prefix\scope\value_types\signatures\candidates\expected\head\item_count:
-    selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena prefix scope value_types signatures candidates expected none head item_count
+fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\expected\head\item_count:
+    selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena checked_tree prefix scope value_types signatures candidates expected none head item_count
+
+//: selfhost_call_reduce_prefix_with_source_in_tree: 既存 checked tree owner の中で source-backed prefix expression を[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - top-level expression line と trailing block body の再帰検査が同じ checked expression tree を共有できるようにします。
+//: - public entry は空 tree を作るだけに留め、実際の head 分類・候補選択・owner cleanup はこの内部入口へ集約します。
+//:
+//: [契約/けいやく]:
+//: - `checked_tree` はこの関数が owner として受け取ります。成功時は `SelfhostCallReduceOwnedResult` に移り、失敗時はこの関数または下位 helper が閉じます。
+//: - empty input や unsupported head でも tree owner を解放してから typed error を返します。
+//: - source-backed reducer の公開 signature を変えず、tree owner は再帰 reducer 内だけで伝播させます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(owned_result)`: checked tree と root expression id を含む owner result です。
+//: - `Err(error)`: 入力、候補選択、argument 検査、block result 検査、または tree 追加の typed error です。
+//:
+//: [計算量/けいさんりょう]:
+//: - head 取得は O(1) です。支配的コストは委譲先の candidate 判定と argument 検査に従います。
+fn selfhost_call_reduce_prefix_with_source_in_tree %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\expected\trailing_block:
+    let item_count %i32 selfhost_expr_prefix_list_len prefix
+    if:
+        eq item_count 0
+        then:
+            selfhost_checked_expr_tree_free checked_tree
+            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::EmptyInput source_span_empty_unchecked 0 0
+        else:
+            match selfhost_expr_prefix_list_get prefix 0:
+                Option::Some head:
+                    match head.kind:
+                        SelfhostExprPrefixItemKind::NamedValue:
+                            selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena checked_tree prefix scope value_types signatures candidates expected trailing_block head item_count
+                        _:
+                            selfhost_checked_expr_tree_free checked_tree
+                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
+                Option::None:
+                    selfhost_checked_expr_tree_free checked_tree
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
 
 //: selfhost_call_reduce_prefix: prefix expression list を direct call plan へ[縮約/しゅくやく]する
 //:
@@ -969,15 +1156,11 @@ pub fn selfhost_call_reduce_prefix_with_source_and_trailing_block %impure fn &Ve
         then:
             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::EmptyInput source_span_empty_unchecked 0 0
         else:
-            match selfhost_expr_prefix_list_get prefix 0:
-                Option::Some head:
-                    match head.kind:
-                        SelfhostExprPrefixItemKind::NamedValue:
-                            selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena prefix scope value_types signatures candidates expected trailing_block head item_count
-                        _:
-                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
-                Option::None:
-                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+            match selfhost_checked_expr_tree_new:
+                Result::Ok checked_tree:
+                    selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates expected trailing_block
+                Result::Err _alloc_error:
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::OutOfMemory source_span_empty_unchecked 0 0
 
 //: selfhost_call_reduce_prefix_with_source: source-backed argument checker を使って prefix expression list を[縮約/しゅくやく]する
 //:

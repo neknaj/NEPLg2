@@ -193,8 +193,8 @@ assert.match(
 );
 assert.match(
     directCall,
-    /pub fn selfhost_hir_lower_expression_line_success_direct_call[\s\S]*selfhost_expression_line_check_success_result success[\s\S]*selfhost_expression_line_check_success_checked_arguments success/,
-    "body-line success lowering must consume the checked argument list exposed by expression checking",
+    /pub fn selfhost_hir_lower_expression_line_success_direct_call[\s\S]*selfhost_expression_line_check_success_result success[\s\S]*SelfhostCallReduceResult::DirectCall call:[\s\S]*selfhost_hir_lower_checked_tree_expr module selfhost_expression_line_check_success_checked_tree success selfhost_expression_line_check_success_root_expr success call\.span/,
+    "body-line success lowering must lower from the checked tree root exposed by expression checking",
 );
 assert.match(
     directCall,

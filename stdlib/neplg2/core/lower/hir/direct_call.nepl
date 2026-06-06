@@ -949,15 +949,18 @@ pub fn selfhost_hir_lower_direct_call_result %impure fn SelfhostHirModule impure
 //: selfhost_hir_lower_expression_line_success_direct_call: body_line success を HIR direct call へ[変換/へんかん]する
 //:
 //: [目的/もくてき]:
-//: - `body_line.nepl` が返す owner 付き success payload を borrow し、direct call lowering に必要な reduction result と checked argument list を同じ境界で読みます。
+//: - `body_line.nepl` が返す owner 付き success payload を borrow し、checked expression tree の root node から HIR expression を構築します。
+//: - nested direct call や trailing block result は root と同じ tree に保存済みなので、ここでは source text や scope を再探索しません。
 //: - success payload 自体はこの関数が消費しません。caller は lowering 後に `selfhost_expression_line_check_success_free` などで owner を閉じます。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: body line success が direct call HIR expression として module に追加されました。
 //: - `Err(NotDirectCall)`: success の reduction result が direct call ではありません。
-//: - `Err(error)`: selected candidate lookup、checked argument lowering、child range allocation、parent call allocation のいずれかに失敗しました。
+//: - `Err(error)`: checked tree lookup、child lowering、child range allocation、parent call allocation のいずれかに失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - direct call の引数数 n に対して O(n) です。success payload は borrow するだけなので追加 traversal は行いません。
+//: - checked tree の root から到達する node と child argument 数に比例します。success payload は borrow するだけなので追加の候補探索は行いません。
 pub fn selfhost_hir_lower_expression_line_success_direct_call %impure fn SelfhostHirModule impure fn &SelfhostExpressionLineCheckSuccess impure fn &Vec SelfhostCallableCandidate Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\success\candidates:
-    selfhost_hir_lower_direct_call_result module *selfhost_expression_line_check_success_result success selfhost_expression_line_check_success_checked_arguments success candidates
+    match *selfhost_expression_line_check_success_result success:
+        SelfhostCallReduceResult::DirectCall call:
+            selfhost_hir_lower_checked_tree_expr module selfhost_expression_line_check_success_checked_tree success selfhost_expression_line_check_success_root_expr success call.span

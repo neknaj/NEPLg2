@@ -571,6 +571,39 @@ pub fn selfhost_checked_expr_tree_add_direct_call %impure fn SelfhostCheckedExpr
         Result::Err e:
             Result::Err e
 
+//: selfhost_checked_expr_tree_add_direct_call_borrowed: borrow した child argument list から direct call node を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - call reducer の成功 payload が外部観測用の checked argument vector を保持したまま、同じ child argument list を checked tree の argument table へ保存できるようにします。
+//: - `SelfhostCallReduceOwnedResult` は legacy observation と HIR checked tree lowering の両方を支えるため、argument evidence の owner を一方だけへ移してはいけません。
+//:
+//: [契約/けいやく]:
+//: - `arguments_to_copy` は borrow で読みます。この関数は caller が持つ vector owner を解放しません。
+//: - 成功時、tree 側には `arguments_to_copy` の Copy payload が複製され、その range を参照する direct call node が追加されます。
+//: - 失敗時、入力 tree owner はこの関数または委譲先が閉じます。borrow された `arguments_to_copy` は caller が引き続き所有します。
+//: - `CheckedExpr` payload が未来 node や壊れた id を指す場合は、消費型 API と同じく fail-closed にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: direct call node が追加され、更新済み tree と node id が返ります。
+//: - `Err(OutOfMemory)`: copy 用 vector の確保、または tree table への追加に失敗しました。
+//: - `Err(InvalidOperation)`: child argument list が現在の tree に対して不正な参照を含んでいました。
+//:
+//: [計算量/けいさんりょう]:
+//: - child argument 数 n に対して O(n) です。tree への node push は償却 O(1) です。
+pub fn selfhost_checked_expr_tree_add_direct_call_borrowed %impure fn SelfhostCheckedExprTree impure fn SelfhostCallableCandidate impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn &Vec SelfhostCheckedArgument Result SelfhostCheckedExprNodeAlloc StdErrorKind \tree\candidate\result_type\span\arguments_to_copy:
+    let copied_arguments_result %Result Vec SelfhostCheckedArgument StdErrorKind v::new
+    match copied_arguments_result:
+        Result::Ok copied_arguments:
+            match selfhost_checked_expr_tree_copy_arguments copied_arguments arguments_to_copy v::len arguments_to_copy 0:
+                Result::Ok argument_owner:
+                    selfhost_checked_expr_tree_add_direct_call tree candidate result_type span argument_owner
+                Result::Err e:
+                    selfhost_checked_expr_tree_free tree
+                    Result::Err e
+        Result::Err e:
+            selfhost_checked_expr_tree_free tree
+            Result::Err e
+
 //: selfhost_checked_expr_tree_add_block_result: block result node を tree に[追加/ついか]する
 //:
 //: [目的/もくてき]:

@@ -1,3 +1,99 @@
+# 2026-06-06 Agent selfhost checked tree reducer connection checkpoint
+
+## review_scope
+
+- branch: `selfhost/checked-tree-reducer-20260606`
+- 対象 branch: `selfhost/checked-tree-reducer-20260606`
+- base: origin/main
+- head: selfhost/checked-tree-reducer-20260606
+- not_reviewed: full Rust compiler pipeline and unrelated stdlib modules outside this checked tree reducer slice
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / source-backed reducer generates checked tree root
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- files_read: `plan.md`; `AGENTS.md`; `note.n.md`; `todo.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/checked_tree.nepl`; `stdlib/neplg2/core/check/expr/model.nepl`; `stdlib/neplg2/core/check/expr/body_line.nepl`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/lower/hir/direct_call.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_selfhost_hir_lowering_contract.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- subagent_review_ids:
+  - `019e9b11-8ecf-77b1-82a4-f1150d214189`
+  - `019e9b23-11f6-77f1-bf82-7aa52185f6e3`
+- subagent_review_count: 2
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- decision: fixed
+- source_policy: updated
+- verify: focused contract tests, stdlib doctests, source policy, issue index/check, whitespace check
+- source-backed `SelfhostCallReduceOwnedResult` と `SelfhostExpressionLineCheckSuccess` に `SelfhostCheckedExprTree` と root `SelfhostCheckedExprId` を追加した。
+- reducer は top-level direct call、nested direct call argument、trailing block result を同じ checked tree owner に node として追加し、外側 argument には `CheckedExpr` id を保存する。
+- `selfhost_hir_lower_expression_line_success_direct_call` は checked tree root を lowering authority とし、source token、scope lookup、callable candidate collection を再実行しない。
+- subagent review の指摘に従い、checked tree build failure を `InternalInvariant` へ潰さず `CheckedTreeBuildInvalidOperation` として `SelfhostCallReduceErrorKind` に残した。
+- 行数制限、file-size gate、comment-volume gate、doc comment 長制限は追加していない。
+
+## implementation/test
+
+- classification: Approve
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/direct_call.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-direct-call-tree-reducer.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-tree-reducer.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-lower-tree-reducer.json`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`; `nodesrc/selfhost_zenn_review_response_check.js`
+- root cause: previous HIR checked tree lowering could consume a tree, but source-backed reducer still returned only flat checked argument summaries. Nested/block expressions therefore had no root checked node authority for HIR lowering.
+- source policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js` now pins checked tree/root payloads, `CheckedExpr` nested/block arguments, and `CheckedTreeBuildInvalidOperation`; `nodesrc/test_selfhost_hir_lowering_contract.js` pins expression-line success lowering from checked tree root.
+
+## verification
+
+- pass: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- pass: `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/direct_call.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-direct-call-tree-reducer.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-tree-reducer.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-lower-tree-reducer.json`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- skipped: `trunk build`; stdlib-only changes and doctest runner fixed message says Rust/web generated artifacts were untouched.
+
+## subagent review
+
+- 019e9b11-8ecf-77b1-82a4-f1150d214189:
+  - Blocker: source-backed result needed checked tree owner and root id; fixed in this slice.
+  - Non-blocker: checked tree builder failure should not collapse into generic internal invariant; fixed by `CheckedTreeBuildInvalidOperation`.
+  - Question: none.
+  - Approve: reducer tree connection follows Zenn policy when the dedicated error variant is present.
+- 019e9b23-11f6-77f1-bf82-7aa52185f6e3:
+  - Blocker: `NestedDirectCall` / `BlockResult` summary must not remain HIR accepted authority; fixed by `CheckedExpr` id payloads.
+  - Non-blocker: source-less legacy summary variants may remain fail-closed until full expression checker coverage expands.
+  - Question: none.
+  - Approve: source-backed success path now lowers from checked tree root without source re-read.
+
+## warnings
+
+- existing_warnings: Node WASI `ExperimentalWarning` appears in doctest/source-policy runs; Git may report LF to CRLF replacement warnings for modified text files. These are existing environment warnings and not introduced by this slice.
+- new_warnings: none
+- 既存 warning: Node WASI `ExperimentalWarning`; Git LF to CRLF replacement warnings.
+- 今回差分由来 warning: none
+
+## summary
+
+- blockers: none
+- questions: none
+- approve: yes
+- residual_risk: none
+- unexecuted_verification: none
+
+## residual
+
+- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` remains open for block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1.
+- `todo.md` was updated so the completed reducer tree connection is no longer listed as the next selfhost task.
+- 検証済み: focused contract tests, check/lower doctests, source policy, issue index/check, whitespace check.
+- 行数制限: not added
+- doc comment 長制限: not added
+- 次 slice: block / lambda / borrow / pipe argument expression checking and higher-order / generic follow-up work.
+
+
 # 2026-06-06 Agent selfhost checked tree HIR lowering checkpoint
 
 ## review_scope

@@ -158,8 +158,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*ArgumentTypeMismatch[\s\S]*ArgumentAscriptionProjectionFailed[\s\S]*ArgumentAscriptionExpectedTypeConflict[\s\S]*ArgumentNamedValueUnresolved[\s\S]*ArgumentNamedValuePendingBinding[\s\S]*ArgumentNamedValueUnsupportedBinding[\s\S]*ArgumentNamedValueEvidenceMissing[\s\S]*UnsupportedArgumentExpression[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch/,
-    "call reduction errors must distinguish partial application, argument type, argument ascription, named value evidence, unsupported argument expression, overload, generic, and expectation failures",
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PartialApplicationRejected[\s\S]*ArgumentTypeMismatch[\s\S]*ArgumentAscriptionProjectionFailed[\s\S]*ArgumentAscriptionExpectedTypeConflict[\s\S]*ArgumentNamedValueUnresolved[\s\S]*ArgumentNamedValuePendingBinding[\s\S]*ArgumentNamedValueUnsupportedBinding[\s\S]*ArgumentNamedValueEvidenceMissing[\s\S]*UnsupportedArgumentExpression[\s\S]*OverloadAmbiguous[\s\S]*GenericInferenceEvidenceMissing[\s\S]*GenericInferenceConflict[\s\S]*ExpectedTypeMismatch[\s\S]*CheckedTreeBuildInvalidOperation/,
+    "call reduction errors must distinguish partial application, argument type, argument ascription, named value evidence, unsupported argument expression, overload, generic, expectation, and checked-tree build failures",
 );
 assert.match(
     source,
@@ -593,7 +593,7 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head[\s\S]*selfhost_expr_argument_owned_match_checked_argument &owned_match[\s\S]*selfhost_call_reduce_push_checked_argument next_arena checked_arguments checked_argument head\.span[\s\S]*argument_match\.next_index/,
+    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_arg_type head[\s\S]*let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"[\s\S]*let next_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"[\s\S]*selfhost_call_reduce_push_checked_argument next_arena checked_arguments next_tree checked_argument head\.span[\s\S]*argument_match\.next_index/,
     "source-backed call reduction must keep each consumed argument's checked payload while advancing the cursor",
 );
 assert.match(
@@ -603,18 +603,18 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures[\s\S]*selfhost_call_reduce_nested_named_candidates_with_source tokens source arena prefix scope value_types signatures nested_candidates item_index item_count expected_type item/,
+    /selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures[\s\S]*selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates item_index item_count expected_type item/,
     "nested named call arguments must collect inner candidates from the argument head and reduce them with the outer expected argument type",
 );
 assert.match(
     source,
-    /eq candidate_count 0[\s\S]*selfhost_call_reduce_argument_match_direct_with_source tokens source arena prefix scope value_types signatures item_index item_count expected_type head[\s\S]*gt candidate_count 1[\s\S]*SelfhostCallReduceErrorKind::OverloadAmbiguous[\s\S]*selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena prefix scope value_types signatures candidate item_index item_count expected_type head/,
+    /eq candidate_count 0[\s\S]*selfhost_call_reduce_argument_match_direct_with_source tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_type head[\s\S]*gt candidate_count 1[\s\S]*SelfhostCallReduceErrorKind::OverloadAmbiguous[\s\S]*selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures candidate item_index item_count expected_type head/,
     "named argument handling must fall back to value evidence only when no visible function candidates exist",
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_argument_consume_loop_with_source[\s\S]*ge param_idx param_count[\s\S]*selfhost_checked_argument_nested_direct_call call_start_index item_index candidate\.callable_type head\.span candidate[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena prefix scope value_types signatures item_index item_count expected_arg_type head/,
-    "nested call reduction must return consumed next_index and nested-call checked payload for the enclosing argument loop",
+    /fn selfhost_call_reduce_nested_single_named_candidate_with_source[\s\S]*selfhost_call_reduce_argument_consume_loop_with_source tokens source arena checked_tree nested_arguments[\s\S]*selfhost_checked_expr_tree_add_direct_call consumed_tree candidate result_type head\.span nested_arguments_result[\s\S]*selfhost_checked_argument_checked_expr item_index argument_match\.next_index result_type head\.span expr_id/,
+    "nested call reduction must store the nested call in the checked tree and return a CheckedExpr payload for the enclosing argument loop",
 );
 assert.match(
     source,
@@ -643,13 +643,18 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostCallReduceOwnedResult:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*checked_arguments %Vec SelfhostCheckedArgument[\s\S]*pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError/,
-    "source-backed call reduction must expose an arena-owner boundary with checked argument payloads separate from the borrowed reducer",
+    /fn selfhost_call_reduce_error_from_checked_tree_std_error[\s\S]*StdErrorKind::OutOfMemory:[\s\S]*SelfhostCallReduceErrorKind::OutOfMemory[\s\S]*_:[\s\S]*SelfhostCallReduceErrorKind::CheckedTreeBuildInvalidOperation/,
+    "checked tree builder failures must keep a dedicated call-reduction error instead of collapsing into InternalInvariant",
 );
 assert.match(
     source,
-    /pub struct SelfhostExpressionLineCheckSuccess:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*checked_arguments %Vec SelfhostCheckedArgument[\s\S]*selfhost_expression_line_check_success_checked_arguments/,
-    "expression-line success must preserve checked argument evidence instead of dropping it at the body-line boundary",
+    /pub struct SelfhostCallReduceOwnedResult:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*checked_arguments %Vec SelfhostCheckedArgument[\s\S]*checked_tree %SelfhostCheckedExprTree[\s\S]*root_expr %SelfhostCheckedExprId[\s\S]*pub fn selfhost_call_reduce_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostCallReduceOwnedResult SelfhostCallReduceError/,
+    "source-backed call reduction must expose an arena-owner boundary with checked arguments plus checked tree/root payloads separate from the borrowed reducer",
+);
+assert.match(
+    source,
+    /pub struct SelfhostExpressionLineCheckSuccess:[\s\S]*arena %SelfhostTypeArena[\s\S]*result %SelfhostCallReduceResult[\s\S]*checked_arguments %Vec SelfhostCheckedArgument[\s\S]*checked_tree %SelfhostCheckedExprTree[\s\S]*root_expr %SelfhostCheckedExprId[\s\S]*selfhost_expression_line_check_success_checked_tree[\s\S]*selfhost_expression_line_check_success_root_expr/,
+    "expression-line success must preserve checked argument evidence, checked tree, and root expression id at the body-line boundary",
 );
 assert.match(
     source,
@@ -813,8 +818,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_input_from_trailing_block tokens source scope signatures block_arg[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_prefix_with_source tokens source arena prefix scope value_types signatures candidates some block_expected/,
-    "call reduction must recursively check a trailing block body with a BlockResult expectation",
+    /selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_input_from_trailing_block tokens source scope signatures block_arg[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates some block_expected none[\s\S]*selfhost_checked_expr_tree_add_block_result body_tree expected_type block_arg\.span body_expr[\s\S]*selfhost_checked_argument_checked_expr item_index item_index expected_type block_arg\.span expr_id/,
+    "call reduction must recursively check a trailing block body in the same checked tree and return a CheckedExpr BlockResult payload",
 );
 assert.match(
     bodyLine,
