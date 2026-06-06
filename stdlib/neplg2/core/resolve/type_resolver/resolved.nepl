@@ -1,5 +1,131 @@
 #indent 4
 
+//: # type_resolver/resolved: TypeId 割当前の resolved type tree
+//:
+//: [目的/もくてき]:
+//: - prefix type reducer が確定した型式を、`SelfhostTypeArena` へ投影する前の tree owner として保持します。
+//: - primitive、未投影 named type、generic type parameter、applied named type、function type を `SelfhostResolvedTypeNode` の typed enum で分け、後続 stage が `match` の網羅性検査を使える形にします。
+//: - `fn void T` は function argument table に実引数 node を追加せず、`SelfhostResolvedFunctionArgRange::Empty` として保持します。`fn unit T` は `unit` 型 node を引数 table に持つ 1 引数 function です。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostResolvedTypeTree` は `nodes`、`function_args`、`type_args` の 3 つの `Vec` owner を持ちます。成功時は返却 payload へ owner を移し、失敗時は該当 helper が未採用 owner を閉じます。
+//: - `SelfhostResolvedTypeNodeId` はこの tree 内だけで有効な resolver-local id です。`SelfhostTypeId` や別 tree の同じ index と混ぜてはいけません。
+//: - observer は node id が範囲外、または期待 variant ではない場合に `Option::None` を返します。source 再読、constructor lookup、diagnostic 表示文言の生成は行いません。
+//:
+//: [現状/げんじょう]:
+//: - `Named` / `Applied` node は `SelfhostNamedTypeId` と source span を保持するだけです。unknown name、constructor arity、bare generic constructor の判定は `type_resolver/project` が constructor table authority で fail-closed に行います。
+//: - generic type parameter は `SelfhostTypeParameterEnv` 由来の environment-local id と span を保持します。stable interface artifact identity や nested binder depth は後続設計で拡張します。
+//:
+//: [計算量/けいさんりょう]:
+//: - node 追加と range 追加は `Vec::push` の償却 `O(1)` です。再確保時は該当 table 長に比例します。
+//: - argument copy helper はコピーする node id 数を `n` として `O(n)` です。observer は `Vec` index lookup と variant `match` だけなので `O(1)` です。
+//:
+//: [authority boundary]:
+//: - この module の authority は reducer が作った `SelfhostResolvedTypeNodeId` と各 node payload です。source text や import graph は読み直しません。
+//: - `SelfhostSourceSpan` は named / parameter / applied node の diagnostic range authority として保存しますが、表示 message はこの module に置きません。
+//:
+//: [owner boundary]:
+//: - `SelfhostResolvedTypeTree` と `SelfhostResolvedTypeTreeRoot` は buffer owner を持ち、`selfhost_resolved_type_tree_free` / `selfhost_resolved_type_tree_root_free` で閉じます。
+//: - `selfhost_resolved_type_tree_add_applied_named` と `selfhost_resolved_type_tree_add_function` は `params` owner を消費し、成功・失敗どちらでも caller に未処理 owner を残しません。
+//:
+//: [type boundary]:
+//: - `void` は型 node ではありません。0 引数 function は `SelfhostResolvedFunctionArgRange::Empty` で表します。
+//: - `unit` は通常の primitive type node であり、function 引数として現れた場合は `SelfhostResolvedFunctionArgRange::Range` から `unit` node を参照します。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では primitive `i32` node を追加し、それを戻り値にする 0 引数 function node を追加します。
+//:
+//: [典型例/てんけいれい]:
+//: - reducer は `%fn void i32` を `Function(args = Empty, result = i32)` としてこの tree に保存し、projector が root から `SelfhostTypeArena` へ投影します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/type_resolver/resolved" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//:|
+//: fn check_node_kind %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn SelfhostResolvedTypeNodeKind Result unit str \tree\node_id\expected:
+//:     match selfhost_resolved_type_tree_get_node_kind tree node_id:
+//:         Option::Some actual:
+//:             if:
+//:                 selfhost_resolved_type_node_kind_eq actual expected
+//:                 then:
+//:                     Result::Ok unit
+//:                 else:
+//:                     Result::Err "resolved node kind mismatch"
+//:         Option::None:
+//:             Result::Err "resolved node missing"
+//:
+//: fn check_function_arg_count %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn i32 Result unit str \tree\node_id\expected:
+//:     match selfhost_resolved_type_tree_function_arg_count tree node_id:
+//:         Option::Some actual:
+//:             check_eq_i32 expected actual
+//:         Option::None:
+//:             Result::Err "function arg count missing"
+//:
+//: fn check_function_result_index %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn i32 Result unit str \tree\node_id\expected:
+//:     match selfhost_resolved_type_tree_function_result tree node_id:
+//:         Option::Some actual:
+//:             check_eq_i32 expected selfhost_resolved_type_node_id_index actual
+//:         Option::None:
+//:             Result::Err "function result missing"
+//:
+//: fn check_empty_function %impure fn void Result TestReport str \void:
+//:     match selfhost_resolved_type_tree_new:
+//:         Result::Ok tree0:
+//:             match selfhost_resolved_type_tree_add_primitive tree0 SelfhostPrimitiveTypeKind::I32:
+//:                 Result::Ok primitive_alloc:
+//:                     let primitive_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_alloc_node_id &primitive_alloc
+//:                     let tree1 %SelfhostResolvedTypeTree selfhost_resolved_type_tree_alloc_into_tree primitive_alloc
+//:                     let params_result %Result Vec SelfhostResolvedTypeNodeId StdErrorKind v::new
+//:                     match params_result:
+//:                         Result::Ok params:
+//:                             match selfhost_resolved_type_tree_add_function tree1 params primitive_id:
+//:                                 Result::Ok function_alloc:
+//:                                     let function_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_tree_alloc_node_id &function_alloc
+//:                                     let tree2 %SelfhostResolvedTypeTree selfhost_resolved_type_tree_alloc_into_tree function_alloc
+//:                                     let primitive_index %i32 selfhost_resolved_type_node_id_index primitive_id
+//:                                     let checks0 checks_new
+//:                                     let checks1 checks_push checks0 check_node_kind &tree2 function_id SelfhostResolvedTypeNodeKind::Function
+//:                                     let checks2 checks_push checks1 check_function_arg_count &tree2 function_id 0
+//:                                     let checks3 checks_push checks2 check_function_result_index &tree2 function_id primitive_index
+//:                                     selfhost_resolved_type_tree_free tree2
+//:                                     Result::Ok checks3
+//:                                 Result::Err _e:
+//:                                     Result::Err "function node allocation failed"
+//:                         Result::Err _e:
+//:                             selfhost_resolved_type_tree_free tree1
+//:                             Result::Err "parameter vector allocation failed"
+//:                 Result::Err _e:
+//:                     Result::Err "primitive node allocation failed"
+//:         Result::Err _e:
+//:             Result::Err "resolved tree allocation failed"
+//:
+//: fn main %impure fn void i32 \void:
+//:     match check_empty_function:
+//:         Result::Ok checks:
+//:             let shown checks_print_report checks
+//:             checks_exit_code shown
+//:         Result::Err msg:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err msg
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+//:
 #import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/math" as *
@@ -14,6 +140,19 @@ pub #import "./resolved/named" as *
 pub #import "./resolved/typeparam" as *
 
 //: SelfhostResolvedFunctionArgRangeItems: function 引数 node table の nonempty 範囲 payload
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeTree.function_args` の連続領域を、開始 index と個数で表します。
+//:
+//: [契約/けいやく]:
+//: - `first_arg` は function argument table 内の先頭 index、`arg_count` は 1 以上の要素数です。
+//: - 空引数 function はこの struct ではなく `SelfhostResolvedFunctionArgRange::Empty` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload の生成、copy、比較用 field access は `O(1)` です。
+//:
+//: [type boundary]:
+//: - この payload は `SelfhostResolvedTypeNodeId` の range であり、`SelfhostTypeId` の range ではありません。
 pub struct SelfhostResolvedFunctionArgRangeItems:
     first_arg %i32
     arg_count %i32
@@ -30,6 +169,16 @@ impl Copy for SelfhostResolvedFunctionArgRangeItems:
 //:
 //: [目的/もくてき]:
 //: - `fn void T` の 0 引数 function を `Empty` として表し、`unit` 型の引数を 1 つ取る function と区別します。
+//:
+//: [契約/けいやく]:
+//: - `Empty` は function argument table に対応要素を持たないことを表します。
+//: - `Range` は `SelfhostResolvedFunctionArgRangeItems` により 1 個以上の argument node id range を指します。
+//:
+//: [計算量/けいさんりょう]:
+//: - variant の保持と copy は `O(1)` です。
+//:
+//: [type boundary]:
+//: - `void` は型 node ではなく `Empty` の marker です。`unit` は通常型なので `Range` 内の node id として現れます。
 pub enum SelfhostResolvedFunctionArgRange:
     Empty
     Range %SelfhostResolvedFunctionArgRangeItems
@@ -43,6 +192,19 @@ impl Copy for SelfhostResolvedFunctionArgRange:
         self
 
 //: SelfhostResolvedFunctionType: resolved function type payload
+//:
+//: [目的/もくてき]:
+//: - function type の引数 range と result node id を 1 payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `args` が `SelfhostResolvedFunctionArgRange::Empty` の場合、この function type は本当に 0 引数です。
+//: - `result` は同じ `SelfhostResolvedTypeTree.nodes` 内の node id でなければなりません。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload 自体は固定サイズで `O(1)` です。
+//:
+//: [type boundary]:
+//: - `fn void T` は `args = Empty`、`result = T node id` です。`void` を result node として保持することはありません。
 pub struct SelfhostResolvedFunctionType:
     args %SelfhostResolvedFunctionArgRange
     result %SelfhostResolvedTypeNodeId
@@ -59,6 +221,7 @@ impl Copy for SelfhostResolvedFunctionType:
 //:
 //: [目的/もくてき]:
 //: - primitive、未解決の named type、generic type parameter、applied named type、function type を enum payload で分けます。
+//: - variant は `Primitive`、`Named`、`Parameter`、`Applied`、`Function` の 5 つです。
 //: - `void` は型 node ではないため、この enum に variant を持ちません。
 //:
 //: [契約/けいやく]:
@@ -68,6 +231,13 @@ impl Copy for SelfhostResolvedFunctionType:
 //: [現状/げんじょう]:
 //: - generic type parameter は resolved tree で保持した後、projection stage が現在の binder を `binder_depth = 0` とする TypeArena parameter record へ投影します。
 //: - nested generic binder の depth 計算と stable binder identity への永続化は、signature / interface artifact 実装時に追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - node payload は固定サイズの `Copy` 値です。argument list 本体は tree の shared table にあり、node copy 自体は `O(1)` です。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeNode` は `SelfhostTypeRecord` ではありません。arena へ投影するまでは final type identity を持ちません。
+//: - `void` は variant を持たず、function argument range の `Empty` だけで表します。
 pub enum SelfhostResolvedTypeNode:
     Primitive %SelfhostPrimitiveTypeKind
     Named %SelfhostResolvedNamedTypeRef
@@ -86,13 +256,43 @@ impl Copy for SelfhostResolvedTypeNode:
 //: SelfhostResolvedTypeTree: TypeId 割当前の resolver 出力 tree
 //:
 //: [目的/もくてき]:
-//: - node table と function argument table を所有し、後続 stage が `SelfhostTypeArena` へ投影できる形で保持します。
+//: - node table、function argument table、applied type argument table を所有し、後続 stage が `SelfhostTypeArena` へ投影できる形で保持します。
+//:
+//: [契約/けいやく]:
+//: - `nodes` は `SelfhostResolvedTypeNode` owner、`function_args` と `type_args` は node id table owner です。
+//: - この tree は `SelfhostTypeId` を持ちません。TypeId 割当は `type_resolver/project` の責務です。
+//: - owner を受け取った caller は、root payload へ移すか `selfhost_resolved_type_tree_free` で閉じます。
+//:
+//: [現状/げんじょう]:
+//: - table はすべて `Vec` です。stable serialized artifact 用の compact layout はまだ導入していません。
+//:
+//: [計算量/けいさんりょう]:
+//: - table 長の取得は `O(1)`、tree 全体の解放は保持する table の要素数に比例します。
+//:
+//: [owner boundary]:
+//: - 3 つの `Vec` owner はこの struct に一体で移動します。部分的に取り出した path は失敗時に残り owner を明示的に閉じます。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeTree` は projection 前の中間型木であり、HIR や Resource IR に直接渡す final type arena ではありません。
 pub struct SelfhostResolvedTypeTree:
     nodes %Vec SelfhostResolvedTypeNode
     function_args %Vec SelfhostResolvedTypeNodeId
     type_args %Vec SelfhostResolvedTypeNodeId
 
 //: SelfhostResolvedTypeTreeAlloc: node 追加後の tree owner と追加 node id
+//:
+//: [目的/もくてき]:
+//: - node 追加 API が、更新後 tree owner と追加された node id を一緒に返せるようにします。
+//:
+//: [契約/けいやく]:
+//: - `tree` は `SelfhostResolvedTypeTree` owner としてこの payload に移ります。caller は node id を読んだ後、tree を次の処理へ移すか解放します。
+//: - `node_id` は `SelfhostResolvedTypeNodeId` payload であり、`tree` 内の追加 node を指す resolver-local id です。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload 生成と accessor は `O(1)` です。
+//:
+//: [owner boundary]:
+//: - この payload は tree owner を持ちます。`selfhost_resolved_type_tree_alloc_into_tree` で owner を取り出すまで重複所有してはいけません。
 pub struct SelfhostResolvedTypeTreeAlloc:
     tree %SelfhostResolvedTypeTree
     node_id %SelfhostResolvedTypeNodeId
@@ -102,11 +302,37 @@ pub struct SelfhostResolvedTypeTreeAlloc:
 //: [目的/もくてき]:
 //: - reduction が作った tree owner と、その tree 内で型式全体を表す root node id を一緒に返します。
 //: - 後続の TypeId 割当 stage は root から tree を辿り、`SelfhostTypeArena` へ投影します。
+//:
+//: [契約/けいやく]:
+//: - `root` は root `SelfhostResolvedTypeNodeId` であり、`tree.nodes` 内の node id でなければなりません。範囲検査は projection stage の observer / projector が fail-closed に行います。
+//: - caller が root payload を採用しない場合は `selfhost_resolved_type_tree_root_free` で tree owner を閉じます。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload 自体の生成と root id accessor は `O(1)` です。free は tree 内 table 長に比例します。
+//:
+//: [owner boundary]:
+//: - root payload は tree owner を持ちます。borrow accessor は tree を解放せず、owner は payload に残ります。
 pub struct SelfhostResolvedTypeTreeRoot:
     tree %SelfhostResolvedTypeTree
     root %SelfhostResolvedTypeNodeId
 
 //: selfhost_resolved_type_node_kind: node の分類を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeNode` の payload を見ずに、後続 observer / source policy / doctest が node 分類を比較できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `Primitive` / `Named` / `Parameter` / `Applied` / `Function` の enum variant をそのまま `SelfhostResolvedTypeNodeKind` へ写します。
+//: - 文字列名や source spelling は見ません。typed enum の `match` だけを authority にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - node payload に対応する `SelfhostResolvedTypeNodeKind` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 variant 数の `match` なので `O(1)` です。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeNodeKind` は分類だけです。`SelfhostTypeKind` や final `SelfhostTypeRecord` ではありません。
 pub fn selfhost_resolved_type_node_kind %fn SelfhostResolvedTypeNode SelfhostResolvedTypeNodeKind \node:
     match node:
         SelfhostResolvedTypeNode::Primitive _kind:
@@ -121,17 +347,60 @@ pub fn selfhost_resolved_type_node_kind %fn SelfhostResolvedTypeNode SelfhostRes
             SelfhostResolvedTypeNodeKind::Function
 
 //: selfhost_resolved_function_arg_range_empty: 0 引数 function range を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `fn void T` で得られる 0 引数 function を、argument table の空 range として明示します。
+//:
+//: [契約/けいやく]:
+//: - `void` は node table に追加しません。この関数は `SelfhostResolvedFunctionArgRange::Empty` だけを返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedFunctionArgRange::Empty` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - 0 引数 function と `unit` 引数 function を区別する境界です。`unit` 引数は `Range` 側で node id として保持します。
 pub fn selfhost_resolved_function_arg_range_empty %fn void SelfhostResolvedFunctionArgRange \void:
     SelfhostResolvedFunctionArgRange::Empty
 
 //: selfhost_resolved_function_arg_range_new_unchecked: 証明済みの nonempty 引数範囲を[作/つく]る
 //:
-//: [注意/ちゅうい]:
+//: [目的/もくてき]:
+//: - function argument table にすでに保存した 1 個以上の引数 node id を range payload にします。
+//:
+//: [契約/けいやく]:
 //: - caller は `first_arg >= 0`、`arg_count > 0`、range が function argument table 内に収まることを保証してください。
+//: - この関数は unchecked constructor なので、source error や range error を返しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedFunctionArgRange::Range` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [authority boundary]:
+//: - range 妥当性の authority は caller の build logic です。この constructor は検査済み range を保持するだけです。
 pub fn selfhost_resolved_function_arg_range_new_unchecked %fn i32 fn i32 SelfhostResolvedFunctionArgRange \first_arg\arg_count:
     SelfhostResolvedFunctionArgRange::Range SelfhostResolvedFunctionArgRangeItems first_arg arg_count
 
 //: selfhost_resolved_function_arg_range_count: function 引数数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function node observer が `Empty` と `Range` を同じ i32 count として扱えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `Empty` は 0、`Range` は `arg_count` を返します。range の table 境界検査は行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - function 引数数です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - `fn void T` は 0、`fn unit T` は reducer が作った unit node を含む range により 1 になります。
 pub fn selfhost_resolved_function_arg_range_count %fn SelfhostResolvedFunctionArgRange i32 \args:
     match args:
         SelfhostResolvedFunctionArgRange::Empty:
@@ -140,6 +409,24 @@ pub fn selfhost_resolved_function_arg_range_count %fn SelfhostResolvedFunctionAr
             range.arg_count
 
 //: selfhost_resolved_type_tree_new: 空の resolved type tree を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - reducer / doctest / fixture が、空の node table、function argument table、type argument table を持つ tree owner を開始できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 3 つの `Vec` owner を順に確保します。途中で失敗した場合、確保済み owner を解放してから `Result::Err` を返します。
+//: - 確保する table は `Vec nodes`、`Vec function_args`、`Vec type_args` の 3 つです。
+//: - 成功時の tree owner は caller に移ります。caller は node 追加 API へ渡すか `selfhost_resolved_type_tree_free` で閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(tree)`: 空の resolved type tree owner です。
+//: - `Err(e)`: `Vec` 確保失敗の `StdErrorKind` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 空 `Vec` 3 個の生成なので通常 `O(1)` です。
+//:
+//: [owner boundary]:
+//: - `nodes` 確保後に `function_args` または `type_args` が失敗した path では、先に得た owner を必ず閉じます。
 pub fn selfhost_resolved_type_tree_new %impure fn void Result SelfhostResolvedTypeTree StdErrorKind \void:
     let nodes_result %Result Vec SelfhostResolvedTypeNode StdErrorKind v::new
     match nodes_result:
@@ -162,55 +449,224 @@ pub fn selfhost_resolved_type_tree_new %impure fn void Result SelfhostResolvedTy
             Result::Err e
 
 //: selfhost_resolved_type_tree_free: resolved type tree の所有 buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - 採用しない resolved tree owner をまとめて閉じます。
+//:
+//: [契約/けいやく]:
+//: - `nodes`、`function_args`、`type_args` の 3 buffer を解放します。
+//: - 解放後の tree payload を再利用してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `unit` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 各 table の要素数に比例します。
+//:
+//: [owner boundary]:
+//: - tree owner を消費する cleanup boundary です。borrow observer はこの関数の後に使えません。
 pub fn selfhost_resolved_type_tree_free %impure fn SelfhostResolvedTypeTree unit \tree:
     v::free field::get tree "nodes"
     v::free field::get tree "function_args"
     v::free field::get tree "type_args"
 
 //: selfhost_resolved_type_tree_node_len: node table の長さを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 次に追加する node の resolver-local id を、現在の node table 長から決められるようにします。
+//:
+//: [契約/けいやく]:
+//: - tree を borrow で読むだけで、owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `nodes` table の現在長です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec::len` なので `O(1)` です。
 pub fn selfhost_resolved_type_tree_node_len %fn &SelfhostResolvedTypeTree i32 \tree:
     let nodes %&Vec SelfhostResolvedTypeNode field::get_ref tree "nodes"
     v::len nodes
 
 //: selfhost_resolved_type_tree_function_arg_len: function argument table の長さを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 新しい function argument range の開始 index を、現在の argument table 長から決めます。
+//:
+//: [契約/けいやく]:
+//: - borrow observer であり、tree owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `function_args` table の現在長です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec::len` なので `O(1)` です。
 pub fn selfhost_resolved_type_tree_function_arg_len %fn &SelfhostResolvedTypeTree i32 \tree:
     let function_args %&Vec SelfhostResolvedTypeNodeId field::get_ref tree "function_args"
     v::len function_args
 
 //: selfhost_resolved_type_tree_type_arg_len: applied type argument table の長さを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 新しい applied type argument range の開始 index を、現在の type argument table 長から決めます。
+//:
+//: [契約/けいやく]:
+//: - borrow observer であり、tree owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `type_args` table の現在長です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec::len` なので `O(1)` です。
 pub fn selfhost_resolved_type_tree_type_arg_len %fn &SelfhostResolvedTypeTree i32 \tree:
     let type_args %&Vec SelfhostResolvedTypeNodeId field::get_ref tree "type_args"
     v::len type_args
 
 //: selfhost_resolved_type_tree_alloc_new: node 追加結果を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - node 追加後の tree owner と node id を `SelfhostResolvedTypeTreeAlloc` にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `tree` owner は返却 payload へ移ります。`node_id` はその tree の `nodes` 内を指します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedTypeTreeAlloc tree node_id` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [owner boundary]:
+//: - owner を含む payload constructor なので、caller は同じ tree owner を別 path へ渡してはいけません。
 pub fn selfhost_resolved_type_tree_alloc_new %impure fn SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId SelfhostResolvedTypeTreeAlloc \tree\node_id:
     SelfhostResolvedTypeTreeAlloc tree node_id
 
 //: selfhost_resolved_type_tree_alloc_node_id: node 追加結果から node id を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - tree owner をまだ取り出さずに、追加された node id だけを参照します。
+//:
+//: [契約/けいやく]:
+//: - borrow observer なので `SelfhostResolvedTypeTreeAlloc` の owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 追加 node の resolver-local `SelfhostResolvedTypeNodeId` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_resolved_type_tree_alloc_node_id %fn &SelfhostResolvedTypeTreeAlloc SelfhostResolvedTypeNodeId \allocated:
     *field::get_ref allocated "node_id"
 
 //: selfhost_resolved_type_tree_alloc_into_tree: node 追加後 tree owner を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - node 追加結果から更新後 tree owner を取り出し、次の追加や projection へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `allocated` を消費し、内部の `tree` owner を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 更新後 `SelfhostResolvedTypeTree` owner です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [owner boundary]:
+//: - この関数の後、元の allocation payload から tree を再度取り出してはいけません。
 pub fn selfhost_resolved_type_tree_alloc_into_tree %impure fn SelfhostResolvedTypeTreeAlloc SelfhostResolvedTypeTree \allocated:
     field::get allocated "tree"
 
 //: selfhost_resolved_type_tree_root_new: resolved tree root payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 完成した tree owner と型式全体の root node id を返却 payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `root` は `tree` 内の node id です。この関数は unchecked constructor なので、範囲検査は caller / projector が行います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedTypeTreeRoot tree root` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [owner boundary]:
+//: - `tree` owner は root payload に移ります。
 pub fn selfhost_resolved_type_tree_root_new %impure fn SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNodeId SelfhostResolvedTypeTreeRoot \tree\root:
     SelfhostResolvedTypeTreeRoot tree root
 
 //: selfhost_resolved_type_tree_root_id: root node id を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - root payload から root node id だけを borrow で読みます。
+//:
+//: [契約/けいやく]:
+//: - tree owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - root `SelfhostResolvedTypeNodeId` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
 pub fn selfhost_resolved_type_tree_root_id %fn &SelfhostResolvedTypeTreeRoot SelfhostResolvedTypeNodeId \root:
     *field::get_ref root "root"
 
 //: selfhost_resolved_type_tree_root_tree: resolved tree を borrow で[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - projection stage が root payload 内の tree を borrow で辿れるようにします。
+//:
+//: [契約/けいやく]:
+//: - owner は root payload に残ります。返却 borrow を root free 後に保持してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `&SelfhostResolvedTypeTree` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [owner boundary]:
+//: - borrow accessor であり、cleanup obligation は発生しません。
 pub fn selfhost_resolved_type_tree_root_tree %fn &SelfhostResolvedTypeTreeRoot &SelfhostResolvedTypeTree \root:
     field::get_ref root "tree"
 
 //: selfhost_resolved_type_tree_root_free: resolved tree root が所有する buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - 採用しない root payload 内の tree owner を閉じます。
+//:
+//: [契約/けいやく]:
+//: - 内部の `SelfhostResolvedTypeTree` を `selfhost_resolved_type_tree_free` で解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `unit` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - tree 内 table の要素数に比例します。
+//:
+//: [owner boundary]:
+//: - root payload の owner を消費する cleanup boundary です。
 pub fn selfhost_resolved_type_tree_root_free %impure fn SelfhostResolvedTypeTreeRoot unit \root:
     selfhost_resolved_type_tree_free field::get root "tree"
 
 //: selfhost_resolved_type_tree_push_node: node を tree に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeNode` を node table に追加し、追加 node id と更新後 tree owner を返します。
+//:
+//: [契約/けいやく]:
+//: - `node_id` は追加前の node table 長から作ります。
+//: - `v::push` 成功時は、更新後 `nodes` と元の `function_args` / `type_args` owner を新しい tree にまとめます。
+//: - `v::push` 失敗時は push error payload から node vector owner を回収して閉じ、`function_args` と `type_args` も閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: 追加 node id と更新後 tree owner です。
+//: - `Err(e)`: node table 拡張に失敗した `StdErrorKind` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec::push` の償却 `O(1)` です。再確保時は node 数に比例します。
+//:
+//: [owner boundary]:
+//: - 成功・失敗どちらでも入力 tree owner は消費され、未処理 owner は caller に残りません。
 pub fn selfhost_resolved_type_tree_push_node %impure fn SelfhostResolvedTypeTree impure fn SelfhostResolvedTypeNode Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\node:
     let node_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_node_id_new selfhost_resolved_type_tree_node_len &tree
     let nodes %Vec SelfhostResolvedTypeNode field::get tree "nodes"
@@ -227,10 +683,47 @@ pub fn selfhost_resolved_type_tree_push_node %impure fn SelfhostResolvedTypeTree
             Result::Err error
 
 //: selfhost_resolved_type_tree_add_primitive: primitive node を tree に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostPrimitiveTypeKind` を resolved primitive node として tree に追加します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は既に reduce/plan で分類済みの primitive kind です。source text をここで再判定しません。
+//: - 追加される node variant は `SelfhostResolvedTypeNode::Primitive` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: primitive node の追加結果です。
+//: - `Err(e)`: node table 拡張失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `selfhost_resolved_type_tree_push_node` と同じです。
+//:
+//: [type boundary]:
+//: - `unit` は `SelfhostPrimitiveTypeKind::Unit` の primitive node です。`void` は primitive node になりません。
 pub fn selfhost_resolved_type_tree_add_primitive %impure fn SelfhostResolvedTypeTree impure fn SelfhostPrimitiveTypeKind Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\kind:
     selfhost_resolved_type_tree_push_node tree SelfhostResolvedTypeNode::Primitive kind
 
 //: selfhost_resolved_type_tree_add_named: named type node を tree に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - constructor table をまだ使わない plain reduce path で、named type の source span を unresolved named node として保持します。
+//:
+//: [契約/けいやく]:
+//: - `span` は `SelfhostSourceSpan` であり、source spelling の diagnostic authority です。この関数は source text を読み直して名前を確定しません。
+//: - constructor-aware path では通常 `SelfhostNamedTypeId` を持つ applied / named node を使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: named node の追加結果です。
+//: - `Err(e)`: node table 拡張失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `selfhost_resolved_type_tree_push_node` と同じです。
+//:
+//: [authority boundary]:
+//: - unknown named type の判定はこの関数ではなく projection stage が fail-closed に行います。
+//:
+//: [type boundary]:
+//: - この path は `SelfhostNamedTypeId` をまだ持たない unresolved named node を作ります。final type identity は `SelfhostTypeArena` への投影時に確定します。
 pub fn selfhost_resolved_type_tree_add_named %impure fn SelfhostResolvedTypeTree impure fn SelfhostSourceSpan Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\span:
     selfhost_resolved_type_tree_push_node tree SelfhostResolvedTypeNode::Named SelfhostResolvedNamedTypeRef span
 
@@ -247,11 +740,35 @@ pub fn selfhost_resolved_type_tree_add_named %impure fn SelfhostResolvedTypeTree
 //: - `Ok(alloc)`: node table への追加に成功し、追加 node id と tree owner を返します。
 //: - `Err(e)`: node table の拡張に失敗しました。caller は通常の `StdErrorKind` 経路で `OutOfMemory` などへ変換します。
 //:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: `Parameter` node の追加結果です。
+//: - `Err(e)`: node table 拡張失敗です。
+//:
 //: [計算量/けいさんりょう]:
 //: - `Vec::push` の償却 `O(1)` です。再確保時は node 数に対して `O(n)` です。
 pub fn selfhost_resolved_type_tree_add_parameter %impure fn SelfhostResolvedTypeTree impure fn SelfhostTypeParameterId impure fn SelfhostSourceSpan Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\parameter_id\span:
     selfhost_resolved_type_tree_push_node tree SelfhostResolvedTypeNode::Parameter selfhost_resolved_type_parameter_ref_new parameter_id span
 
+//: selfhost_resolved_type_tree_copy_type_args: temporary type argument node id を type-arg table へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - applied named type の型引数として集めた `Vec SelfhostResolvedTypeNodeId` を、tree 全体の `type_args` table へ順序を保ってコピーします。
+//:
+//: [契約/けいやく]:
+//: - `out` はこの helper が owner として受け取り、成功時は追加済み owner として返します。
+//: - `params` は borrow で読みます。ここでは解放せず、caller が成功・失敗に応じて閉じます。
+//: - `Option::None` は caller の range invariant 破れなので `StdErrorKind::IndexOutOfBounds` として fail-closed に返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(out)`: `n` 個の node id を追加した type-arg table owner です。
+//: - `Err(StdErrorKind::IndexOutOfBounds)`: `params` の expected range が存在しません。
+//: - `Err(e)`: `v::push` が失敗した `StdErrorKind` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - コピーする argument 数を `n` として `O(n)` です。
+//:
+//: [owner boundary]:
+//: - `v::push` 失敗時は push error vector owner を閉じます。`Option::None` では `out` owner を閉じてから error を返します。
 fn selfhost_resolved_type_tree_copy_type_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
     if:
         ge idx n
@@ -273,8 +790,27 @@ fn selfhost_resolved_type_tree_copy_type_args %impure fn Vec SelfhostResolvedTyp
 
 //: selfhost_resolved_type_tree_add_applied_named: generic application node を tree に[追加/ついか]する
 //:
-//: [注意/ちゅうい]:
-//: - `params` はこの関数が消費し、成功・失敗どちらでも解放します。
+//: [目的/もくてき]:
+//: - constructor-aware reducer が作った named constructor identity と型引数 node id list を `Applied` node として tree に保存します。
+//:
+//: [契約/けいやく]:
+//: - `nominal_id` は constructor table 由来の `SelfhostNamedTypeId` です。source spelling だけから identity を作ってはいけません。
+//: - `params` はこの関数が owner として消費し、成功・失敗どちらでも解放します。
+//: - 型引数 node id は `type_args` table にコピーし、node payload には `SelfhostResolvedAppliedTypeArgRange` だけを保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: `SelfhostResolvedTypeNode::Applied` の追加結果です。
+//: - `Err(StdErrorKind::IndexOutOfBounds)`: `params` の expected range が存在しない内部不整合です。
+//: - `Err(e)`: type-arg table または node table の拡張失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 型引数数を `n` として `O(n)` です。node 追加自体は償却 `O(1)` です。
+//:
+//: [owner boundary]:
+//: - 失敗時は `nodes` / `function_args` / `params` を閉じます。成功時は更新済み tree owner へ移ります。
+//:
+//: [type boundary]:
+//: - bare named type と generic application を同じ payload に丸めず、`SelfhostResolvedTypeNode::Applied` として区別します。
 pub fn selfhost_resolved_type_tree_add_applied_named %impure fn SelfhostResolvedTypeTree impure fn SelfhostNamedTypeId impure fn SelfhostSourceSpan impure fn Vec SelfhostResolvedTypeNodeId Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\nominal_id\span\params:
     let first_arg %i32 selfhost_resolved_type_tree_type_arg_len &tree
     let arg_count %i32 v::len &params
@@ -293,6 +829,26 @@ pub fn selfhost_resolved_type_tree_add_applied_named %impure fn SelfhostResolved
             v::free params
             Result::Err e
 
+//: selfhost_resolved_type_tree_copy_function_args: temporary function argument node id を function-arg table へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - function type の引数 node id list を、tree 全体の `function_args` table へ順序を保ってコピーします。
+//:
+//: [契約/けいやく]:
+//: - `out` は function-arg table owner として受け取り、成功時は追加済み owner として返します。
+//: - `params` は borrow で読み、caller がこの helper の外側で解放します。
+//: - `n = 0` の場合はコピーせず `Ok(out)` を返します。後段の `add_function` が `SelfhostResolvedFunctionArgRange::Empty` を選びます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(out)`: `n` 個の node id を追加した function-arg table owner です。
+//: - `Err(StdErrorKind::IndexOutOfBounds)`: `params` の expected range が存在しません。
+//: - `Err(e)`: `v::push` が失敗した `StdErrorKind` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - コピーする argument 数を `n` として `O(n)` です。
+//:
+//: [owner boundary]:
+//: - `v::push` 失敗時は push error vector owner を閉じます。`Option::None` では `out` owner を閉じてから error を返します。
 fn selfhost_resolved_type_tree_copy_function_args %impure fn Vec SelfhostResolvedTypeNodeId impure fn &Vec SelfhostResolvedTypeNodeId impure fn i32 impure fn i32 Result Vec SelfhostResolvedTypeNodeId StdErrorKind \out\params\n\idx:
     if:
         ge idx n
@@ -314,8 +870,27 @@ fn selfhost_resolved_type_tree_copy_function_args %impure fn Vec SelfhostResolve
 
 //: selfhost_resolved_type_tree_add_function: function node を tree に[追加/ついか]する
 //:
-//: [注意/ちゅうい]:
+//: [目的/もくてき]:
+//: - function type の引数 node id list と result node id を `SelfhostResolvedTypeNode::Function` として tree に保存します。
+//:
+//: [契約/けいやく]:
 //: - `params` はこの関数が消費し、成功・失敗どちらでも解放します。
+//: - `params` が空なら `SelfhostResolvedFunctionArgRange::Empty` を使います。これは `fn void T` の 0 引数 function を表します。
+//: - `params` が 1 個以上なら function-arg table にコピーし、`SelfhostResolvedFunctionArgRange::Range` を使います。`fn unit T` は unit type node を含む range になります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: function node の追加結果です。
+//: - `Err(StdErrorKind::IndexOutOfBounds)`: `params` の expected range が存在しない内部不整合です。
+//: - `Err(e)`: function-arg table または node table の拡張失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 引数数を `n` として `O(n)` です。node 追加自体は償却 `O(1)` です。
+//:
+//: [owner boundary]:
+//: - 失敗時は `nodes` / `type_args` / `params` を閉じます。成功時は更新済み tree owner へ移ります。
+//:
+//: [type boundary]:
+//: - `void` は node ではなく empty range です。`unit` は通常の node id として引数 range に保存します。
 pub fn selfhost_resolved_type_tree_add_function %impure fn SelfhostResolvedTypeTree impure fn Vec SelfhostResolvedTypeNodeId impure fn SelfhostResolvedTypeNodeId Result SelfhostResolvedTypeTreeAlloc StdErrorKind \tree\params\result:
     let first_arg %i32 selfhost_resolved_type_tree_function_arg_len &tree
     let arg_count %i32 v::len &params
@@ -336,6 +911,23 @@ pub fn selfhost_resolved_type_tree_add_function %impure fn SelfhostResolvedTypeT
             Result::Err e
 
 //: selfhost_resolved_type_tree_get_node: node id に対応する node を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - resolver-local node id から `SelfhostResolvedTypeNode` payload を borrow tree から読みます。
+//:
+//: [契約/けいやく]:
+//: - 負の index や table 外 index は panic せず `none` にします。
+//: - 返す node は `Copy` payload です。tree owner や table owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(node)`: node id が有効です。
+//: - `none`: node id が負または範囲外です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec` index lookup なので `O(1)` です。
+//:
+//: [authority boundary]:
+//: - node id の妥当性だけを検査します。source text や constructor table は見ません。
 pub fn selfhost_resolved_type_tree_get_node %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNode \tree\node_id:
     if:
         lt node_id.index 0
@@ -346,6 +938,22 @@ pub fn selfhost_resolved_type_tree_get_node %fn &SelfhostResolvedTypeTree fn Sel
             v::get nodes node_id.index
 
 //: selfhost_resolved_type_tree_get_node_kind: node id に対応する分類を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - node id の存在確認と node kind 抽出を 1 つの observer にまとめます。
+//:
+//: [契約/けいやく]:
+//: - node が存在する場合は `selfhost_resolved_type_node_kind` に従って分類を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(kind)`: node id が有効です。
+//: - `none`: node id が範囲外です。
+//:
+//: [計算量/けいさんりょう]:
+//: - node lookup と固定 variant `match` なので `O(1)` です。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeNodeKind` は projection 前の分類であり、final `SelfhostTypeKind` ではありません。
 pub fn selfhost_resolved_type_tree_get_node_kind %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNodeKind \tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -354,6 +962,22 @@ pub fn selfhost_resolved_type_tree_get_node_kind %fn &SelfhostResolvedTypeTree f
             none
 
 //: selfhost_resolved_type_tree_primitive_kind: primitive node の primitive kind を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 指定 node が primitive type node の場合だけ `SelfhostPrimitiveTypeKind` を取り出します。
+//:
+//: [契約/けいやく]:
+//: - node id が範囲外、または node が `SelfhostResolvedTypeNode::Primitive` 以外なら `none` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(kind)`: primitive node です。
+//: - `none`: 範囲外または別 variant です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - `unit` は `SelfhostPrimitiveTypeKind::Unit` として返り得ます。`void` は primitive kind ではありません。
 pub fn selfhost_resolved_type_tree_primitive_kind %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option SelfhostPrimitiveTypeKind \tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -391,6 +1015,23 @@ pub fn selfhost_resolved_type_tree_parameter_id %fn &SelfhostResolvedTypeTree fn
             none
 
 //: selfhost_resolved_type_tree_applied_constructor_id: applied type node の constructor identity を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 指定 node が applied named type の場合だけ、constructor table 由来の nominal id を取り出します。
+//:
+//: [契約/けいやく]:
+//: - node id が範囲外、または node が `SelfhostResolvedTypeNode::Applied` 以外なら `none` です。
+//: - 返す `SelfhostNamedTypeId` は constructor identity であり、source spelling の文字列ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(id)`: applied node の constructor identity です。
+//: - `none`: 範囲外または別 variant です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [authority boundary]:
+//: - unknown name 判定や arity 判定は projector が constructor table authority で行います。この observer は保存済み id を返すだけです。
 pub fn selfhost_resolved_type_tree_applied_constructor_id %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option SelfhostNamedTypeId \tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -403,6 +1044,22 @@ pub fn selfhost_resolved_type_tree_applied_constructor_id %fn &SelfhostResolvedT
             none
 
 //: selfhost_resolved_type_tree_applied_arg_count: applied type node の型引数数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - applied node が保持する type argument range の個数を返します。
+//:
+//: [契約/けいやく]:
+//: - node id が範囲外、または applied node ではない場合は `none` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(count)`: applied node の型引数数です。
+//: - `none`: 範囲外または別 variant です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - count は resolved tree 内の stored range 個数です。constructor arity と一致するかは projection / reduce validation の責務です。
 pub fn selfhost_resolved_type_tree_applied_arg_count %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option i32 \tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -415,6 +1072,23 @@ pub fn selfhost_resolved_type_tree_applied_arg_count %fn &SelfhostResolvedTypeTr
             none
 
 //: selfhost_resolved_type_tree_applied_arg: applied type node の指定型引数 node id を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - applied node の `arg_idx` 番目の型引数 node id を返します。
+//:
+//: [契約/けいやく]:
+//: - node id が範囲外、applied node ではない、`arg_idx` が負、または range 外の場合は `none` です。
+//: - table 自体の index lookup も `Option` で扱い、壊れた range なら `none` として projector 側の typed error に進められるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(node_id)`: 指定型引数の resolver-local node id です。
+//: - `none`: 範囲外、別 variant、または range 不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [authority boundary]:
+//: - stored range を読むだけで、constructor arity や type parameter 解決は行いません。
 pub fn selfhost_resolved_type_tree_applied_arg %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn i32 Option SelfhostResolvedTypeNodeId \tree\node_id\arg_idx:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -433,6 +1107,23 @@ pub fn selfhost_resolved_type_tree_applied_arg %fn &SelfhostResolvedTypeTree fn 
             none
 
 //: selfhost_resolved_type_tree_function_arg_count: function node の引数数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function node が保持する引数数を返し、0 引数と unit 引数を count として確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - node id が範囲外、または function node ではない場合は `none` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(0)`: `SelfhostResolvedFunctionArgRange::Empty`、つまり `fn void T` の 0 引数 function です。
+//: - `some(n)`: `Range` の `arg_count` です。
+//: - `none`: 範囲外または別 variant です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - `unit` 引数 function は count 1 になり、0 引数 function と区別されます。
 pub fn selfhost_resolved_type_tree_function_arg_count %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option i32 \tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -445,6 +1136,24 @@ pub fn selfhost_resolved_type_tree_function_arg_count %fn &SelfhostResolvedTypeT
             none
 
 //: selfhost_resolved_type_tree_function_result: function node の戻り値 node id を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function node の result node id を返し、projector が戻り値型を辿れるようにします。
+//:
+//: [契約/けいやく]:
+//: - node id が範囲外、または function node ではない場合は `none` です。
+//: - result が実際に存在するかは、返された node id を次に lookup する段階で検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(node_id)`: function result の resolver-local node id です。
+//: - `none`: 範囲外または別 variant です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - 戻り値に `void` node は存在しません。返る id は tree 内の通常 type node を指します。
+//: - 返された `SelfhostResolvedTypeNodeId` はまだ final `SelfhostTypeRecord` ではなく、`SelfhostTypeArena` への投影で実型になります。
 pub fn selfhost_resolved_type_tree_function_result %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId Option SelfhostResolvedTypeNodeId \tree\node_id:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:
@@ -457,6 +1166,23 @@ pub fn selfhost_resolved_type_tree_function_result %fn &SelfhostResolvedTypeTree
             none
 
 //: selfhost_resolved_type_tree_function_arg: function node の指定引数 node id を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function node の `arg_idx` 番目の引数 node id を返します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostResolvedFunctionArgRange::Empty`、node id 範囲外、function node 以外、負 index、range 外 index はすべて `none` です。
+//: - `none` は panic ではなく、projector / checker が typed error へ進むための fail-closed signal です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(node_id)`: 指定引数の resolver-local node id です。
+//: - `none`: 0 引数 function、範囲外、別 variant、または range 不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - `fn void T` では常に `none` です。`fn unit T` では `arg_idx = 0` で unit node id を返し得ます。
 pub fn selfhost_resolved_type_tree_function_arg %fn &SelfhostResolvedTypeTree fn SelfhostResolvedTypeNodeId fn i32 Option SelfhostResolvedTypeNodeId \tree\node_id\arg_idx:
     match selfhost_resolved_type_tree_get_node tree node_id:
         Option::Some node:

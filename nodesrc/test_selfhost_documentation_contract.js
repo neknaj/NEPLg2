@@ -10,14 +10,14 @@ const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
 const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    moduleNoDoc: 70,
+    moduleNoDoc: 67,
     moduleNoDoctest: 65,
-    declarationNoDoc: 63,
-    declarationNoDoctest: 1668,
+    declarationNoDoc: 59,
+    declarationNoDoctest: 1672,
     publicNoDoc: 28,
     publicNoDoctest: 1256,
-    privateNoDoc: 35,
-    privateNoDoctest: 412,
+    privateNoDoc: 31,
+    privateNoDoctest: 416,
 };
 const HARD_DOC_BASELINE_KEYS = [
     "moduleNoDoc",
@@ -48,6 +48,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/resolve/type_resolver/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/resolved.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
@@ -67,6 +68,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/resolve/type_resolver/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/resolved.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
@@ -213,6 +215,37 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("no source text reread", /source text.*再読せず|source spelling.*再読/),
             requiredPattern("display separated from error", /表示.*分離|message.*持たせない/),
             requiredPattern("all input error variants", /\bEmptySyntaxRange\b[\s\S]*\bInvalidSyntaxRange\b[\s\S]*\bTokenOutOfBounds\b[\s\S]*\bMissingAnnotationMarker\b[\s\S]*\bInvalidToken\b[\s\S]*\bOutOfMemory\b/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/resolved.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        doctestUses: [
+            "selfhost_resolved_type_tree_new",
+            "selfhost_resolved_type_tree_add_primitive",
+            "selfhost_resolved_type_tree_add_function",
+            "selfhost_resolved_type_tree_function_arg_count",
+            "selfhost_resolved_type_tree_function_result",
+            "SelfhostResolvedFunctionArgRange::Empty",
+        ],
+        doctestScenarios: [
+            {
+                name: "empty function range resolved tree",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("primitive node construction", /\bselfhost_resolved_type_tree_add_primitive\b/),
+                    requiredPattern("function node construction", /\bselfhost_resolved_type_tree_add_function\b/),
+                    requiredPattern("zero argument observer", /\bcheck_function_arg_count\b[\s\S]*\b0\b|\b0\b[\s\S]*\bcheck_function_arg_count\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("resolved tree owner tables", /\bnodes\b[\s\S]*\bfunction_args\b[\s\S]*\btype_args\b/),
+            requiredPattern("resolver local id boundary", /\bSelfhostResolvedTypeNodeId\b[\s\S]*resolver-local|resolver-local[\s\S]*\bSelfhostResolvedTypeNodeId\b/),
+            requiredPattern("void not type node", /void.*型 node ではありません|void.*variant を持/),
+            requiredPattern("unit normal primitive node", /unit.*primitive type node|unit.*通常.*node/),
+            requiredPattern("empty function arg range", /\bSelfhostResolvedFunctionArgRange::Empty\b/),
+            requiredPattern("owner cleanup helper", /\bselfhost_resolved_type_tree_free\b/),
+            requiredPattern("no source text reread", /source text.*読み直しません|source text.*再読/),
+            requiredPattern("projector authority boundary", /\btype_resolver\/project\b|\bSelfhostTypeProjectErrorKind\b/),
         ],
     }),
     moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], {
@@ -463,6 +496,100 @@ const DOC_SECTION_REQUIREMENTS = [
             requiredPattern("display authority separation", /display message|表示.*authority|表示層/),
         ],
     }),
+    typeResolvedRequirement("SelfhostResolvedFunctionArgRange", ["purpose", "contract", "complexity", "typeBoundary"], [
+        requiredPattern("empty range branch", /\bSelfhostResolvedFunctionArgRange::Empty\b|\bEmpty\b/),
+        requiredPattern("range branch", /\bSelfhostResolvedFunctionArgRange::Range\b|\bRange\b/),
+        requiredPattern("void unit distinction", /void.*型 node|unit.*node/),
+    ]),
+    typeResolvedRequirement("SelfhostResolvedTypeNode", ["purpose", "contract", "current", "complexity", "typeBoundary"], [
+        requiredPattern("all node variants", /\bPrimitive\b[\s\S]*\bNamed\b[\s\S]*\bParameter\b[\s\S]*\bApplied\b[\s\S]*\bFunction\b/),
+        requiredPattern("no void variant", /void.*variant|void.*型 node/),
+        requiredPattern("not type record", /\bSelfhostTypeRecord\b/),
+    ]),
+    typeResolvedRequirement("SelfhostResolvedTypeTree", ["purpose", "contract", "current", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("three owner tables", /\bnodes\b[\s\S]*\bfunction_args\b[\s\S]*\btype_args\b/),
+        requiredPattern("type id not allocated yet", /\bSelfhostTypeId\b/),
+    ]),
+    typeResolvedRequirement("SelfhostResolvedTypeTreeAlloc", ["purpose", "contract", "complexity", "ownerBoundary"], [
+        requiredPattern("tree owner payload", /\bSelfhostResolvedTypeTree\b[\s\S]*owner/),
+        requiredPattern("node id payload", /\bSelfhostResolvedTypeNodeId\b/),
+    ]),
+    typeResolvedRequirement("SelfhostResolvedTypeTreeRoot", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("root node id", /\broot\b[\s\S]*\bSelfhostResolvedTypeNodeId\b|\bSelfhostResolvedTypeNodeId\b[\s\S]*\broot\b/),
+        requiredPattern("projection boundary", /\bSelfhostTypeArena\b/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_new", ["purpose", "contract", "returns", "complexity", "ownerBoundary"], [
+        requiredPattern("three vectors allocated", /\bVec\b[\s\S]*\bnodes\b[\s\S]*\bfunction_args\b[\s\S]*\btype_args\b/),
+        requiredPattern("cleanup on partial failure", /途中.*失敗[\s\S]*解放|失敗.*owner.*閉じ/),
+        requiredPattern("std error result", /\bStdErrorKind\b/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_free", ["purpose", "contract", "returns", "complexity", "ownerBoundary"], [
+        requiredPattern("frees all three tables", /\bnodes\b[\s\S]*\bfunction_args\b[\s\S]*\btype_args\b/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_push_node", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("node id from table len", /\bSelfhostResolvedTypeNodeId\b[\s\S]*長|node table 長/),
+        requiredPattern("push error cleanup", /\bvec_push_error_vec\b|push error/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_add_primitive", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("primitive node variant", /\bSelfhostResolvedTypeNode::Primitive\b/),
+        requiredPattern("unit primitive not void", /unit.*SelfhostPrimitiveTypeKind::Unit|void.*primitive node/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_add_named", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("source span authority", /\bSelfhostSourceSpan\b/),
+        requiredPattern("projector fail closed", /projection stage|project.*fail-closed/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_add_parameter", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("parameter environment id", /\bSelfhostTypeParameterEnv\b|\bSelfhostTypeParameterId\b/),
+        requiredPattern("parameter node variant", /\bParameter\b/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_copy_type_args", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("type args vector owner", /\btype_args\b|type-arg table/),
+        requiredPattern("index out of bounds", /\bStdErrorKind::IndexOutOfBounds\b/),
+        requiredPattern("push error cleanup", /\bvec_push_error_vec\b|push error/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_add_applied_named", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "authorityBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("applied node variant", /\bSelfhostResolvedTypeNode::Applied\b/),
+        requiredPattern("nominal constructor id", /\bSelfhostNamedTypeId\b/),
+        requiredPattern("applied arg range", /\bSelfhostResolvedAppliedTypeArgRange\b/),
+        requiredPattern("params owner consumed", /\bparams\b[\s\S]*消費|params.*owner/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_copy_function_args", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "errorVariant"], [
+        requiredPattern("function args vector owner", /\bfunction_args\b|function-arg table/),
+        requiredPattern("index out of bounds", /\bStdErrorKind::IndexOutOfBounds\b/),
+        requiredPattern("empty n boundary", /\bn = 0\b|0.*Ok\(out\)/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_add_function", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("function node variant", /\bSelfhostResolvedTypeNode::Function\b/),
+        requiredPattern("empty range for void function", /\bSelfhostResolvedFunctionArgRange::Empty\b|fn void T/),
+        requiredPattern("unit range distinction", /fn unit T|unit.*Range/),
+        requiredPattern("params owner consumed", /\bparams\b[\s\S]*消費|params.*owner/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_get_node", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("negative index returns none", /負.*index.*none/),
+        requiredPattern("copy payload", /Copy.*payload|Copy.*node/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_get_node_kind", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("resolved node kind", /\bSelfhostResolvedTypeNodeKind\b/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_primitive_kind", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("primitive kind", /\bSelfhostPrimitiveTypeKind\b/),
+        requiredPattern("void not primitive", /void.*primitive/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_applied_arg", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("range none fail closed", /range.*none|none.*range/),
+        requiredPattern("constructor arity not checked", /constructor arity|arity/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_function_arg_count", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("zero argument count", /some\(0\)|0 引数/),
+        requiredPattern("unit arg distinction", /unit.*count 1|count 1/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_function_result", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("no void result node", /void.*node.*存在しません|戻り値.*void/),
+    ]),
+    typeResolvedRequirement("selfhost_resolved_type_tree_function_arg", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("empty range returns none", /\bSelfhostResolvedFunctionArgRange::Empty\b[\s\S]*none|fn void T.*none/),
+        requiredPattern("unit arg returns node", /fn unit T|unit node/),
+    ]),
     typeInputRequirement("SelfhostTypePrefixList", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
         requiredPattern("prefix item owner vector", /\bVec SelfhostTypePrefixItem\b|item vector/),
         requiredPattern("percent marker is excluded", /%.*含め/),
@@ -1543,6 +1670,12 @@ function typeConstructorRequirement(name, sections, requiredPatterns = [], optio
 
 function typeInputRequirement(name, sections, requiredPatterns = []) {
     return requirement("stdlib/neplg2/core/resolve/type_resolver/input.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function typeResolvedRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/resolve/type_resolver/resolved.nepl", name, sections, {
         requiredPatterns,
     });
 }

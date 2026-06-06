@@ -1,3 +1,80 @@
+# 2026-06-06 Agent selfhost resolved type tree documentation contract checkpoint
+
+## review_scope
+
+- branch: selfhost/type-resolver-resolved-doc-contract-20260606
+- base: 1a602d53
+- head: working-tree-before-commit
+- files_read: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl; nodesrc/test_selfhost_documentation_contract.js; issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md; note.n.md; AGENTS.md; plan.md; https://zenn.dev/bem130/articles/1b352797de94e7
+- not_reviewed: unrelated selfhost compiler implementation modules outside this resolved type tree documentation contract slice
+- subagent_review_ids: 019e9a95-99f6-7991-8542-deeb29756508, 019e9a95-dd53-79c0-b354-dd78f86f6d43
+- subagent_review_count: 2
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl; nodesrc/test_selfhost_documentation_contract.js; issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md
+- finding: resolved type tree の Zenn-policy documentation contract は、purpose / contract / current / complexity / authorityBoundary / ownerBoundary / typeBoundary / doctest を持つ固定 slice として成立している。
+- root_cause: resolved tree は `SelfhostResolvedTypeNodeId` を持つ TypeId 割当前の中間構造であり、`void` marker と `unit` 型/value の境界、owner table cleanup、projection authority を明文化しないと、後続の type_resolver/project や selfhost 実装で責務境界が曖昧になる。
+- reason: Zenn 記事はドキュメントコメントに目的、contract、現状、計算量、典型例、`Option` / `Result` や enum branch、authority / owner boundary を記載することを要求しており、この slice は `SelfhostResolvedTypeNode::{Primitive, Named, Parameter, Applied, Function}` と `SelfhostResolvedFunctionArgRange::{Empty, Range}` を具体的に固定した。
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: nodesrc/test_selfhost_documentation_contract.js now pins resolved.nepl module/declaration sections and required patterns without line-count, file-size, comment-volume, or doc-comment-length gates.
+- doc_issue_note: issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md records the resolved tree slice, tightened baseline, subagent review blocker fixes, and remaining documentation debt boundary.
+- verify: node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/issues.js check --dir issues
+
+## implementation/test
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl; nodesrc/test_selfhost_documentation_contract.js
+- finding: implementation diff is documentation/contract only for resolved.nepl, and the contract test baseline now matches actual counters: moduleNoDoc=67, moduleNoDoctest=65, declarationNoDoc=59, declarationNoDoctest=1672, publicNoDoc=28, publicNoDoctest=1256, privateNoDoc=31, privateNoDoctest=416.
+- root_cause: subagent review found that leaving the old baseline would allow documentation no-doc debt to regress after this fixed slice, even though the source comments had already improved.
+- reason: resolved.nepl doctest compiles and runs the tree construction path, while focused type resolver contracts and source-policy regressions still pass. The diff does not add behavior changes outside comments and documentation policy enforcement.
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: baseline and issue evidence were tightened to the current measured counters, and the fixed-slice checks target semantic content rather than size or comment volume.
+- doc_issue_note: note.n.md records subagent ids, review outcome, executed verification, existing warnings, no current-diff warnings, and next-slice residual work.
+- verify: node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/resolved.nepl -n 1; node nodesrc/test_selfhost_type_resolver_split_contract.js; node nodesrc/test_selfhost_type_resolver_prefix_input.js; node nodesrc/test_selfhost_type_resolver_generic_application_contract.js; node nodesrc/test_selfhost_type_resolver_type_parameters.js; node nodesrc/run_source_policy_regressions.js --warn-only; trunk build; node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-type-resolver-resolved-doc-contract-playground-editor.json
+
+## zenn_check
+
+- Result/Option: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl docs now describe `Result SelfhostResolvedTypeTreeAlloc StdErrorKind`, `Option SelfhostResolvedTypeNode`, and `Option SelfhostResolvedTypeNodeId` return branches.
+- enum error/display separation: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl names `StdErrorKind::IndexOutOfBounds` and keeps display responsibility outside the resolved tree model.
+- match exhaustiveness: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl documents all `SelfhostResolvedTypeNode::{Primitive, Named, Parameter, Applied, Function}` branches and both `SelfhostResolvedFunctionArgRange::{Empty, Range}` branches.
+- pure/impure boundary: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl remains a core resolved-tree data boundary with no FileSystem/StdIO host authority, matching AGENTS.md and the Zenn pure-core rule.
+- authority boundary: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl states that constructor lookup/source-text reread/projection authority belongs to `type_resolver/project`, not to the resolved tree.
+- owner/free: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl documents `nodes`, `function_args`, and `type_args` owner tables plus `selfhost_resolved_type_tree_free` cleanup.
+- zero-cost/performance: stdlib/neplg2/core/resolve/type_resolver/resolved.nepl documents table append/access complexity and avoids runtime wrapper abstractions beyond resolver-local ids and Vec ranges.
+- doc comment: nodesrc/test_selfhost_documentation_contract.js requires purpose, contract, current, complexity, authorityBoundary, ownerBoundary, typeBoundary, doctest, and concrete resolved-tree terms for this slice.
+- prototype/fail-closed: issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md keeps remaining selfhost doc gaps open and records this slice as a tightened fail-closed boundary, not accepted quality debt.
+
+## evidence_to_record
+
+- note: note.n.md records this resolved tree checkpoint with review_scope, subagent_review_ids, source_policy, residual_risk, unexecuted_verification, existing warnings, and new warnings.
+- issue: issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md records baseline moduleNoDoc=67, declarationNoDoc=59, privateNoDoc=31 and the resolved tree fixed slice.
+- source policy: nodesrc/test_selfhost_documentation_contract.js pins the resolved.nepl module and declaration docs; nodesrc/test_source_policy_no_line_count_limits.js still rejects line-count and doc-comment-length style gates.
+- tests: node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/resolved.nepl -n 1; node nodesrc/run_source_policy_regressions.js --warn-only; trunk build; node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-type-resolver-resolved-doc-contract-playground-editor.json
+
+## warnings
+
+- existing_warnings: git LF-to-CRLF working-copy warnings appear on edited files; Node WASI ExperimentalWarning appears in doctest/source-policy runs; trunk reports update and wasm-bindgen tool version notices; resolved.nepl doctest compile timing still shows cold resource_static_initialized_moves around 7.7s and resource_static_check around 8.6s; remaining selfhost documentation gap samples are tracked by the open issue.
+- new_warnings: none
+
+## summary
+
+- blockers: none
+- non_blockers: remaining selfhost documentation gaps are tracked by ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41; cold base compile performance remains a separate priority.
+- questions: none
+- approve: yes
+- residual_risk: none
+- unexecuted_verification: none
+- executed: node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/test_source_policy_no_line_count_limits.js; node nodesrc/test_selfhost_prototype_design_contract.js; node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/resolved.nepl -n 1; node nodesrc/test_selfhost_type_resolver_split_contract.js; node nodesrc/test_selfhost_type_resolver_prefix_input.js; node nodesrc/test_selfhost_type_resolver_generic_application_contract.js; node nodesrc/test_selfhost_type_resolver_type_parameters.js; node nodesrc/issues.js index --dir issues; node nodesrc/issues.js check --dir issues; git diff --check; node nodesrc/run_source_policy_regressions.js --warn-only; trunk build; node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-type-resolver-resolved-doc-contract-playground-editor.json
+- next slice: stdlib/neplg2/core/resolve/type_resolver/resolved/id.nepl, resolved/kind.nepl, resolved/named.nepl, resolved/typeparam.nepl, type_resolver/stage0.nepl, or cold base compile search-space reduction.
+
 # 2026-06-06 Agent selfhost individual/final Zenn review gate correction checkpoint
 
 - `plan.md` は確認対象であり変更していない。Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` は 2026-06-06T07:51:50+09:00 までに再確認した。AGENTS.md も再確認し、判断基準は、静的検査の正確性、`Option` / `Result`、enum error と表示の分離、match / typed value、pure core と host boundary、authority boundary、owner/free、ゼロコスト抽象化、丁寧な doc comment、実行可能 doctest、試作段階でも品質を落とさないこと、行数制限 / doc comment 長制限を入れないこと。
