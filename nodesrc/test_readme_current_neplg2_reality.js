@@ -32,10 +32,32 @@ mustInclude("stdlib/neplg2/");
 mustInclude("doc/neplg2/self_host_neplg21_compiler_design.md");
 mustInclude("doc/neplg2/gui_standard_library_spec.md");
 
+const sampleMatch = readme.match(/```neplg2\n([\s\S]*?)\n```/);
+assert.ok(sampleMatch, "README must contain a NEPLg2.1 quick sample");
+const sample = sampleMatch[1];
+
 assert.doesNotMatch(
     readme,
     /use\s+core::/,
     "README NEPL sample must use #import, not the old use core:: syntax",
+);
+
+assert.doesNotMatch(
+    sample,
+    /\buse\s+[A-Za-z_][A-Za-z0-9_:]*\s+as\b/,
+    "README NEPL sample must not use the old use/import syntax",
+);
+
+assert.doesNotMatch(
+    sample,
+    /<[^>\r\n]+>/,
+    "README NEPL sample must not use old angle-bracket type annotations or function types",
+);
+
+assert.doesNotMatch(
+    sample,
+    /[()]/,
+    "README NEPL sample must stay in current no-parentheses NEPLg2.1 style",
 );
 
 assert.doesNotMatch(
