@@ -838,6 +838,21 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*TokenKind::IntLiteral[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*TokenKind::Percent[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*"1 2 \|> add 3"[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*"answer"/,
+    "stage1 must keep executable token fixtures for representative pipe fail-closed cases",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeUnsupportedMultiple[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_left_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeMissingLeftOperand[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_right_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeMissingRightTarget[\s\S]*selfhost_check_expr_stage1_run_pipe_literal_target_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeRightTargetUnsupported[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeRightTargetUnsupported[\s\S]*selfhost_check_expr_stage1_pipe_multi_value_left_rejected_with_i32[\s\S]*SelfhostCallReduceErrorKind::PipeLeftSegmentNotSingleValue[\s\S]*selfhost_check_expr_stage1_pipe_zero_arg_target_rejected_with_i32[\s\S]*SelfhostCallReduceErrorKind::PipeTargetRequiresInput/,
+    "stage1 must check pipe fail-closed fixtures against pipe-specific typed errors",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_left_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_right_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_literal_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_multi_value_left_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_zero_arg_target_with_tokens/,
+    "stage1 public pipe smoke must run the representative pipe fail-closed cases",
+);
+assert.match(
+    source,
     /pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
     "public stage1 body-line smoke must include pipe, block result, block sequence, and nested BlockIntro fixtures",
 );
