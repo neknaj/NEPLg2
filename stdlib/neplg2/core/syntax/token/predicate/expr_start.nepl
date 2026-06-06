@@ -47,7 +47,7 @@ pub fn selfhost_token_is_expr_start %fn SelfhostToken bool \token:
         TokenKind::Star:
             true
         TokenKind::Minus:
-            false
+            true
         TokenKind::Equals:
             false
         TokenKind::Ident:

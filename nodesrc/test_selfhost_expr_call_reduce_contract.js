@@ -293,6 +293,24 @@ assert.match(
     /selfhost_literal_argument_f32_from_lexeme[\s\S]*string::to_f32 lexeme[\s\S]*SelfhostLiteralArgumentErrorKind::F32Invalid[\s\S]*SelfhostExprPrefixItemKind::FloatLiteral:[\s\S]*selfhost_checked_argument_f32_literal/,
     "f32 literal arguments must normalize float spelling to semantic f32 payloads without rereading source during HIR lowering",
 );
+assertLiteralPayloadDoc("selfhost_literal_argument_negative_checked_with_source", [
+    "[目的/もくてき]",
+    "[契約/けいやく]",
+    "[戻/もど]り[値/ち]",
+    "[計算量/けいさんりょう]",
+    "token 間 whitespace を意味値に混ぜません",
+    "semantic lexeme authority",
+]);
+assert.match(
+    literalPayload,
+    /fn selfhost_literal_argument_negative_numeric_lexeme_from_source[\s\S]*string::str_slice_result source operand_item\.span\.start operand_item\.span\.end[\s\S]*string::concat_result "-" operand_lexeme/,
+    "negative numeric literal payload creation must concatenate '-' with the operand token spelling instead of slicing the joined span",
+);
+assert.match(
+    literalPayload,
+    /pub fn selfhost_literal_argument_negative_checked_with_source[\s\S]*SelfhostExprPrefixItemKind::IntLiteral:[\s\S]*selfhost_literal_argument_negative_numeric_lexeme_from_source source operand_item signed_item\.span SelfhostLiteralArgumentErrorKind::I32Invalid[\s\S]*selfhost_checked_argument_i32_literal start_index next_index value_type signed_item\.span value[\s\S]*SelfhostExprPrefixItemKind::FloatLiteral:[\s\S]*selfhost_literal_argument_negative_numeric_lexeme_from_source source operand_item signed_item\.span SelfhostLiteralArgumentErrorKind::F32Invalid[\s\S]*selfhost_checked_argument_f32_literal start_index next_index value_type signed_item\.span value/,
+    "negative numeric literal payload creation must preserve typed i32/f32 payload paths",
+);
 assert.doesNotMatch(
     source,
     /selfhost_literal_argument_i32_from_lexeme[\s\S]*(?:string::str_starts_with_at lexeme [0-9]+ "i32"|byte_at lexeme add [^\n]+(?:'i'|'u'|'f'))/,
@@ -406,6 +424,26 @@ assert.match(
 );
 assert.match(
     source,
+    /fn selfhost_expr_argument_negative_numeric_kind[\s\S]*SelfhostExprPrefixItemKind::IntLiteral:[\s\S]*SelfhostExprPrefixItemKind::FloatLiteral:[\s\S]*Option::None/,
+    "negative literal argument matching must accept only int and float literal followers",
+);
+assert.match(
+    source,
+    /fn selfhost_expr_argument_match_negative_literal_with_source[\s\S]*NegativeLiteralMissingOperand[\s\S]*selfhost_expr_argument_negative_numeric_kind operand_item[\s\S]*source_span_join_result minus_item\.span operand_item\.span[\s\S]*selfhost_expr_prefix_item_new literal_kind minus_item\.token_index joined_span[\s\S]*selfhost_literal_argument_negative_checked_with_source tokens source minus_item operand_item signed_item item_index next_index expected_type/,
+    "negative literal argument matching must use joined span for diagnostics while payload lexeme construction stays in literal_payload",
+);
+assert.match(
+    source,
+    /SelfhostExprPrefixItemKind::MinusMarker:[\s\S]*selfhost_expr_argument_match_negative_literal_with_source arena tokens source prefix item_index item_count expected_type item/,
+    "source-backed argument checking must route MinusMarker through the negative numeric literal matcher",
+);
+assert.match(
+    source,
+    /fn selfhost_expr_argument_match_ascribed_with_projection[\s\S]*SelfhostExprPrefixItemKind::MinusMarker:[\s\S]*selfhost_expr_argument_match_negative_literal_with_source arena tokens source prefix expression_item_index item_count expectation\.expected_type expression_item/,
+    "ascribed source-backed argument checking must route MinusMarker through the same negative numeric literal matcher",
+);
+assert.match(
+    source,
     /selfhost_checked_argument_function_value[\s\S]*SelfhostCheckedArgumentKind::FunctionValue candidate[\s\S]*selfhost_checked_argument_is_function_value[\s\S]*SelfhostCheckedArgumentKind::FunctionValue _candidate:[\s\S]*true/,
     "function value arguments must be represented as typed checked-argument payloads",
 );
@@ -426,7 +464,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*LiteralTokenOutOfBounds[\s\S]*LiteralBoolInvalid[\s\S]*LiteralI32Invalid[\s\S]*LiteralI32RadixUnsupported[\s\S]*LiteralF32Invalid[\s\S]*LiteralStringMalformed[\s\S]*LiteralStringEscapeUnsupported[\s\S]*LiteralStringEscapeMalformed[\s\S]*LiteralStringSliceFailed[\s\S]*LiteralStringBuildFailed[\s\S]*LiteralCharMalformed[\s\S]*LiteralCharEscapeUnsupported[\s\S]*LiteralCharInvalidScalar[\s\S]*LiteralCharMultipleScalars[\s\S]*UnsupportedArgumentExpression/,
+    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*LiteralTokenOutOfBounds[\s\S]*LiteralBoolInvalid[\s\S]*LiteralI32Invalid[\s\S]*LiteralI32RadixUnsupported[\s\S]*LiteralF32Invalid[\s\S]*LiteralStringMalformed[\s\S]*LiteralStringEscapeUnsupported[\s\S]*LiteralStringEscapeMalformed[\s\S]*LiteralStringSliceFailed[\s\S]*LiteralStringBuildFailed[\s\S]*LiteralCharMalformed[\s\S]*LiteralCharEscapeUnsupported[\s\S]*LiteralCharInvalidScalar[\s\S]*LiteralCharMultipleScalars[\s\S]*NegativeLiteralMissingOperand[\s\S]*NegativeLiteralOperandNotNumeric[\s\S]*NegativeLiteralSpanJoinFailed[\s\S]*NegativeLiteralTypeMismatch[\s\S]*UnsupportedArgumentExpression/,
     "argument expression scan failures must stay typed instead of collapsing into a boolean",
 );
 assert.match(
@@ -443,6 +481,11 @@ assert.match(
     source,
     /SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralF32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralF32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringBuildFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringBuildFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharInvalidScalar:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars/,
     "call reducer must preserve literal payload decode failures as typed call-reduction errors",
+);
+assert.match(
+    source,
+    /SelfhostExprArgumentMatchErrorKind::NegativeLiteralMissingOperand:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNegativeLiteralMissingOperand[\s\S]*SelfhostExprArgumentMatchErrorKind::NegativeLiteralOperandNotNumeric:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNegativeLiteralOperandNotNumeric[\s\S]*SelfhostExprArgumentMatchErrorKind::NegativeLiteralSpanJoinFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNegativeLiteralSpanJoinFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::NegativeLiteralTypeMismatch:[\s\S]*SelfhostCallReduceErrorKind::ArgumentNegativeLiteralTypeMismatch/,
+    "call reducer must preserve negative numeric literal boundary failures as typed call-reduction errors",
 );
 assert.match(
     source,

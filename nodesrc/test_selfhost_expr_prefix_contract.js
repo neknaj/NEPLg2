@@ -8,6 +8,10 @@ const path = require("node:path");
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/syntax/ast/prefix_expr.nepl";
 const source = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
+const exprStartSource = fs.readFileSync(
+    path.join(repoRoot, "stdlib/neplg2/core/syntax/token/predicate/expr_start.nepl"),
+    "utf8",
+).replace(/\r\n/g, "\n");
 const implementation = source
     .split("\n")
     .filter((line) => !line.startsWith("//:"))
@@ -61,6 +65,7 @@ for (const [token, role] of [
     ["KwFn", "FunctionTypeMarker"],
     ["VoidMarker", "VoidMarker"],
     ["At", "AtMarker"],
+    ["Minus", "MinusMarker"],
     ["UnitLiteral", "UnitValue"],
     ["KwLet", "LetMarker"],
     ["KwMatch", "MatchMarker"],
@@ -71,6 +76,32 @@ for (const [token, role] of [
         `${token} must map to ${role}`,
     );
 }
+
+assert.match(
+    source,
+    /負数 literal[\s\S]*`MinusMarker` と数値 literal item の 2 item として保持/,
+    "negative numeric literals must stay as MinusMarker plus numeric item at the prefix-input boundary",
+);
+assert.match(
+    exprStartSource,
+    /TokenKind::Minus:\s*\n\s*true/,
+    "minus must be an expression start so negative literals reach prefix input construction",
+);
+assert.match(
+    source,
+    /TokenKind::Minus:\s*\n\s*some SelfhostExprPrefixItemKind::MinusMarker/,
+    "minus must map to a dedicated prefix marker instead of a named value or signed literal",
+);
+assert.match(
+    source,
+    /selfhost_expr_prefix_list_from_range_loop[\s\S]*selfhost_expr_prefix_item_from_token token idx[\s\S]*selfhost_expr_prefix_list_push_and_continue tokens add idx 1 end out item/,
+    "prefix builder must consume one raw token per item and leave negative literal consume-width to the checker",
+);
+assert.doesNotMatch(
+    source,
+    /selfhost_expr_prefix_negative_literal_kind|selfhost_expr_prefix_negative_literal_item|add idx 2/,
+    "prefix expression input must not merge Minus plus numeric tokens before type-backed argument checking",
+);
 
 const fromRange = topLevelBlock(source, "fn", "selfhost_expr_prefix_list_from_syntax_range");
 assert.match(

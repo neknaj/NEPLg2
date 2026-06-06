@@ -74,6 +74,7 @@ impl Copy for SelfhostExprArgumentMatch:
 //: - `NamedValue*` は、argument position の名前に対する binding / DefId / value type evidence が不足した場合を分けます。
 //: - `FunctionValue*` は、明示 `@ident` argument を function value として扱うための callable identity / signature evidence が不足した場合を分けます。`FunctionValueMissingName` は `@` の直後が存在しない場合と、直後の item が identifier ではない場合の両方を表します。
 //: - `Literal*` は、source-backed literal payload 生成で token 範囲や意味値解析に失敗した場合を分けます。raw lexeme を HIR へ流す fallback は行いません。
+//: - `NegativeLiteral*` は、`MinusMarker` から始まる負数 numeric argument の構文的・型的な失敗を分けます。operand 欠落、非数値 operand、span 結合失敗、expected type mismatch を同じ unsupported error へ潰しません。
 //: - `UnsupportedArgumentExpression` は、name resolution や nested call reduction が必要で、単一 literal item からは型証拠を得られない場合です。
 //: - `MissingArgument` と `InternalInvariant` は caller 側の cursor と prefix list の不整合を区別します。
 //:
@@ -115,6 +116,10 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     LiteralCharEscapeUnsupported
     LiteralCharInvalidScalar
     LiteralCharMultipleScalars
+    NegativeLiteralMissingOperand
+    NegativeLiteralOperandNotNumeric
+    NegativeLiteralSpanJoinFailed
+    NegativeLiteralTypeMismatch
     UnsupportedArgumentExpression
     InternalInvariant
 
@@ -403,6 +408,85 @@ fn selfhost_expr_argument_match_literal_with_source %impure fn SelfhostTypeArena
         Result::Err literal_error:
             selfhost_type_arena_free arena
             Result::Err selfhost_expr_argument_match_error_from_literal literal_error
+
+//: selfhost_expr_argument_negative_numeric_kind: 負号の operand として受理できる数値 item kind を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `MinusMarker` の直後にある prefix item が、Rust parser と同じく負数 literal として結合できる numeric literal かどうかを判定します。
+//: - `IntLiteral` と `FloatLiteral` だけを受理し、`true`、`unit`、名前、別の `MinusMarker` などは typed error にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(kind)`: operand は負号付き literal の本体として扱える numeric item です。
+//: - `None`: operand は負号付き numeric literal ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
+fn selfhost_expr_argument_negative_numeric_kind %fn SelfhostExprPrefixItem Option SelfhostExprPrefixItemKind \item:
+    match item.kind:
+        SelfhostExprPrefixItemKind::IntLiteral:
+            some SelfhostExprPrefixItemKind::IntLiteral
+        SelfhostExprPrefixItemKind::FloatLiteral:
+            some SelfhostExprPrefixItemKind::FloatLiteral
+        _:
+            none
+
+//: selfhost_expr_argument_match_negative_literal_with_source: `-` と数値 literal を 1 argument として[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - prefix list 上では `MinusMarker` と数値 literal item を分けたまま保持し、この source-backed 境界でだけ 2 item を 1 個の負数 numeric argument として消費します。
+//: - expected type と照合してから semantic payload を作ることで、`-1` / `- 1` を `i32`、`-1.5` / `- 1.5` を `f32` として扱い、HIR lowering が source を再読しない設計を保ちます。
+//:
+//: [契約/けいやく]:
+//: - `minus_item.kind` は `MinusMarker` でなければなりません。caller は item kind の分岐でこの関数を呼びます。
+//: - 直後 item が存在しない場合は `NegativeLiteralMissingOperand`、numeric literal でない場合は `NegativeLiteralOperandNotNumeric` を返します。
+//: - span 結合に失敗した場合は source 範囲の不整合として `NegativeLiteralSpanJoinFailed` を返します。
+//: - operand の numeric kind と expected type が一致しない場合は `NegativeLiteralTypeMismatch` を返し、通常 literal の decode 失敗とは区別します。
+//: - 成功時は合成 literal item の `span` を診断範囲に使い、semantic lexeme は `-` と operand token spelling だけを連結して作ります。token 間 whitespace は数値 parser へ渡しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(match)`: `item_index` と `item_index + 1` の 2 item を消費した checked argument です。
+//: - `Err(error)`: operand 欠落、非 numeric operand、span 結合失敗、型不一致、literal decode 失敗のいずれかです。
+//:
+//: [計算量/けいさんりょう]:
+//: - follower lookup と type-kind check は O(1)、literal decode は spelling 長 n に対して O(n) です。
+fn selfhost_expr_argument_match_negative_literal_with_source %impure fn SelfhostTypeArena impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostExprPrefixList impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostExprArgumentOwnedMatch SelfhostExprArgumentMatchError \arena\tokens\source\prefix\item_index\item_count\expected_type\minus_item:
+    let operand_index %i32 add item_index 1
+    if:
+        ge operand_index item_count
+        then:
+            selfhost_type_arena_free arena
+            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NegativeLiteralMissingOperand minus_item.span
+        else:
+            match selfhost_expr_prefix_list_get prefix operand_index:
+                Option::Some operand_item:
+                    match selfhost_expr_argument_negative_numeric_kind operand_item:
+                        Option::Some literal_kind:
+                            match source_span_join_result minus_item.span operand_item.span:
+                                Result::Ok joined_span:
+                                    let signed_item %SelfhostExprPrefixItem selfhost_expr_prefix_item_new literal_kind minus_item.token_index joined_span
+                                    if:
+                                        selfhost_expr_argument_item_matches_type &arena signed_item expected_type
+                                        then:
+                                            let next_index %i32 add operand_index 1
+                                            let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new next_index
+                                            match selfhost_literal_argument_negative_checked_with_source tokens source minus_item operand_item signed_item item_index next_index expected_type:
+                                                Result::Ok checked_argument:
+                                                    Result::Ok selfhost_expr_argument_owned_match_new arena match_value checked_argument
+                                                Result::Err literal_error:
+                                                    selfhost_type_arena_free arena
+                                                    Result::Err selfhost_expr_argument_match_error_from_literal literal_error
+                                        else:
+                                            selfhost_type_arena_free arena
+                                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NegativeLiteralTypeMismatch joined_span
+                                Result::Err _e:
+                                    selfhost_type_arena_free arena
+                                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NegativeLiteralSpanJoinFailed minus_item.span
+                        Option::None:
+                            selfhost_type_arena_free arena
+                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::NegativeLiteralOperandNotNumeric operand_item.span
+                Option::None:
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::InternalInvariant minus_item.span
 
 //: selfhost_expr_argument_named_value_kind_supported: argument value として扱える binding kind かを[返/かえ]す
 //:
@@ -714,6 +798,8 @@ pub fn selfhost_expr_argument_match_at %fn &SelfhostTypeArena fn &SelfhostExprPr
                     match item.kind:
                         SelfhostExprPrefixItemKind::TypeAnnotationMarker:
                             Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedAscribedArgument item.span
+                        SelfhostExprPrefixItemKind::MinusMarker:
+                            Result::Err selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression item.span
                         _:
                             if:
                                 selfhost_expr_argument_item_matches_type arena item expected_type
@@ -877,6 +963,8 @@ fn selfhost_expr_argument_match_ascribed_with_projection %impure fn &Vec Selfhos
                                     selfhost_expr_argument_match_named_value_with_source arena tokens source scope value_types expression_item expression_item_index expectation.expected_type
                                 SelfhostExprPrefixItemKind::AtMarker:
                                     selfhost_expr_argument_match_function_value_with_source tokens source arena prefix scope signatures expression_item_index item_count expectation.expected_type expression_item
+                                SelfhostExprPrefixItemKind::MinusMarker:
+                                    selfhost_expr_argument_match_negative_literal_with_source arena tokens source prefix expression_item_index item_count expectation.expected_type expression_item
                                 _:
                                     if:
                                         selfhost_expr_argument_item_matches_type &arena expression_item expectation.expected_type
@@ -964,6 +1052,8 @@ pub fn selfhost_expr_argument_match_at_with_source %impure fn &Vec SelfhostToken
                             selfhost_expr_argument_match_named_value_with_source arena tokens source scope value_types item item_index expected_type
                         SelfhostExprPrefixItemKind::AtMarker:
                             selfhost_expr_argument_match_function_value_with_source tokens source arena prefix scope signatures item_index item_count expected_type item
+                        SelfhostExprPrefixItemKind::MinusMarker:
+                            selfhost_expr_argument_match_negative_literal_with_source arena tokens source prefix item_index item_count expected_type item
                         _:
                             if:
                                 selfhost_expr_argument_item_matches_type &arena item expected_type

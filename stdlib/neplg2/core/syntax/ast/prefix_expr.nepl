@@ -23,11 +23,14 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -49,20 +52,23 @@
 //:             Result::Err "expr prefix item missing"
 //:
 //: fn main %impure fn void i32 \void:
-//:     let source %str "add 1 2"
+//:     let source %str "add -1 -1.5 -"
 //:     let checks0 checks_new
 //:     match lex_all source:
 //:         Result::Ok tokens:
-//:             let range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 7
+//:             let range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 6 source_span_new_unchecked 0 0 13
 //:             match selfhost_expr_prefix_list_from_syntax_range &tokens range:
 //:                 Result::Ok list:
-//:                     let checks1 checks_push checks0 check_eq_i32 3 selfhost_expr_prefix_list_len &list
+//:                     let checks1 checks_push checks0 check_eq_i32 6 selfhost_expr_prefix_list_len &list
 //:                     let checks2 checks_push checks1 check_item &list 0 SelfhostExprPrefixItemKind::NamedValue
-//:                     let checks3 checks_push checks2 check_item &list 1 SelfhostExprPrefixItemKind::IntLiteral
+//:                     let checks3 checks_push checks2 check_item &list 1 SelfhostExprPrefixItemKind::MinusMarker
 //:                     let checks4 checks_push checks3 check_item &list 2 SelfhostExprPrefixItemKind::IntLiteral
+//:                     let checks5 checks_push checks4 check_item &list 3 SelfhostExprPrefixItemKind::MinusMarker
+//:                     let checks6 checks_push checks5 check_item &list 4 SelfhostExprPrefixItemKind::FloatLiteral
+//:                     let checks7 checks_push checks6 check_item &list 5 SelfhostExprPrefixItemKind::MinusMarker
 //:                     selfhost_expr_prefix_list_free list
 //:                     v::free tokens
-//:                     let shown checks_print_report checks4
+//:                     let shown checks_print_report checks7
 //:                     checks_exit_code shown
 //:                 Result::Err _e:
 //:                     v::free tokens
@@ -99,6 +105,7 @@ pub enum SelfhostExprPrefixItemKind:
     MemberMarker
     BorrowMarker
     PointerMarker
+    MinusMarker
     PipeOperator
     NamedValue
     UnitValue
@@ -134,6 +141,7 @@ impl Copy for SelfhostExprPrefixItemKind:
 //: [目的/もくてき]:
 //: - item kind、token index、source span を保存し、後続 checker が diagnostic で元位置を説明できるようにします。
 //: - source text や arena-local id は持たず、式縮約前の軽量で再利用しやすい入力値に留めます。
+//: - `-1` や `-1.5` のような負数 literal も、この module では `MinusMarker` と数値 literal item の 2 item として保持します。expected type と source text を持つ checker 境界だけが、2 item を 1 つの負数 argument として消費できます。
 pub struct SelfhostExprPrefixItem:
     kind %SelfhostExprPrefixItemKind
     token_index %i32
@@ -242,6 +250,12 @@ pub fn selfhost_expr_prefix_item_kind_eq %fn SelfhostExprPrefixItemKind fn Selfh
         SelfhostExprPrefixItemKind::PointerMarker:
             match b:
                 SelfhostExprPrefixItemKind::PointerMarker:
+                    true
+                _:
+                    false
+        SelfhostExprPrefixItemKind::MinusMarker:
+            match b:
+                SelfhostExprPrefixItemKind::MinusMarker:
                     true
                 _:
                     false
@@ -429,6 +443,7 @@ pub fn selfhost_expr_prefix_list_new %impure fn Vec SelfhostExprPrefixItem Selfh
 //: [目的/もくてき]:
 //: - expression reduction が受け付ける token だけを `Some` にします。
 //: - `KwFn`、`VoidMarker`、`KwTuple` は expression value ではありませんが、`%` type ascription の内部 token として prefix expression list に現れるため保持します。
+//: - `Minus` は `MinusMarker` として保持します。直後が数値 literal の場合でも、この module では結合せず、source-backed argument checker が expected type と一緒に consume-width を決めます。
 pub fn selfhost_expr_prefix_item_kind_from_token %fn TokenKind Option SelfhostExprPrefixItemKind \kind:
     match kind:
         TokenKind::Percent:
@@ -449,6 +464,8 @@ pub fn selfhost_expr_prefix_item_kind_from_token %fn TokenKind Option SelfhostEx
             some SelfhostExprPrefixItemKind::BorrowMarker
         TokenKind::Star:
             some SelfhostExprPrefixItemKind::PointerMarker
+        TokenKind::Minus:
+            some SelfhostExprPrefixItemKind::MinusMarker
         TokenKind::Pipe:
             some SelfhostExprPrefixItemKind::PipeOperator
         TokenKind::Ident:
@@ -502,6 +519,31 @@ pub fn selfhost_expr_prefix_item_from_token %fn SelfhostToken fn i32 Option Self
         Option::None:
             none
 
+//: selfhost_expr_prefix_list_push_and_continue: item を[追加/ついか]して range loop を[継続/けいぞく]する
+//:
+//: [目的/もくてき]:
+//: - token range から作った prefix item を一つだけ `out` に追加し、次の token index から構築 loop を続行します。
+//: - `v::push` の失敗を `OutOfMemory` に正規化し、失敗時に元の buffer を解放する責務をこの境界に集めます。
+//:
+//: [契約/けいやく]:
+//: - caller は `item` が `idx` 位置の token から作られた正当な prefix item であることを保証します。
+//: - この関数は prefix item の意味的な結合を行いません。`MinusMarker` と数値 literal の 2 item consume-width は checker 側で決めます。
+//: - 成功時は `out` の所有権を再帰呼び出しへ渡し、失敗時は error に含める span として `item.span` を使います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(items)`: `end` までの token を flat prefix item list に変換した buffer です。
+//: - `Err(error)`: push 失敗または後続 token の構築失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - この helper 自体は `v::push` 一回分です。range 全体では token 数 n に対して O(n) です。
+fn selfhost_expr_prefix_list_push_and_continue %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn Vec SelfhostExprPrefixItem impure fn SelfhostExprPrefixItem Result Vec SelfhostExprPrefixItem SelfhostExprPrefixBuildError \tokens\next_idx\end\out\item:
+    match v::push out item:
+        Result::Ok next_out:
+            selfhost_expr_prefix_list_from_range_loop tokens next_idx end next_out
+        Result::Err e:
+            v::free v::vec_push_error_vec e
+            Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::OutOfMemory item.span
+
 //: selfhost_expr_prefix_list_len: prefix expression item 数を[返/かえ]す
 pub fn selfhost_expr_prefix_list_len %fn &SelfhostExprPrefixList i32 \list:
     let items %&Vec SelfhostExprPrefixItem field::get_ref list "items"
@@ -516,6 +558,23 @@ pub fn selfhost_expr_prefix_list_get %fn &SelfhostExprPrefixList fn i32 Option S
 pub fn selfhost_expr_prefix_list_free %impure fn SelfhostExprPrefixList unit \list:
     v::free field::get list "items"
 
+//: selfhost_expr_prefix_list_from_range_loop: token range を flat prefix item list に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - parser が保持する token range を、checker が呼び出し境界を縮約するための flat prefix item list へ変換します。
+//: - token kind から prefix item kind への変換だけを担当し、型や expected type を必要とする判断は後段へ残します。
+//:
+//: [契約/けいやく]:
+//: - `idx` から `end` までは同じ token table 上の半開区間です。
+//: - `Minus` token は `MinusMarker` として一 item だけ追加します。直後の numeric token と結合しないことが、この module の安定した契約です。
+//: - token が prefix expression item として扱えない場合は `InvalidToken` を返し、途中まで構築した buffer は解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(items)`: 入力 token range と同じ順序を保った flat prefix item buffer です。
+//: - `Err(error)`: token table 境界、無効 token、または buffer allocation の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - token range の長さ n に対して O(n) です。各 token で定数回の match と push だけを行います。
 fn selfhost_expr_prefix_list_from_range_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn Vec SelfhostExprPrefixItem Result Vec SelfhostExprPrefixItem SelfhostExprPrefixBuildError \tokens\idx\end\out:
     if:
         ge idx end
@@ -526,12 +585,7 @@ fn selfhost_expr_prefix_list_from_range_loop %impure fn &Vec SelfhostToken impur
                 Option::Some token:
                     match selfhost_expr_prefix_item_from_token token idx:
                         Option::Some item:
-                            match v::push out item:
-                                Result::Ok next_out:
-                                    selfhost_expr_prefix_list_from_range_loop tokens add idx 1 end next_out
-                                Result::Err e:
-                                    v::free v::vec_push_error_vec e
-                                    Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::OutOfMemory token.span
+                            selfhost_expr_prefix_list_push_and_continue tokens add idx 1 end out item
                         Option::None:
                             v::free out
                             Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::InvalidToken token.span
@@ -539,6 +593,22 @@ fn selfhost_expr_prefix_list_from_range_loop %impure fn &Vec SelfhostToken impur
                     v::free out
                     Result::Err selfhost_expr_prefix_build_error_new SelfhostExprPrefixBuildErrorKind::TokenOutOfBounds source_span_empty_unchecked 0 0
 
+//: selfhost_expr_prefix_first_token_starts_expr: range 先頭 token が expression 開始 token かを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - syntax range の先頭 token を見て、prefix expression として構築を開始できるかを判定します。
+//: - 範囲外 index は parser と caller の不整合として扱い、panic せず `false` を返して上位の typed error に進めます。
+//:
+//: [契約/けいやく]:
+//: - 判定は token kind の表層構文上の開始可否だけに限定します。
+//: - `Minus` は `MinusMarker` を開始 item として許可しますが、負数 literal として成立するかどうかは source-backed argument checker が検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 指定 token は expression range の先頭として受理できます。
+//: - `false`: token が存在しない、または expression start として扱えません。
+//:
+//: [計算量/けいさんりょう]:
+//: - token table の一回参照と predicate 呼び出しだけなので O(1) です。
 fn selfhost_expr_prefix_first_token_starts_expr %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
     match v::get tokens idx:
         Option::Some token:

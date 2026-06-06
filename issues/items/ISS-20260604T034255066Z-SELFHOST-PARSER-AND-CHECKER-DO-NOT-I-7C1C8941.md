@@ -82,7 +82,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: char literal payload を `SelfhostCheckedArgumentKind::CharLiteral` として追加した。source-backed checker は simple char、simple escape、`\xHH`、`\u{...}` を semantic `char` へ decode し、malformed quote、未対応 escape、不正 scalar、複数 scalar を typed error として分ける。`lower/hir/direct_call.nepl` は現 Rust 実装と同じく `char_to_i32` で i32-backed HIR literal へ下ろし、source token や literal lexeme を再読しない。
 - 2026-06-06: string literal payload の escape decode を追加した。Rust string literal と同じ `\n` / `\r` / `\t` / `\\` / `\"` / `\0` / `\xHH` だけを semantic `str` へ decode し、char 専用の `\b` / `\f` / `\'` / `\u{...}` は `StringEscapeUnsupported` として fail-closed にした。escape なしは `str_slice_result` fast path のまま、escape ありは `StringBuilder` owner path で `StringEscapeMalformed` / `StringBuildFailed` / `StringSliceFailed` を typed error として分けた。`SelfhostCheckedArgumentKind::StrLiteral` が decode 済み value を持つため、HIR lowering は source token を再読しない。
 - 2026-06-06: numeric literal payload の Rust parity slice として、source-backed checker が接頭辞なし 10 進 `IntLiteral` と `0x` / `0X` 16 進 `IntLiteral` を semantic `i32` payload へ正規化するようにした。`SelfhostLiteralI32RadixPlan` が token-local lexeme から radix と digit body 範囲を分け、接頭辞除去後の body を `string::to_i32_radix` に渡す。空 hex body、無効 digit、decimal / hex overflow は `I32Invalid`、将来同一 token として渡る未対応 `0b` / `0o` は `I32RadixUnsupported` へ fail-closed にする。suffix は現行 Rust/selfhost lexer とも numeric token に含めないため checker が token 外へ後読みせず、別 item として後続 checker が扱う境界を source policy で固定した。subagent review `019e9b11-8ecf-77b1-82a4-f1150d214189` は suffix/defaulting を先行実装せず token-local numeric payload authority へ絞る判断を承認した。
-- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、負数 literal の `Minus + IntLiteral/FloatLiteral` consume-width、defaulting beyond current Rust fixed `i32` / `f32`、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-06: 負数 numeric literal の source-backed consume-width を追加した。`syntax/ast/prefix_expr.nepl` は `Minus` を `MinusMarker` として 1 token item のまま保持し、source-backed argument checker が `MinusMarker + IntLiteral/FloatLiteral` だけを expected type と照合して 2 item を 1 checked argument として消費する。operand 欠落、非 numeric operand、span 結合失敗、expected type mismatch は `NegativeLiteral*` / `ArgumentNegativeLiteral*` error として分ける。literal payload は joined span を診断範囲として使い、semantic lexeme は operand token spelling と `-` の連結で作るため、`- 1` の token 間 whitespace を数値 parser へ渡さない。HIR lowering は既存の literal checked payload を消費するため source token を再読しない。
+- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -133,6 +134,17 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 
 - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_numeric_literal_tests.json`
+
+2026-06-06 negative numeric literal consume-width checkpoint:
+
+- `node nodesrc/test_selfhost_expr_prefix_contract.js`
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_parser_tokenkind_match.js`
+- `node nodesrc/test_selfhost_token_split_contract.js`
+- `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/ast/prefix_expr.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-negative-prefix-expr.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-negative-literal.json`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_negative_literal.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-negative-literal-tests.json`
 
 2026-06-05 type resolver input checkpoint:
 
@@ -376,4 +388,4 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - contract: `node nodesrc/test_selfhost_expr_call_reduce_contract.js` pass、`node nodesrc/test_selfhost_hir_expr_payload.js` pass、`node nodesrc/test_selfhost_hir_lowering_contract.js` pass、`node nodesrc/test_selfhost_checker_report_contract.js` pass、`node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass、`node nodesrc/test_source_policy_no_line_count_limits.js` pass。
 - focused module verification: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-f32-literal.json` pass 5/5、`node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-f32-literal.json` pass 2/2。
 - focused doctest verification: `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --assert-io -j 1 -o tmp/selfhost-f32-literal-call-reduce.json` は total 6 中 5 pass。追加した `literal_f32_payload_decode` は pass したが、既存 `expression_line_segment_connects_to_call_reduction` 相当の doctest#5 が compile timeout 60s で errored。今回の f32 payload correctness ではなく、`check/expr` facade全体を読む既存 heavy compile path として継続監視する。
-- 残件: 負数 literal の `Minus + IntLiteral/FloatLiteral` consume-width、numeric suffix language design、`NestedDirectCall` / `BlockResult` checked tree payload、既存 heavy doctest timeout の高速化 / focused test分割。
+- 残件: numeric suffix language design、`NestedDirectCall` / `BlockResult` checked tree payload、既存 heavy doctest timeout の高速化 / focused test分割。

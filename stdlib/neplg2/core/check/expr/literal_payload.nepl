@@ -12,6 +12,7 @@
 //: - この module は HIR を import しません。出力は `SelfhostCheckedArgument` だけです。
 //: - `IntLiteral` は Rust 実装と同じく、接頭辞なしの 10 進表記と `0x` / `0X` 接頭辞付き 16 進表記を i32 payload へ正規化します。
 //: - `FloatLiteral` は Rust 実装の現 checkpoint と同じく f32 payload へ正規化します。`f64` defaulting や suffix 解決は後続の numeric literal 設計で扱います。
+//: - `-1` / `- 1` / `-1.5` は source-backed argument matcher が `MinusMarker` と直後の数値 literal item を 1 個の checked argument として消費し、この module が `-` と operand token spelling だけを連結した semantic lexeme を作ります。
 //: - numeric suffix は現行 lexer が integer token に含めないため、この境界では扱いません。suffix 付き表記は token 列の段階で別 item になり、後続の expression checker が fail-closed に処理します。
 //: - `StringLiteral` は quote を外し、Rust lexer と同じ simple escape と `\xHH` escape を semantic string value へ decode して accepted payload にします。raw quoted lexeme を payload へ入れてはいけません。
 //: - `CharLiteral` は Rust lexer と同じく Unicode scalar value として decode し、checked payload には `char` 値だけを保存します。後続 HIR lowering はこの値を i32-backed char literal へ変換します。
@@ -1056,7 +1057,7 @@ fn selfhost_literal_argument_char_value_from_lexeme %fn str fn SelfhostSourceSpa
 //:
 //: [契約/けいやく]:
 //: - caller は、`item` が expected type と一致することを先に確認しています。この関数は型一致ではなく、値 payload の構築だけを担当します。
-//: - `lexeme` は `item.token_index` から復元した token spelling です。別 token の lexeme を渡してはいけません。
+//: - `lexeme` は 1 token で完結する literal spelling です。負数 literal は `MinusMarker + numeric operand` の 2 item から作るため、この関数ではなく `selfhost_literal_argument_negative_checked_with_source` が扱います。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(argument)`: checked argument payload を構築できました。
@@ -1101,11 +1102,90 @@ fn selfhost_literal_argument_checked_from_lexeme %fn str fn SelfhostExprPrefixIt
         _:
             Result::Ok selfhost_checked_argument_typed_expression start_index next_index value_type item.span
 
+//: selfhost_literal_argument_negative_numeric_lexeme_from_source: 負号と operand token spelling から semantic lexeme を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `MinusMarker` と numeric operand の間に空白があっても、Rust parser と同じく `-` と operand token の spelling だけを結合した lexeme を作ります。
+//: - joined span は診断範囲として使い、数値 parser へ渡す文字列 authority にはしません。`- 1` をそのまま slice して `"- 1"` として解析する退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `operand_item` は `IntLiteral` または `FloatLiteral` の prefix item です。この関数は kind を再判定せず、caller が `literal_error_kind` を選びます。
+//: - `span` は戻り値 payload と error の診断範囲です。実際の lexeme には、span 内の空白を含めません。
+//: - `str_slice_result` または `concat_result` が失敗した場合は、caller が渡した literal error kind で fail-closed にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(lexeme)`: `-` と operand token spelling を連結した semantic numeric lexeme です。
+//: - `Err(error)`: operand span の slice または semantic lexeme 構築に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - operand token spelling 長 n に対して O(n) です。
+fn selfhost_literal_argument_negative_numeric_lexeme_from_source %fn str fn SelfhostExprPrefixItem fn SelfhostSourceSpan fn SelfhostLiteralArgumentErrorKind Result str SelfhostLiteralArgumentError \source\operand_item\span\literal_error_kind:
+    match string::str_slice_result source operand_item.span.start operand_item.span.end:
+        Result::Ok operand_lexeme:
+            match string::concat_result "-" operand_lexeme:
+                Result::Ok signed_lexeme:
+                    Result::Ok signed_lexeme
+                Result::Err _e:
+                    Result::Err selfhost_literal_argument_error_new literal_error_kind span
+        Result::Err _e:
+            Result::Err selfhost_literal_argument_error_new literal_error_kind span
+
+//: selfhost_literal_argument_negative_checked_with_source: `MinusMarker` と numeric operand から checked payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source-backed argument checker が 2 item consume-width を確定した負数 numeric argument を、semantic `i32` / `f32` payload へ変換します。
+//: - prefix list の flat 性を保ちながら、数値 parser へは `-` と operand token spelling だけを渡し、token 間 whitespace を意味値に混ぜません。
+//:
+//: [契約/けいやく]:
+//: - `minus_item.kind` は `MinusMarker`、`operand_item.kind` は `IntLiteral` または `FloatLiteral`、`signed_item.kind` は operand と同じ numeric kind です。
+//: - `signed_item.span` は診断と checked argument span に使う joined span です。semantic lexeme authority は `operand_item.span` の slice と `-` の連結です。
+//: - token index は minus と operand の両方を範囲確認します。どちらかが範囲外なら `TokenOutOfBounds` を返し、panic や unchecked unwrap へ逃がしません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(argument)`: HIR lowering に渡せる checked numeric literal payload です。`next_index` は caller が決めた 2 item consume-width の終端です。
+//: - `Err(error)`: token 範囲、semantic lexeme 構築、または numeric parse の失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 取得は O(1)、semantic lexeme 構築と numeric parse は operand spelling 長 n に対して O(n) です。
+pub fn selfhost_literal_argument_negative_checked_with_source %fn &Vec SelfhostToken fn str fn SelfhostExprPrefixItem fn SelfhostExprPrefixItem fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId Result SelfhostCheckedArgument SelfhostLiteralArgumentError \tokens\source\minus_item\operand_item\signed_item\start_index\next_index\value_type:
+    match v::get tokens minus_item.token_index:
+        Option::Some _minus_token:
+            match v::get tokens operand_item.token_index:
+                Option::Some _operand_token:
+                    match signed_item.kind:
+                        SelfhostExprPrefixItemKind::IntLiteral:
+                            match selfhost_literal_argument_negative_numeric_lexeme_from_source source operand_item signed_item.span SelfhostLiteralArgumentErrorKind::I32Invalid:
+                                Result::Ok lexeme:
+                                    match selfhost_literal_argument_i32_from_lexeme lexeme signed_item.span:
+                                        Result::Ok value:
+                                            Result::Ok selfhost_checked_argument_i32_literal start_index next_index value_type signed_item.span value
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        SelfhostExprPrefixItemKind::FloatLiteral:
+                            match selfhost_literal_argument_negative_numeric_lexeme_from_source source operand_item signed_item.span SelfhostLiteralArgumentErrorKind::F32Invalid:
+                                Result::Ok lexeme:
+                                    match selfhost_literal_argument_f32_from_lexeme lexeme signed_item.span:
+                                        Result::Ok value:
+                                            Result::Ok selfhost_checked_argument_f32_literal start_index next_index value_type signed_item.span value
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        _:
+                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::I32Invalid signed_item.span
+                Option::None:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::TokenOutOfBounds operand_item.span
+        Option::None:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::TokenOutOfBounds minus_item.span
+
 //: selfhost_literal_argument_checked_with_source: literal item から checked payload を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - source-backed argument checker が型一致を確認した後で呼び、実値が必要な literal だけを typed payload へ変換します。
-//: - token buffer の範囲確認、lexeme 復元、literal 値解析をこの境界にまとめ、lower/hir 側へ source 依存を漏らしません。
+//: - token buffer の範囲確認、item span からの lexeme 復元、literal 値解析をこの境界にまとめ、lower/hir 側へ source 依存を漏らしません。
+//: - この関数は 1 token で完結する literal item 用です。`MinusMarker + numeric operand` の負数 argument は、token 間 whitespace を除外する必要があるため `selfhost_literal_argument_negative_checked_with_source` を使います。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(argument)`: HIR lowering に渡せる checked argument payload です。
@@ -1113,12 +1193,12 @@ fn selfhost_literal_argument_checked_from_lexeme %fn str fn SelfhostExprPrefixIt
 //:
 //: [計算量/けいさんりょう]:
 //: - token 取得は O(1) です。
-//: - lexeme 復元と literal 値解析は token spelling 長 n に対して O(n) です。
+//: - lexeme 復元と literal 値解析は item spelling 長 n に対して O(n) です。
 //: - HIR record や name scope は参照しないため、この境界で追加の探索空間を増やしません。
 pub fn selfhost_literal_argument_checked_with_source %fn &Vec SelfhostToken fn str fn SelfhostExprPrefixItem fn i32 fn i32 fn SelfhostTypeId Result SelfhostCheckedArgument SelfhostLiteralArgumentError \tokens\source\item\start_index\next_index\value_type:
     match v::get tokens item.token_index:
-        Option::Some token:
-            let lexeme %str selfhost_token_lexeme source token
+        Option::Some _token:
+            let lexeme %str string::str_slice source item.span.start item.span.end
             selfhost_literal_argument_checked_from_lexeme lexeme item start_index next_index value_type
         Option::None:
             Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::TokenOutOfBounds item.span

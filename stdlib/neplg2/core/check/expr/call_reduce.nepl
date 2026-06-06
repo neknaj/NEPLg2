@@ -103,6 +103,7 @@ fn selfhost_call_reduce_expected_result %fn &SelfhostTypeArena fn SelfhostCallab
 //:
 //: [契約/けいやく]:
 //: - `LiteralBoolInvalid` / `LiteralI32Invalid` / `LiteralI32RadixUnsupported` / `LiteralF32Invalid` / `LiteralString*` / `LiteralChar*` は、対応する `ArgumentLiteral*` error へ 1 対 1 で写像します。
+//: - `NegativeLiteral*` は、`MinusMarker` から始まる負数 numeric argument の構文・型境界の失敗として `ArgumentNegativeLiteral*` error へ 1 対 1 で写像します。
 //: - `MissingArgument` だけは call 全体の head span を使い、partial application rejection として扱います。それ以外は元 error span を保持します。
 //:
 //: [戻/もど]り[値/ち]:
@@ -178,6 +179,14 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar error.span
         SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars error.span
+        SelfhostExprArgumentMatchErrorKind::NegativeLiteralMissingOperand:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNegativeLiteralMissingOperand error.span
+        SelfhostExprArgumentMatchErrorKind::NegativeLiteralOperandNotNumeric:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNegativeLiteralOperandNotNumeric error.span
+        SelfhostExprArgumentMatchErrorKind::NegativeLiteralSpanJoinFailed:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNegativeLiteralSpanJoinFailed error.span
+        SelfhostExprArgumentMatchErrorKind::NegativeLiteralTypeMismatch:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNegativeLiteralTypeMismatch error.span
         SelfhostExprArgumentMatchErrorKind::UnsupportedArgumentExpression:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::UnsupportedArgumentExpression error.span
         SelfhostExprArgumentMatchErrorKind::InternalInvariant:
