@@ -1,5 +1,83 @@
 #indent 4
 
+//: # type_resolver/model: type prefix resolver の共有 model
+//:
+//: [目的/もくてき]:
+//: - NEPLg2.1 の `%` 型注釈から得られる prefix token を、type resolver が共有する小さな typed payload に正規化します。
+//: - `input` module は token stream から `SelfhostTypePrefixItem` を作り、`reduce` / `project` module はこの payload を source authority と diagnostic authority の入口として扱います。
+//: - `void` は 0 引数関数 marker、`unit` は unit 型かつ unit 値の通常 named type です。この区別を `SelfhostTypePrefixItemKind` で表現します。
+//:
+//: [契約/けいやく]:
+//: - この module は source text を再読せず、parser / lexer が与えた token index と `SelfhostSourceSpan` を保持するだけです。
+//: - item kind と build error kind は enum で表し、後段は `match` による網羅性検査が効く形で分岐します。
+//: - `SelfhostTypePrefixBuildError` は error kind と source span を分離して持ちます。表示用文字列や UI label はここには入れません。
+//: - 表示は error から分離します。この model は display message を持たせないため、表示層の文言変更で typed error authority は変わりません。
+//:
+//: [現状/げんじょう]:
+//: - model は `Copy` 可能な小さい payload だけで構成しています。所有 buffer は `input.nepl` の `SelfhostTypePrefixList` が持ちます。
+//: - borrow type、pointer type、path separator、dot type parameter marker は分類として保存しますが、完全な意味解決は reduce / project 側で fail-closed に行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor と equality helper はすべて `O(1)` です。enum variant 数は固定なので、`match` の分岐数は入力サイズに依存しません。
+//: - 追加領域は返却する struct payload だけで、heap allocation は行いません。
+//:
+//: [authority boundary]:
+//: - `token_index` は token table 内の位置 authority、`span` は diagnostic が指す source range authority です。
+//: - この module は token index の存在確認や range 妥当性を証明しません。それらは `input` module の parser/token boundary で検査します。
+//:
+//: [owner boundary]:
+//: - ここで定義する enum / struct は `Copy` payload です。owner cleanup obligation は発生しません。
+//: - `SelfhostTypePrefixItem` を格納する `Vec` owner は `SelfhostTypePrefixList` 側の責務です。
+//:
+//: [type boundary]:
+//: - `SelfhostTypePrefixItemKind::FunctionMarker` は `fn`、`SelfhostTypePrefixItemKind::VoidMarker` は `fn void T` の 0 引数 marker、`SelfhostTypePrefixItemKind::NamedType` は primitive / named constructor / type parameter 候補です。
+//: - `SelfhostTypePrefixItemKind::VoidMarker` を通常型位置で見つけた場合、reducer は `SelfhostTypeReduceErrorKind::VoidAsType` へ畳みます。
+//: - `unit` は `SelfhostTypePrefixItemKind::NamedType` として扱われ、0 引数 marker にはなりません。
+//: - `SelfhostTypePrefixItemKind::VoidMarker` は `void` の 0 引数 marker、`unit` は `SelfhostTypePrefixItemKind::NamedType` です。
+//:
+//: [error variant]:
+//: - `SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange`: type annotation range が空です。
+//: - `SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange`: first token または count が構文 range として不正です。
+//: - `SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds`: range 内の token index が token table の外を指します。
+//: - `SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker`: range 先頭が `%` ではありません。
+//: - `SelfhostTypePrefixBuildErrorKind::InvalidToken`: type prefix item として受理しない token が混入しています。
+//: - `SelfhostTypePrefixBuildErrorKind::OutOfMemory`: item list の確保または拡張に失敗しました。
+//: - 入力 error variant は `EmptySyntaxRange`, `InvalidSyntaxRange`, `TokenOutOfBounds`, `MissingAnnotationMarker`, `InvalidToken`, `OutOfMemory` です。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では `SelfhostTypePrefixItemKind::VoidMarker` の item と `InvalidToken` error payload を作り、kind と token index が保持されることを確認します。
+//:
+//: [典型例/てんけいれい]:
+//: - parser からの実入力では `input.nepl` が `%fn void unit` を `FunctionMarker`, `VoidMarker`, `NamedType` の列へ変換し、reduce / project がこの model を使って `fn void unit` と `fn unit unit` を区別します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver/model" as *
+//:| #import "std/test" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+//:     let item %SelfhostTypePrefixItem selfhost_type_prefix_item_new SelfhostTypePrefixItemKind::VoidMarker 7 span
+//:     let err %SelfhostTypePrefixBuildError selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::InvalidToken span
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 assert selfhost_type_prefix_item_kind_eq item.kind SelfhostTypePrefixItemKind::VoidMarker
+//:     let checks2 checks_push checks1 assert_eq_i32 7 item.token_index
+//:     let checks3 checks_push checks2 assert selfhost_type_prefix_build_error_kind_eq err.kind SelfhostTypePrefixBuildErrorKind::InvalidToken
+//:     let shown checks_print_report checks3
+//:     checks_exit_code shown
+//: ```
+//:
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 
@@ -8,6 +86,17 @@
 //: [目的/もくてき]:
 //: - token kind をそのまま後段へ渡さず、type resolver に必要な役割だけを enum payload として固定します。
 //: - `VoidMarker` は `unit` と違い通常型名ではないため、別 variant として保持します。
+//:
+//: [契約/けいやく]:
+//: - `FunctionMarker` は `fn` token、`VoidMarker` は `fn void T` の 0 引数 marker、`NamedType` は primitive / constructor / type parameter 候補を表します。
+//: - `PathSeparator`, `BorrowMarker`, `PointerMarker`, `DotMarker` は入力では分類しますが、受理できる型式かどうかは reducer / projector が別の typed error で判断します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum payload は `Copy` 可能な固定サイズ値で、clone / copy / equality helper は `O(1)` です。
+//:
+//: [type boundary]:
+//: - `SelfhostTypePrefixItemKind::VoidMarker` と `NamedType` を分けることで、0 引数関数 `fn void T` と unit 引数関数 `fn unit T` を型式入力の段階で区別します。
+//: - `unit` は 0 引数 marker ではないため、`void` の `SelfhostTypePrefixItemKind::VoidMarker` と unit の named type を混同しません。
 pub enum SelfhostTypePrefixItemKind:
     FunctionMarker
     VoidMarker
@@ -29,6 +118,24 @@ impl Copy for SelfhostTypePrefixItemKind:
 //:
 //: [目的/もくてき]:
 //: - resolver が source span と token 位置を失わずに diagnostic を返せるよう、分類済み kind、token index、元 token span を保持します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は token kind を type resolver 用に縮約した `SelfhostTypePrefixItemKind` です。
+//: - `token_index` は元 token table の index です。後段 diagnostic はこの index と `span` を使い、source text の再走査に依存しません。
+//: - `span` は元 token の `SelfhostSourceSpan` です。span の妥当性は parser/token boundary の authority に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - struct は固定サイズ payload で、constructor と copy は `O(1)` です。
+//:
+//: [authority boundary]:
+//: - `SelfhostTypePrefixItem` は token table と source span への証跡を運ぶ payload であり、名前解決や constructor lookup の authority ではありません。
+//: - `token_index` は authority として元 token table の位置を保持しますが、この struct は token table の境界検査を行いません。
+//:
+//: [owner boundary]:
+//: - payload は `Copy` 可能で owner を持ちません。collection owner は `SelfhostTypePrefixList` が保持します。
+//:
+//: [type boundary]:
+//: - item はまだ `SelfhostResolvedTypeNode` ではありません。型木への縮約は reduce/build boundary の責務です。
 pub struct SelfhostTypePrefixItem:
     kind %SelfhostTypePrefixItemKind
     token_index %i32
@@ -43,6 +150,22 @@ impl Copy for SelfhostTypePrefixItem:
         self
 
 //: SelfhostTypePrefixBuildErrorKind: prefix list 生成の失敗分類
+//:
+//: [目的/もくてき]:
+//: - `%` type annotation range から `SelfhostTypePrefixItem` list を作る段階の失敗を、表示文字列ではなく enum variant として保持します。
+//:
+//: [契約/けいやく]:
+//: - 各 variant は parser/token/input boundary の失敗を表します。reducer の `VoidAsType` や constructor arity error など、後段の意味検査失敗はここに混ぜません。
+//: - `OutOfMemory` は item vector の確保や push に失敗した場合だけを表します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum comparison helper は固定 variant の `match` なので `O(1)` です。
+//:
+//: [error variant]:
+//: - `SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange`, `SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange`, `SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds`, `SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker`, `SelfhostTypePrefixBuildErrorKind::InvalidToken`, `SelfhostTypePrefixBuildErrorKind::OutOfMemory` を持ちます。
+//:
+//: [authority boundary]:
+//: - error kind は原因分類の authority です。human-readable message は diagnostic rendering layer が別途作ります。
 pub enum SelfhostTypePrefixBuildErrorKind:
     EmptySyntaxRange
     InvalidSyntaxRange
@@ -60,6 +183,22 @@ impl Copy for SelfhostTypePrefixBuildErrorKind:
         self
 
 //: SelfhostTypePrefixBuildError: prefix list 生成失敗の typed diagnostic payload
+//:
+//: [目的/もくてき]:
+//: - type annotation input boundary の失敗を、typed error kind と source span の組として後段へ返します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は `SelfhostTypePrefixBuildErrorKind` のいずれかです。
+//: - `span` は問題位置の `SelfhostSourceSpan` です。token が取得できない場合は caller が fail-closed な空 span などを選び、表示層はその span を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定サイズ payload なので constructor / copy は `O(1)` です。
+//:
+//: [authority boundary]:
+//: - `kind` は検査結果、`span` は source 位置を担当します。message 文字列を持たせないことで、エラー自体と表示を分離します。
+//:
+//: [error variant]:
+//: - payload は `SelfhostTypePrefixBuildErrorKind::*` を保持し、parser/token/input boundary の失敗を enum で伝えます。
 pub struct SelfhostTypePrefixBuildError:
     kind %SelfhostTypePrefixBuildErrorKind
     span %SelfhostSourceSpan
@@ -73,6 +212,24 @@ impl Copy for SelfhostTypePrefixBuildError:
         self
 
 //: selfhost_type_prefix_item_kind_eq: item kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest、source policy fixture、reducer 境界の smoke check が、enum kind の同一性を bool として扱えるようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypePrefixItemKind` の全 variant を `match` で列挙し、同一 variant の場合だけ `true` を返します。
+//: - `VoidMarker` と `NamedType` は常に異なる分類です。`unit` が named type であり 0 引数 marker ではない境界をここでも保ちます。
+//: - `SelfhostTypePrefixItemKind::VoidMarker` branch と `SelfhostTypePrefixItemKind::NamedType` branch は別 branch であり、異なる variant では `false` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `a` と `b` が同じ `SelfhostTypePrefixItemKind` variant です。
+//: - `false`: variant が異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - variant 数が固定なので `O(1)` です。
+//:
+//: [type boundary]:
+//: - 比較対象は分類だけです。source span、token index、実際の named type spelling は比較しません。
 pub fn selfhost_type_prefix_item_kind_eq %fn SelfhostTypePrefixItemKind fn SelfhostTypePrefixItemKind bool \a\b:
     match a:
         SelfhostTypePrefixItemKind::FunctionMarker:
@@ -119,6 +276,24 @@ pub fn selfhost_type_prefix_item_kind_eq %fn SelfhostTypePrefixItemKind fn Selfh
                     false
 
 //: selfhost_type_prefix_build_error_kind_eq: build error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - build error kind の回帰テストや doctest が、typed error 分類を直接確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostTypePrefixBuildErrorKind` の全 variant を `match` で列挙し、同一 variant の場合だけ `true` を返します。
+//: - 表示文言や span は比較しません。原因分類だけを検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `a` と `b` が同じ `SelfhostTypePrefixBuildErrorKind` variant です。
+//: - `false`: variant が異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - variant 数が固定なので `O(1)` です。
+//:
+//: [error variant]:
+//: - 比較対象は `SelfhostTypePrefixBuildErrorKind::{EmptySyntaxRange, InvalidSyntaxRange, TokenOutOfBounds, MissingAnnotationMarker, InvalidToken, OutOfMemory}` です。
+//: - `SelfhostTypePrefixBuildErrorKind::InvalidToken` branch と `SelfhostTypePrefixBuildErrorKind::OutOfMemory` branch も個別に比較し、span や表示文言は比較しません。
 pub fn selfhost_type_prefix_build_error_kind_eq %fn SelfhostTypePrefixBuildErrorKind fn SelfhostTypePrefixBuildErrorKind bool \a\b:
     match a:
         SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange:
@@ -159,9 +334,47 @@ pub fn selfhost_type_prefix_build_error_kind_eq %fn SelfhostTypePrefixBuildError
                     false
 
 //: selfhost_type_prefix_item_new: prefix item payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - parser/token boundary で検査済みの kind、token index、span を `SelfhostTypePrefixItem` にまとめます。
+//:
+//: [契約/けいやく]:
+//: - この constructor は値を包むだけで、token index の存在確認や span の妥当性を再検査しません。
+//: - `kind` が `VoidMarker` の場合は 0 引数関数 marker の証跡です。`unit` は caller が `NamedType` として渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypePrefixItem`: 渡された `kind`, `token_index`, `span` をそのまま保持する payload です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定サイズ payload を作るだけなので `O(1)` です。
+//:
+//: [authority boundary]:
+//: - `token_index` と `span` の authority は caller にあります。この関数は authority を作らず、保持するだけです。
+//:
+//: [type boundary]:
+//: - 返り値は type tree ではありません。後段 reducer が `SelfhostTypePrefixItemKind` を読んで型式境界を決めます。
 pub fn selfhost_type_prefix_item_new %fn SelfhostTypePrefixItemKind fn i32 fn SelfhostSourceSpan SelfhostTypePrefixItem \kind\token_index\span:
     SelfhostTypePrefixItem kind token_index span
 
 //: selfhost_type_prefix_build_error_new: build error payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - input boundary の失敗分類と source span を、表示層から独立した typed diagnostic payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `kind` は `SelfhostTypePrefixBuildErrorKind` の原因分類です。
+//: - `span` は原因位置の `SelfhostSourceSpan` です。この constructor は span の内包関係や token table 境界を検査しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypePrefixBuildError`: `kind` と `span` を保持する error payload です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定サイズ payload を作るだけなので `O(1)` です。
+//:
+//: [authority boundary]:
+//: - error kind と source span を分離し、display message の authority をここに持ち込まないようにします。
+//:
+//: [error variant]:
+//: - 受け取る `kind` は `SelfhostTypePrefixBuildErrorKind::*` のいずれかであり、後段 reducer error とは混ぜません。
 pub fn selfhost_type_prefix_build_error_new %fn SelfhostTypePrefixBuildErrorKind fn SelfhostSourceSpan SelfhostTypePrefixBuildError \kind\span:
     SelfhostTypePrefixBuildError kind span

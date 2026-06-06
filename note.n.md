@@ -52011,6 +52011,37 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_selfhost_zenn_review_gate_contract.js` を追加し、Zenn URL、subagent review、Blocker 処理、doc comment 必須項目、行数制限禁止、実行計画側の gate、`stdlib/neplg2` への doc comment policy 適用を検査するようにした。`nodesrc/run_source_policy_regressions.js` にも登録した。
 - subagent review の Non-blocker として、`stdlib/neplg2` 全体の doc comment coverage、error enum chain の完全写像、`check/expr` と `lower/hir` の authority 逆流禁止をより広く検査する提案があった。これは次の selfhost implementation slice で、対象 module に合わせて個別 source policy へ追加する。
 
+## 2026-06-06 Agent selfhost type resolver model documentation contract checkpoint
+
+- `selfhost/type-resolver-model-doc-contract-20260606` branch で、base=`85795000fda0c806cd65c648188580f8912a12d5` / head=`working-tree diff before commit` として、`ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` の `stdlib/neplg2/core/resolve/type_resolver/model.nepl` slice を進めた。`plan.md` は確認のみで変更していない。
+- Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を `2026-06-06T10:00:00+09:00` に再確認し、静的検査、`Option` / `Result` / enum error、error と display の分離、authority boundary、owner/free、計算量、丁寧な doc comment、試作段階でも fail-closed に残件を追跡する方針を今回の doc/comment contract に反映した。
+- `model.nepl` は scanner-visible な module heading を持ち、type resolver が共有する Copy payload model の責務を記録した。`SelfhostTypePrefixItemKind::VoidMarker` は `fn void T` の 0 引数 marker、`unit` は `SelfhostTypePrefixItemKind::NamedType` として扱う境界を明記し、通常型位置の `void` は reducer の `SelfhostTypeReduceErrorKind::VoidAsType` authority へ渡すことを記録した。
+- `SelfhostTypePrefixItem`、`SelfhostTypePrefixBuildErrorKind`、`SelfhostTypePrefixBuildError`、kind/error equality helper、payload constructor に、目的、契約、戻り値、計算量、authority/type/owner boundary、`SelfhostTypePrefixBuildErrorKind::{EmptySyntaxRange, InvalidSyntaxRange, TokenOutOfBounds, MissingAnnotationMarker, InvalidToken, OutOfMemory}` を記録した。
+- module doctest は `selfhost_type_prefix_item_new`、`selfhost_type_prefix_build_error_new`、`selfhost_type_prefix_item_kind_eq`、`selfhost_type_prefix_build_error_kind_eq` を直接呼び、`SelfhostTypePrefixItemKind::VoidMarker`、`token_index = 7`、`SelfhostTypePrefixBuildErrorKind::InvalidToken` を確認する。これは model API の最小利用例であり、parser range からの構築は `type_resolver/input.nepl` の doctest に残して責務を分けた。
+- `nodesrc/test_selfhost_documentation_contract.js` は `type_resolver/model.nepl` を fixed slice に追加し、module doc、public enum/struct/function の exact section requirement と required-pattern を追加した。検査対象は contract 内容であり、行数、file size、comment volume、doc-comment length、広域 no-doctest gate は追加していない。
+- `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` には今回の type resolver shared model correction を追記し、`moduleNoDoc=68`, `declarationNoDoc=61`, `publicNoDoc=28`, `privateNoDoc=33` まで下がったことと、`type_resolver/resolved.nepl`, `stage0.nepl`, name resolver, HIR, diagnostics, CLI args などの残件が fail-closed debt として残ることを記録した。
+- policy/spec review outcome: classification=Approve, decision=MERGE_OK, source_policy=updated, verify=`nodesrc/test_selfhost_documentation_contract.js` と `nodesrc/test_selfhost_type_resolver_split_contract.js` と subagent review 2 件で確認済み。
+- implementation/test review outcome: classification=Approve, decision=MERGE_OK, source_policy=updated, verify=focused doctest、type resolver split/prefix/generic/type-parameter contract、source policy regression、trunk build、playground editor JSON で確認済み。
+- subagent_review_ids: `019e9a7c-ac2e-71b2-8273-51b8072f0788`, `019e9a7c-fa16-7c52-8875-1c516cfaed71`
+- subagent_review_count: 2
+- review_scope.branch: selfhost/type-resolver-model-doc-contract-20260606
+- review_scope.base: 85795000fda0c806cd65c648188580f8912a12d5
+- review_scope.head: working-tree diff before commit
+- review decision: MERGE_APPROVED
+- subagent review final outcome: `019e9a7c-ac2e-71b2-8273-51b8072f0788` は `model.nepl` を typed payload boundary として保ち source text reread や behavior change を入れていないこと、`nodesrc/test_selfhost_documentation_contract.js` が void/unit、enum error authority、display/error separation、Copy/no-owner cleanup を固定していることを確認し `MERGE_APPROVED`。`019e9a7c-fa16-7c52-8875-1c516cfaed71` は model doctest が intended stable API を実行し、source-policy が line-count/doc-length/no-doctest growth gate ではないことを確認し `MERGE_APPROVED`。
+- blockers: none
+- questions: none
+- approve: approved
+- residual_risk: none
+- unexecuted_verification: none
+- source_policy: updated
+- source_policy: updated
+- existing_warnings: documentation gap samples remain under the open issue; Node WASI ExperimentalWarning; Git CRLF conversion warning; trunk update notice; wasm-bindgen version mismatch notice
+- new_warnings: none
+- executed verification: `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/model.nepl -n 1`; `node nodesrc/test_selfhost_type_resolver_split_contract.js`; `node nodesrc/test_selfhost_type_resolver_prefix_input.js`; `node nodesrc/test_selfhost_type_resolver_generic_application_contract.js`; `node nodesrc/test_selfhost_type_resolver_type_parameters.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_prototype_design_contract.js`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `git diff --check`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-type-resolver-model-doc-contract-playground-editor.json`; `node nodesrc/issues.js check --dir issues`; two individual `node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --stdin` checks.
+- final aggregate review response check: pass - `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`.
+- next-slice residual work: selfhost documentation gaps remain open in `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41`; next likely slices are `stdlib/neplg2/core/resolve/type_resolver/resolved.nepl`, `stage0.nepl`, `name_resolver`, HIR, diagnostics, and CLI args modules.
+
 ## 2026-06-05 Agent selfhost Zenn review checklist checkpoint
 
 - `selfhost/zenn-review-checklist-20260605` branch で、前回追加した Zenn 方針 review gate を subagent が毎回同じ基準で使える checklist へ具体化した。`plan.md` は確認のみで変更していない。

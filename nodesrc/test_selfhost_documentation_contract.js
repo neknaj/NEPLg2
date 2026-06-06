@@ -45,6 +45,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/constructor.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/input.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
@@ -63,6 +64,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/constructor.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/input.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
@@ -178,6 +180,39 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("build error variants", /\bEmptySyntaxRange\b[\s\S]*\bInvalidSyntaxRange\b[\s\S]*\bTokenOutOfBounds\b[\s\S]*\bMissingAnnotationMarker\b[\s\S]*\bInvalidToken\b[\s\S]*\bOutOfMemory\b/),
             requiredPattern("no source text reread", /source text.*再読せず|source spelling.*再読/),
             requiredPattern("linear range scan", /O\(n\)/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant", "doctest"], {
+        doctestUses: [
+            "selfhost_type_prefix_item_new",
+            "selfhost_type_prefix_build_error_new",
+            "selfhost_type_prefix_item_kind_eq",
+            "selfhost_type_prefix_build_error_kind_eq",
+            "SelfhostTypePrefixItemKind::VoidMarker",
+            "SelfhostTypePrefixBuildErrorKind::InvalidToken",
+        ],
+        doctestScenarios: [
+            {
+                name: "minimal prefix model payload construction",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("void marker payload", /\bSelfhostTypePrefixItemKind::VoidMarker\b/),
+                    requiredPattern("token index preserved", /\b7\b[\s\S]*\bitem\.token_index\b|\bitem\.token_index\b[\s\S]*\b7\b/),
+                    requiredPattern("invalid token error payload", /\bSelfhostTypePrefixBuildErrorKind::InvalidToken\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("shared resolver payload boundary", /\bSelfhostTypePrefixItem\b/),
+            requiredPattern("typed item kind enum", /\bSelfhostTypePrefixItemKind\b/),
+            requiredPattern("typed build error enum", /\bSelfhostTypePrefixBuildErrorKind\b/),
+            requiredPattern("typed build error payload", /\bSelfhostTypePrefixBuildError\b/),
+            requiredPattern("void marker versus unit named type", /\bSelfhostTypePrefixItemKind::VoidMarker\b[\s\S]*unit.*NamedType|unit.*NamedType[\s\S]*\bSelfhostTypePrefixItemKind::VoidMarker\b/),
+            requiredPattern("void as type reduce boundary", /\bSelfhostTypeReduceErrorKind::VoidAsType\b/),
+            requiredPattern("copy payload no owner cleanup", /Copy.*owner cleanup|owner cleanup.*Copy|owner を持ちません/),
+            requiredPattern("no source text reread", /source text.*再読せず|source spelling.*再読/),
+            requiredPattern("display separated from error", /表示.*分離|message.*持たせない/),
+            requiredPattern("all input error variants", /\bEmptySyntaxRange\b[\s\S]*\bInvalidSyntaxRange\b[\s\S]*\bTokenOutOfBounds\b[\s\S]*\bMissingAnnotationMarker\b[\s\S]*\bInvalidToken\b[\s\S]*\bOutOfMemory\b/),
         ],
     }),
     moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], {
@@ -365,6 +400,69 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("source span boundary", /\bSelfhostSourceSpan\b/),
         requiredPattern("temporary lookup key", /一時 lookup key/),
     ]),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "SelfhostTypePrefixItemKind", ["purpose", "contract", "complexity", "typeBoundary"], {
+        requiredPatterns: [
+            requiredPattern("function marker variant", /\bSelfhostTypePrefixItemKind::FunctionMarker\b|\bFunctionMarker\b/),
+            requiredPattern("void marker variant", /\bSelfhostTypePrefixItemKind::VoidMarker\b|\bVoidMarker\b/),
+            requiredPattern("named type variant", /\bSelfhostTypePrefixItemKind::NamedType\b|\bNamedType\b/),
+            requiredPattern("void marker unit distinction", /void.*0 引数[\s\S]*unit.*named type|unit.*named type[\s\S]*void.*0 引数|unit.*0 引数 marker ではない/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "SelfhostTypePrefixItem", ["purpose", "contract", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], {
+        requiredPatterns: [
+            requiredPattern("kind payload", /\bSelfhostTypePrefixItemKind\b/),
+            requiredPattern("token index authority", /\btoken_index\b[\s\S]*authority|authority[\s\S]*\btoken_index\b/),
+            requiredPattern("source span authority", /\bSelfhostSourceSpan\b/),
+            requiredPattern("copy payload no owner", /Copy.*owner|owner を持ちません/),
+            requiredPattern("not resolved type node", /\bSelfhostResolvedTypeNode\b|型木ではありません/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "SelfhostTypePrefixBuildErrorKind", ["purpose", "contract", "complexity", "errorVariant", "authorityBoundary"], {
+        requiredPatterns: [
+            requiredPattern("empty range error", /\bSelfhostTypePrefixBuildErrorKind::EmptySyntaxRange\b|\bEmptySyntaxRange\b/),
+            requiredPattern("invalid range error", /\bSelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange\b|\bInvalidSyntaxRange\b/),
+            requiredPattern("token out of bounds error", /\bSelfhostTypePrefixBuildErrorKind::TokenOutOfBounds\b|\bTokenOutOfBounds\b/),
+            requiredPattern("missing percent marker error", /\bSelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker\b|\bMissingAnnotationMarker\b/),
+            requiredPattern("invalid token error", /\bSelfhostTypePrefixBuildErrorKind::InvalidToken\b|\bInvalidToken\b/),
+            requiredPattern("out of memory error", /\bSelfhostTypePrefixBuildErrorKind::OutOfMemory\b|\bOutOfMemory\b/),
+            requiredPattern("not reduce semantic error", /\bVoidAsType\b|後段の意味検査失敗/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "SelfhostTypePrefixBuildError", ["purpose", "contract", "complexity", "authorityBoundary", "errorVariant"], {
+        requiredPatterns: [
+            requiredPattern("typed error kind", /\bSelfhostTypePrefixBuildErrorKind\b/),
+            requiredPattern("source span payload", /\bSelfhostSourceSpan\b/),
+            requiredPattern("display separated", /表示.*分離|message.*持/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "selfhost_type_prefix_item_kind_eq", ["purpose", "contract", "returns", "complexity", "typeBoundary"], {
+        requiredPatterns: [
+            requiredPattern("void marker branch", /\bSelfhostTypePrefixItemKind::VoidMarker\b/),
+            requiredPattern("named type branch", /\bSelfhostTypePrefixItemKind::NamedType\b/),
+            requiredPattern("false on different variants", /false.*variant|variant.*異な/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "selfhost_type_prefix_build_error_kind_eq", ["purpose", "contract", "returns", "complexity", "errorVariant"], {
+        requiredPatterns: [
+            requiredPattern("invalid token branch", /\bSelfhostTypePrefixBuildErrorKind::InvalidToken\b/),
+            requiredPattern("out of memory branch", /\bSelfhostTypePrefixBuildErrorKind::OutOfMemory\b/),
+            requiredPattern("span not compared", /span.*比較しません|表示文言.*比較しません/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "selfhost_type_prefix_item_new", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], {
+        requiredPatterns: [
+            requiredPattern("item payload return", /\bSelfhostTypePrefixItem\b/),
+            requiredPattern("token index and span not rechecked", /token index.*再検査しません|span.*再検査しません/),
+            requiredPattern("void marker constructor boundary", /\bVoidMarker\b[\s\S]*0 引数/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/model.nepl", "selfhost_type_prefix_build_error_new", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "errorVariant"], {
+        requiredPatterns: [
+            requiredPattern("error payload return", /\bSelfhostTypePrefixBuildError\b/),
+            requiredPattern("typed build error kind", /\bSelfhostTypePrefixBuildErrorKind\b/),
+            requiredPattern("display authority separation", /display message|表示.*authority|表示層/),
+        ],
+    }),
     typeInputRequirement("SelfhostTypePrefixList", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
         requiredPattern("prefix item owner vector", /\bVec SelfhostTypePrefixItem\b|item vector/),
         requiredPattern("percent marker is excluded", /%.*含め/),
