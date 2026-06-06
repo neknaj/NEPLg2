@@ -1,5 +1,61 @@
 #indent 4
 
+//: # type_resolver/resolved/id: resolved tree node id
+//:
+//: [目的/もくてき]:
+//: - TypeId 割当前の resolved tree node を、raw `i32` ではなく `SelfhostResolvedTypeNodeId` として扱います。
+//: - `SelfhostResolvedTypeNodeId` は `SelfhostResolvedTypeTree.nodes` table の index であり、`SelfhostTypeId`、`SelfhostNamedTypeId`、`SelfhostTypeParameterId` と混ぜないための newtype です。
+//:
+//: [契約/けいやく]:
+//: - この module は id payload の生成と index 取得だけを担当します。node table の範囲検査は `selfhost_resolved_type_tree_get_node` など、tree owner を borrow する API の責務です。
+//: - constructor は unchecked です。負 index を作ること自体はできますが、tree observer はその id を有効 node として解決しません。
+//: - id は tree-local です。同じ整数 index でも、別の `SelfhostResolvedTypeTree` に属する id と同一視してはいけません。
+//:
+//: [現状/げんじょう]:
+//: - payload は `i32` 1 個だけの `Copy` newtype です。
+//: - 永続 artifact や cache key に出す段階では、resolver-local id ではなく projected type record / canonical type key へ変換する必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor、copy、index accessor はすべて `O(1)` です。
+//: - heap allocation は行いません。
+//:
+//: [authority boundary]:
+//: - 有効性の authority は `SelfhostResolvedTypeTree` の `nodes` table です。この module は整数を包むだけで、table を見ません。
+//: - tree observer は範囲外 id を fail-closed に扱う validity authority です。この module は observer validity authority を持ちません。
+//: - diagnostic 表示文言や source span はこの id に入れません。
+//:
+//: [owner boundary]:
+//: - `SelfhostResolvedTypeNodeId` は `Copy` payload で owner を持ちません。cleanup obligation はありません。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeNodeId` は resolved tree node identity です。`SelfhostTypeId` は projection 後の type arena identity、`SelfhostNamedTypeId` は named constructor identity、`SelfhostTypeParameterId` は type parameter environment identity です。
+//: - `SelfhostResolvedTypeNodeId` は `SelfhostTypeId` ではありません。resolver 内の一時的な tree index と、projected type arena の永続的な id を区別します。
+//: - `SelfhostResolvedTypeNodeId` は `SelfhostNamedTypeId` ではありません。resolved node の位置と、nominal type constructor の identity を区別します。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では id を作り、index accessor が同じ整数を返すことを確認します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok]
+//: ##: [0] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "neplg2/core/resolve/type_resolver/resolved/id" as *
+//:| #import "std/test" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let node_id %SelfhostResolvedTypeNodeId selfhost_resolved_type_node_id_new 12
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 assert_eq_i32 12 selfhost_resolved_type_node_id_index node_id
+//:     let shown checks_print_report checks1
+//:     checks_exit_code shown
+//: ```
+//:
 #import "core/traits/copy" as *
 
 //: SelfhostResolvedTypeNodeId: type resolver tree 内の node index
@@ -7,6 +63,22 @@
 //: [目的/もくてき]:
 //: - TypeId を割り当てる前の段階で、解決済み型 node を raw `i32` ではなく専用 id として参照します。
 //: - この id は resolver tree local であり、`SelfhostTypeArena` の `SelfhostTypeId` と混ぜてはいけません。
+//:
+//: [契約/けいやく]:
+//: - `index` は `SelfhostResolvedTypeTree.nodes` table の index です。
+//: - この payload だけでは有効性を証明しません。範囲外 id は tree observer が `Option::None` として fail-closed に扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - copy / clone / accessor は `O(1)` です。
+//:
+//: [authority boundary]:
+//: - node table の有効性 authority は tree 側にあります。この struct は table を borrow しません。
+//:
+//: [owner boundary]:
+//: - `Copy` payload なので owner cleanup はありません。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeNodeId` は `SelfhostTypeId` ではありません。projection 前後の identity を混ぜないために別型にしています。
 pub struct SelfhostResolvedTypeNodeId:
     index %i32
 
@@ -19,9 +91,41 @@ impl Copy for SelfhostResolvedTypeNodeId:
         self
 
 //: selfhost_resolved_type_node_id_new: resolver-local node id を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - resolved tree に node を追加した直後など、table index がすでに分かっている境界で `SelfhostResolvedTypeNodeId` を作ります。
+//:
+//: [契約/けいやく]:
+//: - unchecked constructor です。`index` が負か、現在の tree 長未満かは検査しません。
+//: - caller は通常、`SelfhostResolvedTypeTree.nodes` に push する直前または直後の table 長からこの id を作ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedTypeNodeId`: 渡された index を包む resolver-local id です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - `index` は resolved tree node table index であり、type arena index ではありません。
 pub fn selfhost_resolved_type_node_id_new %fn i32 SelfhostResolvedTypeNodeId \index:
     SelfhostResolvedTypeNodeId index
 
 //: selfhost_resolved_type_node_id_index: node id の index を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest、diagnostic 補助、tree observer が node id の内部 index を比較できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 返した index を別 tree の id として再利用してはいけません。
+//: - この関数は範囲検査を行いません。範囲検査は tree owner を borrow する API に委ねます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `i32`: `SelfhostResolvedTypeNodeId` に格納された resolver-local index です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [authority boundary]:
+//: - この accessor は payload を読むだけです。有効性 authority は `SelfhostResolvedTypeTree` 側です。
 pub fn selfhost_resolved_type_node_id_index %fn SelfhostResolvedTypeNodeId i32 \node_id:
     node_id.index

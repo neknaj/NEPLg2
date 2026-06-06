@@ -1,8 +1,79 @@
 #indent 4
 
+//: # type_resolver/resolved/kind: resolved type node kind
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeNode` の payload を見なくても、node が primitive、named、parameter、applied、function のどれかを判定できる enum を提供します。
+//: - observer や doctest が typed enum で branch を確認できるようにし、文字列や数値 tag に依存しない source policy 境界を作ります。
+//:
+//: [契約/けいやく]:
+//: - variant は `SelfhostResolvedTypeNode` の現在の variant と 1 対 1 に対応します。
+//: - 全 kind variant は `Primitive`, `Named`, `Parameter`, `Applied`, `Function` です。
+//: - `void` は型 node ではないため、kind variant を持ちません。0 引数 function は `Function` kind の node と `SelfhostResolvedFunctionArgRange::Empty` で表します。
+//: - equality helper は全 variant を `match` で列挙し、同じ variant の場合だけ `true` を返します。
+//:
+//: [現状/げんじょう]:
+//: - kind は `Copy` 可能な enum payload です。source span、constructor id、parameter id、function arg range は含めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - copy / clone / equality helper は固定 variant 数の `match` なので `O(1)` です。
+//:
+//: [authority boundary]:
+//: - kind は resolved node shape の分類だけを持ちます。payload の妥当性や node id の存在確認は `SelfhostResolvedTypeTree` 側の observer が行います。
+//:
+//: [owner boundary]:
+//: - enum は `Copy` payload なので cleanup obligation はありません。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeNodeKind::Parameter` は type parameter node、`Named` は bare named type node、`Applied` は type constructor application node です。nominal id と binder id の意味をこの enum に畳み込みません。
+//: - `SelfhostResolvedTypeNodeKind` は final `SelfhostTypeKind` や `SelfhostTypeRecord` ではありません。TypeArena projection 前の shape classification だけです。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では same variant が `true`、different variant が `false` になることを確認します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "neplg2/core/resolve/type_resolver/resolved/kind" as *
+//:| #import "std/test" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let same_primitive %bool selfhost_resolved_type_node_kind_eq SelfhostResolvedTypeNodeKind::Primitive SelfhostResolvedTypeNodeKind::Primitive
+//:     let different_kind %bool selfhost_resolved_type_node_kind_eq SelfhostResolvedTypeNodeKind::Primitive SelfhostResolvedTypeNodeKind::Function
+//:     let same_parameter %bool selfhost_resolved_type_node_kind_eq SelfhostResolvedTypeNodeKind::Parameter SelfhostResolvedTypeNodeKind::Parameter
+//:     let checks1 checks_push checks0 assert same_primitive
+//:     let checks2 checks_push checks1 assert_ne same_primitive different_kind
+//:     let checks3 checks_push checks2 assert same_parameter
+//:     let shown checks_print_report checks3
+//:     checks_exit_code shown
+//: ```
+//:
 #import "core/traits/copy" as *
 
 //: SelfhostResolvedTypeNodeKind: payload を除いた resolved type node 分類
+//:
+//: [目的/もくてき]:
+//: - tree observer が node payload 全体を返さず、分類だけを返したいときの typed enum です。
+//:
+//: [契約/けいやく]:
+//: - `Primitive`, `Named`, `Parameter`, `Applied`, `Function` は `SelfhostResolvedTypeNode` の variant と対応します。
+//: - `void` は kind ではありません。`fn void T` は `Function` node と empty argument range で表します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum copy / comparison は `O(1)` です。
+//:
+//: [type boundary]:
+//: - kind は payload identity を含みません。nominal id、parameter id、source span、argument range は各 node payload が持ちます。
 pub enum SelfhostResolvedTypeNodeKind:
     Primitive
     Named
@@ -19,6 +90,22 @@ impl Copy for SelfhostResolvedTypeNodeKind:
         self
 
 //: selfhost_resolved_type_node_kind_eq: node kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest や source policy fixture が `SelfhostResolvedTypeNodeKind` の一致を bool として確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 全 variant を `match` で列挙し、同じ variant の場合だけ `true` を返します。
+//: - variant が異なる場合は payload を持たない enum であっても常に `false` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `bool`: `a` と `b` が同じ `SelfhostResolvedTypeNodeKind` variant なら `true`、それ以外は `false` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - variant 数は固定なので `O(1)` です。
+//:
+//: [type boundary]:
+//: - equality は kind の分類だけを比較します。resolved node payload の identity や source span は比較しません。
 pub fn selfhost_resolved_type_node_kind_eq %fn SelfhostResolvedTypeNodeKind fn SelfhostResolvedTypeNodeKind bool \a\b:
     match a:
         SelfhostResolvedTypeNodeKind::Primitive:

@@ -1,5 +1,62 @@
 #indent 4
 
+//: # type_resolver/resolved/typeparam: resolved type parameter payload
+//:
+//: [目的/もくてき]:
+//: - TypeId 割当前の resolved tree で、generic type parameter reference を named type constructor と区別して保持します。
+//: - `SelfhostTypeParameterEnv` で見つかった binder-local `SelfhostTypeParameterId` と diagnostic 用 `SelfhostSourceSpan` を、`SelfhostResolvedTypeNode::Parameter` の payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `parameter_id` は `SelfhostTypeParameterEnv` 由来の id だけを入れます。`SelfhostNamedTypeId` や raw source name ではありません。
+//: - constructor は unchecked です。id が現在の environment に存在するかどうかは caller が lookup で保証します。
+//: - `span` は diagnostic range であり、canonical type key や persistent interface artifact key の authority ではありません。
+//:
+//: [現状/げんじょう]:
+//: - projection では現在 binder を `binder_depth = 0` として `SelfhostTypeParameterBinding` に正規化します。
+//: - nested generic binder の stable identity は今後の selfhost type resolver / interface artifact 拡張で扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload constructor、copy、field access はすべて `O(1)` です。
+//:
+//: [authority boundary]:
+//: - binder identity authority は `SelfhostTypeParameterEnv` です。この module は environment を borrow せず、lookup 済み id と span を運ぶだけです。
+//: - source text の再読や constructor table lookup は行いません。
+//:
+//: [owner boundary]:
+//: - payload は `Copy` 値で、owner cleanup obligation はありません。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedTypeParameterRef` は generic parameter reference であり、nominal constructor reference ではありません。
+//: - TypeArena projection 後は `SelfhostTypeParameterBinding` になり、resolved tree の local id から切り離されます。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では `SelfhostTypeParameterId` と span を payload に包み、id index が保持されることを確認します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok]
+//: ##: [0] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver/resolved/typeparam" as *
+//:| #import "neplg2/core/resolve/type_resolver/typeparam" as *
+//:| #import "std/test" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+//:     let parameter_id %SelfhostTypeParameterId selfhost_type_parameter_id_new 3
+//:     let parameter_ref %SelfhostResolvedTypeParameterRef selfhost_resolved_type_parameter_ref_new parameter_id span
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 assert_eq_i32 3 selfhost_type_parameter_id_index parameter_ref.parameter_id
+//:     let shown checks_print_report checks1
+//:     checks_exit_code shown
+//: ```
+//:
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "../typeparam" as *
@@ -17,6 +74,19 @@
 //: [現状/げんじょう]:
 //: - resolved tree 上では resolver-local `SelfhostTypeParameterId` を保持します。
 //: - TypeArena projection では、この id を現在 binder の `SelfhostTypeParameterBinding` へ正規化して保存します。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload copy と field access は `O(1)` です。
+//:
+//: [authority boundary]:
+//: - `parameter_id` の有効性 authority は `SelfhostTypeParameterEnv` です。payload 自体は environment を再検査しません。
+//: - `span` は diagnostic range authority であり、display message や canonical key ではありません。
+//:
+//: [owner boundary]:
+//: - `Copy` payload なので owner cleanup はありません。
+//:
+//: [type boundary]:
+//: - parameter ref は nominal constructor id ではありません。projection 後は `binder_depth = 0` の `SelfhostTypeParameterBinding` へ変換される現状境界を持ちます。
 pub struct SelfhostResolvedTypeParameterRef:
     parameter_id %SelfhostTypeParameterId
     span %SelfhostSourceSpan
@@ -36,8 +106,18 @@ impl Copy for SelfhostResolvedTypeParameterRef:
 //:
 //: [契約/けいやく]:
 //: - この関数は unchecked constructor です。`parameter_id` の有効性は caller が environment lookup で保証します。
+//: - `span` は diagnostic 用に保持します。source text の再読や表示文言の生成は行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedTypeParameterRef`: `SelfhostResolvedTypeNode::Parameter` に格納する Copy payload です。
 //:
 //: [計算量/けいさんりょう]:
 //: - `O(1)` です。payload を作るだけで allocation は行いません。
+//:
+//: [authority boundary]:
+//: - caller が `SelfhostTypeParameterEnv` lookup で id を確認済みであることが authority です。この関数は environment を borrow しません。
+//:
+//: [type boundary]:
+//: - `SelfhostTypeParameterId` は binder environment identity であり、`SelfhostNamedTypeId` とは別の identity です。
 pub fn selfhost_resolved_type_parameter_ref_new %fn SelfhostTypeParameterId fn SelfhostSourceSpan SelfhostResolvedTypeParameterRef \parameter_id\span:
     SelfhostResolvedTypeParameterRef parameter_id span

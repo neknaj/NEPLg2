@@ -10,7 +10,7 @@ const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
 const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    moduleNoDoc: 67,
+    moduleNoDoc: 63,
     moduleNoDoctest: 65,
     declarationNoDoc: 59,
     declarationNoDoctest: 1672,
@@ -49,6 +49,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/resolved.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/resolved/",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
@@ -69,6 +70,10 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/resolved.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/resolved/id.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/resolved/kind.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/resolved/named.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/resolved/typeparam.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
@@ -246,6 +251,118 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("owner cleanup helper", /\bselfhost_resolved_type_tree_free\b/),
             requiredPattern("no source text reread", /source text.*読み直しません|source text.*再読/),
             requiredPattern("projector authority boundary", /\btype_resolver\/project\b|\bSelfhostTypeProjectErrorKind\b/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/resolved/id.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        doctestUses: [
+            "selfhost_resolved_type_node_id_new",
+            "selfhost_resolved_type_node_id_index",
+        ],
+        doctestScenarios: [
+            {
+                name: "resolver local node id construction",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("node id constructor call", /\bselfhost_resolved_type_node_id_new\b/),
+                    requiredPattern("node id accessor call", /\bselfhost_resolved_type_node_id_index\b/),
+                    requiredPattern("expected local index", /\b12\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("resolver local id", /resolver-local|tree-local|resolver tree local/),
+            requiredPattern("not type id", /\bSelfhostTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeId\b/),
+            requiredPattern("not named type id", /\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|nominal[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*(?:\bSelfhostNamedTypeId\b|nominal)/),
+            requiredPattern("tree observer validity authority", /\bSelfhostResolvedTypeTree\b[\s\S]*authority|observer.*fail-closed/),
+            requiredPattern("copy no owner", /Copy.*owner|owner cleanup.*ありません/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/resolved/kind.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        doctestUses: [
+            "selfhost_resolved_type_node_kind_eq",
+            "SelfhostResolvedTypeNodeKind::Primitive",
+            "SelfhostResolvedTypeNodeKind::Function",
+            "SelfhostResolvedTypeNodeKind::Parameter",
+        ],
+        doctestScenarios: [
+            {
+                name: "kind equality same and different variants",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("kind equality helper call", /\bselfhost_resolved_type_node_kind_eq\b/),
+                    requiredPattern("primitive kind", /\bSelfhostResolvedTypeNodeKind::Primitive\b/),
+                    requiredPattern("function kind", /\bSelfhostResolvedTypeNodeKind::Function\b/),
+                    requiredPattern("parameter kind", /\bSelfhostResolvedTypeNodeKind::Parameter\b/),
+                    requiredPattern("different variant assertion", /\bassert_ne\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("all kind variants", /\bPrimitive\b[\s\S]*\bNamed\b[\s\S]*\bParameter\b[\s\S]*\bApplied\b[\s\S]*\bFunction\b/),
+            requiredPattern("payload-free classification", /payload を見なくても|payload 抜き|payload を含みません/),
+            requiredPattern("not final type model", /\bSelfhostTypeKind\b[\s\S]*\bSelfhostTypeRecord\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeKind\b[\s\S]*\bSelfhostTypeRecord\b/),
+            requiredPattern("no void kind", /void.*kind|void.*variant/),
+            requiredPattern("match exhaustiveness", /match.*網羅性|全 variant.*match/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/resolved/named.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        doctestUses: [
+            "SelfhostResolvedNamedTypeRef",
+            "selfhost_resolved_applied_type_arg_range_new_unchecked",
+            "selfhost_resolved_applied_type_arg_range_count",
+            "SelfhostResolvedAppliedType",
+        ],
+        doctestScenarios: [
+            {
+                name: "applied named type payload construction",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("named ref payload construction", /\bSelfhostResolvedNamedTypeRef\b/),
+                    requiredPattern("unchecked range constructor call", /\bselfhost_resolved_applied_type_arg_range_new_unchecked\b/),
+                    requiredPattern("range count accessor call", /\bselfhost_resolved_applied_type_arg_range_count\b/),
+                    requiredPattern("applied payload construction", /\bSelfhostResolvedAppliedType\b/),
+                    requiredPattern("nominal id accessor", /\bselfhost_named_type_id_index\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("named source ref span", /\bSelfhostResolvedNamedTypeRef\b[\s\S]*\bSelfhostSourceSpan\b/),
+            requiredPattern("nominal constructor id", /\bSelfhostNamedTypeId\b/),
+            requiredPattern("applied range", /\bSelfhostResolvedAppliedTypeArgRange\b/),
+            requiredPattern("exclusive range contract", /\[first_arg, first_arg \+ arg_count\)|exclusive range|\[first_arg/),
+            requiredPattern("unchecked caller authority", /unchecked[\s\S]*caller|caller[\s\S]*証明/),
+            requiredPattern("observer projector fail closed", /observer.*projector.*fail-closed|Option::None[\s\S]*SelfhostTypeProjectErrorKind/),
+            requiredPattern("no source text reread", /source text.*読み直さ|source text.*再読/),
+            requiredPattern("copy no owner", /Copy.*owner|owner cleanup.*ありません/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/resolved/typeparam.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        doctestUses: [
+            "selfhost_resolved_type_parameter_ref_new",
+            "SelfhostTypeParameterId",
+            "SelfhostResolvedTypeParameterRef",
+            "SelfhostSourceSpan",
+        ],
+        doctestScenarios: [
+            {
+                name: "type parameter reference payload construction",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("type parameter id constructor", /\bselfhost_type_parameter_id_new\b/),
+                    requiredPattern("resolved parameter ref constructor", /\bselfhost_resolved_type_parameter_ref_new\b/),
+                    requiredPattern("type parameter id accessor", /\bselfhost_type_parameter_id_index\b/),
+                    requiredPattern("expected parameter index", /\b3\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("parameter env authority", /\bSelfhostTypeParameterEnv\b/),
+            requiredPattern("parameter binding projection", /\bSelfhostTypeParameterBinding\b/),
+            requiredPattern("binder depth current boundary", /\bbinder_depth = 0\b/),
+            requiredPattern("not nominal constructor", /nominal constructor[\s\S]*(?:ではありません|別|区別)|\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*(?:nominal constructor|\bSelfhostNamedTypeId\b)/),
+            requiredPattern("span diagnostic only", /span.*diagnostic|diagnostic.*span/),
+            requiredPattern("unchecked caller authority", /unchecked[\s\S]*caller|caller[\s\S]*lookup/),
+            requiredPattern("copy no owner", /Copy.*owner|owner cleanup.*ありません/),
         ],
     }),
     moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], {
@@ -589,6 +706,68 @@ const DOC_SECTION_REQUIREMENTS = [
     typeResolvedRequirement("selfhost_resolved_type_tree_function_arg", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
         requiredPattern("empty range returns none", /\bSelfhostResolvedFunctionArgRange::Empty\b[\s\S]*none|fn void T.*none/),
         requiredPattern("unit arg returns node", /fn unit T|unit node/),
+    ]),
+    resolvedSubmoduleRequirement("id.nepl", "SelfhostResolvedTypeNodeId", ["purpose", "contract", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("resolver local index", /resolver tree local|resolver-local|tree-local/),
+        requiredPattern("not type arena id", /\bSelfhostTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeId\b/),
+        requiredPattern("option none observer boundary", /\bOption::None\b|observer.*fail-closed/),
+    ]),
+    resolvedSubmoduleRequirement("id.nepl", "selfhost_resolved_type_node_id_new", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("unchecked constructor", /unchecked constructor|unchecked/),
+        requiredPattern("resolved tree node table", /\bSelfhostResolvedTypeTree\.nodes\b|node table/),
+        requiredPattern("not type arena index", /type arena index ではありません|\bSelfhostTypeId\b[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*\bSelfhostTypeId\b/),
+    ]),
+    resolvedSubmoduleRequirement("id.nepl", "selfhost_resolved_type_node_id_index", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("no range check", /範囲検査.*行いません|range.*検査しません/),
+        requiredPattern("tree validity authority", /\bSelfhostResolvedTypeTree\b/),
+    ]),
+    resolvedSubmoduleRequirement("kind.nepl", "SelfhostResolvedTypeNodeKind", ["purpose", "contract", "complexity", "typeBoundary"], [
+        requiredPattern("all kind variants", /\bPrimitive\b[\s\S]*\bNamed\b[\s\S]*\bParameter\b[\s\S]*\bApplied\b[\s\S]*\bFunction\b/),
+        requiredPattern("no void kind", /void.*kind|void.*型 node/),
+        requiredPattern("payload not included", /payload.*含みません|payload を持/),
+    ]),
+    resolvedSubmoduleRequirement("kind.nepl", "selfhost_resolved_type_node_kind_eq", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("all variants matched", /全 variant.*match|match.*列挙/),
+        requiredPattern("different variants false", /variant.*異なる.*false|異なる場合.*false/),
+        requiredPattern("payload not compared", /payload.*比較しません|payload.*含みません/),
+    ]),
+    resolvedSubmoduleRequirement("named.nepl", "SelfhostResolvedNamedTypeRef", ["purpose", "contract", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("source span only", /\bSelfhostSourceSpan\b[\s\S]*だけ|span.*source/),
+        requiredPattern("no source text reread", /source text.*再読|source text.*読み直/),
+        requiredPattern("not nominal id yet", /\bSelfhostNamedTypeId\b.*ではありません|nominal id.*確定/),
+    ]),
+    resolvedSubmoduleRequirement("named.nepl", "SelfhostResolvedAppliedTypeArgRange", ["purpose", "contract", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("first arg count range", /\bfirst_arg\b[\s\S]*\barg_count\b/),
+        requiredPattern("unchecked range", /unchecked|caller.*証明/),
+        requiredPattern("type args table", /\bSelfhostResolvedTypeTree\.type_args\b|type argument table/),
+        requiredPattern("not owner", /owner ではありません|owner.*持ちません/),
+    ]),
+    resolvedSubmoduleRequirement("named.nepl", "SelfhostResolvedAppliedType", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("nominal id", /\bSelfhostNamedTypeId\b/),
+        requiredPattern("applied arg range", /\bSelfhostResolvedAppliedTypeArgRange\b/),
+        requiredPattern("constructor arity not rechecked", /arity.*再検査しません|constructor arity/),
+        requiredPattern("payload copy no owner", /Copy.*owner|owner.*持ちません/),
+    ]),
+    resolvedSubmoduleRequirement("named.nepl", "selfhost_resolved_applied_type_arg_range_new_unchecked", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("unchecked constructor", /unchecked constructor|unchecked/),
+        requiredPattern("exclusive range", /\[first_arg, first_arg \+ arg_count\)|exclusive range|\[first_arg/),
+        requiredPattern("build state authority", /build-state|reducer/),
+    ]),
+    resolvedSubmoduleRequirement("named.nepl", "selfhost_resolved_applied_type_arg_range_count", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("returns arg count", /\barg_count\b/),
+        requiredPattern("does not validate range", /妥当性.*検査しません|range.*検査しません/),
+    ]),
+    resolvedSubmoduleRequirement("typeparam.nepl", "SelfhostResolvedTypeParameterRef", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("parameter env", /\bSelfhostTypeParameterEnv\b/),
+        requiredPattern("parameter binding projection", /\bSelfhostTypeParameterBinding\b/),
+        requiredPattern("not named type id", /\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|nominal constructor[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*(?:\bSelfhostNamedTypeId\b|nominal constructor)/),
+        requiredPattern("diagnostic span only", /diagnostic.*span|span.*diagnostic/),
+        requiredPattern("binder depth zero", /\bbinder_depth = 0\b/),
+    ]),
+    resolvedSubmoduleRequirement("typeparam.nepl", "selfhost_resolved_type_parameter_ref_new", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "typeBoundary"], [
+        requiredPattern("unchecked constructor", /unchecked constructor|unchecked/),
+        requiredPattern("caller lookup authority", /caller.*lookup|environment lookup/),
+        requiredPattern("not nominal constructor id", /\bSelfhostNamedTypeId\b[\s\S]*(?:ではありません|別|区別)|nominal constructor[\s\S]*(?:ではありません|別|区別)|(?:ではありません|別|区別)[\s\S]*(?:\bSelfhostNamedTypeId\b|nominal constructor)/),
     ]),
     typeInputRequirement("SelfhostTypePrefixList", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
         requiredPattern("prefix item owner vector", /\bVec SelfhostTypePrefixItem\b|item vector/),
@@ -1676,6 +1855,12 @@ function typeInputRequirement(name, sections, requiredPatterns = []) {
 
 function typeResolvedRequirement(name, sections, requiredPatterns = []) {
     return requirement("stdlib/neplg2/core/resolve/type_resolver/resolved.nepl", name, sections, {
+        requiredPatterns,
+    });
+}
+
+function resolvedSubmoduleRequirement(fileName, name, sections, requiredPatterns = []) {
+    return requirement(`stdlib/neplg2/core/resolve/type_resolver/resolved/${fileName}`, name, sections, {
         requiredPatterns,
     });
 }

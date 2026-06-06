@@ -1,5 +1,72 @@
 #indent 4
 
+//: # type_resolver/resolved/named: resolved named type payload
+//:
+//: [目的/もくてき]:
+//: - TypeId 割当前の resolved tree で、named type と generic named type application の payload を保持します。
+//: - bare named type は source span を保持し、applied type は constructor table 由来の `SelfhostNamedTypeId` と argument range を保持します。
+//: - source spelling の再読、constructor lookup、arity validation、unknown-name diagnostic はこの payload model ではなく、reducer / projector の authority で扱います。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostResolvedNamedTypeRef` はまだ constructor identity が確定していない named type の source span だけを持ちます。
+//: - `SelfhostResolvedNamedTypeRef` は `SelfhostSourceSpan` を持つ named source ref span payload です。
+//: - `SelfhostResolvedAppliedType` は constructor lookup 済みの nominal id と、`SelfhostResolvedTypeTree.type_args` table 内の範囲を持ちます。
+//: - `SelfhostResolvedAppliedTypeArgRange` は unchecked range payload です。`first_arg` と `arg_count` の妥当性は reducer/build-state が証明し、observer / projector が範囲外を `Option::None` または typed project error として fail-closed に扱います。
+//: - applied argument range は `[first_arg, first_arg + arg_count)` の exclusive range contract です。
+//: - unchecked constructor は caller が range を証明済みであることを authority とします。
+//:
+//: [現状/げんじょう]:
+//: - named source ref は `SelfhostSourceSpan` のみを保持します。source text そのもの、name string、import graph edge はここに保存しません。
+//: - applied type payload は `SelfhostNamedTypeId` を保持しますが、その id がどの module surface に由来するかの永続 identity は今後の interface artifact で補います。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload constructor、copy、range count accessor はすべて `O(1)` です。
+//: - argument range の中身を辿る処理は tree / projector 側で行い、その計算量は argument 数に比例します。
+//:
+//: [authority boundary]:
+//: - `span` は diagnostic range authority、`SelfhostNamedTypeId` は constructor table lookup authority、`SelfhostResolvedAppliedTypeArgRange` は tree-local type argument table authority です。
+//: - この module は source text を読み直さず、constructor arity や name existence を再検査しません。
+//:
+//: [owner boundary]:
+//: - ここで定義する payload はすべて `Copy` 値で、owner cleanup obligation を持ちません。
+//: - type argument table の owner は `SelfhostResolvedTypeTree` が持ちます。range payload は owner ではありません。
+//:
+//: [type boundary]:
+//: - `SelfhostResolvedNamedTypeRef` は bare named source reference、`SelfhostResolvedAppliedType` は constructor lookup 済みの applied named type payload です。
+//: - `SelfhostNamedTypeId` は nominal type constructor identity であり、`SelfhostResolvedTypeNodeId` や `SelfhostTypeId` ではありません。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では unchecked argument range と applied type payload を作り、range count と nominal id が保持されることを確認します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver/resolved/named" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+//:     let named_ref %SelfhostResolvedNamedTypeRef SelfhostResolvedNamedTypeRef span
+//:     let range %SelfhostResolvedAppliedTypeArgRange selfhost_resolved_applied_type_arg_range_new_unchecked 4 2
+//:     let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 9
+//:     let applied %SelfhostResolvedAppliedType SelfhostResolvedAppliedType nominal_id span range
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 assert_eq_i32 2 selfhost_resolved_applied_type_arg_range_count range
+//:     let checks2 checks_push checks1 assert_eq_i32 9 selfhost_named_type_id_index applied.nominal_id
+//:     let shown checks_print_report checks2
+//:     checks_exit_code shown
+//: ```
+//:
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/ty/ty" as *
@@ -9,10 +76,46 @@
 //: [目的/もくてき]:
 //: - TypeId 割当前の段階では、user type や generic type constructor の名前を source span で参照します。
 //: - token buffer の payload を resolved tree に持ち込まず、diagnostic に必要な source span だけを保持します。
+//:
+//: [契約/けいやく]:
+//: - `span` は named type token の source range です。source text の再読や name string の保持はここでは行いません。
+//: - constructor table lookup がまだ済んでいない場合の payload です。lookup 済みの applied payload は `SelfhostResolvedAppliedType` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定サイズ payload なので copy は `O(1)` です。
+//:
+//: [authority boundary]:
+//: - `SelfhostSourceSpan` は diagnostic range authority です。名前解決 authority は constructor table / type parameter environment 側にあります。
+//:
+//: [owner boundary]:
+//: - `Copy` payload なので owner cleanup はありません。
+//:
+//: [type boundary]:
+//: - bare named type ref は `SelfhostNamedTypeId` ではありません。nominal id が確定した applied type と区別します。
 pub struct SelfhostResolvedNamedTypeRef:
     span %SelfhostSourceSpan
 
 //: SelfhostResolvedAppliedTypeArgRange: resolved tree の applied type argument 範囲
+//:
+//: [目的/もくてき]:
+//: - `SelfhostResolvedTypeTree.type_args` table の連続範囲を、開始 index と個数で表します。
+//:
+//: [契約/けいやく]:
+//: - `first_arg` は type argument table 内の先頭 index、`arg_count` は argument 数です。
+//: - unchecked payload です。負 index、範囲外、空範囲の可否は caller が constructor arity と reducer build-state で保証します。
+//: - observer / projector は範囲外を見つけた場合、`Option::None` または `SelfhostTypeProjectErrorKind` で fail-closed に扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload の生成と count accessor は `O(1)` です。
+//:
+//: [authority boundary]:
+//: - range の有効性 authority は `SelfhostResolvedTypeTree.type_args` table と reducer/build-state にあります。
+//:
+//: [owner boundary]:
+//: - range は owner ではありません。type argument table の owner は resolved tree が持ちます。
+//:
+//: [type boundary]:
+//: - range 内の要素は `SelfhostResolvedTypeNodeId` です。projection 後の `SelfhostTypeId` range ではありません。
 pub struct SelfhostResolvedAppliedTypeArgRange:
     first_arg %i32
     arg_count %i32
@@ -22,6 +125,27 @@ pub struct SelfhostResolvedAppliedTypeArgRange:
 //: [目的/もくてき]:
 //: - constructor arity によって縮約済みの `Box i32` / `Result i32 str` を 1 つの node として表します。
 //: - constructor identity は table lookup で得た `SelfhostNamedTypeId` を保持し、source spelling への依存を後続 stage へ持ち込みません。
+//:
+//: [契約/けいやく]:
+//: - `nominal_id` は constructor table lookup 済みの named identity です。
+//: - `span` は applied type 全体または constructor token の diagnostic range です。
+//: - `args` は `SelfhostResolvedTypeTree.type_args` table 内の argument node id range です。
+//: - `args` は `SelfhostResolvedAppliedTypeArgRange` の applied arg range payload です。
+//:
+//: [現状/げんじょう]:
+//: - constructor arity はこの payload では再検査しません。projector が constructor table authority と照合します。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload copy は `O(1)` です。argument traversal は range 長に比例します。
+//:
+//: [authority boundary]:
+//: - nominal identity authority は constructor table、argument range authority は resolved tree、span authority は parser/token input です。
+//:
+//: [owner boundary]:
+//: - payload は `Copy` で owner を持ちません。type argument buffer の cleanup は resolved tree owner が担当します。
+//:
+//: [type boundary]:
+//: - `SelfhostNamedTypeId` は nominal constructor identity であり、resolved node id や type arena id ではありません。
 pub struct SelfhostResolvedAppliedType:
     nominal_id %SelfhostNamedTypeId
     span %SelfhostSourceSpan
@@ -52,9 +176,41 @@ impl Copy for SelfhostResolvedAppliedType:
         self
 
 //: selfhost_resolved_applied_type_arg_range_new_unchecked: 証明済みの applied type argument 範囲を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - reducer/build-state が `type_args` table へ連続して追加した argument node id 範囲を、applied type payload に渡す range として包みます。
+//:
+//: [契約/けいやく]:
+//: - unchecked constructor です。`first_arg` が非負か、`arg_count` が constructor arity と一致するか、範囲が table 内に収まるかはここでは検査しません。
+//: - caller は `SelfhostResolvedTypeTree.type_args` table に対して `[first_arg, first_arg + arg_count)` が証明済みである場合だけ呼びます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostResolvedAppliedTypeArgRange`: type argument table 内の exclusive range payload です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [authority boundary]:
+//: - range validity は reducer/build-state と tree observer/projector の authority です。この helper は source text や table を読みません。
 pub fn selfhost_resolved_applied_type_arg_range_new_unchecked %fn i32 fn i32 SelfhostResolvedAppliedTypeArgRange \first_arg\arg_count:
     SelfhostResolvedAppliedTypeArgRange first_arg arg_count
 
 //: selfhost_resolved_applied_type_arg_range_count: applied type argument 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest、projector、diagnostic helper が range に記録された argument 数を確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 値を返すだけで、range の妥当性は検査しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `i32`: `args.arg_count` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `O(1)` です。
+//:
+//: [type boundary]:
+//: - count は resolved type argument node 数です。projection 後の TypeId argument 数を直接表すものではありません。
+//: - `SelfhostResolvedAppliedTypeArgRange` は resolved tree の type argument node id range であり、TypeArena の argument range ではありません。
 pub fn selfhost_resolved_applied_type_arg_range_count %fn SelfhostResolvedAppliedTypeArgRange i32 \args:
     args.arg_count
