@@ -44,6 +44,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/constructor.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/input.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
@@ -61,6 +62,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/proof/solver/resource.nepl",
     "stdlib/neplg2/core/proof/solver/type.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/constructor.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/input.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/project.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
@@ -144,6 +146,38 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("temporary source key", /一時.*lookup key/),
             requiredPattern("linear lookup current implementation", /線形/),
             requiredPattern("no import graph scan", /import graph/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/input.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant", "doctest"], {
+        doctestUses: [
+            "selfhost_type_prefix_list_from_syntax_range",
+            "selfhost_type_prefix_list_get",
+            "SelfhostTypePrefixItemKind::FunctionMarker",
+            "SelfhostTypePrefixItemKind::VoidMarker",
+            "SelfhostTypePrefixItemKind::NamedType",
+        ],
+        doctestScenarios: [
+            {
+                name: "simplest void function annotation",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("void marker source", /%fn void unit/),
+                    requiredPattern("syntax range extraction", /\bselfhost_parser_header_type_annotation_range\b/),
+                    requiredPattern("type prefix list build", /\bselfhost_type_prefix_list_from_syntax_range\b/),
+                    requiredPattern("void marker item check", /\bSelfhostTypePrefixItemKind::VoidMarker\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("syntax range input authority", /\bSelfhostSyntaxRange\b/),
+            requiredPattern("token table authority", /\bSelfhostToken\b/),
+            requiredPattern("prefix item list owner", /\bSelfhostTypePrefixList\b/),
+            requiredPattern("prefix item kind boundary", /\bSelfhostTypePrefixItemKind\b/),
+            requiredPattern("percent marker exclusion", /%.*list には含めず|%.*含めず/),
+            requiredPattern("void marker versus unit type", /void.*0 引数.*marker[\s\S]*unit.*型.*値|unit.*型.*値[\s\S]*void.*0 引数.*marker/),
+            requiredPattern("build error variants", /\bEmptySyntaxRange\b[\s\S]*\bInvalidSyntaxRange\b[\s\S]*\bTokenOutOfBounds\b[\s\S]*\bMissingAnnotationMarker\b[\s\S]*\bInvalidToken\b[\s\S]*\bOutOfMemory\b/),
+            requiredPattern("no source text reread", /source text.*再読せず|source spelling.*再読/),
+            requiredPattern("linear range scan", /O\(n\)/),
         ],
     }),
     moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/reduce.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], {
@@ -330,6 +364,58 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("source text boundary", /source text/),
         requiredPattern("source span boundary", /\bSelfhostSourceSpan\b/),
         requiredPattern("temporary lookup key", /一時 lookup key/),
+    ]),
+    typeInputRequirement("SelfhostTypePrefixList", ["purpose", "contract", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("prefix item owner vector", /\bVec SelfhostTypePrefixItem\b|item vector/),
+        requiredPattern("percent marker is excluded", /%.*含め/),
+        requiredPattern("resolved tree is later boundary", /\bSelfhostResolvedTypeTreeRoot\b|型木ではありません/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_list_new", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], [
+        requiredPattern("items owner move", /\bitems\b[\s\S]*owner/),
+        requiredPattern("list cleanup obligation", /\bSelfhostTypePrefixList\b/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_item_kind_from_token", ["purpose", "contract", "returns", "complexity", "typeBoundary"], [
+        requiredPattern("function marker token", /\bTokenKind::KwFn\b[\s\S]*\bSelfhostTypePrefixItemKind::FunctionMarker\b/),
+        requiredPattern("void marker token", /\bTokenKind::VoidMarker\b[\s\S]*\bSelfhostTypePrefixItemKind::VoidMarker\b/),
+        requiredPattern("unit literal is named type", /\bUnitLiteral\b[\s\S]*\bNamedType\b/),
+        requiredPattern("unknown token returns none", /\bNone\b/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_item_from_token", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("token span authority", /\bSelfhostToken\b[\s\S]*span|span.*SelfhostToken/),
+        requiredPattern("invalid token none boundary", /\bInvalidToken\b|None/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_list_len", ["purpose", "contract", "returns", "complexity", "ownerBoundary"], [
+        requiredPattern("borrow only list", /borrow|owner を消費しません/),
+        requiredPattern("percent marker not counted", /%.*数えません|%.*含め/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_list_get", ["purpose", "contract", "returns", "complexity", "ownerBoundary"], [
+        requiredPattern("option return", /\bOption::(?:Some|None)\b|Option/),
+        requiredPattern("range outside none", /範囲外|negative index|length 以上/),
+        requiredPattern("copy payload", /Copy payload/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_list_free", ["purpose", "contract", "returns", "complexity", "ownerBoundary"], [
+        requiredPattern("vector owner cleanup", /\bv::free\b|vector owner/),
+        requiredPattern("no deep owner per item", /deep owner|追加 resource cleanup/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_list_from_range_loop", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "errorVariant"], [
+        requiredPattern("exclusive end range", /\[idx, end\)|exclusive end/),
+        requiredPattern("starts after percent", /%.*次|%.*後続/),
+        requiredPattern("failure cleans owner", /失敗.*owner.*閉じ|失敗.*解放/),
+        requiredPattern("loop error variants", /\bSelfhostTypePrefixBuildErrorKind::InvalidToken\b[\s\S]*\bSelfhostTypePrefixBuildErrorKind::TokenOutOfBounds\b[\s\S]*\bSelfhostTypePrefixBuildErrorKind::OutOfMemory\b/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_first_token_is_percent", ["purpose", "contract", "returns", "complexity", "authorityBoundary"], [
+        requiredPattern("percent token authority", /\bTokenKind::Percent\b/),
+        requiredPattern("old angle syntax rejected", /旧 `<>` syntax|<> syntax|`fn` 直始まり/),
+    ]),
+    typeInputRequirement("selfhost_type_prefix_list_from_syntax_range", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "errorVariant"], [
+        requiredPattern("empty range error", /\bSelfhostTypePrefixBuildErrorKind::EmptySyntaxRange\b/),
+        requiredPattern("invalid range error", /\bSelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange\b/),
+        requiredPattern("out of bounds error", /\bSelfhostTypePrefixBuildErrorKind::TokenOutOfBounds\b/),
+        requiredPattern("missing annotation marker error", /\bSelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker\b/),
+        requiredPattern("invalid token error", /\bSelfhostTypePrefixBuildErrorKind::InvalidToken\b/),
+        requiredPattern("out of memory error", /\bSelfhostTypePrefixBuildErrorKind::OutOfMemory\b/),
+        requiredPattern("syntax range token authority", /\bSelfhostSyntaxRange\b[\s\S]*\bSelfhostToken\b/),
+        requiredPattern("void marker and unit type boundary", /\bSelfhostTypePrefixItemKind::VoidMarker\b[\s\S]*unit.*NamedType|unit.*NamedType[\s\S]*\bSelfhostTypePrefixItemKind::VoidMarker\b/),
     ]),
     typeProjectRequirement("SelfhostTypeProjectErrorKind", ["purpose", "contract", "complexity", "errorVariant", "authorityBoundary"], [
         requiredPattern("missing node error", /\bSelfhostTypeProjectErrorKind::MissingResolvedNode\b|`MissingResolvedNode`/),
@@ -1305,11 +1391,11 @@ const SECTION_PATTERNS = {
     returns: /\[戻\/もど\]り\[値\/ち\]/,
     complexity: /\[計算量\/けいさんりょう\]/,
     doctest: /\bneplg2:test\b/,
-    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostTypeConstructorTableErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeProjectErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeReduceErrorKind(?:::[A-Za-z0-9_]+)?|StdErrorKind::[A-Za-z0-9_]+|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
+    errorVariant: /\b(SelfhostCheckerDiagnosticCode::[A-Za-z0-9_]+|SelfhostDiagnosticCode::Checker|SelfhostTypePrefixBuildErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeConstructorTableErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeProjectErrorKind(?:::[A-Za-z0-9_]+)?|SelfhostTypeReduceErrorKind(?:::[A-Za-z0-9_]+)?|StdErrorKind::[A-Za-z0-9_]+|SelfhostProofRefutation::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+)\b/,
     authorityBoundary: /\b(authority|typed evidence|parser-provided evidence|parser\/proof|proof layer|source spelling|source text|kind stream|message .*authority|diagnostic kind の authority|表示.*authority)\b/,
     effectBoundary: /\b(SelfhostEffectKind::[A-Za-z0-9_]+|SelfhostEffectContext::[A-Za-z0-9_]+|SelfhostEffectBoundaryError::[A-Za-z0-9_]+|SelfhostProofEvidence::EffectAllowed|SelfhostEffectEscapeState::[A-Za-z0-9_]+)\b/,
     resourceBoundary: /\b(SelfhostResourceCellState::[A-Za-z0-9_]+|SelfhostResourceCellEventKind::[A-Za-z0-9_]+|SelfhostResourceCellTransitionError::[A-Za-z0-9_]+|SelfhostOwnerState::[A-Za-z0-9_]+|SelfhostOwnerEventKind::[A-Za-z0-9_]+|SelfhostOwnerTransitionError::[A-Za-z0-9_]+|SelfhostBorrowState::[A-Za-z0-9_]+|SelfhostBorrowRequestKind::[A-Za-z0-9_]+|SelfhostBorrowAccessError::[A-Za-z0-9_]+|SelfhostLifetimeRelation::[A-Za-z0-9_]+|SelfhostLifetimeOutlivesError::[A-Za-z0-9_]+|SelfhostProofEvidence::(ResourceCellTransition|OwnerTransition|ResourceBorrowAccess|LifetimeOutlives)|SelfhostProofRefutation::(ResourceCellTransitionInvalid|OwnerTransitionInvalid|BorrowAccessInvalid|LifetimeOutlivesInvalid))\b/,
-    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTypeRecord(?:::)?[A-Za-z0-9_]*|SelfhostTypeArenaAlloc|SelfhostTypeArena|SelfhostTypeId|SelfhostNamedTypeId|SelfhostTypeParameterBinding|SelfhostTypeParameterEnv|SelfhostPrimitiveTypeKind(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeNode(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeTreeRoot|SelfhostResolvedTypeTree|SelfhostResolvedTypeNodeId|SelfhostResolvedAppliedType|SelfhostResolvedAppliedTypeArgRange|SelfhostResolvedFunctionType|SelfhostResolvedFunctionArgRange(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructor(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTable|SelfhostTypeConstructorAddResult|SelfhostTypeConstructorTableErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTableError|SelfhostTypeProjectErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceDispatchKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReducePlan|SelfhostTypeReducePlanItem|SelfhostTypeBoundPlan|SelfhostTypeBoundPlanItem|SelfhostTypeReduceBuildState|SelfhostTypeReduceStep|SelfhostTypePrefixReducePrefixResult|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
+    typeBoundary: /\b(SelfhostTypeKind(?:::)?[A-Za-z0-9_]*|selfhost_type_kind_eq|SelfhostTypeKindMismatch|SelfhostTypeRecord(?:::)?[A-Za-z0-9_]*|SelfhostTypeArenaAlloc|SelfhostTypeArena|SelfhostTypeId|SelfhostNamedTypeId|SelfhostTypeParameterBinding|SelfhostTypeParameterEnv|SelfhostPrimitiveTypeKind(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeNode(?:::)?[A-Za-z0-9_]*|SelfhostResolvedTypeTreeRoot|SelfhostResolvedTypeTree|SelfhostResolvedTypeNodeId|SelfhostResolvedAppliedType|SelfhostResolvedAppliedTypeArgRange|SelfhostResolvedFunctionType|SelfhostResolvedFunctionArgRange(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixList|SelfhostTypePrefixItemKind(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixItem|SelfhostTypePrefixBuildErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypePrefixBuildError|SelfhostTypeConstructor(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTable|SelfhostTypeConstructorAddResult|SelfhostTypeConstructorTableErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeConstructorTableError|SelfhostTypeProjectErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceDispatchKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReduceErrorKind(?:::)?[A-Za-z0-9_]*|SelfhostTypeReducePlan|SelfhostTypeReducePlanItem|SelfhostTypeBoundPlan|SelfhostTypeBoundPlanItem|SelfhostTypeReduceBuildState|SelfhostTypeReduceStep|SelfhostTypePrefixReducePrefixResult|SelfhostTraitImplRelation(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceError(?:::)?[A-Za-z0-9_]*|SelfhostTraitImplCoherenceIssue|SelfhostProofEvidence::(TypeKindCompatible|TraitImplNonOverlapping)|SelfhostProofRefutation::(TypeKindMismatch|TraitImplCoherenceInvalid))\b/,
     rawBoundary: /\b(SelfhostRawBackendKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemKind(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendItemFact|SelfhostRawBackendState(?:::)?[A-Za-z0-9_]*|SelfhostRawBackendOpenBlock|SelfhostProofObligation::RawBackendTransition|SelfhostProofEvidence::RawBackendTransition|SelfhostProofRefutation::(RawBackendTextWithoutBlock|RawBackendBlockEmpty)|selfhost_raw_backend_text_matches)\b/,
     directiveBoundary: /\b(SelfhostModuleDirectiveKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveFact|SelfhostModuleDirectiveState(?:::)?[A-Za-z0-9_]*|SelfhostModuleDirectiveSeenBoth|SelfhostModuleDirectiveDuplicate|SelfhostProofObligation::ModuleDirectiveTransition|SelfhostProofEvidence::ModuleDirectiveTransition|SelfhostProofRefutation::ModuleDirectiveDuplicate)\b/,
     moduleBoundary: /\b(SelfhostModuleDeclarationKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeadKind(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationVisibility(?:::)?[A-Za-z0-9_]*|SelfhostModuleDeclarationHeader|SelfhostModuleDeclarationFact|SelfhostModuleDeclarationHeaderIssue|SelfhostModuleItemKind(?:::)?[A-Za-z0-9_]*|SelfhostSyntaxRange(?:::)?[A-Za-z0-9_]*|SelfhostSourceSpan|SelfhostProofObligation::ModuleDeclarationHeaderAvailable|SelfhostProofEvidence::ModuleDeclarationHeaderAvailable|SelfhostProofRefutation::(ModuleDeclarationHeaderMissing|ModuleDeclarationHeaderInvalid|FactObligationMismatch)|selfhost_module_item_kind_declaration|selfhost_syntax_range_is_(?:valid|nonempty)|selfhost_syntax_range_span_is_inside|source_span_is_valid|selfhost_proof_span_contains_span)\b/,
@@ -1354,6 +1440,12 @@ function typeConstructorRequirement(name, sections, requiredPatterns = [], optio
         requiredPatterns,
         doctestUses: options.doctestUses || [],
         doctestScenarios: options.doctestScenarios || [],
+    });
+}
+
+function typeInputRequirement(name, sections, requiredPatterns = []) {
+    return requirement("stdlib/neplg2/core/resolve/type_resolver/input.nepl", name, sections, {
+        requiredPatterns,
     });
 }
 

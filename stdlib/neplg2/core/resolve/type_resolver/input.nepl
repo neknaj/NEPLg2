@@ -1,5 +1,113 @@
 #indent 4
 
+//: # type_resolver/input: parser range から type prefix list への入力境界
+//:
+//: [目的/もくてき]:
+//: - NEPLg2.1 の declaration header にある `%T` type annotation range を、type reducer が読む `SelfhostTypePrefixList` へ変換します。
+//: - parser は型式の木をここで作らず、`SelfhostSyntaxRange` と token stream だけを渡します。この module はその flat range を検査済み item list に正規化する入口です。
+//: - `fn void T` の `void` は 0 引数関数 marker として `SelfhostTypePrefixItemKind::VoidMarker` に保持し、`unit` は unit 型かつ unit 値の通常 named type item として保持します。
+//:
+//: [契約/けいやく]:
+//: - 入力 range は先頭 token が `%` でなければなりません。`%` は list には含めず、後続 token だけを `SelfhostTypePrefixItem` として保存します。
+//: - 受理できる token は `KwFn`、`VoidMarker`、`Ident`、`UnitLiteral`、`KwTuple`、`PathSep`、`Ampersand`、`Star`、`Dot` です。それ以外は `InvalidToken` として fail-closed に返します。
+//: - 成功した `SelfhostTypePrefixList` は item vector owner を持ちます。caller は reduce / project 後に `selfhost_type_prefix_list_free` で閉じます。
+//:
+//: [現状/げんじょう]:
+//: - item list は `Vec SelfhostTypePrefixItem` の線形 buffer です。type expression の境界解決、arity 検査、constructor lookup は reduce / project module が担当します。
+//: - この module は import graph を再探索せず、source text から型名を切り出しません。token kind、token index、source span だけを後段へ渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `SelfhostSyntaxRange` から list を作る処理は range 内 token 数を `n` として `O(n)`、追加領域は output item 数ぶんの `O(n)` です。
+//: - `len` と `get` は `Vec` の境界に従い、`len` は `O(1)`、`get` は index lookup です。
+//:
+//: [authority boundary]:
+//: - `SelfhostSyntaxRange` と `SelfhostToken.span` が source 位置の authority です。この module は source spelling を再読せず、parser が与えた range と token table だけを検査します。
+//: - `MissingAnnotationMarker`、`EmptySyntaxRange`、`InvalidSyntaxRange`、`TokenOutOfBounds`、`InvalidToken` は parser/token boundary の失敗を typed error として表します。
+//:
+//: [owner boundary]:
+//: - `selfhost_type_prefix_list_from_syntax_range` は成功時に list owner を返し、失敗時は構築途中の output vector owner を必ず解放します。
+//: - `v::push` が失敗した場合は push error が返す vector owner を解放し、`OutOfMemory` を返します。
+//:
+//: [type boundary]:
+//: - `SelfhostTypePrefixItemKind::FunctionMarker` は `fn`、`VoidMarker` は `fn void T` の 0 引数 marker、`NamedType` は primitive / named constructor / type parameter 候補です。
+//: - `void` は型ではないため、後段 reducer は通常型位置で `VoidAsType` へ畳みます。`unit` は通常の型 item として reducer へ渡します。
+//:
+//: [error variant]:
+//: - この module の build error は `SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange`, `SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange`, `SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds`, `SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker`, `SelfhostTypePrefixBuildErrorKind::InvalidToken`, `SelfhostTypePrefixBuildErrorKind::OutOfMemory` の 6 種です。
+//: - `SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange`: parser が空 range を渡しました。
+//: - `SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange`: first token や token count が range として不正です。
+//: - `SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds`: range または走査 index が token table の外を指しています。
+//: - `SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker`: range 先頭が `%` ではありません。
+//: - `SelfhostTypePrefixBuildErrorKind::InvalidToken`: type prefix item として受理しない token が混入しました。
+//: - `SelfhostTypePrefixBuildErrorKind::OutOfMemory`: output vector の確保または拡張に失敗しました。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest では `%fn void unit` を header range から list へ変換し、`FunctionMarker`、`VoidMarker`、`NamedType` の 3 item になることを確認します。
+//:
+//: [典型例/てんけいれい]:
+//: - `%fn i32 fn i32 i32` のような curried 表記も、同じく `%` を除いた prefix order の item list として後段 reducer へ渡します。
+//: - function marker と named type item の縮約規則は `type_resolver/reduce` と `tests/stdlib/neplg2_type_resolver.n.md` 側で検証し、この module の doctest は `void` と `unit` の入力境界に絞ります。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/type_resolver/input" as *
+//:| #import "neplg2/core/resolve/type_resolver/model" as *
+//:| #import "neplg2/core/syntax/lexer" as *
+//:| #import "neplg2/core/syntax/parser/module_parser" as *
+//:| #import "std/test" as *
+//:|
+//: fn check_item %fn &SelfhostTypePrefixList fn i32 fn SelfhostTypePrefixItemKind Result unit str \list\idx\expected:
+//:     match selfhost_type_prefix_list_get list idx:
+//:         Option::Some item:
+//:             if:
+//:                 selfhost_type_prefix_item_kind_eq item.kind expected
+//:                 then:
+//:                     Result::Ok unit
+//:                 else:
+//:                     Result::Err "type prefix item kind mismatch"
+//:         Option::None:
+//:             Result::Err "type prefix item missing"
+//:
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match lex_all "fn main %fn void unit \\void:\n    unit\n":
+//:         Result::Ok tokens:
+//:             let range %SelfhostSyntaxRange selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0
+//:             match selfhost_type_prefix_list_from_syntax_range &tokens range:
+//:                 Result::Ok list:
+//:                     let checks1 checks_push checks0 check_eq_i32 3 selfhost_type_prefix_list_len &list
+//:                     let checks2 checks_push checks1 check_item &list 0 SelfhostTypePrefixItemKind::FunctionMarker
+//:                     let checks3 checks_push checks2 check_item &list 1 SelfhostTypePrefixItemKind::VoidMarker
+//:                     let checks4 checks_push checks3 check_item &list 2 SelfhostTypePrefixItemKind::NamedType
+//:                     selfhost_type_prefix_list_free list
+//:                     v::free tokens
+//:                     let shown checks_print_report checks4
+//:                     checks_exit_code shown
+//:                 Result::Err _e:
+//:                     v::free tokens
+//:                     let checks1 checks_push checks0 Result::Err "type prefix list build failed"
+//:                     let shown checks_print_report checks1
+//:                     checks_exit_code shown
+//:         Result::Err _diag:
+//:             let checks1 checks_push checks0 Result::Err "lex failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+//:
 #import "alloc/collections/vec" as v
 #import "core/field" as field
 #import "core/option" as *
@@ -15,6 +123,20 @@
 //: [目的/もくてき]:
 //: - `%fn i32 fn i32 i32` のような表層型式を、`%` を除いた prefix order の item list として保持します。
 //: - list は所有 buffer なので、caller は使用後に `selfhost_type_prefix_list_free` を呼びます。
+//:
+//: [契約/けいやく]:
+//: - `items` は `Vec SelfhostTypePrefixItem` の item vector owner です。
+//: - `items` は `%` marker を含めません。型式本体だけを token order のまま保持します。
+//: - 各 item は `SelfhostTypePrefixItemKind`、元 token index、元 token span を持ち、後段 reducer / diagnostic の authority を失いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構造体自体は vector owner を 1 つ包むだけなので `O(1)` です。走査や縮約の計算量は caller 側の処理に依存します。
+//:
+//: [owner boundary]:
+//: - `items` owner は `SelfhostTypePrefixList` に移動します。list を消費しない borrow API は owner を返さず、解放は `selfhost_type_prefix_list_free` に集約します。
+//:
+//: [type boundary]:
+//: - `SelfhostTypePrefixItem` はまだ型木ではありません。`SelfhostResolvedTypeTreeRoot` への構築は reduce/build boundary が行います。
 pub struct SelfhostTypePrefixList:
     items %Vec SelfhostTypePrefixItem
 
@@ -26,6 +148,18 @@ pub struct SelfhostTypePrefixList:
 //: [契約/けいやく]:
 //: - `items` owner は返却される `SelfhostTypePrefixList` へ移動します。caller は同じ `items` owner を直接解放しません。
 //: - item span は source string に対する byte range でなければなりません。constructor / type parameter lookup はこの span で source を切り出します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostTypePrefixList`: 渡された item vector owner を保持する list です。
+//:
+//: [計算量/けいさんりょう]:
+//: - owner を包むだけなので `O(1)` です。
+//:
+//: [owner boundary]:
+//: - この関数は `items` owner を消費します。成功後の cleanup obligation は list owner に移ります。
+//:
+//: [type boundary]:
+//: - constructor は item kind の妥当性や source range の整合性を再検査しません。検査済み item list を作る責務は `selfhost_type_prefix_list_from_syntax_range` です。
 pub fn selfhost_type_prefix_list_new %impure fn Vec SelfhostTypePrefixItem SelfhostTypePrefixList \items:
     SelfhostTypePrefixList items
 
@@ -34,6 +168,21 @@ pub fn selfhost_type_prefix_list_new %impure fn Vec SelfhostTypePrefixItem Selfh
 //: [目的/もくてき]:
 //: - 型式として許す token だけを `Some` にし、式 token や header terminator が混入した場合は build error にします。
 //: - `unit` は lexer 上 `UnitLiteral` ですが、type prefix list では通常の named type として扱います。
+//:
+//: [契約/けいやく]:
+//: - `TokenKind::KwFn` は `SelfhostTypePrefixItemKind::FunctionMarker`、`TokenKind::VoidMarker` は `SelfhostTypePrefixItemKind::VoidMarker`、`TokenKind::Ident` / `UnitLiteral` / `KwTuple` は `NamedType` です。
+//: - `void` は通常型名ではありません。`unit` は unit 型の名前として reducer へ渡します。
+//: - 不明 token を勝手に named type として受理せず、`None` にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(SelfhostTypePrefixItemKind)`: type prefix item として保持できる token です。
+//: - `None`: type annotation range に混入してはいけない token です。caller は `InvalidToken` へ畳みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum の明示的な `match` だけなので `O(1)` です。
+//:
+//: [type boundary]:
+//: - ここでは token role の分類だけを行い、`SelfhostTypeReduceDispatchKind` や `SelfhostPrimitiveTypeKind::Unit` への分類は reduce/plan が行います。
 pub fn selfhost_type_prefix_item_kind_from_token %fn TokenKind Option SelfhostTypePrefixItemKind \kind:
     match kind:
         TokenKind::KwFn:
@@ -58,6 +207,23 @@ pub fn selfhost_type_prefix_item_kind_from_token %fn TokenKind Option SelfhostTy
             none
 
 //: selfhost_type_prefix_item_from_token: token から prefix item を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - token kind を resolver 用 item kind に分類し、token index と source span を失わない `SelfhostTypePrefixItem` へ正規化します。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_type_prefix_item_kind_from_token` が `None` を返した token は item にしません。
+//: - span は token が持つ `SelfhostSourceSpan` をそのまま使い、source text の再読や切り出しは行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(item)`: reducer が扱える prefix item です。
+//: - `None`: type prefix list では受理できない token です。caller は `SelfhostTypePrefixBuildErrorKind::InvalidToken` へ変換します。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 1 個を分類して payload を作るだけなので `O(1)` です。
+//:
+//: [authority boundary]:
+//: - token index と span の authority は lexer/parser が作った `SelfhostToken` です。この関数は authority を作り直しません。
 pub fn selfhost_type_prefix_item_from_token %fn SelfhostToken fn i32 Option SelfhostTypePrefixItem \token\token_index:
     match selfhost_type_prefix_item_kind_from_token token.kind:
         Option::Some kind:
@@ -66,19 +232,92 @@ pub fn selfhost_type_prefix_item_from_token %fn SelfhostToken fn i32 Option Self
             none
 
 //: selfhost_type_prefix_list_len: prefix item 数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - reducer / focused test が list の item 数を owner を移動せずに確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - list は borrow だけを受け取り、cleanup obligation は caller に残します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - list 内の `SelfhostTypePrefixItem` 数です。`%` marker は数えません。
+//:
+//: [計算量/けいさんりょう]:
+//: - underlying `Vec` の length を読むだけなので `O(1)` です。
+//:
+//: [owner boundary]:
+//: - owner を消費しません。list はこの関数の後も caller が `selfhost_type_prefix_list_free` で解放します。
 pub fn selfhost_type_prefix_list_len %fn &SelfhostTypePrefixList i32 \list:
     let items %&Vec SelfhostTypePrefixItem field::get_ref list "items"
     v::len items
 
 //: selfhost_type_prefix_list_get: prefix item を index で[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - reducer が flat list の任意 index を安全に参照できるよう、境界外を `Option::None` に畳みます。
+//:
+//: [契約/けいやく]:
+//: - negative index や length 以上の index は `None` です。
+//: - 返す item は Copy payload であり、list owner や item buffer owner は移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Option::Some(SelfhostTypePrefixItem)`: 指定 index の item です。
+//: - `Option::None`: index が list 範囲外です。
+//:
+//: [計算量/けいさんりょう]:
+//: - underlying `Vec` の index lookup です。
+//:
+//: [owner boundary]:
+//: - borrow-only accessor です。後段で item の span や kind を使っても list cleanup obligation は caller に残ります。
 pub fn selfhost_type_prefix_list_get %fn &SelfhostTypePrefixList fn i32 Option SelfhostTypePrefixItem \list\idx:
     let items %&Vec SelfhostTypePrefixItem field::get_ref list "items"
     v::get items idx
 
 //: selfhost_type_prefix_list_free: prefix item buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostTypePrefixList` が保持する item vector owner を閉じ、resolver 入力 buffer の cleanup を 1 箇所に集約します。
+//:
+//: [契約/けいやく]:
+//: - caller はこの関数に渡した list を再利用しません。
+//: - item は Copy payload なので、要素ごとの追加 resource cleanup はありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `unit`: cleanup が完了したことだけを表します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec` の解放に従います。item 自体に deep owner がないため、要素ごとの追加解放はありません。
+//:
+//: [owner boundary]:
+//: - list owner を消費し、`items` vector owner を `v::free` へ渡します。
 pub fn selfhost_type_prefix_list_free %impure fn SelfhostTypePrefixList unit \list:
     v::free field::get list "items"
 
+//: selfhost_type_prefix_list_from_range_loop: `%` 後続 token を item buffer へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_prefix_list_from_syntax_range` の内部 loop として、range の `[idx, end)` を `SelfhostTypePrefixItem` の vector owner に追加します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は現在見る token index、`end` は exclusive end です。
+//: - caller は先頭 `%` を検査済みで、loop には `%` の次の index を渡します。
+//: - `InvalidToken`、`TokenOutOfBounds`、`OutOfMemory` の各失敗では、保持中の `out` owner または push error が返す vector owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Ok(Vec SelfhostTypePrefixItem)`: range 内 item をすべて追加した output vector owner です。
+//: - `Result::Err(SelfhostTypePrefixBuildError)`: typed build error です。失敗時に output owner は caller へ戻りません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 残り token 数を `n` として `O(n)` です。
+//:
+//: [authority boundary]:
+//: - token の存在、kind、span は `SelfhostToken` table を authority とします。source text は読みません。
+//:
+//: [owner boundary]:
+//: - 成功時だけ output vector owner を返します。失敗時はこの helper が owner cleanup obligation を閉じます。
+//:
+//: [error variant]:
+//: - `SelfhostTypePrefixBuildErrorKind::InvalidToken`、`SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds`、`SelfhostTypePrefixBuildErrorKind::OutOfMemory` を返し得ます。
 fn selfhost_type_prefix_list_from_range_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn Vec SelfhostTypePrefixItem Result Vec SelfhostTypePrefixItem SelfhostTypePrefixBuildError \tokens\idx\end\out:
     if:
         ge idx end
@@ -102,6 +341,24 @@ fn selfhost_type_prefix_list_from_range_loop %impure fn &Vec SelfhostToken impur
                     v::free out
                     Result::Err selfhost_type_prefix_build_error_new SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds source_span_empty_unchecked 0 0
 
+//: selfhost_type_prefix_first_token_is_percent: range 先頭が `%` marker か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - syntax range が type annotation range として `%` から始まっているかを検査します。
+//:
+//: [契約/けいやく]:
+//: - token が存在しない場合は `false` です。
+//: - `%` 以外の token を特別扱いしません。旧 `<>` syntax や `fn` 直始まり range はここで拒否されます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `tokens[idx].kind` が `TokenKind::Percent` です。
+//: - `false`: token が存在しない、または `%` ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - token 1 個を読むだけなので `O(1)` です。
+//:
+//: [authority boundary]:
+//: - `TokenKind::Percent` という lexer/parser token kind だけを authority とし、source spelling を再読しません。
 fn selfhost_type_prefix_first_token_is_percent %fn &Vec SelfhostToken fn i32 bool \tokens\idx:
     match v::get tokens idx:
         Option::Some token:
@@ -118,6 +375,32 @@ fn selfhost_type_prefix_first_token_is_percent %fn &Vec SelfhostToken fn i32 boo
 //: [目的/もくてき]:
 //: - declaration header に保存された `%` type annotation range を resolver 入力へ変換します。
 //: - range payload と token table 境界を先に検査し、失敗時には所有中の buffer を解放して typed error を返します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostSyntaxRange::Empty` は `SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange` です。
+//: - `selfhost_syntax_range_is_valid` に失敗する range は `SelfhostTypePrefixBuildErrorKind::InvalidSyntaxRange` です。
+//: - `range.first_token` と `range.token_count` が token table からはみ出す場合は `SelfhostTypePrefixBuildErrorKind::TokenOutOfBounds` です。
+//: - range 先頭が `TokenKind::Percent` でない場合は `SelfhostTypePrefixBuildErrorKind::MissingAnnotationMarker` です。
+//: - `SelfhostTypePrefixBuildErrorKind::InvalidToken` や `SelfhostTypePrefixBuildErrorKind::OutOfMemory` は range loop からそのまま typed error として返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Ok(SelfhostTypePrefixList)`: `%` を除いた item list owner です。caller が解放します。
+//: - `Result::Err(SelfhostTypePrefixBuildError)`: parser/token boundary の typed build error です。途中 owner は残りません。
+//:
+//: [計算量/けいさんりょう]:
+//: - range 内 token 数を `n` として `O(n)` です。source text や import graph は走査しません。
+//:
+//: [authority boundary]:
+//: - `SelfhostSyntaxRange`、`SelfhostToken`、`SelfhostSourceSpan` を authority とします。type constructor table や type parameter env はこの段階では参照しません。
+//:
+//: [owner boundary]:
+//: - 新規 item vector owner は成功時に `SelfhostTypePrefixList` へ移動します。失敗時はこの関数または range loop が vector owner を解放します。
+//:
+//: [type boundary]:
+//: - `SelfhostTypePrefixItemKind::VoidMarker` は後段で `fn void T` の 0 引数 marker としてのみ使います。`unit` は `SelfhostTypePrefixItemKind::NamedType` として保持します。
+//:
+//: [error variant]:
+//: - `SelfhostTypePrefixBuildErrorKind::EmptySyntaxRange`、`InvalidSyntaxRange`、`TokenOutOfBounds`、`MissingAnnotationMarker`、`InvalidToken`、`OutOfMemory` を fail-closed に返します。
 pub fn selfhost_type_prefix_list_from_syntax_range %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result SelfhostTypePrefixList SelfhostTypePrefixBuildError \tokens\syntax_range:
     match syntax_range:
         SelfhostSyntaxRange::Empty:
