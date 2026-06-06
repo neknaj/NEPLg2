@@ -306,7 +306,7 @@
 //: - `CheckedArgumentCountMismatch` と `CheckedArgumentMissing` は、reducer の argument count と checked argument list の整合性が壊れている場合です。
 //: - `UnsupportedArgumentKind` は、`TypedExpression`、tree node id を持たない `NestedDirectCall` / `BlockResult` summary など、HIR child payload が不足している argument を fail-closed した場合です。
 //: - `FunctionValueFailed` は、`@ident` function value lowering が monomorphic candidate 以外を拒否した場合など、function value 専用 error を包みます。
-//: - `CheckedTreeNodeMissing`、`CheckedTreeCycleDetected`、`CheckedTreeArgumentMissing` は、checked expression tree の node / recursion / argument range が壊れている場合です。
+//: - `CheckedTreeNodeMissing`、`CheckedTreeCycleDetected`、`CheckedTreeArgumentMissing` は、checked expression tree の node / recursion / argument range / block expression range が壊れている場合です。
 //: - `ChildIdsAllocFailed`、`ChildExprAllocFailed`、`ChildIdPushFailed`、`ChildRangeAllocFailed`、`ParentCallAllocFailed` は、HIR module または一時 Vec の owner 境界で起きた allocation failure です。
 //:
 //: [契約/けいやく]:
@@ -870,6 +870,91 @@ fn selfhost_hir_lower_checked_tree_block_result_node %impure fn SelfhostHirModul
         Result::Err e:
             Result::Err e
 
+//: selfhost_hir_lower_checked_tree_expr_range: checked block child expression id range を HIR child list へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - block sequence node に保存された root expression id list を、HIR block の child expression id list へ変換します。
+//: - lowering は checked tree の expression id range と node payload だけを読み、source token や scope lookup を再実行しません。
+//:
+//: [契約/けいやく]:
+//: - `idx` は range 内の相対 index です。
+//: - `fuel` は child expression に渡す recursion budget です。
+//: - expression id range が壊れている場合は `CheckedTreeNodeMissing` として fail-closed にし、dummy child を作りません。
+//: - 途中で child lowering が失敗した場合は、この関数が保持している child id Vec owner を解放します。module owner の扱いは下位 lowering の契約に従います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(state)`: `state.module` に全 child expression が追加され、`state.child_ids` は block の child range に使えます。
+//: - `Err(error)`: range lookup、child expression 追加、child id push のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - range 内の expression id 数 n と、各 expression lowering の合計に比例します。
+fn selfhost_hir_lower_checked_tree_expr_range %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprRange impure fn i32 impure fn SelfhostSourceSpan impure fn i32 Result SelfhostDirectCallArgumentLowerState SelfhostDirectCallLowerError \module\child_ids\tree\expr_range\idx\block_span\fuel:
+    let expr_count %i32 selfhost_checked_expr_range_count expr_range
+    if:
+        ge idx expr_count
+        then:
+            Result::Ok selfhost_direct_call_argument_lower_state_new module child_ids
+        else:
+            match selfhost_checked_expr_tree_get_expr_id tree expr_range idx:
+                Option::Some expr_id:
+                    match selfhost_hir_lower_checked_tree_expr_with_fuel module tree expr_id block_span fuel:
+                        Result::Ok alloc:
+                            let hir_expr_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc
+                            let next_module %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc
+                            match v::push child_ids hir_expr_id:
+                                Result::Ok next_child_ids:
+                                    selfhost_hir_lower_checked_tree_expr_range next_module next_child_ids tree expr_range add idx 1 block_span fuel
+                                Result::Err e:
+                                    selfhost_hir_module_free next_module
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildIdPushFailed block_span
+                        Result::Err e:
+                            v::free child_ids
+                            Result::Err e
+                Option::None:
+                    selfhost_direct_call_lower_free_state_error module child_ids SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing block_span
+
+//: selfhost_hir_lower_checked_tree_block_sequence_node: checked block sequence node を HIR block expression へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - trailing block argument の複数 body expression を source order の HIR child list へ下ろし、それらを 1 個の `Block` expression として包みます。
+//:
+//: [契約/けいやく]:
+//: - `body_exprs` は同じ checked tree の expression id table range です。壊れた range は再検査せず typed error へ写します。
+//: - block body を parent call の flat argument list へ混ぜず、HIR 上でも `Block` node として境界を残します。
+//: - `fuel` は各 body expression に渡す recursion budget です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: HIR block expression が module に追加されました。
+//: - `Err(error)`: body expression lowering、child id Vec、child range、block expr allocation のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - body expression 数 n と、各 body expression lowering の合計に比例します。
+fn selfhost_hir_lower_checked_tree_block_sequence_node %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprNode impure fn SelfhostCheckedExprRange impure fn i32 Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\node\body_exprs\fuel:
+    let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+    match child_ids_result:
+        Result::Ok child_ids:
+            match selfhost_hir_lower_checked_tree_expr_range module child_ids tree body_exprs 0 node.span fuel:
+                Result::Ok state:
+                    let child_module %SelfhostHirModule field::get state "module"
+                    let lowered_child_ids %Vec SelfhostHirExprId field::get state "child_ids"
+                    match selfhost_hir_module_add_child_range child_module lowered_child_ids:
+                        Result::Ok range_alloc:
+                            let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                            let block_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                            let block_expr %SelfhostHirExpr selfhost_hir_expr_block node.ty node.span child_range
+                            match selfhost_hir_module_add_expr block_module block_expr:
+                                Result::Ok alloc:
+                                    Result::Ok alloc
+                                Result::Err _e:
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed node.span
+                        Result::Err _e:
+                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed node.span
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed node.span
+
 //: selfhost_hir_lower_checked_tree_expr_with_fuel: cycle 検出つき checked tree node lowering
 //:
 //: [目的/もくてき]:
@@ -879,14 +964,14 @@ fn selfhost_hir_lower_checked_tree_block_result_node %impure fn SelfhostHirModul
 //: - `fuel <= 0` の場合は `CheckedTreeCycleDetected` を返します。
 //: - node lookup に失敗した場合は `CheckedTreeNodeMissing` として fail-closed にし、`fallback_span` を diagnostic span として使います。
 //: - direct call node は selected candidate と checked argument range を authority とします。
-//: - block result node は body expression id を authority とし、HIR `Block` node として境界を保持します。
+//: - block result node は単一 body expression id を authority とし、block sequence node は body expression id range を authority とします。どちらも HIR `Block` node として境界を保持します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: HIR expression が module に追加されました。
 //: - `Err(error)`: checked tree lookup または HIR allocation / child lowering に失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - direct call node では child argument 数に比例します。block result node では body expression lowering のコストに比例します。
+//: - direct call node では child argument 数に比例します。block result node では body expression lowering のコストに比例します。block sequence node では body expression 数と各 expression lowering の合計に比例します。
 fn selfhost_hir_lower_checked_tree_expr_with_fuel %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprId impure fn SelfhostSourceSpan impure fn i32 Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\expr_id\fallback_span\fuel:
     if:
         le fuel 0
@@ -901,6 +986,8 @@ fn selfhost_hir_lower_checked_tree_expr_with_fuel %impure fn SelfhostHirModule i
                             selfhost_hir_lower_checked_tree_direct_call_node module tree node call_payload next_fuel
                         SelfhostCheckedExprNodeKind::BlockResult body_expr:
                             selfhost_hir_lower_checked_tree_block_result_node module tree node body_expr next_fuel
+                        SelfhostCheckedExprNodeKind::BlockSequence body_exprs:
+                            selfhost_hir_lower_checked_tree_block_sequence_node module tree node body_exprs next_fuel
                 Option::None:
                     selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing fallback_span
 

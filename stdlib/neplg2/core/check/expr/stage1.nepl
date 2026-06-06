@@ -678,6 +678,37 @@ fn selfhost_check_expr_stage1_trailing_block_argument_segment %fn void SelfhostB
     let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 3 source_span_new_unchecked 0 11 18
     selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
 
+//: selfhost_check_expr_stage1_trailing_block_sequence_segment: 複数式 block argument fixture を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `add 1:` の body が `unit; add 1 1` のように複数 top-level expression を持つ場合に、body range を1つの nested envelope として保持します。
+//: - segmenter が body range を再分解し、非末尾 `unit` と末尾 `add 1 1` を source order で checker へ渡せることを確認するための fixture です。
+//:
+//: [契約/けいやく]:
+//: - head range は outer call の `add 1` だけを指します。
+//: - body range は `unit`、separator、`add 1 1` の 5 token を指します。
+//: - この helper は token owner を持たず、固定 range evidence だけを返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 range を作るだけなので O(1) です。
+fn selfhost_check_expr_stage1_trailing_block_sequence_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 2 source_span_new_unchecked 0 0 5
+    let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 5 source_span_new_unchecked 0 6 18
+    selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
+
+//: selfhost_check_expr_stage1_trailing_block_sequence_non_unit_segment: 非末尾式が unit でない block sequence fixture を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `1; add 1 1` のように非末尾 expression が `i32` を返す block sequence を作り、暗黙 discard を拒否する negative smoke に使います。
+//:
+//: [契約/けいやく]:
+//: - body range の token 数は success fixture と同じです。
+//: - span は diagnostic 用 evidence であり、source text の `1; add 1 1` 部分を指します。
+fn selfhost_check_expr_stage1_trailing_block_sequence_non_unit_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 2 source_span_new_unchecked 0 0 5
+    let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 5 source_span_new_unchecked 0 6 15
+    selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
+
 //: selfhost_check_expr_stage1_push_token: token fixture へ 1 token を[追加/ついか]する
 //:
 //: [目的/もくてき]:
@@ -744,6 +775,105 @@ fn selfhost_check_expr_stage1_make_trailing_block_argument_tokens %impure fn voi
                                         Result::Ok tokens4:
                                             let block_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 17 18
                                             selfhost_check_expr_stage1_push_token tokens4 block_arg1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_trailing_block_sequence_tokens: `unit; add 1 1` block sequence fixture token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 複数式 trailing block の success case 用に、outer head `add 1` と nested body `unit; add 1 1` を同じ token buffer に置きます。
+//: - separator は `Semicolon` token として置き、body segmenter が top-level expression を2つに分けることを確認します。
+//:
+//: [契約/けいやく]:
+//: - token owner は caller が受け取り、runner が必ず解放します。
+//: - source spelling は `"add 1 unit add 1 1"` と対応し、2つの `add` token span はそれぞれ source 内の `add` を指します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 7 token を push するため O(1) です。
+fn selfhost_check_expr_stage1_make_trailing_block_sequence_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let outer_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 outer_add:
+                Result::Ok tokens1:
+                    let outer_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 4 5
+                    match selfhost_check_expr_stage1_push_token tokens1 outer_arg0:
+                        Result::Ok tokens2:
+                            let unit_expr %SelfhostToken selfhost_token_new TokenKind::UnitLiteral source_span_new_unchecked 0 6 10
+                            match selfhost_check_expr_stage1_push_token tokens2 unit_expr:
+                                Result::Ok tokens3:
+                                    let separator %SelfhostToken selfhost_token_new TokenKind::Semicolon source_span_new_unchecked 0 10 11
+                                    match selfhost_check_expr_stage1_push_token tokens3 separator:
+                                        Result::Ok tokens4:
+                                            let block_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 11 14
+                                            match selfhost_check_expr_stage1_push_token tokens4 block_add:
+                                                Result::Ok tokens5:
+                                                    let block_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 15 16
+                                                    match selfhost_check_expr_stage1_push_token tokens5 block_arg0:
+                                                        Result::Ok tokens6:
+                                                            let block_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 17 18
+                                                            selfhost_check_expr_stage1_push_token tokens6 block_arg1
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_trailing_block_sequence_non_unit_tokens: 非末尾 i32 block sequence fixture token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `1; add 1 1` のように非末尾 expression が `unit` ではない negative case を作ります。
+//: - `BlockSequenceDiscardedExpression` expectation が暗黙 discard を許さず、`ArgumentTypeMismatch` へ到達することを smoke test で確認します。
+//:
+//: [契約/けいやく]:
+//: - source spelling は `"add 1 1 add 1 1"` と対応します。
+//: - token owner は caller が受け取り、runner が必ず解放します。
+fn selfhost_check_expr_stage1_make_trailing_block_sequence_non_unit_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let outer_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 outer_add:
+                Result::Ok tokens1:
+                    let outer_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 4 5
+                    match selfhost_check_expr_stage1_push_token tokens1 outer_arg0:
+                        Result::Ok tokens2:
+                            let discarded_i32 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 6 7
+                            match selfhost_check_expr_stage1_push_token tokens2 discarded_i32:
+                                Result::Ok tokens3:
+                                    let separator %SelfhostToken selfhost_token_new TokenKind::Semicolon source_span_new_unchecked 0 7 8
+                                    match selfhost_check_expr_stage1_push_token tokens3 separator:
+                                        Result::Ok tokens4:
+                                            let block_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 8 11
+                                            match selfhost_check_expr_stage1_push_token tokens4 block_add:
+                                                Result::Ok tokens5:
+                                                    let block_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 12 13
+                                                    match selfhost_check_expr_stage1_push_token tokens5 block_arg0:
+                                                        Result::Ok tokens6:
+                                                            let block_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 14 15
+                                                            selfhost_check_expr_stage1_push_token tokens6 block_arg1
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
                                         Result::Err e:
                                             Result::Err e
                                 Result::Err e:
@@ -1572,6 +1702,88 @@ fn selfhost_check_expr_stage1_trailing_block_argument_result_ok %impure fn Vec S
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_trailing_block_sequence_result_ok: 複数式末尾 block argument が block sequence として[縮約/しゅくやく]されるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `add 1:` の body が `unit; add 1 1` の複数式であっても、非末尾 `unit` と末尾 `add 1 1` を同じ checked tree に保存して outer call の不足 parameter を満たすことを確認します。
+//: - `MultipleSegments` error fallback ではなく、segment-once dispatcher から `BlockSequence` path へ進む実行可能 smoke です。
+//:
+//: [契約/けいやく]:
+//: - `arena` には `unit` と `i32` と `add_type` が登録済みでなければなりません。`unit` は `selfhost_type_arena_find_kind` で検索されるため、固定 TypeId を前提にしません。
+//: - `tokens`、candidate vector、value context、arena owner は成功・失敗にかかわらずこの helper が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: block sequence が outer call の第2引数として成功しました。
+//: - `false`: setup、segment、reducer、または success payload が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定2 segmentを検査するため、fixture上は O(1) 個の reducer 呼び出しです。一般の計算量は block body expression 数に比例します。
+fn selfhost_check_expr_stage1_trailing_block_sequence_result_ok %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_trailing_block_sequence_segment
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_block_intro_with_value_context &tokens "add 1 unit add 1 1" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool selfhost_check_expr_stage1_success_is_two_arg_direct_call &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
+//: selfhost_check_expr_stage1_trailing_block_sequence_non_unit_rejected: 非末尾 i32 の block sequence が拒否されるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - block sequence の非末尾 expression を暗黙 discard しない契約を確認します。
+//: - `1; add 1 1` の先頭 `1` は `i32` であり、非末尾位置の `BlockSequenceDiscardedExpression` expectation は `unit` なので、`ArgumentTypeMismatch` として拒否されるべきです。
+//:
+//: [契約/けいやく]:
+//: - reducer が成功した場合は、暗黙 discard を許した退行なので `false` を返します。
+//: - 期待する失敗は `SelfhostCallReduceErrorKind::ArgumentTypeMismatch` です。
+//: - `tokens`、candidate vector、value context、arena owner は成功・失敗にかかわらずこの helper が閉じます。
+fn selfhost_check_expr_stage1_trailing_block_sequence_non_unit_rejected %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_trailing_block_sequence_non_unit_segment
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_block_intro_with_value_context &tokens "add 1 1 add 1 1" segment arena context &candidates none:
+                        Result::Ok success:
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            false
+                        Result::Err e:
+                            let ok %bool selfhost_expression_line_check_error_is_call_reduce_kind e SelfhostCallReduceErrorKind::ArgumentTypeMismatch
+                            v::free candidates
+                            v::free tokens
+                            ok
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence: shadow された function が復活しないか[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -2143,6 +2355,50 @@ fn selfhost_check_expr_stage1_run_trailing_block_argument_with_i32 %impure fn Ve
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_trailing_block_sequence_with_i32: 複数式 trailing block success smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `unit; add 1 1` body を持つ trailing block argument が `BlockSequence` として通ることを、実行可能 stage1 smoke に固定します。
+//:
+//: [契約/けいやく]:
+//: - `arena` には `unit` primitive が登録済みでなければなりません。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時は token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: block sequence success fixture が通りました。
+//: - `1`: setup または reducer が失敗しました。
+fn selfhost_check_expr_stage1_run_trailing_block_sequence_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_trailing_block_sequence_result_ok tokens next_arena add_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_i32: 非末尾 i32 block sequence rejection smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `1; add 1 1` body を持つ trailing block argument が、非末尾 expression の `unit` expectation により拒否されることを確認します。
+//:
+//: [契約/けいやく]:
+//: - `arena` には `unit` primitive が登録済みでなければなりません。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時は token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: non-unit discard が期待通り拒否されました。
+//: - `1`: setup 失敗、別 error、または誤って成功した場合です。
+fn selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_trailing_block_sequence_non_unit_rejected tokens next_arena add_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32: shadowed function name の value fallback smoke を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
@@ -2442,6 +2698,72 @@ fn selfhost_check_expr_stage1_run_trailing_block_argument_with_tokens %impure fn
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_trailing_block_sequence_with_tokens: token owner から複数式 trailing block success smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - block sequence の非末尾 expression が `unit` expectation で検査されるため、arena に `unit` と `i32` の両方を登録して下位 helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: block sequence success smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+fn selfhost_check_expr_stage1_run_trailing_block_sequence_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok unit_alloc:
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena unit_alloc
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::I32:
+                        Result::Ok i32_alloc:
+                            let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                            selfhost_check_expr_stage1_run_trailing_block_sequence_with_i32 tokens arena2 i32_type
+                        Result::Err _e:
+                            v::free tokens
+                            1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_tokens: token owner から非末尾 i32 rejection smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - block sequence の非末尾 expression が `unit` 以外を返した場合に、暗黙 discard せず拒否する経路へ token owner を渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: non-unit discarded expression が期待通り拒否されました。
+//: - `1`: setup または下位 helper が失敗しました。
+fn selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok unit_alloc:
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena unit_alloc
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::I32:
+                        Result::Ok i32_alloc:
+                            let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                            selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_i32 tokens arena2 i32_type
+                        Result::Err _e:
+                            v::free tokens
+                            1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens: token owner から shadowed function smoke を[起動/きどう]する
 //:
 //: [目的/もくてき]:
@@ -2666,6 +2988,39 @@ fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void 
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_trailing_block_sequence_body_line: 複数式 trailing block smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `unit; add 1 1` の success case と、`1; add 1 1` の non-unit discarded expression rejection を同じ public smoke から確認します。
+//: - 複数式 block の成功だけでなく、非末尾 expression を任意型として捨てない契約を固定します。
+//:
+//: [契約/けいやく]:
+//: - success case が通った場合だけ rejection case を実行します。
+//: - token buffer owner は各 runner へ移動し、runner が cleanup を担当します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: block sequence success と non-unit rejection の両方が期待通りでした。
+//: - `1`: token setup またはいずれかの smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は block body segment 数と nested reducer 探索に従います。
+fn selfhost_check_expr_stage1_trailing_block_sequence_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_trailing_block_sequence_tokens:
+        Result::Ok tokens:
+            let ok_result %i32 selfhost_check_expr_stage1_run_trailing_block_sequence_with_tokens tokens
+            if:
+                eq ok_result 0
+                then:
+                    match selfhost_check_expr_stage1_make_trailing_block_sequence_non_unit_tokens:
+                        Result::Ok non_unit_tokens:
+                            selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_tokens non_unit_tokens
+                        Result::Err _e:
+                            1
+                else:
+                    1
+        Result::Err _e:
+            1
+
 //: selfhost_check_expr_stage1_body_line: body expression line 接続の smoke API
 //:
 //: [目的/もくてき]:
@@ -2677,7 +3032,8 @@ fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void 
 //: - 同名 local が function を shadow している場合は、古い function candidate を復活させず、NamedValue value evidence fallback を使うことも確認します。
 //: - 明示 `@ident` function value argument は、expected function type と同じ signature を持つ monomorphic named function だけを受理することを確認します。
 //: - bare function name を expected function type の位置に置いても、暗黙 function value や部分適用として成功しないことを確認します。
-//: - `BlockIntro` 専用入口では、末尾 block argument が nested body を `BlockResult` expectation として検査し、outer call の不足 parameter を満たすことを確認します。
+//: - `BlockIntro` 専用入口では、末尾 block argument が nested body を `BlockResult` または `BlockSequence` として検査し、outer call の不足 parameter を満たすことを確認します。
+//: - 複数式 block の非末尾 expression は `unit` expected type で検査され、`i32` などの値を暗黙 discard しないことを確認します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `0`: expression line reduction と block intro rejection が期待通りでした。
@@ -2717,7 +3073,13 @@ pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
                                                     if:
                                                         eq function_value_argument 0
                                                         then:
-                                                            selfhost_check_expr_stage1_trailing_block_argument_body_line
+                                                            let trailing_block %i32 selfhost_check_expr_stage1_trailing_block_argument_body_line
+                                                            if:
+                                                                eq trailing_block 0
+                                                                then:
+                                                                    selfhost_check_expr_stage1_trailing_block_sequence_body_line
+                                                                else:
+                                                                    1
                                                         else:
                                                             1
                                                 else:

@@ -4,19 +4,20 @@
 //: source-backed expression checker が作る checked expression tree owner を[定義/ていぎ]する module です。
 //:
 //: [目的/もくてき]:
-//: - `NestedDirectCall` と `BlockResult` を、候補名や token 範囲だけではなく、内側 argument の checked payload まで含む tree node として保存します。
+//: - `NestedDirectCall`、`BlockResult`、block sequence を、候補名や token 範囲だけではなく、内側 argument / body expression の checked payload まで含む tree node として保存します。
 //: - HIR lowering はこの tree を読み、source text、prefix item、scope、callable signature table を再読せずに expression tree を構築できます。
 //:
 //: [契約/けいやく]:
-//: - `SelfhostCheckedExprTree` は checked expression node table と checked argument table を所有します。
+//: - `SelfhostCheckedExprTree` は checked expression node table、checked argument table、block child expression id table を所有します。
 //: - direct call node は selected candidate と checked argument range を保持します。candidate を名前文字列だけへ戻してはいけません。
-//: - block result node は block body の result expression node id を保持します。block body を flat prefix list として親 call に混ぜる退行を防ぎます。
+//: - block result node は単一 expression body の result expression node id を保持します。block sequence node は複数 expression body の root id range を保持します。block body を flat prefix list として親 call に混ぜる退行を防ぎます。
 //: - tree に追加する node は、すでに存在する node だけを `CheckedExpr` / `BlockResult` から参照できます。未来 node や self-reference を accepted tree に入れてはいけません。
 //: - この module は HIR record を生成しません。HIR への変換は `neplg2/core/lower/hir` が担当します。
 //:
 //: [計算量/けいさんりょう]:
 //: - node 追加は Vec の償却 O(1) です。
 //: - argument range 追加は追加する checked argument 数を n として O(n) です。
+//: - expression id range 追加は追加する root expression id 数を n として O(n) です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
@@ -163,10 +164,12 @@ impl Copy for SelfhostCheckedDirectCall:
 //:
 //: [分類/ぶんるい]:
 //: - `DirectCall`: source-backed reducer が完全飽和 direct call として検査した expression です。
-//: - `BlockResult`: trailing block argument の body result を表します。payload は block body の checked expression node id です。
+//: - `BlockResult`: trailing block argument の単一 body result を表します。payload は block body の checked expression node id です。
+//: - `BlockSequence`: trailing block argument の複数 body expression を表します。payload は block body の root expression id range です。
 pub enum SelfhostCheckedExprNodeKind:
     DirectCall %SelfhostCheckedDirectCall
     BlockResult %SelfhostCheckedExprId
+    BlockSequence %SelfhostCheckedExprRange
 
 impl Clone for SelfhostCheckedExprNodeKind:
     fn clone %fn &SelfhostCheckedExprNodeKind SelfhostCheckedExprNodeKind \self:
@@ -200,11 +203,12 @@ impl Copy for SelfhostCheckedExprNode:
 //: SelfhostCheckedExprTree: checked expression tree の arena owner
 //:
 //: [目的/もくてき]:
-//: - direct call / block result の複合 expression node と、その child argument payload を所有します。
+//: - direct call / block result / block sequence の複合 expression node と、その child argument payload / block child root id payload を所有します。
 //: - `SelfhostCheckedArgumentKind` には Copy 可能な node id だけを入れ、owner を持つ Vec はこの root に閉じます。
 pub struct SelfhostCheckedExprTree:
     nodes %Vec SelfhostCheckedExprNode
     arguments %Vec SelfhostCheckedArgument
+    exprs %Vec SelfhostCheckedExprId
 
 //: SelfhostCheckedExprNodeAlloc: checked expression node 追加結果
 //:
@@ -221,6 +225,14 @@ pub struct SelfhostCheckedExprNodeAlloc:
 pub struct SelfhostCheckedArgumentRangeAlloc:
     tree %SelfhostCheckedExprTree
     argument_range %SelfhostCheckedArgumentRange
+
+//: SelfhostCheckedExprRangeAlloc: checked expression id range 追加結果
+//:
+//: [目的/もくてき]:
+//: - block child expression id list へ root id list を追加した後、更新済み tree owner と range を一緒に返します。
+pub struct SelfhostCheckedExprRangeAlloc:
+    tree %SelfhostCheckedExprTree
+    expr_range %SelfhostCheckedExprRange
 
 //: selfhost_checked_direct_call_new: checked direct call payload を[作/つく]る
 //:
@@ -250,6 +262,14 @@ pub fn selfhost_checked_expr_node_direct_call %fn SelfhostTypeId fn SelfhostSour
 pub fn selfhost_checked_expr_node_block_result %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCheckedExprId SelfhostCheckedExprNode \result_type\span\body_expr:
     selfhost_checked_expr_node_new result_type span SelfhostCheckedExprNodeKind::BlockResult body_expr
 
+//: selfhost_checked_expr_node_block_sequence: block sequence node を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `body_exprs` は同じ checked tree 内の expression id table range です。
+//: - range 内の各 id は、block body の top-level expression root を source order で指します。
+pub fn selfhost_checked_expr_node_block_sequence %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostCheckedExprRange SelfhostCheckedExprNode \result_type\span\body_exprs:
+    selfhost_checked_expr_node_new result_type span SelfhostCheckedExprNodeKind::BlockSequence body_exprs
+
 //: selfhost_checked_expr_node_new: checked expression node record を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -276,7 +296,14 @@ pub fn selfhost_checked_expr_tree_new %impure fn void Result SelfhostCheckedExpr
             let arguments_result %Result Vec SelfhostCheckedArgument StdErrorKind v::new
             match arguments_result:
                 Result::Ok arguments:
-                    Result::Ok SelfhostCheckedExprTree nodes arguments
+                    let exprs_result %Result Vec SelfhostCheckedExprId StdErrorKind v::new
+                    match exprs_result:
+                        Result::Ok exprs:
+                            Result::Ok SelfhostCheckedExprTree nodes arguments exprs
+                        Result::Err e:
+                            v::free nodes
+                            v::free arguments
+                            Result::Err e
                 Result::Err e:
                     v::free nodes
                     Result::Err e
@@ -287,6 +314,7 @@ pub fn selfhost_checked_expr_tree_new %impure fn void Result SelfhostCheckedExpr
 pub fn selfhost_checked_expr_tree_free %impure fn SelfhostCheckedExprTree unit \tree:
     v::free field::get tree "nodes"
     v::free field::get tree "arguments"
+    v::free field::get tree "exprs"
 
 //: selfhost_checked_expr_tree_node_len: checked expression node table の要素数を[返/かえ]す
 pub fn selfhost_checked_expr_tree_node_len %fn &SelfhostCheckedExprTree i32 \tree:
@@ -297,6 +325,11 @@ pub fn selfhost_checked_expr_tree_node_len %fn &SelfhostCheckedExprTree i32 \tre
 pub fn selfhost_checked_expr_tree_argument_len %fn &SelfhostCheckedExprTree i32 \tree:
     let arguments %&Vec SelfhostCheckedArgument field::get_ref tree "arguments"
     v::len arguments
+
+//: selfhost_checked_expr_tree_expr_len: block child expression id table の要素数を[返/かえ]す
+pub fn selfhost_checked_expr_tree_expr_len %fn &SelfhostCheckedExprTree i32 \tree:
+    let exprs %&Vec SelfhostCheckedExprId field::get_ref tree "exprs"
+    v::len exprs
 
 //: selfhost_checked_expr_node_alloc_new: node 追加結果を[作/つく]る
 //:
@@ -338,6 +371,27 @@ pub fn selfhost_checked_argument_range_alloc_range %fn &SelfhostCheckedArgumentR
 
 //: selfhost_checked_argument_range_alloc_into_tree: argument range 追加結果から tree owner を[取/と]り[出/だ]す
 pub fn selfhost_checked_argument_range_alloc_into_tree %impure fn SelfhostCheckedArgumentRangeAlloc SelfhostCheckedExprTree \alloc:
+    field::get alloc "tree"
+
+//: selfhost_checked_expr_range_alloc_new: expression id range 追加結果を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 更新済み tree owner と、追加した block child expression id list の range を一緒に返します。
+//:
+//: [契約/けいやく]:
+//: - `expr_range` は `tree.exprs` に追加済みの範囲を指します。caller は block sequence node の child expression list として保存します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築は O(1) です。
+pub fn selfhost_checked_expr_range_alloc_new %impure fn SelfhostCheckedExprTree impure fn SelfhostCheckedExprRange SelfhostCheckedExprRangeAlloc \tree\expr_range:
+    SelfhostCheckedExprRangeAlloc tree expr_range
+
+//: selfhost_checked_expr_range_alloc_range: expression id range 追加結果から range を[読/よ]む
+pub fn selfhost_checked_expr_range_alloc_range %fn &SelfhostCheckedExprRangeAlloc SelfhostCheckedExprRange \alloc:
+    *field::get_ref alloc "expr_range"
+
+//: selfhost_checked_expr_range_alloc_into_tree: expression id range 追加結果から tree owner を[取/と]り[出/だ]す
+pub fn selfhost_checked_expr_range_alloc_into_tree %impure fn SelfhostCheckedExprRangeAlloc SelfhostCheckedExprTree \alloc:
     field::get alloc "tree"
 
 //: selfhost_checked_expr_id_is_existing_before_append: 追加前 tree に存在する expression id か[返/かえ]す
@@ -400,6 +454,34 @@ fn selfhost_checked_argument_vec_refs_existing_before_append %fn &Vec SelfhostCh
                 Option::None:
                     false
 
+//: selfhost_checked_expr_vec_refs_existing_before_append: checked expression id list の node 参照を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - 新しい block sequence node 用に追加する root id list が、既存 node だけを参照する DAG fragment であることを確認します。
+//:
+//: [契約/けいやく]:
+//: - `idx` から `expr_count` までを順に検査します。
+//: - Vec の長さと `expr_count` が矛盾した場合は false を返し、caller は fail-closed error にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - 検査する expression id 数 n に対して O(n) です。
+fn selfhost_checked_expr_vec_refs_existing_before_append %fn &Vec SelfhostCheckedExprId fn i32 fn i32 fn i32 bool \expr_ids\expr_count\idx\node_count:
+    if:
+        ge idx expr_count
+        then:
+            true
+        else:
+            match v::get expr_ids idx:
+                Option::Some expr_id:
+                    if:
+                        selfhost_checked_expr_id_is_existing_before_append node_count expr_id
+                        then:
+                            selfhost_checked_expr_vec_refs_existing_before_append expr_ids expr_count add idx 1 node_count
+                        else:
+                            false
+                Option::None:
+                    false
+
 //: selfhost_checked_argument_range_refs_existing_before_append: 既存 range 内の tree 参照を[検査/けんさ]する
 //:
 //: [目的/もくてき]:
@@ -428,6 +510,34 @@ fn selfhost_checked_argument_range_refs_existing_before_append %fn &SelfhostChec
                 Option::None:
                     false
 
+//: selfhost_checked_expr_range_refs_existing_before_append: 既存 expression id range 内の node 参照を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - public `selfhost_checked_expr_tree_add_node` に直接渡された block sequence node の expression id range が、既存 expression id table と既存 node だけを参照していることを確認します。
+//:
+//: [契約/けいやく]:
+//: - range が table 外の場合、または range 内に未来 node / self-reference を指す id がある場合は false です。
+//:
+//: [計算量/けいさんりょう]:
+//: - range 内の expression id 数 n に対して O(n) です。
+fn selfhost_checked_expr_range_refs_existing_before_append %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprRange fn i32 fn i32 bool \tree\expr_range\idx\node_count:
+    let expr_count %i32 selfhost_checked_expr_range_count expr_range
+    if:
+        ge idx expr_count
+        then:
+            true
+        else:
+            match selfhost_checked_expr_tree_get_expr_id tree expr_range idx:
+                Option::Some expr_id:
+                    if:
+                        selfhost_checked_expr_id_is_existing_before_append node_count expr_id
+                        then:
+                            selfhost_checked_expr_range_refs_existing_before_append tree expr_range add idx 1 node_count
+                        else:
+                            false
+                Option::None:
+                    false
+
 //: selfhost_checked_expr_node_refs_existing_before_append: 追加予定 node の tree 参照を[検査/けんさ]する
 //:
 //: [目的/もくてき]:
@@ -436,9 +546,10 @@ fn selfhost_checked_argument_range_refs_existing_before_append %fn &SelfhostChec
 //: [契約/けいやく]:
 //: - `DirectCall` node は、argument range が既存 argument table 内に収まり、range 内の `CheckedExpr` が既存 node だけを参照する場合に true です。
 //: - `BlockResult` node は、body expression id が既存 node を指す場合に true です。
+//: - `BlockSequence` node は、expression id range が既存 expression id table 内に収まり、range 内の root id が既存 node だけを指す場合に true です。
 //:
 //: [計算量/けいさんりょう]:
-//: - direct call では argument 数 n に対して O(n)、block result では O(1) です。
+//: - direct call では argument 数 n に対して O(n)、block result では O(1)、block sequence では body expression 数 n に対して O(n) です。
 fn selfhost_checked_expr_node_refs_existing_before_append %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprNode bool \tree\node:
     let node_count %i32 selfhost_checked_expr_tree_node_len tree
     match node.kind:
@@ -454,6 +565,16 @@ fn selfhost_checked_expr_node_refs_existing_before_append %fn &SelfhostCheckedEx
                             false
         SelfhostCheckedExprNodeKind::BlockResult body_expr:
             selfhost_checked_expr_id_is_existing_before_append node_count body_expr
+        SelfhostCheckedExprNodeKind::BlockSequence body_exprs:
+            match body_exprs:
+                SelfhostCheckedExprRange::Empty:
+                    false
+                SelfhostCheckedExprRange::Range items:
+                    match selfhost_checked_expr_range_new_bounded_result items.first_expr items.expr_count selfhost_checked_expr_tree_expr_len tree:
+                        Result::Ok _bounded:
+                            selfhost_checked_expr_range_refs_existing_before_append tree body_exprs 0 node_count
+                        Result::Err _e:
+                            false
 
 //: selfhost_checked_expr_tree_copy_arguments: checked argument list を tree table へ[複製/ふくせい]する
 //:
@@ -477,6 +598,36 @@ fn selfhost_checked_expr_tree_copy_arguments %impure fn Vec SelfhostCheckedArgum
                     match v::push out argument:
                         Result::Ok next_out:
                             selfhost_checked_expr_tree_copy_arguments next_out arguments n add idx 1
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free out
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+//: selfhost_checked_expr_tree_copy_expr_ids: checked expression id list を tree table へ[複製/ふくせい]する
+//:
+//: [目的/もくてき]:
+//: - block sequence node が所有する body root id list を、tree の平坦な expression id table に移します。
+//:
+//: [契約/けいやく]:
+//: - `out` はこの関数が owner として受け取り、成功時は更新済み owner、失敗時は解放済み error を返します。
+//: - `expr_ids` は borrow で読み、解放は caller が行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - `n` 個の checked expression id を順に push するため O(n) です。
+fn selfhost_checked_expr_tree_copy_expr_ids %impure fn Vec SelfhostCheckedExprId impure fn &Vec SelfhostCheckedExprId impure fn i32 impure fn i32 Result Vec SelfhostCheckedExprId StdErrorKind \out\expr_ids\n\idx:
+    if:
+        ge idx n
+        then:
+            Result::Ok out
+        else:
+            match v::get expr_ids idx:
+                Option::Some expr_id:
+                    match v::push out expr_id:
+                        Result::Ok next_out:
+                            selfhost_checked_expr_tree_copy_expr_ids next_out expr_ids n add idx 1
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
                             v::free v::vec_push_error_vec e
@@ -511,19 +662,67 @@ pub fn selfhost_checked_expr_tree_add_argument_range %impure fn SelfhostCheckedE
                     let first_argument %i32 selfhost_checked_expr_tree_argument_len &tree
                     let nodes %Vec SelfhostCheckedExprNode field::get tree "nodes"
                     let arguments %Vec SelfhostCheckedArgument field::get tree "arguments"
+                    let exprs %Vec SelfhostCheckedExprId field::get tree "exprs"
                     match selfhost_checked_expr_tree_copy_arguments arguments &arguments_to_add argument_count 0:
                         Result::Ok next_arguments:
                             v::free arguments_to_add
                             match selfhost_checked_argument_range_new_bounded_result first_argument argument_count v::len &next_arguments:
                                 Result::Ok argument_range:
-                                    Result::Ok selfhost_checked_argument_range_alloc_new (SelfhostCheckedExprTree nodes next_arguments) argument_range
+                                    Result::Ok selfhost_checked_argument_range_alloc_new (SelfhostCheckedExprTree nodes next_arguments exprs) argument_range
                                 Result::Err _e:
                                     v::free nodes
                                     v::free next_arguments
+                                    v::free exprs
                                     Result::Err StdErrorKind::InvalidOperation
                         Result::Err e:
                             v::free nodes
+                            v::free exprs
                             v::free arguments_to_add
+                            Result::Err e
+
+//: selfhost_checked_expr_tree_add_expr_range: block child expression id list を tree に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - block sequence node が参照する body root id list を、tree-owned expression id table に保存します。
+//:
+//: [契約/けいやく]:
+//: - `expr_ids_to_add` はこの関数が消費し、成功・失敗どちらでも解放します。
+//: - 失敗時、入力 tree owner はこの関数が消費し、残り table を解放してから `Err` を返します。
+//: - 各 id は現在の node table に存在している必要があります。未来 node や self-reference は accepted tree に入れません。
+pub fn selfhost_checked_expr_tree_add_expr_range %impure fn SelfhostCheckedExprTree impure fn Vec SelfhostCheckedExprId Result SelfhostCheckedExprRangeAlloc StdErrorKind \tree\expr_ids_to_add:
+    let expr_count %i32 v::len &expr_ids_to_add
+    if:
+        not selfhost_checked_expr_vec_refs_existing_before_append &expr_ids_to_add expr_count 0 selfhost_checked_expr_tree_node_len &tree
+        then:
+            v::free expr_ids_to_add
+            selfhost_checked_expr_tree_free tree
+            Result::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq expr_count 0
+                then:
+                    v::free expr_ids_to_add
+                    Result::Ok selfhost_checked_expr_range_alloc_new tree selfhost_checked_expr_range_empty
+                else:
+                    let first_expr %i32 selfhost_checked_expr_tree_expr_len &tree
+                    let nodes %Vec SelfhostCheckedExprNode field::get tree "nodes"
+                    let arguments %Vec SelfhostCheckedArgument field::get tree "arguments"
+                    let exprs %Vec SelfhostCheckedExprId field::get tree "exprs"
+                    match selfhost_checked_expr_tree_copy_expr_ids exprs &expr_ids_to_add expr_count 0:
+                        Result::Ok next_exprs:
+                            v::free expr_ids_to_add
+                            match selfhost_checked_expr_range_new_bounded_result first_expr expr_count v::len &next_exprs:
+                                Result::Ok expr_range:
+                                    Result::Ok selfhost_checked_expr_range_alloc_new (SelfhostCheckedExprTree nodes arguments next_exprs) expr_range
+                                Result::Err _e:
+                                    v::free nodes
+                                    v::free arguments
+                                    v::free next_exprs
+                                    Result::Err StdErrorKind::InvalidOperation
+                        Result::Err e:
+                            v::free nodes
+                            v::free arguments
+                            v::free expr_ids_to_add
                             Result::Err e
 
 //: selfhost_checked_expr_tree_add_node: checked expression node を tree に[追加/ついか]する
@@ -541,13 +740,15 @@ pub fn selfhost_checked_expr_tree_add_node %impure fn SelfhostCheckedExprTree im
                 Result::Ok expr_id:
                     let nodes %Vec SelfhostCheckedExprNode field::get tree "nodes"
                     let arguments %Vec SelfhostCheckedArgument field::get tree "arguments"
+                    let exprs %Vec SelfhostCheckedExprId field::get tree "exprs"
                     match v::push nodes node:
                         Result::Ok next_nodes:
-                            Result::Ok selfhost_checked_expr_node_alloc_new (SelfhostCheckedExprTree next_nodes arguments) expr_id
+                            Result::Ok selfhost_checked_expr_node_alloc_new (SelfhostCheckedExprTree next_nodes arguments exprs) expr_id
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
                             v::free v::vec_push_error_vec e
                             v::free arguments
+                            v::free exprs
                             Result::Err error
                 Result::Err _e:
                     selfhost_checked_expr_tree_free tree
@@ -612,6 +813,32 @@ pub fn selfhost_checked_expr_tree_add_block_result %impure fn SelfhostCheckedExp
     let node %SelfhostCheckedExprNode selfhost_checked_expr_node_block_result result_type span body_expr
     selfhost_checked_expr_tree_add_node tree node
 
+//: selfhost_checked_expr_tree_add_block_sequence: block sequence node と child expression id range を tree に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - 複数 top-level expression を持つ block body の root expression id list を tree table に保存し、その range を参照する block sequence node を追加します。
+//:
+//: [契約/けいやく]:
+//: - `body_exprs_to_add` はこの関数が消費します。
+//: - range 内の id は、追加前 tree に存在する node だけを指していなければなりません。
+//: - 空 sequence は accepted block body ではないため、`InvalidOperation` として fail-closed にします。
+pub fn selfhost_checked_expr_tree_add_block_sequence %impure fn SelfhostCheckedExprTree impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn Vec SelfhostCheckedExprId Result SelfhostCheckedExprNodeAlloc StdErrorKind \tree\result_type\span\body_exprs_to_add:
+    if:
+        eq v::len &body_exprs_to_add 0
+        then:
+            v::free body_exprs_to_add
+            selfhost_checked_expr_tree_free tree
+            Result::Err StdErrorKind::InvalidOperation
+        else:
+            match selfhost_checked_expr_tree_add_expr_range tree body_exprs_to_add:
+                Result::Ok range_alloc:
+                    let expr_range %SelfhostCheckedExprRange selfhost_checked_expr_range_alloc_range &range_alloc
+                    let next_tree %SelfhostCheckedExprTree selfhost_checked_expr_range_alloc_into_tree range_alloc
+                    let node %SelfhostCheckedExprNode selfhost_checked_expr_node_block_sequence result_type span expr_range
+                    selfhost_checked_expr_tree_add_node next_tree node
+                Result::Err e:
+                    Result::Err e
+
 //: selfhost_checked_expr_tree_get_node: checked expression id の node を[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -663,3 +890,31 @@ pub fn selfhost_checked_expr_tree_get_argument %fn &SelfhostCheckedExprTree fn S
                 else:
                     let arguments %&Vec SelfhostCheckedArgument field::get_ref tree "arguments"
                     v::get arguments add range.first_argument idx
+
+//: selfhost_checked_expr_tree_get_expr_id: checked expression id range 内の root id を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - block sequence node が参照する expression id range から、相対 index の checked expression root id を取得します。
+//:
+//: [契約/けいやく]:
+//: - `Empty` range、負の index、range 外 index、table 範囲外 index はすべて `None` にします。
+//: - lookup 失敗を source 再読や dummy expression で補ってはいけません。caller は typed error へ写像します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(expr_id)`: range 内の root expression id が取得できました。
+//: - `None`: range または index が壊れています。
+//:
+//: [計算量/けいさんりょう]:
+//: - range check と Vec index lookup の O(1) です。
+pub fn selfhost_checked_expr_tree_get_expr_id %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprRange fn i32 Option SelfhostCheckedExprId \tree\expr_range\idx:
+    match expr_range:
+        SelfhostCheckedExprRange::Empty:
+            none
+        SelfhostCheckedExprRange::Range range:
+            if:
+                or lt idx 0 ge idx range.expr_count
+                then:
+                    none
+                else:
+                    let exprs %&Vec SelfhostCheckedExprId field::get_ref tree "exprs"
+                    v::get exprs add range.first_expr idx

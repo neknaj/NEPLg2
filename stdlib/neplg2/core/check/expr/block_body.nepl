@@ -7,15 +7,17 @@
 //: - `BlockIntro.body` は nested body envelope であり、outer call の flat prefix item ではありません。
 //: - この module は nested body envelope を body segmenter で再帰的に分解し、block result として検査できる単一 `ExpressionLine` だけを prefix list と callable candidate list へ変換します。
 //: - call reduction そのものは `call_reduce.nepl` に残し、この module は block body の構文境界、owner 管理、candidate collection までを担当します。
+//: - 複数 top-level expression を持つ block body では、segment list owner を caller へ渡し、caller が各 expression line を source order で検査します。
 //:
 //: [契約/けいやく]:
-//: - 成功するのは、nested body がちょうど 1 個の `ExpressionLine` で、その head から prefix list と candidate list を構築できる場合だけです。
-//: - 空 body、複数 top-level segment、nested `BlockIntro`、prefix build failure、candidate collection failure はすべて typed error として返します。
+//: - 単一 block result input API で成功するのは、nested body がちょうど 1 個の `ExpressionLine` で、その head から prefix list と candidate list を構築できる場合だけです。
+//: - sequence API では segment list owner を返し、空 body と nested `BlockIntro` は caller 側で型付き error として扱います。
+//: - 空 body、nested `BlockIntro`、prefix build failure、candidate collection failure はすべて typed error として返します。
 //: - `BlockIntro.body` 全体を `SelfhostExprPrefixList` に直接変換してはいけません。必ず `selfhost_body_segment_list_from_envelope` を通して body の階層を確認します。
 //: - 成功 payload は prefix list owner と candidate vector owner を持ちます。caller は call reduction 後に `selfhost_block_body_result_input_free` で必ず解放します。
 //:
 //: [現状/げんじょう]:
-//: - 現在の block result checker は、single expression line を既存の source-backed call reducer へ渡すための入力構築までを扱います。
+//: - block result checker は、single expression line を既存の source-backed call reducer へ渡す入力構築と、複数 expression line を順に検査するための segment list 境界を扱います。
 //: - bare literal body、lambda body、pipe body、さらに nested block body の成功受理は、対応する expression checker slice が接続された後にこの module の入力構築結果を拡張します。
 //:
 //: [計算量/けいさんりょう]:
@@ -193,6 +195,22 @@ fn selfhost_block_body_result_from_single_segment %impure fn &Vec SelfhostToken 
         SelfhostBodySegmentKind::BlockIntro:
             Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::NestedBlockUnsupported selfhost_block_body_result_segment_span segment
 
+//: selfhost_block_body_result_input_from_segment: body segment を reducer input owner へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - sequence reducer が保持する `SelfhostBodySegmentList` の各 segment を、必要な時点で prefix list と candidate list へ変換します。
+//: - 複数式 block の処理でも、prefix/candidate owner を全行ぶん先に確保せず、1 行ずつ作って解放できます。
+//:
+//: [契約/けいやく]:
+//: - `ExpressionLine` だけを成功候補にします。
+//: - `BlockIntro` は `NestedBlockUnsupported` として fail-closed にし、nested block を flat prefix list へ潰しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(input)`: expression line から作った reducer input owner です。
+//: - `Err(error)`: nested block、prefix build、candidate collection のいずれかの失敗です。
+pub fn selfhost_block_body_result_input_from_segment %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostBodySegment Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\segment:
+    selfhost_block_body_result_from_single_segment tokens source scope signatures segment
+
 //: selfhost_block_body_result_from_segment_list: body segment list を単一 block result input へ[畳/たた]む
 //:
 //: [目的/もくてき]:
@@ -245,12 +263,32 @@ fn selfhost_block_body_result_from_segment_list %impure fn &Vec SelfhostToken im
 //: - `Ok(input)`: nested body は単一 expression line で、prefix list と候補列を構築できました。
 //: - `Err(SegmentFailed)`: body envelope の segment 化に失敗しました。
 //: - `Err(EmptyBody)`: segmenter は成功したが segment がありませんでした。
-//: - `Err(MultipleSegments)`: block result としてこの slice では複数 top-level expression を受理しません。
+//: - `Err(MultipleSegments)`: この単一 input API では top-level expression が複数あることを示します。source-backed call reducer はこの signal を normal path として扱わず、segment list を一度だけ作る dispatcher から `BlockSequence` へ進みます。
 //: - `Err(NestedBlockUnsupported)`: block result body 自体がさらに `BlockIntro` でした。
 //: - `Err(PrefixBuildFailed)` / `Err(CandidateCollectFailed)`: expression head の入力構築に失敗しました。
 pub fn selfhost_block_body_result_input_from_trailing_block %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostNameScope impure fn &SelfhostCallableSignatureTable impure fn SelfhostTrailingBlockArgument Result SelfhostBlockBodyResultInput SelfhostBlockBodyResultError \tokens\source\scope\signatures\block_arg:
     match selfhost_body_segment_list_from_envelope tokens block_arg.body:
         Result::Ok segments:
             selfhost_block_body_result_from_segment_list tokens source scope signatures segments block_arg.span
+        Result::Err segment_error:
+            Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::SegmentFailed segment_error.span
+
+//: selfhost_block_body_result_segments_from_trailing_block: 末尾 block argument body を segment list owner へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - 複数 top-level expression を持つ block body を、call reducer が source order で 1 行ずつ検査できるようにします。
+//: - この関数は segment 化だけを担当し、各 expression line の prefix list / candidate list は `selfhost_block_body_result_input_from_segment` が必要な時点で作ります。
+//:
+//: [契約/けいやく]:
+//: - 成功時の `SelfhostBodySegmentList` owner は caller が必ず `selfhost_body_segment_list_free` で閉じます。
+//: - segment 化の失敗だけを `SegmentFailed` へ写します。空 body、nested block、各行の prefix/candidate failure は caller 側で既存 error kind へ写します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(segments)`: nested body の top-level segment list です。
+//: - `Err(SegmentFailed)`: body envelope の segment 化に失敗しました。
+pub fn selfhost_block_body_result_segments_from_trailing_block %impure fn &Vec SelfhostToken impure fn SelfhostTrailingBlockArgument Result SelfhostBodySegmentList SelfhostBlockBodyResultError \tokens\block_arg:
+    match selfhost_body_segment_list_from_envelope tokens block_arg.body:
+        Result::Ok segments:
+            Result::Ok segments
         Result::Err segment_error:
             Result::Err selfhost_block_body_result_error_new SelfhostBlockBodyResultErrorKind::SegmentFailed segment_error.span

@@ -5,12 +5,13 @@
 //:
 //: [目的/もくてき]:
 //: - `NestedDirectCall` や `BlockResult` のような複合 argument を、source token の再読ではなく checked tree node id で参照できるようにします。
-//: - owner を持つ child argument list は checked tree 本体へ置き、`SelfhostCheckedArgumentKind` には Copy できる id / range だけを入れる設計にします。
+//: - owner を持つ child argument list と block child expression id list は checked tree 本体へ置き、`SelfhostCheckedArgumentKind` や node payload には Copy できる id / range だけを入れる設計にします。
 //:
 //: [契約/けいやく]:
 //: - `SelfhostCheckedExprId` は 1 つの `SelfhostCheckedExprTree` の中だけで有効な arena-local id です。別の tree や HIR module の id と混ぜてはいけません。
 //: - `SelfhostCheckedArgumentRange` は checked tree の argument table 上の半開範囲 `[first_argument, first_argument + argument_count)` を表します。
-//: - 空 argument range は `Empty` variant で表し、`-1` などの sentinel 値を使いません。
+//: - `SelfhostCheckedExprRange` は checked tree の expression id table 上の半開範囲 `[first_expr, first_expr + expr_count)` を表します。
+//: - 空 range は `Empty` variant で表し、`-1` などの sentinel 値を使いません。
 //:
 //: [計算量/けいさんりょう]:
 //: - id / range の構築と accessor は O(1) です。
@@ -121,10 +122,44 @@ impl Copy for SelfhostCheckedArgumentRange:
     fn copy_mark %fn SelfhostCheckedArgumentRange SelfhostCheckedArgumentRange \self:
         self
 
+//: SelfhostCheckedExprRangeItems: nonempty checked expression id table 範囲
+//:
+//: [目的/もくてき]:
+//: - checked block sequence node が持つ body expression root の列を、tree の expression id table 上の連続範囲として保持します。
+//: - `SelfhostCheckedExprTree.nodes` の全 node 範囲ではなく、block child として評価する root id だけの table を指します。
+pub struct SelfhostCheckedExprRangeItems:
+    first_expr %i32
+    expr_count %i32
+
+impl Clone for SelfhostCheckedExprRangeItems:
+    fn clone %fn &SelfhostCheckedExprRangeItems SelfhostCheckedExprRangeItems \self:
+        *self
+
+impl Copy for SelfhostCheckedExprRangeItems:
+    fn copy_mark %fn SelfhostCheckedExprRangeItems SelfhostCheckedExprRangeItems \self:
+        self
+
+//: SelfhostCheckedExprRange: checked expression id table 上の連続範囲
+//:
+//: [目的/もくてき]:
+//: - block body が複数の top-level expression を持つ場合に、各 expression の checked tree root id を順序つきで保存します。
+//: - 空 block は checker 側で `TrailingBlockBodyEmpty` として拒否するため、通常の accepted tree では nonempty range だけを使います。
+pub enum SelfhostCheckedExprRange:
+    Empty
+    Range %SelfhostCheckedExprRangeItems
+
+impl Clone for SelfhostCheckedExprRange:
+    fn clone %fn &SelfhostCheckedExprRange SelfhostCheckedExprRange \self:
+        *self
+
+impl Copy for SelfhostCheckedExprRange:
+    fn copy_mark %fn SelfhostCheckedExprRange SelfhostCheckedExprRange \self:
+        self
+
 //: SelfhostCheckedTreeRangeBuildError: checked tree range 構築失敗分類
 //:
 //: [目的/もくてき]:
-//: - range の負 index、負 count、非正規 empty、overflow、table 外参照を enum で分けます。
+//: - argument / expression range の負 index、負 count、非正規 empty、overflow、table 外参照を enum で分けます。
 pub enum SelfhostCheckedTreeRangeBuildError:
     NegativeFirst
     NegativeCount
@@ -269,3 +304,101 @@ pub fn selfhost_checked_argument_range_count %fn SelfhostCheckedArgumentRange i3
             0
         SelfhostCheckedArgumentRange::Range items:
             items.argument_count
+
+//: selfhost_checked_expr_range_empty: checked expression id の空範囲を[返/かえ]す
+pub fn selfhost_checked_expr_range_empty %fn void SelfhostCheckedExprRange \void:
+    SelfhostCheckedExprRange::Empty
+
+//: selfhost_checked_expr_range_new_unchecked: 証明済み nonempty checked expression id range を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - `first_expr >= 0`、`expr_count > 0`、end が table 内であることを検査しません。
+//:
+//: [契約/けいやく]:
+//: - この constructor は、tree の expression id table へ root id list を追加した直後など、開始位置と個数が同じ owner 操作で証明済みの場合だけ使います。
+//: - 空 range には使わず、必ず `selfhost_checked_expr_range_empty` を使います。
+//: - table length をまたぐ可能性がある外部入力には使わず、`selfhost_checked_expr_range_new_bounded_result` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築は O(1) です。
+fn selfhost_checked_expr_range_new_unchecked %fn i32 fn i32 SelfhostCheckedExprRange \first_expr\expr_count:
+    SelfhostCheckedExprRange::Range SelfhostCheckedExprRangeItems first_expr expr_count
+
+//: selfhost_checked_expr_range_new_result: checked expression id range を検査して[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `first_expr = 0` かつ `expr_count = 0` だけを canonical empty として受理します。
+//: - `expr_count > 0` の場合は end overflow を検査します。table length までは確認しません。
+pub fn selfhost_checked_expr_range_new_result %fn i32 fn i32 Result SelfhostCheckedExprRange SelfhostCheckedTreeRangeBuildError \first_expr\expr_count:
+    if:
+        lt first_expr 0
+        then:
+            Result::Err SelfhostCheckedTreeRangeBuildError::NegativeFirst
+        else:
+            if:
+                lt expr_count 0
+                then:
+                    Result::Err SelfhostCheckedTreeRangeBuildError::NegativeCount
+                else:
+                    if:
+                        eq expr_count 0
+                        then:
+                            if:
+                                eq first_expr 0
+                                then:
+                                    Result::Ok selfhost_checked_expr_range_empty
+                                else:
+                                    Result::Err SelfhostCheckedTreeRangeBuildError::NonCanonicalEmpty
+                        else:
+                            if:
+                                gt expr_count sub 2147483647 first_expr
+                                then:
+                                    Result::Err SelfhostCheckedTreeRangeBuildError::EndOverflow
+                                else:
+                                    Result::Ok selfhost_checked_expr_range_new_unchecked first_expr expr_count
+
+//: selfhost_checked_expr_range_new_bounded_result: table 長で checked expression id range を検査する
+//:
+//: [目的/もくてき]:
+//: - checked tree の expression id table から range を読む前に、範囲が table 内に収まることを確認します。
+pub fn selfhost_checked_expr_range_new_bounded_result %fn i32 fn i32 fn i32 Result SelfhostCheckedExprRange SelfhostCheckedTreeRangeBuildError \first_expr\expr_count\table_len:
+    match selfhost_checked_expr_range_new_result first_expr expr_count:
+        Result::Ok range:
+            if:
+                lt table_len 0
+                then:
+                    Result::Err SelfhostCheckedTreeRangeBuildError::OutOfBounds
+                else:
+                    match range:
+                        SelfhostCheckedExprRange::Empty:
+                            Result::Ok range
+                        SelfhostCheckedExprRange::Range items:
+                            if:
+                                gt items.first_expr table_len
+                                then:
+                                    Result::Err SelfhostCheckedTreeRangeBuildError::OutOfBounds
+                                else:
+                                    if:
+                                        gt items.expr_count sub table_len items.first_expr
+                                        then:
+                                            Result::Err SelfhostCheckedTreeRangeBuildError::OutOfBounds
+                                        else:
+                                            Result::Ok range
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_checked_expr_range_first: checked expression id range の開始 index を[返/かえ]す
+pub fn selfhost_checked_expr_range_first %fn SelfhostCheckedExprRange i32 \range:
+    match range:
+        SelfhostCheckedExprRange::Empty:
+            0
+        SelfhostCheckedExprRange::Range items:
+            items.first_expr
+
+//: selfhost_checked_expr_range_count: checked expression id range の要素数を[返/かえ]す
+pub fn selfhost_checked_expr_range_count %fn SelfhostCheckedExprRange i32 \range:
+    match range:
+        SelfhostCheckedExprRange::Empty:
+            0
+        SelfhostCheckedExprRange::Range items:
+            items.expr_count

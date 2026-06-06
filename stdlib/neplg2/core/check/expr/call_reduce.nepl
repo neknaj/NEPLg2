@@ -23,6 +23,7 @@
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
 #import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/ty" as *
 #import "./expectation" as *
@@ -756,44 +757,221 @@ fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec 
             selfhost_checked_expr_tree_free checked_tree
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
 
+//: selfhost_call_reduce_trailing_block_sequence_line_expected: block sequence の各行に渡す expected type を[決/き]める
+//:
+//: [目的/もくてき]:
+//: - 複数式 block では、最後の expression が block result になり、最後以外の expression は値を外へ返さない statement 位置になります。
+//: - statement 位置の expression を暗黙に任意型破棄しないため、この slice では `unit` 型を expected type として要求します。
+//:
+//: [契約/けいやく]:
+//: - `idx == count - 1` の行には outer parameter の `expected_type` を `BlockResult` として渡します。
+//: - 非末尾行には dispatcher が sequence 単位で一度だけ解決した `unit_type` を `BlockSequenceDiscardedExpression` として渡します。
+//: - `unit_type` の探索はこの関数では行いません。複数式 block に入る前に `selfhost_type_arena_find_kind` で解決し、失敗時は `TrailingBlockBodyUnitTypeMissing` として fail-closed にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(expectation)`: この行に渡す expected type evidence です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum branch と TypeId の包み込みだけなので O(1) です。
+fn selfhost_call_reduce_trailing_block_sequence_line_expected %fn SelfhostTypeId fn SelfhostTypeId fn i32 fn i32 fn SelfhostSourceSpan Option SelfhostTypeExpectation \expected_type\unit_type\idx\count\line_span:
+    if:
+        eq idx sub count 1
+        then:
+            some selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::BlockResult line_span
+        else:
+            some selfhost_type_expectation_new unit_type SelfhostTypeExpectationSource::BlockSequenceDiscardedExpression line_span
+
+//: selfhost_call_reduce_trailing_block_sequence_loop: 複数式 block body を source order で[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` が複数 top-level expression を持つ場合に、各 expression line を同じ checked tree へ順に追加します。
+//: - 最後の expression だけに outer parameter の expected type を渡し、非末尾 expression には `unit` expected type を渡します。
+//:
+//: [契約/けいやく]:
+//: - `segments` と `body_exprs` はこの関数が成功・失敗どちらでも消費します。
+//: - 各 segment は `ExpressionLine` でなければならず、nested `BlockIntro` は `TrailingBlockBodyNestedBlockUnsupported` として fail-closed にします。
+//: - 途中の expression は dispatcher が解決済みの `unit_type` を持つ `BlockSequenceDiscardedExpression` expectation で検査し、最後の expression は `BlockResult` expectation で検査します。
+//: - すべての body root id は同じ `checked_tree` に閉じ、最後に `BlockSequence` node へまとめます。source 再読や candidate 再探索を HIR lowering に残してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(state)`: block sequence node を指す `CheckedExpr` argument が作られました。
+//: - `Err(error)`: segment 取得、行の入力構築、再帰 reduction、root id list 追加、checked tree 追加のいずれかに失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - top-level expression 数を n とすると、n 回の行 input 構築と n 回の source-backed reducer 呼び出しに比例します。`unit` type の探索は loop 外で 1 回だけ行います。各行の候補収集コストは `candidate_collection.nepl` の契約に従います。
+fn selfhost_call_reduce_trailing_block_sequence_loop %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn Vec SelfhostCheckedExprId impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostBodySegmentList impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostSourceSpan Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\body_exprs\scope\value_types\signatures\expected_type\unit_type\segments\idx\count\item_index\block_span:
+    if:
+        ge idx count
+        then:
+            selfhost_body_segment_list_free segments
+            match selfhost_checked_expr_tree_add_block_sequence checked_tree expected_type block_span body_exprs:
+                Result::Ok alloc:
+                    let expr_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &alloc
+                    let next_tree %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree alloc
+                    let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new item_index
+                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_checked_expr item_index item_index expected_type block_span expr_id
+                    Result::Ok selfhost_call_reduce_argument_match_state_new arena next_tree match_value checked_argument
+                Result::Err tree_error:
+                    selfhost_type_arena_free arena
+                    Result::Err selfhost_call_reduce_error_from_checked_tree_std_error tree_error block_span
+        else:
+            match selfhost_body_segment_list_get &segments idx:
+                Option::Some segment:
+                    match selfhost_block_body_result_input_from_segment tokens source scope signatures segment:
+                        Result::Ok input:
+                            let line_span %SelfhostSourceSpan selfhost_block_body_result_input_span &input
+                            let line_expected %Option SelfhostTypeExpectation selfhost_call_reduce_trailing_block_sequence_line_expected expected_type unit_type idx count line_span
+                            let prefix %&SelfhostExprPrefixList selfhost_block_body_result_input_prefix &input
+                            let candidates %&Vec SelfhostCallableCandidate selfhost_block_body_result_input_candidates &input
+                            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates line_expected none
+                            selfhost_block_body_result_input_free input
+                            match reduced:
+                                Result::Ok owned:
+                                    let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
+                                    let checked_arena %SelfhostTypeArena field::get parts "arena"
+                                    let body_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
+                                    let body_expr %SelfhostCheckedExprId field::get parts "root_expr"
+                                    let body_args %Vec SelfhostCheckedArgument field::get parts "checked_arguments"
+                                    v::free body_args
+                                    match v::push body_exprs body_expr:
+                                        Result::Ok next_body_exprs:
+                                            selfhost_call_reduce_trailing_block_sequence_loop tokens source checked_arena body_tree next_body_exprs scope value_types signatures expected_type unit_type segments add idx 1 count item_index block_span
+                                        Result::Err push_error:
+                                            selfhost_type_arena_free checked_arena
+                                            selfhost_checked_expr_tree_free body_tree
+                                            selfhost_body_segment_list_free segments
+                                            v::free v::vec_push_error_vec push_error
+                                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory line_span
+                                Result::Err e:
+                                    selfhost_body_segment_list_free segments
+                                    v::free body_exprs
+                                    Result::Err e
+                        Result::Err block_error:
+                            selfhost_type_arena_free arena
+                            selfhost_checked_expr_tree_free checked_tree
+                            selfhost_body_segment_list_free segments
+                            v::free body_exprs
+                            Result::Err selfhost_call_reduce_error_from_block_body_result block_error
+                Option::None:
+                    selfhost_type_arena_free arena
+                    selfhost_checked_expr_tree_free checked_tree
+                    selfhost_body_segment_list_free segments
+                    v::free body_exprs
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant block_span
+
+//: selfhost_call_reduce_trailing_block_body_single_result: 1式の末尾 block argument を `BlockResult` node へ[縮約/しゅくやく]する
+//:
+//: [目的/もくてき]:
+//: - すでに segment 済みの block body が 1 個の top-level expression だけを持つ場合に、その expression を `BlockResult` expectation で検査します。
+//: - segment list を作り直さず、dispatcher が一度だけ作った `segments` owner を消費します。
+//:
+//: [契約/けいやく]:
+//: - `segments` owner は成功・失敗どちらでもこの関数が閉じます。
+//: - `segments` の 0 番目が存在しない場合は `InternalInvariant` です。
+//: - nested `BlockIntro` や prefix/candidate 構築失敗は block body error kind から call reduce error kind へ写します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(state)`: block result node を指す `CheckedExpr` argument が作られました。
+//: - `Err(error)`: 入力構築、再帰 reduction、checked tree 追加のいずれかに失敗しました。
+fn selfhost_call_reduce_trailing_block_body_single_result %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostTypeId impure fn SelfhostBodySegmentList impure fn SelfhostSourceSpan impure fn i32 Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\scope\value_types\signatures\expected_type\segments\block_span\item_index:
+    match selfhost_body_segment_list_get &segments 0:
+        Option::Some segment:
+            match selfhost_block_body_result_input_from_segment tokens source scope signatures segment:
+                Result::Ok input:
+                    selfhost_body_segment_list_free segments
+                    let block_expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::BlockResult block_span
+                    let prefix %&SelfhostExprPrefixList selfhost_block_body_result_input_prefix &input
+                    let candidates %&Vec SelfhostCallableCandidate selfhost_block_body_result_input_candidates &input
+                    let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates some block_expected none
+                    selfhost_block_body_result_input_free input
+                    match reduced:
+                        Result::Ok owned:
+                            let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
+                            let checked_arena %SelfhostTypeArena field::get parts "arena"
+                            let body_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
+                            let body_expr %SelfhostCheckedExprId field::get parts "root_expr"
+                            let body_args %Vec SelfhostCheckedArgument field::get parts "checked_arguments"
+                            v::free body_args
+                            match selfhost_checked_expr_tree_add_block_result body_tree expected_type block_span body_expr:
+                                Result::Ok alloc:
+                                    let expr_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &alloc
+                                    let next_tree %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree alloc
+                                    let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new item_index
+                                    let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_checked_expr item_index item_index expected_type block_span expr_id
+                                    Result::Ok selfhost_call_reduce_argument_match_state_new checked_arena next_tree match_value checked_argument
+                                Result::Err tree_error:
+                                    selfhost_type_arena_free checked_arena
+                                    Result::Err selfhost_call_reduce_error_from_checked_tree_std_error tree_error block_span
+                        Result::Err e:
+                            Result::Err e
+                Result::Err block_error:
+                    selfhost_body_segment_list_free segments
+                    selfhost_type_arena_free arena
+                    selfhost_checked_expr_tree_free checked_tree
+                    Result::Err selfhost_call_reduce_error_from_block_body_result block_error
+        Option::None:
+            selfhost_body_segment_list_free segments
+            selfhost_type_arena_free arena
+            selfhost_checked_expr_tree_free checked_tree
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant block_span
+
+//: selfhost_call_reduce_trailing_block_body_segments_result: segment 済み末尾 block body を single / sequence へ[振/ふ]り[分/わ]ける
+//:
+//: [目的/もくてき]:
+//: - `BlockIntro.body` を一度だけ segment 化した結果を受け取り、1 segment なら `BlockResult`、複数 segment なら `BlockSequence` として検査します。
+//: - 複数式 block は正常系なので、`MultipleSegments` error fallback や再 segment 化を経由しません。
+//:
+//: [契約/けいやく]:
+//: - `segments` owner はこの関数または下位 helper が必ず閉じます。
+//: - 空 body は `TrailingBlockBodyEmpty` です。
+//: - 複数式 body では `body_exprs` owner を作り、下位 loop が各 expression root id を追加して閉じます。
+//: - 複数式 body に入る時点で `unit` TypeId を一度だけ検索し、非末尾 expression の expectation へ渡します。arena に `unit` 型が存在しない場合は `TrailingBlockBodyUnitTypeMissing` として fail-closed にし、`SelfhostTypeId 0` のような fixture 依存を使いません。
+fn selfhost_call_reduce_trailing_block_body_segments_result %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostTypeId impure fn SelfhostBodySegmentList impure fn SelfhostSourceSpan impure fn i32 Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\scope\value_types\signatures\expected_type\segments\block_span\item_index:
+    let count %i32 selfhost_body_segment_list_len &segments
+    if:
+        eq count 0
+        then:
+            selfhost_body_segment_list_free segments
+            selfhost_type_arena_free arena
+            selfhost_checked_expr_tree_free checked_tree
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodyEmpty block_span
+        else:
+            if:
+                eq count 1
+                then:
+                    selfhost_call_reduce_trailing_block_body_single_result tokens source arena checked_tree scope value_types signatures expected_type segments block_span item_index
+                else:
+                    match selfhost_type_arena_find_kind &arena SelfhostTypeKind::Unit:
+                        Option::Some unit_type:
+                            let body_exprs_result %Result Vec SelfhostCheckedExprId StdErrorKind v::new
+                            match body_exprs_result:
+                                Result::Ok body_exprs:
+                                    selfhost_call_reduce_trailing_block_sequence_loop tokens source arena checked_tree body_exprs scope value_types signatures expected_type unit_type segments 0 count item_index block_span
+                                Result::Err _e:
+                                    selfhost_body_segment_list_free segments
+                                    selfhost_type_arena_free arena
+                                    selfhost_checked_expr_tree_free checked_tree
+                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OutOfMemory block_span
+                        Option::None:
+                            selfhost_body_segment_list_free segments
+                            selfhost_type_arena_free arena
+                            selfhost_checked_expr_tree_free checked_tree
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::TrailingBlockBodyUnitTypeMissing block_span
+
 //: selfhost_call_reduce_trailing_block_body_result: 末尾 block argument を `BlockResult` expectation で[縮約/しゅくやく]する
 //:
 //: [目的/もくてき]:
 //: - `BlockIntro.body` を、次に不足している parameter の 1 実引数式として検査します。
-//: - nested body envelope は `block_body.nepl` で単一 expression line に分解し、その expression を既存の source-backed call reducer へ渡します。
+//: - nested body envelope は `block_body.nepl` で expression line に分解します。単一式なら `BlockResult`、複数式なら `BlockSequence` として同じ checked tree へ保存します。
 //:
 //: [契約/けいやく]:
 //: - 成功時は block body expression が `expected_type` を返すことまで確認済みの arena owner を返します。
 //: - 失敗時は、この関数が受け取った arena owner を閉じるか、再帰 reducer が閉じた状態で typed error を返します。
-//: - block body の prefix/candidate owner は、再帰 reducer が成功しても失敗しても必ず解放します。
+//: - block body の prefix/candidate/segment/root id owner は、再帰 reducer が成功しても失敗しても必ず解放します。
 fn selfhost_call_reduce_trailing_block_body_result %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostTypeId impure fn SelfhostTrailingBlockArgument impure fn i32 Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\scope\value_types\signatures\expected_type\block_arg\item_index:
-    match selfhost_block_body_result_input_from_trailing_block tokens source scope signatures block_arg:
-        Result::Ok input:
-            let block_expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::BlockResult block_arg.span
-            let prefix %&SelfhostExprPrefixList selfhost_block_body_result_input_prefix &input
-            let candidates %&Vec SelfhostCallableCandidate selfhost_block_body_result_input_candidates &input
-            let reduced %Result SelfhostCallReduceOwnedResult SelfhostCallReduceError selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates some block_expected none
-            selfhost_block_body_result_input_free input
-            match reduced:
-                Result::Ok owned:
-                    let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
-                    let checked_arena %SelfhostTypeArena field::get parts "arena"
-                    let body_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
-                    let body_expr %SelfhostCheckedExprId field::get parts "root_expr"
-                    let body_args %Vec SelfhostCheckedArgument field::get parts "checked_arguments"
-                    v::free body_args
-                    match selfhost_checked_expr_tree_add_block_result body_tree expected_type block_arg.span body_expr:
-                        Result::Ok alloc:
-                            let expr_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &alloc
-                            let next_tree %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree alloc
-                            let match_value %SelfhostExprArgumentMatch selfhost_expr_argument_match_new item_index
-                            let checked_argument %SelfhostCheckedArgument selfhost_checked_argument_checked_expr item_index item_index expected_type block_arg.span expr_id
-                            Result::Ok selfhost_call_reduce_argument_match_state_new checked_arena next_tree match_value checked_argument
-                        Result::Err tree_error:
-                            selfhost_type_arena_free checked_arena
-                            Result::Err selfhost_call_reduce_error_from_checked_tree_std_error tree_error block_arg.span
-                Result::Err e:
-                    Result::Err e
+    match selfhost_block_body_result_segments_from_trailing_block tokens block_arg:
+        Result::Ok segments:
+            selfhost_call_reduce_trailing_block_body_segments_result tokens source arena checked_tree scope value_types signatures expected_type segments block_arg.span item_index
         Result::Err block_error:
             selfhost_type_arena_free arena
             selfhost_checked_expr_tree_free checked_tree

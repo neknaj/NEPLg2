@@ -78,6 +78,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub enum SelfhostTypeExpectationSource:[\s\S]*ExplicitAscription[\s\S]*BlockResult[\s\S]*BlockSequenceDiscardedExpression[\s\S]*OuterConsumerArgument/,
+    "expected type source must distinguish explicit ascription, block result, discarded block-sequence expressions, and outer call arguments",
+);
+assert.match(
+    source,
     /pub enum SelfhostGenericInferenceState:[\s\S]*NoneRequired[\s\S]*Unique[\s\S]*EvidenceMissing[\s\S]*Conflict[\s\S]*Unsupported/,
     "generic inference must use an explicit enum instead of an ambiguous optional type",
 );
@@ -168,7 +173,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*TrailingBlockBodySegmentFailed[\s\S]*TrailingBlockBodyEmpty[\s\S]*TrailingBlockBodyMultipleSegments[\s\S]*TrailingBlockBodyNestedBlockUnsupported[\s\S]*TrailingBlockBodyPrefixBuildFailed[\s\S]*TrailingBlockBodyCandidateCollectFailed[\s\S]*UnexpectedTrailingBlockArgument[\s\S]*UnsupportedArgumentExpression/,
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*TrailingBlockBodySegmentFailed[\s\S]*TrailingBlockBodyEmpty[\s\S]*TrailingBlockBodyMultipleSegments[\s\S]*TrailingBlockBodyNestedBlockUnsupported[\s\S]*TrailingBlockBodyPrefixBuildFailed[\s\S]*TrailingBlockBodyCandidateCollectFailed[\s\S]*TrailingBlockBodyUnitTypeMissing[\s\S]*UnexpectedTrailingBlockArgument[\s\S]*UnsupportedArgumentExpression/,
     "trailing block argument body failures must stay typed instead of collapsing into partial application or generic unsupported argument errors",
 );
 assert.match(
@@ -184,7 +189,7 @@ assert.match(
 assert.match(
     source,
     /selfhost_body_segment_list_len &segments[\s\S]*SelfhostBlockBodyResultErrorKind::EmptyBody[\s\S]*SelfhostBlockBodyResultErrorKind::MultipleSegments[\s\S]*selfhost_body_segment_list_get &segments 0/,
-    "trailing block body checking must reject empty and multi-segment bodies before call reduction",
+    "single trailing block body input API must classify empty and multi-segment bodies before building a single reducer input",
 );
 assert.match(
     source,
@@ -206,6 +211,11 @@ assert.match(
     /# check\/expr\/checked_tree_id[\s\S]*pub struct SelfhostCheckedExprId:[\s\S]*index %i32[\s\S]*pub enum SelfhostCheckedArgumentRange:[\s\S]*Empty[\s\S]*Range %SelfhostCheckedArgumentRangeItems[\s\S]*pub enum SelfhostCheckedTreeRangeBuildError:[\s\S]*NegativeFirst[\s\S]*NegativeCount[\s\S]*NonCanonicalEmpty[\s\S]*EndOverflow[\s\S]*OutOfBounds/,
     "checked tree ids and argument ranges must use typed ids, typed ranges, and typed build errors instead of sentinel values",
 );
+assert.match(
+    source,
+    /# check\/expr\/checked_tree_id[\s\S]*pub struct SelfhostCheckedExprRangeItems:[\s\S]*first_expr %i32[\s\S]*expr_count %i32[\s\S]*pub enum SelfhostCheckedExprRange:[\s\S]*Empty[\s\S]*Range %SelfhostCheckedExprRangeItems[\s\S]*pub fn selfhost_checked_expr_range_new_bounded_result[\s\S]*pub fn selfhost_checked_expr_range_count/,
+    "checked tree ids must include typed expression-id ranges for block sequence roots",
+);
 assert.doesNotMatch(
     source,
     /pub fn selfhost_checked_(?:expr_id|argument_range)_new_unchecked\b/,
@@ -213,13 +223,13 @@ assert.doesNotMatch(
 );
 assert.match(
     source,
-    /# check\/expr\/checked_tree[\s\S]*pub struct SelfhostCheckedDirectCall:[\s\S]*candidate %SelfhostCallableCandidate[\s\S]*arguments %SelfhostCheckedArgumentRange[\s\S]*pub enum SelfhostCheckedExprNodeKind:[\s\S]*DirectCall %SelfhostCheckedDirectCall[\s\S]*BlockResult %SelfhostCheckedExprId[\s\S]*pub struct SelfhostCheckedExprTree:[\s\S]*nodes %Vec SelfhostCheckedExprNode[\s\S]*arguments %Vec SelfhostCheckedArgument/,
-    "checked tree must own complex expression nodes and argument payload tables separately from Copy checked argument summaries",
+    /# check\/expr\/checked_tree[\s\S]*pub struct SelfhostCheckedDirectCall:[\s\S]*candidate %SelfhostCallableCandidate[\s\S]*arguments %SelfhostCheckedArgumentRange[\s\S]*pub enum SelfhostCheckedExprNodeKind:[\s\S]*DirectCall %SelfhostCheckedDirectCall[\s\S]*BlockResult %SelfhostCheckedExprId[\s\S]*BlockSequence %SelfhostCheckedExprRange[\s\S]*pub struct SelfhostCheckedExprTree:[\s\S]*nodes %Vec SelfhostCheckedExprNode[\s\S]*arguments %Vec SelfhostCheckedArgument[\s\S]*exprs %Vec SelfhostCheckedExprId/,
+    "checked tree must own complex expression nodes, argument payload tables, and block expression-id tables separately from Copy checked argument summaries",
 );
 assert.match(
     source,
-    /fn selfhost_checked_expr_node_refs_existing_before_append[\s\S]*SelfhostCheckedExprNodeKind::DirectCall call_payload:[\s\S]*selfhost_checked_argument_range_new_bounded_result[\s\S]*selfhost_checked_argument_range_refs_existing_before_append[\s\S]*SelfhostCheckedExprNodeKind::BlockResult body_expr:[\s\S]*selfhost_checked_expr_id_is_existing_before_append/,
-    "checked tree node insertion must validate argument ranges and require CheckedExpr/BlockResult references to point to existing nodes before append",
+    /fn selfhost_checked_expr_node_refs_existing_before_append[\s\S]*SelfhostCheckedExprNodeKind::DirectCall call_payload:[\s\S]*selfhost_checked_argument_range_new_bounded_result[\s\S]*selfhost_checked_argument_range_refs_existing_before_append[\s\S]*SelfhostCheckedExprNodeKind::BlockResult body_expr:[\s\S]*selfhost_checked_expr_id_is_existing_before_append[\s\S]*SelfhostCheckedExprNodeKind::BlockSequence body_exprs:[\s\S]*selfhost_checked_expr_range_new_bounded_result[\s\S]*selfhost_checked_expr_range_refs_existing_before_append/,
+    "checked tree node insertion must validate argument ranges and require CheckedExpr/BlockResult/BlockSequence references to point to existing nodes before append",
 );
 assert.match(
     source,
@@ -233,8 +243,23 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_checked_expr_tree_add_expr_range[\s\S]*not selfhost_checked_expr_vec_refs_existing_before_append[\s\S]*StdErrorKind::InvalidOperation[\s\S]*selfhost_checked_expr_range_new_bounded_result/,
+    "checked tree expression-range insertion must reject future/self expression ids and build bounded typed ranges",
+);
+assert.match(
+    source,
+    /pub fn selfhost_checked_expr_tree_add_block_sequence[\s\S]*eq v::len &body_exprs_to_add 0[\s\S]*StdErrorKind::InvalidOperation[\s\S]*selfhost_checked_expr_tree_add_expr_range tree body_exprs_to_add[\s\S]*selfhost_checked_expr_node_block_sequence result_type span expr_range[\s\S]*selfhost_checked_expr_tree_add_node next_tree node/,
+    "checked tree block-sequence insertion must store a nonempty range of checked expression root ids before appending the block node",
+);
+assert.match(
+    source,
     /pub fn selfhost_checked_expr_tree_get_argument[\s\S]*SelfhostCheckedArgumentRange::Empty:[\s\S]*none[\s\S]*SelfhostCheckedArgumentRange::Range range:[\s\S]*or lt idx 0 ge idx range\.argument_count[\s\S]*v::get arguments add range\.first_argument idx/,
     "checked tree argument lookup must bounds-check typed ranges and fail closed with Option::None",
+);
+assert.match(
+    source,
+    /pub fn selfhost_checked_expr_tree_get_expr_id[\s\S]*SelfhostCheckedExprRange::Empty:[\s\S]*none[\s\S]*SelfhostCheckedExprRange::Range range:[\s\S]*or lt idx 0 ge idx range\.expr_count[\s\S]*v::get exprs add range\.first_expr idx/,
+    "checked tree expression-id lookup must bounds-check typed ranges and fail closed with Option::None",
 );
 assert.match(
     argumentPayload,
@@ -788,6 +813,16 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_make_trailing_block_sequence_tokens[\s\S]*selfhost_check_expr_stage1_run_trailing_block_sequence_with_tokens[\s\S]*selfhost_check_expr_stage1_make_trailing_block_sequence_non_unit_tokens[\s\S]*selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_tokens/,
+    "stage1 must smoke-test that a multi-expression trailing block succeeds only when non-final expressions satisfy the unit expectation",
+);
+assert.match(
+    source,
+    /pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line/,
+    "public stage1 body-line smoke must include the block sequence success and non-unit rejection fixture",
+);
+assert.match(
+    source,
     /selfhost_check_expr_stage1_value_context_with_shadowed_function_value[\s\S]*SelfhostDefKind::Function[\s\S]*SelfhostDefKind::Local[\s\S]*selfhost_check_expr_stage1_make_shadowed_function_argument_tokens[\s\S]*"add add 2"[\s\S]*selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence/,
     "stage1 must smoke-test that a latest local binding shadows an older same-name function candidate",
 );
@@ -818,8 +853,28 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_input_from_trailing_block tokens source scope signatures block_arg[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates some block_expected none[\s\S]*selfhost_checked_expr_tree_add_block_result body_tree expected_type block_arg\.span body_expr[\s\S]*selfhost_checked_argument_checked_expr item_index item_index expected_type block_arg\.span expr_id/,
-    "call reduction must recursively check a trailing block body in the same checked tree and return a CheckedExpr BlockResult payload",
+    /fn selfhost_call_reduce_trailing_block_body_single_result[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates some block_expected none[\s\S]*selfhost_checked_expr_tree_add_block_result body_tree expected_type block_span body_expr[\s\S]*selfhost_checked_argument_checked_expr item_index item_index expected_type block_span expr_id[\s\S]*selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_segments_from_trailing_block tokens block_arg[\s\S]*selfhost_call_reduce_trailing_block_body_segments_result tokens source arena checked_tree scope value_types signatures expected_type segments block_arg\.span item_index/,
+    "call reduction must segment a trailing block body once, then recursively check a single body expression in the same checked tree and return a CheckedExpr BlockResult payload",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_trailing_block_sequence_loop[\s\S]*selfhost_checked_expr_tree_add_block_sequence checked_tree expected_type block_span body_exprs[\s\S]*selfhost_checked_argument_checked_expr item_index item_index expected_type block_span expr_id/,
+    "multi-expression trailing block reduction must return a CheckedExpr BlockSequence payload at loop completion",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_trailing_block_sequence_line_expected[\s\S]*SelfhostTypeId fn SelfhostTypeId[\s\S]*\\expected_type\\unit_type\\idx\\count\\line_span[\s\S]*eq idx sub count 1[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*SelfhostTypeExpectationSource::BlockSequenceDiscardedExpression/,
+    "multi-expression trailing block reduction must use the outer expected type only for the last expression and a pre-resolved unit type for discarded earlier expressions",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_trailing_block_sequence_loop[\s\S]*\\expected_type\\unit_type\\segments\\idx\\count\\item_index\\block_span[\s\S]*selfhost_block_body_result_input_from_segment tokens source scope signatures segment[\s\S]*selfhost_call_reduce_trailing_block_sequence_line_expected expected_type unit_type idx count line_span[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates line_expected none[\s\S]*v::push body_exprs body_expr[\s\S]*selfhost_call_reduce_trailing_block_sequence_loop tokens source checked_arena body_tree next_body_exprs scope value_types signatures expected_type unit_type/,
+    "multi-expression trailing block reduction must check each body line in source order and collect checked root expression ids",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_trailing_block_body_segments_result[\s\S]*let count %i32 selfhost_body_segment_list_len &segments[\s\S]*eq count 0[\s\S]*TrailingBlockBodyEmpty[\s\S]*eq count 1[\s\S]*selfhost_call_reduce_trailing_block_body_single_result tokens source arena checked_tree scope value_types signatures expected_type segments block_span item_index[\s\S]*selfhost_type_arena_find_kind &arena SelfhostTypeKind::Unit[\s\S]*selfhost_call_reduce_trailing_block_sequence_loop tokens source arena checked_tree body_exprs scope value_types signatures expected_type unit_type[\s\S]*TrailingBlockBodyUnitTypeMissing/,
+    "multi-segment trailing block bodies must segment once, resolve the unit type once, and branch to the BlockSequence reducer instead of using a MultipleSegments error fallback",
 );
 assert.match(
     bodyLine,

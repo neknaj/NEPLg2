@@ -124,6 +124,8 @@ for (const name of [
     "selfhost_hir_lower_checked_tree_argument_range",
     "selfhost_hir_lower_checked_tree_direct_call_node",
     "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr_range",
+    "selfhost_hir_lower_checked_tree_block_sequence_node",
     "selfhost_hir_lower_checked_tree_expr",
     "selfhost_hir_lower_direct_call_result",
     "selfhost_hir_lower_expression_line_success_direct_call",
@@ -141,6 +143,8 @@ for (const name of [
     "selfhost_hir_lower_checked_tree_argument_range",
     "selfhost_hir_lower_checked_tree_direct_call_node",
     "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr_range",
+    "selfhost_hir_lower_checked_tree_block_sequence_node",
     "selfhost_hir_lower_checked_tree_expr",
 ]) {
     assertDirectCallDoc(name, ["[契約/けいやく]"]);
@@ -156,6 +160,8 @@ for (const name of [
     "selfhost_hir_lower_checked_tree_argument_range",
     "selfhost_hir_lower_checked_tree_direct_call_node",
     "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr_range",
+    "selfhost_hir_lower_checked_tree_block_sequence_node",
     "selfhost_hir_lower_checked_tree_expr",
     "selfhost_hir_lower_direct_call_result",
     "selfhost_hir_lower_expression_line_success_direct_call",
@@ -175,6 +181,8 @@ for (const name of [
     "selfhost_hir_lower_checked_tree_argument_range",
     "selfhost_hir_lower_checked_tree_direct_call_node",
     "selfhost_hir_lower_checked_tree_block_result_node",
+    "selfhost_hir_lower_checked_tree_expr_range",
+    "selfhost_hir_lower_checked_tree_block_sequence_node",
     "selfhost_hir_lower_checked_tree_expr",
     "selfhost_hir_lower_direct_call_result",
     "selfhost_hir_lower_expression_line_success_direct_call",
@@ -218,7 +226,17 @@ assert.match(
 );
 assert.match(
     directCall,
-    /fn selfhost_hir_lower_checked_tree_expr_with_fuel[\s\S]*le fuel 0[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeCycleDetected[\s\S]*selfhost_checked_expr_tree_get_node tree expr_id[\s\S]*SelfhostCheckedExprNodeKind::DirectCall call_payload:[\s\S]*selfhost_hir_lower_checked_tree_direct_call_node module tree node call_payload next_fuel[\s\S]*SelfhostCheckedExprNodeKind::BlockResult body_expr:[\s\S]*selfhost_hir_lower_checked_tree_block_result_node module tree node body_expr next_fuel[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing fallback_span/,
+    /fn selfhost_hir_lower_checked_tree_expr_range[\s\S]*selfhost_checked_expr_range_count expr_range[\s\S]*selfhost_checked_expr_tree_get_expr_id tree expr_range idx[\s\S]*selfhost_hir_lower_checked_tree_expr_with_fuel module tree expr_id block_span fuel[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing block_span/,
+    "checked tree expression-id range lowering must enumerate block sequence roots and fail closed when a root id slot is missing",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_checked_tree_block_sequence_node[\s\S]*selfhost_hir_lower_checked_tree_expr_range module child_ids tree body_exprs 0 node\.span fuel[\s\S]*selfhost_hir_expr_block node\.ty node\.span child_range/,
+    "checked tree block-sequence lowering must lower every stored body root id into one HIR block without rebuilding source prefix lists",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_checked_tree_expr_with_fuel[\s\S]*le fuel 0[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeCycleDetected[\s\S]*selfhost_checked_expr_tree_get_node tree expr_id[\s\S]*SelfhostCheckedExprNodeKind::DirectCall call_payload:[\s\S]*selfhost_hir_lower_checked_tree_direct_call_node module tree node call_payload next_fuel[\s\S]*SelfhostCheckedExprNodeKind::BlockResult body_expr:[\s\S]*selfhost_hir_lower_checked_tree_block_result_node module tree node body_expr next_fuel[\s\S]*SelfhostCheckedExprNodeKind::BlockSequence body_exprs:[\s\S]*selfhost_hir_lower_checked_tree_block_sequence_node module tree node body_exprs next_fuel[\s\S]*SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing fallback_span/,
     "checked tree fuel lowering must dispatch by checked node kind, detect cycles, and fail closed on missing node ids",
 );
 assert.match(

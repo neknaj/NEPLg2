@@ -24,6 +24,7 @@
 pub enum SelfhostTypeExpectationSource:
     ExplicitAscription
     BlockResult
+    BlockSequenceDiscardedExpression
     OuterConsumerArgument
 
 impl Clone for SelfhostTypeExpectationSource:
@@ -68,6 +69,14 @@ pub fn selfhost_type_expectation_source_eq %fn SelfhostTypeExpectationSource fn 
         SelfhostTypeExpectationSource::BlockResult:
             match b:
                 SelfhostTypeExpectationSource::BlockResult:
+                    true
+                SelfhostTypeExpectationSource::BlockSequenceDiscardedExpression:
+                    false
+                _:
+                    false
+        SelfhostTypeExpectationSource::BlockSequenceDiscardedExpression:
+            match b:
+                SelfhostTypeExpectationSource::BlockSequenceDiscardedExpression:
                     true
                 _:
                     false

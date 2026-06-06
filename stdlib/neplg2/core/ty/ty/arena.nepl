@@ -6,6 +6,7 @@
 #import "core/result" as *
 #import "./id" as *
 #import "./kind/model" as *
+#import "./kind/eq" as *
 #import "./record" as *
 
 //: SelfhostTypeArena: self-host type stage の型 table
@@ -256,6 +257,50 @@ pub fn selfhost_type_arena_get_kind %fn &SelfhostTypeArena fn SelfhostTypeId Opt
                     some SelfhostTypeKind::Function
         Option::None:
             none
+
+//: selfhost_type_arena_find_kind_loop: TypeKind が一致する最初の TypeId を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - primitive unit など、caller が特定の型分類を期待型として使いたい場合に、arena 内の既存 TypeId を安全に取得します。
+//: - index 0 などの fixture 依存を checker 側へ漏らさないための内部走査 helper です。
+//:
+//: [契約/けいやく]:
+//: - `idx` から arena 末尾までを左から走査し、最初に `expected_kind` と一致した TypeId を返します。
+//: - 見つからない場合は `none` を返します。caller は必要な primitive が arena にないことを typed error へ写します。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena record 数を n とすると O(n) です。
+fn selfhost_type_arena_find_kind_loop %fn &SelfhostTypeArena fn SelfhostTypeKind fn i32 Option SelfhostTypeId \arena\expected_kind\idx:
+    if:
+        ge idx selfhost_type_arena_len arena
+        then:
+            none
+        else:
+            let type_id %SelfhostTypeId selfhost_type_id_new idx
+            match selfhost_type_arena_get_kind arena type_id:
+                Option::Some actual_kind:
+                    if:
+                        selfhost_type_kind_eq actual_kind expected_kind
+                        then:
+                            some type_id
+                        else:
+                            selfhost_type_arena_find_kind_loop arena expected_kind add idx 1
+                Option::None:
+                    selfhost_type_arena_find_kind_loop arena expected_kind add idx 1
+
+//: selfhost_type_arena_find_kind: TypeKind が一致する最初の TypeId を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - checker が `unit` などの primitive expectation を作るとき、arena-local TypeId を固定 index に決め打ちせず取得できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(type_id)`: arena 内で最初に見つかった同じ TypeKind の TypeId です。
+//: - `none`: arena に該当 kind が存在しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena record 数を n とすると O(n) です。
+pub fn selfhost_type_arena_find_kind %fn &SelfhostTypeArena fn SelfhostTypeKind Option SelfhostTypeId \arena\expected_kind:
+    selfhost_type_arena_find_kind_loop arena expected_kind 0
 
 //: selfhost_type_arena_named_id: named type record の定義 identity を[返/かえ]す
 pub fn selfhost_type_arena_named_id %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostNamedTypeId \arena\type_id:

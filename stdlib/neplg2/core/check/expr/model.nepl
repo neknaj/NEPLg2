@@ -42,8 +42,9 @@ pub struct SelfhostReducedCall:
 //:
 //: [契約/けいやく]:
 //: - `body` は `SelfhostBodySegmentKind::BlockIntro` の nested body envelope です。
-//: - reducer はこの envelope を flat prefix item へ混ぜず、`block_body.nepl` で単一 `ExpressionLine` へ分解してから `BlockResult` expectation で検査します。
-//: - 複数式や nested block など、この slice で安全に縮約できない body は具体的な `TrailingBlockBody*` error として fail-closed にします。
+//: - reducer はこの envelope を flat prefix item へ混ぜず、`block_body.nepl` で top-level `ExpressionLine` 列へ分解してから検査します。
+//: - 単一式 body は `BlockResult`、複数式 body は `BlockSequence` checked tree node として保存します。
+//: - 空 body や nested block など、この slice で安全に縮約できない body は具体的な `TrailingBlockBody*` error として fail-closed にします。
 pub struct SelfhostTrailingBlockArgument:
     body %SelfhostSyntaxRange
     span %SelfhostSourceSpan
@@ -119,7 +120,8 @@ pub struct SelfhostCallReduceOwnedResultParts:
 //: - `ArgumentLiteral*` は、source-backed literal payload 生成で token 参照や意味値解析に失敗した場合を分けます。literal decode の失敗を unsupported expression へ潰してはいけません。
 //: - `ArgumentNegativeLiteral*` は、`MinusMarker` と数値 item を 1 argument として扱う境界の失敗です。operand 欠落、非数値 operand、span 結合失敗、型不一致を分けます。
 //: - `ArgumentNestedCandidate*` は、nested named call argument の head を function candidate として収集する段階の不整合を分けます。
-//: - `TrailingBlockBody*` は、末尾 block argument の nested body を `BlockResult` expectation で検査する前の入力構築失敗を分けます。partial application や raw arity error へ潰してはいけません。
+//: - `TrailingBlockBody*` は、末尾 block argument の nested body を `BlockResult` / `BlockSequence` として検査する前の入力構築失敗を分けます。partial application や raw arity error へ潰してはいけません。
+//: - `TrailingBlockBodyUnitTypeMissing` は、複数式 block の非末尾 expression を `unit` expectation で検査するための primitive type が arena に存在しない場合です。
 //: - `UnexpectedTrailingBlockArgument` は、candidate の parameter をすでにすべて消費した後に `BlockIntro.body` が残った場合です。
 //: - `CheckedTreeBuildInvalidOperation` は、nested call / block result / root call を checked expression tree へ追加する段階で、未来 node 参照や壊れた range などの tree invariant 違反を検出した場合です。一般的な internal invariant へ潰さず、tree builder 境界の失敗として保持します。
 pub enum SelfhostCallReduceErrorKind:
@@ -174,6 +176,7 @@ pub enum SelfhostCallReduceErrorKind:
     TrailingBlockBodyNestedBlockUnsupported
     TrailingBlockBodyPrefixBuildFailed
     TrailingBlockBodyCandidateCollectFailed
+    TrailingBlockBodyUnitTypeMissing
     UnexpectedTrailingBlockArgument
     UnsupportedArgumentExpression
     OverloadNoCandidate
@@ -582,6 +585,12 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::TrailingBlockBodyCandidateCollectFailed:
             match b:
                 SelfhostCallReduceErrorKind::TrailingBlockBodyCandidateCollectFailed:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::TrailingBlockBodyUnitTypeMissing:
+            match b:
+                SelfhostCallReduceErrorKind::TrailingBlockBodyUnitTypeMissing:
                     true
                 _:
                     false
