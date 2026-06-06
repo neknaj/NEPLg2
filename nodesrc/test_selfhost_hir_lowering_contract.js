@@ -94,7 +94,7 @@ assert.match(
 );
 assert.match(
     directCall,
-    /\[契約\/けいやく\]:[\s\S]*`UnitValue`、bool \/ i32 \/ char \/ simple string literal、`NamedValue`、`FunctionValue` argument は accepted HIR lowering[\s\S]*\[現状実装\/げんじょうじっそう\]:[\s\S]*char literal は Rust 実装の現在の HIR と同じく、型を `char` とした i32-backed literal payload に変換/,
+    /\[契約\/けいやく\]:[\s\S]*`UnitValue`、bool \/ i32 \/ char \/ string literal、`NamedValue`、`FunctionValue` argument は accepted HIR lowering[\s\S]*string literal は `check\/expr\/literal_payload\.nepl` が quote 除去と対応済み escape decode を終えた `StrLiteral` payload として渡します[\s\S]*\[現状実装\/げんじょうじっそう\]:[\s\S]*char literal は Rust 実装の現在の HIR と同じく、型を `char` とした i32-backed literal payload に変換/,
     "direct call module docs must separate stable accepted-lowering contract from current Rust-compatible i32-backed char implementation detail",
 );
 assertDirectCallDeclDoc("SelfhostDirectCallLowerErrorKind", "pub enum", [

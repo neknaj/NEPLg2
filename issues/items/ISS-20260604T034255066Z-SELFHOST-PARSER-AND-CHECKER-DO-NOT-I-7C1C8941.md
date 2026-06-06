@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-06-04
-updated: 2026-06-05
+updated: 2026-06-06
 target: "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/check/checker.nepl"
 ---
 
@@ -80,7 +80,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-05: `check/expr/literal_payload.nepl` を追加し、source-backed checker が bool / 10 進 i32 / escape なし string literal の意味値を `SelfhostCheckedArgumentKind::BoolLiteral` / `I32Literal` / `StrLiteral` として保存するようにした。`lower/hir/direct_call.nepl` はこの payload だけを使って HIR `BoolLiteral` / `I32Literal` / `StrLiteral` child を作り、source token や literal lexeme を再読しない。hex integer は `ArgumentLiteralI32RadixUnsupported`、escape 付き string は `ArgumentLiteralStringEscapeUnsupported` として fail-closed にした。
 - 2026-06-05: Zenn 方針と AGENTS.md のコメント方針に照らした subagent review を受け、`literal_payload.nepl` の helper doc comment を目的・契約・戻り値/エラー条件・計算量つきで補強した。`string::str_slice` fallback をやめ、`string::str_slice_result` の失敗を `StringSliceFailed` / `LiteralStringSliceFailed` / `ArgumentLiteralStringSliceFailed` として typed error に写すよう修正した。radix 判定は局所値へ分け、char literal は明示 branch で fail-closed payload に残す。
 - 2026-06-05: char literal payload を `SelfhostCheckedArgumentKind::CharLiteral` として追加した。source-backed checker は simple char、simple escape、`\xHH`、`\u{...}` を semantic `char` へ decode し、malformed quote、未対応 escape、不正 scalar、複数 scalar を typed error として分ける。`lower/hir/direct_call.nepl` は現 Rust 実装と同じく `char_to_i32` で i32-backed HIR literal へ下ろし、source token や literal lexeme を再読しない。
-- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、escaped string decode、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-06: string literal payload の escape decode を追加した。Rust string literal と同じ `\n` / `\r` / `\t` / `\\` / `\"` / `\0` / `\xHH` だけを semantic `str` へ decode し、char 専用の `\b` / `\f` / `\'` / `\u{...}` は `StringEscapeUnsupported` として fail-closed にした。escape なしは `str_slice_result` fast path のまま、escape ありは `StringBuilder` owner path で `StringEscapeMalformed` / `StringBuildFailed` / `StringSliceFailed` を typed error として分けた。`SelfhostCheckedArgumentKind::StrLiteral` が decode 済み value を持つため、HIR lowering は source token を再読しない。
+- 残件: block / lambda / borrow / pipe argument expression checking、generic instantiation inference、trait solving、numeric suffix / radix / defaulting、`NestedDirectCall` / `BlockResult` を含む HIR expression tree lowering、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -118,6 +119,14 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_selfhost_hir_lowering_contract.js`
 - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-literal-payload.json`
 - `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-literal-lowering.json`
+
+2026-06-06 string literal escape decode checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_string_escape_tests.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-string-escape.json`
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-string-escape.json`
 
 2026-06-05 type resolver input checkpoint:
 

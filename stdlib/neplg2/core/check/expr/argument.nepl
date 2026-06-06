@@ -107,7 +107,9 @@ pub enum SelfhostExprArgumentMatchErrorKind:
     LiteralI32RadixUnsupported
     LiteralStringMalformed
     LiteralStringEscapeUnsupported
+    LiteralStringEscapeMalformed
     LiteralStringSliceFailed
+    LiteralStringBuildFailed
     LiteralCharMalformed
     LiteralCharEscapeUnsupported
     LiteralCharInvalidScalar
@@ -355,8 +357,12 @@ fn selfhost_expr_argument_match_error_from_literal %fn SelfhostLiteralArgumentEr
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed error.span
         SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported error.span
+        SelfhostLiteralArgumentErrorKind::StringEscapeMalformed:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeMalformed error.span
         SelfhostLiteralArgumentErrorKind::StringSliceFailed:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed error.span
+        SelfhostLiteralArgumentErrorKind::StringBuildFailed:
+            selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralStringBuildFailed error.span
         SelfhostLiteralArgumentErrorKind::CharMalformed:
             selfhost_expr_argument_match_error_new SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed error.span
         SelfhostLiteralArgumentErrorKind::CharEscapeUnsupported:

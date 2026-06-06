@@ -11,16 +11,17 @@
 //: [契約/けいやく]:
 //: - この module は HIR を import しません。出力は `SelfhostCheckedArgument` だけです。
 //: - `IntLiteral` は現 checkpoint では 10 進 i32 だけを accepted payload にします。hex literal は lexer が token 化できても `I32RadixUnsupported` として fail-closed にします。
-//: - `StringLiteral` は escape を含まない literal だけを accepted payload にします。escape decode が self-host 側へ実装されるまでは、raw quoted lexeme を semantic value として扱いません。
+//: - `StringLiteral` は quote を外し、Rust lexer と同じ simple escape と `\xHH` escape を semantic string value へ decode して accepted payload にします。raw quoted lexeme を payload へ入れてはいけません。
 //: - `CharLiteral` は Rust lexer と同じく Unicode scalar value として decode し、checked payload には `char` 値だけを保存します。後続 HIR lowering はこの値を i32-backed char literal へ変換します。
 //:
 //: [計算量/けいさんりょう]:
 //: - bool / i32 の lexeme 解析は lexeme 長 n に対して O(n) です。
 //: - char の simple literal / simple escape / `\xHH` は O(1)、`\u{...}` は hex digit 数 d に対して O(d) です。仕様上 d は高々 6 です。
-//: - simple string の検査と引用符除去は string token 長 n に対して O(n) です。
+//: - string の検査と escape decode は string token 長 n に対して O(n) です。escape がない場合は builder を作らず `str_slice_result` で quote を外します。
 
 #import "alloc/collections/vec" as v
 #import "alloc/string" as string
+#import "alloc/string/builder" as *
 #import "core/char" as *
 #import "core/field" as field
 #import "core/math" as *
@@ -44,8 +45,10 @@
 //: - `I32Invalid`: 10 進 i32 として解析できない integer lexeme です。
 //: - `I32RadixUnsupported`: `0x` / `0X` 形式など、現 checkpoint で未対応の整数基数です。
 //: - `StringMalformed`: quote 境界を確認できない string literal token です。
-//: - `StringEscapeUnsupported`: escape を含む string literal です。raw lexeme を HIR へ通さないため拒否します。
-//: - `StringSliceFailed`: quote 境界と escape scan は通ったが、UTF-8 boundary に沿った semantic value を作れない string literal です。
+//: - `StringEscapeUnsupported`: Rust 側 string literal と対応していない escape spelling です。
+//: - `StringEscapeMalformed`: `\xHH` の hex digit 不足など、escape spelling の構造が壊れています。
+//: - `StringSliceFailed`: escape を含まない fast path で quote を外す slice を作れない string literal です。
+//: - `StringBuildFailed`: escape decode path で semantic string owner を構築できませんでした。
 //: - `CharMalformed`: quote 境界、empty body、hex / unicode escape 形式など、char literal の構造が不正です。
 //: - `CharEscapeUnsupported`: Rust 側 lexer と対応していない escape spelling です。
 //: - `CharInvalidScalar`: `\u{...}` が Unicode scalar value ではありません。
@@ -57,7 +60,9 @@ pub enum SelfhostLiteralArgumentErrorKind:
     I32RadixUnsupported
     StringMalformed
     StringEscapeUnsupported
+    StringEscapeMalformed
     StringSliceFailed
+    StringBuildFailed
     CharMalformed
     CharEscapeUnsupported
     CharInvalidScalar
@@ -137,6 +142,43 @@ impl Copy for SelfhostLiteralCharDecode:
 //: - O(1)
 fn selfhost_literal_char_decode_new %fn char fn i32 SelfhostLiteralCharDecode \value\next_index:
     SelfhostLiteralCharDecode value next_index
+
+//: SelfhostLiteralStringDecode: string escape decode の中間結果
+//:
+//: [目的/もくてき]:
+//: - string literal body 内の 1 つの escape spelling を、semantic `char` と次に読む byte offset に変換した結果を表します。
+//: - char literal 用の decode record と同じ形ですが、string では許可する escape spelling が異なるため、typed payload も分けます。
+//:
+//: [契約/けいやく]:
+//: - `value` は builder へ UTF-8 として追加する Unicode scalar value です。
+//: - `next_index` は lexeme 内 byte offset です。source 全体の offset や scalar index ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築と copy は O(1) です。
+struct SelfhostLiteralStringDecode:
+    value %char
+    next_index %i32
+
+impl Clone for SelfhostLiteralStringDecode:
+    fn clone %fn &SelfhostLiteralStringDecode SelfhostLiteralStringDecode \self:
+        *self
+
+impl Copy for SelfhostLiteralStringDecode:
+    fn copy_mark %fn SelfhostLiteralStringDecode SelfhostLiteralStringDecode \self:
+        self
+
+//: selfhost_literal_string_decode_new: string escape decode の中間結果を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - escape から得た `char` と消費済み byte offset を、body loop が扱う record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `next_index` は、次に body loop が読む lexeme 内 byte offset です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_string_decode_new %fn char fn i32 SelfhostLiteralStringDecode \value\next_index:
+    SelfhostLiteralStringDecode value next_index
 
 //: selfhost_literal_argument_bool_from_lexeme: bool literal の lexeme を[意味値/いみち]へ[変換/へんかん]する
 //:
@@ -223,7 +265,7 @@ fn selfhost_literal_argument_i32_from_lexeme %fn str fn SelfhostSourceSpan Resul
 //:
 //: [目的/もくてき]:
 //: - string literal の body 部分に escape marker `\\` があるかを、引用符を除いた範囲で調べます。
-//: - escape decode が未実装の間、raw lexeme を semantic string value と誤認して HIR へ渡す経路を閉じます。
+//: - escape がない literal は fast path で quote 除去だけ行い、escape がある literal は builder decode path に進めます。
 //:
 //: [契約/けいやく]:
 //: - `idx` は調査開始位置、`end` は半開区間の終端です。
@@ -276,20 +318,239 @@ fn selfhost_literal_argument_string_quotes_valid %fn str fn i32 bool \lexeme\n:
                 Option::None:
                     false
 
-//: selfhost_literal_argument_string_value_from_lexeme: simple string literal を[意味値/いみち]へ[変換/へんかん]する
+//: selfhost_literal_argument_string_builder_error: StringBuilder 失敗を literal error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - escape decode path で builder append / build が失敗した場合、builder 層の表示用 error text ではなく selfhost literal checker の typed error domain へ移します。
+//:
+//: [契約/けいやく]:
+//: - `sb_append_*_result` と `sb_build_result` は失敗時に入力 builder owner を閉じます。この helper は失敗済み builder を再利用しません。
+//: - builder 層の error text はこの段階では診断 authority にしません。literal checker の失敗分類は `StringBuildFailed` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_string_builder_error %fn str fn SelfhostSourceSpan SelfhostLiteralArgumentError \_builder_error\span:
+    selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringBuildFailed span
+
+//: selfhost_literal_argument_string_append_decode: string builder に 1 scalar を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - string literal body の通常文字または escape で得た `char` を、semantic string payload 用 builder へ追加します。
+//:
+//: [契約/けいやく]:
+//: - `sb` はこの関数へ所有権を渡します。成功時は更新済み builder を返し、失敗時は builder API が入力 owner を閉じてから `Err` を返します。
+//: - caller は `Err` 後に元の builder を使ってはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(builder)`: `value` を UTF-8 として追加しました。
+//: - `Err(StringBuildFailed)`: allocation / builder finalization 境界で失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 追加する scalar は 1 個なので通常 O(1) です。grow が発生した場合は builder の既存 byte 数に依存します。
+fn selfhost_literal_argument_string_append_decode %fn StringBuilder fn char fn SelfhostSourceSpan Result StringBuilder SelfhostLiteralArgumentError \sb\value\span:
+    match string::sb_append_char_result sb value:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            Result::Err selfhost_literal_argument_string_builder_error e span
+
+//: selfhost_literal_argument_string_simple_escape: string simple escape を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - Rust 側 lexer が string literal で受け付ける 1 byte escape spelling を selfhost checker でも同じ semantic `char` へ正規化します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: `\n`、`\r`、`\t`、`\\`、`\"`、`\0` のいずれかです。
+//: - `Err(StringEscapeUnsupported)`: char literal では使えるが string literal では使えない spelling、または未知の escape です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_string_simple_escape %fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralStringDecode SelfhostLiteralArgumentError \esc\next_index\span:
+    match esc:
+        'n':
+            Result::Ok selfhost_literal_string_decode_new '\n' next_index
+        'r':
+            Result::Ok selfhost_literal_string_decode_new '\r' next_index
+        't':
+            Result::Ok selfhost_literal_string_decode_new '\t' next_index
+        '\\':
+            Result::Ok selfhost_literal_string_decode_new '\\' next_index
+        '"':
+            Result::Ok selfhost_literal_string_decode_new '"' next_index
+        '0':
+            Result::Ok selfhost_literal_string_decode_new '\0' next_index
+        _:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported span
+
+//: selfhost_literal_argument_string_hex_escape: string `\xHH` escape を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - Rust 側 lexer と同じ 2 桁 hex escape を decode し、0..255 の code point を Unicode scalar value として string builder へ渡せる形にします。
+//:
+//: [契約/けいやく]:
+//: - `idx` は 2 桁 hex の先頭 byte offset、`end` は closing quote の byte offset です。
+//: - この関数は byte を直接 builder へ書きません。`0x80..0xff` も `char` として append し、UTF-8 string としての意味値を保ちます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: 2 桁 hex escape を string scalar value に変換しました。
+//: - `Err(StringEscapeMalformed)`: hex digit が不足している、または hex digit ではありません。
+//: - `Err(StringBuildFailed)`: code point 変換が想定外に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn selfhost_literal_argument_string_hex_escape %fn str fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralStringDecode SelfhostLiteralArgumentError \lexeme\idx\end\span:
+    if:
+        gt add idx 2 end
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeMalformed span
+        else:
+            match string::byte_at lexeme idx:
+                Option::Some hi_ch:
+                    match string::byte_at lexeme add idx 1:
+                        Option::Some lo_ch:
+                            match selfhost_literal_argument_hex_digit_value hi_ch:
+                                Option::Some hi:
+                                    match selfhost_literal_argument_hex_digit_value lo_ch:
+                                        Option::Some lo:
+                                            match char_from_i32_result (or shl hi 4 lo):
+                                                Result::Ok value:
+                                                    Result::Ok selfhost_literal_string_decode_new value add idx 2
+                                                Result::Err _e:
+                                                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringBuildFailed span
+                                        Option::None:
+                                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeMalformed span
+                                Option::None:
+                                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeMalformed span
+                        Option::None:
+                            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeMalformed span
+                Option::None:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeMalformed span
+
+//: selfhost_literal_argument_string_escape_from_lexeme: string escape body を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - `\` の次から始まる string escape spelling を、semantic `char` と消費済み byte offset に変換します。
+//:
+//: [契約/けいやく]:
+//: - string literal の escape set は char literal と異なります。ここで char 専用の `\b`、`\f`、`\'`、`\u{...}` を受理してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decode)`: 対応済み escape を 1 つ decode しました。
+//: - `Err(StringEscapeMalformed)`: escape が途中で切れている、または `\xHH` の構造が不正です。
+//: - `Err(StringEscapeUnsupported)`: 対応していない escape spelling です。
+//:
+//: [計算量/けいさんりょう]:
+//: - simple / hex escape は O(1) です。
+fn selfhost_literal_argument_string_escape_from_lexeme %fn str fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostLiteralStringDecode SelfhostLiteralArgumentError \lexeme\idx\end\span:
+    if:
+        ge idx end
+        then:
+            Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeMalformed span
+        else:
+            match string::byte_at lexeme idx:
+                Option::Some esc:
+                    match esc:
+                        'x':
+                            selfhost_literal_argument_string_hex_escape lexeme add idx 1 end span
+                        _:
+                            selfhost_literal_argument_string_simple_escape esc add idx 1 span
+                Option::None:
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeMalformed span
+
+//: selfhost_literal_argument_string_decode_loop: string literal body を builder に[復号/ふくごう]する
+//:
+//: [目的/もくてき]:
+//: - quote を除いた string literal body を左から 1 度だけ走査し、escape を semantic string value へ変換します。
+//: - decode 済み value を `SelfhostCheckedArgumentKind::StrLiteral` に保存することで、HIR lowering が source text を再読する必要をなくします。
+//:
+//: [契約/けいやく]:
+//: - `idx` は次に読む lexeme 内 byte offset、`end` は closing quote の byte offset です。
+//: - `sb` は owner として受け取り、成功時は `sb_build_result` で消費します。append / build 失敗時には builder API が owner cleanup を行うため、失敗後に同じ builder を再利用しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(value)`: quote なし、escape decode 済みの semantic string value です。
+//: - `Err(StringMalformed)`: 通常文字の UTF-8 decode が失敗しました。
+//: - `Err(StringEscapeMalformed)`: escape の構造が不正です。
+//: - `Err(StringEscapeUnsupported)`: string literal では受理しない escape spelling です。
+//: - `Err(StringBuildFailed)`: builder append / build が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - string body byte 長 n に対して O(n) です。
+fn selfhost_literal_argument_string_decode_loop %fn str fn i32 fn i32 fn StringBuilder fn SelfhostSourceSpan Result str SelfhostLiteralArgumentError \lexeme\idx\end\sb\span:
+    if:
+        ge idx end
+        then:
+            match string::sb_build_result sb:
+                Result::Ok out:
+                    Result::Ok out
+                Result::Err e:
+                    Result::Err selfhost_literal_argument_string_builder_error e span
+        else:
+            match string::byte_at lexeme idx:
+                Option::Some first:
+                    let decoded_result %Result SelfhostLiteralStringDecode SelfhostLiteralArgumentError:
+                        if:
+                            eq first '\\'
+                            then:
+                                selfhost_literal_argument_string_escape_from_lexeme lexeme add idx 1 end span
+                            else:
+                                match string::str_next_char_result lexeme idx:
+                                    Result::Ok item:
+                                        let value %char field::get item "value"
+                                        let next_index %i32 field::get item "next"
+                                        Result::Ok selfhost_literal_string_decode_new value next_index
+                                    Result::Err _e:
+                                        Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringMalformed span
+                    match decoded_result:
+                        Result::Ok decoded:
+                            match selfhost_literal_argument_string_append_decode sb decoded.value span:
+                                Result::Ok next:
+                                    selfhost_literal_argument_string_decode_loop lexeme decoded.next_index end next span
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            string::string_builder_free sb
+                            Result::Err e
+                Option::None:
+                    string::string_builder_free sb
+                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringMalformed span
+
+//: selfhost_literal_argument_string_escaped_value_from_lexeme: escape 付き string literal を[意味値/いみち]へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - escape を含む string literal body を semantic string value へ decode します。
+//: - `StringBuilder` の owner boundary をこの関数に閉じ、失敗 path で builder owner を漏らしません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(value)`: quote なし、escape decode 済みの semantic string value です。
+//: - `Err(StringEscapeMalformed)` / `Err(StringEscapeUnsupported)` / `Err(StringBuildFailed)`: decode path の失敗分類です。
+//:
+//: [計算量/けいさんりょう]:
+//: - string body byte 長 n に対して O(n) です。
+fn selfhost_literal_argument_string_escaped_value_from_lexeme %fn str fn i32 fn SelfhostSourceSpan Result str SelfhostLiteralArgumentError \lexeme\n\span:
+    match string::string_builder_with_capacity_result n:
+        Result::Ok sb:
+            selfhost_literal_argument_string_decode_loop lexeme 1 sub n 1 sb span
+        Result::Err e:
+            Result::Err selfhost_literal_argument_string_builder_error e span
+
+//: selfhost_literal_argument_string_value_from_lexeme: string literal を[意味値/いみち]へ[変換/へんかん]する
 //:
 //: [目的/もくてき]:
 //: - quote 付き token spelling から、HIR `StrLiteral` payload に入れる quote なし semantic string value を取り出します。
-//: - escape decode が selfhost 側に入るまでは、escape marker を含む literal を明示的に拒否します。
+//: - escape がない body は `str_slice_result` の fast path で処理し、escape がある body だけ builder decode path へ進みます。
+//: - checker が semantic value を確定するため、HIR lowering は string token や source text を再読しません。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(value)`: `value` は引用符を含まない文字列です。
+//: - `Ok(value)`: `value` は引用符を含まず、escape decode 済みの文字列です。
 //: - `Err(StringMalformed)`: quote 境界が不正です。
-//: - `Err(StringEscapeUnsupported)`: literal body に `\\` があり、現 checkpoint では semantic value を確定できません。
-//: - `Err(StringSliceFailed)`: quote と escape の事前条件は通ったが、UTF-8 boundary に沿った owned string を構築できませんでした。
+//: - `Err(StringEscapeUnsupported)`: string literal では受理しない escape spelling です。
+//: - `Err(StringEscapeMalformed)`: escape の構造が不正です。
+//: - `Err(StringSliceFailed)`: escape なし fast path で quote を外す slice を作れませんでした。
+//: - `Err(StringBuildFailed)`: escape decode path の builder append / build が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - quote 検査は O(1)、escape scan と slice は token 長 n に対して O(n) です。
+//: - quote 検査は O(1)、escape scan / slice / decode は token 長 n に対して O(n) です。
 fn selfhost_literal_argument_string_value_from_lexeme %fn str fn SelfhostSourceSpan Result str SelfhostLiteralArgumentError \lexeme\span:
     let n %i32 string::len lexeme
     if:
@@ -300,7 +561,7 @@ fn selfhost_literal_argument_string_value_from_lexeme %fn str fn SelfhostSourceS
             if:
                 selfhost_literal_argument_lexeme_contains_byte_loop lexeme '\\' 1 sub n 1
                 then:
-                    Result::Err selfhost_literal_argument_error_new SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported span
+                    selfhost_literal_argument_string_escaped_value_from_lexeme lexeme n span
                 else:
                     match string::str_slice_result lexeme 1 sub n 1:
                         Result::Ok value:
@@ -625,7 +886,7 @@ fn selfhost_literal_argument_char_value_from_lexeme %fn str fn SelfhostSourceSpa
 //:
 //: [目的/もくてき]:
 //: - prefix item の literal kind ごとに、checker が保存すべき payload variant を選びます。
-//: - bool / i32 / char / simple string は値 payload にし、値 payload がまだ設計されていない literal は `TypedExpression` として fail-closed lowering に残します。
+//: - bool / i32 / char / string は値 payload にし、値 payload がまだ設計されていない literal は `TypedExpression` として fail-closed lowering に残します。
 //: - `CharLiteral` は semantic `char` payload として保存します。後続 lowering は Rust 実装と同じ i32-backed HIR literal へ変換します。
 //:
 //: [契約/けいやく]:

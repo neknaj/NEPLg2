@@ -1,3 +1,106 @@
+# 2026-06-06 Agent selfhost string literal escape decode checkpoint
+
+## review_scope
+
+- branch: selfhost/string-literal-escape-decode-20260606
+- 対象 branch: `selfhost/string-literal-escape-decode-20260606`
+- base: `main before slice`
+- head: `working-tree-before-commit`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / `selfhost string literal escape decode payload`
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- files_read: `plan.md`; `AGENTS.md`; `note.n.md`; `todo.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/literal_payload.nepl`; `stdlib/neplg2/core/check/expr/argument.nepl`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/model.nepl`; `stdlib/neplg2/core/check/expr/argument_payload.nepl`; `stdlib/neplg2/core/lower/hir/direct_call.nepl`; `tests/stdlib/neplg2_call_reduce.n.md`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_selfhost_hir_lowering_contract.js`; `nodesrc/test_selfhost_zenn_review_gate_contract.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: numeric suffix / radix / defaulting; `NestedDirectCall` / `BlockResult` full HIR tree lowering; block / lambda / borrow / pipe argument expression checking; generic instantiation inference; trait solving; indirect call; `memo_call` Phase 1 private-cache boundary.
+- subagent_review_ids:
+  - 019e9af1-f057-7872-8cd3-d7e1fdee42b3
+  - 019e9b01-03b1-7973-bc94-6405cd8f61ca
+- subagent_review_count: 2
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- file/function: `stdlib/neplg2/core/check/expr/literal_payload.nepl`; `stdlib/neplg2/core/check/expr/argument.nepl`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/model.nepl`; `stdlib/neplg2/core/check/expr/argument_payload.nepl`; `stdlib/neplg2/core/lower/hir/direct_call.nepl`; `tests/stdlib/neplg2_call_reduce.n.md`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_selfhost_hir_lowering_contract.js`
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_string_escape_tests.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-string-escape.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-string-escape.json`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-string-literal-escape-playground-editor.json`; `git diff --check`; `nodesrc/selfhost_zenn_review_response_check.js`
+- recommended_fix: none
+- finding: string literal payload は quote-free value だけでなく escape decode 後の semantic value を checker 側で保持する必要があった。HIR lowering が token lexeme や source text を再読して string payload を作り直す設計は、parser / checker / HIR lowering の authority boundary を崩す。
+- root_cause: 直前の literal payload slice では string literal が escape なし path だけを `str_slice_result` で処理し、escape 付き string を `StringEscapeUnsupported` として fail-closed にしていた。そのため、checker が semantic literal payload の最終 authority になるという方針に対して、string escape decode だけが未完了だった。
+- reason: Zenn 記事は `Result` / `Option` と enum error による静的検査、source boundary の責務分割、pure core、詳細な doc comment、試作段階でも技術的負債を残さないことを要求している。今回の slice は `SelfhostLiteralArgumentErrorKind` に `StringEscapeMalformed` と `StringBuildFailed` を追加し、`StringEscapeUnsupported` / `StringSliceFailed` と分離した typed error へ写した。
+- source_policy_reason: `nodesrc/test_selfhost_expr_call_reduce_contract.js` は string decode helper、受理 escape set、unsupported / malformed / build failure mapping、argument / call-reduction error propagation を固定する。`nodesrc/test_selfhost_hir_lowering_contract.js` は lowering が decode 済み `StrLiteral` を受け取り、source token 再読を行わない契約を固定する。行数制限、file size、comment volume、doc comment 長制限は追加していない。
+- doc_issue_note: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md` records the string literal escape decode checkpoint and keeps the issue open for numeric suffix / radix / defaulting, checked expression tree lowering, and higher-order follow-up work.
+
+## implementation/test
+
+- classification: Approve
+- file/function: `selfhost_literal_argument_string_value_from_lexeme`; `selfhost_literal_argument_string_escaped_value_from_lexeme`; `selfhost_literal_argument_string_decode_loop`; `selfhost_literal_argument_string_escape_from_lexeme`; `selfhost_literal_argument_string_simple_escape`; `selfhost_literal_argument_string_hex_escape`; `selfhost_literal_argument_checked_from_lexeme`; `selfhost_direct_call_lower_argument`
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --no-stdlib -j 1 --assert-io -o tmp/neplg2_call_reduce_string_escape_tests.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-expr-string-escape.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-string-escape.json`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-string-literal-escape-playground-editor.json`
+- recommended_fix: none
+- finding: `\n` / `\r` / `\t` / `\\` / `\"` / `\0` / `\xHH` を semantic `str` へ decode し、`\b` / `\f` / `\'` / `\u{...}` や不正 `\x` spelling を fail-closed にした。
+- root_cause: string literal は char literal と違い、char 専用 escape を受け付けてはいけないが、escape 付き string を全面拒否したままだと Rust 実装との差が残り、selfhost checker の semantic payload 設計が未完成になる。
+- reason: escape なし path は既存の `str_slice_result` fast path を保持し、escape あり path だけ `StringBuilder` で owner を動かす。append / build failure は `StringBuildFailed`、slice failure は `StringSliceFailed`、構造不正は `StringEscapeMalformed`、仕様外 escape は `StringEscapeUnsupported` として分けるため、表示文字列ではなく enum payload で検査できる。
+- source_policy_reason: subagent review の Non-blocker を受け、runtime doctest に `\r` / `\t` / `\\` / `\"` / `\0` と `\f` / `\'` を追加し、`nodesrc/test_selfhost_expr_call_reduce_contract.js` の static contract だけに依存しない形へ補強した。
+- doc_issue_note: `tests/stdlib/neplg2_call_reduce.n.md` records executable coverage for accepted and rejected string escapes; `todo.md` now removes the completed escaped string decode item from future work.
+
+## subagent review
+
+- 019e9af1-f057-7872-8cd3-d7e1fdee42b3:
+  - Blocker: none.
+  - Non-blocker: string escape decode は checker payload boundary で行い、HIR lowering が token/source を再読しないこと。StringBuilder owner は append / build failure で閉じること。char 専用 escape と unsupported escape は fail-closed にすること。
+  - Question: none.
+  - Approve: implementation plan approved and reflected in current slice.
+- 019e9b01-03b1-7973-bc94-6405cd8f61ca:
+  - Blocker: none.
+  - Non-blocker: runtime doctest が `\r` / `\t` / `\\` / `\"` / `\0` と `\f` / `\'` まで直接確認していなかったため、同じ slice 内で追加した。`\xHH` の `char_from_i32_result` failure は実質到達不能だが、現在は builder path の typed failure として `StringBuildFailed` に閉じている。
+  - Question: none.
+  - Approve: `SelfhostCheckedArgumentKind::StrLiteral` に decode 済み semantic value が入り、`direct_call.nepl` はその value だけを HIR に渡している。StringBuilder owner cleanup も既存契約と整合している。
+- classification / decision / source_policy / verify: both subagent reviews classify this slice as approved; the only actionable Non-blocker was fixed by adding runtime cases; source_policy is updated; verification is focused contract tests, runtime doctest, source-policy regressions, issue check/index, and `git diff --check`.
+
+## zenn_check
+
+- Result/Option: `selfhost_literal_argument_string_value_from_lexeme` and the helper chain return `Result str SelfhostLiteralArgumentError`; the public checker propagates `Result::Ok` semantic payload or `Result::Err` typed error without sentinel values.
+- enum error/display separation: `stdlib/neplg2/core/check/expr/literal_payload.nepl` defines `SelfhostLiteralArgumentErrorKind::{StringMalformed,StringEscapeUnsupported,StringEscapeMalformed,StringBuildFailed,StringSliceFailed}` as checker evidence; `stdlib/neplg2/core/check/expr/argument.nepl` and `stdlib/neplg2/core/check/expr/call_reduce.nepl` map those variants to their own enum variants rather than inspecting display text.
+- match exhaustiveness: `selfhost_literal_argument_string_simple_escape`, `selfhost_literal_argument_string_hex_escape`, and `selfhost_literal_argument_string_escape_from_lexeme` in `stdlib/neplg2/core/check/expr/literal_payload.nepl` use explicit `match` branches for accepted simple escapes and typed rejection branches; `nodesrc/test_selfhost_expr_call_reduce_contract.js` pins those branches.
+- pure/impure boundary: decode logic stays inside `stdlib/neplg2/core/check/expr`; no FileSystem, StdIO, host authority, or platform boundary is moved into the selfhost compiler core.
+- authority boundary: checker builds the semantic string once; `lower/hir/direct_call.nepl` receives `SelfhostCheckedArgumentKind::StrLiteral value` and does not re-open source text, token lexeme, or scope lookup to rebuild evidence.
+- owner/free: `selfhost_literal_argument_string_decode_loop` and `selfhost_literal_argument_string_escaped_value_from_lexeme` in `stdlib/neplg2/core/check/expr/literal_payload.nepl` use `StringBuilder` only while constructing the semantic value; append/build errors are converted to typed errors, and `tests/stdlib/neplg2_call_reduce.n.md` frees the `lex_all` token owner with `v::free tokens`.
+- zero-cost/performance: `selfhost_literal_argument_string_value_from_lexeme` in `stdlib/neplg2/core/check/expr/literal_payload.nepl` keeps `string::str_slice_result lexeme 1 sub n 1` for escape-free literals and enters the builder decode path only when `selfhost_literal_argument_lexeme_contains_byte_loop` finds a backslash; `nodesrc/test_selfhost_expr_call_reduce_contract.js` pins that fast path.
+- doc comment: `stdlib/neplg2/core/check/expr/literal_payload.nepl`, `stdlib/neplg2/core/check/expr/argument_payload.nepl`, and `stdlib/neplg2/core/lower/hir/direct_call.nepl` document purpose, accepted escape set, unsupported escape policy, malformed escape policy, builder failure, slice failure, and current string / char distinction. No 行数制限, file-size gate, comment-volume gate, or doc comment 長制限 was introduced.
+- prototype/fail-closed: `selfhost_literal_argument_string_simple_escape` rejects char-only `\b` / `\f` / `\'` and current unsupported `\u{...}` as `StringEscapeUnsupported`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md` keeps numeric suffix / radix / defaulting and full expression tree lowering open instead of pretending this slice completes the checker.
+
+## evidence_to_record
+
+- note: this checkpoint records the Zenn 記事 URL, AGENTS.md policy, branch, issue / slice, subagent IDs, Blocker / Non-blocker / Question / Approve classification, source_policy status, verify commands, existing warnings, current-diff warnings, and next slice.
+- issue: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md` records the string literal escape decode checkpoint and removes escaped string decode from the residual list.
+- todo: `todo.md` removes completed escaped string decode from the next selfhost slice, leaving numeric suffix / radix / defaulting and checked tree payload work.
+- source policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js` and `nodesrc/test_selfhost_hir_lowering_contract.js` pin the source policy for this slice; `nodesrc/run_source_policy_regressions.js --warn-only` is part of verification.
+- tests: focused contract tests, runtime call-reduction doctest, selfhost check/lower doctests, issue check/index, source-policy regressions, review gate, `nodesrc/selfhost_zenn_review_response_check.js`, `trunk build`, playground editor JSON, and `git diff --check` are the acceptance evidence.
+
+## warnings
+
+- existing_warnings: Node WASI `ExperimentalWarning` appears in doctest/source-policy runs; Git reports LF to CRLF replacement warnings for modified text files; `trunk build` reports an available Trunk update and wasm-bindgen tool version mismatch. These are existing environment warnings and not introduced by this slice.
+- new_warnings: none
+- 既存 warning: Node WASI `ExperimentalWarning`; Git LF to CRLF replacement warnings; Trunk update notice and wasm-bindgen tool version mismatch.
+- 今回差分由来 warning: none
+
+## summary
+
+- blockers: none
+- non_blockers: subagent requested broader runtime escape coverage; fixed in the same slice by adding `\r` / `\t` / `\\` / `\"` / `\0` accepted checks and `\f` / `\'` unsupported checks.
+- questions: none
+- approve: approved by two subagent reviews and local verification
+- residual_risk: none
+- unexecuted_verification: none
+- 検証済み: focused contract tests, runtime doctest, selfhost check/lower doctests, review gate, source policy, issue index/check, `trunk build`, playground editor JSON, and whitespace check.
+- 行数制限: not added
+- doc comment 長制限: not added
+- 次 slice: numeric suffix / radix / defaulting, then `NestedDirectCall` / `BlockResult` checked tree payload lowering without source token re-read.
+
 # 2026-06-06 Agent selfhost type parameter documentation contract checkpoint
 
 ## review_scope

@@ -162,8 +162,12 @@ fn selfhost_call_reduce_error_from_argument_match %fn SelfhostExprArgumentMatchE
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed error.span
         SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeMalformed:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeMalformed error.span
         SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed error.span
+        SelfhostExprArgumentMatchErrorKind::LiteralStringBuildFailed:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralStringBuildFailed error.span
         SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed:
             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed error.span
         SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported:

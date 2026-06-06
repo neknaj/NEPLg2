@@ -22,6 +22,141 @@ fn main %impure fn void i32 \void:
     checks_exit_code shown
 ```
 
+## literal_string_payload_decode
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/check/expr/argument_payload" as *
+#import "neplg2/core/check/expr/literal_payload" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/ty" as *
+#import "std/test" as *
+
+fn string_token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
+    unwrap v::get tokens idx
+
+fn string_item_for %fn SelfhostToken fn i32 SelfhostExprPrefixItem \token\token_index:
+    SelfhostExprPrefixItem SelfhostExprPrefixItemKind::StringLiteral token_index field::get token "span"
+
+fn string_payload_value_is %fn Result SelfhostCheckedArgument SelfhostLiteralArgumentError fn str Result unit str \result\expected:
+    match result:
+        Result::Ok argument:
+            match field::get argument "kind":
+                SelfhostCheckedArgumentKind::StrLiteral value:
+                    check_str_eq expected value
+                _:
+                    Result::Err "checked argument was not StrLiteral"
+        Result::Err _error:
+            Result::Err "string literal payload decode failed"
+
+fn string_payload_error_is_unsupported %fn Result SelfhostCheckedArgument SelfhostLiteralArgumentError Result unit str \result:
+    match result:
+        Result::Err error:
+            match error.kind:
+                SelfhostLiteralArgumentErrorKind::StringEscapeUnsupported:
+                    Result::Ok unit
+                _:
+                    Result::Err "string literal error was not StringEscapeUnsupported"
+        Result::Ok _argument:
+            Result::Err "unsupported string escape unexpectedly decoded"
+
+fn string_payload_error_is_malformed %fn Result SelfhostCheckedArgument SelfhostLiteralArgumentError Result unit str \result:
+    match result:
+        Result::Err error:
+            match error.kind:
+                SelfhostLiteralArgumentErrorKind::StringEscapeMalformed:
+                    Result::Ok unit
+                _:
+                    Result::Err "string literal error was not StringEscapeMalformed"
+        Result::Ok _argument:
+            Result::Err "malformed string escape unexpectedly decoded"
+
+fn main %impure fn void i32 \void:
+    let checks0 checks_new
+    let source %str "\"line\\nnext\" \"tab\\tend\" \"carriage\\rend\" \"slash\\\\tail\" \"say\\\"hi\" \"nul\\0end\" \"A\\x42\" \"\\b\" \"\\f\" \"\\'\" \"\\xG1\""
+    match lex_all source:
+        Result::Ok tokens:
+            let str_ty %SelfhostTypeId selfhost_type_id_new 52
+            let t0 %SelfhostToken string_token_at &tokens 0
+            let t1 %SelfhostToken string_token_at &tokens 1
+            let t2 %SelfhostToken string_token_at &tokens 2
+            let t3 %SelfhostToken string_token_at &tokens 3
+            let t4 %SelfhostToken string_token_at &tokens 4
+            let t5 %SelfhostToken string_token_at &tokens 5
+            let t6 %SelfhostToken string_token_at &tokens 6
+            let t7 %SelfhostToken string_token_at &tokens 7
+            let t8 %SelfhostToken string_token_at &tokens 8
+            let t9 %SelfhostToken string_token_at &tokens 9
+            let t10 %SelfhostToken string_token_at &tokens 10
+            let item0 %SelfhostExprPrefixItem string_item_for t0 0
+            let item1 %SelfhostExprPrefixItem string_item_for t1 1
+            let item2 %SelfhostExprPrefixItem string_item_for t2 2
+            let item3 %SelfhostExprPrefixItem string_item_for t3 3
+            let item4 %SelfhostExprPrefixItem string_item_for t4 4
+            let item5 %SelfhostExprPrefixItem string_item_for t5 5
+            let item6 %SelfhostExprPrefixItem string_item_for t6 6
+            let item7 %SelfhostExprPrefixItem string_item_for t7 7
+            let item8 %SelfhostExprPrefixItem string_item_for t8 8
+            let item9 %SelfhostExprPrefixItem string_item_for t9 9
+            let item10 %SelfhostExprPrefixItem string_item_for t10 10
+            let decoded_newline %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item0 0 1 str_ty
+            let decoded_tab %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item1 1 2 str_ty
+            let decoded_carriage %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item2 2 3 str_ty
+            let decoded_backslash %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item3 3 4 str_ty
+            let decoded_quote %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item4 4 5 str_ty
+            let decoded_nul %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item5 5 6 str_ty
+            let decoded_hex %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item6 6 7 str_ty
+            let unsupported_backspace %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item7 7 8 str_ty
+            let unsupported_form_feed %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item8 8 9 str_ty
+            let unsupported_single_quote %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item9 9 10 str_ty
+            let malformed %Result SelfhostCheckedArgument SelfhostLiteralArgumentError selfhost_literal_argument_checked_with_source &tokens source item10 10 11 str_ty
+            let checks1:
+                checks0
+                |> checks_push string_payload_value_is decoded_newline "line\nnext"
+                |> checks_push string_payload_value_is decoded_tab "tab\tend"
+                |> checks_push string_payload_value_is decoded_carriage "carriage\rend"
+                |> checks_push string_payload_value_is decoded_backslash "slash\\tail"
+                |> checks_push string_payload_value_is decoded_quote "say\"hi"
+                |> checks_push string_payload_value_is decoded_nul "nul\0end"
+                |> checks_push string_payload_value_is decoded_hex "AB"
+                |> checks_push string_payload_error_is_unsupported unsupported_backspace
+                |> checks_push string_payload_error_is_unsupported unsupported_form_feed
+                |> checks_push string_payload_error_is_unsupported unsupported_single_quote
+                |> checks_push string_payload_error_is_malformed malformed
+            v::free tokens
+            let shown checks_print_report checks1
+            checks_exit_code shown
+        Result::Err _diag:
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## expression_line_segment_connects_to_call_reduction
 
 neplg2:test[stdio, normalize_newlines]

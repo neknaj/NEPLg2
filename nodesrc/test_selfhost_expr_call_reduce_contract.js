@@ -203,7 +203,7 @@ assert.match(
 );
 assert.match(
     argumentPayload,
-    /`TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool \/ i32 \/ char \/ simple string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。/,
+    /`TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool \/ i32 \/ char \/ string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。/,
     "TypedExpression documentation must not describe implemented char/simple literal payloads as unsupported fallbacks",
 );
 assertArgumentPayloadDoc("SelfhostCheckedArgumentKind", "pub enum", [
@@ -268,7 +268,9 @@ assertContainsInOrder(source, [
     "I32RadixUnsupported",
     "StringMalformed",
     "StringEscapeUnsupported",
+    "StringEscapeMalformed",
     "StringSliceFailed",
+    "StringBuildFailed",
     "CharMalformed",
     "CharEscapeUnsupported",
     "CharInvalidScalar",
@@ -287,8 +289,13 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_literal_argument_string_value_from_lexeme[\s\S]*StringEscapeUnsupported[\s\S]*string::str_slice_result lexeme 1 sub n 1[\s\S]*SelfhostLiteralArgumentErrorKind::StringSliceFailed[\s\S]*selfhost_checked_argument_str_literal/,
-    "string literal arguments must store unquoted semantic string values and reject escape or slice failures as typed errors",
+    /selfhost_literal_argument_string_value_from_lexeme[\s\S]*selfhost_literal_argument_lexeme_contains_byte_loop lexeme '\\\\' 1 sub n 1[\s\S]*selfhost_literal_argument_string_escaped_value_from_lexeme lexeme n span[\s\S]*string::str_slice_result lexeme 1 sub n 1[\s\S]*SelfhostLiteralArgumentErrorKind::StringSliceFailed[\s\S]*selfhost_checked_argument_str_literal/,
+    "string literal arguments must store decoded semantic string values and keep escape decode before HIR lowering",
+);
+assert.match(
+    source,
+    /selfhost_literal_argument_string_simple_escape[\s\S]*'n':[\s\S]*'r':[\s\S]*'t':[\s\S]*'\\\\':[\s\S]*'"':[\s\S]*'0':[\s\S]*StringEscapeUnsupported[\s\S]*selfhost_literal_argument_string_hex_escape[\s\S]*StringEscapeMalformed[\s\S]*char_from_i32_result[\s\S]*selfhost_literal_argument_string_decode_loop/,
+    "string escape decode must keep the Rust string escape set separate from char-only escapes",
 );
 assert.match(
     source,
@@ -298,11 +305,19 @@ assert.match(
 for (const name of [
     "selfhost_literal_argument_error_new",
     "selfhost_literal_char_decode_new",
+    "selfhost_literal_string_decode_new",
     "selfhost_literal_argument_bool_from_lexeme",
     "selfhost_literal_argument_i32_has_unsupported_radix",
     "selfhost_literal_argument_i32_from_lexeme",
     "selfhost_literal_argument_lexeme_contains_byte_loop",
     "selfhost_literal_argument_string_quotes_valid",
+    "selfhost_literal_argument_string_builder_error",
+    "selfhost_literal_argument_string_append_decode",
+    "selfhost_literal_argument_string_simple_escape",
+    "selfhost_literal_argument_string_hex_escape",
+    "selfhost_literal_argument_string_escape_from_lexeme",
+    "selfhost_literal_argument_string_decode_loop",
+    "selfhost_literal_argument_string_escaped_value_from_lexeme",
     "selfhost_literal_argument_string_value_from_lexeme",
     "selfhost_literal_argument_hex_digit_value",
     "selfhost_literal_argument_char_quotes_valid",
@@ -322,6 +337,12 @@ for (const name of [
     "selfhost_literal_argument_bool_from_lexeme",
     "selfhost_literal_argument_i32_from_lexeme",
     "selfhost_literal_argument_string_quotes_valid",
+    "selfhost_literal_argument_string_append_decode",
+    "selfhost_literal_argument_string_simple_escape",
+    "selfhost_literal_argument_string_hex_escape",
+    "selfhost_literal_argument_string_escape_from_lexeme",
+    "selfhost_literal_argument_string_decode_loop",
+    "selfhost_literal_argument_string_escaped_value_from_lexeme",
     "selfhost_literal_argument_string_value_from_lexeme",
     "selfhost_literal_argument_hex_digit_value",
     "selfhost_literal_argument_char_quotes_valid",
@@ -342,6 +363,12 @@ for (const name of [
     "selfhost_literal_argument_i32_has_unsupported_radix",
     "selfhost_literal_argument_lexeme_contains_byte_loop",
     "selfhost_literal_char_decode_new",
+    "selfhost_literal_string_decode_new",
+    "selfhost_literal_argument_string_builder_error",
+    "selfhost_literal_argument_string_append_decode",
+    "selfhost_literal_argument_string_hex_escape",
+    "selfhost_literal_argument_string_escape_from_lexeme",
+    "selfhost_literal_argument_string_decode_loop",
     "selfhost_literal_argument_char_hex_escape",
     "selfhost_literal_argument_char_unicode_digits_loop",
     "selfhost_literal_argument_char_unicode_escape",
@@ -377,7 +404,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*LiteralTokenOutOfBounds[\s\S]*LiteralBoolInvalid[\s\S]*LiteralI32Invalid[\s\S]*LiteralI32RadixUnsupported[\s\S]*LiteralStringMalformed[\s\S]*LiteralStringEscapeUnsupported[\s\S]*LiteralStringSliceFailed[\s\S]*LiteralCharMalformed[\s\S]*LiteralCharEscapeUnsupported[\s\S]*LiteralCharInvalidScalar[\s\S]*LiteralCharMultipleScalars[\s\S]*UnsupportedArgumentExpression/,
+    /pub enum SelfhostExprArgumentMatchErrorKind:[\s\S]*TypeMismatch[\s\S]*UnsupportedAscribedArgument[\s\S]*AscriptionProjectionFailed[\s\S]*AscriptionExpectedTypeConflict[\s\S]*NamedValueUnresolved[\s\S]*NamedValuePendingBinding[\s\S]*NamedValueUnsupportedBinding[\s\S]*NamedValueEvidenceMissing[\s\S]*FunctionValueExpectedFunctionType[\s\S]*FunctionValueMissingName[\s\S]*FunctionValueUnresolved[\s\S]*FunctionValueAmbiguous[\s\S]*FunctionValueGenericUnsupported[\s\S]*FunctionValueTypeMismatch[\s\S]*LiteralTokenOutOfBounds[\s\S]*LiteralBoolInvalid[\s\S]*LiteralI32Invalid[\s\S]*LiteralI32RadixUnsupported[\s\S]*LiteralStringMalformed[\s\S]*LiteralStringEscapeUnsupported[\s\S]*LiteralStringEscapeMalformed[\s\S]*LiteralStringSliceFailed[\s\S]*LiteralStringBuildFailed[\s\S]*LiteralCharMalformed[\s\S]*LiteralCharEscapeUnsupported[\s\S]*LiteralCharInvalidScalar[\s\S]*LiteralCharMultipleScalars[\s\S]*UnsupportedArgumentExpression/,
     "argument expression scan failures must stay typed instead of collapsing into a boolean",
 );
 assert.match(
@@ -392,7 +419,7 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharInvalidScalar:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars/,
+    /SelfhostExprArgumentMatchErrorKind::LiteralTokenOutOfBounds:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralBoolInvalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32Invalid:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralI32RadixUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringEscapeMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringSliceFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralStringBuildFailed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralStringBuildFailed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMalformed:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharEscapeUnsupported:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharInvalidScalar:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar[\s\S]*SelfhostExprArgumentMatchErrorKind::LiteralCharMultipleScalars:[\s\S]*SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars/,
     "call reducer must preserve literal payload decode failures as typed call-reduction errors",
 );
 assert.match(

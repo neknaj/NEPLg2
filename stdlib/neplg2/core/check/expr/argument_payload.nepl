@@ -12,9 +12,9 @@
 //: - `FunctionValue` は、`@ident` argument が expected function type と照合済みで、monomorphic candidate として一意に解決されたことを表します。
 //: - `UnitValue` は、値 payload を持たずに HIR `Unit` へ下ろせる `unit` literal argument を表します。
 //: - `BoolLiteral`、`I32Literal`、`CharLiteral` は、source-backed checker が token lexeme を一度だけ解析して得た意味値を保持します。lowering は source text を再読しません。
-//: - `StrLiteral` は、escape を含まない string literal から得た意味値を保持します。escape decode は別 slice の責務であり、この payload に raw quoted lexeme を入れてはいけません。
+//: - `StrLiteral` は、source-backed checker が quote 除去と対応済み escape decode を行って得た意味値を保持します。この payload に raw quoted lexeme を入れてはいけません。
 //: - `NamedValue` は、scope と value type evidence で照合済みの値参照を、DefId-linked identity として表します。
-//: - `TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool / i32 / char / simple string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。
+//: - `TypedExpression` は、ascribed expression など、現 checkpoint で HIR child payload をまだ持たない通常の typed expression を表します。bool / i32 / char / string literal は専用 payload に分解済みなので、この variant へ戻してはいけません。
 //: - `NestedDirectCall` と `BlockResult` は、引数式が単一 item ではないことを後続 lowering が再計算しないための分類です。詳細な HIR tree は後続 slice でこの payload を使って構築します。
 //:
 //: [計算量/けいさんりょう]:
@@ -75,7 +75,7 @@ pub fn selfhost_checked_value_identity_new %fn str fn SelfhostDefId fn SelfhostD
 //:
 //: [現状/げんじょう]:
 //: - `NestedDirectCall` と `BlockResult` は candidate や範囲の evidence だけを持つため、direct-call HIR lowering では fail-closed にします。
-//: - bool / i32 / char / simple string literal は専用 payload を持ちます。これらを `TypedExpression` へ戻すと、lowering が source token を再読する設計へ退行します。
+//: - bool / i32 / char / string literal は専用 payload を持ちます。これらを `TypedExpression` へ戻すと、lowering が source token を再読する設計へ退行します。
 pub enum SelfhostCheckedArgumentKind:
     UnitValue
     BoolLiteral %bool
@@ -218,11 +218,11 @@ pub fn selfhost_checked_argument_char_literal %fn i32 fn i32 fn SelfhostTypeId f
 //:
 //: [目的/もくてき]:
 //: - source-backed checker が string literal の token spelling から意味値を取り出した後、その値を checked payload として保存します。
-//: - 現 checkpoint では escape を含まない string literal だけを受理し、raw quoted lexeme を HIR へ渡す退行を防ぎます。
+//: - checker が quote 除去と対応済み escape decode を完了した string literal だけを受け取り、raw quoted lexeme を HIR へ渡す退行を防ぎます。
 //:
 //: [契約/けいやく]:
-//: - `value` は引用符を含まない semantic string value です。`"abc"` の payload は `abc` であり、`"abc"` という raw lexeme ではありません。
-//: - escape decode が未実装の間、caller は escape を含む literal を `StringEscapeUnsupported` として拒否します。
+//: - `value` は引用符を含まず、対応済み escape を decode 済みの semantic string value です。`"a\\n"` の payload は raw spelling ではなく改行を含む文字列です。
+//: - caller は string literal では受理しない escape spelling や malformed escape を typed error として拒否してから、この constructor を呼びます。
 //:
 //: [計算量/けいさんりょう]:
 //: - 構築は O(1) です。string body の検査や slice は caller 側で完了しています。
