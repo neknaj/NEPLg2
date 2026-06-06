@@ -1,5 +1,62 @@
 #indent 4
 
+//: # type_resolver/stage0: type prefix resolver の smoke 境界
+//:
+//: [目的/もくてき]:
+//: - parser が declaration header から返す `SelfhostSyntaxRange` を使い、`%fn void i32` の最小 type annotation が resolver input へ渡せることを確認します。
+//: - この module は type resolver 全体の production reducer ではなく、lexer、parser range、`SelfhostTypePrefixList` の接続を固定する smoke boundary です。
+//: - `void` は 0 引数関数 marker として `SelfhostTypePrefixItemKind::VoidMarker` になり、`unit` は通常の unit 型かつ unit 値の named type として扱われる、という NEPLg2.1 の境界を再確認します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostSyntaxRange` は `selfhost_parser_header_type_annotation_range` が返した header type annotation range を authority とし、source text を再読しません。
+//: - `selfhost_type_prefix_list_from_syntax_range` に渡す range は `%` を含みますが、成功時の `SelfhostTypePrefixList` からは `%` marker が除外されます。
+//: - 成功時は `FunctionMarker`, `VoidMarker`, `NamedType` の 3 item を順に確認し、prefix list owner と lexer token owner をそれぞれ `selfhost_type_prefix_list_free` / `v::free tokens` で閉じます。
+//:
+//: [現状/げんじょう]:
+//: - 現在の public API は `selfhost_type_resolver_stage0` という smoke entry だけです。production の constructor lookup、arity reduction、projector への投影は `type_resolver/reduce` と `type_resolver/project` の責務です。
+//: - `selfhost_type_resolver_stage0_header_type_range` は、range 抽出と token cleanup の最小 helper として残しています。今後の parser boundary test が header range だけを検査するときに使うため、dead helper ではなく smoke fixture helper として文書化します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `lex_all` と parser header range scan は入力 source 長を `n` として `O(n)` です。
+//: - prefix list build と item kind check は annotation range 内 token 数を `m` として `O(m)`、追加領域は prefix list の `O(m)` です。
+//:
+//: [authority boundary]:
+//: - parser が作った `SelfhostSyntaxRange` と lexer が作った token stream がこの module の authority です。source spelling から型名を切り出したり、import graph を探索したりしません。
+//: - semantic authority は持ちません。`void` を通常型位置に置いたときの `SelfhostTypeReduceErrorKind::VoidAsType` や constructor table authority は後段の reducer/projector が扱います。
+//:
+//: [owner boundary]:
+//: - `lex_all` の `Result::Ok tokens` は lexer token owner を返すため、成功分岐の中で必ず cleanup します。
+//: - `Result::Ok tokens` の分岐では token vector owner が存在するため、prefix list build の成功・失敗にかかわらず `v::free tokens` を実行します。
+//: - `Result::Ok list` の分岐では `SelfhostTypePrefixList` owner が存在するため、item kind 検査後に `selfhost_type_prefix_list_free list` を実行します。
+//: - `Result::Err` from `lex_all` の分岐には token owner が存在しないため、cleanup はありません。
+//:
+//: [type boundary]:
+//: - `SelfhostTypePrefixList` は型木ではなく flat item list です。`SelfhostTypePrefixItemKind::FunctionMarker`、`SelfhostTypePrefixItemKind::VoidMarker`、`SelfhostTypePrefixItemKind::NamedType` の分類だけを smoke test します。
+//: - `void` は型ではなく 0 引数関数 marker です。`unit` は `SelfhostTypePrefixItemKind::NamedType` として後段で `SelfhostPrimitiveTypeKind::Unit` へ畳まれる通常型です。
+//:
+//: [最小例/さいしょうれい]:
+//: - doctest は public smoke API の `selfhost_type_resolver_stage0` を呼び、`%fn void i32` が `FunctionMarker`, `VoidMarker`, `NamedType` の順に分類されることを status code `0` で確認します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok]
+//: ##: [0] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "neplg2/core/resolve/type_resolver/stage0" as *
+//:| #import "std/test" as *
+//:|
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check_eq_i32 0 selfhost_type_resolver_stage0
+//:     let shown checks_print_report checks1
+//:     checks_exit_code shown
+//: ```
+//:
 #import "alloc/collections/vec" as v
 #import "core/math" as *
 #import "core/option" as *
@@ -10,6 +67,25 @@
 #import "./input" as *
 #import "./model" as *
 
+//: selfhost_type_resolver_stage0_item_kind: prefix item kind を fail-closed に[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - smoke API が `SelfhostTypePrefixList` の特定 index を読み、期待した `SelfhostTypePrefixItemKind` であるかを `bool` として確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `Option::Some item` なら `selfhost_type_prefix_item_kind_eq item.kind expected` で enum variant を比較します。
+//: - `Option::None` は list 範囲外であり、smoke fixture の成功条件にはできないため fail-closed に `false` を返します。
+//: - この helper は list owner を消費しません。caller が `selfhost_type_prefix_list_free` で cleanup obligation を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 指定 index が存在し、`item.kind` が `expected` と同じ `SelfhostTypePrefixItemKind` です。
+//: - `false`: index が存在しない、または enum variant が異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - `selfhost_type_prefix_list_get` の index lookup と enum comparison だけなので、list 構築後の追加処理は `O(1)` です。
+//:
+//: [type boundary]:
+//: - 比較対象は `SelfhostTypePrefixItemKind` の分類だけです。`NamedType` が primitive / constructor / type parameter のどれかはここでは解決しません。
 fn selfhost_type_resolver_stage0_item_kind %fn &SelfhostTypePrefixList fn i32 fn SelfhostTypePrefixItemKind bool \list\idx\expected:
     match selfhost_type_prefix_list_get list idx:
         Option::Some item:
@@ -17,6 +93,30 @@ fn selfhost_type_resolver_stage0_item_kind %fn &SelfhostTypePrefixList fn i32 fn
         Option::None:
             false
 
+//: selfhost_type_resolver_stage0_header_type_range: source から header type annotation range を[取/と]る
+//:
+//: [目的/もくてき]:
+//: - parser の header range authority だけを小さく検査する smoke helper です。
+//: - `lex_all` が返す token owner を range 抽出後に必ず閉じることで、parser range 抽出と cleanup boundary を public smoke API から分離して確認できます。
+//:
+//: [契約/けいやく]:
+//: - `lex_all` の `Result::Ok tokens` 分岐では lexer token owner を得ます。
+//: - `Result::Ok tokens` では `selfhost_parser_header_type_annotation_range &tokens v::len &tokens 0` で先頭 item の type annotation range を取得し、`v::free tokens` 後に `Result::Ok range` を返します。
+//: - `Result::Err _diag` では token owner が存在しないため cleanup はなく、fixture 境界では診断詳細を保持せず `Result::Err unit` に畳みます。
+//: - この helper は `SelfhostSyntaxRange` の意味を検査しません。`%` marker の存在や item kind の妥当性は `selfhost_type_prefix_list_from_syntax_range` の責務です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Result::Ok(SelfhostSyntaxRange)`: parser が返した header type annotation range です。
+//: - `Result::Err(unit)`: lexer が失敗したため、range authority が得られなかったことを表します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `lex_all` と header range scan は source 長を `n` として `O(n)` です。追加 owner は token vector だけで、成功分岐内で `v::free tokens` により閉じます。
+//:
+//: [authority boundary]:
+//: - `SelfhostSyntaxRange` は parser の header range authority であり、この helper は source text を直接切り出しません。
+//:
+//: [owner boundary]:
+//: - `Result::Ok tokens` で得た lexer token owner は、この helper が必ず `v::free tokens` で解放します。caller へ token owner は返しません。
 fn selfhost_type_resolver_stage0_header_type_range %impure fn str Result SelfhostSyntaxRange unit \source:
     match lex_all source:
         Result::Ok tokens:
@@ -30,6 +130,51 @@ fn selfhost_type_resolver_stage0_header_type_range %impure fn str Result Selfhos
 //:
 //: [目的/もくてき]:
 //: - `%fn void i32` から `%` を除いた flat item list を作り、`void` が named type ではなく marker として分類されることを確認します。
+//: - self-host compiler の type resolver 実装が、lexer / parser / prefix input の最小接続を維持しているかを status code で返します。
+//:
+//: [契約/けいやく]:
+//: - この function は smoke API であり、production resolver の reduce / project / constructor lookup は実行しません。
+//: - source は `fn main %fn void i32 \void:` の最小関数です。`void` は 0 引数関数 marker であり、戻り値の `i32` は `NamedType` として prefix list に残ります。
+//: - `selfhost_parser_header_type_annotation_range` が返した `SelfhostSyntaxRange` をそのまま `selfhost_type_prefix_list_from_syntax_range` へ渡します。source text の再読や手書き range は使いません。
+//: - `Result::Ok list` では list length が 3 で、0 番目が `SelfhostTypePrefixItemKind::FunctionMarker`、1 番目が `SelfhostTypePrefixItemKind::VoidMarker`、2 番目が `SelfhostTypePrefixItemKind::NamedType` であることをすべて確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: lexer、parser range、prefix list build、item kind check がすべて成功しました。
+//: - `1`: `lex_all` が `Result::Err` を返した、`selfhost_type_prefix_list_from_syntax_range` が `Result::Err` を返した、または item kind / length が期待と異なりました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 source の smoke API としては定数時間です。一般化すると `lex_all` と parser range scan が source 長 `n`、prefix list build が annotation token 数 `m` に対して `O(n + m)` です。
+//:
+//: [authority boundary]:
+//: - `SelfhostSyntaxRange` は parser が返した header annotation range を authority とします。この function は constructor table、type parameter env、import graph、Resource IR proof を参照しません。
+//:
+//: [owner boundary]:
+//: - `Result::Ok tokens` の全分岐で `v::free tokens` を呼び、`Result::Ok list` の分岐で `selfhost_type_prefix_list_free list` を呼びます。
+//: - `Result::Err _diag` from `lex_all` は token owner を持たないため、解放処理を行わず `1` を返します。
+//:
+//: [type boundary]:
+//: - `SelfhostTypePrefixList` はまだ resolved type tree ではありません。`SelfhostTypePrefixItemKind::FunctionMarker`、`VoidMarker`、`NamedType` という token role だけを検査します。
+//: - `void` は 0 引数 marker であり、`unit` は通常の unit 型 / unit 値として `NamedType` 経由で後段 reducer に渡される、という境界をこの smoke API の前提にします。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok]
+//: ##: [0] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "neplg2/core/resolve/type_resolver/stage0" as *
+//:| #import "std/test" as *
+//:|
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check_eq_i32 0 selfhost_type_resolver_stage0
+//:     let shown checks_print_report checks1
+//:     checks_exit_code shown
+//: ```
 pub fn selfhost_type_resolver_stage0 %impure fn void i32 \void:
     let source %str "fn main %fn void i32 \\void:\n    0\n"
     match lex_all source:

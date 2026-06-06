@@ -1,3 +1,114 @@
+# 2026-06-06 Agent selfhost type resolver stage0 documentation contract checkpoint
+
+## review_scope
+
+- branch: selfhost/type-resolver-stage0-doc-contract-20260606
+- 対象 branch: `selfhost/type-resolver-stage0-doc-contract-20260606`
+- base: `e3ce1320`
+- head: `working-tree-before-commit`
+- 対象 issue / slice: `ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41` / `stdlib/neplg2/core/resolve/type_resolver/stage0.nepl`
+- files_read: `plan.md`; `AGENTS.md`; `note.n.md`; `todo.md`; `stdlib/neplg2/core/resolve/type_resolver/stage0.nepl`; `stdlib/neplg2/core/resolve/type_resolver/input.nepl`; `stdlib/neplg2/core/resolve/type_resolver/model.nepl`; `nodesrc/test_selfhost_documentation_contract.js`; `nodesrc/test_source_policy_no_line_count_limits.js`; `nodesrc/test_selfhost_zenn_review_gate_contract.js`; `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: unrelated selfhost compiler implementation modules outside this type resolver stage0 documentation contract slice
+- subagent_review_ids:
+  - 019e9ac0-dad5-73e3-a8e8-745763aa96af
+  - 019e9ac0-f78c-7e63-8e56-f70364bf1604
+- subagent_review_count: 2
+- prior_slice_review_ids: 019e9aa6-c935-7f12-8f11-e0cdc45de90a, 019e9aa6-e2f3-7f73-9775-6d66ca5ecfff
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/resolve/type_resolver/stage0.nepl; nodesrc/test_selfhost_documentation_contract.js; issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+- recommended_fix: none
+- finding: `stdlib/neplg2/core/resolve/type_resolver/stage0.nepl` は resolver 入力の smoke boundary であり、parser `SelfhostSyntaxRange`、lexer token owner、`SelfhostTypePrefixList`、`void` marker / `unit` named type 境界を Zenn 方針の doc comment 契約として固定する必要があった。
+- root_cause: 前 slice では `input.nepl` と `model.nepl` の contract は固定されたが、stage0 の public smoke API と private helper が scanner-visible module doc / declaration doc / doctest / exact-path source policy なしで残り、subagent review が毎回同じ境界を再推論する必要があった。
+- reason: Zenn 記事は目的、contract、現状、計算量、典型例、`Option` / `Result` branch、authority boundary、owner boundary、試作段階でも品質を落とさないことを要求している。この slice は runtime semantics を変えず、documentation contract と source policy を exact-path / requiredPatterns / doctestScenarios で固定した。
+- source_policy_reason: `nodesrc/test_selfhost_documentation_contract.js` は `type_resolver/stage0.nepl` を fixed scanner sentinel に追加し、`selfhost_parser_header_type_annotation_range`, `lex_all`, `SelfhostSyntaxRange`, `SelfhostTypePrefixList`, `SelfhostTypePrefixItemKind::{FunctionMarker, VoidMarker, NamedType}`, `v::free tokens`, `selfhost_type_prefix_list_free`, `%` exclusion, and `void` / `unit` distinction を要求する。行数制限、file size、comment volume、doc comment 長制限は追加していない。
+- doc_issue_note: `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md` は baseline `moduleNoDoc=62`, `declarationNoDoc=57`, `publicNoDoc=28`, `privateNoDoc=29` と今回 slice を記録し、残る selfhost doc gap を既存 open issue の継続範囲として扱う。
+
+## implementation/test
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/resolve/type_resolver/stage0.nepl; nodesrc/test_selfhost_documentation_contract.js; issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md; issues/index.json
+- decision: fixed
+- source_policy: updated
+- verify: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/stage0.nepl -n 1`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/stage0.nepl -n 2`; `node nodesrc/test_selfhost_type_resolver_split_contract.js`; `node nodesrc/test_selfhost_type_resolver_prefix_input.js`; `node nodesrc/test_selfhost_type_resolver_generic_application_contract.js`; `node nodesrc/test_selfhost_type_resolver_type_parameters.js`; `node nodesrc/test_selfhost_prototype_design_contract.js`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-type-resolver-stage0-doc-contract-playground-editor.json`; `git diff --check`
+- recommended_fix: none
+- finding: implementation diff は `stage0.nepl` の doc comment / doctest と、その契約を固定する documentation contract test / issue record に限定されている。NEPL の type reduction、Resource IR、codegen の挙動は変更していない。
+- root_cause: `selfhost_type_resolver_stage0_item_kind` と `selfhost_type_resolver_stage0_header_type_range` が undocumented private helper のままだと、`Option::None` fail-closed、`Result::Err unit` lex failure erasure、token owner cleanup、parser authority の責務が後続実装者に伝わらない。
+- reason: module doc は smoke API と production reducer/projector の境界を分離し、private helper docs は `Option::Some` / `Option::None` と `Result::Ok tokens` / `Result::Err unit` の branch behavior を明記した。public doctest は `selfhost_type_resolver_stage0` を直接呼び、`%fn void i32` が `FunctionMarker`, `VoidMarker`, `NamedType` の順に分類されることを status code `0` で確認する。
+- source_policy_reason: subagent review の Blocker を受け、baseline-only pass ではなく exact-path module/declaration requirements と semantic requiredPatterns を追加した。no-doctest counters は visible debt のままで、comment growth を妨げる gate は追加していない。
+- doc_issue_note: fixed slice は accepted quality debt ではなく、open issue の残gapを減らす checkpoint として記録した。
+
+## subagent review
+
+- 019e9ac0-dad5-73e3-a8e8-745763aa96af:
+  - Blocker: scanner-visible module doc がなく、`selfhost_type_resolver_stage0_item_kind` と `selfhost_type_resolver_stage0_header_type_range` が undocumented helper のまま、public smoke API も purpose だけで runnable doctest と source-policy contract が欠けていた。
+  - Non-blocker: `node nodesrc/test_selfhost_documentation_contract.js` の pass は baseline debt の表示であり、この slice の approval evidence ではない。
+  - Question: `selfhost_type_resolver_stage0_header_type_range` を残すなら smoke fixture helper として exact coverage が必要。
+  - Approve: Blocker 対応後に local verification で受理。
+- 019e9ac0-f78c-7e63-8e56-f70364bf1604:
+  - Blocker: none
+  - Non-blocker: source-policy contract は exact path sentinel + semantic patterns に留め、line-count / byte-count / file-size / comment-volume / doc-comment-length gates を追加しないこと。
+  - Question: `selfhost_type_resolver_stage0_header_type_range` を残すなら役割を文書化すること。
+  - Approve: semantic pattern design approved; retained helper は documented smoke fixture helper として固定。
+- classification / decision / source_policy / verify: review Blocker label の指摘は fixed、source_policy は updated、verify は `node nodesrc/test_selfhost_documentation_contract.js` と stage0 doctests。Non-blocker label の指摘は fixed、source_policy は no line-count/doc-length gate preserved、verify は `node nodesrc/test_source_policy_no_line_count_limits.js`。Question label は answered by retaining and documenting `selfhost_type_resolver_stage0_header_type_range` as smoke fixture helper。Approve label は final aggregate review check 後の `MERGE_APPROVED` に対応する。
+
+## zenn_check
+
+- Result/Option: `stdlib/neplg2/core/resolve/type_resolver/stage0.nepl` documents `Option::Some` / `Option::None` item lookup, `Result::Ok tokens`, `Result::Ok list`, `Result::Err unit`, and `lex_all` `Result::Err` no-token-owner branches.
+- enum error/display separation: this slice does not add display text or stringly diagnostic authority; it keeps `SelfhostTypePrefixItemKind::{FunctionMarker, VoidMarker, NamedType}` as typed enum evidence and leaves `SelfhostTypeReduceErrorKind::VoidAsType` to reducer authority.
+- match exhaustiveness: the smoke helper docs describe all matched branches for `Option::Some`, `Option::None`, `Result::Ok tokens`, `Result::Err _diag`, `Result::Ok list`, and `Result::Err _e`.
+- pure/impure boundary: core logic stays in `stdlib/neplg2/core/resolve/type_resolver/stage0.nepl`; StdIO/FileSystem authority appears only through doctest runner and `std/test`, not in the resolver model.
+- authority boundary: `stdlib/neplg2/core/resolve/type_resolver/stage0.nepl` uses parser-provided `SelfhostSyntaxRange` from `selfhost_parser_header_type_annotation_range` and lexer token stream as the only authority; source text reread, import graph scan, constructor lookup, reduce/project authority, and Resource IR proof are outside this stage0 smoke API.
+- owner/free: docs pin `v::free tokens` for every `Result::Ok tokens` path and `selfhost_type_prefix_list_free list` for every `Result::Ok list` path; `lex_all` failure has no token owner to free.
+- zero-cost/performance: `stdlib/neplg2/core/resolve/type_resolver/stage0.nepl` documents `selfhost_type_resolver_stage0_item_kind` as `O(1)` item lookup/comparison after list build, and `nodesrc/test_selfhost_documentation_contract.js` pins the `O(n + m)` lex/range/list behavior without adding runtime wrapper abstractions.
+- doc comment: `nodesrc/test_selfhost_documentation_contract.js` requires purpose, contract, current, complexity, authorityBoundary, ownerBoundary, typeBoundary, returns, doctest, and concrete semantic requiredPatterns for this exact file without 行数制限 or doc comment 長制限.
+- prototype/fail-closed: `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md` keeps remaining selfhost doc gaps open while fixed stage0 now fails closed through exact scanner sentinels and semantic requiredPatterns.
+
+## profiling_observation
+
+- `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/stage0.nepl -n 1` passed with `compile_ms=14706`, `resource_static_check=13783.433ms`, `resource_static_initialized_moves=12120.985ms`, `resource_static_owner_obligations=1131.366ms`, `resource_typecheck=583.736ms`, and `web_loader_load=223.95ms`.
+- `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/stage0.nepl -n 2` passed with `compile_ms=16638`, `resource_static_check=15703.698ms`, `resource_static_initialized_moves=13822.053ms`, `resource_static_owner_obligations=1274.63ms`, `resource_static_effect_boundaries=378.008ms`, `resource_typecheck=577.026ms`, and `web_loader_load=238.11ms`.
+- cold base compile の支配的コストは引き続き Resource static check、特に initialized moves 周辺であり、キャッシュ設計だけでなく探索範囲と計算量の削減が次の性能優先課題である。
+
+## evidence_to_record
+
+- note: `note.n.md` records branch, issue slice, Zenn 記事 URL, AGENTS.md, `subagent_review_ids`, `subagent_review_count`, `Blocker`, `Non-blocker`, `Question`, `Approve`, classification, decision, source_policy, verify, existing warnings, new warnings, residual_risk, unexecuted_verification, and 次 slice.
+- issue: `issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md` records the type resolver stage0 fixed slice and baseline `moduleNoDoc=62`, `declarationNoDoc=57`, `publicNoDoc=28`, `privateNoDoc=29`.
+- source policy: `nodesrc/test_selfhost_documentation_contract.js` pins exact `stage0.nepl` path, semantic requiredPatterns, and doctestScenarios; `nodesrc/test_source_policy_no_line_count_limits.js` guards against 行数制限, file size, comment volume, and doc comment 長制限 gates.
+- tests: selfhost documentation contract, two stage0 doctests, focused type resolver contracts, issue check, Zenn review gate, source policy regression, `trunk build`, `git diff --check`, and playground editor JSON smoke all passed locally before merge decision.
+- review: subagent review `019e9ac0-dad5-73e3-a8e8-745763aa96af` supplied Blocker findings on missing module/helper/public docs and doctest coverage; subagent review `019e9ac0-f78c-7e63-8e56-f70364bf1604` approved the semantic source-policy design and warned against size-style gates.
+
+## warnings
+
+- existing_warnings: `node nodesrc/test_selfhost_documentation_contract.js` and `node nodesrc/run_source_policy_regressions.js --warn-only` show remaining pre-existing documentation gap samples; Node WASI ExperimentalWarning appears in doctest/source-policy runs; `git diff --check` emits LF-to-CRLF working-copy warnings; `trunk build` reports trunk update notice and wasm-bindgen tool version mismatch notice; stage0 doctest compile timing still shows cold resource_static_initialized_moves and resource_static_check as dominant costs.
+- new_warnings: none
+- 既存 warning: same as existing_warnings field above
+- 今回差分由来 warning: none
+- residual_risk: none
+- unexecuted_verification: none
+
+## summary
+
+- blockers: none
+- non_blockers: none
+- questions: none
+- approve: yes
+- source policy: updated and validated
+- residual_risk: none
+- unexecuted_verification: none
+- 検証済み / executed: `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/stage0.nepl -n 1`; `node nodesrc/run_doctest.js -i stdlib/neplg2/core/resolve/type_resolver/stage0.nepl -n 2`; `node nodesrc/test_selfhost_type_resolver_split_contract.js`; `node nodesrc/test_selfhost_type_resolver_prefix_input.js`; `node nodesrc/test_selfhost_type_resolver_generic_application_contract.js`; `node nodesrc/test_selfhost_type_resolver_type_parameters.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_prototype_design_contract.js`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-type-resolver-stage0-doc-contract-playground-editor.json`; `git diff --check`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; final aggregate `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+- 次 slice: `stdlib/neplg2/core/resolve/type_resolver/typeparam/{id,model,env}.nepl` documentation contract or cold base compile search-space reduction around Resource static initialized moves.
+- remaining work: selfhost documentation gaps and cold base compile search-space reduction remain separate open work, not residual risk for this fixed slice.
+
 # 2026-06-06 Agent selfhost resolved type submodule documentation contract checkpoint
 
 ## review_scope

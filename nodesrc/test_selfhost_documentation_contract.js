@@ -10,14 +10,14 @@ const selfhostRoot = path.join(repoRoot, "stdlib", "neplg2");
 const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md";
 
 const BASELINE = {
-    moduleNoDoc: 63,
+    moduleNoDoc: 62,
     moduleNoDoctest: 65,
-    declarationNoDoc: 59,
-    declarationNoDoctest: 1672,
+    declarationNoDoc: 57,
+    declarationNoDoctest: 1673,
     publicNoDoc: 28,
-    publicNoDoctest: 1256,
-    privateNoDoc: 31,
-    privateNoDoctest: 416,
+    publicNoDoctest: 1255,
+    privateNoDoc: 29,
+    privateNoDoctest: 418,
 };
 const HARD_DOC_BASELINE_KEYS = [
     "moduleNoDoc",
@@ -53,6 +53,7 @@ const PUBLIC_DOC_REQUIRED_PREFIXES = [
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/stage0.nepl",
     "stdlib/neplg2/core/syntax/lexer/",
 ];
 const REQUIRED_SCANNER_SENTINELS = [
@@ -77,6 +78,7 @@ const REQUIRED_SCANNER_SENTINELS = [
     "stdlib/neplg2/core/resolve/type_resolver/reduce/build.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/reduce/plan.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/stage0.nepl",
     "stdlib/neplg2/core/syntax/lexer/byte.nepl",
 ];
 const MODULE_DOC_SECTION_REQUIREMENTS = [
@@ -220,6 +222,37 @@ const MODULE_DOC_SECTION_REQUIREMENTS = [
             requiredPattern("no source text reread", /source text.*再読せず|source spelling.*再読/),
             requiredPattern("display separated from error", /表示.*分離|message.*持たせない/),
             requiredPattern("all input error variants", /\bEmptySyntaxRange\b[\s\S]*\bInvalidSyntaxRange\b[\s\S]*\bTokenOutOfBounds\b[\s\S]*\bMissingAnnotationMarker\b[\s\S]*\bInvalidToken\b[\s\S]*\bOutOfMemory\b/),
+        ],
+    }),
+    moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/stage0.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        doctestUses: [
+            "selfhost_type_resolver_stage0",
+        ],
+        doctestScenarios: [
+            {
+                name: "simplest stage0 smoke call",
+                label: /最小例|simple/i,
+                requiredPatterns: [
+                    requiredPattern("public stage0 smoke API", /\bselfhost_type_resolver_stage0\b/),
+                    requiredPattern("successful status check", /\bcheck_eq_i32\b[\s\S]*\b0\b[\s\S]*\bselfhost_type_resolver_stage0\b/),
+                ],
+            },
+        ],
+        requiredPatterns: [
+            requiredPattern("parser range authority", /\bselfhost_parser_header_type_annotation_range\b/),
+            requiredPattern("lexer token owner", /\blex_all\b[\s\S]*\btokens\b/),
+            requiredPattern("syntax range authority", /\bSelfhostSyntaxRange\b/),
+            requiredPattern("prefix list boundary", /\bSelfhostTypePrefixList\b/),
+            requiredPattern("prefix list build", /\bselfhost_type_prefix_list_from_syntax_range\b/),
+            requiredPattern("prefix list cleanup", /\bselfhost_type_prefix_list_free\b/),
+            requiredPattern("token cleanup", /\bv::free tokens\b/),
+            requiredPattern("percent marker excluded", /%.*除外|%.*含みます[\s\S]*除外/),
+            requiredPattern("function marker check", /\bSelfhostTypePrefixItemKind::FunctionMarker\b/),
+            requiredPattern("void marker check", /\bSelfhostTypePrefixItemKind::VoidMarker\b/),
+            requiredPattern("named type check", /\bSelfhostTypePrefixItemKind::NamedType\b/),
+            requiredPattern("void and unit distinction", /void.*0 引数[\s\S]*unit.*型|unit.*型[\s\S]*void.*0 引数/),
+            requiredPattern("lex failure has no token owner", /Result::Err.*lex_all[\s\S]*token owner.*存在しない|lex_all.*Result::Err[\s\S]*token owner.*存在しない/),
+            requiredPattern("no semantic authority", /semantic authority|constructor table.*後段|Resource IR proof.*参照しません/),
         ],
     }),
     moduleRequirement("stdlib/neplg2/core/resolve/type_resolver/resolved.nepl", ["purpose", "contract", "current", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
@@ -821,6 +854,41 @@ const DOC_SECTION_REQUIREMENTS = [
         requiredPattern("syntax range token authority", /\bSelfhostSyntaxRange\b[\s\S]*\bSelfhostToken\b/),
         requiredPattern("void marker and unit type boundary", /\bSelfhostTypePrefixItemKind::VoidMarker\b[\s\S]*unit.*NamedType|unit.*NamedType[\s\S]*\bSelfhostTypePrefixItemKind::VoidMarker\b/),
     ]),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/stage0.nepl", "selfhost_type_resolver_stage0_item_kind", ["purpose", "contract", "returns", "complexity", "ownerBoundary", "typeBoundary"], {
+        requiredPatterns: [
+            requiredPattern("option some branch", /\bOption::Some\b/),
+            requiredPattern("option none branch", /\bOption::None\b/),
+            requiredPattern("kind comparison", /\bselfhost_type_prefix_item_kind_eq\b/),
+            requiredPattern("fail closed false", /fail-closed.*false|false.*fail-closed/),
+            requiredPattern("prefix item kind payload", /\bSelfhostTypePrefixItemKind\b/),
+            requiredPattern("list cleanup remains caller responsibility", /\bselfhost_type_prefix_list_free\b/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/stage0.nepl", "selfhost_type_resolver_stage0_header_type_range", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary"], {
+        requiredPatterns: [
+            requiredPattern("lex all success branch", /\blex_all\b[\s\S]*\bResult::Ok tokens\b/),
+            requiredPattern("header range extraction", /\bselfhost_parser_header_type_annotation_range\b/),
+            requiredPattern("token owner cleanup", /\bv::free tokens\b/),
+            requiredPattern("ok range return", /\bResult::Ok range\b/),
+            requiredPattern("lex failure erased to unit", /\bResult::Err unit\b/),
+            requiredPattern("syntax range return type", /\bSelfhostSyntaxRange\b/),
+        ],
+    }),
+    requirement("stdlib/neplg2/core/resolve/type_resolver/stage0.nepl", "selfhost_type_resolver_stage0", ["purpose", "contract", "returns", "complexity", "authorityBoundary", "ownerBoundary", "typeBoundary", "doctest"], {
+        requiredPatterns: [
+            requiredPattern("parser range extraction", /\bselfhost_parser_header_type_annotation_range\b/),
+            requiredPattern("prefix list build", /\bselfhost_type_prefix_list_from_syntax_range\b/),
+            requiredPattern("function marker assertion", /\bSelfhostTypePrefixItemKind::FunctionMarker\b/),
+            requiredPattern("void marker assertion", /\bSelfhostTypePrefixItemKind::VoidMarker\b/),
+            requiredPattern("named type assertion", /\bSelfhostTypePrefixItemKind::NamedType\b/),
+            requiredPattern("prefix list cleanup", /\bselfhost_type_prefix_list_free\b/),
+            requiredPattern("token cleanup", /\bv::free tokens\b/),
+            requiredPattern("success code zero", /`0`/),
+            requiredPattern("failure code one", /`1`/),
+            requiredPattern("smoke not production resolver", /smoke[\s\S]*production|production[\s\S]*smoke/),
+            requiredPattern("void unit distinction", /void.*0 引数[\s\S]*unit.*unit 値|unit.*通常.*型[\s\S]*void.*0 引数/),
+        ],
+    }),
     typeProjectRequirement("SelfhostTypeProjectErrorKind", ["purpose", "contract", "complexity", "errorVariant", "authorityBoundary"], [
         requiredPattern("missing node error", /\bSelfhostTypeProjectErrorKind::MissingResolvedNode\b|`MissingResolvedNode`/),
         requiredPattern("unsupported named type error", /\bSelfhostTypeProjectErrorKind::UnsupportedNamedType\b|`UnsupportedNamedType`/),
