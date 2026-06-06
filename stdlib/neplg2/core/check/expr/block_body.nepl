@@ -5,20 +5,20 @@
 //:
 //: [目的/もくてき]:
 //: - `BlockIntro.body` は nested body envelope であり、outer call の flat prefix item ではありません。
-//: - この module は nested body envelope を body segmenter で再帰的に分解し、block result として検査できる単一 `ExpressionLine` だけを prefix list と callable candidate list へ変換します。
+//: - この module は nested body envelope を body segmenter で再帰的に分解し、block result として検査できる `ExpressionLine` を prefix list と callable candidate list へ変換します。
 //: - call reduction そのものは `call_reduce.nepl` に残し、この module は block body の構文境界、owner 管理、candidate collection までを担当します。
-//: - 複数 top-level expression を持つ block body では、segment list owner を caller へ渡し、caller が各 expression line を source order で検査します。
+//: - 複数 top-level expression や nested `BlockIntro` を持つ block body では、segment list owner を caller へ渡し、caller が source order と trailing block evidence を保ったまま検査します。
 //:
 //: [契約/けいやく]:
-//: - 単一 block result input API で成功するのは、nested body がちょうど 1 個の `ExpressionLine` で、その head から prefix list と candidate list を構築できる場合だけです。
-//: - sequence API では segment list owner を返し、空 body と nested `BlockIntro` は caller 側で型付き error として扱います。
-//: - 空 body、nested `BlockIntro`、prefix build failure、candidate collection failure はすべて typed error として返します。
+//: - 単一 block result input API で成功するのは、nested body がちょうど 1 個の `ExpressionLine` で、その head から prefix list と candidate list を構築できる場合だけです。この legacy-compatible API は nested `BlockIntro` を受理しません。
+//: - segment list API では owner を返し、caller 側の dispatcher が `ExpressionLine` と nested `BlockIntro` を同じ checked tree へ再帰的に接続します。
+//: - 空 body、legacy single-input API での nested `BlockIntro`、prefix build failure、candidate collection failure はすべて typed error として返します。
 //: - `BlockIntro.body` 全体を `SelfhostExprPrefixList` に直接変換してはいけません。必ず `selfhost_body_segment_list_from_envelope` を通して body の階層を確認します。
 //: - 成功 payload は prefix list owner と candidate vector owner を持ちます。caller は call reduction 後に `selfhost_block_body_result_input_free` で必ず解放します。
 //:
 //: [現状/げんじょう]:
-//: - block result checker は、single expression line を既存の source-backed call reducer へ渡す入力構築と、複数 expression line を順に検査するための segment list 境界を扱います。
-//: - bare literal body、lambda body、pipe body、さらに nested block body の成功受理は、対応する expression checker slice が接続された後にこの module の入力構築結果を拡張します。
+//: - block result checker は、single expression line を既存の source-backed call reducer へ渡す入力構築と、複数 expression line / nested block を順に検査するための segment list 境界を扱います。
+//: - bare literal body、lambda body、pipe bodyの成功受理は、対応する expression checker slice が接続された後にこの module の入力構築結果を拡張します。
 //:
 //: [計算量/けいさんりょう]:
 //: - body envelope の token 数を k とすると、segmenter は O(k)、prefix list build も O(k) です。
@@ -134,7 +134,7 @@ pub fn selfhost_block_body_result_input_free %impure fn SelfhostBlockBodyResultI
 //:
 //: [計算量/けいさんりょう]:
 //: - enum match と field 取得だけなので O(1) です。
-fn selfhost_block_body_result_segment_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
+pub fn selfhost_block_body_result_segment_span %fn SelfhostBodySegment SelfhostSourceSpan \segment:
     match segment.head:
         SelfhostSyntaxRange::Range range:
             range.span
@@ -174,12 +174,12 @@ fn selfhost_block_body_result_from_expression_segment %impure fn &Vec SelfhostTo
 //: selfhost_block_body_result_from_single_segment: 1 segment が block result expression として使えるかを[判定/はんてい]する
 //:
 //: [目的/もくてき]:
-//: - block body が 1 segment だけである場合に、それが `ExpressionLine` なら reducer input へ進め、`BlockIntro` なら未対応として拒否します。
-//: - nested block を暗黙に flat prefix list へ潰さないための境界です。
+//: - legacy single-input API として、block body が 1 segment だけである場合に、それが `ExpressionLine` なら reducer input へ進め、`BlockIntro` なら拒否します。
+//: - 通常の source-backed success path では `call_reduce.nepl` 側の segment dispatcher が nested `BlockIntro` を扱います。この helper は nested block を暗黙に flat prefix list へ潰さないための安全境界です。
 //:
 //: [契約/けいやく]:
 //: - `ExpressionLine` だけを成功候補にします。
-//: - `BlockIntro` は `NestedBlockUnsupported` として fail-closed にし、body を再帰的に式として成功扱いしません。
+//: - この legacy single-input API に渡された `BlockIntro` は `NestedBlockUnsupported` として fail-closed にし、body を再帰的に式として成功扱いしません。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(input)`: expression line から作った reducer input owner です。
@@ -198,12 +198,13 @@ fn selfhost_block_body_result_from_single_segment %impure fn &Vec SelfhostToken 
 //: selfhost_block_body_result_input_from_segment: body segment を reducer input owner へ[変換/へんかん]する
 //:
 //: [目的/もくてき]:
-//: - sequence reducer が保持する `SelfhostBodySegmentList` の各 segment を、必要な時点で prefix list と candidate list へ変換します。
+//: - legacy single-input API として、`ExpressionLine` segment を必要な時点で prefix list と candidate list へ変換します。
+//: - 通常の trailing block reducer はこの helper を `ExpressionLine` branch だけで使い、nested `BlockIntro` は `call_reduce.nepl` 側の dispatcher で再帰処理します。
 //: - 複数式 block の処理でも、prefix/candidate owner を全行ぶん先に確保せず、1 行ずつ作って解放できます。
 //:
 //: [契約/けいやく]:
 //: - `ExpressionLine` だけを成功候補にします。
-//: - `BlockIntro` は `NestedBlockUnsupported` として fail-closed にし、nested block を flat prefix list へ潰しません。
+//: - この helper に渡された `BlockIntro` は `NestedBlockUnsupported` として fail-closed にし、nested block を flat prefix list へ潰しません。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(input)`: expression line から作った reducer input owner です。

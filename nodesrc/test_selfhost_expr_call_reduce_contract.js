@@ -194,7 +194,7 @@ assert.match(
 assert.match(
     source,
     /SelfhostBodySegmentKind::ExpressionLine:[\s\S]*selfhost_block_body_result_from_expression_segment tokens source scope signatures segment[\s\S]*SelfhostBodySegmentKind::BlockIntro:[\s\S]*SelfhostBlockBodyResultErrorKind::NestedBlockUnsupported/,
-    "trailing block body checking must reject nested BlockIntro bodies in this slice",
+    "legacy single block-body input API must keep rejecting nested BlockIntro instead of flattening it",
 );
 assert.match(
     source,
@@ -818,8 +818,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line/,
-    "public stage1 body-line smoke must include the block sequence success and non-unit rejection fixture",
+    /selfhost_check_expr_stage1_trailing_block_nested_segment[\s\S]*SelfhostBodySegmentKind::BlockIntro[\s\S]*selfhost_check_expr_stage1_make_trailing_block_nested_tokens[\s\S]*TokenKind::Colon[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_result_ok[\s\S]*"add 1 add 1: add 1 1"[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
+    "stage1 must smoke-test that a nested BlockIntro in a trailing block is recursively checked",
+);
+assert.match(
+    source,
+    /pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
+    "public stage1 body-line smoke must include the block result, block sequence, and nested BlockIntro fixtures",
 );
 assert.match(
     source,
@@ -853,8 +858,13 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_trailing_block_body_single_result[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates some block_expected none[\s\S]*selfhost_checked_expr_tree_add_block_result body_tree expected_type block_span body_expr[\s\S]*selfhost_checked_argument_checked_expr item_index item_index expected_type block_span expr_id[\s\S]*selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_segments_from_trailing_block tokens block_arg[\s\S]*selfhost_call_reduce_trailing_block_body_segments_result tokens source arena checked_tree scope value_types signatures expected_type segments block_arg\.span item_index/,
-    "call reduction must segment a trailing block body once, then recursively check a single body expression in the same checked tree and return a CheckedExpr BlockResult payload",
+    /fn selfhost_call_reduce_trailing_block_segment_result[\s\S]*SelfhostBodySegmentKind::ExpressionLine:[\s\S]*selfhost_block_body_result_input_from_segment tokens source scope signatures segment[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates expected none[\s\S]*SelfhostBodySegmentKind::BlockIntro:[\s\S]*selfhost_expr_prefix_list_from_syntax_range tokens segment\.head[\s\S]*selfhost_callable_candidates_collect_for_prefix source tokens &prefix scope signatures[\s\S]*selfhost_trailing_block_argument_new segment\.body block_span[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree &prefix scope value_types signatures &candidates expected some trailing/,
+    "call reduction must use one segment dispatcher for expression lines and nested BlockIntro bodies without flattening the body range",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_trailing_block_body_single_result[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_trailing_block_segment_result tokens source arena checked_tree scope value_types signatures some block_expected segment[\s\S]*selfhost_checked_expr_tree_add_block_result body_tree expected_type block_span body_expr[\s\S]*selfhost_checked_argument_checked_expr item_index item_index expected_type block_span expr_id[\s\S]*selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_segments_from_trailing_block tokens block_arg[\s\S]*selfhost_call_reduce_trailing_block_body_segments_result tokens source arena checked_tree scope value_types signatures expected_type segments block_arg\.span item_index/,
+    "call reduction must segment a trailing block body once, then wrap the checked segment root as a BlockResult payload",
 );
 assert.match(
     source,
@@ -868,8 +878,8 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_trailing_block_sequence_loop[\s\S]*\\expected_type\\unit_type\\segments\\idx\\count\\item_index\\block_span[\s\S]*selfhost_block_body_result_input_from_segment tokens source scope signatures segment[\s\S]*selfhost_call_reduce_trailing_block_sequence_line_expected expected_type unit_type idx count line_span[\s\S]*selfhost_call_reduce_prefix_with_source_in_tree tokens source arena checked_tree prefix scope value_types signatures candidates line_expected none[\s\S]*v::push body_exprs body_expr[\s\S]*selfhost_call_reduce_trailing_block_sequence_loop tokens source checked_arena body_tree next_body_exprs scope value_types signatures expected_type unit_type/,
-    "multi-expression trailing block reduction must check each body line in source order and collect checked root expression ids",
+    /fn selfhost_call_reduce_trailing_block_sequence_loop[\s\S]*\\expected_type\\unit_type\\segments\\idx\\count\\item_index\\block_span[\s\S]*selfhost_call_reduce_trailing_block_sequence_line_expected expected_type unit_type idx count line_span[\s\S]*selfhost_call_reduce_trailing_block_segment_result tokens source arena checked_tree scope value_types signatures line_expected segment[\s\S]*v::push body_exprs body_expr[\s\S]*selfhost_call_reduce_trailing_block_sequence_loop tokens source checked_arena body_tree next_body_exprs scope value_types signatures expected_type unit_type/,
+    "multi-expression trailing block reduction must check each segment through the shared dispatcher and collect checked root expression ids",
 );
 assert.match(
     source,

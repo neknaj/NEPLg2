@@ -709,6 +709,23 @@ fn selfhost_check_expr_stage1_trailing_block_sequence_non_unit_segment %fn void 
     let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 5 source_span_new_unchecked 0 6 15
     selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
 
+//: selfhost_check_expr_stage1_trailing_block_nested_segment: nested `BlockIntro` を含む trailing block fixture を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - outer body は `add 1:` に相当し、その nested body 自体が `add 1: add 1 1` という `BlockIntro` になります。
+//: - この fixture により、block body segmenter が返した nested `BlockIntro` を flat prefix list に潰さず、再び trailing block evidence として reducer へ渡す経路を確認します。
+//:
+//: [契約/けいやく]:
+//: - head range は outer call の `add 1` だけを指します。
+//: - body range は inner head、colon、inner body の token を含みます。body 全体を prefix list 化してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 range を作るだけなので O(1) です。
+fn selfhost_check_expr_stage1_trailing_block_nested_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 2 source_span_new_unchecked 0 0 5
+    let body %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 2 6 source_span_new_unchecked 0 6 20
+    selfhost_body_segment_new SelfhostBodySegmentKind::BlockIntro head body
+
 //: selfhost_check_expr_stage1_push_token: token fixture へ 1 token を[追加/ついか]する
 //:
 //: [目的/もくてき]:
@@ -870,6 +887,62 @@ fn selfhost_check_expr_stage1_make_trailing_block_sequence_non_unit_tokens %impu
                                                         Result::Ok tokens6:
                                                             let block_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 14 15
                                                             selfhost_check_expr_stage1_push_token tokens6 block_arg1
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_trailing_block_nested_tokens: nested `BlockIntro` fixture token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `add 1 add 1: add 1 1` という固定 token 列を作ります。
+//: - outer segment の body range に inner head、colon、inner body を入れ、segmenter が nested `BlockIntro` を再構成できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `Colon` token は prefix reducer ではなく body segmenter が消費する layout marker です。
+//: - token owner は caller が受け取り、runner が必ず解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 8 token を push するため O(1) です。
+fn selfhost_check_expr_stage1_make_trailing_block_nested_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let outer_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 outer_add:
+                Result::Ok tokens1:
+                    let outer_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 4 5
+                    match selfhost_check_expr_stage1_push_token tokens1 outer_arg0:
+                        Result::Ok tokens2:
+                            let inner_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 6 9
+                            match selfhost_check_expr_stage1_push_token tokens2 inner_add:
+                                Result::Ok tokens3:
+                                    let inner_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 10 11
+                                    match selfhost_check_expr_stage1_push_token tokens3 inner_arg0:
+                                        Result::Ok tokens4:
+                                            let colon %SelfhostToken selfhost_token_new TokenKind::Colon source_span_new_unchecked 0 11 12
+                                            match selfhost_check_expr_stage1_push_token tokens4 colon:
+                                                Result::Ok tokens5:
+                                                    let block_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 13 16
+                                                    match selfhost_check_expr_stage1_push_token tokens5 block_add:
+                                                        Result::Ok tokens6:
+                                                            let block_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 17 18
+                                                            match selfhost_check_expr_stage1_push_token tokens6 block_arg0:
+                                                                Result::Ok tokens7:
+                                                                    let block_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 19 20
+                                                                    selfhost_check_expr_stage1_push_token tokens7 block_arg1
+                                                                Result::Err e:
+                                                                    Result::Err e
                                                         Result::Err e:
                                                             Result::Err e
                                                 Result::Err e:
@@ -1784,6 +1857,50 @@ fn selfhost_check_expr_stage1_trailing_block_sequence_non_unit_rejected %impure 
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_trailing_block_nested_result_ok: nested `BlockIntro` が block result として[縮約/しゅくやく]されるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `add 1:` の block body がさらに `add 1: add 1 1` である場合に、nested `BlockIntro` を再帰的に検査して outer call の第2引数へ渡せることを確認します。
+//: - 旧実装の `NestedBlockUnsupported` fail-closed から、checked tree に閉じた `BlockResult` の再帰構造へ進むことを固定します。
+//:
+//: [契約/けいやく]:
+//: - `BlockIntro.body` はどの階層でも prefix list に直接渡しません。各階層の `head` だけを prefix list 化し、`body` は trailing block evidence として渡します。
+//: - `tokens`、candidate vector、value context、arena owner は成功・失敗にかかわらずこの helper が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: nested block result が outer direct call の不足引数を満たしました。
+//: - `false`: setup、segmenter、reducer、または success payload が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture 上は outer と inner の 2 回の block reduction なので O(1) です。一般には nested block depth と各 body segment 数に比例します。
+fn selfhost_check_expr_stage1_trailing_block_nested_result_ok %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_trailing_block_nested_segment
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_block_intro_with_value_context &tokens "add 1 add 1: add 1 1" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool selfhost_check_expr_stage1_success_is_two_arg_direct_call &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_shadowed_function_argument_uses_value_evidence: shadow された function が復活しないか[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -2399,6 +2516,28 @@ fn selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_i32 %imp
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_trailing_block_nested_with_i32: nested trailing block success smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - nested `BlockIntro` を含む trailing block argument が、再帰 reducer により `BlockResult` として通ることを確認します。
+//:
+//: [契約/けいやく]:
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時は token owner を閉じます。
+//: - `i32_type` は outer / inner の `add` fixture type を作る authority です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: nested block result fixture が通りました。
+//: - `1`: setup または reducer が失敗しました。
+fn selfhost_check_expr_stage1_run_trailing_block_nested_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok add_alloc:
+            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+            if selfhost_check_expr_stage1_trailing_block_nested_result_ok tokens next_arena add_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_shadowed_function_argument_with_i32: shadowed function name の value fallback smoke を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
@@ -2764,6 +2903,33 @@ fn selfhost_check_expr_stage1_run_trailing_block_sequence_non_unit_with_tokens %
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_trailing_block_nested_with_tokens: token owner から nested trailing block smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - nested trailing block token buffer に primitive `i32` arena fixture を付け、nested `BlockIntro` success helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: nested block success smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+fn selfhost_check_expr_stage1_run_trailing_block_nested_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_trailing_block_nested_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens: token owner から shadowed function smoke を[起動/きどう]する
 //:
 //: [目的/もくてき]:
@@ -3021,6 +3187,29 @@ fn selfhost_check_expr_stage1_trailing_block_sequence_body_line %impure fn void 
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_trailing_block_nested_body_line: nested trailing block smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - block body 内にさらに `BlockIntro` が現れる場合でも、`head` と `body` を分けたまま再帰的に `BlockResult` へ接続できることを確認します。
+//: - `NestedBlockUnsupported` を通常成功経路に残す退行や、nested body を flat prefix list に直接渡す退行を検出します。
+//:
+//: [契約/けいやく]:
+//: - token buffer owner は nested block runner へ移動し、runner が cleanup を担当します。
+//: - token setup に失敗した場合は status `1` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: nested trailing block smoke が通りました。
+//: - `1`: token setup または block-intro reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を1回作るため setup は O(1) です。支配的な計算量は nested block depth と reducer 探索に従います。
+fn selfhost_check_expr_stage1_trailing_block_nested_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_trailing_block_nested_tokens:
+        Result::Ok tokens:
+            selfhost_check_expr_stage1_run_trailing_block_nested_with_tokens tokens
+        Result::Err _e:
+            1
+
 //: selfhost_check_expr_stage1_body_line: body expression line 接続の smoke API
 //:
 //: [目的/もくてき]:
@@ -3034,6 +3223,7 @@ fn selfhost_check_expr_stage1_trailing_block_sequence_body_line %impure fn void 
 //: - bare function name を expected function type の位置に置いても、暗黙 function value や部分適用として成功しないことを確認します。
 //: - `BlockIntro` 専用入口では、末尾 block argument が nested body を `BlockResult` または `BlockSequence` として検査し、outer call の不足 parameter を満たすことを確認します。
 //: - 複数式 block の非末尾 expression は `unit` expected type で検査され、`i32` などの値を暗黙 discard しないことを確認します。
+//: - nested `BlockIntro` は、block body の中でも再び `head` / `body` を分けた trailing block evidence として検査されることを確認します。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `0`: expression line reduction と block intro rejection が期待通りでした。
@@ -3077,7 +3267,13 @@ pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
                                                             if:
                                                                 eq trailing_block 0
                                                                 then:
-                                                                    selfhost_check_expr_stage1_trailing_block_sequence_body_line
+                                                                    let trailing_sequence %i32 selfhost_check_expr_stage1_trailing_block_sequence_body_line
+                                                                    if:
+                                                                        eq trailing_sequence 0
+                                                                        then:
+                                                                            selfhost_check_expr_stage1_trailing_block_nested_body_line
+                                                                        else:
+                                                                            1
                                                                 else:
                                                                     1
                                                         else:
