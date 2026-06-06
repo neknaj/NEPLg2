@@ -17,7 +17,8 @@
 //: - 従来の `selfhost_hir_lower_direct_call_result` 経路では、tree node id を持たない `TypedExpression` / `NestedDirectCall` / `BlockResult` summary argument を `UnsupportedArgumentKind` として fail-closed にします。
 //: - `SelfhostCheckedArgumentKind::CheckedExpr` を含む複合 expression は、`SelfhostCheckedExprTree` を受け取る `selfhost_hir_lower_checked_tree_expr` 経路で HIR `Call` / `Block` へ下ろします。
 //: - string literal は `check/expr/literal_payload.nepl` が quote 除去と対応済み escape decode を終えた `StrLiteral` payload として渡します。この module は raw lexeme を再解析しません。
-//: - parent call expression の callee 名は、`SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
+//: - parent call expression の callee 名は、legacy direct-call result 経路では `SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
+//: - checked tree 経路では、`DirectCall` node が保持する `SelfhostCallableCandidate` が callee authority です。pipe 正規化のように surface head と callee target が異なる場合も、legacy `candidate_index` だけへ戻してはいけません。
 //:
 //: [現状実装/げんじょうじっそう]:
 //: - float literal は Rust 実装の現在の HIR と同じく `F32Literal` payload に変換します。`f64` defaulting や suffix 解決はこの lowering 境界では扱いません。

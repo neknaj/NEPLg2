@@ -123,6 +123,7 @@ pub struct SelfhostCallReduceOwnedResultParts:
 //: - `TrailingBlockBody*` は、末尾 block argument の nested body を `BlockResult` / `BlockSequence` として検査する前の入力構築失敗を分けます。partial application や raw arity error へ潰してはいけません。
 //: - `TrailingBlockBodyUnitTypeMissing` は、複数式 block の非末尾 expression を `unit` expectation で検査するための primitive type が arena に存在しない場合です。
 //: - `UnexpectedTrailingBlockArgument` は、candidate の parameter をすでにすべて消費した後に `BlockIntro.body` が残った場合です。
+//: - `Pipe*` は、source-backed `a |> f b` の pipe 境界を direct call へ正規化する前の失敗です。左辺、右辺 target、target arity、左辺の単一式性、複数 pipe chain を分け、unsupported expression や overload failure へ潰しません。
 //: - `CheckedTreeBuildInvalidOperation` は、nested call / block result / root call を checked expression tree へ追加する段階で、未来 node 参照や壊れた range などの tree invariant 違反を検出した場合です。一般的な internal invariant へ潰さず、tree builder 境界の失敗として保持します。
 pub enum SelfhostCallReduceErrorKind:
     EmptyInput
@@ -178,6 +179,19 @@ pub enum SelfhostCallReduceErrorKind:
     TrailingBlockBodyCandidateCollectFailed
     TrailingBlockBodyUnitTypeMissing
     UnexpectedTrailingBlockArgument
+    PipeMissingLeftOperand
+    PipeMissingRightTarget
+    PipeUnsupportedMultiple
+    PipeRightTargetUnsupported
+    PipeTargetPendingBinding
+    PipeTargetMissingSignature
+    PipeTargetHeadTokenOutOfBounds
+    PipeTargetOutOfMemory
+    PipeTargetInternalInvariant
+    PipeTargetUnresolved
+    PipeTargetAmbiguous
+    PipeTargetRequiresInput
+    PipeLeftSegmentNotSingleValue
     UnsupportedArgumentExpression
     OverloadNoCandidate
     OverloadAmbiguous
@@ -597,6 +611,84 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument:
             match b:
                 SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeMissingLeftOperand:
+            match b:
+                SelfhostCallReduceErrorKind::PipeMissingLeftOperand:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeMissingRightTarget:
+            match b:
+                SelfhostCallReduceErrorKind::PipeMissingRightTarget:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeUnsupportedMultiple:
+            match b:
+                SelfhostCallReduceErrorKind::PipeUnsupportedMultiple:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeRightTargetUnsupported:
+            match b:
+                SelfhostCallReduceErrorKind::PipeRightTargetUnsupported:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetPendingBinding:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetPendingBinding:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetMissingSignature:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetMissingSignature:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetHeadTokenOutOfBounds:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetHeadTokenOutOfBounds:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetOutOfMemory:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetOutOfMemory:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetInternalInvariant:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetInternalInvariant:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetUnresolved:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetUnresolved:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetAmbiguous:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetAmbiguous:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetRequiresInput:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetRequiresInput:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeLeftSegmentNotSingleValue:
+            match b:
+                SelfhostCallReduceErrorKind::PipeLeftSegmentNotSingleValue:
                     true
                 _:
                     false

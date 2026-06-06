@@ -446,12 +446,18 @@ fn selfhost_call_reduce_push_checked_argument %impure fn SelfhostTypeArena impur
 //:
 //: [戻/もど]り[値/ち]:
 //: - 対応する `ArgumentNestedCandidate*` kind を持つ `SelfhostCallReduceError` です。
-//: - 未分類 error は `ArgumentNestedCandidateInternalInvariant` として扱います。
+//: - nested call argument の通常経路では発生しない empty prefix / prefix build failure / unsupported head は、入口契約違反として `ArgumentNestedCandidateInternalInvariant` に写します。
 //:
 //: [計算量/けいさんりょう]:
 //: - enum match だけなので O(1) です。
 fn selfhost_call_reduce_error_from_candidate_collect %fn SelfhostCallableCandidateCollectError SelfhostCallReduceError \error:
     match error.kind:
+        SelfhostCallableCandidateCollectErrorKind::EmptyPrefix:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant error.span
+        SelfhostCallableCandidateCollectErrorKind::PrefixBuildFailed:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant error.span
+        SelfhostCallableCandidateCollectErrorKind::UnsupportedHead:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant error.span
         SelfhostCallableCandidateCollectErrorKind::PendingBinding:
             selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidatePendingBinding error.span
         SelfhostCallableCandidateCollectErrorKind::MissingSignature:
@@ -460,8 +466,6 @@ fn selfhost_call_reduce_error_from_candidate_collect %fn SelfhostCallableCandida
             selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateHeadTokenOutOfBounds error.span
         SelfhostCallableCandidateCollectErrorKind::OutOfMemory:
             selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateOutOfMemory error.span
-        _:
-            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant error.span
 
 //: selfhost_call_reduce_error_from_block_body_result: trailing block body error を call reduction error へ[写像/しゃぞう]する
 //:
@@ -1295,6 +1299,293 @@ fn selfhost_call_reduce_named_prefix_with_source_and_trailing_block %impure fn &
 fn selfhost_call_reduce_named_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn SelfhostExprPrefixItem impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\expected\head\item_count:
     selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena checked_tree prefix scope value_types signatures candidates expected none head item_count
 
+//: selfhost_call_reduce_pipe_error_from_candidate_collect: pipe 右辺 target の候補収集失敗を call reduction error へ[写像/しゃぞう]する
+//:
+//: [目的/もくてき]:
+//: - `left |> right ...` の `right` を callable target として解決する境界で、scope / signature table / token span の不整合を pipe 専用 error に保ちます。
+//: - nested call argument の候補収集 error と混ぜると、diagnostic や契約テストが「pipe target が壊れた」のか「通常引数内の nested call が壊れた」のかを区別できなくなるため、ここで分類を分けます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - pipe target collection の原因に対応する `SelfhostCallReduceError` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
+fn selfhost_call_reduce_pipe_error_from_candidate_collect %fn SelfhostCallableCandidateCollectError SelfhostCallReduceError \error:
+    match error.kind:
+        SelfhostCallableCandidateCollectErrorKind::EmptyPrefix:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant error.span
+        SelfhostCallableCandidateCollectErrorKind::PrefixBuildFailed:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant error.span
+        SelfhostCallableCandidateCollectErrorKind::UnsupportedHead:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeRightTargetUnsupported error.span
+        SelfhostCallableCandidateCollectErrorKind::PendingBinding:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetPendingBinding error.span
+        SelfhostCallableCandidateCollectErrorKind::MissingSignature:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetMissingSignature error.span
+        SelfhostCallableCandidateCollectErrorKind::HeadTokenOutOfBounds:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetHeadTokenOutOfBounds error.span
+        SelfhostCallableCandidateCollectErrorKind::OutOfMemory:
+            selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetOutOfMemory error.span
+
+//: selfhost_call_reduce_pipe_operator_index_loop: prefix list 内の pipe operator 位置を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - source-backed reducer の入口で、`PipeOperator` が 0 個、1 個、複数のどれかを判定します。
+//: - この slice では pipe chain をまだ結合しないため、複数 pipe は最初に検出した時点で fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - `found` が `None` のまま終端へ到達した場合、caller は通常の named-head reduction へ進みます。
+//: - 2 個目の pipe を見つけた場合は `PipeUnsupportedMultiple` を返し、片側だけを勝手に縮約しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - prefix item を左から 1 回だけ見るため O(n) です。
+fn selfhost_call_reduce_pipe_operator_index_loop %fn &SelfhostExprPrefixList fn i32 fn i32 fn Option i32 Result Option i32 SelfhostCallReduceError \prefix\item_count\idx\found:
+    if:
+        ge idx item_count
+        then:
+            Result::Ok found
+        else:
+            match selfhost_expr_prefix_list_get prefix idx:
+                Option::Some item:
+                    match item.kind:
+                        SelfhostExprPrefixItemKind::PipeOperator:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeUnsupportedMultiple item.span
+                                Option::None:
+                                    selfhost_call_reduce_pipe_operator_index_loop prefix item_count add idx 1 some idx
+                        _:
+                            selfhost_call_reduce_pipe_operator_index_loop prefix item_count add idx 1 found
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+
+//: selfhost_call_reduce_pipe_operator_index: prefix list の pipe operator を 1 個まで[検出/けんしゅつ]する
+//:
+//: [目的/もくてき]:
+//: - `a |> f b` を通常 head call とは別の source-backed 境界へ渡すかどうかを決めます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(None)`: pipe はありません。
+//: - `Ok(Some(index))`: pipe が 1 個だけあり、その item index です。
+//: - `Err(PipeUnsupportedMultiple)`: pipe chain はこの slice では未対応です。
+fn selfhost_call_reduce_pipe_operator_index %fn &SelfhostExprPrefixList fn i32 Result Option i32 SelfhostCallReduceError \prefix\item_count:
+    selfhost_call_reduce_pipe_operator_index_loop prefix item_count 0 none
+
+//: selfhost_call_reduce_prefix_cover_span: prefix expression 全体を[覆/おお]う span を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `a |> f b` を `f a b` 相当の checked direct call に正規化しても、diagnostic と checked tree root は元の pipe expression 全体を指せるようにします。
+//:
+//: [契約/けいやく]:
+//: - span join に失敗した場合は caller が渡した fallback を返します。fixture と parser の通常入力では同一 file 内 token なので join は成功する想定です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭と末尾 item を 1 回ずつ読むだけなので O(1) です。
+fn selfhost_call_reduce_prefix_cover_span %fn &SelfhostExprPrefixList fn i32 fn SelfhostSourceSpan SelfhostSourceSpan \prefix\item_count\fallback:
+    match selfhost_expr_prefix_list_get prefix 0:
+        Option::Some first:
+            match selfhost_expr_prefix_list_get prefix sub item_count 1:
+                Option::Some last:
+                    match source_span_join_result first.span last.span:
+                        Result::Ok span:
+                            span
+                        Result::Err _e:
+                            fallback
+                Option::None:
+                    fallback
+        Option::None:
+            fallback
+
+//: selfhost_call_reduce_pipe_free_candidates_tree_error_new: pipe candidate owner と checker owner を[閉/と]じて error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - pipe reducer は右辺 target の candidate Vec owner を内部で作るため、arena / checked tree と同時に閉じる cleanup 境界が必要です。
+//:
+//: [契約/けいやく]:
+//: - `pipe_candidates`、`checked_tree`、`arena` はこの関数が必ず閉じます。
+//: - 返り値は常に `Err` です。
+fn selfhost_call_reduce_pipe_free_candidates_tree_error_new %impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn Vec SelfhostCallableCandidate impure fn SelfhostCallReduceErrorKind impure fn SelfhostSourceSpan Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \arena\checked_tree\pipe_candidates\kind\span:
+    v::free pipe_candidates
+    selfhost_checked_expr_tree_free checked_tree
+    selfhost_call_reduce_free_error_new arena kind span
+
+//: selfhost_call_reduce_pipe_single_candidate_with_source: 1 pipe target candidate を direct call として[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `left |> target right_args...` を、source-backed checked tree 上では `target left right_args...` と同じ `DirectCall` payload へ正規化します。
+//: - 左辺は target の第1 parameter expected type で 1 つの実引数式として検査し、右辺 suffix は既存の source-backed argument loop に第2 parameter から渡します。
+//:
+//: [契約/けいやく]:
+//: - source-less reducer は pipe を扱いません。この helper は source text、tokens、scope、value evidence、signature table を持つ入口からだけ呼ばれます。
+//: - pipe chain はこの helper へ来る前に `PipeUnsupportedMultiple` として拒否します。
+//: - `pipe_candidates` は成功・失敗のどちらでもこの helper が閉じます。
+//: - target が 0 引数関数の場合、左辺を差し込む場所がないため `PipeTargetRequiresInput` を返します。
+//: - 左辺 prefix segment が expected type の 1 式としてちょうど pipe 位置まで消費されない場合、suffix を勝手に右辺側へ流さず `PipeLeftSegmentNotSingleValue` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - pipe detection は入口で O(n) 済みです。この helper は target parameter 数 p に対して O(p) 回 argument checker を呼びます。左辺 segment の検査は既存 nested/direct argument reducer の計算量に従います。
+fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\candidate\expected\trailing_block\rhs_head\item_count\pipe_index:
+    match selfhost_call_reduce_generic_state_error candidate:
+        Result::Ok _unit:
+            match selfhost_type_arena_function_arg_count &arena candidate.callable_type:
+                Option::Some param_count:
+                    if:
+                        eq param_count 0
+                        then:
+                            selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetRequiresInput rhs_head.span
+                        else:
+                            let checked_arguments_result %Result Vec SelfhostCheckedArgument StdErrorKind v::new
+                            match checked_arguments_result:
+                                Result::Ok checked_arguments:
+                                    match selfhost_type_arena_function_arg &arena candidate.callable_type 0:
+                                        Option::Some first_arg_type:
+                                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures 0 pipe_index first_arg_type rhs_head:
+                                                Result::Ok left_state:
+                                                    let left_match %SelfhostExprArgumentMatch field::get left_state "match_value"
+                                                    let checked_argument %SelfhostCheckedArgument field::get left_state "checked_argument"
+                                                    let checked_arena %SelfhostTypeArena field::get left_state "arena"
+                                                    let left_tree %SelfhostCheckedExprTree field::get left_state "checked_tree"
+                                                    if:
+                                                        eq left_match.next_index pipe_index
+                                                        then:
+                                                            match selfhost_call_reduce_push_checked_argument checked_arena checked_arguments left_tree checked_argument rhs_head.span:
+                                                                Result::Ok first_state:
+                                                                    let first_arena %SelfhostTypeArena field::get first_state "arena"
+                                                                    let first_arguments %Vec SelfhostCheckedArgument field::get first_state "checked_arguments"
+                                                                    let first_tree %SelfhostCheckedExprTree field::get first_state "checked_tree"
+                                                                    match selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 add pipe_index 2 item_count trailing_block rhs_head:
+                                                                        Result::Ok state:
+                                                                            let checked_arena2 %SelfhostTypeArena field::get state "arena"
+                                                                            let checked_arguments2 %Vec SelfhostCheckedArgument field::get state "checked_arguments"
+                                                                            let checked_tree2 %SelfhostCheckedExprTree field::get state "checked_tree"
+                                                                            let call_span %SelfhostSourceSpan selfhost_call_reduce_prefix_cover_span prefix item_count rhs_head.span
+                                                                            match selfhost_call_reduce_expected_result &checked_arena2 candidate expected:
+                                                                                Result::Ok result_type:
+                                                                                    match selfhost_checked_expr_tree_add_direct_call_borrowed checked_tree2 candidate result_type call_span &checked_arguments2:
+                                                                                        Result::Ok root_alloc:
+                                                                                            let root_expr %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &root_alloc
+                                                                                            let root_tree %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree root_alloc
+                                                                                            let result %SelfhostCallReduceResult SelfhostCallReduceResult::DirectCall selfhost_reduced_call_new 0 param_count result_type call_span
+                                                                                            v::free pipe_candidates
+                                                                                            Result::Ok selfhost_call_reduce_owned_result_new checked_arena2 result checked_arguments2 root_tree root_expr
+                                                                                        Result::Err tree_error:
+                                                                                            v::free pipe_candidates
+                                                                                            selfhost_type_arena_free checked_arena2
+                                                                                            v::free checked_arguments2
+                                                                                            Result::Err selfhost_call_reduce_error_from_checked_tree_std_error tree_error call_span
+                                                                                Result::Err e:
+                                                                                    v::free pipe_candidates
+                                                                                    selfhost_type_arena_free checked_arena2
+                                                                                    v::free checked_arguments2
+                                                                                    selfhost_checked_expr_tree_free checked_tree2
+                                                                                    Result::Err e
+                                                                        Result::Err e:
+                                                                            v::free pipe_candidates
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    v::free pipe_candidates
+                                                                    Result::Err e
+                                                        else:
+                                                            v::free pipe_candidates
+                                                            v::free checked_arguments
+                                                            selfhost_type_arena_free checked_arena
+                                                            selfhost_checked_expr_tree_free left_tree
+                                                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeLeftSegmentNotSingleValue rhs_head.span
+                                                Result::Err e:
+                                                    v::free pipe_candidates
+                                                    v::free checked_arguments
+                                                    Result::Err e
+                                        Option::None:
+                                            v::free checked_arguments
+                                            selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::InternalInvariant rhs_head.span
+                                Result::Err _alloc_error:
+                                    selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::OutOfMemory rhs_head.span
+                Option::None:
+                    selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::NotCallable candidate.span
+        Result::Err e:
+            v::free pipe_candidates
+            selfhost_checked_expr_tree_free checked_tree
+            selfhost_call_reduce_free_existing_error arena e
+
+//: selfhost_call_reduce_pipe_candidates_with_source: pipe 右辺 target 候補数を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - pipe target の候補 0/1/複数を分け、1 候補だけを direct call 正規化へ進めます。
+//: - 通常 head の `candidates` 引数は左辺 literal などでは意味を持たないため、pipe 右辺は scope と signature table から改めて収集した候補を authority とします。
+//:
+//: [契約/けいやく]:
+//: - `pipe_candidates` owner はこの関数または下位 helper が必ず閉じます。
+//: - 候補 0 は `PipeTargetUnresolved`、複数は `PipeTargetAmbiguous` として fail-closed にします。
+fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\expected\trailing_block\rhs_head\item_count\pipe_index:
+    let candidate_count %i32 v::len &pipe_candidates
+    if:
+        eq candidate_count 0
+        then:
+            selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetUnresolved rhs_head.span
+        else:
+            if:
+                gt candidate_count 1
+                then:
+                    selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
+                else:
+                    match v::get &pipe_candidates 0:
+                        Option::Some candidate:
+                            selfhost_call_reduce_pipe_single_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count pipe_index
+                        Option::None:
+                            selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+
+//: selfhost_call_reduce_pipe_prefix_with_source: source-backed pipe expression を direct call へ[正規化/せいきか]する
+//:
+//: [目的/もくてき]:
+//: - `left |> target suffix...` を、型検査上は `target left suffix...` と同じ direct call として扱います。
+//: - 部分適用は導入せず、pipe は syntax sugar として第1実引数の位置だけを変換します。
+//:
+//: [契約/けいやく]:
+//: - `pipe_index == 0` は左辺欠落、`pipe_index + 1 >= item_count` は右辺 target 欠落として拒否します。
+//: - 右辺 target はこの slice では `NamedValue` だけを受理します。ascribed target、lambda target、nested pipe chain は今後の issue に残し、成功扱いしません。
+//: - `trailing_block` は既存 argument loop へ渡すため、`left |> target:` の block body は target の残り parameter がある場合だけ消費されます。
+fn selfhost_call_reduce_pipe_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\expected\trailing_block\item_count\pipe_index:
+    if:
+        eq pipe_index 0
+        then:
+            match selfhost_expr_prefix_list_get prefix pipe_index:
+                Option::Some pipe_item:
+                    selfhost_checked_expr_tree_free checked_tree
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::PipeMissingLeftOperand pipe_item.span
+                Option::None:
+                    selfhost_checked_expr_tree_free checked_tree
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+        else:
+            let rhs_index %i32 add pipe_index 1
+            if:
+                ge rhs_index item_count
+                then:
+                    match selfhost_expr_prefix_list_get prefix pipe_index:
+                        Option::Some pipe_item:
+                            selfhost_checked_expr_tree_free checked_tree
+                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::PipeMissingRightTarget pipe_item.span
+                        Option::None:
+                            selfhost_checked_expr_tree_free checked_tree
+                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+                else:
+                    match selfhost_expr_prefix_list_get prefix rhs_index:
+                        Option::Some rhs_head:
+                            match rhs_head.kind:
+                                SelfhostExprPrefixItemKind::NamedValue:
+                                    match selfhost_callable_candidates_collect_for_head_item source tokens rhs_head scope signatures:
+                                        Result::Ok pipe_candidates:
+                                            selfhost_call_reduce_pipe_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates expected trailing_block rhs_head item_count pipe_index
+                                        Result::Err collect_error:
+                                            selfhost_checked_expr_tree_free checked_tree
+                                            selfhost_type_arena_free arena
+                                            Result::Err selfhost_call_reduce_pipe_error_from_candidate_collect collect_error
+                                _:
+                                    selfhost_checked_expr_tree_free checked_tree
+                                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::PipeRightTargetUnsupported rhs_head.span
+                        Option::None:
+                            selfhost_checked_expr_tree_free checked_tree
+                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+
 //: selfhost_call_reduce_prefix_with_source_in_tree: 既存 checked tree owner の中で source-backed prefix expression を[縮約/しゅくやく]する
 //:
 //: [目的/もくてき]:
@@ -1320,17 +1611,26 @@ fn selfhost_call_reduce_prefix_with_source_in_tree %impure fn &Vec SelfhostToken
             selfhost_checked_expr_tree_free checked_tree
             selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::EmptyInput source_span_empty_unchecked 0 0
         else:
-            match selfhost_expr_prefix_list_get prefix 0:
-                Option::Some head:
-                    match head.kind:
-                        SelfhostExprPrefixItemKind::NamedValue:
-                            selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena checked_tree prefix scope value_types signatures candidates expected trailing_block head item_count
-                        _:
-                            selfhost_checked_expr_tree_free checked_tree
-                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
-                Option::None:
+            match selfhost_call_reduce_pipe_operator_index prefix item_count:
+                Result::Ok pipe_index:
+                    match pipe_index:
+                        Option::Some index:
+                            selfhost_call_reduce_pipe_prefix_with_source tokens source arena checked_tree prefix scope value_types signatures expected trailing_block item_count index
+                        Option::None:
+                            match selfhost_expr_prefix_list_get prefix 0:
+                                Option::Some head:
+                                    match head.kind:
+                                        SelfhostExprPrefixItemKind::NamedValue:
+                                            selfhost_call_reduce_named_prefix_with_source_and_trailing_block tokens source arena checked_tree prefix scope value_types signatures candidates expected trailing_block head item_count
+                                        _:
+                                            selfhost_checked_expr_tree_free checked_tree
+                                            selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnsupportedPrefixItem head.span
+                                Option::None:
+                                    selfhost_checked_expr_tree_free checked_tree
+                                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+                Result::Err e:
                     selfhost_checked_expr_tree_free checked_tree
-                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::InternalInvariant source_span_empty_unchecked 0 0
+                    selfhost_call_reduce_free_existing_error arena e
 
 //: selfhost_call_reduce_prefix: prefix expression list を direct call plan へ[縮約/しゅくやく]する
 //:
