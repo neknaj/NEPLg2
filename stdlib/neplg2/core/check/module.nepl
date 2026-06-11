@@ -56,4 +56,5 @@
 //: ```
 
 pub #import "./module/summary" as *
+pub #import "./module/memo_trait_source_scan" as *
 pub #import "./module/orchestrate" as *

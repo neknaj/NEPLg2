@@ -22,16 +22,18 @@ const summaryUpdate = read("stdlib/neplg2/core/check/module/summary_update.nepl"
 const diagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
 const rawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const declarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
+const memoTraitSourceScan = read("stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl");
 const orchestrate = read("stdlib/neplg2/core/check/module/orchestrate.nepl");
-const implementation = [summary, summaryUpdate, diagnostic, rawAdapter, declarationAdapter, orchestrate].join("\n");
+const implementation = [summary, summaryUpdate, diagnostic, rawAdapter, declarationAdapter, memoTraitSourceScan, orchestrate].join("\n");
 
 assert.match(facade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(facade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
 assert.match(facade, /pub #import "\.\/module\/orchestrate" as \*/);
 assert.deepEqual(
     Array.from(facade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
         .sort(),
-    ["./module/orchestrate as *", "./module/summary as *"],
-    "module facade must not re-export internal adapters",
+    ["./module/memo_trait_source_scan as *", "./module/orchestrate as *", "./module/summary as *"],
+    "module facade must re-export only the public summary, memo trait source scanner, and orchestration surfaces",
 );
 assert.doesNotMatch(facade, /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/m, "module facade must not own implementation");
 assert.doesNotMatch(facade, /#import "neplg2\/core\/proof"/, "module facade must not import proof internals");
@@ -109,6 +111,9 @@ assert.doesNotMatch(
 );
 
 const publicSurface = new Set(publicFunctions(`${summary}\n${orchestrate}`));
+for (const publicName of publicFunctions(memoTraitSourceScan)) {
+    publicSurface.add(publicName);
+}
 const expectedPublicSurface = [
     "selfhost_module_check_summary_item_count",
     "selfhost_module_check_summary_doc_comment_count",
@@ -122,6 +127,11 @@ const expectedPublicSurface = [
     "selfhost_module_check_summary_impl_count",
     "selfhost_module_check_summary_raw_block_count",
     "selfhost_module_check_summary_raw_text_count",
+    "selfhost_memo_trait_definition_scan_error_kind_eq",
+    "selfhost_memo_trait_definition_scan_registry_error_kind_eq",
+    "selfhost_memo_trait_definition_source_table_scan_module_result",
+    "selfhost_memo_trait_trusted_source_registry_scan_module_result",
+    "selfhost_memo_trait_definition_scan_stage0",
     "selfhost_check_module_ast",
 ];
 assert.deepEqual(Array.from(publicSurface).sort(), expectedPublicSurface.sort());

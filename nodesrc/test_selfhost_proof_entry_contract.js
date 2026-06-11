@@ -67,14 +67,16 @@ const moduleCheckerSummaryUpdate = read("stdlib/neplg2/core/check/module/summary
 const moduleCheckerDiagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
 const moduleCheckerRawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const moduleCheckerDeclarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
+const moduleCheckerMemoTraitSourceScan = read("stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl");
 const moduleCheckerOrchestrate = read("stdlib/neplg2/core/check/module/orchestrate.nepl");
-const moduleCheckerPublicSurface = `${moduleCheckerSummary}\n${moduleCheckerOrchestrate}`;
+const moduleCheckerPublicSurface = `${moduleCheckerSummary}\n${moduleCheckerMemoTraitSourceScan}\n${moduleCheckerOrchestrate}`;
 const moduleCheckerImplementation = [
     moduleCheckerSummary,
     moduleCheckerSummaryUpdate,
     moduleCheckerDiagnostic,
     moduleCheckerRawAdapter,
     moduleCheckerDeclarationAdapter,
+    moduleCheckerMemoTraitSourceScan,
     moduleCheckerOrchestrate,
 ].join("\n");
 const checker = read("stdlib/neplg2/core/check/checker.nepl");
@@ -593,11 +595,12 @@ assert.match(
 );
 
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/orchestrate" as \*/);
 assert.deepEqual(
     Array.from(moduleCheckerFacade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
         .sort(),
-    ["./module/orchestrate as *", "./module/summary as *"],
+    ["./module/memo_trait_source_scan as *", "./module/orchestrate as *", "./module/summary as *"],
     "module checker facade must re-export only the intended public modules",
 );
 assert.doesNotMatch(
@@ -628,6 +631,11 @@ const allowedPublicModuleCheckerFunctions = new Set([
     "selfhost_module_check_summary_impl_count",
     "selfhost_module_check_summary_raw_block_count",
     "selfhost_module_check_summary_raw_text_count",
+    "selfhost_memo_trait_definition_scan_error_kind_eq",
+    "selfhost_memo_trait_definition_scan_registry_error_kind_eq",
+    "selfhost_memo_trait_definition_source_table_scan_module_result",
+    "selfhost_memo_trait_trusted_source_registry_scan_module_result",
+    "selfhost_memo_trait_definition_scan_stage0",
     "selfhost_check_module_ast",
 ]);
 for (const fnName of publicModuleCheckerFunctions) {

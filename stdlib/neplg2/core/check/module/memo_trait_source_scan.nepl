@@ -1,0 +1,544 @@
+#indent 4
+
+//: # check/module/memo_trait_source_scan
+//: `SelfhostModuleAst` から `MemoKey` / `MemoValue` trait definition source table [候補/こうほ]を[作/つく]る接続層です。
+//:
+//: [目的/もくてき]:
+//: - syntax AST を読む処理を `core/ty` に入れず、module checker 側の接続層で `TraitDecl` を `SelfhostMemoTraitDefinitionSourceTable` へ投影します。
+//: - proof store は引き続き `core/ty/ty/memo_trait_source` の trusted registry / source set Result API だけを使います。この module は trusted source identity の authority ではありません。
+//: - `MemoKey` / `MemoValue` という source spelling は候補分類にだけ使い、accepted source identity の fingerprint には使いません。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostModuleItemKind::TraitDecl` かつ declaration header が `SelfhostModuleDeclarationKind::Trait` の item だけを検出対象にします。
+//: - trait head が通常名で、source slice が `"MemoKey"` または `"MemoValue"` と一致する場合だけ、definition source table に record を追加します。
+//: - scanner 由来 record は `signature_available = false` で作ります。stable public surface hash と stable trait definition key がまだ無いため、この record は registry validator を通すと `SignatureMissing` として fail-closed します。
+//: - non-trait item は候補にしません。たとえば `fn MemoKey ...` は `MemoKey` trait definition ではないため table slot を埋めません。
+//: - `TraitDecl` が declaration header や head を欠く場合は、parser / AST の不整合として typed scan error を返します。
+//:
+//: [現状/げんじょう]:
+//: - この module は full trait definition table scanner の前段です。trait body、public signature、trait bound、module path、re-export、public surface hash はまだ fingerprint 化しません。
+//: - accepted current registry は既存の prepared source table を使います。scanner output を trusted current registry に昇格するのは、stable source identity producer が実装された後です。
+//:
+//: [計算量/けいさんりょう]:
+//: - module scan は item 数 n に対して O(n) です。
+//: - `MemoKey` / `MemoValue` の名前比較は、該当 trait head の byte 範囲だけを slice して比較するため、検出対象名の長さ m に対して O(m) です。
+//: - table は固定 2 slot なので、record 追加と registry validator への投影は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_source_scan" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_source" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_definition_scan_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check selfhost_memo_trait_definition_scan_registry_error_kind_eq (unwrap_err summary.key_only_rejected) SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_definition_scan_registry_error_kind_eq (unwrap_err summary.value_only_rejected) SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_definition_scan_registry_error_kind_eq (unwrap_err summary.duplicate_key_rejected) SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_definition_scan_registry_error_kind_eq (unwrap_err summary.duplicate_value_rejected) SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_definition_scan_registry_error_kind_eq (unwrap_err summary.wrong_declaration_kind_rejected) SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_definition_scan_registry_error_kind_eq (unwrap_err summary.stable_signature_rejected) SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_definition_scan_error_kind_eq (unwrap_err summary.malformed_header_rejected) SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_definition_scan_registry_error_kind_eq (unwrap_err summary.module_scan_signature_rejected) SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing
+//:     let shown checks_print_report checks8
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+#import "neplg2/core/ty/ty/memo_trait_source" as *
+
+//: SelfhostMemoTraitDefinitionScanErrorKind: trait source scanner の拒否理由
+//:
+//: [目的/もくてき]:
+//: - AST 走査そのものの失敗を bool や文字列に潰さず、caller が match できる enum として返します。
+//: - registry validator の missing / duplicate / source rejected とは責務を分け、parser evidence が壊れている場合だけこの enum を使います。
+pub enum SelfhostMemoTraitDefinitionScanErrorKind:
+    ItemUnavailable
+    TraitHeaderMissing
+    TraitHeaderKindMismatch
+    TraitHeadMissing
+    TraitHeadKindMismatch
+    TraitNameUnavailable
+
+//: SelfhostMemoTraitDefinitionScanRegistryErrorKind: scan と registry validation を合わせた拒否理由
+//:
+//: [目的/もくてき]:
+//: - module scan の AST 不整合と、table から trusted registry へ進む段階の fail-closed を別 variant として保持します。
+//: - caller は `ScanRejected` と `RegistryRejected` を区別できるため、source identity が未確定なだけの段階を parser corruption と取り違えません。
+pub enum SelfhostMemoTraitDefinitionScanRegistryErrorKind:
+    ScanRejected %SelfhostMemoTraitDefinitionScanErrorKind
+    RegistryRejected %SelfhostMemoTraitTrustedSourceRegistryErrorKind
+
+//: SelfhostMemoTraitDefinitionScanStage0Summary: scanner fail-closed smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` の検出、欠落、重複、非trait同名宣言、stable signature 未接続、malformed header を 1 つの summary にまとめます。
+//: - すべての失敗を `Result` のまま保持し、error kind の取り違えを source policy と doctest で検出できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `key_only_rejected` は `MemoKey` だけが見つかった場合の registry validator result です。
+//: - `value_only_rejected` は `MemoValue` だけが見つかった場合の registry validator result です。
+//: - `duplicate_key_rejected` と `duplicate_value_rejected` は同じ trusted trait source kind が複数見つかった場合の validator result です。
+//: - `wrong_declaration_kind_rejected` は同名の非trait宣言が slot を埋めないことを表します。
+//: - `stable_signature_rejected` は `MemoKey` / `MemoValue` が両方見つかっても、scanner record が `signature_available = false` のため trusted registry へ昇格しないことを表します。
+//: - `malformed_header_rejected` は `TraitDecl` の declaration header が欠けた場合の scan error です。
+//: - `module_scan_signature_rejected` は、公開 `SelfhostModuleAst` scan API を実際に通した場合も同じ fail-closed 境界に落ちることを表します。
+pub struct SelfhostMemoTraitDefinitionScanStage0Summary:
+    key_only_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind
+    value_only_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind
+    duplicate_key_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind
+    duplicate_value_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind
+    wrong_declaration_kind_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind
+    stable_signature_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind
+    malformed_header_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind
+    module_scan_signature_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind
+
+impl Clone for SelfhostMemoTraitDefinitionScanErrorKind:
+    fn clone %fn &SelfhostMemoTraitDefinitionScanErrorKind SelfhostMemoTraitDefinitionScanErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitDefinitionScanErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitDefinitionScanErrorKind SelfhostMemoTraitDefinitionScanErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitDefinitionScanRegistryErrorKind:
+    fn clone %fn &SelfhostMemoTraitDefinitionScanRegistryErrorKind SelfhostMemoTraitDefinitionScanRegistryErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitDefinitionScanRegistryErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitDefinitionScanRegistryErrorKind SelfhostMemoTraitDefinitionScanRegistryErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitDefinitionScanStage0Summary:
+    fn clone %fn &SelfhostMemoTraitDefinitionScanStage0Summary SelfhostMemoTraitDefinitionScanStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitDefinitionScanStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitDefinitionScanStage0Summary SelfhostMemoTraitDefinitionScanStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_definition_scan_error_kind_eq: scanner error kind の同一性を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が error string ではなく typed enum variant を比較できるようにします。
+//: - wildcard arm は使いません。variant 追加時はこの関数が更新対象として見えるようにします。
+pub fn selfhost_memo_trait_definition_scan_error_kind_eq %fn SelfhostMemoTraitDefinitionScanErrorKind fn SelfhostMemoTraitDefinitionScanErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable:
+            match b:
+                SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable:
+                    true
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable:
+                    false
+        SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing:
+            match b:
+                SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing:
+                    true
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable:
+                    false
+        SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch:
+            match b:
+                SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch:
+                    true
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable:
+                    false
+        SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing:
+            match b:
+                SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing:
+                    true
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable:
+                    false
+        SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch:
+            match b:
+                SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch:
+                    true
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable:
+                    false
+        SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable:
+            match b:
+                SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch:
+                    false
+                SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable:
+                    true
+
+//: selfhost_memo_trait_definition_scan_registry_error_kind_eq: scan + registry error kind の同一性を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `ScanRejected` と `RegistryRejected` を混同せず、payload enum まで比較します。
+pub fn selfhost_memo_trait_definition_scan_registry_error_kind_eq %fn SelfhostMemoTraitDefinitionScanRegistryErrorKind fn SelfhostMemoTraitDefinitionScanRegistryErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitDefinitionScanRegistryErrorKind::ScanRejected scan_error:
+            match b:
+                SelfhostMemoTraitDefinitionScanRegistryErrorKind::ScanRejected other_scan_error:
+                    selfhost_memo_trait_definition_scan_error_kind_eq scan_error other_scan_error
+                SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected _registry_error:
+                    false
+        SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected registry_error:
+            match b:
+                SelfhostMemoTraitDefinitionScanRegistryErrorKind::ScanRejected _scan_error:
+                    false
+                SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected other_registry_error:
+                    selfhost_memo_trait_trusted_source_registry_error_kind_eq registry_error other_registry_error
+
+//: selfhost_memo_trait_definition_source_table_scan_module_result: module AST から memo trait definition source table [候補/こうほ]を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleAst` の top-level item を走査し、`MemoKey` / `MemoValue` trait declaration 候補を `SelfhostMemoTraitDefinitionSourceTable` に集めます。
+//:
+//: [契約/けいやく]:
+//: - scanner は source name を候補分類にだけ使います。trusted identity は作りません。
+//: - 見つかった record は `signature_available = false` です。caller がそのまま registry validator に通すと、stable signature 未接続として fail-closed します。
+//: - AST の item 数と `selfhost_module_ast_get` の結果が矛盾した場合は `ItemUnavailable` を返します。
+pub fn selfhost_memo_trait_definition_source_table_scan_module_result %fn str fn &SelfhostModuleAst Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind \source\ast:
+    selfhost_memo_trait_definition_source_table_scan_module_loop:
+        source
+        ast
+        selfhost_memo_trait_definition_source_table_empty
+        0
+        selfhost_module_ast_len ast
+
+//: selfhost_memo_trait_trusted_source_registry_scan_module_result: module scan の table を trusted registry validator へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - scanner と既存 registry validator を接続し、scan error と registry error を 1 つの `Result` として caller に返します。
+//:
+//: [契約/けいやく]:
+//: - この API は scanner output を trusted current authority にしません。validator が `SignatureMissing` を返す場合、その失敗を `RegistryRejected` として保持します。
+pub fn selfhost_memo_trait_trusted_source_registry_scan_module_result %fn str fn &SelfhostModuleAst Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind \source\ast:
+    selfhost_memo_trait_trusted_source_registry_from_scan_table_result:
+        selfhost_memo_trait_definition_source_table_scan_module_result source ast
+
+//: selfhost_memo_trait_definition_source_table_scan_module_loop: module item stream を 1 件ずつ[走査/そうさ]する
+fn selfhost_memo_trait_definition_source_table_scan_module_loop %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitDefinitionSourceTable fn i32 fn i32 Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind \source\ast\table\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok table
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_memo_trait_definition_source_table_scan_item_result source table item:
+                        Result::Ok next_table:
+                            selfhost_memo_trait_definition_source_table_scan_module_loop source ast next_table add idx 1 n
+                        Result::Err error:
+                            Result::Err error
+                Option::None:
+                    Result::Err SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_definition_source_table_scan_item_result: item 1 件を table 候補へ[反映/はんえい]する
+fn selfhost_memo_trait_definition_source_table_scan_item_result %fn str fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostModuleItem Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind \source\table\item:
+    match item.kind:
+        SelfhostModuleItemKind::TraitDecl:
+            selfhost_memo_trait_definition_source_table_scan_trait_item_result source table item
+        SelfhostModuleItemKind::DocComment:
+            Result::Ok table
+        SelfhostModuleItemKind::MlstrLine:
+            Result::Ok table
+        SelfhostModuleItemKind::EntryDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::TargetDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::ImportDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::UseDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::TestDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IfTargetDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IfProfileDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::CapabilityDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::PreludeDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::NoPreludeDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IntrinsicDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::WasmBlock:
+            Result::Ok table
+        SelfhostModuleItemKind::LlvmIrBlock:
+            Result::Ok table
+        SelfhostModuleItemKind::WasmText:
+            Result::Ok table
+        SelfhostModuleItemKind::LlvmIrText:
+            Result::Ok table
+        SelfhostModuleItemKind::FunctionDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::StructDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::EnumDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::ImplDecl:
+            Result::Ok table
+
+//: selfhost_memo_trait_definition_source_table_scan_trait_item_result: trait item の header evidence を[検査/けんさ]する
+fn selfhost_memo_trait_definition_source_table_scan_trait_item_result %fn str fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostModuleItem Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind \source\table\item:
+    match item.declaration:
+        Option::Some header:
+            match header.kind:
+                SelfhostModuleDeclarationKind::Trait:
+                    selfhost_memo_trait_definition_source_table_scan_trait_header_result source table header
+                SelfhostModuleDeclarationKind::Function:
+                    Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Struct:
+                    Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Enum:
+                    Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Impl:
+                    Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing
+
+//: selfhost_memo_trait_definition_source_table_scan_trait_header_result: trait header の name head を[読/よ]む
+fn selfhost_memo_trait_definition_source_table_scan_trait_header_result %fn str fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostModuleDeclarationHeader Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind \source\table\header:
+    match header.head:
+        Option::Some head:
+            match head.kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    selfhost_memo_trait_definition_source_table_scan_trait_name_result source table head.span
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing
+
+//: selfhost_memo_trait_definition_source_table_scan_trait_name_result: trait head span から候補名を[切/き]り[出/だ]して分類する
+fn selfhost_memo_trait_definition_source_table_scan_trait_name_result %fn str fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostSourceSpan Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind \source\table\span:
+    if:
+        not source_span_is_valid span
+        then:
+            Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable
+        else:
+            match string_slice::str_slice_result source span.start span.end:
+                Result::Ok name:
+                    Result::Ok selfhost_memo_trait_definition_source_table_add_name table name
+                Result::Err _slice_error:
+                    Result::Err SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable
+
+//: selfhost_memo_trait_definition_source_table_add_name: trait name 候補を source table record へ[写/うつ]す
+fn selfhost_memo_trait_definition_source_table_add_name %fn SelfhostMemoTraitDefinitionSourceTable fn str SelfhostMemoTraitDefinitionSourceTable \table\name:
+    if:
+        string_search::str_eq name "MemoKey"
+        then:
+            selfhost_memo_trait_definition_source_table_add_record:
+                table
+                selfhost_memo_trait_definition_source_record_untrusted_scan_candidate SelfhostMemoTraitSourceKind::MemoKeyTrait
+        else:
+            if:
+                string_search::str_eq name "MemoValue"
+                then:
+                    selfhost_memo_trait_definition_source_table_add_record:
+                        table
+                        selfhost_memo_trait_definition_source_record_untrusted_scan_candidate SelfhostMemoTraitSourceKind::MemoValueTrait
+                else:
+                    table
+
+//: selfhost_memo_trait_definition_source_record_untrusted_scan_candidate: scanner 候補 record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - source spelling から見つけた候補を table に載せます。ただし stable signature が未接続なので、trusted identity として受理できない record にします。
+//:
+//: [契約/けいやく]:
+//: - `signature_available` は必ず `false` です。
+//: - fingerprint payload は authority ではありません。後続の stable source identity producer が実装されるまで、materializer はこの record を `SignatureMissing` として拒否します。
+fn selfhost_memo_trait_definition_source_record_untrusted_scan_candidate %fn SelfhostMemoTraitSourceKind SelfhostMemoTraitDefinitionSourceRecord \kind:
+    selfhost_memo_trait_definition_source_record_new:
+        kind
+        selfhost_memo_trait_definition_fingerprint_new 0 0 0
+        false
+
+//: selfhost_memo_trait_definition_source_table_scan_item_after_result: 直前の scan 結果が Ok の場合だけ次 item を[走査/そうさ]する
+fn selfhost_memo_trait_definition_source_table_scan_item_after_result %fn str fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind fn SelfhostModuleItem Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind \source\table_result\item:
+    match table_result:
+        Result::Ok table:
+            selfhost_memo_trait_definition_source_table_scan_item_result source table item
+        Result::Err error:
+            Result::Err error
+
+//: selfhost_memo_trait_trusted_source_registry_from_scan_table_result: scan table result を registry result へ[写/うつ]す
+fn selfhost_memo_trait_trusted_source_registry_from_scan_table_result %fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind \table_result:
+    match table_result:
+        Result::Ok table:
+            match selfhost_memo_trait_trusted_source_registry_from_definition_table table:
+                Result::Ok registry:
+                    Result::Ok registry
+                Result::Err registry_error:
+                    Result::Err SelfhostMemoTraitDefinitionScanRegistryErrorKind::RegistryRejected registry_error
+        Result::Err scan_error:
+            Result::Err SelfhostMemoTraitDefinitionScanRegistryErrorKind::ScanRejected scan_error
+
+//: selfhost_memo_trait_definition_scan_header_named: stage0 用 declaration header evidence を[作/つく]る
+fn selfhost_memo_trait_definition_scan_header_named %fn SelfhostModuleDeclarationKind fn i32 fn i32 SelfhostModuleDeclarationHeader \kind\start\end:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 start end
+    let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name span
+    selfhost_module_declaration_header_new:
+        kind
+        SelfhostModuleDeclarationVisibility::Public
+        source_span_new_unchecked 0 0 end
+        source_span_new_unchecked 0 0 5
+        some head
+        selfhost_syntax_range_empty
+        selfhost_syntax_range_empty
+
+//: selfhost_memo_trait_definition_scan_trait_item_named: stage0 用 trait item を[作/つく]る
+fn selfhost_memo_trait_definition_scan_trait_item_named %fn i32 fn i32 fn str SelfhostModuleItem \start\end\lexeme:
+    selfhost_module_item_new_with_declaration:
+        SelfhostModuleItemKind::TraitDecl
+        lexeme
+        selfhost_memo_trait_definition_scan_header_named SelfhostModuleDeclarationKind::Trait start end
+
+//: selfhost_memo_trait_definition_scan_function_item_named: stage0 用 function item を[作/つく]る
+fn selfhost_memo_trait_definition_scan_function_item_named %fn i32 fn i32 fn str SelfhostModuleItem \start\end\lexeme:
+    selfhost_module_item_new_with_declaration:
+        SelfhostModuleItemKind::FunctionDecl
+        lexeme
+        selfhost_memo_trait_definition_scan_header_named SelfhostModuleDeclarationKind::Function start end
+
+//: selfhost_memo_trait_definition_scan_stage0_summary_new: scanner smoke summary を[作/つく]る
+fn selfhost_memo_trait_definition_scan_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind SelfhostMemoTraitDefinitionScanStage0Summary \key_only_rejected\value_only_rejected\duplicate_key_rejected\duplicate_value_rejected\wrong_declaration_kind_rejected\stable_signature_rejected\malformed_header_rejected\module_scan_signature_rejected:
+    SelfhostMemoTraitDefinitionScanStage0Summary key_only_rejected value_only_rejected duplicate_key_rejected duplicate_value_rejected wrong_declaration_kind_rejected stable_signature_rejected malformed_header_rejected module_scan_signature_rejected
+
+//: selfhost_memo_trait_definition_scan_stage0_module_registry_result: 公開 module scan API を通した representative result を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - stage0 が private item helper だけでなく、`SelfhostModuleAst` owner を作り、公開 scanner API で走査する経路も実行します。
+//: - allocation 失敗は scanner そのものの意味論ではないため、この smoke では `ScanRejected(ItemUnavailable)` に丸めます。実運用の loader / parser boundary では allocation diagnostic を別に保持します。
+//:
+//: [契約/けいやく]:
+//: - 成功時は `selfhost_memo_trait_trusted_source_registry_scan_module_result` を呼び、scan 後に `selfhost_module_ast_free` で AST buffer を解放します。
+//: - `MemoKey` / `MemoValue` が両方存在しても scanner record は `signature_available=false` なので、結果は trusted registry 成功ではなく `SignatureMissing` です。
+fn selfhost_memo_trait_definition_scan_stage0_module_registry_result %impure fn str impure fn SelfhostModuleItem impure fn SelfhostModuleItem Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind \source\key_item\value_item:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            match selfhost_module_ast_push ast0 key_item:
+                Result::Ok ast1:
+                    match selfhost_module_ast_push ast1 value_item:
+                        Result::Ok ast2:
+                            let result %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind selfhost_memo_trait_trusted_source_registry_scan_module_result source &ast2
+                            selfhost_module_ast_free ast2
+                            result
+                        Result::Err _push_value_error:
+                            Result::Err SelfhostMemoTraitDefinitionScanRegistryErrorKind::ScanRejected SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable
+                Result::Err _push_key_error:
+                    Result::Err SelfhostMemoTraitDefinitionScanRegistryErrorKind::ScanRejected SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitDefinitionScanRegistryErrorKind::ScanRejected SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_definition_scan_stage0: scanner の代表 fail-closed 結果を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - AST item から table 候補を作る経路と、既存 registry validator へつなぐ経路の代表 case を返します。
+//: - stable source identity が未接続である間、両方の trait が見つかっても accepted registry にならないことを確認できます。
+pub fn selfhost_memo_trait_definition_scan_stage0 %impure fn void SelfhostMemoTraitDefinitionScanStage0Summary \void:
+    let source %str "trait MemoKey:\ntrait MemoValue:\nfn MemoKey %fn void unit \\void:\ntrait MemoKey:\n"
+    let key_item %SelfhostModuleItem selfhost_memo_trait_definition_scan_trait_item_named 6 13 "trait MemoKey:"
+    let value_item %SelfhostModuleItem selfhost_memo_trait_definition_scan_trait_item_named 21 30 "trait MemoValue:"
+    let function_item %SelfhostModuleItem selfhost_memo_trait_definition_scan_function_item_named 35 42 "fn MemoKey %fn void unit \\void:"
+    let malformed_trait_item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::TraitDecl source_span_new_unchecked 0 0 5 "trait"
+    let empty_table %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let key_only_table %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_result source empty_table key_item
+    let value_only_table %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_result source empty_table value_item
+    let duplicate_key_table0 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_result source empty_table key_item
+    let duplicate_key_table1 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_after_result source duplicate_key_table0 key_item
+    let duplicate_key_table2 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_after_result source duplicate_key_table1 value_item
+    let duplicate_value_table0 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_result source empty_table key_item
+    let duplicate_value_table1 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_after_result source duplicate_value_table0 value_item
+    let duplicate_value_table2 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_after_result source duplicate_value_table1 value_item
+    let wrong_kind_table %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_result source empty_table function_item
+    let stable_signature_table0 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_result source empty_table key_item
+    let stable_signature_table1 %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_after_result source stable_signature_table0 value_item
+    let malformed_header_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionScanErrorKind:
+        selfhost_memo_trait_definition_source_table_scan_item_result source empty_table malformed_trait_item
+    let module_scan_signature_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitDefinitionScanRegistryErrorKind:
+        selfhost_memo_trait_definition_scan_stage0_module_registry_result source key_item value_item
+    selfhost_memo_trait_definition_scan_stage0_summary_new:
+        selfhost_memo_trait_trusted_source_registry_from_scan_table_result key_only_table
+        selfhost_memo_trait_trusted_source_registry_from_scan_table_result value_only_table
+        selfhost_memo_trait_trusted_source_registry_from_scan_table_result duplicate_key_table2
+        selfhost_memo_trait_trusted_source_registry_from_scan_table_result duplicate_value_table2
+        selfhost_memo_trait_trusted_source_registry_from_scan_table_result wrong_kind_table
+        selfhost_memo_trait_trusted_source_registry_from_scan_table_result stable_signature_table1
+        malformed_header_rejected
+        module_scan_signature_rejected
