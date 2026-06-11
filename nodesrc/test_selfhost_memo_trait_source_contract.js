@@ -17,6 +17,14 @@ const facade = readRepoFile(repoRoot, TY_FACADE);
 const source = readRepoFile(repoRoot, relPath);
 const proofStore = readRepoFile(repoRoot, proofStoreRelPath);
 
+function sectionBetween(start, end) {
+    const startIndex = source.indexOf(start);
+    assert.notEqual(startIndex, -1, `missing section start: ${start}`);
+    const endIndex = source.indexOf(end, startIndex + start.length);
+    assert.notEqual(endIndex, -1, `missing section end: ${end}`);
+    return source.slice(startIndex, endIndex);
+}
+
 assert.match(
     facade,
     /^pub #import "\.\/ty\/memo_trait_source" as \*$/m,
@@ -62,6 +70,87 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostMemoTraitDefinitionFingerprint:[\s\S]*module_hash %i32[\s\S]*symbol_hash %i32[\s\S]*signature_hash %i32/,
+    "memo trait source registry must group module/symbol/signature fingerprints before source identity materialization",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitDefinitionSourceRecord:[\s\S]*kind %SelfhostMemoTraitSourceKind[\s\S]*fingerprint %SelfhostMemoTraitDefinitionFingerprint[\s\S]*signature_available %bool/,
+    "memo trait source registry must materialize source identity from a typed definition source record",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitSourceMaterializeErrorKind:[\s\S]*KindMismatch[\s\S]*SignatureMissing/,
+    "memo trait source materializer must reject kind mismatch and missing signature with enum errors",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitTrustedSourceRegistryErrorKind:[\s\S]*MemoKeySourceRejected %SelfhostMemoTraitSourceMaterializeErrorKind[\s\S]*MemoValueSourceRejected %SelfhostMemoTraitSourceMaterializeErrorKind/,
+    "trusted source registry current path must keep MemoKey and MemoValue materialization errors distinct",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_source_identity_from_definition %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitDefinitionSourceRecord Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind/,
+    "memo trait source identity materialization must be a Result-returning typed validator",
+);
+assert.match(
+    source,
+    /Result::Err SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch/,
+    "memo trait source identity materialization must reject expected-kind mismatches",
+);
+assert.match(
+    source,
+    /Result::Err SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing/,
+    "memo trait source identity materialization must reject records without a trusted signature fingerprint",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_trusted_memo_key_definition_source_current[\s\S]*SelfhostMemoTraitSourceKind::MemoKeyTrait[\s\S]*selfhost_memo_trait_definition_fingerprint_new 10 11 12[\s\S]*selfhost_memo_trait_trusted_memo_value_definition_source_current[\s\S]*SelfhostMemoTraitSourceKind::MemoValueTrait[\s\S]*selfhost_memo_trait_definition_fingerprint_new 20 21 22/,
+    "current MemoKey/MemoValue source fingerprints must be prepared definition records before materialization",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_trusted_memo_key_source_identity_current_result[\s\S]*selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait selfhost_memo_trait_trusted_memo_key_definition_source_current[\s\S]*selfhost_memo_trait_trusted_memo_value_source_identity_current_result[\s\S]*selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait selfhost_memo_trait_trusted_memo_value_definition_source_current/,
+    "current trusted source identity Result helpers must be built through the materializer rather than raw constructor calls",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_trusted_source_registry_current_result %fn void Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind/,
+    "current trusted registry must expose a Result-returning API that preserves which source failed",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected key_error/,
+    "current trusted registry Result API must report MemoKey materialization failures",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected value_error/,
+    "current trusted registry Result API must report MemoValue materialization failures",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_trusted_source_identity_set_current_result %fn void Result SelfhostMemoTraitSourceIdentitySet SelfhostMemoTraitTrustedSourceRegistryErrorKind/,
+    "current trusted source set must expose a Result-returning API for fail-closed callers such as the proof store",
+);
+assert.doesNotMatch(
+    sectionBetween(
+        "selfhost_memo_trait_trusted_memo_key_source_identity_current_result",
+        "selfhost_memo_trait_trusted_memo_value_source_identity_current_result",
+    ),
+    /selfhost_memo_trait_source_identity_new/,
+    "MemoKey current Result helper must not bypass the materializer with a raw source identity constructor",
+);
+assert.doesNotMatch(
+    sectionBetween(
+        "selfhost_memo_trait_trusted_memo_value_source_identity_current_result",
+        "selfhost_memo_trait_trusted_source_registry_current_result",
+    ),
+    /selfhost_memo_trait_source_identity_new/,
+    "MemoValue current Result helper must not bypass the materializer with a raw source identity constructor",
+);
+assert.match(
+    source,
     /^fn selfhost_memo_trait_trusted_source_registry_new %fn SelfhostMemoTraitSourceIdentity fn SelfhostMemoTraitSourceIdentity SelfhostMemoTraitTrustedSourceRegistry/m,
     "memo trait source registry constructor must be private so callers cannot build swapped trusted registries",
 );
@@ -72,7 +161,7 @@ assert.doesNotMatch(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_trusted_memo_key_source_identity_current[\s\S]*SelfhostMemoTraitSourceKind::MemoKeyTrait[\s\S]*selfhost_memo_trait_trusted_memo_value_source_identity_current[\s\S]*SelfhostMemoTraitSourceKind::MemoValueTrait/,
+    /selfhost_memo_trait_trusted_memo_key_source_identity_current_result[\s\S]*SelfhostMemoTraitSourceKind::MemoKeyTrait[\s\S]*selfhost_memo_trait_trusted_memo_value_source_identity_current_result[\s\S]*SelfhostMemoTraitSourceKind::MemoValueTrait/,
     "memo trait source registry must construct MemoKey and MemoValue identities with distinct source kinds",
 );
 assert.match(
@@ -82,13 +171,23 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_trusted_source_registry_is_current %fn &SelfhostMemoTraitTrustedSourceRegistry bool[\s\S]*selfhost_memo_trait_source_identity_set_eq:[\s\S]*selfhost_memo_trait_trusted_source_registry_sources registry[\s\S]*selfhost_memo_trait_trusted_source_identity_set_current/,
-    "memo trait source registry must compare borrowed snapshots with typed source identity equality",
+    /selfhost_memo_trait_trusted_source_registry_is_current %fn &SelfhostMemoTraitTrustedSourceRegistry bool[\s\S]*selfhost_memo_trait_trusted_source_identity_set_current_result:[\s\S]*Result::Ok current_sources:[\s\S]*selfhost_memo_trait_source_identity_set_eq:[\s\S]*selfhost_memo_trait_trusted_source_registry_sources registry[\s\S]*current_sources[\s\S]*Result::Err _error:[\s\S]*false/,
+    "memo trait source registry must compare borrowed snapshots with typed source identity equality and fail closed on current source errors",
+);
+assert.doesNotMatch(
+    source,
+    /#intrinsic "unreachable"/,
+    "memo trait source registry must not hide current materializer failures behind unreachable wrappers",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_trusted_source_registry_stage0[\s\S]*kind_mismatch_rejected[\s\S]*signature_missing_rejected[\s\S]*SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch[\s\S]*SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing/,
+    "memo trait source registry stage0 must exercise materializer success and fail-closed rejection cases",
 );
 assert.match(
     proofStore,
-    /selfhost_memo_trait_trusted_source_identity_set_current[\s\S]*selfhost_memo_trait_rule_identity_new/,
-    "memo trait proof store stage0 must obtain source identity from the trusted registry before building the policy",
+    /selfhost_memo_trait_trusted_source_identity_set_current_result[\s\S]*Result::Ok sources:[\s\S]*selfhost_memo_trait_rule_identity_new[\s\S]*Result::Err _source_error:[\s\S]*selfhost_memo_trait_proof_store_stage0_abort_with_store arena store0/,
+    "memo trait proof store stage0 must obtain source identity through the Result-returning trusted registry and fail closed on registry errors",
 );
 assert.doesNotMatch(
     proofStore,

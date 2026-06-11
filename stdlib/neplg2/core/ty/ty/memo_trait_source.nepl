@@ -10,28 +10,34 @@
 //:
 //: [契約/けいやく]:
 //: - `SelfhostMemoTraitTrustedSourceRegistry` は `MemoKey` と `MemoValue` の source identity を両方持ちます。片方が欠けた registry は作りません。
-//: - `selfhost_memo_trait_trusted_source_registry_current` は、現 selfhost compiler が使う prepared source identity を返します。
+//: - source identity は `SelfhostMemoTraitDefinitionSourceRecord` から materializer を通して作ります。expected kind と record kind が一致しない場合や、signature fingerprint が未確定の場合は `Result::Err` にします。
+//: - `selfhost_memo_trait_trusted_source_registry_current_result` は、現 selfhost compiler が使う prepared source identity registry を `Result` で返します。
 //: - `selfhost_memo_trait_trusted_source_registry_sources` は proof store policy に渡す `SelfhostMemoTraitSourceIdentitySet` を返します。
 //: - `selfhost_memo_trait_trusted_source_registry_is_current` は、registry が current source identity と一致するかを typed equality で確認します。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 では module / symbol / signature の fingerprint payload は事前に用意した i32 値です。これは trait definition table から source text や public surface hash を走査する実装ではありません。
-//: - 将来 `MemoKey` / `MemoValue` trait definition table が入ったら、この module の current registry constructor は table 由来の stable trait definition key を受け取る実装へ置き換えます。その場合も proof store はこの registry から source set を受け取るだけで、source text を再読しません。
+//: - Phase 1 では module / symbol / signature の fingerprint payload は事前に用意した i32 値です。ただし raw i32 を proof store 側へ散らさず、typed definition source record と materializer の境界に閉じています。
+//: - これは trait definition table から source text や public surface hash を走査する実装ではありません。将来 `MemoKey` / `MemoValue` trait definition table が入ったら、この module の current definition record producer を table 由来の stable trait definition key へ置き換えます。その場合も proof store はこの registry から source set を受け取るだけで、source text を再読しません。
 //:
 //: [計算量/けいさんりょう]:
-//: - current registry の構築、source set projection、current 判定はすべて Copy payload の field 構築または equality だけなので O(1) です。
+//: - current registry の構築、source materialization、source set projection、current 判定はすべて Copy payload の field 構築、variant match、または equality だけなので O(1) です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "core/result" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_source" as *
 //:| #import "std/test" as *
 //: fn main %impure fn void i32 \void:
@@ -41,14 +47,66 @@
 //:     let checks2 checks_push checks1 check summary.memo_value_kind
 //:     let checks3 checks_push checks2 check summary.source_set_matches
 //:     let checks4 checks_push checks3 check summary.registry_is_current
-//:     let shown checks_print_report checks4
+//:     let checks5 checks_push checks4 check summary.memo_key_materialized
+//:     let checks6 checks_push checks5 check summary.memo_value_materialized
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_source_materialize_error_kind_eq (unwrap_err summary.kind_mismatch_rejected) SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_source_materialize_error_kind_eq (unwrap_err summary.signature_missing_rejected) SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing
+//:     let shown checks_print_report checks8
 //:     checks_exit_code shown
 //: ```
 
 #import "core/field" as field
 #import "core/math" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 #import "./memo_trait_policy" as *
+
+//: SelfhostMemoTraitDefinitionFingerprint: trait definition source の stable fingerprint payload
+//:
+//: [目的/もくてき]:
+//: - module、symbol、signature の fingerprint を 1 つの typed payload にまとめます。
+//: - raw i32 を proof store や registry 呼び出し側へ散らさず、source materializer の入力境界に閉じます。
+//:
+//: [契約/けいやく]:
+//: - `module_hash` は trait definition を含む module identity の fingerprint です。
+//: - `symbol_hash` は module 内の trait symbol identity の fingerprint です。
+//: - `signature_hash` は public trait signature と bound contract の fingerprint です。
+//: - この struct は表示名や path suffix を持ちません。表示は diagnostic layer の責務です。
+pub struct SelfhostMemoTraitDefinitionFingerprint:
+    module_hash %i32
+    symbol_hash %i32
+    signature_hash %i32
+
+//: SelfhostMemoTraitDefinitionSourceRecord: materializer が読む trait definition source record
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` trait definition の source identity を作る前段として、kind と fingerprint と signature availability をまとめます。
+//:
+//: [契約/けいやく]:
+//: - `kind` は record がどの trusted memo trait source から来たかを表します。
+//: - `fingerprint` は source identity に入れる stable payload です。
+//: - `signature_available = false` の record は、source text や public signature が未確定であるため materialize できません。
+pub struct SelfhostMemoTraitDefinitionSourceRecord:
+    kind %SelfhostMemoTraitSourceKind
+    fingerprint %SelfhostMemoTraitDefinitionFingerprint
+    signature_available %bool
+
+//: SelfhostMemoTraitSourceMaterializeErrorKind: source identity materialization の拒否理由
+//:
+//: [目的/もくてき]:
+//: - source identity を作れない理由を bool や文字列へ潰さず、source policy と診断層が網羅的に扱える enum として保持します。
+pub enum SelfhostMemoTraitSourceMaterializeErrorKind:
+    KindMismatch
+    SignatureMissing
+
+//: SelfhostMemoTraitTrustedSourceRegistryErrorKind: current trusted registry 構築の拒否理由
+//:
+//: [目的/もくてき]:
+//: - current registry の MemoKey 側と MemoValue 側のどちらの source materialization が壊れたかを区別します。
+//: - registry current path が materializer の `Result` を捨てず、失敗原因を typed payload として保持できるようにします。
+pub enum SelfhostMemoTraitTrustedSourceRegistryErrorKind:
+    MemoKeySourceRejected %SelfhostMemoTraitSourceMaterializeErrorKind
+    MemoValueSourceRejected %SelfhostMemoTraitSourceMaterializeErrorKind
 
 //: SelfhostMemoTraitTrustedSourceRegistry: current memo trait source identity registry
 //:
@@ -62,12 +120,65 @@ pub struct SelfhostMemoTraitTrustedSourceRegistry:
     memo_key %SelfhostMemoTraitSourceIdentity
     memo_value %SelfhostMemoTraitSourceIdentity
 
-//: SelfhostMemoTraitTrustedSourceRegistryStage0Summary: registry smoke の代表結果
+//: SelfhostMemoTraitTrustedSourceRegistryStage0Summary: registry smoke の[代表/だいひょう][結果/けっか]
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` の current source identity が、typed definition source record から materializer を通って作られていることを 1 つの値にまとめます。
+//: - proof store が trusted source を raw constructor で作らず、registry / source set の境界だけを使っていることを doctest から確認しやすくします。
+//:
+//: [契約/けいやく]:
+//: - `memo_key_kind` と `memo_value_kind` は、materialized identity の kind が期待する trait kind と一致した場合に `true` になります。
+//: - `source_set_matches` は、registry から投影した source set が current helper の source set と一致した場合に `true` になります。
+//: - `registry_is_current` は、registry snapshot が current compiler policy と一致した場合に `true` になります。
+//: - `memo_key_materialized` と `memo_value_materialized` は、current prepared definition source record が materializer で `Ok` になったことを表します。
+//: - `kind_mismatch_rejected` と `signature_missing_rejected` は、拒否 case を `Result::Err` として保持します。bool に潰さないことで、error enum の追加時に match の網羅性検査が効きます。
+//:
+//: [現状/げんじょう]:
+//: - 現在の summary は Stage 0 の smoke 用です。full trait definition table から stable source record を生成する段階では、同じ summary field を使い、入力だけを table-backed producer に置き換えます。
+//:
+//: [計算量/けいさんりょう]:
+//: - field は固定個数で、summary の作成と比較は O(1) 時間・O(1) 追加空間です。
 pub struct SelfhostMemoTraitTrustedSourceRegistryStage0Summary:
     memo_key_kind %bool
     memo_value_kind %bool
     source_set_matches %bool
     registry_is_current %bool
+    memo_key_materialized %bool
+    memo_value_materialized %bool
+    kind_mismatch_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind
+    signature_missing_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind
+
+impl Clone for SelfhostMemoTraitDefinitionFingerprint:
+    fn clone %fn &SelfhostMemoTraitDefinitionFingerprint SelfhostMemoTraitDefinitionFingerprint \self:
+        *self
+
+impl Copy for SelfhostMemoTraitDefinitionFingerprint:
+    fn copy_mark %fn SelfhostMemoTraitDefinitionFingerprint SelfhostMemoTraitDefinitionFingerprint \self:
+        self
+
+impl Clone for SelfhostMemoTraitDefinitionSourceRecord:
+    fn clone %fn &SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitDefinitionSourceRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitDefinitionSourceRecord:
+    fn copy_mark %fn SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitDefinitionSourceRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitSourceMaterializeErrorKind:
+    fn clone %fn &SelfhostMemoTraitSourceMaterializeErrorKind SelfhostMemoTraitSourceMaterializeErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSourceMaterializeErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitSourceMaterializeErrorKind SelfhostMemoTraitSourceMaterializeErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitTrustedSourceRegistryErrorKind:
+    fn clone %fn &SelfhostMemoTraitTrustedSourceRegistryErrorKind SelfhostMemoTraitTrustedSourceRegistryErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitTrustedSourceRegistryErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitTrustedSourceRegistryErrorKind SelfhostMemoTraitTrustedSourceRegistryErrorKind \self:
+        self
 
 impl Clone for SelfhostMemoTraitTrustedSourceRegistry:
     fn clone %fn &SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistry \self:
@@ -85,6 +196,133 @@ impl Copy for SelfhostMemoTraitTrustedSourceRegistryStage0Summary:
     fn copy_mark %fn SelfhostMemoTraitTrustedSourceRegistryStage0Summary SelfhostMemoTraitTrustedSourceRegistryStage0Summary \self:
         self
 
+//: selfhost_memo_trait_definition_fingerprint_new: trait source fingerprint payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module / symbol / signature fingerprint をまとめ、materializer 呼び出し側が raw i32 の位置を取り違えないようにします。
+//:
+//: [契約/けいやく]:
+//: - `module_hash` は trait definition を含む module identity を表します。
+//: - `symbol_hash` は module 内の trait symbol identity を表します。
+//: - `signature_hash` は public trait signature と bound contract を表します。
+//: - この関数は fingerprint payload を構成するだけです。`MemoKey` / `MemoValue` の expected kind や signature availability の検査は `selfhost_memo_trait_source_identity_from_definition` が行います。
+//:
+//: [現状/げんじょう]:
+//: - Stage 0 では i32 fingerprint を prepared value として使います。これは外部 diagnostic text や path suffix を authority にしないための typed payload であり、full trait definition table が入った後は stable nominal key / public surface hash 由来の値に置き換えます。
+//:
+//: [計算量/けいさんりょう]:
+//: - field を 3 つ束ねるだけなので O(1) 時間・O(1) 追加空間です。
+pub fn selfhost_memo_trait_definition_fingerprint_new %fn i32 fn i32 fn i32 SelfhostMemoTraitDefinitionFingerprint \module_hash\symbol_hash\signature_hash:
+    SelfhostMemoTraitDefinitionFingerprint module_hash symbol_hash signature_hash
+
+//: selfhost_memo_trait_definition_source_record_new: trait definition source record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - kind、fingerprint、signature availability を 1 つの materializer input にします。
+//: - source identity を作る前の record と、検査済みの trusted source identity を分けることで、current registry path が検査を飛ばして raw identity を作る退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - この constructor は record を作るだけで、trusted source identity を受理しません。受理可否は `selfhost_memo_trait_source_identity_from_definition` が `Result` で返します。
+//: - `kind` は caller が期待する source kind と一致する必要があります。一致しない場合、materializer は `KindMismatch` を返します。
+//: - `signature_available` が `false` の record は、trait definition の public signature が source identity authority として確定していないため、materializer が `SignatureMissing` を返します。
+//:
+//: [現状/げんじょう]:
+//: - Stage 0 では prepared current record をここで作ります。将来は parser / checker が作った trait definition table から、同じ record 型へ stable key と signature hash を materialize します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field を 3 つ束ねるだけなので O(1) 時間・O(1) 追加空間です。
+pub fn selfhost_memo_trait_definition_source_record_new %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitDefinitionFingerprint fn bool SelfhostMemoTraitDefinitionSourceRecord \kind\fingerprint\signature_available:
+    SelfhostMemoTraitDefinitionSourceRecord kind fingerprint signature_available
+
+//: selfhost_memo_trait_source_materialize_error_kind_eq: materializer error kind が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error kind が増えた場合は equality を明示的に更新します。
+pub fn selfhost_memo_trait_source_materialize_error_kind_eq %fn SelfhostMemoTraitSourceMaterializeErrorKind fn SelfhostMemoTraitSourceMaterializeErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch:
+            match b:
+                SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch:
+                    true
+                SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing:
+                    false
+        SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing:
+            match b:
+                SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch:
+                    false
+                SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing:
+                    true
+
+//: selfhost_memo_trait_trusted_source_registry_error_kind_eq: registry error kind が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - MemoKey 側と MemoValue 側を混同しません。payload の materialize error kind も比較します。
+pub fn selfhost_memo_trait_trusted_source_registry_error_kind_eq %fn SelfhostMemoTraitTrustedSourceRegistryErrorKind fn SelfhostMemoTraitTrustedSourceRegistryErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected a_error:
+            match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected b_error:
+                    selfhost_memo_trait_source_materialize_error_kind_eq a_error b_error
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected _b_error:
+                    false
+        SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected a_error:
+            match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected _b_error:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected b_error:
+                    selfhost_memo_trait_source_materialize_error_kind_eq a_error b_error
+
+//: selfhost_memo_trait_source_identity_from_definition: trait definition record から source identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - typed trait definition source record を、proof store policy が使う `SelfhostMemoTraitSourceIdentity` へ materialize します。
+//:
+//: [契約/けいやく]:
+//: - `expected_kind` と `record.kind` が一致しない場合は `KindMismatch` を返します。
+//: - `record.signature_available` が false の場合は、signature hash を authority にできないため `SignatureMissing` を返します。
+//: - 成功時だけ、record 内の fingerprint payload を `SelfhostMemoTraitSourceIdentity` として意味づけます。
+//:
+//: [計算量/けいさんりょう]:
+//: - kind equality と bool branch と field construction だけなので O(1) です。
+pub fn selfhost_memo_trait_source_identity_from_definition %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitDefinitionSourceRecord Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind \expected_kind\record:
+    if:
+        selfhost_memo_trait_source_kind_eq expected_kind record.kind
+        then:
+            if:
+                record.signature_available
+                then:
+                    Result::Ok selfhost_memo_trait_source_identity_new record.kind record.fingerprint.module_hash record.fingerprint.symbol_hash record.fingerprint.signature_hash
+                else:
+                    Result::Err SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing
+        else:
+            Result::Err SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch
+
+//: selfhost_memo_trait_trusted_memo_key_definition_source_current: current MemoKey definition record を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 現 compiler が信頼する `MemoKey` trait source fingerprint を、materializer input として返します。
+//:
+//: [現状/げんじょう]:
+//: - fingerprint payload は prepared value です。trait definition table が入ったら、この helper の入力だけを table 由来の stable definition key へ置き換えます。
+fn selfhost_memo_trait_trusted_memo_key_definition_source_current %fn void SelfhostMemoTraitDefinitionSourceRecord \void:
+    selfhost_memo_trait_definition_source_record_new:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait
+        selfhost_memo_trait_definition_fingerprint_new 10 11 12
+        true
+
+//: selfhost_memo_trait_trusted_memo_value_definition_source_current: current MemoValue definition record を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 現 compiler が信頼する `MemoValue` trait source fingerprint を、materializer input として返します。
+//:
+//: [現状/げんじょう]:
+//: - fingerprint payload は prepared value です。trait definition table が入ったら、この helper の入力だけを table 由来の stable definition key へ置き換えます。
+fn selfhost_memo_trait_trusted_memo_value_definition_source_current %fn void SelfhostMemoTraitDefinitionSourceRecord \void:
+    selfhost_memo_trait_definition_source_record_new:
+        SelfhostMemoTraitSourceKind::MemoValueTrait
+        selfhost_memo_trait_definition_fingerprint_new 20 21 22
+        true
+
 //: selfhost_memo_trait_trusted_source_registry_new: trusted source registry を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -93,32 +331,38 @@ impl Copy for SelfhostMemoTraitTrustedSourceRegistryStage0Summary:
 fn selfhost_memo_trait_trusted_source_registry_new %fn SelfhostMemoTraitSourceIdentity fn SelfhostMemoTraitSourceIdentity SelfhostMemoTraitTrustedSourceRegistry \memo_key\memo_value:
     SelfhostMemoTraitTrustedSourceRegistry memo_key memo_value
 
-//: selfhost_memo_trait_trusted_memo_key_source_identity_current: current MemoKey source identity を[返/かえ]す
+//: selfhost_memo_trait_trusted_memo_key_source_identity_current_result: current MemoKey source identity を Result で[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - `MemoKey` trait definition の current source fingerprint を typed identity として返します。
-//:
-//: [現状/げんじょう]:
-//: - 現在は prepared fingerprint payload です。trait definition table materializer が入るまでは、この値を proof store の policy identity authority として使います。
-pub fn selfhost_memo_trait_trusted_memo_key_source_identity_current %fn void SelfhostMemoTraitSourceIdentity \void:
-    selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
+//: - current MemoKey definition record を materializer へ通し、kind mismatch や signature missing を呼び出し側が扱える `Result` にします。
+pub fn selfhost_memo_trait_trusted_memo_key_source_identity_current_result %fn void Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind \void:
+    selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait selfhost_memo_trait_trusted_memo_key_definition_source_current
 
-//: selfhost_memo_trait_trusted_memo_value_source_identity_current: current MemoValue source identity を[返/かえ]す
+//: selfhost_memo_trait_trusted_memo_value_source_identity_current_result: current MemoValue source identity を Result で[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - `MemoValue` trait definition の current source fingerprint を typed identity として返します。
-//:
-//: [現状/げんじょう]:
-//: - 現在は prepared fingerprint payload です。trait definition table materializer が入るまでは、この値を proof store の policy identity authority として使います。
-pub fn selfhost_memo_trait_trusted_memo_value_source_identity_current %fn void SelfhostMemoTraitSourceIdentity \void:
-    selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait 20 21 22
+//: - current MemoValue definition record を materializer へ通し、kind mismatch や signature missing を呼び出し側が扱える `Result` にします。
+pub fn selfhost_memo_trait_trusted_memo_value_source_identity_current_result %fn void Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind \void:
+    selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait selfhost_memo_trait_trusted_memo_value_definition_source_current
 
-//: selfhost_memo_trait_trusted_source_registry_current: current MemoKey / MemoValue source registry を[返/かえ]す
+//: selfhost_memo_trait_trusted_source_registry_current_result: current MemoKey / MemoValue source registry を Result で[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - proof store や後続 artifact writer が、current source identity set を raw fingerprint から組み立てずに取得できるようにします。
-pub fn selfhost_memo_trait_trusted_source_registry_current %fn void SelfhostMemoTraitTrustedSourceRegistry \void:
-    selfhost_memo_trait_trusted_source_registry_new selfhost_memo_trait_trusted_memo_key_source_identity_current selfhost_memo_trait_trusted_memo_value_source_identity_current
+//: - MemoKey と MemoValue の current source identity をそれぞれ materialize し、どちらが失敗したかを typed registry error として返します。
+//:
+//: [契約/けいやく]:
+//: - MemoKey 側が失敗した場合は `MemoKeySourceRejected` を返します。
+//: - MemoValue 側が失敗した場合は `MemoValueSourceRejected` を返します。
+pub fn selfhost_memo_trait_trusted_source_registry_current_result %fn void Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind \void:
+    match selfhost_memo_trait_trusted_memo_key_source_identity_current_result:
+        Result::Ok memo_key:
+            match selfhost_memo_trait_trusted_memo_value_source_identity_current_result:
+                Result::Ok memo_value:
+                    Result::Ok selfhost_memo_trait_trusted_source_registry_new memo_key memo_value
+                Result::Err value_error:
+                    Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected value_error
+        Result::Err key_error:
+            Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected key_error
 
 //: selfhost_memo_trait_trusted_source_registry_sources: registry から proof policy 用 source set を[作/つく]る
 //:
@@ -127,38 +371,84 @@ pub fn selfhost_memo_trait_trusted_source_registry_current %fn void SelfhostMemo
 pub fn selfhost_memo_trait_trusted_source_registry_sources %fn &SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitSourceIdentitySet \registry:
     selfhost_memo_trait_source_identity_set_new *field::get_ref registry "memo_key" *field::get_ref registry "memo_value"
 
-//: selfhost_memo_trait_trusted_source_identity_set_current: current source identity set を[返/かえ]す
+//: selfhost_memo_trait_trusted_source_identity_set_current_result: current source identity set を Result で[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - proof store policy 生成側が registry の中間値を保持しない場合に、current source set を直接受け取れるようにします。
-pub fn selfhost_memo_trait_trusted_source_identity_set_current %fn void SelfhostMemoTraitSourceIdentitySet \void:
-    let registry %SelfhostMemoTraitTrustedSourceRegistry selfhost_memo_trait_trusted_source_registry_current
-    selfhost_memo_trait_trusted_source_registry_sources &registry
+//: - proof store など fail-closed に進みたい caller が、current registry construction error を握りつぶさず扱えるようにします。
+pub fn selfhost_memo_trait_trusted_source_identity_set_current_result %fn void Result SelfhostMemoTraitSourceIdentitySet SelfhostMemoTraitTrustedSourceRegistryErrorKind \void:
+    match selfhost_memo_trait_trusted_source_registry_current_result:
+        Result::Ok registry:
+            Result::Ok selfhost_memo_trait_trusted_source_registry_sources &registry
+        Result::Err error:
+            Result::Err error
 
 //: selfhost_memo_trait_trusted_source_registry_is_current: registry が current source identity と一致するか[返/かえ]す
 //:
 //: [目的/もくてき]:
 //: - prepared artifact が持つ registry snapshot を、current compiler policy と照合するための小さい helper です。
 pub fn selfhost_memo_trait_trusted_source_registry_is_current %fn &SelfhostMemoTraitTrustedSourceRegistry bool \registry:
-    selfhost_memo_trait_source_identity_set_eq:
-        selfhost_memo_trait_trusted_source_registry_sources registry
-        selfhost_memo_trait_trusted_source_identity_set_current
+    match selfhost_memo_trait_trusted_source_identity_set_current_result:
+        Result::Ok current_sources:
+            selfhost_memo_trait_source_identity_set_eq:
+                selfhost_memo_trait_trusted_source_registry_sources registry
+                current_sources
+        Result::Err _error:
+            false
 
 //: selfhost_memo_trait_trusted_source_registry_stage0_summary_new: registry smoke summary を[作/つく]る
-fn selfhost_memo_trait_trusted_source_registry_stage0_summary_new %fn bool fn bool fn bool fn bool SelfhostMemoTraitTrustedSourceRegistryStage0Summary \memo_key_kind\memo_value_kind\source_set_matches\registry_is_current:
-    SelfhostMemoTraitTrustedSourceRegistryStage0Summary memo_key_kind memo_value_kind source_set_matches registry_is_current
+fn selfhost_memo_trait_trusted_source_registry_stage0_summary_new %fn bool fn bool fn bool fn bool fn bool fn bool fn Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind fn Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind SelfhostMemoTraitTrustedSourceRegistryStage0Summary \memo_key_kind\memo_value_kind\source_set_matches\registry_is_current\memo_key_materialized\memo_value_materialized\kind_mismatch_rejected\signature_missing_rejected:
+    SelfhostMemoTraitTrustedSourceRegistryStage0Summary memo_key_kind memo_value_kind source_set_matches registry_is_current memo_key_materialized memo_value_materialized kind_mismatch_rejected signature_missing_rejected
 
 //: selfhost_memo_trait_trusted_source_registry_stage0: current registry の代表検査を[返/かえ]す
 //:
 //: [目的/もくてき]:
 //: - current registry が MemoKey / MemoValue の kind を取り違えず、source set projection と current 判定が typed equality を通ることを確認します。
+//: - materializer が expected kind mismatch と signature missing を成功扱いしないことも同じ smoke に載せます。
 pub fn selfhost_memo_trait_trusted_source_registry_stage0 %fn void SelfhostMemoTraitTrustedSourceRegistryStage0Summary \void:
-    let registry %SelfhostMemoTraitTrustedSourceRegistry selfhost_memo_trait_trusted_source_registry_current
-    let memo_key %SelfhostMemoTraitSourceIdentity *field::get_ref &registry "memo_key"
-    let memo_value %SelfhostMemoTraitSourceIdentity *field::get_ref &registry "memo_value"
-    let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_trusted_source_registry_sources &registry
-    selfhost_memo_trait_trusted_source_registry_stage0_summary_new:
-        selfhost_memo_trait_source_kind_eq memo_key.kind SelfhostMemoTraitSourceKind::MemoKeyTrait
-        selfhost_memo_trait_source_kind_eq memo_value.kind SelfhostMemoTraitSourceKind::MemoValueTrait
-        selfhost_memo_trait_source_identity_set_eq sources selfhost_memo_trait_trusted_source_identity_set_current
-        selfhost_memo_trait_trusted_source_registry_is_current &registry
+    let key_record %SelfhostMemoTraitDefinitionSourceRecord selfhost_memo_trait_trusted_memo_key_definition_source_current
+    let value_record %SelfhostMemoTraitDefinitionSourceRecord selfhost_memo_trait_trusted_memo_value_definition_source_current
+    let missing_signature_record %SelfhostMemoTraitDefinitionSourceRecord:
+        selfhost_memo_trait_definition_source_record_new:
+            SelfhostMemoTraitSourceKind::MemoKeyTrait
+            selfhost_memo_trait_definition_fingerprint_new 10 11 12
+            false
+    let materialized_key %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait key_record
+    let materialized_value %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait value_record
+    let kind_mismatch_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait key_record
+    let signature_missing_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait missing_signature_record
+    match selfhost_memo_trait_trusted_source_registry_current_result:
+        Result::Ok registry:
+            let memo_key %SelfhostMemoTraitSourceIdentity *field::get_ref &registry "memo_key"
+            let memo_value %SelfhostMemoTraitSourceIdentity *field::get_ref &registry "memo_value"
+            let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_trusted_source_registry_sources &registry
+            match selfhost_memo_trait_trusted_source_identity_set_current_result:
+                Result::Ok current_sources:
+                    selfhost_memo_trait_trusted_source_registry_stage0_summary_new:
+                        selfhost_memo_trait_source_kind_eq memo_key.kind SelfhostMemoTraitSourceKind::MemoKeyTrait
+                        selfhost_memo_trait_source_kind_eq memo_value.kind SelfhostMemoTraitSourceKind::MemoValueTrait
+                        selfhost_memo_trait_source_identity_set_eq sources current_sources
+                        selfhost_memo_trait_trusted_source_registry_is_current &registry
+                        is_ok materialized_key
+                        is_ok materialized_value
+                        kind_mismatch_rejected
+                        signature_missing_rejected
+                Result::Err _source_set_error:
+                    selfhost_memo_trait_trusted_source_registry_stage0_summary_new:
+                        false
+                        false
+                        false
+                        false
+                        is_ok materialized_key
+                        is_ok materialized_value
+                        kind_mismatch_rejected
+                        signature_missing_rejected
+        Result::Err _registry_error:
+            selfhost_memo_trait_trusted_source_registry_stage0_summary_new:
+                false
+                false
+                false
+                false
+                is_ok materialized_key
+                is_ok materialized_value
+                kind_mismatch_rejected
+                signature_missing_rejected

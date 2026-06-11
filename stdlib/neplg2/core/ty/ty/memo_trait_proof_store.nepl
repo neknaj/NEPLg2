@@ -615,33 +615,36 @@ fn selfhost_memo_trait_proof_store_stage0_abort_with_store %impure fn SelfhostTy
 //: - `f32_id` は primitive fake aggregate proof が producer gate で拒否されることを固定します。
 //: - `unsupported_id` は key-only proof kind が fail-closed になることを固定します。
 fn selfhost_memo_trait_proof_store_stage0_after_store %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\named_id\f32_id\missing_id\unsupported_id\store0:
-    let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_trusted_source_identity_set_current
-    let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 1 30 31 32
-    let stale_rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 2 30 31 32
-    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources rules
-    let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources stale_rules
-    let ok_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
-    match selfhost_memo_trait_proof_store_push &arena store0 policy named_id ok_proof:
-        Result::Ok store1:
-            let primitive_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
-            match selfhost_memo_trait_proof_store_push &arena store1 policy f32_id primitive_proof:
-                Result::Ok store2:
-                    let unsupported_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
-                    match selfhost_memo_trait_proof_store_push_with_kind &arena store2 policy unsupported_id SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported unsupported_proof:
-                        Result::Ok store3:
-                            let found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy named_id
-                            let stale %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 stale_policy named_id
-                            let missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy missing_id
-                            let primitive %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy f32_id
-                            let unsupported %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy unsupported_id
-                            let summary %SelfhostMemoTraitProofStoreStage0Summary selfhost_memo_trait_proof_store_stage0_summary_new found stale missing primitive unsupported
-                            selfhost_memo_trait_proof_store_stage0_finish arena store3 summary
+    match selfhost_memo_trait_trusted_source_identity_set_current_result:
+        Result::Ok sources:
+            let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 1 30 31 32
+            let stale_rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 2 30 31 32
+            let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources rules
+            let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources stale_rules
+            let ok_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+            match selfhost_memo_trait_proof_store_push &arena store0 policy named_id ok_proof:
+                Result::Ok store1:
+                    let primitive_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+                    match selfhost_memo_trait_proof_store_push &arena store1 policy f32_id primitive_proof:
+                        Result::Ok store2:
+                            let unsupported_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+                            match selfhost_memo_trait_proof_store_push_with_kind &arena store2 policy unsupported_id SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported unsupported_proof:
+                                Result::Ok store3:
+                                    let found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy named_id
+                                    let stale %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 stale_policy named_id
+                                    let missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy missing_id
+                                    let primitive %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy f32_id
+                                    let unsupported %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy unsupported_id
+                                    let summary %SelfhostMemoTraitProofStoreStage0Summary selfhost_memo_trait_proof_store_stage0_summary_new found stale missing primitive unsupported
+                                    selfhost_memo_trait_proof_store_stage0_finish arena store3 summary
+                                Result::Err _e:
+                                    selfhost_memo_trait_proof_store_stage0_abort arena
                         Result::Err _e:
                             selfhost_memo_trait_proof_store_stage0_abort arena
                 Result::Err _e:
                     selfhost_memo_trait_proof_store_stage0_abort arena
-        Result::Err _e:
-            selfhost_memo_trait_proof_store_stage0_abort arena
+        Result::Err _source_error:
+            selfhost_memo_trait_proof_store_stage0_abort_with_store arena store0
 
 //: selfhost_memo_trait_proof_store_stage0_after_types: type setup 後に proof store setup へ[進/すす]む
 //:
