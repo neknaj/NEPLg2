@@ -28,6 +28,9 @@ GitHub Pages exposes outdated manual test viewers and no metrics.html page. The 
 - `web/tests.html` は旧 `./tests.json` を default にしており、現行 CI の `dist/tests/tests-current.json`、`nmd-tests.json`、`examples-tests.json` などを読まなかった。
 - `web/testinfo.html` は `./tests/cargo-test.log` を期待していたが、現行 CI は cargo log を Pages artifact に publish していない。
 - ローカル Trunk build は `web/dist` に playground root を出力するため、workflow が `dist` だけを upload すると root の viewer HTML が final Pages artifact へ入らない可能性があった。
+- CI の Trunk build は `dist` を artifact root として生成していたため、追加した `cp -a web/dist/. dist/` は Linux CI で `web/dist` が存在せず build を落としていた。
+- Pages final job は `always()` だけで guarded されており、cancelled / stale run でも古い artifact を publish できる経路があった。
+- Pages deploy job は `main` に限定されておらず、`develop` push でも Pages を上書きできる条件だった。
 
 ## 問題
 
@@ -53,6 +56,7 @@ Generate repo_metrics.ts JSON/CSV into the Pages artifact, copy metrics.html thr
 - `node nodesrc/issues.js index --dir issues`
 - `node nodesrc/issues.js check --dir issues`
 - `node nodesrc/run_source_policy_regressions.js --warn-only`
+- normalized Pages artifact simulation after `trunk build` output path cleanup
 - `git diff --check`
 
 ## 解決
@@ -64,3 +68,6 @@ Generate repo_metrics.ts JSON/CSV into the Pages artifact, copy metrics.html thr
 - `web/tests.html` は現行 CI の `./tests/status.json` と doctest JSON 群を読む詳細 viewer に置き換えた。
 - `web/testinfo.html` は未公開 cargo log viewer ではなく、現行 CI job status と published test JSON inventory を表示する page に置き換えた。
 - `nodesrc/test_pages_ci_metrics_contract.js` を追加し、Pages root HTML、metrics artifact、CI status JSON、現行 test artifact 名の契約を source policy として固定した。
+- CI の Pages root HTML は最終 artifact root の `dist/` で存在検査する。Trunk version 差で `web/dist` が生成される場合だけ `dist/` へ同期し、`web/dist` 決め打ちで落ちる経路を削除した。
+- Pages publish job は `main` push に限定し、cancelled run を publish しない条件と、upload 前の remote main SHA freshness guard を追加した。
+- final deploy は final artifact 作成が成功した場合だけ実行するようにし、build artifact がない run で `deploy-pages` だけが失敗する経路を閉じた。

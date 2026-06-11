@@ -32,10 +32,20 @@ assertIncludes(index, '<link data-trunk rel="copy-file" href="testinfo.html" />'
 assertIncludes(index, 'href="./metrics.html"', "Playground header should link to the metrics page");
 
 assertIncludes(workflow, "Build repository metrics into dist", "CI must generate repo metrics for Pages");
-assertIncludes(workflow, "cp -a web/dist/. dist/", "CI must copy Trunk output into the Pages artifact root");
+assertIncludes(workflow, "Verify playground HTML in Pages dist", "CI must verify Trunk output before uploading Pages artifacts");
+assertIncludes(workflow, "if [ -d web/dist ]; then", "CI may normalize Trunk versions that write under web/dist");
+assertIncludes(workflow, "cp -a web/dist/. dist/", "CI should copy web/dist only after checking that it exists");
+assertIncludes(workflow, "test -f dist/metrics.html", "CI must verify metrics.html is present in the Pages artifact root");
 assertIncludes(workflow, "node nodesrc/run_repo_metrics.js --root . --json dist/metrics/repo_metrics.json --csv dist/metrics/repo_metrics.csv", "CI must run repo_metrics.ts through the wrapper");
 assertIncludes(workflow, '"run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"', "status.json should expose the Actions run URL");
 assertIncludes(workflow, '"head_sha": "${{ github.sha }}"', "status.json should expose the source revision");
+assertIncludes(workflow, "github.ref == 'refs/heads/main'", "Pages deployment jobs must be restricted to main");
+assertIncludes(workflow, "!cancelled()", "Pages deployment jobs must not publish cancelled workflow runs");
+assertIncludes(workflow, "needs.build.result == 'success'", "Final Pages bundle must require a successful build artifact");
+assertIncludes(workflow, "Guard current main SHA before pending Pages artifact", "Pending Pages artifact must refuse stale main revisions");
+assertIncludes(workflow, "Guard current main SHA before final Pages artifact", "Final Pages artifact must refuse stale main revisions");
+assertIncludes(workflow, 'git ls-remote "${{ github.server_url }}/${{ github.repository }}.git" refs/heads/main', "Pages artifacts must compare github.sha with current remote main");
+assertIncludes(workflow, "needs.pages-final-bundle.result == 'success'", "Final Pages deploy must not run when final artifact creation failed");
 
 assertIncludes(runner, "repo_metrics.ts", "wrapper must keep repo_metrics.ts as the metrics authority");
 assertIncludes(runner, "--experimental-strip-types", "wrapper should use native TS execution when available");

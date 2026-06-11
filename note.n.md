@@ -58,6 +58,18 @@ MERGE_APPROVED
 
 - remote/main へ merge/push 後、GitHub Actions が Pages artifact を publish すれば `https://neknaj.github.io/NEPLg2/metrics.html`、`tests.html`、`testinfo.html` で確認できる。
 
+## follow_up_ci_pages_publish_fix
+
+- public check: `https://neknaj.github.io/NEPLg2/metrics.html` は 404、`tests.html` / `testinfo.html` は旧版だった。
+- CI evidence: run `27324243495` は `Copy playground HTML into Pages dist` で `cp: cannot stat 'web/dist/.': No such file or directory` により build failure。
+- root cause: CI の Trunk 出力は `dist/` であり、local `web/dist` 前提の copy step は誤っていた。
+- subagent blocker: cancelled / stale run が `always()` Pages final job で古い artifact を publish でき、Pages job が `main` に限定されていなかった。
+- fix: Trunk version 差により `web/dist` が生成される場合だけ `dist/` へ同期し、その後 `dist/index.html` / `dist/tests.html` / `dist/testinfo.html` / `dist/metrics.html` の存在検査を行う形へ置き換えた。
+- fix: Pages jobs を `github.ref == 'refs/heads/main'` と `!cancelled()` で guard し、upload 前に remote main SHA と `github.sha` を照合する freshness guard を追加した。
+- fix: final bundle は build success を必須にし、final deploy は `pages-fast-deploy` と `pages-final-bundle` の success を必須にした。
+- source_policy: `nodesrc/test_pages_ci_metrics_contract.js` に Linux CI の `web/dist` 誤前提、main/cancelled/stale guard、final artifact success guard を追加した。
+- verify: `node nodesrc/test_pages_ci_metrics_contract.js`; normalized Pages artifact simulation; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/pages-metrics-playground-editor-guards.json` (`13/13 passed`); `node nodesrc/issues.js check --dir issues`; `git diff --check`
+
 # 2026-06-11 Agent selfhost ascribed pipe target overload narrowing checkpoint
 
 ## review_scope

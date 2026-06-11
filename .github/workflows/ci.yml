@@ -37,10 +37,16 @@ jobs:
             - name: Shared bootstrap build
               uses: ./.github/actions/bootstrap-build
 
-            - name: Copy playground HTML into Pages dist
+            - name: Verify playground HTML in Pages dist
               run: |
                   mkdir -p dist
-                  cp -a web/dist/. dist/
+                  if [ -d web/dist ]; then
+                    cp -a web/dist/. dist/
+                  fi
+                  test -f dist/index.html
+                  test -f dist/tests.html
+                  test -f dist/testinfo.html
+                  test -f dist/metrics.html
 
             - name: Source policy regressions
               run: node nodesrc/run_source_policy_regressions.js --warn-only
@@ -561,7 +567,7 @@ jobs:
     pages-fast-bundle:
         runs-on: ubuntu-latest
         needs: build
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled()
         timeout-minutes: 10
 
         steps:
@@ -584,6 +590,14 @@ jobs:
                   }
                   EOF
 
+            - name: Guard current main SHA before pending Pages artifact
+              run: |
+                  current_sha="$(git ls-remote "${{ github.server_url }}/${{ github.repository }}.git" refs/heads/main | awk '{print $1}')"
+                  if [ "${current_sha}" != "${{ github.sha }}" ]; then
+                    echo "Refusing to publish stale Pages artifact for ${{ github.sha }}; current main is ${current_sha}."
+                    exit 1
+                  fi
+
             - name: Upload pending Pages artifact
               uses: actions/upload-pages-artifact@v3
               with:
@@ -593,7 +607,7 @@ jobs:
     pages-fast-deploy:
         runs-on: ubuntu-latest
         needs: pages-fast-bundle
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() && needs.pages-fast-bundle.result == 'success'
         timeout-minutes: 10
 
         environment:
@@ -624,7 +638,7 @@ jobs:
             - stdlib-test
             - llvm-test
             - llvm-dual-test
-        if: always() && github.event_name == 'push'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() && needs.build.result == 'success'
         timeout-minutes: 10
 
         steps:
@@ -728,6 +742,14 @@ jobs:
                   }
                   EOF
 
+            - name: Guard current main SHA before final Pages artifact
+              run: |
+                  current_sha="$(git ls-remote "${{ github.server_url }}/${{ github.repository }}.git" refs/heads/main | awk '{print $1}')"
+                  if [ "${current_sha}" != "${{ github.sha }}" ]; then
+                    echo "Refusing to publish stale Pages artifact for ${{ github.sha }}; current main is ${current_sha}."
+                    exit 1
+                  fi
+
             - name: Upload final Pages artifact
               uses: actions/upload-pages-artifact@v3
               with:
@@ -739,7 +761,7 @@ jobs:
         needs:
             - pages-fast-deploy
             - pages-final-bundle
-        if: always() && github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() && needs.pages-fast-deploy.result == 'success' && needs.pages-final-bundle.result == 'success'
         timeout-minutes: 10
 
         environment:
