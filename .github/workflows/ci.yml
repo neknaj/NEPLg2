@@ -37,6 +37,11 @@ jobs:
             - name: Shared bootstrap build
               uses: ./.github/actions/bootstrap-build
 
+            - name: Copy playground HTML into Pages dist
+              run: |
+                  mkdir -p dist
+                  cp -a web/dist/. dist/
+
             - name: Source policy regressions
               run: node nodesrc/run_source_policy_regressions.js --warn-only
 
@@ -52,6 +57,11 @@ jobs:
                   cp -r doc/. /tmp/nepl-doc-root/
                   cp -r stdlib /tmp/nepl-doc-root/stdlib
                   node nodesrc/cli.js -i /tmp/nepl-doc-root -o html_play=dist/doc --exclude-dir chat --exclude-dir tests --exclude-dir tests_backup --site-name "NEPLg2 ドキュメント" --description-prefix "NEPLg2"
+
+            - name: Build repository metrics into dist
+              run: |
+                  mkdir -p dist/metrics
+                  node nodesrc/run_repo_metrics.js --root . --json dist/metrics/repo_metrics.json --csv dist/metrics/repo_metrics.csv
 
             - name: Upload bootstrap build artifacts
               uses: actions/upload-artifact@v4
@@ -564,10 +574,13 @@ jobs:
             - name: Mark site as pending
               run: |
                   mkdir -p dist/tests
-                  cat > dist/tests/status.json <<'EOF'
+                  cat > dist/tests/status.json <<EOF
                   {
                     "state": "pending",
-                    "message": "Tests are still running."
+                    "message": "Tests are still running.",
+                    "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                    "head_sha": "${{ github.sha }}",
+                    "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
                   }
                   EOF
 
@@ -698,6 +711,10 @@ jobs:
                   cat > dist/tests/status.json <<EOF
                   {
                     "state": "final",
+                    "message": "Final CI result artifacts are published.",
+                    "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                    "head_sha": "${{ github.sha }}",
+                    "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
                     "compile_test": "${{ needs['compile-test'].result }}",
                     "rust_test": "${{ needs['rust-test'].result }}",
                     "nm_compile": "${{ needs['nm-compile'].result }}",

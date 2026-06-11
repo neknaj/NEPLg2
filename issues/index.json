@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T04:07:35.420Z",
+  "generated_at": "2026-06-11T04:39:21.537Z",
   "counts": {
-    "total": 1352,
+    "total": 1353,
     "open": 50,
-    "resolved": 1302,
+    "resolved": 1303,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -137,9 +137,9 @@
         "resolved": 3
       },
       "web": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       }
     }
   },
@@ -17498,6 +17498,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T012944397Z-NEPL-WEB-TOKEN-EXPORT-MISSES-EXTERN--187E6F29.md"
+    },
+    {
+      "id": "ISS-20260611T042128304Z-GITHUB-PAGES-LACKS-REPO-METRICS-AND--8CFFD256",
+      "title": "GitHub Pages lacks repo metrics and current CI result viewers",
+      "area": "web",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-06-11",
+      "updated": "2026-06-11",
+      "target": "web/tests.html, web/testinfo.html, web/index.html, repo_metrics.ts, .github/workflows/ci.yml",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260611T042128304Z-GITHUB-PAGES-LACKS-REPO-METRICS-AND--8CFFD256.md"
     },
     {
       "id": "ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A",

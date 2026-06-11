@@ -88,6 +88,7 @@ const checks = [
     "nodesrc/test_web_gui_example_button_helper_contract.js",
     "nodesrc/test_web_gui_paint_model_contract.js",
     "nodesrc/test_web_gui_life_model_contract.js",
+    "nodesrc/test_pages_ci_metrics_contract.js",
     "nodesrc/test_web_gui_mandelbrot_transport_contract.js",
     "nodesrc/test_web_gui_stdout_protocol.js",
     "nodesrc/test_web_gui_floating_window_source.js",

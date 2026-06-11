@@ -1,3 +1,63 @@
+# 2026-06-11 Agent2 GitHub Pages repo metrics and CI result viewers
+
+## review_scope
+
+- branch: `agent2/pages-metrics-ci-results`
+- target: `web/metrics.html`; `web/tests.html`; `web/testinfo.html`; `web/index.html`; `.github/workflows/ci.yml`; `repo_metrics.ts` runner boundary
+- issue: `ISS-20260611T042128304Z-GITHUB-PAGES-LACKS-REPO-METRICS-AND--8CFFD256`
+- plan_checked: `plan.md` を確認し、変更していない。
+- subagent_review_ids: `019eb4e9-3e39-77b3-840f-0820ff3822b7`; `019eb4f2-b231-7230-9561-b29b12aaf811`
+
+## decision
+
+MERGE_APPROVED
+
+## root_cause
+
+- `repo_metrics.ts` は JSON / CSV 出力を持つが、CI workflow から Pages artifact へ生成されていなかった。
+- Trunk build の root HTML は `web/dist` に出る一方、Pages upload は `dist` を使うため、`tests.html` / `testinfo.html` / 追加する `metrics.html` が root artifact に入らない経路があった。
+- `tests.html` は旧 `./tests.json`、`testinfo.html` は未公開の `./tests/cargo-test.log` を前提にしており、現行 CI の `dist/tests/*.json` と `status.json` を表示していなかった。
+
+## implementation
+
+- `nodesrc/run_repo_metrics.js` を追加し、`repo_metrics.ts` を metrics authority としたまま CI から JSON / CSV を生成する。Node の TypeScript strip 実行が使えない場合は repo の TypeScript toolchain で compile してから実行する。
+- `.github/workflows/ci.yml` は `web/dist` を Pages artifact root の `dist/` へコピーし、`dist/metrics/repo_metrics.json` と `dist/metrics/repo_metrics.csv` を生成する。
+- pending / final の `dist/tests/status.json` に `run_url`、`head_sha`、`generated_at`、final `message` を追加した。
+- `web/metrics.html` を追加し、repo metrics JSON の summary / stat table / skipped files と CSV / JSON link を表示する。
+- `web/tests.html` は現行 CI の `./tests/status.json` と doctest JSON 群を読む viewer に置き換えた。
+- `web/testinfo.html` は未公開 cargo log viewer ではなく、現行 CI job status と published test JSON inventory を表示する page に置き換えた。
+- `nodesrc/test_pages_ci_metrics_contract.js` を追加し、Pages root HTML、metrics artifact、CI status JSON、現行 test artifact 名の契約を source policy として固定した。
+
+## subagent_review
+
+- `019eb4e9-3e39-77b3-840f-0820ff3822b7`: root cause と実装方針を確認。CI `dist/tests/*.json` と `repo_metrics.ts` JSON / CSV を Pages artifact へ接続し、Node 20 の `--experimental-strip-types` 互換性に注意する必要があると判断した。
+- `019eb4f2-b231-7230-9561-b29b12aaf811`: blocker none。CI の `web/dist` -> `dist` copy、metrics generation、viewer の current artifact 参照、issue 記録は mergeable。non-blocker として end-to-end Pages artifact smoke の残リスクを指摘したため、ローカルで metrics 生成、fallback 生成、Trunk 出力、CI copy 後の root HTML / metrics artifact 存在確認を追加で実施した。
+
+## verification
+
+- pass: `node nodesrc/test_pages_ci_metrics_contract.js`
+- pass: `node nodesrc/run_repo_metrics.js --root . --json tmp/pages-metrics-repo.json --csv tmp/pages-metrics-repo.csv`
+- pass: `NEPL_REPO_METRICS_FORCE_TSC=1 node nodesrc/run_repo_metrics.js --root . --json tmp/pages-metrics-repo-tsc.json --csv tmp/pages-metrics-repo-tsc.csv`
+- pass: inline HTML script parse for `web/tests.html`, `web/testinfo.html`, `web/metrics.html`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/pages-metrics-playground-editor.json` with `caseCount=13`, `passedCount=13`, `failedCount=0`
+- pass: Trunk output contains `web/dist/metrics.html`, `web/dist/tests.html`, `web/dist/testinfo.html`
+- pass: simulated CI copy leaves root `dist/metrics.html`, `dist/tests.html`, `dist/testinfo.html`, and `dist/metrics/repo_metrics.json`
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check` with CRLF replacement warnings only
+
+## warnings
+
+- existing_warnings: Node WASI `ExperimentalWarning`; existing source policy documentation gap summaries; Git LF-to-CRLF replacement warnings.
+- new_warnings: none
+- skipped: Playwright visual check。local environment に `playwright` package が無かったため、HTML script parse、Trunk build、artifact existence、metrics generation で代替した。
+
+## next
+
+- remote/main へ merge/push 後、GitHub Actions が Pages artifact を publish すれば `https://neknaj.github.io/NEPLg2/metrics.html`、`tests.html`、`testinfo.html` で確認できる。
+
 # 2026-06-11 Agent selfhost ascribed pipe target overload narrowing checkpoint
 
 ## review_scope

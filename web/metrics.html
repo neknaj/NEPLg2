@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NEPLg2 Repository Metrics</title>
+    <meta property="og:title" content="NEPLg2 Repository Metrics">
+    <meta property="og:description" content="Repository size and content metrics generated from repo_metrics.ts.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://neknaj.github.io/NEPLg2/metrics.html">
+    <link rel="canonical" href="https://neknaj.github.io/NEPLg2/metrics.html">
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0b0f14;
+            --panel: #111827;
+            --panel-2: #0f1724;
+            --border: #253246;
+            --text: #e5e7eb;
+            --muted: #a7b0bf;
+            --faint: #728095;
+            --accent: #9bc7ff;
+            --ok: #9ee7b7;
+            --warn: #ffd38a;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+        }
+
+        header {
+            border-bottom: 1px solid var(--border);
+            background: #0f1620;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .bar,
+        main {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .sub {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input,
+        button,
+        a.button {
+            min-height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
+            padding: 8px 10px;
+            text-decoration: none;
+            font: inherit;
+            font-size: 13px;
+        }
+
+        input {
+            width: min(360px, 78vw);
+            font-family: var(--mono);
+        }
+
+        button,
+        a.button {
+            cursor: pointer;
+        }
+
+        button.primary {
+            border-color: #3f6fa5;
+            background: #17314c;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 10px;
+            margin: 14px 0;
+        }
+
+        @media (max-width: 900px) {
+            .summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 560px) {
+            .summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        .stat,
+        section {
+            border: 1px solid var(--border);
+            background: var(--panel);
+            border-radius: 8px;
+        }
+
+        .stat {
+            padding: 12px;
+        }
+
+        .stat .k {
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .stat .v {
+            font-size: 24px;
+            font-weight: 800;
+            margin-top: 6px;
+        }
+
+        section {
+            margin-top: 14px;
+            overflow: hidden;
+        }
+
+        section h2 {
+            margin: 0;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th,
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #1f2937;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        th:first-child,
+        td:first-child {
+            text-align: left;
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 700;
+            background: #0d1420;
+        }
+
+        tr:hover td {
+            background: #132032;
+        }
+
+        .mono {
+            font-family: var(--mono);
+        }
+
+        .notice {
+            border: 1px solid var(--border);
+            background: #111827;
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--muted);
+        }
+
+        .error {
+            color: #ffb4b4;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="bar">
+            <div>
+                <h1>NEPLg2 Repository Metrics</h1>
+                <div class="sub">Generated by <span class="mono">repo_metrics.ts</span>.</div>
+            </div>
+            <div class="controls">
+                <input id="metrics-url" value="./metrics/repo_metrics.json" />
+                <button id="load" class="primary">Load</button>
+                <a class="button" href="./metrics/repo_metrics.json">JSON</a>
+                <a class="button" href="./metrics/repo_metrics.csv">CSV</a>
+                <a class="button" href="./tests.html">Tests</a>
+                <a class="button" href="./">Playground</a>
+            </div>
+        </div>
+    </header>
+    <main>
+        <div id="status" class="notice">Loading metrics.</div>
+        <div id="summary" class="summary"></div>
+        <div id="tables"></div>
+    </main>
+
+    <script>
+        const fmt = new Intl.NumberFormat("en-US");
+        const statusEl = document.getElementById("status");
+        const summaryEl = document.getElementById("summary");
+        const tablesEl = document.getElementById("tables");
+        const urlEl = document.getElementById("metrics-url");
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;");
+        }
+
+        function sumRows(rows) {
+            return rows.reduce((acc, row) => {
+                for (const key of ["files", "lines", "chars", "bytes", "source", "doc_comment", "document", "test", "comment", "other", "testCases"]) {
+                    acc[key] = (acc[key] || 0) + Number(row[key] || 0);
+                }
+                return acc;
+            }, {});
+        }
+
+        function stat(label, value) {
+            return `<div class="stat"><div class="k">${escapeHtml(label)}</div><div class="v mono">${fmt.format(value || 0)}</div></div>`;
+        }
+
+        function renderTable(title, rows, nameKey) {
+            const ordered = [...rows].sort((a, b) => Number(b.lines || 0) - Number(a.lines || 0));
+            return `<section>
+                <h2>${escapeHtml(title)}</h2>
+                <div style="overflow:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>${escapeHtml(nameKey)}</th>
+                                <th>files</th>
+                                <th>lines</th>
+                                <th>source</th>
+                                <th>doc</th>
+                                <th>test</th>
+                                <th>test cases</th>
+                                <th>bytes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ordered.map((row) => `<tr>
+                                <td class="mono">${escapeHtml(row.name)}</td>
+                                <td>${fmt.format(row.files || 0)}</td>
+                                <td>${fmt.format(row.lines || 0)}</td>
+                                <td>${fmt.format(row.source || 0)}</td>
+                                <td>${fmt.format((row.doc_comment || 0) + (row.document || 0))}</td>
+                                <td>${fmt.format(row.test || 0)}</td>
+                                <td>${fmt.format(row.testCases || 0)}</td>
+                                <td>${fmt.format(row.bytes || 0)}</td>
+                            </tr>`).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            </section>`;
+        }
+
+        function render(payload) {
+            const extRows = Array.isArray(payload.byExtension) ? payload.byExtension : [];
+            const areaRows = Array.isArray(payload.byArea) ? payload.byArea : [];
+            const kindRows = Array.isArray(payload.byContentKind) ? payload.byContentKind : [];
+            const totals = sumRows(extRows);
+            summaryEl.innerHTML = [
+                stat("Files", totals.files),
+                stat("Lines", totals.lines),
+                stat("Source", totals.source),
+                stat("Docs", totals.doc_comment + totals.document),
+                stat("Test Lines", totals.test),
+                stat("Test Cases", totals.testCases),
+            ].join("");
+            tablesEl.innerHTML = [
+                renderTable("By Extension", extRows, "extension"),
+                renderTable("By Area", areaRows, "area"),
+                renderTable("By Content Kind", kindRows, "kind"),
+                `<section><h2>Skipped Files</h2><div style="padding:12px 14px; color:var(--muted);">
+                    ${(payload.skipped || []).length === 0 ? "No skipped files." : `<ul>${payload.skipped.map((item) => `<li><span class="mono">${escapeHtml(item.path)}</span> [${escapeHtml(item.reason)}]</li>`).join("")}</ul>`}
+                </div></section>`,
+            ].join("");
+            statusEl.textContent = `Loaded ${fmt.format(totals.files || 0)} files from ${urlEl.value}.`;
+        }
+
+        async function loadMetrics() {
+            const url = urlEl.value.trim() || "./metrics/repo_metrics.json";
+            statusEl.textContent = "Loading metrics.";
+            try {
+                const res = await fetch(url, { cache: "no-store" });
+                if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+                render(await res.json());
+            } catch (error) {
+                statusEl.innerHTML = `<span class="error">Could not load metrics:</span> <span class="mono">${escapeHtml(error && error.message ? error.message : error)}</span>`;
+                summaryEl.innerHTML = "";
+                tablesEl.innerHTML = "";
+            }
+        }
+
+        document.getElementById("load").addEventListener("click", loadMetrics);
+        loadMetrics();
+    </script>
+</body>
+
+</html>
