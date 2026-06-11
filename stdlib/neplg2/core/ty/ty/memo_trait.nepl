@@ -13,6 +13,7 @@
 //: - `selfhost_memo_value_type_result` は、key と同じ型に加えて `f32` を受理します。`f32` は NaN、符号付き zero、正規化、hash consistency の仕様が固定されるまで key としては拒否します。
 //: - `str`、`function`、`named`、`applied`、`parameter`、`error`、`never`、`i64`、`f64`、存在しない `TypeId` は fail-closed に拒否します。
 //: - `Named` / `Applied` は Rust 実装の最終方針では structural aggregate として受理され得ます。ただし self-host の現行 `TypeArena` は field layout、trait impl evidence、drop/copy evidence を持たないため、ここで推測して受理してはいけません。
+//: - `selfhost_memo_*_type_result_with_evidence` は、後続の trait / layout solver が作った証拠 table を消費するための入口です。この入口でも primitive、function、parameter、missing record の判定は証拠で上書きできません。証拠は `Named` / `Applied` の structural aggregate 判定だけを運びます。
 //:
 //: [現状/げんじょう]:
 //: - この module は trait solver ではありません。`MemoKey` / `MemoValue` の trait definition source identity、Copy trait evidence、Drop なし proof、private cache region proof は後続 stage が接続します。
@@ -55,6 +56,8 @@
 //: ```
 
 #import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
@@ -110,6 +113,64 @@ pub struct SelfhostMemoTraitStage0Summary:
     f32_key %Result unit SelfhostMemoTraitRejectKind
     f32_value %Result unit SelfhostMemoTraitRejectKind
     function_value %Result unit SelfhostMemoTraitRejectKind
+
+//: SelfhostMemoTraitEvidenceRecord: aggregate memo trait 証拠 table の 1 record
+//:
+//: [目的/もくてき]:
+//: - `Named` / `Applied` type が `MemoKey` / `MemoValue` を満たすかどうかを、trait solver / layout solver が決定した結果として運びます。
+//: - この record は solver の代替ではありません。field layout、Copy / Drop / Eq / Hash の証明、cache internal reference 非露出の確認は、record を作る側の責務です。
+//:
+//: [契約/けいやく]:
+//: - `type_id` は同じ `SelfhostTypeArena` 内の `Named` または `Applied` record を指します。
+//: - `key_result` と `value_result` は `Result unit SelfhostMemoTraitRejectKind` のまま保持し、診断が拒否理由を失わないようにします。
+//: - function type、generic parameter、primitive unsupported scalar の拒否はこの record で上書きできません。消費側は record lookup より先に arena record variant を確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record の構築とコピーは O(1) です。
+pub struct SelfhostMemoTraitEvidenceRecord:
+    type_id %SelfhostTypeId
+    key_result %Result unit SelfhostMemoTraitRejectKind
+    value_result %Result unit SelfhostMemoTraitRejectKind
+
+impl Clone for SelfhostMemoTraitEvidenceRecord:
+    fn clone %fn &SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitEvidenceRecord:
+    fn copy_mark %fn SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceRecord \self:
+        self
+
+//: SelfhostMemoTraitEvidenceTable: aggregate memo trait 証拠の session-local table
+//:
+//: [目的/もくてき]:
+//: - selfhost checker が同じ TypeArena session 内で計算した aggregate predicate 結果を、`memo_call` gate へ渡すための owner です。
+//: - table は source text、diagnostic string、layout owner、trait solver state を持ちません。消費側は小さな Copy record だけを読みます。
+//:
+//: [契約/けいやく]:
+//: - この table は永続 artifact の key ではありません。将来 `.neplmeta` / `.neplproof` へ出す場合は canonical type key と solver policy hash を別途使います。
+//: - 同じ `type_id` が複数ある場合は最初の record を使います。生成側は重複を作らない責務を持ちますが、消費側は探索範囲を広げて後続 record を推測しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - lookup は record 数を n として O(n) です。現段階では小さな focused boundary であり、trait solver 側の stable map / canonical key index は後続 slice で追加します。
+pub struct SelfhostMemoTraitEvidenceTable:
+    records %Vec SelfhostMemoTraitEvidenceRecord
+
+//: SelfhostMemoTraitEvidenceStage0Summary: evidence table 付き predicate の focused summary
+//:
+//: [目的/もくてき]:
+//: - doctest が `Named` を証拠なしでは拒否し、証拠ありでは Result payload を消費できることを確認します。
+//: - production API と同じ `Result unit SelfhostMemoTraitRejectKind` を保持し、bool だけの smoke にしません。
+pub struct SelfhostMemoTraitEvidenceStage0Summary:
+    named_without_evidence %Result unit SelfhostMemoTraitRejectKind
+    named_key_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    named_value_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    named_key_rejected_by_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_without_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_key_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_value_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_key_rejected_by_evidence %Result unit SelfhostMemoTraitRejectKind
+    f32_key_with_fake_evidence %Result unit SelfhostMemoTraitRejectKind
+    missing_with_fake_evidence %Result unit SelfhostMemoTraitRejectKind
 
 //: selfhost_memo_trait_result_is_accept: memo trait predicate result が成功か[返/かえ]す
 //:
@@ -403,6 +464,107 @@ pub fn selfhost_memo_trait_reject_kind_eq %fn SelfhostMemoTraitRejectKind fn Sel
                 SelfhostMemoTraitRejectKind::ParameterUnresolved:
                     true
 
+//: selfhost_memo_trait_evidence_record_new: aggregate memo trait 証拠 record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - trait / layout solver が計算済みの key/value predicate 結果を、memo trait gate が読める Copy payload へまとめます。
+//:
+//: [契約/けいやく]:
+//: - この関数は証拠の正しさを証明しません。caller は `type_id` が同じ arena 内の aggregate type であること、`key_result` / `value_result` がその aggregate の実際の structural proof に対応することを保証します。
+//: - 消費側は aggregate 以外の型ではこの record を使わないため、誤って function type などの record が table に入っても primitive / function / parameter の判定は上書きされません。
+pub fn selfhost_memo_trait_evidence_record_new %fn SelfhostTypeId fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitEvidenceRecord \type_id\key_result\value_result:
+    SelfhostMemoTraitEvidenceRecord type_id key_result value_result
+
+//: selfhost_memo_trait_evidence_table_new: [空/から]の aggregate memo trait 証拠 table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker が `MemoKey` / `MemoValue` structural proof を別 pass で集めたあと、memo gate へ渡す owner table を作ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(table)`: 空の table を作れました。
+//: - `Err(error)`: backing vector の確保に失敗しました。
+pub fn selfhost_memo_trait_evidence_table_new %impure fn void Result SelfhostMemoTraitEvidenceTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitEvidenceRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitEvidenceTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_evidence_table_free: evidence table の owner buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - table が持つ `Vec` owner を明示的に閉じ、selfhost smoke や後続 checker pass が owner leak を残さないようにします。
+pub fn selfhost_memo_trait_evidence_table_free %impure fn SelfhostMemoTraitEvidenceTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_evidence_table_push: evidence record を table に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - solver が計算した aggregate result を順序付き table へ追加します。
+//:
+//: [契約/けいやく]:
+//: - 失敗時は入力 table の backing vector を回収し、`StdErrorKind` だけを返します。
+//: - duplicate `type_id` の拒否はこの関数では行いません。duplicate を作らない責務は solver 側に置き、消費側は最初の record だけを使うことで探索範囲を固定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(table)`: record を末尾へ追加した table owner を返します。
+//: - `Err(error)`: `Vec` の拡張に失敗しました。入力 table の backing vector はこの関数が解放済みです。
+pub fn selfhost_memo_trait_evidence_table_push %impure fn SelfhostMemoTraitEvidenceTable impure fn SelfhostMemoTraitEvidenceRecord Result SelfhostMemoTraitEvidenceTable StdErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitEvidenceRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitEvidenceTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_evidence_table_find_loop: evidence record を左から[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - table lookup を小さな再帰 helper に閉じ、public predicate 側が lookup の詳細を持たないようにします。
+//:
+//: [契約/けいやく]:
+//: - 最初に `type_id` が一致した record を返します。
+//: - 見つからなければ `none` を返します。
+fn selfhost_memo_trait_evidence_table_find_loop %fn &SelfhostMemoTraitEvidenceTable fn SelfhostTypeId fn i32 Option SelfhostMemoTraitEvidenceRecord \table\type_id\idx:
+    let records %&Vec SelfhostMemoTraitEvidenceRecord field::get_ref table "records"
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            none
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_type_id_eq record.type_id type_id
+                        then:
+                            some record
+                        else:
+                            let next_idx %i32 add idx 1
+                            selfhost_memo_trait_evidence_table_find_loop table type_id next_idx
+                Option::None:
+                    none
+
+//: selfhost_memo_trait_evidence_table_find: TypeId に対応する aggregate evidence を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `Named` / `Applied` predicate が、trait solver から渡された Result payload を取得するための唯一の lookup 入口です。
+//:
+//: [契約/けいやく]:
+//: - duplicate `type_id` が table に含まれている場合は、左から最初の record を返します。この規則により、消費側は後続 record を見て policy を推測しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `some(record)`: `type_id` に一致する最初の evidence record です。
+//: - `none`: 対応する evidence record はありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 数を n として O(n) です。
+pub fn selfhost_memo_trait_evidence_table_find %fn &SelfhostMemoTraitEvidenceTable fn SelfhostTypeId Option SelfhostMemoTraitEvidenceRecord \table\type_id:
+    selfhost_memo_trait_evidence_table_find_loop table type_id 0
+
 //: selfhost_memo_key_primitive_result: primitive 型が `MemoKey` Phase 1 を満たすか[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -533,6 +695,80 @@ pub fn selfhost_memo_value_type_result %fn &SelfhostTypeArena fn SelfhostTypeId 
         Option::None:
             Result::Err SelfhostMemoTraitRejectKind::MissingTypeRecord
 
+//: selfhost_memo_key_type_result_with_evidence: aggregate evidence table を使って `MemoKey` predicate を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - trait / layout solver が `Named` / `Applied` aggregate について計算した structural proof を、`memo_call` gate が利用できる形にします。
+//:
+//: [契約/けいやく]:
+//: - primitive は既存の primitive predicate を使います。evidence table に同じ `TypeId` の record があっても primitive の許可集合は上書きしません。
+//: - `Named` / `Applied` だけが evidence table を参照します。証拠が無い場合は既存と同じ `NamedLayoutUnknown` / `AppliedLayoutUnknown` を返します。
+//: - `Function`、`Parameter`、missing record は evidence で受理できません。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive / function / parameter / missing は O(1) です。`Named` / `Applied` は evidence record 数を n として O(n) です。
+pub fn selfhost_memo_key_type_result_with_evidence %fn &SelfhostTypeArena fn &SelfhostMemoTraitEvidenceTable fn SelfhostTypeId Result unit SelfhostMemoTraitRejectKind \arena\evidence\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive kind:
+                    selfhost_memo_key_primitive_result kind
+                SelfhostTypeRecord::Named _named:
+                    match selfhost_memo_trait_evidence_table_find evidence type_id:
+                        Option::Some evidence_record:
+                            evidence_record.key_result
+                        Option::None:
+                            Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
+                SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::Applied _applied:
+                    match selfhost_memo_trait_evidence_table_find evidence type_id:
+                        Option::Some evidence_record:
+                            evidence_record.key_result
+                        Option::None:
+                            Result::Err SelfhostMemoTraitRejectKind::AppliedLayoutUnknown
+                SelfhostTypeRecord::Function _function:
+                    Result::Err SelfhostMemoTraitRejectKind::FunctionUnsupported
+        Option::None:
+            Result::Err SelfhostMemoTraitRejectKind::MissingTypeRecord
+
+//: selfhost_memo_value_type_result_with_evidence: aggregate evidence table を使って `MemoValue` predicate を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - value 側でも、trait / layout solver が証明済みの aggregate だけを受理できるようにします。
+//:
+//: [契約/けいやく]:
+//: - primitive value predicate は evidence で上書きしません。特に `str`、`i64`、`f64`、`never` は証拠 record があっても primitive policy に従って拒否されます。
+//: - `Named` / `Applied` は evidence table に record がある場合だけ、その record の `value_result` を返します。
+//: - function value は cache identity / namespace / backend representation が未完成なので、fake evidence があっても拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive / function / parameter / missing は O(1) です。`Named` / `Applied` は evidence record 数を n として O(n) です。
+pub fn selfhost_memo_value_type_result_with_evidence %fn &SelfhostTypeArena fn &SelfhostMemoTraitEvidenceTable fn SelfhostTypeId Result unit SelfhostMemoTraitRejectKind \arena\evidence\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive kind:
+                    selfhost_memo_value_primitive_result kind
+                SelfhostTypeRecord::Named _named:
+                    match selfhost_memo_trait_evidence_table_find evidence type_id:
+                        Option::Some evidence_record:
+                            evidence_record.value_result
+                        Option::None:
+                            Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
+                SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::Applied _applied:
+                    match selfhost_memo_trait_evidence_table_find evidence type_id:
+                        Option::Some evidence_record:
+                            evidence_record.value_result
+                        Option::None:
+                            Result::Err SelfhostMemoTraitRejectKind::AppliedLayoutUnknown
+                SelfhostTypeRecord::Function _function:
+                    Result::Err SelfhostMemoTraitRejectKind::FunctionUnsupported
+        Option::None:
+            Result::Err SelfhostMemoTraitRejectKind::MissingTypeRecord
+
 //: selfhost_memo_key_type_is_allowed: `MemoKey` predicate を bool へ落とす adapter
 //:
 //: [目的/もくてき]:
@@ -607,6 +843,258 @@ pub fn selfhost_memo_trait_stage0 %impure fn void Result SelfhostMemoTraitStage0
                                     Result::Err e
                         Result::Err e:
                             Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: SelfhostMemoTraitEvidenceNamedStage0Summary: named / primitive / missing override smoke の局所 summary
+//:
+//: [目的/もくてき]:
+//: - `Named` aggregate evidence と、aggregate ではない primitive / missing record の override 不可を、Applied smoke から分けて小さく検査します。
+//: - 公開 `SelfhostMemoTraitEvidenceStage0Summary` へ合成する前の中間 payload であり、外部 API ではありません。
+struct SelfhostMemoTraitEvidenceNamedStage0Summary:
+    named_without_evidence %Result unit SelfhostMemoTraitRejectKind
+    named_key_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    named_value_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    named_key_rejected_by_evidence %Result unit SelfhostMemoTraitRejectKind
+    f32_key_with_fake_evidence %Result unit SelfhostMemoTraitRejectKind
+    missing_with_fake_evidence %Result unit SelfhostMemoTraitRejectKind
+
+//: SelfhostMemoTraitEvidenceAppliedStage0Summary: applied aggregate evidence smoke の局所 summary
+//:
+//: [目的/もくてき]:
+//: - `Applied` aggregate evidence の no-evidence / accepted evidence / rejected evidence を、Named smoke と別関数で検査します。
+//: - stage0 の式木を小さく保ち、self-host compiler の prefix call 探索範囲を無駄に増やさないための分割です。
+struct SelfhostMemoTraitEvidenceAppliedStage0Summary:
+    applied_without_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_key_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_value_with_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_key_rejected_by_evidence %Result unit SelfhostMemoTraitRejectKind
+
+//: selfhost_memo_trait_evidence_stage0_add_single_applied: stage0 用 applied type を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - evidence consumer smoke が `Applied` record を実際の `SelfhostTypeArena` 上に作れるよう、1 個の型引数を持つ applied named type の構築だけを局所化します。
+//:
+//: [契約/けいやく]:
+//: - この helper は doctest 用であり、aggregate solver ではありません。型引数の structural proof は作らず、arena record variant を `Applied` にするためだけに使います。
+//: - 失敗時は入力 arena または途中で確保した型引数 vector を解放します。
+fn selfhost_memo_trait_evidence_stage0_add_single_applied %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id\arg:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 arg:
+                Result::Ok params1:
+                    selfhost_type_arena_add_applied_named arena nominal_id params1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_evidence_named_stage0_finish: named smoke の owner を[解放/かいほう]して summary を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - Named smoke 用に作った TypeArena と evidence table を両方閉じ、Copy な Result payload だけを返します。
+fn selfhost_memo_trait_evidence_named_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitEvidenceTable impure fn SelfhostMemoTraitEvidenceNamedStage0Summary Result SelfhostMemoTraitEvidenceNamedStage0Summary StdErrorKind \arena\table\summary:
+    selfhost_memo_trait_evidence_table_free table
+    selfhost_type_arena_free arena
+    Result::Ok summary
+
+//: selfhost_memo_trait_evidence_applied_stage0_finish: applied smoke の owner を[解放/かいほう]して summary を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - Applied smoke 用に作った TypeArena と evidence table を両方閉じ、Copy な Result payload だけを返します。
+fn selfhost_memo_trait_evidence_applied_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitEvidenceTable impure fn SelfhostMemoTraitEvidenceAppliedStage0Summary Result SelfhostMemoTraitEvidenceAppliedStage0Summary StdErrorKind \arena\table\summary:
+    selfhost_memo_trait_evidence_table_free table
+    selfhost_type_arena_free arena
+    Result::Ok summary
+
+//: selfhost_memo_trait_evidence_named_stage0: named evidence と non-aggregate override 不可を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `Named` は証拠なしでは `NamedLayoutUnknown` で拒否され、証拠があるときだけ record の Result payload を返すことを確認します。
+//: - `f32` key と missing record は fake evidence があっても受理されないことを、同じ smoke で確認します。
+fn selfhost_memo_trait_evidence_named_stage0 %impure fn void Result SelfhostMemoTraitEvidenceNamedStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 selfhost_named_type_id_new 0:
+                Result::Ok allocated_named_ok:
+                    let named_ok_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_named_ok
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_named_ok
+                    match selfhost_type_arena_add_named arena1 selfhost_named_type_id_new 1:
+                        Result::Ok allocated_named_reject:
+                            let named_reject_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_named_reject
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_named_reject
+                            match selfhost_type_arena_add_primitive arena2 SelfhostPrimitiveTypeKind::F32:
+                                Result::Ok allocated_f32:
+                                    let f32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_f32
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_f32
+                                    match selfhost_memo_trait_evidence_table_new:
+                                        Result::Ok table0:
+                                            let named_without_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table0 named_ok_id
+                                            let ok_record %SelfhostMemoTraitEvidenceRecord selfhost_memo_trait_evidence_record_new named_ok_id (Result::Ok unit) (Result::Ok unit)
+                                            match selfhost_memo_trait_evidence_table_push table0 ok_record:
+                                                Result::Ok table1:
+                                                    let reject_record %SelfhostMemoTraitEvidenceRecord selfhost_memo_trait_evidence_record_new named_reject_id (Result::Err SelfhostMemoTraitRejectKind::StrUnsupported) (Result::Err SelfhostMemoTraitRejectKind::StrUnsupported)
+                                                    match selfhost_memo_trait_evidence_table_push table1 reject_record:
+                                                        Result::Ok table2:
+                                                            let fake_f32_record %SelfhostMemoTraitEvidenceRecord selfhost_memo_trait_evidence_record_new f32_id (Result::Ok unit) (Result::Ok unit)
+                                                            match selfhost_memo_trait_evidence_table_push table2 fake_f32_record:
+                                                                Result::Ok table3:
+                                                                    let missing_id %SelfhostTypeId selfhost_type_id_new 9999
+                                                                    let fake_missing_record %SelfhostMemoTraitEvidenceRecord selfhost_memo_trait_evidence_record_new missing_id (Result::Ok unit) (Result::Ok unit)
+                                                                    match selfhost_memo_trait_evidence_table_push table3 fake_missing_record:
+                                                                        Result::Ok table4:
+                                                                            let named_key_with_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table4 named_ok_id
+                                                                            let named_value_with_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_value_type_result_with_evidence &arena3 &table4 named_ok_id
+                                                                            let named_key_rejected_by_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table4 named_reject_id
+                                                                            let f32_key_with_fake_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table4 f32_id
+                                                                            let missing_with_fake_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table4 missing_id
+                                                                            let summary %SelfhostMemoTraitEvidenceNamedStage0Summary SelfhostMemoTraitEvidenceNamedStage0Summary named_without_evidence named_key_with_evidence named_value_with_evidence named_key_rejected_by_evidence f32_key_with_fake_evidence missing_with_fake_evidence
+                                                                            selfhost_memo_trait_evidence_named_stage0_finish arena3 table4 summary
+                                                                        Result::Err e:
+                                                                            selfhost_type_arena_free arena3
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    selfhost_type_arena_free arena3
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            selfhost_type_arena_free arena3
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    selfhost_type_arena_free arena3
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_evidence_applied_stage0: applied evidence consumer を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `Applied` は証拠なしでは `AppliedLayoutUnknown` で拒否され、証拠があるときだけ record の Result payload を返すことを確認します。
+//: - 型引数には `f32` を使いますが、この smoke は field proof を作りません。`Applied` record variant だけを作り、solver 由来 evidence の消費境界を固定します。
+fn selfhost_memo_trait_evidence_applied_stage0 %impure fn void Result SelfhostMemoTraitEvidenceAppliedStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::F32:
+                Result::Ok allocated_f32:
+                    let f32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_f32
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_f32
+                    match selfhost_memo_trait_evidence_stage0_add_single_applied arena1 (selfhost_named_type_id_new 2) f32_id:
+                        Result::Ok allocated_applied_ok:
+                            let applied_ok_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_applied_ok
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_applied_ok
+                            match selfhost_memo_trait_evidence_stage0_add_single_applied arena2 (selfhost_named_type_id_new 3) f32_id:
+                                Result::Ok allocated_applied_reject:
+                                    let applied_reject_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_applied_reject
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_applied_reject
+                                    match selfhost_memo_trait_evidence_table_new:
+                                        Result::Ok table0:
+                                            let applied_without_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table0 applied_ok_id
+                                            let applied_ok_record %SelfhostMemoTraitEvidenceRecord selfhost_memo_trait_evidence_record_new applied_ok_id (Result::Ok unit) (Result::Ok unit)
+                                            match selfhost_memo_trait_evidence_table_push table0 applied_ok_record:
+                                                Result::Ok table1:
+                                                    let applied_reject_record %SelfhostMemoTraitEvidenceRecord selfhost_memo_trait_evidence_record_new applied_reject_id (Result::Err SelfhostMemoTraitRejectKind::StrUnsupported) (Result::Err SelfhostMemoTraitRejectKind::StrUnsupported)
+                                                    match selfhost_memo_trait_evidence_table_push table1 applied_reject_record:
+                                                        Result::Ok table2:
+                                                            let applied_key_with_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table2 applied_ok_id
+                                                            let applied_value_with_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_value_type_result_with_evidence &arena3 &table2 applied_ok_id
+                                                            let applied_key_rejected_by_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table2 applied_reject_id
+                                                            let summary %SelfhostMemoTraitEvidenceAppliedStage0Summary SelfhostMemoTraitEvidenceAppliedStage0Summary applied_without_evidence applied_key_with_evidence applied_value_with_evidence applied_key_rejected_by_evidence
+                                                            selfhost_memo_trait_evidence_applied_stage0_finish arena3 table2 summary
+                                                        Result::Err e:
+                                                            selfhost_type_arena_free arena3
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    selfhost_type_arena_free arena3
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_evidence_stage0: aggregate evidence table 付き predicate の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - `Named` type は証拠なしでは `NamedLayoutUnknown` で拒否され、同じ TypeId に solver 由来の record がある場合だけ、その Result payload を返すことを確認します。
+//: - `Applied` type についても同じ no-evidence / accepted evidence / rejected evidence の境界を確認し、source regex だけに依存しない runtime smoke にします。
+//: - primitive や missing record に fake evidence が入っても arena record variant の判定を上書きできないことを確認します。
+//: - この smoke は aggregate structural proof を作りません。後続 solver が作る証拠を memo gate がどのように消費するかだけを固定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: arena と evidence table の構築に成功し、summary に代表 predicate result が入っています。
+//: - `Err(error)`: arena / evidence table の確保に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の record だけを扱うため O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_evidence_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.named_without_evidence) SelfhostMemoTraitRejectKind::NamedLayoutUnknown
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_result_is_accept summary.named_key_with_evidence
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_result_is_accept summary.named_value_with_evidence
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.named_key_rejected_by_evidence) SelfhostMemoTraitRejectKind::StrUnsupported
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.applied_without_evidence) SelfhostMemoTraitRejectKind::AppliedLayoutUnknown
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_result_is_accept summary.applied_key_with_evidence
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_result_is_accept summary.applied_value_with_evidence
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.applied_key_rejected_by_evidence) SelfhostMemoTraitRejectKind::StrUnsupported
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.f32_key_with_fake_evidence) SelfhostMemoTraitRejectKind::F32KeyUnsupported
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.missing_with_fake_evidence) SelfhostMemoTraitRejectKind::MissingTypeRecord
+//:             let shown checks_print_report checks10
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait evidence stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+pub fn selfhost_memo_trait_evidence_stage0 %impure fn void Result SelfhostMemoTraitEvidenceStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_evidence_named_stage0:
+        Result::Ok named:
+            match selfhost_memo_trait_evidence_applied_stage0:
+                Result::Ok applied:
+                    Result::Ok SelfhostMemoTraitEvidenceStage0Summary named.named_without_evidence named.named_key_with_evidence named.named_value_with_evidence named.named_key_rejected_by_evidence applied.applied_without_evidence applied.applied_key_with_evidence applied.applied_value_with_evidence applied.applied_key_rejected_by_evidence named.f32_key_with_fake_evidence named.missing_with_fake_evidence
                 Result::Err e:
                     Result::Err e
         Result::Err e:

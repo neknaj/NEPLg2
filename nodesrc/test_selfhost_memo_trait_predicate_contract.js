@@ -60,6 +60,31 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostMemoTraitEvidenceRecord:[\s\S]*type_id %SelfhostTypeId[\s\S]*key_result %Result unit SelfhostMemoTraitRejectKind[\s\S]*value_result %Result unit SelfhostMemoTraitRejectKind[\s\S]*pub struct SelfhostMemoTraitEvidenceTable:[\s\S]*records %Vec SelfhostMemoTraitEvidenceRecord/,
+    "memo trait aggregate evidence must use typed Result payloads in a dedicated evidence table",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitEvidenceTable:[\s\S]*永続 artifact の key ではありません[\s\S]*canonical type key と solver policy hash/,
+    "memo trait evidence table must be documented as session-local, not a persistent artifact identity",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_key_type_result_with_evidence[\s\S]*SelfhostTypeRecord::Primitive kind:[\s\S]*selfhost_memo_key_primitive_result kind[\s\S]*SelfhostTypeRecord::Named _named:[\s\S]*selfhost_memo_trait_evidence_table_find evidence type_id[\s\S]*evidence_record\.key_result[\s\S]*NamedLayoutUnknown[\s\S]*SelfhostTypeRecord::Parameter _parameter:[\s\S]*ParameterUnresolved[\s\S]*SelfhostTypeRecord::Applied _applied:[\s\S]*selfhost_memo_trait_evidence_table_find evidence type_id[\s\S]*evidence_record\.key_result[\s\S]*AppliedLayoutUnknown[\s\S]*SelfhostTypeRecord::Function _function:[\s\S]*FunctionUnsupported[\s\S]*Option::None:[\s\S]*MissingTypeRecord/,
+    "MemoKey evidence-aware predicate may consume evidence only for named/applied aggregate records",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_value_type_result_with_evidence[\s\S]*SelfhostTypeRecord::Primitive kind:[\s\S]*selfhost_memo_value_primitive_result kind[\s\S]*SelfhostTypeRecord::Named _named:[\s\S]*selfhost_memo_trait_evidence_table_find evidence type_id[\s\S]*evidence_record\.value_result[\s\S]*NamedLayoutUnknown[\s\S]*SelfhostTypeRecord::Parameter _parameter:[\s\S]*ParameterUnresolved[\s\S]*SelfhostTypeRecord::Applied _applied:[\s\S]*selfhost_memo_trait_evidence_table_find evidence type_id[\s\S]*evidence_record\.value_result[\s\S]*AppliedLayoutUnknown[\s\S]*SelfhostTypeRecord::Function _function:[\s\S]*FunctionUnsupported[\s\S]*Option::None:[\s\S]*MissingTypeRecord/,
+    "MemoValue evidence-aware predicate may consume evidence only for named/applied aggregate records",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_reject_kind_eq \(unwrap_err summary\.named_without_evidence\) SelfhostMemoTraitRejectKind::NamedLayoutUnknown[\s\S]*selfhost_memo_trait_result_is_accept summary\.named_key_with_evidence[\s\S]*selfhost_memo_trait_result_is_accept summary\.named_value_with_evidence[\s\S]*selfhost_memo_trait_reject_kind_eq \(unwrap_err summary\.named_key_rejected_by_evidence\) SelfhostMemoTraitRejectKind::StrUnsupported[\s\S]*selfhost_memo_trait_reject_kind_eq \(unwrap_err summary\.applied_without_evidence\) SelfhostMemoTraitRejectKind::AppliedLayoutUnknown[\s\S]*selfhost_memo_trait_result_is_accept summary\.applied_key_with_evidence[\s\S]*selfhost_memo_trait_result_is_accept summary\.applied_value_with_evidence[\s\S]*selfhost_memo_trait_reject_kind_eq \(unwrap_err summary\.applied_key_rejected_by_evidence\) SelfhostMemoTraitRejectKind::StrUnsupported[\s\S]*selfhost_memo_trait_reject_kind_eq \(unwrap_err summary\.f32_key_with_fake_evidence\) SelfhostMemoTraitRejectKind::F32KeyUnsupported[\s\S]*selfhost_memo_trait_reject_kind_eq \(unwrap_err summary\.missing_with_fake_evidence\) SelfhostMemoTraitRejectKind::MissingTypeRecord/,
+    "memo trait evidence stage0 must prove named/applied no-evidence reject, evidence-backed accept/reject, primitive override rejection, and missing-record override rejection",
+);
+assert.match(
+    source,
     /pub fn selfhost_memo_key_type_is_allowed[\s\S]*selfhost_memo_trait_result_is_accept selfhost_memo_key_type_result arena type_id[\s\S]*pub fn selfhost_memo_value_type_is_allowed[\s\S]*selfhost_memo_trait_result_is_accept selfhost_memo_value_type_result arena type_id/,
     "bool adapters may exist, but must be derived from the typed Result predicate",
 );

@@ -73,6 +73,80 @@
   - `trunk build` は Trunk 0.20.3 から 0.21.14 への更新通知と tool version mismatch の info を出すが、build は成功した。
   - source policy の stdlib/selfhost documentation contract は既存の report-only gap を表示する。
 
+# 2026-06-12 Agent selfhost MemoKey MemoValue evidence consumer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: confirmed for root-cause fixes, Plan-first development, Japanese selfhost comments, no line-count or doc-comment-length suppression, issue/note/todo/doc updates, checkpoint commit after tests.
+- 対象 branch: `selfhost/memo-traits-evidence-boundary-20260612`
+- base: `main` at `f8b85c3c2`
+- issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- related_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- 対象 issue / slice: selfhost `MemoKey` / `MemoValue` aggregate evidence consumer boundary for `memo_call`
+- subagent_review_ids: `019eb6db-8694-7752-8416-5faedf3ee553`
+- subagent_review_count: 2
+- classification: selfhost implementation slice review
+- decision: implementation accepted after Required test/doc hardening.
+- implementation:
+  - `stdlib/neplg2/core/ty/ty/memo_trait.nepl` に `SelfhostMemoTraitEvidenceRecord` と `SelfhostMemoTraitEvidenceTable` を追加し、後続の layout / trait solver が作る `Result unit SelfhostMemoTraitRejectKind` payload を `Named` / `Applied` predicate が消費できる境界を作った。
+  - `selfhost_memo_key_type_result_with_evidence` / `selfhost_memo_value_type_result_with_evidence` は primitive 判定を既存 predicate へ委譲し、function、generic parameter、missing type record は evidence で上書きしない。
+  - `Named` / `Applied` だけが evidence table を参照し、証拠なしでは従来どおり `NamedLayoutUnknown` / `AppliedLayoutUnknown` に fail-closed する。
+  - evidence table は session-local `SelfhostTypeId` を key にする。永続 artifact へ載せる場合は canonical type key と solver policy hash が必要であることを doc / issue / comment に明記した。
+  - runtime smoke は Named 系と Applied 系の小さな helper に分割し、単一の巨大な prefix expression / nested match が selfhost compiler の探索範囲を増やさない形にした。
+- zenn_policy:
+  - enum/static check: evidence result を bool に潰さず `Result unit SelfhostMemoTraitRejectKind` の enum reason として保持した。
+  - fail-closed: missing record、function、parameter、primitive unsupported scalar は fake evidence で受理されない。
+  - DAG/responsibility: `core/ty` 内の consumer boundary に閉じ、trait solver、checker、Resource IR、backend、private cache proof をこの slice に混ぜていない。
+  - performance/search-space: stage0 smoke を Named / Applied の helper に分割し、巨大な前置式を避けて cold compile の探索範囲を抑えた。
+  - doc comment: module / evidence record / table / push / find / stage0 helper に目的、契約、戻り値、計算量、現状と将来境界を日本語で追記した。行数制限やコメント量制限は追加していない。
+- subagent review:
+  - `019eb6db-8694-7752-8416-5faedf3ee553`: Blocker なし。Required として missing record override 不可の source policy 固定、Applied runtime smoke、push/find の戻り値と first record wins comment 追加を指摘。
+  - Required 対応: source policy regex に missing `Option::None -> MissingTypeRecord` を追加し、runtime smoke に Applied no-evidence / accepted / rejected と missing fake evidence rejection を追加した。`push` / `find` の doc comment に戻り値と duplicate first-record policy を追記した。
+  - follow-up correction: 初回の combined stage0 smoke は compile timeout を起こしたため、Named 系と Applied 系へ分割した。これは Required の趣旨を維持しつつ、Zenn 方針の探索範囲削減にも沿う修正である。
+  - final review: Required 反映後も Blocker / Required なし。consumer boundary が `core/ty` に閉じ、solver / private cache / backend へ踏み込んでいないことを再確認。Approve。
+- policy/spec:
+  - Blocker: none after review and Required hardening.
+  - Non-blocker: this slice is a consumer boundary only. Aggregate evidence producer, canonical key indexed solver output, pure Copy / Drop / Eq / Hash evidence, private cache proof, and backend representation remain open.
+  - Question: persistent artifact keying must use canonical type key and solver policy hash instead of session-local `SelfhostTypeId`; this is intentionally deferred to the producer / artifact slice.
+  - Approve: yes.
+- implementation/test:
+  - Blocker: none after Required hardening.
+  - Non-blocker: aggregate proof producer、canonical type key indexed solver output、Copy / Drop / Eq / Hash pure evidence、private cache proof、backend representation は引き続き未実装。
+  - Approve: focused source policy, doctests, issue check, diff check, full source policy warn-only passed.
+- source_policy: `nodesrc/test_selfhost_memo_trait_predicate_contract.js` now pins evidence record/table shape, session-local artifact warning, Named/Applied-only evidence consumption, primitive/function/parameter/missing override rejection, Applied runtime smoke, and absence of line-count / doc-comment-length restriction.
+- verify:
+  - `nodesrc/selfhost_zenn_review_response_check.js`: not run because the subagent review was a live agent response, not a saved response file.
+  - `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+  - `node nodesrc/test_selfhost_ty_split_contract.js`
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait.nepl -o $env:TEMP/neplg2-selfhost-memo-trait-evidence-doctest.json --dist web/dist -j 1 --assert-io --no-tree`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o $env:TEMP/neplg2-selfhost-ty-evidence-doctest.json --dist web/dist -j 1 --assert-io --no-tree`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - `node nodesrc/issues.js index --dir issues`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- 既存 warning: Node WASI ExperimentalWarning, Git LF-to-CRLF replacement warnings from diff check, stdlib/selfhost documentation contract pre-existing report-only gap samples.
+- 今回差分由来 warning: none.
+- 検証済み: focused memo trait source policy, ty split contract, no line-count guard, Zenn review gate, memo_trait doctests, core/ty doctests, full source policy warn-only, issue index/check, diff check.
+- 行数制限: not added.
+- doc comment 長制限: not added.
+- verification:
+  - pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait.nepl -o $env:TEMP/neplg2-selfhost-memo-trait-evidence-doctest.json --dist web/dist -j 1 --assert-io --no-tree` total=2 passed=2
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o $env:TEMP/neplg2-selfhost-ty-evidence-doctest.json --dist web/dist -j 1 --assert-io --no-tree` total=5 passed=5
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js index --dir issues`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+- residual:
+  - `SelfhostMemoTraitEvidenceTable` は consumer だけであり、type constructor layout evidence、MemoKey / MemoValue trait source identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、canonical type key indexed solver output は producer 側の後続 slice として残る。
+  - private cache SourceCapability / Resource proof、PrivateCache effect fold、backend representation、memoized function wrapper identity、generic memoized identity は未実装。
+- 次 slice:
+  - aggregate evidence producer を小さく始めるなら、canonical type key indexed trait/layout evidence table を先に追加し、次に Copy / Drop / Eq / Hash pure evidence を接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue predicate checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
