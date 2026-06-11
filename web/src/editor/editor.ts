@@ -257,6 +257,33 @@ class CanvasEditor {
         }
         this.languageProvider.updateText(normalized);
     }
+    replaceDocument(document) {
+        const normalized = this.normalizeEditorText(document?.text);
+        this.applyResolvedEditorState({
+            text: normalized,
+            cursor: 0,
+            selectionStart: 0,
+            selectionEnd: 0,
+        }, {
+            clearHistory: true,
+            clearFolds: true,
+            resetScroll: true,
+            clearDerivedHighlights: true,
+            replaceDocumentText: false,
+        });
+        if (!this.languageProvider) {
+            return;
+        }
+        if (typeof this.languageProvider.replaceDocument === 'function') {
+            this.languageProvider.replaceDocument({
+                path: document?.path ?? null,
+                text: normalized,
+                editable: document?.editable !== false,
+            });
+            return;
+        }
+        this.replaceDocumentText(normalized);
+    }
     resizeEditor() {
         const container = this.canvas.parentElement;
         if (!container)

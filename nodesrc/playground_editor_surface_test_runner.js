@@ -53,11 +53,17 @@ function createMockEditor() {
         languageProvider: {
             updateTextCallCount: 0,
             replaceDocumentTextCallCount: 0,
+            replaceDocumentCallCount: 0,
+            lastDocument: null,
             updateText() {
                 this.updateTextCallCount += 1;
             },
             replaceDocumentText() {
                 this.replaceDocumentTextCallCount += 1;
+            },
+            replaceDocument(document) {
+                this.replaceDocumentCallCount += 1;
+                this.lastDocument = document;
             },
         },
         updateLines() {
@@ -99,6 +105,7 @@ function runSurfaceRegression() {
     const replaceTextRange = CanvasEditor.prototype.replaceTextRange;
     const setText = CanvasEditor.prototype.setText;
     const replaceDocumentText = CanvasEditor.prototype.replaceDocumentText;
+    const replaceDocument = CanvasEditor.prototype.replaceDocument;
     const rebuildLanguageRenderCaches = CanvasEditor.prototype.rebuildLanguageRenderCaches;
 
     const cursorMoveEditor = createMockEditor();
@@ -207,6 +214,23 @@ function runSurfaceRegression() {
     assert.equal(setTextEditor.languageProvider.replaceDocumentTextCallCount, 1);
     assert.equal(setTextEditor.languageProvider.updateTextCallCount, 0);
 
+    const documentEditor = createMockEditor();
+    documentEditor.applyResolvedEditorState = applyResolvedEditorState;
+    documentEditor.replaceDocumentText = replaceDocumentText;
+    replaceDocument.call(documentEditor, {
+        path: '/examples/main.nepl',
+        text: 'zeta\r\n',
+        editable: true,
+    });
+    assert.equal(documentEditor.text, 'zeta\n');
+    assert.equal(documentEditor.languageProvider.replaceDocumentCallCount, 1);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(documentEditor.languageProvider.lastDocument)), {
+        path: '/examples/main.nepl',
+        text: 'zeta\n',
+        editable: true,
+    });
+    assert.equal(documentEditor.languageProvider.replaceDocumentTextCallCount, 0);
+
     const cacheEditor = createMockEditor();
     cacheEditor.tokens = [
         { startIndex: 0, endIndex: 4, type: 'keyword' },
@@ -240,6 +264,7 @@ function runSurfaceRegression() {
             'selection replacement triggers a single provider update',
             'text edit still refreshes line caches and provider text',
             'setText uses full-document replace instead of incremental analysis',
+            'replaceDocument forwards path text and editable state atomically',
             'render caches normalize overlapping token and diagnostic segments',
         ],
     };

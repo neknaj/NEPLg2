@@ -60,8 +60,8 @@ assert.match(
 
 assert.match(
     provider,
-    /replaceDocumentText\(text\)[\s\S]*this\._publishEmptyPayload\(\)[\s\S]*this\._scheduleAnalysis\(false\)/,
-    "document open must clear stale payload and schedule semantic analysis instead of blocking immediately",
+    /replaceDocument\(document\)[\s\S]*this\._replaceDocument\(nextPath,\s*nextText\)/,
+    "document open must use the atomic path/text replacement contract",
 );
 assert.doesNotMatch(
     provider,
@@ -77,6 +77,11 @@ assert.doesNotMatch(
     methodBody(provider, "_analyzeAndPublish"),
     /wasm\.analyze_parse\(this\.text\)/,
     "semantic publish path must not run an extra parse before returning editor tokens",
+);
+assert.match(
+    read("web/src/library/tabs.ts"),
+    /replaceEditorDocument\(path:\s*string\s*\|\s*null,\s*content:\s*string,\s*isEditable:\s*boolean\)[\s\S]*this\.editor\.replaceDocument\(\{/,
+    "tab activation must send path text and editable state through one editor replacement call",
 );
 
 assert.match(
