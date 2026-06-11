@@ -1,3 +1,106 @@
+# 2026-06-11 Agent selfhost pipe chain checked-tree checkpoint
+
+## review_scope
+
+- branch: `selfhost/pipe-chain-checked-tree-20260611`
+- 対象 branch: `selfhost/pipe-chain-checked-tree-20260611`
+- base: `main before branch`
+- head: `working tree verified before commit`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / source-backed pipe chain checked tree
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- zenn_checked_at: `2026-06-11`
+- files_read: `AGENTS.md`; `note.n.md`; `todo.md`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `stdlib/neplg2/core/check/expr/checked_tree.nepl`; `stdlib/neplg2/core/check/expr/checked_tree_id.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/selfhost_zenn_review_response_check.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: lambda target, generic target, borrowed left expression, advanced pipe target argument expression checking, generic instantiation inference, trait solving, indirect call, `memo_call` Phase 1 private-cache boundary
+- subagent_review_ids: `019eb4e9-7e5e-7063-bef1-45e71e0247a9`, `019eb4e9-964b-7e81-b0f7-44a8f473b098`, `019eb4f9-b13e-7202-bbb2-a5002e748277`
+- subagent_review_count: 3
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- file/function: `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`
+- finding: pipe chain は複数 pipe を単に許可するだけでは不十分で、中間結果を source token へ戻さず checked tree root id として次段へ渡す必要があった。
+- root_cause: 以前の source-backed pipe reducer は単一 pipe の proof boundary だけを持ち、複数 pipe は `PipeUnsupportedMultiple` として閉じていたため、`left |> f a |> g b` の左結合 checked tree composition が存在しなかった。
+- reason: Zenn 記事は静的検査、Result / Option、enum error、match 網羅性、探索範囲削減、pure core boundary、丁寧な doc comment、試作段階でも雑設計を残さないことを要求している。今回の slice は source-backed reducer のみで chain を扱い、source-less reducer や HIR lowering で再推論する経路を増やしていない。
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: `nodesrc/test_selfhost_expr_call_reduce_contract.js` が chain dispatcher、`CheckedExpr` argument transport、root DirectCall topology、後段 fail-closed smoke、qualified `Option::Some` / `Option::None` match arm を固定する。
+- doc_issue_note: issue と design doc に pipe chain success path、後段 fail-closed、残件を記録した。`todo.md` は pipe chain を完了済みとして残件から外した。
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/selfhost_zenn_review_response_check.js --stdin --review-kind final --record note.n.md`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-chain.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`
+
+## implementation/test
+
+- classification: Approve
+- file/function: `selfhost_call_reduce_pipe_chain_with_source`; `selfhost_call_reduce_pipe_chain_continue_with_left`; `selfhost_call_reduce_pipe_checked_left_candidate_with_source`; `selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call`; `selfhost_check_expr_stage1_pipe_chain_failclosed_body_line`
+- finding: chain 2段目以降は前段の result type と checked tree root id を `SelfhostCheckedArgumentKind::CheckedExpr` として渡し、次段 target の第1 parameter type と照合する必要があった。
+- root_cause: token 範囲だけを次段へ渡すと、前段 direct call の typed payload と checked tree node が失われ、HIR lowering が source token / scope / callable candidate collection を再実行する設計へ退行する。
+- reason: `selfhost_call_reduce_pipe_chain_finish_or_continue` は各段の suffix を次 pipe の直前で区切り、前段成功時だけ `CheckedExpr` argument を作る。`selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call` は root DirectCall から前段 DirectCall node まで辿り、浅い smoke ではなく checked tree topology を検査する。
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: contract test は helper 名だけでなく `Option::Some` / `Option::None` つきの topology traversal と、後段 `PipeMissingRightTarget` / `PipeRightTargetUnsupported` negative smoke を要求する。
+- doc_issue_note: `todo.md` は pipe chain を通常 HIR lowering authority へ戻さない完了済み境界として記録し、残件を lambda / borrow / advanced target narrowing / generic / trait / indirect call / memo_call に絞った。
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/selfhost_zenn_review_response_check.js --stdin --review-kind final --record note.n.md`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-chain.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`
+
+## zenn_check
+
+- Result/Option: pipe chain dispatcher は `Result` / `Option` で中間状態と次 pipe の有無を表し、stage1 topology helper の match arm は `Option::Some` / `Option::None` を明示する。
+- enum error/display separation: `stdlib/neplg2/core/check/expr/call_reduce.nepl` と `stdlib/neplg2/core/check/expr/stage1.nepl` で後段 target 欠落は `SelfhostCallReduceErrorKind::PipeMissingRightTarget`、後段 literal target は `SelfhostCallReduceErrorKind::PipeRightTargetUnsupported` として確認する。
+- match exhaustiveness: `stdlib/neplg2/core/check/expr/stage1.nepl` の topology helper は `Option::Some` / `Option::None` を明示し、`nodesrc/test_selfhost_expr_call_reduce_contract.js` が qualified variant を要求する。
+- pure/impure boundary: `stdlib/neplg2/core/check/expr/*` と Node contract のみを更新し、FileSystem / StdIO / host authority は追加していない。
+- authority boundary: `stdlib/neplg2/core/check/expr/checked_tree.nepl` の `SelfhostCheckedExprTree` と `SelfhostCheckedExprId` を chain 中間結果の authority にし、`selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call` が root-to-previous-node topology を検査する。
+- owner/free: stage1 の追加 runner は token owner、arena owner、context owner を下位 helper へ移動し、setup 失敗分岐では `v::free` / `selfhost_type_arena_free` を維持している。
+- zero-cost/performance: `stdlib/neplg2/core/check/expr/call_reduce.nepl` の `selfhost_call_reduce_pipe_next_operator_index` / `selfhost_call_reduce_pipe_chain_with_source` は pipe 位置走査と既存 argument check に留め、generic solver や trait solverを追加していない。
+- doc comment: `stdlib/neplg2/core/check/expr/stage1.nepl` の追加 helper comment は目的、契約、戻り値、計算量、制約を日本語で記述し、`nodesrc/test_source_policy_no_line_count_limits.js` も通している。
+- prototype/fail-closed: `stdlib/neplg2/core/check/expr/call_reduce.nepl` では source-less reducer を pipe success に広げず、source-backed `selfhost_call_reduce_pipe_chain_with_source` だけが chain success を扱う。
+
+## evidence_to_record
+
+- note: this checkpoint in `note.n.md`
+- issue: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`
+- source policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_source_policy_no_line_count_limits.js`; `nodesrc/run_source_policy_regressions.js`
+- tests: focused contract tests, focused stdlib/neplg2 core check doctests, issue index/check, whitespace check
+
+## subagent review
+
+- `019eb4e9-7e5e-7063-bef1-45e71e0247a9`:
+  - Blocker: none in design direction.
+  - Non-blocker: keep source-less reducer fail-closed and do not expand into lambda / borrow / generic / trait solving in this slice.
+  - Question: none.
+  - Approve: source-backed chain should compose checked tree nodes left-associatively.
+- `019eb4e9-964b-7e81-b0f7-44a8f473b098`:
+  - Blocker: none in design direction.
+  - Non-blocker: previous result should be represented as `SelfhostCheckedArgumentKind::CheckedExpr`, not token replay.
+  - Question: none.
+  - Approve: staged implementation is consistent with selfhost checked tree design.
+- `019eb4f9-b13e-7202-bbb2-a5002e748277`:
+  - Blocker: topology helper initially used bare `Some` / `None` match arms. Fixed by replacing them with `Option::Some` / `Option::None` and extending the JS contract to require qualified variants.
+  - Non-blocker: JS contract did not initially catch qualified Option variants. Fixed in `nodesrc/test_selfhost_expr_call_reduce_contract.js`.
+  - Question: none.
+  - Approve: post-fix review found no additional blocker. Owner cleanup leak, double free, over-constrained topology, and remaining bare `Some` / `None` were not found.
+
+## warnings
+
+- existing_warnings: Node WASI `ExperimentalWarning`; Git LF-to-CRLF replacement warnings from `git diff --check`; selfhost documentation contract reports existing doc gap samples.
+- new_warnings: none
+- 既存 warning: Node WASI `ExperimentalWarning`; Git LF-to-CRLF replacement warnings; existing selfhost documentation gap samples.
+- 今回差分由来 warning: none
+
+## summary
+
+- blockers: none
+- non_blockers: none
+- questions: none
+- approve: approved
+- residual_risk: none
+- unexecuted_verification: none
+- 検証済み: focused contract tests, focused stdlib/neplg2 core check doctests, source policy regression, Zenn review gate, review response checker, issue index/check, whitespace check.
+- 行数制限: not added
+- doc comment 長制限: not added
+- 次 slice: lambda / borrow / advanced pipe target argument expression checking、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1.
+
 # 2026-06-11 Agent2 GitHub Pages repo metrics and CI result viewers
 
 ## review_scope
