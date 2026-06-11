@@ -57,6 +57,7 @@
 //: ```
 
 pub #import "./module/summary" as *
+pub #import "./module/memo_trait_source_evidence_producer" as *
 pub #import "./module/memo_trait_source_fingerprint" as *
 pub #import "./module/memo_trait_source_scan" as *
 pub #import "./module/orchestrate" as *

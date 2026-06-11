@@ -1,3 +1,64 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue stable source seed producer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、DAG、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `selfhost/memo-trait-source-evidence-producer-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` stable source seed producer
+- classification: selfhost implementation slice review
+- decision: Phase 1 producer は full public surface materializer ではなく、typed module / public surface / trait signature seed を既存 `memo_trait_source_fingerprint` gate の入力 table へ変換する checker-layer connector として実装する。trusted source identity 生成は既存 registry validator へ委譲する。
+- implementation:
+  - `stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl` を追加し、`SelfhostMemoTraitStableSourceModuleSeed`、`SelfhostMemoTraitStableSourceTraitSeed`、`SelfhostMemoTraitStableSourceSeedTable` を定義した。
+  - seed producer は module identity hash、public surface hash、trait kind、visibility、declaration ordinal、normalized signature hash を named field として扱い、raw tuple や source spelling / span / display name / path suffix を authority にしない。
+  - `SelfhostMemoTraitStableSourceSeedErrorKind` は hash 欠落、placeholder `0`、seed 欠落、seed 重複、kind mismatch、private visibility、declaration ordinal 欠落、normalized signature 欠落を enum で分ける。
+  - `selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result` は stable evidence table までを作り、`SelfhostMemoTraitDefinitionSourceRecord(signature_available=true)` を直接作らない。
+  - `selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result` は seed producer の `Result` と既存 `selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result` を接続し、seed rejection と stable source / registry rejection を別 variant で返す。
+  - `stdlib/neplg2/core/check/module.nepl` facade から seed producer を re-export した。
+  - `nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js` を追加し、DAG、typed seed、enum error、既存 stable gate 経由、raw source identity constructor 禁止、`signature_available=true` 直行禁止、proof store 非直結、行数制限・doc comment 長制限禁止を固定した。
+  - `nodesrc/test_selfhost_module_checker_split_contract.js` と `nodesrc/run_source_policy_regressions.js` を更新し、module checker public surface と source policy regression に seed producer を組み込んだ。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - 初期 review は両方とも Blocker なし。Required は typed seed struct、missing / placeholder / duplicate / kind mismatch の enum Result、`check/module` 配置、既存 stable source fingerprint gate 経由、proof store 非直結、full public surface materializer ではない残件明記だった。
+  - 指摘に従い、producer は `SelfhostMemoTraitStableSourceEvidenceTable` までを返し、trusted source identity / signature_available record は既存 gate / registry validator へ任せる設計にした。
+  - 実装後 review では、Goodall が前回 Required として派生 fingerprint `0` の producer 側拒否と public helper doc comment の不足を指摘した。`ModuleDerivedFingerprintPlaceholder`、`MemoKeyDerivedSymbolFingerprintPlaceholder`、`MemoValueDerivedSymbolFingerprintPlaceholder`、`MemoKeyDerivedSignatureFingerprintPlaceholder`、`MemoValueDerivedSignatureFingerprintPlaceholder` を追加し、folding 後 `0` を evidence table へ進めないように修正した。
+  - 最終 review は Goodall / Fermat とも Blocker なし。Goodall は Required なしで `MERGE_APPROVED`。Fermat の Required は未追跡の新規ファイルを staging 対象に含める実務確認のみで、実装上の Required はなし。
+- policy/spec:
+  - Blocker: none.
+  - Required: typed seed、Result enum、DAG、既存 gate 経由、proof store 非直結、source policy による退行検出を実装した。
+  - Non-blocker: Phase 1 では hash 計算規則本体、re-export、trait body / method signature normalization、stable nominal key、serialized artifact input は未実装として残す。
+  - Question: `public_surface_hash` と `normalized_signature_hash` は今回 producer では計算せず、typed evidence として分けて受け取る。後続 public surface materializer で計算規則を固定する。
+  - Approve: 最終 subagent review では Blocker / implementation Required なし。commit 前に未追跡ファイルを staging へ含める。
+- implementation/test:
+  - Blocker: none.
+  - Required: seed producer は `SelfhostMemoTraitStableSourceEvidenceTable` までを作り、`selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result` を経由する。source policy で `selfhost_memo_trait_source_identity_new` と `signature_available=true` record の直接生成を禁止した。seed 入力の `0` だけでなく、module / symbol / signature folding 後に `0` が出た場合も typed enum error で拒否する。
+  - Non-blocker: full public surface materializer の未実装部分は issue/todo の residual に残した。
+  - Question: none.
+  - Approve: focused contract、facade doctest、scanner/fingerprint contract、proof entry contract、Zenn review gate、full source policy regression、issues check、diff check は pass。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: stable source evidence は proof reuse policy の入口に近いため、source spelling や scanner placeholder を trusted identity へ昇格する退行、proof store 直結、`core/ty` 逆依存を検出する必要がある。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: live subagent review response は Blocker / Required / Non-blocker / Question / Approve の分類で記録し、この checkpoint と `nodesrc/test_selfhost_zenn_review_gate_contract.js` で確認する。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl --no-tree -o tmp/selfhost-memo-trait-source-evidence-producer-final.json -j 1 --dist web/dist --assert-io`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/selfhost-check-module-facade-evidence-producer-final.json -j 1 --dist web/dist --assert-io`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_fingerprint_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_scan_contract.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+  - 既存 warning: stdlib / selfhost documentation contract は既存 baseline の report-only gap を表示する。
+  - 既存 warning: Node の WASI experimental warning が doctest / source policy 実行中に表示される。
+  - 今回差分由来 warning: none.
+- residual:
+  - actual public surface hash、re-export handling、trait body / method signature normalization、stable trait definition key、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未実装で、次 slice 以降に残す。
+  - 次 slice: actual public surface hash / stable trait definition key producer と trait signature normalization evidence を seed 入力側へ接続する。
+
 # 2026-06-12 Agent2 Web Playground analysis span identity checkpoint
 
 - AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
