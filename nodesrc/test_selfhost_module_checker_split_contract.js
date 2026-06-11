@@ -22,6 +22,7 @@ const summaryUpdate = read("stdlib/neplg2/core/check/module/summary_update.nepl"
 const diagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
 const rawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const declarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
+const memoTraitSourceEvidenceProducer = read("stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl");
 const memoTraitSourceFingerprint = read("stdlib/neplg2/core/check/module/memo_trait_source_fingerprint.nepl");
 const memoTraitSourceScan = read("stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl");
 const orchestrate = read("stdlib/neplg2/core/check/module/orchestrate.nepl");
@@ -31,12 +32,14 @@ const implementation = [
     diagnostic,
     rawAdapter,
     declarationAdapter,
+    memoTraitSourceEvidenceProducer,
     memoTraitSourceFingerprint,
     memoTraitSourceScan,
     orchestrate,
 ].join("\n");
 
 assert.match(facade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(facade, /pub #import "\.\/module\/memo_trait_source_evidence_producer" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_fingerprint" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
 assert.match(facade, /pub #import "\.\/module\/orchestrate" as \*/);
@@ -44,6 +47,7 @@ assert.deepEqual(
     Array.from(facade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
         .sort(),
     [
+        "./module/memo_trait_source_evidence_producer as *",
         "./module/memo_trait_source_fingerprint as *",
         "./module/memo_trait_source_scan as *",
         "./module/orchestrate as *",
@@ -130,6 +134,9 @@ const publicSurface = new Set(publicFunctions(`${summary}\n${orchestrate}`));
 for (const publicName of publicFunctions(memoTraitSourceScan)) {
     publicSurface.add(publicName);
 }
+for (const publicName of publicFunctions(memoTraitSourceEvidenceProducer)) {
+    publicSurface.add(publicName);
+}
 const expectedPublicSurface = [
     "selfhost_module_check_summary_item_count",
     "selfhost_module_check_summary_doc_comment_count",
@@ -148,6 +155,15 @@ const expectedPublicSurface = [
     "selfhost_memo_trait_definition_source_table_scan_module_result",
     "selfhost_memo_trait_trusted_source_registry_scan_module_result",
     "selfhost_memo_trait_definition_scan_stage0",
+    "selfhost_memo_trait_stable_source_module_seed_new",
+    "selfhost_memo_trait_stable_source_trait_seed_new",
+    "selfhost_memo_trait_stable_source_seed_table_empty",
+    "selfhost_memo_trait_stable_source_seed_table_add_record",
+    "selfhost_memo_trait_stable_source_seed_error_kind_eq",
+    "selfhost_memo_trait_stable_source_seed_registry_error_kind_eq",
+    "selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result",
+    "selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result",
+    "selfhost_memo_trait_stable_source_seed_stage0",
     "selfhost_check_module_ast",
 ];
 assert.deepEqual(Array.from(publicSurface).sort(), expectedPublicSurface.sort());

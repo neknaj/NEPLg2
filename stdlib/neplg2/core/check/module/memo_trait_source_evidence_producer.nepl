@@ -1,0 +1,653 @@
+#indent 4
+
+//: # check/module/memo_trait_source_evidence_producer
+//: `MemoKey` / `MemoValue` の stable source evidence を typed seed から[作/つく]る Phase 1 producer です。
+//:
+//: [目的/もくてき]:
+//: - scanner が見つけた候補を trusted source identity へ直接[昇格/しょうかく]せず、module / public surface / trait-local signature の typed seed が揃った場合だけ `SelfhostMemoTraitStableSourceEvidenceTable` を作ります。
+//: - `memo_trait_source_fingerprint.nepl` の gate を迂回せず、この module は stable evidence table までを作り、signature_available な definition source record と trusted registry は既存 gate と registry validator に任せます。
+//: - source spelling、span、display name、path suffix、diagnostic text は accepted source identity の authority にしません。caller は parser / checker / public surface materializer が作った typed seed を渡します。
+//:
+//: [契約/けいやく]:
+//: - module seed は module identity fingerprint と public surface fingerprint を `Option i32` として持ちます。欠落または placeholder `0` は typed error で拒否します。
+//: - trait seed は source kind、visibility、declaration ordinal、normalized signature fingerprint を持ちます。`MemoKey` slot に `MemoValue` seed が入るような malformed table は typed error で拒否します。
+//: - trait seed table は `MemoKey` / `MemoValue` の固定 2 slot であり、欠落と重複を accepted path へ進めません。
+//: - 成功時も accepted registry を直接作りません。`SelfhostMemoTraitStableSourceEvidenceTable` を返し、registry へ進む場合は `selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result` を通します。
+//:
+//: [現状/げんじょう]:
+//: - この module は full public surface materializer ではありません。re-export、trait body、method signature normalization、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力からの seed 生成は後続 slice で実装します。
+//: - `public_surface_hash` と `normalized_signature_hash` は、この module が計算するのではなく、すでに typed evidence として渡された値を折りたたみます。計算規則そのものは public surface materializer 側の責務です。
+//:
+//: [計算量/けいさんりょう]:
+//: - seed table は固定 2 slot なので、追加、検証、stable evidence table 生成はいずれも O(1) 時間・O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_source_evidence_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_stable_source_seed_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted_registry
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_stable_source_seed_error_kind_eq (unwrap_err summary.module_identity_missing_rejected) SelfhostMemoTraitStableSourceSeedErrorKind::ModuleIdentityFingerprintMissing
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_stable_source_seed_error_kind_eq (unwrap_err summary.private_visibility_rejected) SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyVisibilityPrivate
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_stable_source_seed_error_kind_eq (unwrap_err summary.duplicate_seed_rejected) SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeySeedDuplicate
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_stable_source_seed_error_kind_eq (unwrap_err summary.missing_signature_rejected) SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyNormalizedSignatureFingerprintMissing
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_stable_source_seed_error_kind_eq (unwrap_err summary.missing_seed_rejected) SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueSeedMissing
+//:     let shown checks_print_report checks6
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+#import "neplg2/core/ty/ty/memo_trait_source" as *
+#import "./memo_trait_source_fingerprint" as *
+
+//: SelfhostMemoTraitStableSourceModuleSeed: module-level stable source evidence seed
+//:
+//: [目的/もくてき]:
+//: - module identity と public surface の fingerprint を名前付き field として保持し、raw `Option i32` の位置取り違えを防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `module_identity_hash` は module 自体の identity を表します。
+//: - `public_surface_hash` は依存側から見える public surface を表します。
+//: - どちらも `none` または `some 0` の場合は accepted evidence を作りません。
+pub struct SelfhostMemoTraitStableSourceModuleSeed:
+    module_identity_hash %Option i32
+    public_surface_hash %Option i32
+
+//: SelfhostMemoTraitStableSourceTraitSeed: trait-local stable source evidence seed
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` trait definition の public surface 上の位置と normalized signature fingerprint を typed payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `kind` は seed がどの memo trait source を表すかを示します。
+//: - `visibility` は public surface に含められる declaration かどうかを示します。private declaration は accepted evidence になりません。
+//: - `declaration_ordinal` は public surface materializer が与える trait-local declaration key の Phase 1 seed です。単独では stable nominal key ではありません。
+//: - `normalized_signature_hash` は trait signature normalization の結果を表します。この module は normalization 自体を行いません。
+pub struct SelfhostMemoTraitStableSourceTraitSeed:
+    kind %SelfhostMemoTraitSourceKind
+    visibility %SelfhostModuleDeclarationVisibility
+    declaration_ordinal %Option i32
+    normalized_signature_hash %Option i32
+
+//: SelfhostMemoTraitStableSourceSeedTable: MemoKey / MemoValue stable seed の固定 table
+//:
+//: [目的/もくてき]:
+//: - public surface materializer が見つけた memo trait seed を source kind ごとの slot へ分類し、欠落と重複を stable evidence 化より前で検出します。
+pub struct SelfhostMemoTraitStableSourceSeedTable:
+    memo_key %Option SelfhostMemoTraitStableSourceTraitSeed
+    memo_value %Option SelfhostMemoTraitStableSourceTraitSeed
+    duplicate_memo_key %bool
+    duplicate_memo_value %bool
+
+//: SelfhostMemoTraitStableSourceSeedErrorKind: seed producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - typed seed から stable evidence table を作れない理由を bool や文字列に潰さず、caller と source policy が match できる enum として保持します。
+pub enum SelfhostMemoTraitStableSourceSeedErrorKind:
+    ModuleIdentityFingerprintMissing
+    ModuleIdentityFingerprintPlaceholder
+    ModulePublicSurfaceFingerprintMissing
+    ModulePublicSurfaceFingerprintPlaceholder
+    MemoKeySeedMissing
+    MemoValueSeedMissing
+    MemoKeySeedDuplicate
+    MemoValueSeedDuplicate
+    MemoKeySeedKindMismatch
+    MemoValueSeedKindMismatch
+    MemoKeyVisibilityPrivate
+    MemoValueVisibilityPrivate
+    MemoKeyDeclarationOrdinalMissing
+    MemoValueDeclarationOrdinalMissing
+    MemoKeyDeclarationOrdinalPlaceholder
+    MemoValueDeclarationOrdinalPlaceholder
+    MemoKeyNormalizedSignatureFingerprintMissing
+    MemoValueNormalizedSignatureFingerprintMissing
+    MemoKeyNormalizedSignatureFingerprintPlaceholder
+    MemoValueNormalizedSignatureFingerprintPlaceholder
+    ModuleDerivedFingerprintPlaceholder
+    MemoKeyDerivedSymbolFingerprintPlaceholder
+    MemoValueDerivedSymbolFingerprintPlaceholder
+    MemoKeyDerivedSignatureFingerprintPlaceholder
+    MemoValueDerivedSignatureFingerprintPlaceholder
+
+//: SelfhostMemoTraitStableSourceSeedRegistryErrorKind: seed producer と stable registry gate の結合エラー
+//:
+//: [目的/もくてき]:
+//: - typed seed の拒否と、既存 stable source gate / registry validator の拒否を別 variant として保持します。
+pub enum SelfhostMemoTraitStableSourceSeedRegistryErrorKind:
+    SeedRejected %SelfhostMemoTraitStableSourceSeedErrorKind
+    StableSourceRejected %SelfhostMemoTraitStableSourceRegistryErrorKind
+
+//: SelfhostMemoTraitStableSourceSeedStage0Summary: seed producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted path と、module hash 欠落、private visibility、重複、signature 欠落、seed 欠落の代表 fail-closed path を 1 つの値にまとめます。
+pub struct SelfhostMemoTraitStableSourceSeedStage0Summary:
+    accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceSeedRegistryErrorKind
+    module_identity_missing_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind
+    private_visibility_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind
+    duplicate_seed_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind
+    missing_signature_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind
+    missing_seed_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind
+
+impl Clone for SelfhostMemoTraitStableSourceModuleSeed:
+    fn clone %fn &SelfhostMemoTraitStableSourceModuleSeed SelfhostMemoTraitStableSourceModuleSeed \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceModuleSeed:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceModuleSeed SelfhostMemoTraitStableSourceModuleSeed \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceTraitSeed:
+    fn clone %fn &SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitStableSourceTraitSeed \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceTraitSeed:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitStableSourceTraitSeed \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceSeedTable:
+    fn clone %fn &SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitStableSourceSeedTable \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceSeedTable:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitStableSourceSeedTable \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceSeedErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableSourceSeedErrorKind SelfhostMemoTraitStableSourceSeedErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceSeedErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceSeedErrorKind SelfhostMemoTraitStableSourceSeedErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceSeedRegistryErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableSourceSeedRegistryErrorKind SelfhostMemoTraitStableSourceSeedRegistryErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceSeedRegistryErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceSeedRegistryErrorKind SelfhostMemoTraitStableSourceSeedRegistryErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceSeedStage0Summary:
+    fn clone %fn &SelfhostMemoTraitStableSourceSeedStage0Summary SelfhostMemoTraitStableSourceSeedStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceSeedStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceSeedStage0Summary SelfhostMemoTraitStableSourceSeedStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_stable_source_module_seed_new: module seed を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public surface materializer が持つ module identity と public surface の fingerprint availability を typed payload に束ねます。
+//:
+//: [契約/けいやく]:
+//: - この constructor は field を保持するだけで、trusted source identity を作りません。
+//: - `none` と `some 0` の拒否は `selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result` が `Result` で行います。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では caller が渡した typed fingerprint seed を受け取ります。module identity hash / public surface hash の計算規則は、この module ではなく後続の public surface materializer が固定します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field を 2 つ束ねるだけなので O(1) 時間・O(1) 追加空間です。
+pub fn selfhost_memo_trait_stable_source_module_seed_new %fn Option i32 fn Option i32 SelfhostMemoTraitStableSourceModuleSeed \module_identity_hash\public_surface_hash:
+    SelfhostMemoTraitStableSourceModuleSeed module_identity_hash public_surface_hash
+
+//: selfhost_memo_trait_stable_source_trait_seed_new: trait seed を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` trait definition の public surface 上の evidence を、kind、visibility、ordinal、signature fingerprint に分けて保持します。
+//:
+//: [契約/けいやく]:
+//: - この constructor は seed を保持するだけで、stable evidence table や definition source record を作りません。
+//: - `visibility` が private の場合、accepted path では `MemoKeyVisibilityPrivate` または `MemoValueVisibilityPrivate` として拒否されます。
+//: - `declaration_ordinal` と `normalized_signature_hash` の欠落・placeholder は、seed table producer が source kind ごとの enum error として返します。
+//:
+//: [現状/げんじょう]:
+//: - `declaration_ordinal` は Phase 1 の trait-local seed であり、単独では stable nominal key ではありません。stable trait definition key は後続 slice で別途生成します。
+//:
+//: [計算量/けいさんりょう]:
+//: - field を 4 つ束ねるだけなので O(1) 時間・O(1) 追加空間です。
+pub fn selfhost_memo_trait_stable_source_trait_seed_new %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationVisibility fn Option i32 fn Option i32 SelfhostMemoTraitStableSourceTraitSeed \kind\visibility\declaration_ordinal\normalized_signature_hash:
+    SelfhostMemoTraitStableSourceTraitSeed kind visibility declaration_ordinal normalized_signature_hash
+
+//: selfhost_memo_trait_stable_source_seed_table_empty: seed table の空値を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public surface materializer が見つけた memo trait seed を追加していく初期 table を作ります。
+//:
+//: [契約/けいやく]:
+//: - 初期状態では `MemoKey` / `MemoValue` seed はどちらも欠落しており、duplicate flag も立っていません。
+//: - 空 table を stable evidence producer に渡した場合は accepted path へ進まず、`MemoKeySeedMissing` として拒否されます。
+//:
+//: [現状/げんじょう]:
+//: - table は固定 2 slot です。memoization trait が増える場合は source kind enum と table shape の両方を拡張します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 field の初期化だけなので O(1) 時間・O(1) 追加空間です。
+pub fn selfhost_memo_trait_stable_source_seed_table_empty %fn void SelfhostMemoTraitStableSourceSeedTable \void:
+    SelfhostMemoTraitStableSourceSeedTable none none false false
+
+//: selfhost_memo_trait_stable_source_seed_table_with_key: MemoKey seed を table に[入/い]れる
+fn selfhost_memo_trait_stable_source_seed_table_with_key %fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitStableSourceSeedTable \table\record:
+    match table.memo_key:
+        Option::Some _existing:
+            SelfhostMemoTraitStableSourceSeedTable table.memo_key table.memo_value true table.duplicate_memo_value
+        Option::None:
+            SelfhostMemoTraitStableSourceSeedTable (some record) table.memo_value table.duplicate_memo_key table.duplicate_memo_value
+
+//: selfhost_memo_trait_stable_source_seed_table_with_value: MemoValue seed を table に[入/い]れる
+fn selfhost_memo_trait_stable_source_seed_table_with_value %fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitStableSourceSeedTable \table\record:
+    match table.memo_value:
+        Option::Some _existing:
+            SelfhostMemoTraitStableSourceSeedTable table.memo_key table.memo_value table.duplicate_memo_key true
+        Option::None:
+            SelfhostMemoTraitStableSourceSeedTable table.memo_key (some record) table.duplicate_memo_key table.duplicate_memo_value
+
+//: selfhost_memo_trait_stable_source_seed_table_add_record: trait seed を kind に従って table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - 同じ source kind が複数回追加された場合、最初の record を黙って採用せず duplicate flag を立てます。
+pub fn selfhost_memo_trait_stable_source_seed_table_add_record %fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitStableSourceSeedTable \table\record:
+    match record.kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            selfhost_memo_trait_stable_source_seed_table_with_key table record
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            selfhost_memo_trait_stable_source_seed_table_with_value table record
+
+//: selfhost_memo_trait_stable_source_seed_error_kind_code: seed error を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。variant 追加時はこの関数が更新対象になります。
+fn selfhost_memo_trait_stable_source_seed_error_kind_code %fn SelfhostMemoTraitStableSourceSeedErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitStableSourceSeedErrorKind::ModuleIdentityFingerprintMissing:
+            1
+        SelfhostMemoTraitStableSourceSeedErrorKind::ModuleIdentityFingerprintPlaceholder:
+            2
+        SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintMissing:
+            3
+        SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintPlaceholder:
+            4
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeySeedMissing:
+            5
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueSeedMissing:
+            6
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeySeedDuplicate:
+            7
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueSeedDuplicate:
+            8
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeySeedKindMismatch:
+            9
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueSeedKindMismatch:
+            10
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyVisibilityPrivate:
+            11
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueVisibilityPrivate:
+            12
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalMissing:
+            13
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalMissing:
+            14
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalPlaceholder:
+            15
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalPlaceholder:
+            16
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyNormalizedSignatureFingerprintMissing:
+            17
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueNormalizedSignatureFingerprintMissing:
+            18
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyNormalizedSignatureFingerprintPlaceholder:
+            19
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueNormalizedSignatureFingerprintPlaceholder:
+            20
+        SelfhostMemoTraitStableSourceSeedErrorKind::ModuleDerivedFingerprintPlaceholder:
+            21
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSymbolFingerprintPlaceholder:
+            22
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSymbolFingerprintPlaceholder:
+            23
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSignatureFingerprintPlaceholder:
+            24
+        SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSignatureFingerprintPlaceholder:
+            25
+
+//: selfhost_memo_trait_stable_source_seed_error_kind_eq: seed error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_source_seed_error_kind_eq %fn SelfhostMemoTraitStableSourceSeedErrorKind fn SelfhostMemoTraitStableSourceSeedErrorKind bool \a\b:
+    eq:
+        selfhost_memo_trait_stable_source_seed_error_kind_code a
+        selfhost_memo_trait_stable_source_seed_error_kind_code b
+
+//: selfhost_memo_trait_stable_source_seed_registry_error_kind_eq: registry 結合 error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_source_seed_registry_error_kind_eq %fn SelfhostMemoTraitStableSourceSeedRegistryErrorKind fn SelfhostMemoTraitStableSourceSeedRegistryErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStableSourceSeedRegistryErrorKind::SeedRejected seed_error:
+            match b:
+                SelfhostMemoTraitStableSourceSeedRegistryErrorKind::SeedRejected other_seed_error:
+                    selfhost_memo_trait_stable_source_seed_error_kind_eq seed_error other_seed_error
+                SelfhostMemoTraitStableSourceSeedRegistryErrorKind::StableSourceRejected _stable_error:
+                    false
+        SelfhostMemoTraitStableSourceSeedRegistryErrorKind::StableSourceRejected stable_error:
+            match b:
+                SelfhostMemoTraitStableSourceSeedRegistryErrorKind::SeedRejected _seed_error:
+                    false
+                SelfhostMemoTraitStableSourceSeedRegistryErrorKind::StableSourceRejected other_stable_error:
+                    selfhost_memo_trait_stable_source_registry_error_kind_eq stable_error other_stable_error
+
+//: selfhost_memo_trait_stable_source_seed_fingerprint_value_result: seed fingerprint を[検査/けんさ]する
+fn selfhost_memo_trait_stable_source_seed_fingerprint_value_result %fn Option i32 fn SelfhostMemoTraitStableSourceSeedErrorKind fn SelfhostMemoTraitStableSourceSeedErrorKind Result i32 SelfhostMemoTraitStableSourceSeedErrorKind \fingerprint\missing_error\placeholder_error:
+    match fingerprint:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err placeholder_error
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err missing_error
+
+//: selfhost_memo_trait_stable_source_seed_derived_fingerprint_result: folding 後 fingerprint を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - Phase 1 folding の結果が stable evidence payload として使える nonzero fingerprint か確認します。
+//:
+//: [契約/けいやく]:
+//: - seed fingerprint がすべて nonzero でも、folding の結果が `0` なら stable evidence table へ入れず、caller が渡した derived placeholder error で拒否します。
+fn selfhost_memo_trait_stable_source_seed_derived_fingerprint_result %fn i32 fn SelfhostMemoTraitStableSourceSeedErrorKind Result i32 SelfhostMemoTraitStableSourceSeedErrorKind \fingerprint\placeholder_error:
+    if:
+        eq fingerprint 0
+        then:
+            Result::Err placeholder_error
+        else:
+            Result::Ok fingerprint
+
+//: selfhost_memo_trait_stable_source_seed_visibility_public: public visibility か[返/かえ]す
+fn selfhost_memo_trait_stable_source_seed_visibility_public %fn SelfhostModuleDeclarationVisibility bool \visibility:
+    match visibility:
+        SelfhostModuleDeclarationVisibility::Public:
+            true
+        SelfhostModuleDeclarationVisibility::Private:
+            false
+
+//: selfhost_memo_trait_stable_source_seed_mix2: 2 つの seed fingerprint を[混/ま]ぜる
+//:
+//: [目的/もくてき]:
+//: - typed seed fingerprint を Phase 1 の stable evidence payload へ折りたたむための deterministic folding helper です。
+//:
+//: [注意/ちゅうい]:
+//: - これは full public surface hash の計算本体ではありません。public surface hash、stable trait definition key、normalized signature hash は caller が typed seed として渡します。
+fn selfhost_memo_trait_stable_source_seed_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_stable_source_seed_mix3: 3 つの seed fingerprint を[混/ま]ぜる
+//:
+//: [目的/もくてき]:
+//: - kind code や declaration ordinal を既存 seed fingerprint と組み合わせ、module / symbol / signature の payload を分けるために使います。
+fn selfhost_memo_trait_stable_source_seed_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_stable_source_seed_mix2 a b c
+
+//: selfhost_memo_trait_stable_source_seed_kind_code: source kind を stable folding 用 code へ[写/うつ]す
+fn selfhost_memo_trait_stable_source_seed_kind_code %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            1001
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            1002
+
+//: selfhost_memo_trait_stable_source_seed_module_hash_result: module seed から module fingerprint を[作/つく]る
+fn selfhost_memo_trait_stable_source_seed_module_hash_result %fn SelfhostMemoTraitStableSourceModuleSeed Result i32 SelfhostMemoTraitStableSourceSeedErrorKind \module_seed:
+    match selfhost_memo_trait_stable_source_seed_fingerprint_value_result module_seed.module_identity_hash SelfhostMemoTraitStableSourceSeedErrorKind::ModuleIdentityFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::ModuleIdentityFingerprintPlaceholder:
+        Result::Ok module_identity_hash:
+            match selfhost_memo_trait_stable_source_seed_fingerprint_value_result module_seed.public_surface_hash SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintPlaceholder:
+                Result::Ok public_surface_hash:
+                    selfhost_memo_trait_stable_source_seed_derived_fingerprint_result:
+                        selfhost_memo_trait_stable_source_seed_mix2 module_identity_hash public_surface_hash
+                        SelfhostMemoTraitStableSourceSeedErrorKind::ModuleDerivedFingerprintPlaceholder
+                Result::Err public_surface_error:
+                    Result::Err public_surface_error
+        Result::Err module_error:
+            Result::Err module_error
+
+//: selfhost_memo_trait_stable_source_key_seed_to_evidence_result: MemoKey seed を stable evidence record へ[変換/へんかん]する
+fn selfhost_memo_trait_stable_source_key_seed_to_evidence_result %fn i32 fn SelfhostMemoTraitStableSourceModuleSeed fn SelfhostMemoTraitStableSourceTraitSeed Result SelfhostMemoTraitStableSourceEvidenceRecord SelfhostMemoTraitStableSourceSeedErrorKind \module_hash\module_seed\seed:
+    if:
+        selfhost_memo_trait_source_kind_eq seed.kind SelfhostMemoTraitSourceKind::MemoKeyTrait
+        then:
+            if:
+                selfhost_memo_trait_stable_source_seed_visibility_public seed.visibility
+                then:
+                    match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.declaration_ordinal SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalPlaceholder:
+                        Result::Ok declaration_ordinal:
+                            match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.normalized_signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyNormalizedSignatureFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyNormalizedSignatureFingerprintPlaceholder:
+                                Result::Ok normalized_signature_hash:
+                                    match selfhost_memo_trait_stable_source_seed_fingerprint_value_result module_seed.public_surface_hash SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintPlaceholder:
+                                        Result::Ok public_surface_hash:
+                                            let kind_code %i32 selfhost_memo_trait_stable_source_seed_kind_code seed.kind
+                                            let symbol_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 module_hash kind_code declaration_ordinal
+                                            let signature_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 normalized_signature_hash kind_code public_surface_hash
+                                            match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result symbol_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSymbolFingerprintPlaceholder:
+                                                Result::Ok accepted_symbol_hash:
+                                                    match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSignatureFingerprintPlaceholder:
+                                                        Result::Ok accepted_signature_hash:
+                                                            let fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+                                                                selfhost_memo_trait_stable_source_fingerprint_evidence_new (some module_hash) (some accepted_symbol_hash) (some accepted_signature_hash)
+                                                            Result::Ok selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoKeyTrait fingerprint
+                                                        Result::Err signature_folding_error:
+                                                            Result::Err signature_folding_error
+                                                Result::Err symbol_folding_error:
+                                                    Result::Err symbol_folding_error
+                                        Result::Err public_surface_error:
+                                            Result::Err public_surface_error
+                                Result::Err signature_error:
+                                    Result::Err signature_error
+                        Result::Err ordinal_error:
+                            Result::Err ordinal_error
+                else:
+                    Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyVisibilityPrivate
+        else:
+            Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeySeedKindMismatch
+
+//: selfhost_memo_trait_stable_source_value_seed_to_evidence_result: MemoValue seed を stable evidence record へ[変換/へんかん]する
+fn selfhost_memo_trait_stable_source_value_seed_to_evidence_result %fn i32 fn SelfhostMemoTraitStableSourceModuleSeed fn SelfhostMemoTraitStableSourceTraitSeed Result SelfhostMemoTraitStableSourceEvidenceRecord SelfhostMemoTraitStableSourceSeedErrorKind \module_hash\module_seed\seed:
+    if:
+        selfhost_memo_trait_source_kind_eq seed.kind SelfhostMemoTraitSourceKind::MemoValueTrait
+        then:
+            if:
+                selfhost_memo_trait_stable_source_seed_visibility_public seed.visibility
+                then:
+                    match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.declaration_ordinal SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalPlaceholder:
+                        Result::Ok declaration_ordinal:
+                            match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.normalized_signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueNormalizedSignatureFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueNormalizedSignatureFingerprintPlaceholder:
+                                Result::Ok normalized_signature_hash:
+                                    match selfhost_memo_trait_stable_source_seed_fingerprint_value_result module_seed.public_surface_hash SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintPlaceholder:
+                                        Result::Ok public_surface_hash:
+                                            let kind_code %i32 selfhost_memo_trait_stable_source_seed_kind_code seed.kind
+                                            let symbol_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 module_hash kind_code declaration_ordinal
+                                            let signature_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 normalized_signature_hash kind_code public_surface_hash
+                                            match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result symbol_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSymbolFingerprintPlaceholder:
+                                                Result::Ok accepted_symbol_hash:
+                                                    match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSignatureFingerprintPlaceholder:
+                                                        Result::Ok accepted_signature_hash:
+                                                            let fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+                                                                selfhost_memo_trait_stable_source_fingerprint_evidence_new (some module_hash) (some accepted_symbol_hash) (some accepted_signature_hash)
+                                                            Result::Ok selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoValueTrait fingerprint
+                                                        Result::Err signature_folding_error:
+                                                            Result::Err signature_folding_error
+                                                Result::Err symbol_folding_error:
+                                                    Result::Err symbol_folding_error
+                                        Result::Err public_surface_error:
+                                            Result::Err public_surface_error
+                                Result::Err signature_error:
+                                    Result::Err signature_error
+                        Result::Err ordinal_error:
+                            Result::Err ordinal_error
+                else:
+                    Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueVisibilityPrivate
+        else:
+            Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueSeedKindMismatch
+
+//: selfhost_memo_trait_stable_source_seed_table_records_to_evidence_result: seed record 2 件を evidence table へ[変換/へんかん]する
+fn selfhost_memo_trait_stable_source_seed_table_records_to_evidence_result %fn i32 fn SelfhostMemoTraitStableSourceModuleSeed fn SelfhostMemoTraitStableSourceTraitSeed fn SelfhostMemoTraitStableSourceTraitSeed Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind \module_hash\module_seed\key_seed\value_seed:
+    match selfhost_memo_trait_stable_source_key_seed_to_evidence_result module_hash module_seed key_seed:
+        Result::Ok key_evidence:
+            match selfhost_memo_trait_stable_source_value_seed_to_evidence_result module_hash module_seed value_seed:
+                Result::Ok value_evidence:
+                    let table0 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_empty
+                    let table1 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record table0 key_evidence
+                    Result::Ok selfhost_memo_trait_stable_source_evidence_table_add_record table1 value_evidence
+                Result::Err value_error:
+                    Result::Err value_error
+        Result::Err key_error:
+            Result::Err key_error
+
+//: selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result: typed seed table から stable evidence table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public surface materializer の typed seed を、既存 stable source fingerprint gate が読む evidence table へ変換します。
+//:
+//: [契約/けいやく]:
+//: - この関数は `SelfhostMemoTraitDefinitionSourceRecord` を作りません。signature_available の昇格は既存 fingerprint gate の責務です。
+//: - seed table 側の欠落・重複・kind mismatch・private visibility・placeholder は `Result::Err` で拒否します。
+pub fn selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result %fn SelfhostMemoTraitStableSourceModuleSeed fn SelfhostMemoTraitStableSourceSeedTable Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind \module_seed\seed_table:
+    if:
+        seed_table.duplicate_memo_key
+        then:
+            Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeySeedDuplicate
+        else:
+            if:
+                seed_table.duplicate_memo_value
+                then:
+                    Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueSeedDuplicate
+                else:
+                    match selfhost_memo_trait_stable_source_seed_module_hash_result module_seed:
+                        Result::Ok module_hash:
+                            match seed_table.memo_key:
+                                Option::Some key_seed:
+                                    match seed_table.memo_value:
+                                        Option::Some value_seed:
+                                            selfhost_memo_trait_stable_source_seed_table_records_to_evidence_result module_hash module_seed key_seed value_seed
+                                        Option::None:
+                                            Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueSeedMissing
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeySeedMissing
+                        Result::Err module_error:
+                            Result::Err module_error
+
+//: selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result: seed producer と既存 stable gate を[接続/せつぞく]する
+//:
+//: [目的/もくてき]:
+//: - scanner candidate table、typed seed table、既存 stable source gate、trusted registry validator の順に fail-closed に進みます。
+pub fn selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitStableSourceModuleSeed fn SelfhostMemoTraitStableSourceSeedTable Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceSeedRegistryErrorKind \candidates\module_seed\seed_table:
+    match selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result module_seed seed_table:
+        Result::Ok evidence:
+            match selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result candidates evidence:
+                Result::Ok registry:
+                    Result::Ok registry
+                Result::Err stable_error:
+                    Result::Err SelfhostMemoTraitStableSourceSeedRegistryErrorKind::StableSourceRejected stable_error
+        Result::Err seed_error:
+            Result::Err SelfhostMemoTraitStableSourceSeedRegistryErrorKind::SeedRejected seed_error
+
+//: selfhost_memo_trait_stable_source_seed_stage0_candidate_table: stage0 用 scanner candidate table を[作/つく]る
+fn selfhost_memo_trait_stable_source_seed_stage0_candidate_table %fn void SelfhostMemoTraitDefinitionSourceTable \void:
+    let table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let key_candidate %SelfhostMemoTraitDefinitionSourceRecord:
+        selfhost_memo_trait_definition_source_record_new:
+            SelfhostMemoTraitSourceKind::MemoKeyTrait
+            selfhost_memo_trait_definition_fingerprint_new 0 0 0
+            false
+    let value_candidate %SelfhostMemoTraitDefinitionSourceRecord:
+        selfhost_memo_trait_definition_source_record_new:
+            SelfhostMemoTraitSourceKind::MemoValueTrait
+            selfhost_memo_trait_definition_fingerprint_new 0 0 0
+            false
+    let table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record table0 key_candidate
+    selfhost_memo_trait_definition_source_table_add_record table1 value_candidate
+
+//: selfhost_memo_trait_stable_source_seed_stage0_complete_seed_table: stage0 用 complete seed table を[作/つく]る
+fn selfhost_memo_trait_stable_source_seed_stage0_complete_seed_table %fn void SelfhostMemoTraitStableSourceSeedTable \void:
+    let table0 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_empty
+    let key_seed %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoKeyTrait SelfhostModuleDeclarationVisibility::Public (some 11) (some 101)
+    let value_seed %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoValueTrait SelfhostModuleDeclarationVisibility::Public (some 12) (some 201)
+    let table1 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record table0 key_seed
+    selfhost_memo_trait_stable_source_seed_table_add_record table1 value_seed
+
+//: selfhost_memo_trait_stable_source_seed_stage0_summary_new: seed smoke summary を[作/つく]る
+fn selfhost_memo_trait_stable_source_seed_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceSeedRegistryErrorKind fn Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind fn Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind fn Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind fn Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind fn Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind SelfhostMemoTraitStableSourceSeedStage0Summary \accepted_registry\module_identity_missing_rejected\private_visibility_rejected\duplicate_seed_rejected\missing_signature_rejected\missing_seed_rejected:
+    SelfhostMemoTraitStableSourceSeedStage0Summary accepted_registry module_identity_missing_rejected private_visibility_rejected duplicate_seed_rejected missing_signature_rejected missing_seed_rejected
+
+//: selfhost_memo_trait_stable_source_seed_stage0: seed producer の代表結果を[返/かえ]す
+pub fn selfhost_memo_trait_stable_source_seed_stage0 %fn void SelfhostMemoTraitStableSourceSeedStage0Summary \void:
+    let candidates %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_stable_source_seed_stage0_candidate_table
+    let complete_module_seed %SelfhostMemoTraitStableSourceModuleSeed:
+        selfhost_memo_trait_stable_source_module_seed_new (some 31) (some 41)
+    let complete_seed_table %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_stage0_complete_seed_table
+    let accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceSeedRegistryErrorKind:
+        selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates complete_module_seed complete_seed_table
+    let missing_module_seed %SelfhostMemoTraitStableSourceModuleSeed:
+        selfhost_memo_trait_stable_source_module_seed_new none (some 41)
+    let module_identity_missing_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind:
+        selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result missing_module_seed complete_seed_table
+    let private_seed_table0 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_empty
+    let private_key_seed %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoKeyTrait SelfhostModuleDeclarationVisibility::Private (some 11) (some 101)
+    let private_value_seed %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoValueTrait SelfhostModuleDeclarationVisibility::Public (some 12) (some 201)
+    let private_seed_table1 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record private_seed_table0 private_key_seed
+    let private_seed_table2 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record private_seed_table1 private_value_seed
+    let private_visibility_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind:
+        selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result complete_module_seed private_seed_table2
+    let duplicate_seed_table0 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_empty
+    let duplicate_key_seed %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoKeyTrait SelfhostModuleDeclarationVisibility::Public (some 11) (some 101)
+    let duplicate_seed_table1 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record duplicate_seed_table0 duplicate_key_seed
+    let duplicate_seed_table2 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record duplicate_seed_table1 duplicate_key_seed
+    let duplicate_seed_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind:
+        selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result complete_module_seed duplicate_seed_table2
+    let missing_signature_table0 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_empty
+    let missing_signature_key_seed %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoKeyTrait SelfhostModuleDeclarationVisibility::Public (some 11) none
+    let missing_signature_value_seed %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoValueTrait SelfhostModuleDeclarationVisibility::Public (some 12) (some 201)
+    let missing_signature_table1 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record missing_signature_table0 missing_signature_key_seed
+    let missing_signature_table2 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record missing_signature_table1 missing_signature_value_seed
+    let missing_signature_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind:
+        selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result complete_module_seed missing_signature_table2
+    let missing_seed_table0 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_empty
+    let missing_seed_key %SelfhostMemoTraitStableSourceTraitSeed:
+        selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoKeyTrait SelfhostModuleDeclarationVisibility::Public (some 11) (some 101)
+    let missing_seed_table1 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record missing_seed_table0 missing_seed_key
+    let missing_seed_rejected %Result SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceSeedErrorKind:
+        selfhost_memo_trait_stable_source_evidence_table_from_seed_table_result complete_module_seed missing_seed_table1
+    selfhost_memo_trait_stable_source_seed_stage0_summary_new:
+        accepted_registry
+        module_identity_missing_rejected
+        private_visibility_rejected
+        duplicate_seed_rejected
+        missing_signature_rejected
+        missing_seed_rejected
