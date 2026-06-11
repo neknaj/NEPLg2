@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T22:17:46.896Z",
+  "generated_at": "2026-06-11T22:36:46.437Z",
   "counts": {
     "total": 1371,
-    "open": 63,
-    "resolved": 1308,
+    "open": 62,
+    "resolved": 1309,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -13,8 +13,8 @@
       },
       "tools": {
         "total": 24,
-        "open": 13,
-        "resolved": 11
+        "open": 12,
+        "resolved": 12
       },
       "core": {
         "total": 665,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754.md"
-    },
-    {
-      "id": "ISS-20260611T164150059Z-WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUS-488205A3",
-      "title": "Web Playground semantic analysis must not block the UI thread",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "performance",
-      "created": "2026-06-11",
-      "updated": "2026-06-11",
-      "target": "web/src/language/neplg2/neplg2-provider.ts; web/src/editor-core/language-analysis.ts; nepl-web/src/lib.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260611T164150059Z-WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUS-488205A3.md"
     },
     {
       "id": "ISS-20260611T164150659Z-WEB-PLAYGROUND-ANALYSIS-SPANS-MUST-P-CFF77E8E",
@@ -1883,6 +1868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB.md"
+    },
+    {
+      "id": "ISS-20260611T164150059Z-WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUS-488205A3",
+      "title": "Web Playground semantic analysis must not block the UI thread",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "performance",
+      "created": "2026-06-11",
+      "updated": "2026-06-12",
+      "target": "web/src/language/neplg2/neplg2-provider.ts; web/src/language/neplg2/neplg2-analysis-worker.ts; web/src/editor-core/language-analysis.ts; web/src/main.ts",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260611T164150059Z-WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUS-488205A3.md"
     },
     {
       "id": "ISS-20260611T164150357Z-WEB-PLAYGROUND-DOCUMENT-SWITCH-MUST--6790822A",
