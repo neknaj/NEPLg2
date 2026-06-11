@@ -1,3 +1,74 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue source materializer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: 確認済み。root cause 修正、Plan-first、`plan.md` 不編集、`note.n.md` / `todo.md` / doc / issue 更新、selfhost 日本語 doc comment、行数制限と doc comment 長制限の禁止、commit 前検証をこの slice の作業基準にした。
+- 対象 branch: `selfhost/memo-trait-source-materializer-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` source materializer and fail-closed current registry
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- classification: selfhost implementation slice review
+- decision: implementation accepted after typed source record materializer, fail-closed registry Result API, proof store Result routing, doc comment strengthening, focused doctests, source policy checks, issues check, diff check, and two subagent reviews.
+- implementation:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_source.nepl` に `SelfhostMemoTraitDefinitionFingerprint` と `SelfhostMemoTraitDefinitionSourceRecord` を追加し、prepared fingerprint を raw constructor ではなく typed source record として materializer へ渡す境界を作った。
+  - `selfhost_memo_trait_source_identity_from_definition` は expected kind と source record を照合し、`KindMismatch` / `SignatureMissing` を `Result::Err` として返す。失敗理由は bool や文字列ではなく enum で保持する。
+  - current `MemoKey` / `MemoValue` helper は prepared record から materializer を通して source identity を作る。current registry / source set は `_current_result` API を持ち、proof store が fail-closed に処理できるようにした。
+  - current invariant 失敗を `unreachable` に落とす non-Result wrapper は撤廃した。current 判定と stage0 も `_current_result` API を match し、失敗時は `false` / summary false として扱う。
+  - `memo_trait_proof_store.nepl` の stage0 は `selfhost_memo_trait_trusted_source_identity_set_current_result` を使い、current source materialization が壊れた場合は proof store cleanup boundary に入る。
+  - `nodesrc/test_selfhost_memo_trait_source_contract.js` を更新し、typed source record、materializer error enum、registry error enum、current Result API、proof store Result routing、raw constructor 逆流禁止を source policy として固定した。
+  - `todo.md` と issues を更新し、残件を full trait definition table producer、type constructor layout evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary へ分けた。
+- policy/spec:
+  - Blocker: `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7` review で `note.n.md` の current branch checkpoint 欠落が merge blocker として指摘された。current checkpoint をこの section として追加した。
+  - Required: `SelfhostMemoTraitTrustedSourceRegistryStage0Summary` と source record constructor 系の doc comment が薄いと指摘された。契約、現状、計算量、stage0 と full trait definition table producer の境界を追記した。
+  - Required: current registry path は materializer の `Result` を捨ててはならない。`selfhost_memo_trait_trusted_source_registry_current_result` と `selfhost_memo_trait_trusted_source_identity_set_current_result` を追加し、proof store stage0 を Result route に変更した。
+  - Non-blocker: initial review では non-Result current wrapper が remaining risk として扱われたが、source policy regression が `unreachable` を今回差分由来 warning として検出したため wrapper を撤廃した。current helper は Result API が正規経路である。
+  - Question: full trait definition table の scan、public surface hash、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力からの source record producer は次 slice で扱う。
+  - Approve: source identity construction は typed source record materializer に閉じ、proof store は typed source identity set と typed rule identity の policy だけを authority にする。
+- implementation/test:
+  - Blocker: none after note checkpoint and doc comment strengthening.
+  - Required: source policy で current key/value Result helper section が `selfhost_memo_trait_source_identity_new` を直接呼ばないこと、proof store が `selfhost_memo_trait_trusted_source_identity_set_current_result` を使うことを固定した。
+  - Non-blocker: documentation contract は既存 report-only baseline を表示する。今回差分の public declaration には日本語 doc comment を追加し、行数や doc comment 長による抑制は入れていない。
+  - Question: artifact snapshot を外部入力として読む段階では、registry current result error を diagnostic display 層へ渡すが、error 自体は enum のまま保持する。
+  - Approve: focused source policy、module doctest、core/ty suite、warn-only source policy regression、issues check、diff check で代表境界を検査した。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - `019eb689-ea44-7972-8bf1-1f791cfecd18` は Blocker / Required なし。typed source record materializer、current Result registry、proof store Result route、source policy、issue/todo residual を確認し、Verdict は APPROVE / MERGE_APPROVED。
+  - `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7` は Blocker として current branch checkpoint 欠落、Required として doc comment の薄さを指摘した。`note.n.md` checkpoint と doc comment strengthening で対応した。
+  - follow-up review では、source policy regression が非 Result wrapper の `unreachable` を今回差分由来 warning として検出したため、wrapper 撤廃と Result-only current route を再確認した。`019eb689-ea44-7972-8bf1-1f791cfecd18` は issue 内の stale wrapper 記述を Required として指摘し、修正後に `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7` も MERGE_APPROVED を返した。
+- source_policy:
+  - `nodesrc/test_selfhost_memo_trait_source_contract.js` は typed fingerprint struct、typed source record、materializer error enum、trusted registry error enum、materializer signature、KindMismatch / SignatureMissing reject、prepared current record、current Result helper、registry Result API、proof store Result route、raw constructor 逆流禁止を固定する。
+  - `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` は proof store が source identity constructor を直接使わず、trusted source identity set Result API を使うことを固定する。
+  - `nodesrc/test_selfhost_zenn_review_gate_contract.js` と `nodesrc/selfhost_zenn_review_response_check.js` は live subagent review の Blocker / Required / Non-blocker / Question / Approve 分類と note checkpoint を確認する。
+  - source_policy: updated
+  - source_policy_reason: source identity は memo proof reuse authority なので、raw constructor や unchecked current path が戻ると proof cache が古い trait source を current と誤認する。source policy で typed materializer boundary と Result handling の退行を検出する。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_policy_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_source.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-source-materializer-after-comment.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-proof-store-materializer-after-comment.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-source-materializer-after-comment.json" --dist web/dist -j 1 --assert-io --no-tree` pass 9/9
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_source.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-source-materializer-no-unreachable.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-proof-store-materializer-no-unreachable.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-source-materializer-no-unreachable.json" --dist web/dist -j 1 --assert-io --no-tree` pass 9/9
+  - 検証済み: `node nodesrc/test_selfhost_documentation_contract.js`
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+  - `nodesrc/selfhost_zenn_review_response_check.js`: live subagent review を直接扱い、review response の必須分類はこの checkpoint と `nodesrc/test_selfhost_zenn_review_gate_contract.js` で固定した。
+  - source policy: full warn-only regression は exit 0。新規・更新 contract は Result route、raw constructor 禁止、`unreachable` wrapper 不在を確認した。
+  - 既存 warning: stdlib / selfhost documentation contract は既存 baseline と report-only doctest gap を表示する。
+  - 今回差分由来 warning: なし。
+- residual:
+  - residual_risk: none for this typed source materializer slice after Result route, doc comment strengthening, and two reviews.
+  - unexecuted_verification: none for this slice.
+  - new warnings: none.
+  - 次 slice: trait definition table から prepared fingerprint ではない stable source record を生成する producer、public surface hash / stable nominal key、type constructor layout evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、serialized canonical key fingerprint。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue trusted source registry checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
@@ -12,7 +83,7 @@
   - `SelfhostMemoTraitTrustedSourceRegistry` は typed `SelfhostMemoTraitSourceIdentity` を `memo_key` / `memo_value` に分けて持ち、display 名、path suffix、diagnostic text を authority にしない。
   - `selfhost_memo_trait_trusted_source_registry_sources` と `selfhost_memo_trait_trusted_source_registry_is_current` は registry を borrow し、`field::get_ref` で Copy payload を取り出すため、registry owner を消費しない。
   - `selfhost_memo_trait_trusted_source_registry_new` は private helper にした。外部 caller が同じ型の source identity を入れ替えた trusted registry を作る公開経路は持たせない。
-  - `memo_trait_proof_store.nepl` の stage0 は `selfhost_memo_trait_trusted_source_identity_set_current` から source identity set を受け取り、proof store 内で `SelfhostMemoTraitSourceKind::MemoKeyTrait` / `MemoValueTrait` や `selfhost_memo_trait_source_identity_new` を直接呼ばない。
+  - `memo_trait_proof_store.nepl` の stage0 は `selfhost_memo_trait_trusted_source_identity_set_current_result` から source identity set を受け取り、proof store 内で `SelfhostMemoTraitSourceKind::MemoKeyTrait` / `MemoValueTrait` や `selfhost_memo_trait_source_identity_new` を直接呼ばない。
   - `ty.nepl` facade、`nodesrc/selfhost_ty_sources.js`、source policy contract、issue、todo を更新した。
 - policy/spec:
   - Blocker: none after review.
