@@ -1,4 +1,8 @@
 export type AnalysisSpan = {
+    file_id?: number;
+    file_path?: string;
+    filePath?: string;
+    path?: string;
     start?: number;
     end?: number;
     start_line?: number;
@@ -9,6 +13,11 @@ export type AnalysisSpan = {
 
 export type AnalysisDiagnostic = {
     span?: AnalysisSpan;
+    primary?: AnalysisSpan;
+    secondary?: Array<{
+        span?: AnalysisSpan;
+        message?: string | null;
+    }>;
     severity?: string;
     code?: string | null;
     code_message?: string | null;
@@ -41,18 +50,21 @@ export type AnalysisTokenResolution = {
     token_index?: number;
     name?: string;
     span?: AnalysisSpan;
+    ref_span?: AnalysisSpan | null;
     resolved_def_id?: number | null;
+    resolved_definition?: AnalysisDefinition | null;
     candidate_def_ids?: number[];
+    candidate_definitions?: AnalysisDefinition[];
 };
 
 export type AnalysisTokenSemantic = {
     token_index?: number;
     inferred_type?: string | null;
-    expr_span?: { start?: number; end?: number } | null;
-    expression_range?: { start?: number; end?: number } | null;
+    expr_span?: AnalysisSpan | null;
+    expression_range?: AnalysisSpan | null;
     arg_index?: number | null;
-    arg_span?: { start?: number; end?: number } | null;
-    arg_range?: { start?: number; end?: number } | null;
+    arg_span?: AnalysisSpan | null;
+    arg_range?: AnalysisSpan | null;
 };
 
 export type AnalysisTokenClassification = {
@@ -70,6 +82,9 @@ export type AnalysisTreeNode = {
 };
 
 export type LanguageAnalysisSnapshot = {
+    path?: string | null;
+    sourcePath?: string | null;
+    activePath?: string | null;
     lex?: {
         tokens?: AnalysisToken[];
         diagnostics?: AnalysisDiagnostic[];
@@ -204,6 +219,7 @@ export type DefinitionCandidate = {
     name?: string;
     kind?: string;
     span?: AnalysisSpan | null;
+    filePath?: string | null;
 };
 
 export type TokenInsight = {
@@ -235,6 +251,17 @@ export type HoverInfo = {
 
 export type DefinitionLocation = {
     targetIndex: number;
+    targetPath?: string | null;
+    targetRange?: {
+        startIndex: number;
+        endIndex: number;
+    } | null;
+    targetByteRange?: {
+        startByte: number;
+        endByte: number;
+    } | null;
+    targetSpan?: AnalysisSpan | null;
+    isCrossFile?: boolean;
 };
 
 export type Occurrence = {
@@ -250,9 +277,20 @@ type OffsetMaps = {
 type PreparedLanguageAnalysis = {
     text: string;
     snapshot: LanguageAnalysisSnapshot;
+    activePath: string | null;
     offsets: OffsetMaps;
     definitionById: Map<number, AnalysisDefinition>;
     tokenClassificationByIndex: Map<number, AnalysisTokenClassification>;
+};
+
+type MappedAnalysisSpan = {
+    startIndex: number;
+    endIndex: number;
+    startLine: number;
+    startCol: number;
+    endLine: number;
+    endCol: number;
+    filePath: string | null;
 };
 
 function analysisArray<T>(value: T[] | null | undefined): T[] {
@@ -261,6 +299,54 @@ function analysisArray<T>(value: T[] | null | undefined): T[] {
 
 function optionalString(value: unknown): string | null {
     return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function normalizeAnalysisPath(value: unknown): string | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return null;
+    }
+    let normalized = trimmed.replace(/\\/g, '/');
+    while (normalized.length > 1 && normalized.endsWith('/')) {
+        normalized = normalized.slice(0, -1);
+    }
+    return normalized;
+}
+
+function analysisPathsEqual(left: string | null, right: string | null): boolean {
+    const normalizedLeft = normalizeAnalysisPath(left);
+    const normalizedRight = normalizeAnalysisPath(right);
+    return normalizedLeft != null && normalizedRight != null && normalizedLeft === normalizedRight;
+}
+
+function activePathFromSnapshot(snapshot: LanguageAnalysisSnapshot): string | null {
+    return normalizeAnalysisPath(snapshot.activePath)
+        ?? normalizeAnalysisPath(snapshot.sourcePath)
+        ?? normalizeAnalysisPath(snapshot.path);
+}
+
+function spanFilePath(span?: AnalysisSpan | null): string | null {
+    if (!span) {
+        return null;
+    }
+    return normalizeAnalysisPath(span.file_path)
+        ?? normalizeAnalysisPath(span.filePath)
+        ?? normalizeAnalysisPath(span.path);
+}
+
+function spanBelongsToActivePath(prepared: PreparedLanguageAnalysis, span?: AnalysisSpan | null): boolean {
+    const filePath = spanFilePath(span);
+    if (!filePath || !prepared.activePath) {
+        return true;
+    }
+    return analysisPathsEqual(filePath, prepared.activePath);
+}
+
+function diagnosticPrimarySpan(diagnostic?: AnalysisDiagnostic | null): AnalysisSpan | null {
+    return diagnostic?.primary ?? diagnostic?.span ?? null;
 }
 
 function buildOffsetMaps(text: string): OffsetMaps {
@@ -409,16 +495,12 @@ function unwrapSpan(source?: { span?: AnalysisSpan } | AnalysisSpan | null): Ana
     return source as AnalysisSpan;
 }
 
-function spanFromPrepared(prepared: PreparedLanguageAnalysis, source?: { span?: AnalysisSpan } | AnalysisSpan | null): {
-    startIndex: number;
-    endIndex: number;
-    startLine: number;
-    startCol: number;
-    endLine: number;
-    endCol: number;
-} | null {
+function spanFromPrepared(prepared: PreparedLanguageAnalysis, source?: { span?: AnalysisSpan } | AnalysisSpan | null): MappedAnalysisSpan | null {
     const span = unwrapSpan(source);
     if (!span) {
+        return null;
+    }
+    if (!spanBelongsToActivePath(prepared, span)) {
         return null;
     }
 
@@ -434,6 +516,30 @@ function spanFromPrepared(prepared: PreparedLanguageAnalysis, source?: { span?: 
         startCol: Number(span.start_col ?? 0),
         endLine: Number(span.end_line ?? 0),
         endCol: Number(span.end_col ?? 0),
+        filePath: spanFilePath(span),
+    };
+}
+
+function rangeFromPrepared(prepared: PreparedLanguageAnalysis, source?: { span?: AnalysisSpan } | AnalysisSpan | null): { start: number; end: number } | null {
+    const span = spanFromPrepared(prepared, source);
+    if (!span || span.endIndex < span.startIndex) {
+        return null;
+    }
+    return { start: span.startIndex, end: span.endIndex };
+}
+
+function rawByteRangeFromSpan(span?: AnalysisSpan | null): { startByte: number; endByte: number } | null {
+    if (!span) {
+        return null;
+    }
+    const start = Number(span.start ?? 0);
+    const end = Number(span.end ?? start);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+        return null;
+    }
+    return {
+        startByte: Math.max(0, Math.trunc(start)),
+        endByte: Math.max(Math.max(0, Math.trunc(start)), Math.trunc(end)),
     };
 }
 
@@ -649,6 +755,7 @@ function tokenizeDirectiveSpan(prepared: PreparedLanguageAnalysis, span: NonNull
 
 function prepareAnalysis(text: string, snapshot?: LanguageAnalysisSnapshot | null): PreparedLanguageAnalysis {
     const safeSnapshot = snapshot ?? {};
+    const activePath = activePathFromSnapshot(safeSnapshot);
     const definitions = analysisArray(safeSnapshot.resolve?.definitions);
     const definitionById = new Map<number, AnalysisDefinition>();
     for (const definition of definitions) {
@@ -665,6 +772,7 @@ function prepareAnalysis(text: string, snapshot?: LanguageAnalysisSnapshot | nul
     return {
         text,
         snapshot: safeSnapshot,
+        activePath,
         offsets: buildOffsetMaps(text),
         definitionById,
         tokenClassificationByIndex,
@@ -827,17 +935,21 @@ function expressionSpanFromAst(prepared: PreparedLanguageAnalysis, tokenSpan: To
 }
 
 function definitionCandidates(prepared: PreparedLanguageAnalysis, resolution: AnalysisTokenResolution | null): DefinitionCandidate[] {
-    if (!resolution || !Array.isArray(resolution.candidate_def_ids)) {
+    if (!resolution) {
         return [];
     }
-    return resolution.candidate_def_ids
-        .map((id) => prepared.definitionById.get(Number(id)))
-        .filter((value): value is AnalysisDefinition => Boolean(value))
+    const definitions = Array.isArray(resolution.candidate_definitions)
+        ? resolution.candidate_definitions
+        : analysisArray(resolution.candidate_def_ids)
+            .map((id) => prepared.definitionById.get(Number(id)))
+            .filter((value): value is AnalysisDefinition => Boolean(value));
+    return definitions
         .map((definition) => ({
             id: definition.id,
             name: definition.name,
             kind: definition.kind,
             span: definition.span ?? null,
+            filePath: spanFilePath(definition.span),
         }));
 }
 
@@ -848,7 +960,11 @@ function collectDiagnostics(prepared: PreparedLanguageAnalysis): EditorDiagnosti
             return;
         }
         for (const item of items) {
-            const span = spanFromPrepared(prepared, item);
+            const primarySpan = diagnosticPrimarySpan(item);
+            if (primarySpan && !spanBelongsToActivePath(prepared, primarySpan)) {
+                continue;
+            }
+            const span = primarySpan ? spanFromPrepared(prepared, primarySpan) : null;
             output.push({
                 startIndex: span ? span.startIndex : 0,
                 endIndex: span ? span.endIndex : 0,
@@ -955,23 +1071,17 @@ function buildSemanticTokens(prepared: PreparedLanguageAnalysis): EditorSemantic
     for (const item of semantics) {
         const exprSpan = item?.expr_span ?? item?.expression_range ?? null;
         const argSpan = item?.arg_span ?? item?.arg_range ?? null;
-        if (!exprSpan) {
+        const exprRange = rangeFromPrepared(prepared, exprSpan);
+        if (!exprRange) {
             continue;
         }
+        const argRange = argSpan ? rangeFromPrepared(prepared, argSpan) : null;
         output.push({
             tokenIndex: Number(item.token_index ?? -1),
             inferredType: item.inferred_type ?? null,
-            exprSpan: {
-                start: Number(exprSpan.start ?? 0),
-                end: Number(exprSpan.end ?? 0),
-            },
+            exprSpan: exprRange,
             argIndex: Number.isInteger(item.arg_index) ? Number(item.arg_index) : null,
-            argSpan: argSpan
-                ? {
-                    start: Number(argSpan.start ?? 0),
-                    end: Number(argSpan.end ?? 0),
-                }
-                : null,
+            argSpan: argRange,
         });
     }
     return output;
@@ -985,18 +1095,15 @@ function buildInlayHints(prepared: PreparedLanguageAnalysis): EditorInlayHint[] 
         if (!exprSpan || !item?.inferred_type) {
             continue;
         }
-        const start = Number(exprSpan.start ?? -1);
-        if (start < 0) {
+        const exprRange = rangeFromPrepared(prepared, exprSpan);
+        if (!exprRange) {
             continue;
         }
         output.push({
             kind: 'type',
-            position: start,
+            position: exprRange.start,
             label: `<${item.inferred_type}>`,
-            exprSpan: {
-                start: Number(exprSpan.start ?? 0),
-                end: Number(exprSpan.end ?? 0),
-            },
+            exprSpan: exprRange,
         });
     }
     return output;
@@ -1166,19 +1273,22 @@ export function getTokenInsightFromAnalysis(text: string, snapshot: LanguageAnal
 
     const semantic = tokenSemanticAt(prepared, hit.tokenIndex);
     const resolution = tokenResolutionAt(prepared, hit.tokenIndex);
-    const definition = resolution?.resolved_def_id != null ? prepared.definitionById.get(Number(resolution.resolved_def_id)) : null;
+    const definition = resolution?.resolved_definition
+        ?? (resolution?.resolved_def_id != null ? prepared.definitionById.get(Number(resolution.resolved_def_id)) : null);
     const candidates = definitionCandidates(prepared, resolution);
     const exprSpan = semantic?.expr_span ?? semantic?.expression_range ?? null;
     const argSpan = semantic?.arg_span ?? semantic?.arg_range ?? null;
+    const exprRange = exprSpan ? rangeFromPrepared(prepared, exprSpan) : null;
+    const argRange = argSpan ? rangeFromPrepared(prepared, argSpan) : null;
 
     return {
         tokenIndex: hit.tokenIndex,
         tokenKind: String(hit.token?.kind ?? ''),
         tokenSpan: hit.span,
         inferredType: semantic?.inferred_type ?? null,
-        exprSpan,
+        exprSpan: exprRange,
         argIndex: Number.isInteger(semantic?.arg_index) ? Number(semantic?.arg_index) : null,
-        argSpan,
+        argSpan: argRange,
         resolvedDefId: resolution?.resolved_def_id != null ? Number(resolution.resolved_def_id) : null,
         candidateDefIds: analysisArray(resolution?.candidate_def_ids).map((value) => Number(value)),
         definitionCandidates: candidates,
@@ -1188,6 +1298,7 @@ export function getTokenInsightFromAnalysis(text: string, snapshot: LanguageAnal
                 name: definition.name,
                 kind: definition.kind,
                 span: definition.span ?? null,
+                filePath: spanFilePath(definition.span),
             }
             : null,
     };
@@ -1238,6 +1349,39 @@ function resolveHoverExpressionSpan(prepared: PreparedLanguageAnalysis, insight:
     return semanticSpan;
 }
 
+function definitionLocationFromSpan(prepared: PreparedLanguageAnalysis, source?: AnalysisSpan | null): DefinitionLocation | null {
+    if (!source) {
+        return null;
+    }
+    const targetPath = spanFilePath(source);
+    if (spanBelongsToActivePath(prepared, source)) {
+        const span = spanFromPrepared(prepared, source);
+        if (!span) {
+            return null;
+        }
+        return {
+            targetIndex: span.startIndex,
+            targetPath: targetPath ?? prepared.activePath,
+            targetRange: {
+                startIndex: span.startIndex,
+                endIndex: span.endIndex,
+            },
+            targetByteRange: rawByteRangeFromSpan(source),
+            targetSpan: source,
+            isCrossFile: false,
+        };
+    }
+    const byteRange = rawByteRangeFromSpan(source);
+    return {
+        targetIndex: 0,
+        targetPath,
+        targetRange: null,
+        targetByteRange: byteRange,
+        targetSpan: source,
+        isCrossFile: true,
+    };
+}
+
 export function getHoverInfoFromAnalysis(text: string, snapshot: LanguageAnalysisSnapshot | null | undefined, index: number): HoverInfo | null {
     const prepared = prepareAnalysis(text, snapshot);
     const insight = getTokenInsightFromAnalysis(text, snapshot, index);
@@ -1279,10 +1423,7 @@ export function getDefinitionLocationFromAnalysis(text: string, snapshot: Langua
     const prepared = prepareAnalysis(text, snapshot);
     const insight = getTokenInsightFromAnalysis(text, snapshot, index);
     if (insight?.resolvedDefinition?.span) {
-        const span = spanFromPrepared(prepared, { span: insight.resolvedDefinition.span });
-        if (span) {
-            return { targetIndex: span.startIndex };
-        }
+        return definitionLocationFromSpan(prepared, insight.resolvedDefinition.span);
     }
     return null;
 }

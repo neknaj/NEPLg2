@@ -1,3 +1,38 @@
+# 2026-06-12 Agent2 Web Playground analysis span identity checkpoint
+
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `agent2/playground-analysis-spans-20260612`
+- 対象 issue: `ISS-20260611T164150659Z-WEB-PLAYGROUND-ANALYSIS-SPANS-MUST-P-CFF77E8E`
+- 方針: Web Playground の解析 payload は active editor text だけを authority にせず、compiler span の `file_path` と active path を照合する。byte offset は UI index として直接扱わず、`editor-core/language-analysis.ts` の共有 mapper を通す。
+- subagent review:
+  - `019eb8db-785b-7840-b7b9-a267b111b71a`: 未完了実装の優先順位を確認し、Web Playground 文脈では P0 analysis span / definition navigation を最優先と判断した。
+  - `019eb8db-6509-7f92-b06e-c25c853176b0`: active path が provider / worker から渡らない問題、Rust diagnostic の `file_path` 欠落、cross-file `targetRange` の byte offset 誤解、旧 provider mapper の再利用事故を指摘した。実装ではこれらを反映した。
+  - `019eb8e8-9b3a-7130-9be7-cfec94d4233c`: 実装後 review で Blocker / Required なし、MERGE OK。activePath filtering、cross-file definition fail-closed、F12 の誤移動防止、回帰テスト範囲を確認済み。
+- 実装:
+  - `web/src/editor-core/language-analysis.ts` に active path aware span mapper を追加し、`file_path` が active editor と異なる diagnostic / token / semantic span / occurrence を editor-local payload から除外した。
+  - Rust payload の `primary` diagnostic span を正規入力として扱い、legacy `span` も互換入力として残した。
+  - `token_semantics` の `expr_span` / `arg_span`、inlay hint、hover expression を byte offset 直接利用から共有 mapper 経由に変更した。
+  - cross-file definition は `targetPath` と raw `targetSpan` / `targetByteRange` を保持し、active editor 用 `targetRange` は `null` にして local cursor が byte offset へ誤移動しないようにした。
+  - `web/src/language/neplg2/neplg2-provider.ts` と `web/src/language/neplg2/neplg2-analysis-worker.ts` は bridge snapshot に `path` / `sourcePath` / `activePath` を渡す。
+  - provider 内の active text 専用旧 span mapper / offset map / dead helper を削除し、span authority を `editor-core/language-analysis.ts` に一本化した。
+  - `nepl-web/src/lib.rs` の VFS semantic diagnostics は `SourceMap` 付き helper で `file_path` を保持するようにした。
+  - `nodesrc/test_playground_analysis_span_identity.js` を追加し、非 ASCII byte offset、diagnostic `primary`、active path filter、cross-file definition fail-closed、occurrence filter、Rust/TS source policy を固定した。
+- 検証:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_playground_analysis_span_identity.js`
+  - pass: `node nodesrc/test_editor_diagnostic_code_contract.js`
+  - pass: `node nodesrc/test_editor_current_syntax_highlighting.js`
+  - pass: `node nodesrc/test_neplg2_language_provider_vfs.js`
+  - pass: `node nodesrc/test_playground_analysis_freshness.js`
+  - pass: `node nodesrc/test_playground_editor_performance_policy.js`
+  - pass: `node nodesrc/test_diagnostic_code_first_boundary.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `trunk build`
+  - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/agent2-playground-editor-tests.json` 13/13
+  - pass: `git diff --check`
+- 残件:
+  - cross-file definition の target file を workspace tab で開き、target file text に対する char range へ cursor を移す UI 実装は `ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A` で継続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue source scanner checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。Option / Result、enum-first error、match 網羅性、DAG 依存、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
