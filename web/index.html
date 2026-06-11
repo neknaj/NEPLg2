@@ -53,6 +53,13 @@
                     </select>
                 </div>
                 <div class="control-group">
+                    <label for="compiler-mode-select">Compiler:</label>
+                    <select id="compiler-mode-select">
+                        <option value="rust" selected>Rust</option>
+                        <option value="selfhost">Selfhost experimental</option>
+                    </select>
+                </div>
+                <div class="control-group">
                     <button id="run-button" class="btn" title="Run the program">Run</button>
                     <button id="compile-button" class="btn" title="Compile to WAT">Compile</button>
                     <button id="help-button" class="btn" title="Show help">Help</button>

@@ -162,6 +162,9 @@ class CanvasEditor {
         this.highlightedOccurrences = [];
         this.bracketHighlights = [];
         this.foldingRanges = [];
+        this.cursorDerivedHighlightTimer = null;
+        this.cursorDerivedHighlightVersion = 0;
+        this.cursorDerivedHighlightDelayMs = 45;
         // Sub-components
         this.utils = new EditorUtils(this.geom);
         this.renderer = new EditorRenderer(this);
@@ -393,8 +396,7 @@ class CanvasEditor {
                 this.updateText(this.text);
             }
         }
-        this.updateOccurrencesHighlight();
-        this.updateBracketMatching();
+        this.scheduleCursorDerivedHighlights();
         if (this.onCursorChange) {
             this.onCursorChange(this.cursor);
         }
@@ -458,8 +460,7 @@ class CanvasEditor {
         }
         this.scrollToCursor();
         this.resetCursorBlink();
-        this.updateOccurrencesHighlight();
-        this.updateBracketMatching();
+        this.scheduleCursorDerivedHighlights();
         if (this.onCursorChange)
             this.onCursorChange(this.cursor);
     }
@@ -676,7 +677,7 @@ class CanvasEditor {
         else {
             this.selectionEnd = this.cursor;
         }
-        this.updateOccurrencesHighlight();
+        this.scheduleCursorDerivedHighlights();
     }
     moveCursorLine(direction) {
         const { row, col } = this.utils.getPosFromIndex(this.cursor, this.lines);
@@ -714,7 +715,7 @@ class CanvasEditor {
         else {
             this.selectionEnd = this.cursor;
         }
-        this.updateOccurrencesHighlight();
+        this.scheduleCursorDerivedHighlights();
     }
     handlePageKeys(e) {
         const direction = e.key === 'PageUp' ? -1 : 1;
@@ -737,9 +738,33 @@ class CanvasEditor {
         else {
             this.selectionEnd = this.cursor;
         }
-        this.updateOccurrencesHighlight();
+        this.scheduleCursorDerivedHighlights();
     }
     // --- Feature Logic ---
+    scheduleCursorDerivedHighlights(delay = this.cursorDerivedHighlightDelayMs) {
+        this.cursorDerivedHighlightVersion += 1;
+        const version = this.cursorDerivedHighlightVersion;
+        if (this.cursorDerivedHighlightTimer !== null) {
+            clearTimeout(this.cursorDerivedHighlightTimer);
+            this.cursorDerivedHighlightTimer = null;
+        }
+        if (!this.languageProvider) {
+            this.highlightedOccurrences = [];
+            this.bracketHighlights = [];
+            return;
+        }
+        this.cursorDerivedHighlightTimer = setTimeout(async () => {
+            this.cursorDerivedHighlightTimer = null;
+            if (version !== this.cursorDerivedHighlightVersion) {
+                return;
+            }
+            await this.updateOccurrencesHighlight();
+            if (version !== this.cursorDerivedHighlightVersion) {
+                return;
+            }
+            await this.updateBracketMatching();
+        }, Math.max(0, Number(delay) || 0));
+    }
     async updateOccurrencesHighlight() {
         if (!this.languageProvider || this.hasSelection()) {
             if (this.highlightedOccurrences.length > 0)
@@ -747,7 +772,11 @@ class CanvasEditor {
             this.domUI.hideCompletion();
             return;
         }
-        const occurrences = await this.languageProvider.getOccurrences(this.cursor);
+        const cursor = this.cursor;
+        const occurrences = await this.languageProvider.getOccurrences(cursor);
+        if (cursor !== this.cursor) {
+            return;
+        }
         this.highlightedOccurrences = (occurrences || []).slice().sort((a, b) => a.startIndex - b.startIndex);
     }
     async updateBracketMatching() {
@@ -755,7 +784,11 @@ class CanvasEditor {
             this.bracketHighlights = [];
             return;
         }
-        const matches = await this.languageProvider.getBracketMatch(this.cursor);
+        const cursor = this.cursor;
+        const matches = await this.languageProvider.getBracketMatch(cursor);
+        if (cursor !== this.cursor) {
+            return;
+        }
         this.bracketHighlights = (matches || []).slice().sort((a, b) => a.startIndex - b.startIndex);
     }
     scrollToCursor() {

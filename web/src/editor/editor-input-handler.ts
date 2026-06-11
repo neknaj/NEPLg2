@@ -158,7 +158,7 @@ class EditorInputHandler {
     onMouseUp() {
         this.isDragging = false;
         this.editor.preferredCursorX = -1;
-        this.editor.updateOccurrencesHighlight();
+        this.editor.scheduleCursorDerivedHighlights();
     }
     onWheel(e) {
         e.preventDefault();
@@ -293,7 +293,7 @@ class EditorInputHandler {
                         this.editor.selectionEnd = this.editor.cursor;
                     else
                         this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
-                    this.editor.updateOccurrencesHighlight();
+                    this.editor.scheduleCursorDerivedHighlights();
                     return;
                 }
             // Fallthrough for non-ctrl movement

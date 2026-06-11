@@ -52,6 +52,16 @@ assert.match(
 );
 assert.match(
     worker,
+    /request\.compilerMode\s*\|\|\s*'rust'/,
+    "playground worker must default compile requests to the Rust compiler mode",
+);
+assert.match(
+    worker,
+    /mode\s*===\s*'selfhost'/,
+    "playground worker must keep selfhost compiler mode on a separate explicit path",
+);
+assert.match(
+    worker,
     /typeof\s+session\.compile_outputs_with_vfs\s*===\s*'function'/,
     "playground worker must only select a session that exposes the compile output API",
 );
@@ -79,6 +89,16 @@ assert.match(
     shell,
     /keepWorkerAlive:\s*true/,
     "playground shell must keep the compiler worker alive after successful compile requests",
+);
+assert.match(
+    shell,
+    /resolveCompilerMode\(parsed\.flags\)/,
+    "playground shell must resolve compiler mode before building worker requests",
+);
+assert.match(
+    shell,
+    /compilerMode,\s*\n\s*compiler,/,
+    "playground shell must send compiler mode through the worker protocol",
 );
 assert.match(
     shell,

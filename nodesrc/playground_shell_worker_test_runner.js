@@ -119,6 +119,7 @@ async function runShellWorkerRegression() {
         const buildResult = await shell.cmdNeplg2(['build', '-i', '/examples/demo.nepl', '--emit', 'wasm,wat']);
         assert.equal(buildResult, 'Build complete.');
         assert.equal(FakeWorker.instances[0].messages[0].type, 'execute-neplg2');
+        assert.equal(FakeWorker.instances[0].messages[0].compilerMode, 'rust');
         assert.equal(FakeWorker.instances[0].messages[0].compiler.moduleUrl, global.window.NEPLg2CompilerAssets.moduleUrl);
         assert.deepEqual(FakeWorker.instances[0].messages[0].compileVfsData, {
             '/examples/demo.nepl': 'print "demo"\n',
@@ -134,6 +135,13 @@ async function runShellWorkerRegression() {
         assert.equal(secondBuildResult, 'Build complete.');
         assert.equal(FakeWorker.instances.length, 1);
         assert.equal(FakeWorker.instances[0].messages[1].type, 'execute-neplg2');
+        assert.equal(FakeWorker.instances[0].messages[1].compilerMode, 'rust');
+
+        const selfhostBuildResult = await shell.cmdNeplg2(['build', '-i', '/examples/demo.nepl', '--compiler', 'selfhost']);
+        assert.equal(selfhostBuildResult, 'Build complete.');
+        assert.equal(FakeWorker.instances.length, 1);
+        assert.equal(FakeWorker.instances[0].messages[2].type, 'execute-neplg2');
+        assert.equal(FakeWorker.instances[0].messages[2].compilerMode, 'selfhost');
 
         const runResult = await shell.cmdWasmi(['/out.wasm']);
         assert.equal(runResult, null);
@@ -142,8 +150,9 @@ async function runShellWorkerRegression() {
 
         const compileAndRunResult = await shell.cmdNeplg2(['run', '-i', '/examples/demo.nepl']);
         assert.equal(compileAndRunResult, null);
-        assert.equal(FakeWorker.instances[0].messages[2].type, 'execute-neplg2');
-        assert.equal(FakeWorker.instances[0].messages[2].runAfterBuild, false);
+        assert.equal(FakeWorker.instances[0].messages[3].type, 'execute-neplg2');
+        assert.equal(FakeWorker.instances[0].messages[3].compilerMode, 'rust');
+        assert.equal(FakeWorker.instances[0].messages[3].runAfterBuild, false);
         assert.equal(FakeWorker.instances[2].messages[0].type, 'run-wasm');
         assert.equal(FakeWorker.instances[2].terminated, true);
         assert.equal(terminal.written.join(''), 'ok\nok\n');
@@ -154,6 +163,7 @@ async function runShellWorkerRegression() {
                 'compiler asset urls resolve from the explicit window snapshot',
                 'neplg2 build uses the worker compile protocol instead of main-thread bindings',
                 'compile worker requests separate source overlay from runtime VFS state',
+                'compile requests carry an explicit rust/selfhost compiler mode',
                 'neplg2 build reuses one compiler worker across compile requests',
                 'neplg2 run compiles through the persistent worker and executes through an ephemeral runtime worker',
                 'compile outputs are written back to the VFS on the main thread',

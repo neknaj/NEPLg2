@@ -91,7 +91,9 @@ export class CanvasTerminal {
         this.isFocused = false;
 
         // Dependencies - initialize Shell last
-        this.shell = new Shell(this, (options as any).vfs || null);
+        this.shell = new Shell(this, (options as any).vfs || null, {
+            getCompilerMode: (options as any).getCompilerMode,
+        });
 
         this.blinkInterval = setInterval(() => {
             if (!this.isFocused) {

@@ -51,6 +51,7 @@ type RunWasmWorkerRequest = {
 
 type ExecuteNeplg2WorkerRequest = {
     type: 'execute-neplg2';
+    compilerMode: CompilerMode;
     compiler: CompilerAssetUrls;
     entryPath: string;
     source: string;
@@ -70,6 +71,12 @@ type WorkerProcessOptions = {
     onCompileResult?: (outputs: Record<string, string | Uint8Array>) => void;
     /** Compile 用 Worker の WASM instance と CompilerSession を次回 compile に再利用する。 */
     keepWorkerAlive?: boolean;
+};
+
+type CompilerMode = 'rust' | 'selfhost';
+
+type ShellOptions = {
+    getCompilerMode?: () => string;
 };
 
 type GuiRuntimeTimerState = {
@@ -102,8 +109,9 @@ export class Shell {
     private guiInputUnavailableReported: boolean;
     private currentProcessReject: ((reason?: any) => void) | null;
     private guiStdoutProtocolParser: GuiWebStdoutProtocolParser;
+    private getCompilerModeOption: () => string;
 
-    constructor(terminal: any, vfs: VFS) {
+    constructor(terminal: any, vfs: VFS, options: ShellOptions = {}) {
         this.terminal = terminal;
         this.vfs = vfs || new VFS();
         this.editor = null;
@@ -127,6 +135,9 @@ export class Shell {
         this.guiInputUnavailableReported = false;
         this.currentProcessReject = null;
         this.guiStdoutProtocolParser = new GuiWebStdoutProtocolParser();
+        this.getCompilerModeOption = typeof options.getCompilerMode === 'function'
+            ? options.getCompilerMode
+            : () => 'rust';
         registerGuiWebInputEventListener({
             kind: 'gui-input-listener',
             onInputEvent: (event) => this.handleGuiInputEvent(event),
@@ -195,7 +206,7 @@ export class Shell {
   cat <file>    - Display file contents
   pwd           - Print working directory
   clear         - Clear the terminal
-  neplg2 [run|build] [-i input] [-o output] [--emit wasm|wat|wat-min|all] [--attach-source]
+  neplg2 [run|build] [-i input] [-o output] [--emit wasm|wat|wat-min|all] [--compiler rust|selfhost] [--attach-source]
                 - Compile NEPLg2 code (WASM/WAT) and optionally run (WASM)
   wasmi <file>  - Run a WASM file using the wasmi runtime
   tree [path]   - Show directory tree structure
@@ -250,6 +261,12 @@ export class Shell {
         if (!compiler) {
             return 'Error: Compiler assets are not ready yet.';
         }
+        const compilerModeResult = this.resolveCompilerMode(parsed.flags);
+        if (compilerModeResult.kind === 'err') {
+            return `Error: ${compilerModeResult.message}`;
+        }
+        const compilerMode = compilerModeResult.mode;
+        this.terminal.print(`Compiler: ${compilerMode === 'rust' ? 'Rust implementation' : 'Self-host implementation (experimental)'}`);
 
         const emitValues = this.normalizeEmit(parsed.flags['--emit']);
         if (wantsRun && !emitValues.includes('wasm')) {
@@ -262,6 +279,7 @@ export class Shell {
 
         const request: ExecuteNeplg2WorkerRequest = {
             type: 'execute-neplg2',
+            compilerMode,
             compiler,
             entryPath: sourceInput.inputPath,
             source: sourceInput.source,
@@ -430,6 +448,29 @@ export class Shell {
 
     private resolveCompilerAssetUrls(): CompilerAssetUrls | null {
         return resolveCompilerAssets(window as any, typeof document !== 'undefined' ? document : null);
+    }
+
+    private normalizeCompilerMode(value: unknown): CompilerMode | null {
+        const raw = String(value || '').trim().toLowerCase();
+        if (!raw || raw === 'rust' || raw === 'rust-impl' || raw === 'rust_impl') {
+            return 'rust';
+        }
+        if (raw === 'selfhost' || raw === 'self-host' || raw === 'self_host') {
+            return 'selfhost';
+        }
+        return null;
+    }
+
+    private resolveCompilerMode(flags: Record<string, string | boolean>): { kind: 'ok'; mode: CompilerMode } | { kind: 'err'; message: string } {
+        const explicit = flags['--compiler'] || flags['--compiler-mode'] || flags['--compiler_mode'];
+        if (explicit === true) {
+            return { kind: 'err', message: '--compiler requires rust or selfhost' };
+        }
+        const mode = this.normalizeCompilerMode(explicit || this.getCompilerModeOption());
+        if (!mode) {
+            return { kind: 'err', message: `unknown compiler mode '${String(explicit || this.getCompilerModeOption())}'` };
+        }
+        return { kind: 'ok', mode };
     }
 
     private ensureStdinBuffer(): SharedArrayBuffer | null {
