@@ -25,6 +25,11 @@ assert.match(
     /^#import "\.\/memo_trait_policy" as \*$/m,
     "memo trait proof store must import the typed memo trait policy module",
 );
+assert.match(
+    source,
+    /^#import "\.\/memo_trait_source" as \*$/m,
+    "memo trait proof store must import the trusted memo trait source registry",
+);
 assert.doesNotMatch(
     source,
     /#import "neplg2\/core\/(?:lower|hir|check|resource|backend)\//,
@@ -49,6 +54,11 @@ assert.doesNotMatch(
     source,
     /trait_source_hash %i32|rule_hash %i32|selfhost_memo_trait_proof_store_policy_new %fn i32 fn i32 fn i32 fn i32/,
     "proof store must not expose raw trait_source_hash/rule_hash fields or a raw-i32 policy constructor",
+);
+assert.doesNotMatch(
+    source,
+    /selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait|selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait/,
+    "proof store must not construct trusted MemoKey/MemoValue source identities locally",
 );
 assert.match(
     source,
