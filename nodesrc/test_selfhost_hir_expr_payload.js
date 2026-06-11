@@ -45,10 +45,18 @@ assert.doesNotMatch(exprStruct, /\b(?:first_child|child_count|name|int_value|boo
 
 assert.deepEqual(
     enumVariants(hir, "SelfhostHirExprPayload"),
-    ["Error", "Unit", "BoolLiteral", "I32Literal", "F32Literal", "StrLiteral", "Var", "FnValue", "Call", "Block", "If"],
+    ["Error", "Unit", "BoolLiteral", "I32Literal", "F32Literal", "StrLiteral", "Var", "FnValue", "MemoizedFunctionValue", "Call", "Block", "If"],
     "expression payload variants must cover the current expression kind set",
 );
-assert.match(hir, /(?:pub\s+)?struct SelfhostHirCallExpr:[\s\S]*?\bname\s+<str>[\s\S]*?\bargs\s+<SelfhostHirChildRange>/, "call payload must own callee name and argument range");
+const callExprStruct = topLevelBlock(hir, "struct", "SelfhostHirCallExpr:");
+assert.match(callExprStruct, /\bname\s+<str>/, "call payload must keep the display callee name");
+assert.match(callExprStruct, /\bdef_id\s+<SelfhostDefId>/, "call payload must keep DefId evidence");
+assert.match(callExprStruct, /\bcallable_type\s+<SelfhostTypeId>/, "call payload must keep the callee function type");
+assert.match(callExprStruct, /\beffect\s+<SelfhostEffectKind>/, "call payload must keep the callee effect");
+assert.match(callExprStruct, /\btype_arg_count\s+<i32>/, "call payload must keep generic arity evidence until stable type args exist");
+assert.match(callExprStruct, /\bargs\s+<SelfhostHirChildRange>/, "call payload must keep the argument range");
+assert.match(hir, /\bCall\s+<SelfhostHirCallExpr>/, "call payload must use typed call identity, not a string-only name");
+assert.doesNotMatch(hir, /\bCall\s+<str>/, "call payload must not regress to a string-only identity");
 
 const valueIdentityStruct = topLevelBlock(hir, "struct", "SelfhostHirValueIdentity:");
 assert.match(valueIdentityStruct, /\bsymbol\s+<str>/, "value identity must keep the display symbol");
@@ -58,6 +66,8 @@ assert.match(valueIdentityStruct, /\bkind\s+<SelfhostDefKind>/, "value identity 
 assert.match(hir, /\bVar\s+<SelfhostHirValueIdentity>/, "variable payload must use typed identity, not a string-only name");
 assert.doesNotMatch(hir, /\bVar\s+<str>/, "variable payload must not regress to a string-only identity");
 assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_var\b[^\n]*\bfn\s+str\b/, "variable constructor must not accept a string-only identity");
+assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_call\b[^\n]*\bfn\s+str\s+fn\s+SelfhostHirChildRange\b/, "call constructor must not accept only a string name and argument range");
+assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_call\b[^\n]*\bfn\s+i32\s+fn\s+SelfhostHirChildRange\b/, "call constructor must not expose unchecked type_arg_count");
 
 const fnIdentityStruct = topLevelBlock(hir, "struct", "SelfhostHirFunctionValueIdentity:");
 assert.match(fnIdentityStruct, /\bsymbol\s+<str>/, "function value identity must keep the display/link symbol");
@@ -67,6 +77,8 @@ assert.match(fnIdentityStruct, /\beffect\s+<SelfhostEffectKind>/, "function valu
 assert.match(fnIdentityStruct, /\btype_arg_count\s+<i32>/, "function value identity must keep generic arity evidence until a stable type-arg range exists");
 assert.match(hir, /\bFnValue\s+<SelfhostHirFunctionValueIdentity>/, "function value payload must use typed identity, not a string-only name");
 assert.doesNotMatch(hir, /\bFnValue\s+<str>/, "function value payload must not regress to a string-only identity");
+assert.match(hir, /\bMemoizedFunctionValue\s+<SelfhostHirFunctionValueIdentity>/, "memoized function value payload must use typed identity, not a string-only name");
+assert.doesNotMatch(hir, /\bMemoizedFunctionValue\s+<str>/, "memoized function value payload must not regress to a string-only identity");
 
 assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_(?:leaf|with_children)\b/, "flat leaf/children constructors must not remain");
 assert.doesNotMatch(hir, /\bselfhost_hir_expr_new\s+SelfhostHirExprKind::/, "flat kind-driven constructor calls must not remain");
@@ -85,6 +97,7 @@ assert.match(childAccessor, /\bmatch\s+\*field::get_ref\s+expr\s+"payload":/, "c
 assert.match(childAccessor, /\bSelfhostHirExprPayload::Call\s+call:/, "call payload must expose args through child range accessor");
 assert.match(childAccessor, /\bSelfhostHirExprPayload::Block\s+children:/, "block payload must expose child range");
 assert.match(childAccessor, /\bSelfhostHirExprPayload::If\s+branches:/, "if payload must expose branch range");
+assert.match(childAccessor, /\bSelfhostHirExprPayload::MemoizedFunctionValue\s+_identity:[\s\S]*selfhost_hir_child_range_empty/, "memoized function values must be leaf HIR expressions with no cache-state child range");
 assert.doesNotMatch(childAccessor, /\bexpr\.(?:first_child|child_count)\b/, "child range accessor must not read flat child fields");
 
 for (const fnName of [
@@ -96,6 +109,7 @@ for (const fnName of [
     "selfhost_hir_expr_str_literal",
     "selfhost_hir_expr_var",
     "selfhost_hir_expr_fn_value",
+    "selfhost_hir_expr_memoized_function_value",
     "selfhost_hir_expr_call",
     "selfhost_hir_expr_block",
     "selfhost_hir_expr_if",

@@ -9,7 +9,7 @@
 //:
 //: [契約/けいやく]:
 //: - `SelfhostHirExpr.ty` と identity payload が authority です。payload の文字列や source span から型や定義 identity を推測し直してはいけません。
-//: - 関数値は `SelfhostHirFunctionValueIdentity` によって effect / type / DefId evidence を保持します。`memo_call` や indirect call はこの identity の制約を別 stage で検査します。
+//: - 関数値と memoized function value は `SelfhostHirFunctionValueIdentity` によって effect / type / DefId evidence を保持します。`memo_call` や indirect call はこの identity の制約を別 stage で検査します。
 //:
 //: [計算量/けいさんりょう]:
 //: - expression record の構築と accessor は O(1) です。child traversal の計算量は child range を消費する後続 stage が持ちます。
@@ -41,6 +41,7 @@ pub enum SelfhostHirExprKind:
     StrLiteral
     Var
     FnValue
+    MemoizedFunctionValue
     Call
     Block
     If
@@ -62,7 +63,7 @@ impl Copy for SelfhostHirExprKind:
 //: [契約/けいやく]:
 //: - `function_ty` はこの関数値そのものの関数型を指します。
 //: - `effect` は `function_ty` に含まれる関数 effect と一致していなければなりません。
-//: - `def_id` が `Option::None` の identity は、外部 artifact から復元した direct-call 専用候補など、安定定義 id がまだ証明されていない状態を表します。そのまま HIR `FnValue`、indirect call、`memo_call` へ進めてはいけません。
+//: - `def_id` が `Option::None` の identity は、外部 artifact から復元した direct-call 専用候補など、安定定義 id がまだ証明されていない状態を表します。そのまま HIR `FnValue`、`MemoizedFunctionValue`、indirect call、`memo_call` へ進めてはいけません。
 //: - `type_arg_count` は現時点では 0 の monomorphic identity だけを accepted lowering に使います。generic type argument の実体は、後続の stable type-argument range / canonical key issue で追加します。
 //:
 //: [計算量/けいさんりょう]:
@@ -102,19 +103,28 @@ impl Copy for SelfhostHirFunctionValueIdentityBuildError:
     fn copy_mark %fn SelfhostHirFunctionValueIdentityBuildError SelfhostHirFunctionValueIdentityBuildError \self:
         self
 
-//: SelfhostHirCallExpr: call payload に保存する callee 名と argument child range
+//: SelfhostHirCallExpr: call payload に保存する callee identity と argument child range
 //:
 //: [目的/もくてき]:
-//: - direct call の表示名と、同じ HIR module arena 内にある argument expression range をまとめます。
+//: - direct call の表示名、DefId-linked callable identity、関数型、effect、型引数数、同じ HIR module arena 内にある argument expression range をまとめます。
+//: - `@ident` function value、indirect call、`memo_call`、Resource IR summary が同じ callable を参照していることを後続 phase が型付き payload だけで確認できるようにします。
 //:
 //: [契約/けいやく]:
-//: - `name` は現状の direct call 表示名です。将来の stable callable id 追加後も、型や identity の authority として使ってはいけません。
+//: - `name` は diagnostic / dump / backend symbol 用の表示名です。型や identity の authority として使ってはいけません。
+//: - `def_id` は checker が選んだ `SelfhostCallableCandidate` 由来の定義 identity です。HIR lowering で source token や scope lookup から再構築してはいけません。
+//: - `callable_type` は callee の関数型です。expression 全体の結果型は `SelfhostHirExpr.ty` にあり、この field は callee identity / monomorphize / Resource IR 用の証拠として保持します。
+//: - `effect` は callee の effect 証拠です。pure / impure call boundary、indirect call、`memo_call` の検査はこの payload を参照します。
+//: - `type_arg_count` は現時点では 0 の monomorphic call だけを accepted path にします。generic instantiation の stable type-argument range は後続 issue で追加します。
 //: - `args` は `SelfhostHirModule` arena 内の child range です。range 外参照は module arena 側の invariant で拒否します。
 //:
 //: [計算量/けいさんりょう]:
 //: - record copy と field access は O(1) です。
 pub struct SelfhostHirCallExpr:
     name %str
+    def_id %SelfhostDefId
+    callable_type %SelfhostTypeId
+    effect %SelfhostEffectKind
+    type_arg_count %i32
     args %SelfhostHirChildRange
 
 impl Clone for SelfhostHirCallExpr:
@@ -160,7 +170,7 @@ impl Copy for SelfhostHirValueIdentity:
 //:
 //: [契約/けいやく]:
 //: - `SelfhostHirExpr.ty` が expression type の authority であり、payload variant だけから型を推測してはいけません。
-//: - `FnValue` と `Var` は DefId-linked identity payload を持ちます。source spelling から identity を再構築してはいけません。
+//: - `FnValue`、`MemoizedFunctionValue`、`Var`、`Call` は DefId-linked identity payload を持ちます。source spelling から identity を再構築してはいけません。
 //: - `Call`、`Block`、`If` は child range を通じて module arena 内の child expression を参照します。
 pub enum SelfhostHirExprPayload:
     Error
@@ -171,6 +181,7 @@ pub enum SelfhostHirExprPayload:
     StrLiteral %str
     Var %SelfhostHirValueIdentity
     FnValue %SelfhostHirFunctionValueIdentity
+    MemoizedFunctionValue %SelfhostHirFunctionValueIdentity
     Call %SelfhostHirCallExpr
     Block %SelfhostHirChildRange
     If %SelfhostHirChildRange
@@ -233,6 +244,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::FnValue:
                     false
+                SelfhostHirExprKind::MemoizedFunctionValue:
+                    false
                 SelfhostHirExprKind::Call:
                     false
                 SelfhostHirExprKind::Block:
@@ -256,6 +269,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::Var:
                     false
                 SelfhostHirExprKind::FnValue:
+                    false
+                SelfhostHirExprKind::MemoizedFunctionValue:
                     false
                 SelfhostHirExprKind::Call:
                     false
@@ -281,6 +296,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::FnValue:
                     false
+                SelfhostHirExprKind::MemoizedFunctionValue:
+                    false
                 SelfhostHirExprKind::Call:
                     false
                 SelfhostHirExprKind::Block:
@@ -304,6 +321,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::Var:
                     false
                 SelfhostHirExprKind::FnValue:
+                    false
+                SelfhostHirExprKind::MemoizedFunctionValue:
                     false
                 SelfhostHirExprKind::Call:
                     false
@@ -329,6 +348,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::FnValue:
                     false
+                SelfhostHirExprKind::MemoizedFunctionValue:
+                    false
                 SelfhostHirExprKind::Call:
                     false
                 SelfhostHirExprKind::Block:
@@ -352,6 +373,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::Var:
                     false
                 SelfhostHirExprKind::FnValue:
+                    false
+                SelfhostHirExprKind::MemoizedFunctionValue:
                     false
                 SelfhostHirExprKind::Call:
                     false
@@ -377,6 +400,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     true
                 SelfhostHirExprKind::FnValue:
                     false
+                SelfhostHirExprKind::MemoizedFunctionValue:
+                    false
                 SelfhostHirExprKind::Call:
                     false
                 SelfhostHirExprKind::Block:
@@ -400,6 +425,34 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::Var:
                     false
                 SelfhostHirExprKind::FnValue:
+                    true
+                SelfhostHirExprKind::MemoizedFunctionValue:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::MemoizedFunctionValue:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::F32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::FnValue:
+                    false
+                SelfhostHirExprKind::MemoizedFunctionValue:
                     true
                 SelfhostHirExprKind::Call:
                     false
@@ -425,6 +478,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::FnValue:
                     false
+                SelfhostHirExprKind::MemoizedFunctionValue:
+                    false
                 SelfhostHirExprKind::Call:
                     true
                 SelfhostHirExprKind::Block:
@@ -449,6 +504,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                     false
                 SelfhostHirExprKind::FnValue:
                     false
+                SelfhostHirExprKind::MemoizedFunctionValue:
+                    false
                 SelfhostHirExprKind::Call:
                     false
                 SelfhostHirExprKind::Block:
@@ -472,6 +529,8 @@ pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind 
                 SelfhostHirExprKind::Var:
                     false
                 SelfhostHirExprKind::FnValue:
+                    false
+                SelfhostHirExprKind::MemoizedFunctionValue:
                     false
                 SelfhostHirExprKind::Call:
                     false
@@ -598,9 +657,40 @@ pub fn selfhost_hir_expr_var %fn SelfhostTypeId fn SelfhostSourceSpan fn Selfhos
 pub fn selfhost_hir_expr_fn_value %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirFunctionValueIdentity SelfhostHirExpr \ty\span\identity:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::FnValue identity
 
-//: selfhost_hir_expr_call: call expression record を[作/つく]る
-pub fn selfhost_hir_expr_call %fn SelfhostTypeId fn SelfhostSourceSpan fn str fn SelfhostHirChildRange SelfhostHirExpr \ty\span\name\args:
-    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name args
+//: selfhost_hir_expr_memoized_function_value: memoized function value expression record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` の Phase 1 lowering が返す memoized function value を、通常の `FnValue` と区別できる HIR payload として保存します。
+//: - payload は通常の関数値と同じ `SelfhostHirFunctionValueIdentity` を使い、memoized value も source spelling ではなく DefId / function type / effect / type argument evidence によって参照します。
+//:
+//: [契約/けいやく]:
+//: - `ty` は memoized function value の public function type です。Phase 1 では入力 pure function の function type と同じ型を渡します。
+//: - この constructor は HIR record を作るだけです。`def_id` の有無、pure effect、monomorphic 制約、private cache proof、sealed backend representation は caller 側の lowering / Resource IR issue で検査します。
+//: - `MemoizedFunctionValue` は cache state を公開しません。hit / miss / cache size / clear / storage identity を表す child expression や public payload は持たせません。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
+pub fn selfhost_hir_expr_memoized_function_value %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirFunctionValueIdentity SelfhostHirExpr \ty\span\identity:
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::MemoizedFunctionValue identity
+
+//: selfhost_hir_expr_call: direct call expression record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker が選択した callable identity と HIR child argument range を、source 再読なしの call payload として保存します。
+//: - 表示名だけでは `memo_call` / indirect call / Resource IR summary が同じ callable を参照していることを証明できないため、DefId、callee function type、effect、型引数数を同時に受け取ります。
+//:
+//: [契約/けいやく]:
+//: - `name` は表示用です。call target の authority は `def_id`、`callable_type`、`effect`、`type_arg_count` です。
+//: - 現 checkpoint では monomorphic direct call だけを受け取り、payload の `type_arg_count` はこの constructor が 0 に固定します。generic call の stable type-argument identity は後続 issue で追加します。
+//: - この constructor は HIR record を作るだけで、candidate 収集や overload 解決を行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostHirExpr`: `Call` payload を持つ typed HIR expression record です。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
+pub fn selfhost_hir_expr_call %fn SelfhostTypeId fn SelfhostSourceSpan fn str fn SelfhostDefId fn SelfhostTypeId fn SelfhostEffectKind fn SelfhostHirChildRange SelfhostHirExpr \ty\span\name\def_id\callable_type\effect\args:
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name def_id callable_type effect 0 args
 
 //: selfhost_hir_expr_block: block expression record を[作/つく]る
 pub fn selfhost_hir_expr_block %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirChildRange SelfhostHirExpr \ty\span\children:
@@ -629,6 +719,8 @@ pub fn selfhost_hir_expr_kind %fn &SelfhostHirExpr SelfhostHirExprKind \expr:
             SelfhostHirExprKind::Var
         SelfhostHirExprPayload::FnValue _identity:
             SelfhostHirExprKind::FnValue
+        SelfhostHirExprPayload::MemoizedFunctionValue _identity:
+            SelfhostHirExprKind::MemoizedFunctionValue
         SelfhostHirExprPayload::Call _call:
             SelfhostHirExprKind::Call
         SelfhostHirExprPayload::Block _children:
@@ -654,6 +746,8 @@ pub fn selfhost_hir_expr_child_range %fn &SelfhostHirExpr SelfhostHirChildRange 
         SelfhostHirExprPayload::Var _name:
             selfhost_hir_child_range_empty
         SelfhostHirExprPayload::FnValue _identity:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::MemoizedFunctionValue _identity:
             selfhost_hir_child_range_empty
         SelfhostHirExprPayload::Call call:
             call.args

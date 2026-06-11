@@ -17,8 +17,10 @@
 //: - 従来の `selfhost_hir_lower_direct_call_result` 経路では、tree node id を持たない `TypedExpression` / `NestedDirectCall` / `BlockResult` summary argument を `UnsupportedArgumentKind` として fail-closed にします。
 //: - `SelfhostCheckedArgumentKind::CheckedExpr` を含む複合 expression は、`SelfhostCheckedExprTree` を受け取る `selfhost_hir_lower_checked_tree_expr` 経路で HIR `Call` / `Block` へ下ろします。
 //: - string literal は `check/expr/literal_payload.nepl` が quote 除去と対応済み escape decode を終えた `StrLiteral` payload として渡します。この module は raw lexeme を再解析しません。
-//: - parent call expression の callee 名は、legacy direct-call result 経路では `SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate.name` から得ます。prefix token spelling を再読しません。
+//: - parent call expression の callee identity は、legacy direct-call result 経路では `SelfhostReducedCall.candidate_index` で選ばれた `SelfhostCallableCandidate` から得ます。prefix token spelling を再読しません。
 //: - checked tree 経路では、`DirectCall` node が保持する `SelfhostCallableCandidate` が callee authority です。pipe 正規化のように surface head と callee target が異なる場合も、legacy `candidate_index` だけへ戻してはいけません。
+//: - HIR `Call` payload には表示名だけでなく DefId、callable type、effect、monomorphic type argument count を保存します。`memo_call` や indirect call の後続 slice が文字列名から callable identity を復元しないようにするためです。
+//: - generic candidate は、型引数の stable range / canonical key を HIR call identity に保存できるようになるまで `GenericCallIdentityUnsupported` として fail-closed にします。`Unique` を暗黙の 0 型引数として保存してはいけません。
 //:
 //: [現状実装/げんじょうじっそう]:
 //: - float literal は Rust 実装の現在の HIR と同じく `F32Literal` payload に変換します。`f64` defaulting や suffix 解決はこの lowering 境界では扱いません。
@@ -277,6 +279,98 @@
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/argument_payload" as *
+//:| #import "neplg2/core/check/expr/call_candidate" as *
+//:| #import "neplg2/core/check/expr/checked_tree" as *
+//:| #import "neplg2/core/check/expr/checked_tree_id" as *
+//:| #import "neplg2/core/check/expr/model" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/lower/hir" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 7 11 13
+//:     let fn_ty %SelfhostTypeId selfhost_type_id_new 9
+//:     let result_ty %SelfhostTypeId selfhost_type_id_new 10
+//:     let generic_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "map" selfhost_def_id_new 77 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::Unique span
+//:     let checked_args0 %Vec SelfhostCheckedArgument unwrap_ok v::new
+//:     let candidates0 %Vec SelfhostCallableCandidate unwrap_ok v::new
+//:     let candidates1 %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 generic_candidate
+//:     let call %SelfhostReducedCall selfhost_reduced_call_new 0 0 result_ty span
+//:     let reduced %SelfhostCallReduceResult SelfhostCallReduceResult::DirectCall call
+//:     match selfhost_hir_module_new:
+//:         Result::Ok module0:
+//:             match selfhost_hir_lower_direct_call_result module0 reduced &checked_args0 &candidates1:
+//:                 Result::Ok alloc:
+//:                     let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc
+//:                     selfhost_hir_module_free module1
+//:                     v::free checked_args0
+//:                     v::free candidates1
+//:                     let checks1 checks_push checks0 Result::Err "legacy generic direct call was lowered"
+//:                     let shown checks_print_report checks1
+//:                     checks_exit_code shown
+//:                 Result::Err error:
+//:                     v::free checked_args0
+//:                     v::free candidates1
+//:                     let checks1 checks_push checks0 check selfhost_direct_call_lower_error_kind_eq error.kind SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported
+//:                     match selfhost_checked_expr_tree_new:
+//:                         Result::Ok tree0:
+//:                             let tree_args %Vec SelfhostCheckedArgument unwrap_ok v::new
+//:                             match selfhost_checked_expr_tree_add_direct_call tree0 generic_candidate result_ty span tree_args:
+//:                                 Result::Ok tree_alloc:
+//:                                     let expr_id %SelfhostCheckedExprId selfhost_checked_expr_node_alloc_expr_id &tree_alloc
+//:                                     let tree1 %SelfhostCheckedExprTree selfhost_checked_expr_node_alloc_into_tree tree_alloc
+//:                                     match selfhost_hir_module_new:
+//:                                         Result::Ok module2:
+//:                                             match selfhost_hir_lower_checked_tree_expr module2 &tree1 expr_id span:
+//:                                                 Result::Ok hir_alloc:
+//:                                                     let module3 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module hir_alloc
+//:                                                     selfhost_hir_module_free module3
+//:                                                     selfhost_checked_expr_tree_free tree1
+//:                                                     let checks2 checks_push checks1 Result::Err "checked-tree generic direct call was lowered"
+//:                                                     let shown checks_print_report checks2
+//:                                                     checks_exit_code shown
+//:                                                 Result::Err checked_error:
+//:                                                     selfhost_checked_expr_tree_free tree1
+//:                                                     let checks2 checks_push checks1 check selfhost_direct_call_lower_error_kind_eq checked_error.kind SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported
+//:                                                     let shown checks_print_report checks2
+//:                                                     checks_exit_code shown
+//:                                         Result::Err _e:
+//:                                             selfhost_checked_expr_tree_free tree1
+//:                                             let checks2 checks_push checks1 Result::Err "HIR module allocation failed"
+//:                                             let shown checks_print_report checks2
+//:                                             checks_exit_code shown
+//:                                 Result::Err _e:
+//:                                     let checks2 checks_push checks1 Result::Err "checked tree generic node allocation failed"
+//:                                     let shown checks_print_report checks2
+//:                                     checks_exit_code shown
+//:                         Result::Err _e:
+//:                             let checks2 checks_push checks1 Result::Err "checked tree allocation failed"
+//:                             let shown checks_print_report checks2
+//:                             checks_exit_code shown
+//:         Result::Err _e:
+//:             v::free checked_args0
+//:             v::free candidates1
+//:             let checks1 checks_push checks0 Result::Err "HIR module allocation failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
 
 #import "alloc/collections/vec" as v
 #import "core/char" as *
@@ -307,6 +401,7 @@
 //: - `CheckedArgumentCountMismatch` と `CheckedArgumentMissing` は、reducer の argument count と checked argument list の整合性が壊れている場合です。
 //: - `UnsupportedArgumentKind` は、`TypedExpression`、tree node id を持たない `NestedDirectCall` / `BlockResult` summary など、HIR child payload が不足している argument を fail-closed した場合です。
 //: - `FunctionValueFailed` は、`@ident` function value lowering が monomorphic candidate 以外を拒否した場合など、function value 専用 error を包みます。
+//: - `GenericCallIdentityUnsupported` は、direct call 自体は reducer で成立したものの、HIR `Call` payload に保存する stable type-argument identity がまだ無いため、generic call を安全に下ろせない場合です。
 //: - `CheckedTreeNodeMissing`、`CheckedTreeCycleDetected`、`CheckedTreeArgumentMissing` は、checked expression tree の node / recursion / argument range / block expression range が壊れている場合です。
 //: - `ChildIdsAllocFailed`、`ChildExprAllocFailed`、`ChildIdPushFailed`、`ChildRangeAllocFailed`、`ParentCallAllocFailed` は、HIR module または一時 Vec の owner 境界で起きた allocation failure です。
 //:
@@ -321,6 +416,7 @@ pub enum SelfhostDirectCallLowerErrorKind:
     CheckedArgumentMissing
     UnsupportedArgumentKind
     FunctionValueFailed %SelfhostFunctionValueLowerErrorKind
+    GenericCallIdentityUnsupported
     CheckedTreeNodeMissing
     CheckedTreeCycleDetected
     CheckedTreeArgumentMissing
@@ -441,6 +537,12 @@ pub fn selfhost_direct_call_lower_error_kind_eq %fn SelfhostDirectCallLowerError
                     selfhost_function_value_lower_error_kind_eq a_kind b_kind
                 _:
                     false
+        SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported:
+            match b:
+                SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported:
+                    true
+                _:
+                    false
         SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing:
             match b:
                 SelfhostDirectCallLowerErrorKind::CheckedTreeNodeMissing:
@@ -540,6 +642,29 @@ fn selfhost_direct_call_lower_free_state_error %impure fn SelfhostHirModule impu
     selfhost_hir_module_free module
     v::free child_ids
     Result::Err selfhost_direct_call_lower_error_new kind span
+
+//: selfhost_direct_call_candidate_is_accepted_monomorphic: direct call HIR lowering が candidate を受理できるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - HIR `Call` payload は DefId、callee type、effect を保持しますが、generic type argument の stable range / canonical key はまだ保持しません。
+//: - そのため、`SelfhostGenericInferenceState::NoneRequired` の candidate だけを accepted path にし、`Unique` を含む generic candidate は direct call identity を失わないように fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - この predicate は型推論をやり直しません。checker が保存した candidate state を分類するだけです。
+//: - generic call を受け入れる場合は、この predicate を緩める前に HIR call payload に stable type-argument identity を追加し、`GenericCallIdentityUnsupported` の扱いと doc を同時に更新します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: candidate は型引数を必要としない monomorphic call として HIR に保存できます。
+//: - `false`: candidate は現 checkpoint の HIR call identity では安全に保存できません。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum 分岐だけなので O(1) です。
+fn selfhost_direct_call_candidate_is_accepted_monomorphic %fn SelfhostCallableCandidate bool \candidate:
+    match candidate.generic_state:
+        SelfhostGenericInferenceState::NoneRequired:
+            true
+        _:
+            false
 
 //: selfhost_hir_lower_checked_argument: checked argument を HIR child expression に[変換/へんかん]する
 //:
@@ -673,11 +798,12 @@ fn selfhost_hir_lower_direct_call_arguments %impure fn SelfhostHirModule impure 
 //:
 //: [目的/もくてき]:
 //: - reducer が選んだ callee candidate と checked argument payload から、HIR child expressions と parent `Call` expression を構築します。
-//: - callee 名は candidate table 由来の `candidate.name` を使い、prefix token spelling は再読しません。
+//: - callee identity は candidate table 由来の `candidate.name`、`candidate.def_id`、`candidate.callable_type`、`candidate.effect` から作り、prefix token spelling は再読しません。
 //:
 //: [契約/けいやく]:
-//: - `candidate` は `call.candidate_index` で選択済みの callable candidate です。
+//: - `candidate` は `call.candidate_index` で選択済みの callable candidate です。HIR call payload はこの candidate の typed identity を保存します。
 //: - `checked_arguments` は reducer が受理した引数だけを順番通りに含みます。
+//: - 現 checkpoint では generic instantiation の stable type-argument range が無いため、monomorphic candidate だけを受理し、HIR call の `type_arg_count` は constructor 側で 0 として保存します。generic call の accepted path は後続 issue まで広げません。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(alloc)`: parent call expression が HIR module に追加されました。
@@ -692,29 +818,34 @@ fn selfhost_hir_lower_direct_call_plan %impure fn SelfhostHirModule impure fn Se
         then:
             selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::CheckedArgumentCountMismatch call.span
         else:
-            let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
-            match child_ids_result:
-                Result::Ok child_ids:
-                    match selfhost_hir_lower_direct_call_arguments module child_ids checked_arguments call.argument_count 0 call.span:
-                        Result::Ok state:
-                            let child_module %SelfhostHirModule field::get state "module"
-                            let lowered_child_ids %Vec SelfhostHirExprId field::get state "child_ids"
-                            match selfhost_hir_module_add_child_range child_module lowered_child_ids:
-                                Result::Ok range_alloc:
-                                    let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
-                                    let parent_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
-                                    let parent_expr %SelfhostHirExpr selfhost_hir_expr_call call.result_type call.span candidate.name child_range
-                                    match selfhost_hir_module_add_expr parent_module parent_expr:
-                                        Result::Ok alloc:
-                                            Result::Ok alloc
+            if:
+                not selfhost_direct_call_candidate_is_accepted_monomorphic candidate
+                then:
+                    selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported call.span
+                else:
+                    let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+                    match child_ids_result:
+                        Result::Ok child_ids:
+                            match selfhost_hir_lower_direct_call_arguments module child_ids checked_arguments call.argument_count 0 call.span:
+                                Result::Ok state:
+                                    let child_module %SelfhostHirModule field::get state "module"
+                                    let lowered_child_ids %Vec SelfhostHirExprId field::get state "child_ids"
+                                    match selfhost_hir_module_add_child_range child_module lowered_child_ids:
+                                        Result::Ok range_alloc:
+                                            let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                                            let parent_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                                            let parent_expr %SelfhostHirExpr selfhost_hir_expr_call call.result_type call.span candidate.name candidate.def_id candidate.callable_type candidate.effect child_range
+                                            match selfhost_hir_module_add_expr parent_module parent_expr:
+                                                Result::Ok alloc:
+                                                    Result::Ok alloc
+                                                Result::Err _e:
+                                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed call.span
                                         Result::Err _e:
-                                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed call.span
-                                Result::Err _e:
-                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed call.span
-                        Result::Err e:
-                            Result::Err e
-                Result::Err _e:
-                    selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed call.span
+                                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed call.span
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err _e:
+                            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed call.span
 
 //: selfhost_hir_lower_checked_tree_argument: checked tree 内の 1 argument を HIR expression へ[変換/へんかん]する
 //:
@@ -790,6 +921,8 @@ fn selfhost_hir_lower_checked_tree_argument_range %impure fn SelfhostHirModule i
 //:
 //: [契約/けいやく]:
 //: - `call_payload.candidate` が callee identity の authority です。lowering は name scope や candidate table を再探索しません。
+//: - HIR call payload には candidate の DefId、callable type、effect を保存します。`call_payload.candidate.name` は表示名であり、後続 phase の identity authority ではありません。
+//: - `call_payload.candidate.generic_state` は `NoneRequired` だけを受理します。`Unique` を含む generic candidate は、stable type-argument identity が HIR payload に入るまで `GenericCallIdentityUnsupported` として拒否します。
 //: - `node.ty` は parent call expression の result type として使います。
 //: - `fuel` は child expression に渡す recursion budget です。
 //:
@@ -800,29 +933,34 @@ fn selfhost_hir_lower_checked_tree_argument_range %impure fn SelfhostHirModule i
 //: [計算量/けいさんりょう]:
 //: - child argument 数 n に対して O(n) です。
 fn selfhost_hir_lower_checked_tree_direct_call_node %impure fn SelfhostHirModule impure fn &SelfhostCheckedExprTree impure fn SelfhostCheckedExprNode impure fn SelfhostCheckedDirectCall impure fn i32 Result SelfhostHirModuleExprAlloc SelfhostDirectCallLowerError \module\tree\node\call_payload\fuel:
-    let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
-    match child_ids_result:
-        Result::Ok child_ids:
-            match selfhost_hir_lower_checked_tree_argument_range module child_ids tree call_payload.arguments 0 node.span fuel:
-                Result::Ok state:
-                    let child_module %SelfhostHirModule field::get state "module"
-                    let lowered_child_ids %Vec SelfhostHirExprId field::get state "child_ids"
-                    match selfhost_hir_module_add_child_range child_module lowered_child_ids:
-                        Result::Ok range_alloc:
-                            let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
-                            let parent_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
-                            let parent_expr %SelfhostHirExpr selfhost_hir_expr_call node.ty node.span call_payload.candidate.name child_range
-                            match selfhost_hir_module_add_expr parent_module parent_expr:
-                                Result::Ok alloc:
-                                    Result::Ok alloc
+    if:
+        not selfhost_direct_call_candidate_is_accepted_monomorphic call_payload.candidate
+        then:
+            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported node.span
+        else:
+            let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+            match child_ids_result:
+                Result::Ok child_ids:
+                    match selfhost_hir_lower_checked_tree_argument_range module child_ids tree call_payload.arguments 0 node.span fuel:
+                        Result::Ok state:
+                            let child_module %SelfhostHirModule field::get state "module"
+                            let lowered_child_ids %Vec SelfhostHirExprId field::get state "child_ids"
+                            match selfhost_hir_module_add_child_range child_module lowered_child_ids:
+                                Result::Ok range_alloc:
+                                    let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                                    let parent_module %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                                    let parent_expr %SelfhostHirExpr selfhost_hir_expr_call node.ty node.span call_payload.candidate.name call_payload.candidate.def_id call_payload.candidate.callable_type call_payload.candidate.effect child_range
+                                    match selfhost_hir_module_add_expr parent_module parent_expr:
+                                        Result::Ok alloc:
+                                            Result::Ok alloc
+                                        Result::Err _e:
+                                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed node.span
                                 Result::Err _e:
-                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ParentCallAllocFailed node.span
-                        Result::Err _e:
-                            Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed node.span
-                Result::Err e:
-                    Result::Err e
-        Result::Err _e:
-            selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed node.span
+                                    Result::Err selfhost_direct_call_lower_error_new SelfhostDirectCallLowerErrorKind::ChildRangeAllocFailed node.span
+                        Result::Err e:
+                            Result::Err e
+                Result::Err _e:
+                    selfhost_direct_call_lower_free_module_error module SelfhostDirectCallLowerErrorKind::ChildIdsAllocFailed node.span
 
 //: selfhost_hir_lower_checked_tree_block_result_node: checked block result node を HIR block expression へ[変換/へんかん]する
 //:

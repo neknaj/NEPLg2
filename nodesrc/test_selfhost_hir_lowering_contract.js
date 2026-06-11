@@ -54,13 +54,13 @@ assert.match(
 );
 assert.match(
     source,
-    /# lower\/hir\/function_value[\s\S]*pub enum SelfhostFunctionValueLowerErrorKind:[\s\S]*GenericUnsupported[\s\S]*IdentityBuildFailed/,
-    "function value HIR lowering must live in its own typed-error lower/hir split module",
+    /# lower\/hir\/function_value[\s\S]*pub enum SelfhostFunctionValueLowerErrorKind:[\s\S]*GenericUnsupported[\s\S]*IdentityBuildFailed[\s\S]*MemoSourceMissingDefId[\s\S]*MemoSourceImpureUnsupported/,
+    "function value HIR lowering must live in its own typed-error lower/hir split module and keep memo_call source failures typed",
 );
 assert.match(
     source,
-    /#import "neplg2\/core\/check\/expr\/call_candidate" as \*[\s\S]*#import "neplg2\/core\/hir\/hir" as \*/,
-    "function value lowering must be the explicit layer that knows both checker candidates and HIR records",
+    /#import "neplg2\/core\/check\/expr\/call_candidate" as \*[\s\S]*#import "neplg2\/core\/hir\/hir" as \*[\s\S]*#import "neplg2\/core\/ty\/effect" as \*/,
+    "function value lowering must be the explicit layer that knows checker candidates, HIR records, and effect evidence",
 );
 assert.match(
     source,
@@ -79,7 +79,27 @@ assert.match(
 );
 assert.match(
     source,
-    /# lower\/hir\/direct_call[\s\S]*pub enum SelfhostDirectCallLowerErrorKind:[\s\S]*UnsupportedArgumentKind[\s\S]*FunctionValueFailed %SelfhostFunctionValueLowerErrorKind[\s\S]*CheckedTreeNodeMissing[\s\S]*CheckedTreeCycleDetected[\s\S]*CheckedTreeArgumentMissing[\s\S]*ChildExprAllocFailed[\s\S]*ParentCallAllocFailed/,
+    /pub fn selfhost_memoized_function_value_identity_is_phase1_accepted %fn SelfhostHirFunctionValueIdentity bool[\s\S]*selfhost_hir_function_value_identity_has_def_id &identity[\s\S]*selfhost_hir_function_value_identity_is_monomorphic &identity[\s\S]*selfhost_effect_kind_eq identity\.effect SelfhostEffectKind::Pure/,
+    "memoized function value lowering must require DefId evidence, monomorphic identity, and Pure effect",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memoized_function_value_identity_phase1_result %fn SelfhostHirFunctionValueIdentity fn SelfhostSourceSpan Result SelfhostHirFunctionValueIdentity SelfhostFunctionValueLowerError[\s\S]*MemoSourceMissingDefId[\s\S]*GenericUnsupported[\s\S]*MemoSourceImpureUnsupported[\s\S]*Result::Ok identity/,
+    "memoized function value identity validation must preserve distinct fail-closed error kinds",
+);
+assert.match(
+    source,
+    /pub fn selfhost_hir_expr_memoized_function_value_from_identity %fn SelfhostHirFunctionValueIdentity fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError[\s\S]*selfhost_memoized_function_value_identity_phase1_result identity span[\s\S]*selfhost_hir_expr_memoized_function_value accepted\.function_ty span accepted/,
+    "memoized function value lowering must build a dedicated HIR payload using the accepted function type",
+);
+assert.match(
+    source,
+    /pub fn selfhost_hir_expr_memoized_function_value_from_candidate %fn SelfhostCallableCandidate fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError[\s\S]*selfhost_function_value_identity_from_candidate candidate[\s\S]*selfhost_hir_expr_memoized_function_value_from_identity identity span/,
+    "memoized function value candidate lowering must reuse typed function value identity construction instead of string-name reconstruction",
+);
+assert.match(
+    source,
+    /# lower\/hir\/direct_call[\s\S]*pub enum SelfhostDirectCallLowerErrorKind:[\s\S]*UnsupportedArgumentKind[\s\S]*FunctionValueFailed %SelfhostFunctionValueLowerErrorKind[\s\S]*GenericCallIdentityUnsupported[\s\S]*CheckedTreeNodeMissing[\s\S]*CheckedTreeCycleDetected[\s\S]*CheckedTreeArgumentMissing[\s\S]*ChildExprAllocFailed[\s\S]*ParentCallAllocFailed/,
     "direct call lowering must live in its own typed-error lower/hir split module",
 );
 assert.match(
@@ -102,6 +122,7 @@ assertDirectCallDeclDoc("SelfhostDirectCallLowerErrorKind", "pub enum", [
     "[分類/ぶんるい]",
     "[契約/けいやく]",
     "`UnsupportedArgumentKind` は",
+    "`GenericCallIdentityUnsupported` は",
     "`ChildIdsAllocFailed`、`ChildExprAllocFailed`、`ChildIdPushFailed`、`ChildRangeAllocFailed`、`ParentCallAllocFailed`",
     "owner を閉じる必要がある失敗 path",
 ]);
@@ -117,6 +138,7 @@ for (const name of [
     "selfhost_direct_call_argument_lower_state_new",
     "selfhost_direct_call_lower_free_module_error",
     "selfhost_direct_call_lower_free_state_error",
+    "selfhost_direct_call_candidate_is_accepted_monomorphic",
     "selfhost_hir_lower_checked_argument",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
@@ -137,6 +159,7 @@ for (const name of [
     "selfhost_direct_call_argument_lower_state_new",
     "selfhost_direct_call_lower_free_module_error",
     "selfhost_direct_call_lower_free_state_error",
+    "selfhost_direct_call_candidate_is_accepted_monomorphic",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
     "selfhost_hir_lower_checked_tree_argument",
@@ -153,6 +176,7 @@ for (const name of [
     "selfhost_direct_call_lower_error_kind_eq",
     "selfhost_direct_call_lower_free_module_error",
     "selfhost_direct_call_lower_free_state_error",
+    "selfhost_direct_call_candidate_is_accepted_monomorphic",
     "selfhost_hir_lower_checked_argument",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
@@ -174,6 +198,7 @@ for (const name of [
     "selfhost_direct_call_argument_lower_state_new",
     "selfhost_direct_call_lower_free_module_error",
     "selfhost_direct_call_lower_free_state_error",
+    "selfhost_direct_call_candidate_is_accepted_monomorphic",
     "selfhost_hir_lower_checked_argument",
     "selfhost_hir_lower_direct_call_arguments",
     "selfhost_hir_lower_direct_call_plan",
@@ -201,6 +226,11 @@ assert.match(
 );
 assert.match(
     directCall,
+    /fn selfhost_direct_call_candidate_is_accepted_monomorphic %fn SelfhostCallableCandidate bool \\candidate:[\s\S]*match candidate\.generic_state:[\s\S]*SelfhostGenericInferenceState::NoneRequired:[\s\S]*true[\s\S]*_:[\s\S]*false/,
+    "direct call lowering must accept only monomorphic candidates until stable type-argument identity exists",
+);
+assert.match(
+    directCall,
     /pub fn selfhost_hir_lower_expression_line_success_direct_call[\s\S]*selfhost_expression_line_check_success_result success[\s\S]*SelfhostCallReduceResult::DirectCall call:[\s\S]*selfhost_hir_lower_checked_tree_expr module selfhost_expression_line_check_success_checked_tree success selfhost_expression_line_check_success_root_expr success call\.span/,
     "body-line success lowering must lower from the checked tree root exposed by expression checking",
 );
@@ -216,8 +246,18 @@ assert.match(
 );
 assert.match(
     directCall,
-    /fn selfhost_hir_lower_checked_tree_direct_call_node[\s\S]*selfhost_hir_lower_checked_tree_argument_range module child_ids tree call_payload\.arguments 0 node\.span fuel[\s\S]*selfhost_hir_expr_call node\.ty node\.span call_payload\.candidate\.name child_range/,
-    "checked tree direct-call lowering must build HIR calls from selected candidate payload and checked child arguments",
+    /fn selfhost_hir_lower_checked_tree_direct_call_node[\s\S]*not selfhost_direct_call_candidate_is_accepted_monomorphic call_payload\.candidate[\s\S]*SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported node\.span[\s\S]*selfhost_hir_lower_checked_tree_argument_range module child_ids tree call_payload\.arguments 0 node\.span fuel[\s\S]*selfhost_hir_expr_call node\.ty node\.span call_payload\.candidate\.name call_payload\.candidate\.def_id call_payload\.candidate\.callable_type call_payload\.candidate\.effect child_range/,
+    "checked tree direct-call lowering must reject generic candidates and build HIR calls from selected candidate typed identity and checked child arguments",
+);
+assert.match(
+    directCall,
+    /fn selfhost_hir_lower_direct_call_plan[\s\S]*not selfhost_direct_call_candidate_is_accepted_monomorphic candidate[\s\S]*SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported call\.span[\s\S]*selfhost_hir_expr_call call\.result_type call\.span candidate\.name candidate\.def_id candidate\.callable_type candidate\.effect child_range/,
+    "legacy direct-call lowering must reject generic candidates and preserve reducer-selected candidate DefId, callable type, and effect in HIR call payload",
+);
+assert.match(
+    directCall,
+    /HIR `Call` payload には表示名だけでなく DefId、callable type、effect、monomorphic type argument count を保存します/,
+    "direct call lowering docs must state that HIR call payload keeps typed callee identity, not just a display name",
 );
 assert.match(
     directCall,

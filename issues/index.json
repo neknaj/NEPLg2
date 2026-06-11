@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T14:46:57.632Z",
+  "generated_at": "2026-06-11T14:55:21.534Z",
   "counts": {
     "total": 1354,
     "open": 50,
@@ -348,7 +348,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-06-01",
+      "updated": "2026-06-11",
       "target": "nepl-core/src/typecheck; nepl-core/src/resource; stdlib",
       "legacy_id": "",
       "source": "",

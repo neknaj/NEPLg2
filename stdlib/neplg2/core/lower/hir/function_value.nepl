@@ -5,8 +5,10 @@
 //:
 //: [目的/もくてき]:
 //: - 明示 `@ident` で検査済みの callable candidate を、HIR の `FnValue` payload として保存できる typed identity へ変換します。
+//: - `memo_call @pure_named_func` Phase 1 の HIR 境界として、同じ typed identity を `MemoizedFunctionValue` payload へ変換する fail-closed gate も提供します。
 //: - candidate の `name` だけでは monomorphize、indirect call、`memo_call`、Resource IR summary が同じ関数を参照していることを証明できません。そのため、この module は `SelfhostDefId`、関数型、effect をまとめた `SelfhostHirFunctionValueIdentity` を作ります。
 //: - generic function value の実体をまだ保存できない段階では、monomorphic な candidate だけを accepted lowering とし、それ以外は typed error で fail-closed にします。
+//: - memoized function value は、DefId があり、monomorphic で、effect が `Pure` の identity だけを受理します。private cache proof と sealed backend representation は別 issue の責務であり、この module は cache state を作りません。
 //:
 //: [責務/せきむ]:
 //: - `check/expr` は callable candidate と argument match evidence を作る責務を持ちます。
@@ -17,6 +19,7 @@
 //: - `SelfhostCallableCandidate.def_id` は signature table から来た DefId-linked evidence です。この値を `Option::Some` として HIR identity に入れます。
 //: - `SelfhostGenericInferenceState::NoneRequired` 以外の candidate は、現 checkpoint では `GenericUnsupported` として拒否します。`Unique` であっても型引数の stable range / canonical key をまだ HIR identity に保存できないため、受理しません。
 //: - `SelfhostFunctionValueLowerError` は表示用文言ではなく、後続 diagnostic projection が参照する機械的な error payload です。
+//: - `MemoSourceMissingDefId` と `MemoSourceImpureUnsupported` は、`memo_call` Phase 1 が通常の function value より強い制約を持つことを示します。これらを通常 `FnValue` lowering の成功と混ぜてはいけません。
 //:
 //: [計算量/けいさんりょう]:
 //: - candidate payload の確認と identity 生成は O(1) です。
@@ -28,15 +31,20 @@
 #import "neplg2/core/check/expr/call_candidate" as *
 #import "neplg2/core/hir/hir" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/ty/effect" as *
 
 //: SelfhostFunctionValueLowerErrorKind: function value lowering の失敗分類
 //:
 //: [目的/もくてき]:
 //: - `GenericUnsupported` は、candidate が型引数を必要とし、現 checkpoint の HIR identity payload では安全に表現できない場合です。
 //: - `IdentityBuildFailed` は、HIR identity constructor が内部不変条件を拒否した場合です。現時点では `type_arg_count = 0` を渡すため通常は起きませんが、constructor の `Result` を潰さず保持するために分類を分けます。
+//: - `MemoSourceMissingDefId` は、memoized function value の元になる identity が stable DefId evidence を持たない場合です。
+//: - `MemoSourceImpureUnsupported` は、memoized function value の元になる identity が `Pure` ではない場合です。
 pub enum SelfhostFunctionValueLowerErrorKind:
     GenericUnsupported
     IdentityBuildFailed
+    MemoSourceMissingDefId
+    MemoSourceImpureUnsupported
 
 impl Clone for SelfhostFunctionValueLowerErrorKind:
     fn clone %fn &SelfhostFunctionValueLowerErrorKind SelfhostFunctionValueLowerErrorKind \self:
@@ -77,14 +85,42 @@ pub fn selfhost_function_value_lower_error_kind_eq %fn SelfhostFunctionValueLowe
             match b:
                 SelfhostFunctionValueLowerErrorKind::GenericUnsupported:
                     true
-                _:
+                SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed:
+                    false
+                SelfhostFunctionValueLowerErrorKind::MemoSourceMissingDefId:
+                    false
+                SelfhostFunctionValueLowerErrorKind::MemoSourceImpureUnsupported:
                     false
         SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed:
             match b:
+                SelfhostFunctionValueLowerErrorKind::GenericUnsupported:
+                    false
                 SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed:
                     true
-                _:
+                SelfhostFunctionValueLowerErrorKind::MemoSourceMissingDefId:
                     false
+                SelfhostFunctionValueLowerErrorKind::MemoSourceImpureUnsupported:
+                    false
+        SelfhostFunctionValueLowerErrorKind::MemoSourceMissingDefId:
+            match b:
+                SelfhostFunctionValueLowerErrorKind::GenericUnsupported:
+                    false
+                SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed:
+                    false
+                SelfhostFunctionValueLowerErrorKind::MemoSourceMissingDefId:
+                    true
+                SelfhostFunctionValueLowerErrorKind::MemoSourceImpureUnsupported:
+                    false
+        SelfhostFunctionValueLowerErrorKind::MemoSourceImpureUnsupported:
+            match b:
+                SelfhostFunctionValueLowerErrorKind::GenericUnsupported:
+                    false
+                SelfhostFunctionValueLowerErrorKind::IdentityBuildFailed:
+                    false
+                SelfhostFunctionValueLowerErrorKind::MemoSourceMissingDefId:
+                    false
+                SelfhostFunctionValueLowerErrorKind::MemoSourceImpureUnsupported:
+                    true
 
 //: selfhost_function_value_candidate_is_accepted_monomorphic: candidate が現在の function value lowering で受理できるか[返/かえ]す
 //:
@@ -132,5 +168,117 @@ pub fn selfhost_hir_expr_fn_value_from_candidate %fn SelfhostCallableCandidate f
     match selfhost_function_value_identity_from_candidate candidate:
         Result::Ok identity:
             Result::Ok selfhost_hir_expr_fn_value candidate.callable_type span identity
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memoized_function_value_identity_is_phase1_accepted: memoized value にできる identity か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `memo_call @pure_named_func` Phase 1 で受理できる function value identity を、通常の `FnValue` lowering より強い条件で分類します。
+//: - private cache proof が未完成の間も、impure function、DefId が無い external identity、generic identity を memoized HIR value へ入れない境界を共有します。
+//:
+//: [契約/けいやく]:
+//: - `def_id = Option::Some`、`type_arg_count = 0`、`effect = Pure` の全てを満たす場合だけ `true` です。
+//: - この predicate は cache region の fresh / non-escape proof を行いません。Resource IR の sealed private cache issue がその責務を持ちます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: HIR `MemoizedFunctionValue` payload の Phase 1 入力として扱えます。
+//: - `false`: 呼び出し元は typed error を返し、通常 `FnValue` や direct call へ黙って fallback してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - identity field の検査だけなので O(1) です。
+pub fn selfhost_memoized_function_value_identity_is_phase1_accepted %fn SelfhostHirFunctionValueIdentity bool \identity:
+    if:
+        not selfhost_hir_function_value_identity_has_def_id &identity
+        then:
+            false
+        else:
+            if:
+                not selfhost_hir_function_value_identity_is_monomorphic &identity
+                then:
+                    false
+                else:
+                    selfhost_effect_kind_eq identity.effect SelfhostEffectKind::Pure
+
+//: selfhost_memoized_function_value_identity_phase1_result: memoized value 用 identity を fail-closed に検査する
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` の元になる function value identity を、accepted HIR payload に入れる前に `Result` で検査します。
+//: - 失敗理由を `GenericUnsupported`、`MemoSourceMissingDefId`、`MemoSourceImpureUnsupported` に分け、診断側が原因を失わないようにします。
+//:
+//: [契約/けいやく]:
+//: - DefId が無い identity は `MemoSourceMissingDefId` です。名前文字列や backend symbol だけで memo cache namespace を作ってはいけません。
+//: - monomorphic でない identity は `GenericUnsupported` です。stable type-argument range / canonical key が入るまでは `Unique` などを成功として扱いません。
+//: - effect が `Pure` でない identity は `MemoSourceImpureUnsupported` です。memoization は impure function の結果を pure に見せる仕組みではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(identity)`: Phase 1 の memoized HIR payload に入れてよい typed identity です。
+//: - `Err(error)`: `error.kind` が fail-closed 理由を保持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - identity field の検査だけなので O(1) です。
+pub fn selfhost_memoized_function_value_identity_phase1_result %fn SelfhostHirFunctionValueIdentity fn SelfhostSourceSpan Result SelfhostHirFunctionValueIdentity SelfhostFunctionValueLowerError \identity\span:
+    if:
+        not selfhost_hir_function_value_identity_has_def_id &identity
+        then:
+            Result::Err selfhost_function_value_lower_error_new SelfhostFunctionValueLowerErrorKind::MemoSourceMissingDefId span
+        else:
+            if:
+                not selfhost_hir_function_value_identity_is_monomorphic &identity
+                then:
+                    Result::Err selfhost_function_value_lower_error_new SelfhostFunctionValueLowerErrorKind::GenericUnsupported span
+                else:
+                    if:
+                        not selfhost_effect_kind_eq identity.effect SelfhostEffectKind::Pure
+                        then:
+                            Result::Err selfhost_function_value_lower_error_new SelfhostFunctionValueLowerErrorKind::MemoSourceImpureUnsupported span
+                        else:
+                            Result::Ok identity
+
+//: selfhost_hir_expr_memoized_function_value_from_identity: checked identity から HIR memoized function value を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` が返す function value を、通常の `FnValue` とは別の `MemoizedFunctionValue` payload として HIR に保存します。
+//: - HIR 以降の Resource IR / backend が、memoization 境界を direct function value と区別して扱えるようにします。
+//:
+//: [契約/けいやく]:
+//: - 入力 identity はこの関数内で Phase 1 条件を再検査します。caller の事前検査だけを信用してはいけません。
+//: - expression type は identity の `function_ty` です。memoized value も public API 上は元の pure function と同じ function type を持ちます。
+//: - この関数は private cache allocation、hit/miss state、sealed backend representation を作りません。それらは Resource IR / backend の後続 issue で扱います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(expr)`: `SelfhostHirExprKind::MemoizedFunctionValue` を返す typed HIR expression です。
+//: - `Err(error)`: identity が Phase 1 条件を満たさないため、memoized value を生成しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 検査と HIR record 構築だけなので O(1) です。
+pub fn selfhost_hir_expr_memoized_function_value_from_identity %fn SelfhostHirFunctionValueIdentity fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError \identity\span:
+    match selfhost_memoized_function_value_identity_phase1_result identity span:
+        Result::Ok accepted:
+            Result::Ok selfhost_hir_expr_memoized_function_value accepted.function_ty span accepted
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_hir_expr_memoized_function_value_from_candidate: callable candidate から HIR memoized function value を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `@ident` の候補として得た `SelfhostCallableCandidate` を、`memo_call @ident` Phase 1 の HIR payload へ直接変換します。
+//: - 通常の function value identity 生成を再利用し、DefId / function type / effect を文字列名から復元しない設計を保ちます。
+//:
+//: [契約/けいやく]:
+//: - generic candidate は `selfhost_function_value_identity_from_candidate` で拒否されます。
+//: - impure candidate は identity 生成後に `MemoSourceImpureUnsupported` として拒否されます。
+//: - user-defined 同名 `memo_call` の primitive 判定、`MemoKey` / `MemoValue`、sealed private cache proof はこの helper の責務ではありません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(expr)`: candidate 由来の DefId-linked pure monomorphic identity を持つ memoized function value expression です。
+//: - `Err(error)`: candidate が Phase 1 memoized value 境界に入れない理由です。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate 検査と HIR record 構築だけなので O(1) です。
+pub fn selfhost_hir_expr_memoized_function_value_from_candidate %fn SelfhostCallableCandidate fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError \candidate\span:
+    match selfhost_function_value_identity_from_candidate candidate:
+        Result::Ok identity:
+            selfhost_hir_expr_memoized_function_value_from_identity identity span
         Result::Err e:
             Result::Err e

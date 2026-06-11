@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-01
+updated: 2026-06-11
 target: "nepl-core/src/typecheck; nepl-core/src/resource; stdlib"
 ---
 
@@ -76,3 +76,11 @@ backend の証明は `ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REG
 sealed proof が入るまでは、`memo_call @pure_named_func` の結果は typed HIR / Resource IR 上の
 memoized function value kind を保持するだけであり、`PrivateCache` を Pure へ fold しない。
 即時適用、function literal、alias / pass-through function value を rejected path として維持する。
+
+## 2026-06-11 selfhost HIR boundary checkpoint
+
+`stdlib/neplg2/core/hir/hir/expr.nepl` に `SelfhostHirExprPayload::MemoizedFunctionValue` を追加し、selfhost compiler 側でも memoized function value を通常の `FnValue` と区別できる HIR leaf として保持する境界を作った。payload は `SelfhostHirFunctionValueIdentity` であり、表示名や `str` だけではない。
+
+`stdlib/neplg2/core/lower/hir/function_value.nepl` は、DefId evidence があり、monomorphic で、effect が `Pure` の identity だけを memoized HIR payload に入れる。DefId 欠落、generic identity、impure function はそれぞれ typed error で fail-closed にする。
+
+この checkpoint は selfhost 側の HIR 境界であり、`memo_call` の stdlib compiler-known primitive source identity 判定、`MemoKey` / `MemoValue`、private cache SourceCapability、Resource IR `PrivateCache` non-escape proof、sealed backend representation、即時適用の accepted path は未実装のまま残す。

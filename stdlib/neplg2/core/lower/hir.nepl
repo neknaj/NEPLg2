@@ -12,18 +12,22 @@
 //: - 未対応の lowering は成功扱いせず、各 split module の typed error として返します。
 //:
 //: [現状/げんじょう]:
-//: - 現 checkpoint では function value identity と、checked argument list を使う direct call 初期 lowering boundary を持ちます。literal lowering、block lowering、Resource IR lowering は後続 slice で追加します。
+//: - 現 checkpoint では function value identity、`memo_call @pure_named_func` Phase 1 の memoized function value HIR boundary、checked argument list を使う direct call lowering boundary を持ちます。private cache proof、literal 以外の複合 lowering、Resource IR lowering は後続 slice で追加します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/core/check/expr/call_candidate" as *
 //:| #import "neplg2/core/hir/hir" as *
@@ -45,14 +49,42 @@
 //:             match selfhost_hir_expr_fn_value_from_candidate candidate span:
 //:                 Result::Ok expr:
 //:                     let checks2 checks_push checks1 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &expr SelfhostHirExprKind::FnValue
-//:                     let generic_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "map" def_id function_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::Unique span
-//:                     match selfhost_function_value_identity_from_candidate generic_candidate:
-//:                         Result::Ok _bad_identity:
-//:                             let checks3 checks_push checks2 Result::Err "generic candidate was accepted"
-//:                             let shown checks_print_report checks3
-//:                             checks_exit_code shown
-//:                         Result::Err error:
-//:                             let checks3 checks_push checks2 check selfhost_function_value_lower_error_kind_eq error.kind SelfhostFunctionValueLowerErrorKind::GenericUnsupported
+//:                     match selfhost_hir_expr_memoized_function_value_from_candidate candidate span:
+//:                         Result::Ok memo_expr:
+//:                             let checks3 checks_push checks2 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &memo_expr SelfhostHirExprKind::MemoizedFunctionValue
+//:                             let impure_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "read" def_id function_ty SelfhostEffectKind::ExternalIo SelfhostGenericInferenceState::NoneRequired span
+//:                             match selfhost_hir_expr_memoized_function_value_from_candidate impure_candidate span:
+//:                                 Result::Ok _bad_memo:
+//:                                     let checks4 checks_push checks3 Result::Err "impure memoized candidate was accepted"
+//:                                     let shown checks_print_report checks4
+//:                                     checks_exit_code shown
+//:                                 Result::Err impure_error:
+//:                                     let checks4 checks_push checks3 check selfhost_function_value_lower_error_kind_eq impure_error.kind SelfhostFunctionValueLowerErrorKind::MemoSourceImpureUnsupported
+//:                                     let generic_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "map" def_id function_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::Unique span
+//:                                     match selfhost_function_value_identity_from_candidate generic_candidate:
+//:                                         Result::Ok _bad_identity:
+//:                                             let checks5 checks_push checks4 Result::Err "generic candidate was accepted"
+//:                                             let shown checks_print_report checks5
+//:                                             checks_exit_code shown
+//:                                         Result::Err error:
+//:                                             let checks5 checks_push checks4 check selfhost_function_value_lower_error_kind_eq error.kind SelfhostFunctionValueLowerErrorKind::GenericUnsupported
+//:                                             match selfhost_hir_function_value_identity_new_result "external_add" Option::None function_ty SelfhostEffectKind::Pure 0:
+//:                                                 Result::Ok missing_def_id_identity:
+//:                                                     match selfhost_hir_expr_memoized_function_value_from_identity missing_def_id_identity span:
+//:                                                         Result::Ok _bad_missing_def_id:
+//:                                                             let checks6 checks_push checks5 Result::Err "missing DefId memoized identity was accepted"
+//:                                                             let shown checks_print_report checks6
+//:                                                             checks_exit_code shown
+//:                                                         Result::Err missing_def_id_error:
+//:                                                             let checks6 checks_push checks5 check selfhost_function_value_lower_error_kind_eq missing_def_id_error.kind SelfhostFunctionValueLowerErrorKind::MemoSourceMissingDefId
+//:                                                             let shown checks_print_report checks6
+//:                                                             checks_exit_code shown
+//:                                                 Result::Err _build_error:
+//:                                                     let checks6 checks_push checks5 Result::Err "missing DefId identity build failed unexpectedly"
+//:                                                     let shown checks_print_report checks6
+//:                                                     checks_exit_code shown
+//:                         Result::Err _memo_error:
+//:                             let checks3 checks_push checks2 Result::Err "MemoizedFunctionValue expr lowering failed"
 //:                             let shown checks_print_report checks3
 //:                             checks_exit_code shown
 //:                 Result::Err _expr_error:
