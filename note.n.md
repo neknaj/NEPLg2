@@ -1,3 +1,101 @@
+# 2026-06-11 Agent selfhost ascribed pipe target overload narrowing checkpoint
+
+## review_scope
+
+- branch: `selfhost/pipe-target-overload-narrowing-20260611`
+- 対象 branch: `selfhost/pipe-target-overload-narrowing-20260611`
+- base: `main before branch`
+- head: `working tree verified before commit`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / ascribed pipe target overload narrowing
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- zenn_checked_at: `2026-06-11`
+- files_read: `AGENTS.md`; `note.n.md`; `todo.md`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/selfhost_zenn_review_response_check.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: lambda target, generic target, borrowed left expression, pipe chain composition, argument-expression lookahead narrowing, generic instantiation inference, trait solving, indirect call, `memo_call` Phase 1 private-cache boundary
+- subagent_review_ids: `019eb4c8-30f7-7ca0-b591-772bdbdc316f`, `019eb4d0-46c1-7281-8e33-6f7c9d8b3a62`
+- subagent_review_count: 2
+
+## decision
+
+MERGE_APPROVED
+
+## policy/spec
+
+- classification: Approve
+- file/function: `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`
+- finding: ascribed pipe target は単一候補の事後照合だけではなく、同名 overload 候補の探索空間を明示 function type で狭める必要があった。
+- root_cause: `target_ascription = Some` の場合でも candidate count を先に見ていたため、`%fn ... add` が候補を 1 件にできる状況を `PipeTargetAmbiguous` へ落とす設計が残っていた。
+- reason: Zenn 記事は Result / Option、enum error、match 網羅性、探索範囲の削減、pure core boundary、丁寧な doc comment、試作段階でも仕様不整合を残さないことを要求している。今回の slice は callable type equality だけを narrowing authority にし、引数式先読みや generic / trait solver へ探索を広げない。
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: `nodesrc/test_selfhost_expr_call_reduce_contract.js` が selection helper、candidate branch order、0 件一致 / 1 件一致 / 複数一致、public fail-closed smoke の実行順を固定する。
+- doc_issue_note: issue と design doc に success path、0 件一致 rejection、重複一致 rejection、残件を記録した。
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-target-overload-narrowing-final.json`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --record note.n.md`; `git diff --check`
+
+## implementation/test
+
+- classification: Approve
+- file/function: `selfhost_call_reduce_pipe_target_ascription_select_candidate`; `selfhost_call_reduce_pipe_candidates_with_source`; `selfhost_check_expr_stage1_pipe_ascribed_target_overload_no_match_rejected_with_scope`; `selfhost_check_expr_stage1_pipe_ascribed_target_duplicate_match_rejected_with_scope`; `selfhost_check_expr_stage1_pipe_failclosed_body_line`
+- finding: ascribed target の overload narrowing は、0 件一致を mismatch、1 件一致を selected candidate、複数一致を ambiguity として区別し、unused helper を残さず public smoke で negative case まで実行する必要があった。
+- root_cause: 初期差分では方針自体は正しかったが、古い単一候補照合 helper が残り、0 件一致 / 重複一致が runtime smoke として public fail-closed 群に接続されていなかった。
+- reason: selection helper は `Result SelfhostCallableCandidate SelfhostCallReduceError` を返し、`PipeTargetAscriptionTypeMismatch` と `PipeTargetAmbiguous` を表示文字列ではなく enum error として返す。stage1 smoke は source-backed reducer を実行し、手作り error ではなく実際の checker boundary で分類を確認する。
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: contract test は helper 存在だけでなく `selfhost_check_expr_stage1_pipe_failclosed_body_line` から no-match / duplicate-match runner が呼ばれることを要求する。
+- doc_issue_note: `todo.md` は ascription 一致 0 件 / 複数件を含む fail-closed smoke が固定済みであることを記録し、残件を advanced target narrowing と higher-order/generic/memo 境界へ絞った。
+- verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-target-overload-narrowing-final.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+## zenn_check
+
+- Result/Option: `stdlib/neplg2/core/check/expr/call_reduce.nepl` の selection helper は `Result` を返し、候補不一致と ambiguity を enum error で返す。
+- enum error/display separation: `PipeTargetAscriptionTypeMismatch` と `PipeTargetAmbiguous` を `SelfhostCallReduceErrorKind` として扱い、表示文言や unsupported fallback へ潰していない。
+- match exhaustiveness: `selfhost_call_reduce_pipe_candidates_with_source` は `target_ascription` の `Option::Some` / `Option::None` を明示分岐し、非注釈時の ambiguity と注釈時の narrowing を分ける。
+- pure/impure boundary: `stdlib/neplg2/core/check/expr/*` の selfhost compiler core だけを更新し、FileSystem / StdIO / host authority は追加していない。
+- authority boundary: `selfhost_type_arena_types_equal` と `SelfhostTypeExpectation` を callable type equality の authority にし、HIR lowering や Resource IR で再推論しない。
+- owner/free: `stage1.nepl` の smoke helper は token owner と arena owner を runner/helper へ移動し、失敗分岐で `v::free` / `selfhost_type_arena_free` を維持している。
+- zero-cost/performance: 候補全体を型一致で 1 回数える O(c) narrowing に留め、引数式先読みや generic/trait solver を追加して探索空間を広げていない。
+- doc comment: `stage1.nepl` の追加 helper comment は目的、契約、戻り値、計算量、制約を日本語で記述し、行数制限や doc comment 長制限を追加していない。
+- prototype/fail-closed: 試作段階でも曖昧な first-match 成功を許さず、0 件一致と重複一致は typed error で fail-closed にした。
+
+## evidence_to_record
+
+- note: this checkpoint in `note.n.md`
+- issue: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`
+- source policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_source_policy_no_line_count_limits.js`; `nodesrc/run_source_policy_regressions.js`
+- tests: focused contract tests, focused stdlib/neplg2 core check doctests, issue index/check, whitespace check
+
+## subagent review
+
+- `019eb4c8-30f7-7ca0-b591-772bdbdc316f`:
+  - Blocker: none
+  - Non-blocker: none after implementing target_ascription `Some` match-count selection before non-ascribed ambiguity.
+  - Question: none
+  - Approve: policy/spec and implementation/test are aligned with Zenn article when 0 / 1 / multiple matches are distinct.
+- `019eb4d0-46c1-7281-8e33-6f7c9d8b3a62`:
+  - Blocker: none
+  - Non-blocker: unused single-candidate helper should be removed, and no-match / duplicate-match runtime smoke should be added. Both were fixed.
+  - Question: none
+  - Approve: after cleanup and negative smoke, the slice is mergeable.
+
+## warnings
+
+- existing_warnings: Node WASI `ExperimentalWarning`; Git LF-to-CRLF replacement warnings from `git diff --check`; selfhost documentation contract reports existing doc gap samples.
+- new_warnings: none
+- 既存 warning: Node WASI `ExperimentalWarning`; Git LF-to-CRLF replacement warnings; existing selfhost documentation gap samples.
+- 今回差分由来 warning: none
+
+## summary
+
+- blockers: none
+- non_blockers: none
+- questions: none
+- approve: approved
+- residual_risk: none
+- unexecuted_verification: none
+- 検証済み: focused contract tests, focused stdlib/neplg2 core check doctests, source policy regression, issue index/check, whitespace check.
+- 行数制限: not added
+- doc comment 長制限: not added
+- 次 slice: lambda / borrow / pipe chain / advanced pipe target argument expression checking、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1.
+
 # 2026-06-11 Agent selfhost ascribed pipe target checkpoint
 
 ## review_scope

@@ -1515,29 +1515,116 @@ fn selfhost_call_reduce_pipe_find_prefix_item_by_token_loop %fn &SelfhostExprPre
 fn selfhost_call_reduce_pipe_find_prefix_item_by_token %fn &SelfhostExprPrefixList fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostCallReduceError \prefix\start_idx\item_count\token_index\fallback_span:
     selfhost_call_reduce_pipe_find_prefix_item_by_token_loop prefix start_idx item_count token_index fallback_span
 
-//: selfhost_call_reduce_pipe_target_ascription_check: pipe target 注釈型と callable type を[照合/しょうごう]する
+//: selfhost_call_reduce_pipe_candidate_matches_target_ascription: pipe target 注釈型と callable type が[一致/いっち]するか[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - `%fn ... target` の明示注釈が、選択済み pipe target candidate の function type と同じ型であることを確認します。
-//: - 注釈を result expectation や suffix argument ascription と混同せず、target callable そのものの型証拠として扱います。
+//: - `%fn ... target` の明示注釈を、pipe target 候補を絞り込むための型 evidence として扱います。
+//: - overload narrowing と単一候補照合の一致規則をこの helper に集約します。
 //:
-//: [戻/もど]り[値/ち]:
-//: - `Ok(unit)`: 注釈が無い、または注釈型と candidate callable type が一致します。
-//: - `Err(PipeTargetAscriptionTypeMismatch)`: 注釈型と candidate callable type が一致しません。
+//: [契約/けいやく]:
+//: - この関数は診断を作らず、型一致の真偽だけを返します。
+//: - 注釈型は target callable そのものの型です。pipe 左辺の型、pipe 全体の結果型、suffix argument の型とは混同しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - 型一致判定の実コストは function type tree の大きさに依存します。
-fn selfhost_call_reduce_pipe_target_ascription_check %fn &SelfhostTypeArena fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result unit SelfhostCallReduceError \arena\candidate\target_ascription:
-    match target_ascription:
-        Option::Some expectation:
+fn selfhost_call_reduce_pipe_candidate_matches_target_ascription %fn &SelfhostTypeArena fn SelfhostCallableCandidate fn SelfhostTypeExpectation bool \arena\candidate\expectation:
+    selfhost_type_arena_types_equal arena expectation.expected_type candidate.callable_type
+
+//: selfhost_call_reduce_pipe_target_ascription_match_count_loop: 注釈型に[一致/いっち]する pipe target 候補数を[数/かぞ]える
+//:
+//: [目的/もくてき]:
+//: - pipe target の明示 function type 注釈を overload narrowing に使い、候補が複数ある場合でも探索空間を注釈型で狭めます。
+//: - 候補列の owner は caller が保持し、この helper は借用だけで数えます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(count)`: 注釈型と callable type が一致した候補数です。
+//: - `Err(PipeTargetInternalInvariant)`: candidate vector の取得に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数を c、型一致判定の平均コストを t として O(c * t) です。
+fn selfhost_call_reduce_pipe_target_ascription_match_count_loop %fn &SelfhostTypeArena fn &Vec SelfhostCallableCandidate fn SelfhostTypeExpectation fn i32 fn i32 Result i32 SelfhostCallReduceError \arena\pipe_candidates\expectation\idx\candidate_count:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Ok 0
+        else:
+            match v::get pipe_candidates idx:
+                Option::Some candidate:
+                    match selfhost_call_reduce_pipe_target_ascription_match_count_loop arena pipe_candidates expectation add idx 1 candidate_count:
+                        Result::Ok rest:
+                            if:
+                                selfhost_call_reduce_pipe_candidate_matches_target_ascription arena candidate expectation
+                                then:
+                                    Result::Ok add rest 1
+                                else:
+                                    Result::Ok rest
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant expectation.span
+
+//: selfhost_call_reduce_pipe_target_ascription_first_match_loop: 注釈型に[一致/いっち]する最初の pipe target 候補を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - match count が 1 件であることを確認した後、その候補 payload を direct call 正規化へ渡します。
+//: - count helper と同じ一致規則を使い、候補選択の規則が二重化しないようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(candidate)`: 注釈型と callable type が一致した唯一の候補です。
+//: - `Err(PipeTargetInternalInvariant)`: 事前に 1 件一致を確認したにもかかわらず候補取得または探索に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数を c、型一致判定の平均コストを t として最悪 O(c * t) です。
+fn selfhost_call_reduce_pipe_target_ascription_first_match_loop %fn &SelfhostTypeArena fn &Vec SelfhostCallableCandidate fn SelfhostTypeExpectation fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\pipe_candidates\expectation\idx\candidate_count:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant expectation.span
+        else:
+            match v::get pipe_candidates idx:
+                Option::Some candidate:
+                    if:
+                        selfhost_call_reduce_pipe_candidate_matches_target_ascription arena candidate expectation
+                        then:
+                            Result::Ok candidate
+                        else:
+                            selfhost_call_reduce_pipe_target_ascription_first_match_loop arena pipe_candidates expectation add idx 1 candidate_count
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant expectation.span
+
+//: selfhost_call_reduce_pipe_target_ascription_select_candidate: 注釈型で pipe target overload を[選別/せんべつ]する
+//:
+//: [目的/もくてき]:
+//: - `left |> %fn ... target suffix...` では、`target` の overload 候補を明示された function type で絞り込んでから曖昧性を判定します。
+//: - 型注釈が探索空間を狭めるという NEPLg2.1 の方針を pipe target にも適用します。
+//:
+//: [場合分/ばあいわ]け:
+//: - 一致候補 0 件は `PipeTargetAscriptionTypeMismatch` です。target は見つかっているが、注釈型と合う callable がありません。
+//: - 一致候補 1 件は `Ok(candidate)` です。この候補だけを direct call 正規化へ渡します。
+//: - 一致候補 2 件以上は `PipeTargetAmbiguous` です。同じ callable type を持つ overload が複数あるため、型注釈だけでは選べません。
+//:
+//: [契約/けいやく]:
+//: - `pipe_candidates` owner は caller が保持し、この helper は借用だけを行います。
+//: - generic inference、trait solving、引数式を使った追加 narrowing はこの slice の責務ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 一致数確認と候補取得で候補列を最大 2 回見るため、候補数を c、型一致判定の平均コストを t として O(c * t) です。
+fn selfhost_call_reduce_pipe_target_ascription_select_candidate %fn &SelfhostTypeArena fn &Vec SelfhostCallableCandidate fn SelfhostTypeExpectation fn SelfhostExprPrefixItem fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\pipe_candidates\expectation\rhs_head\candidate_count:
+    match selfhost_call_reduce_pipe_target_ascription_match_count_loop arena pipe_candidates expectation 0 candidate_count:
+        Result::Ok match_count:
             if:
-                selfhost_type_arena_types_equal arena expectation.expected_type candidate.callable_type
+                eq match_count 0
                 then:
-                    Result::Ok unit
-                else:
                     Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAscriptionTypeMismatch expectation.span
-        Option::None:
-            Result::Ok unit
+                else:
+                    if:
+                        gt match_count 1
+                        then:
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
+                        else:
+                            selfhost_call_reduce_pipe_target_ascription_first_match_loop arena pipe_candidates expectation 0 candidate_count
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_call_reduce_pipe_single_candidate_with_source: 1 pipe target candidate を direct call として[検査/けんさ]する
 //:
@@ -1642,12 +1729,13 @@ fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec Selfho
 //:
 //: [目的/もくてき]:
 //: - pipe target の候補 0/1/複数を分け、1 候補だけを direct call 正規化へ進めます。
-//: - `target_ascription` がある場合は、候補を実行する前に注釈型と callable type が一致することを確認します。
+//: - `target_ascription` がある場合は、複数候補を先に曖昧扱いせず、注釈型と callable type が一致する候補へ絞り込みます。
 //: - 通常 head の `candidates` 引数は左辺 literal などでは意味を持たないため、pipe 右辺は scope と signature table から改めて収集した候補を authority とします。
 //:
 //: [契約/けいやく]:
 //: - `pipe_candidates` owner はこの関数または下位 helper が必ず閉じます。
-//: - 候補 0 は `PipeTargetUnresolved`、複数は `PipeTargetAmbiguous` として fail-closed にします。
+//: - 注釈無しの候補 0 は `PipeTargetUnresolved`、複数は `PipeTargetAmbiguous` として fail-closed にします。
+//: - 注釈有りの候補複数は、注釈型で絞った後も複数残る場合だけ `PipeTargetAmbiguous` にします。
 fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\expected\target_ascription\trailing_block\rhs_head\item_count\pipe_index\rhs_suffix_index:
     let candidate_count %i32 v::len &pipe_candidates
     if:
@@ -1655,20 +1743,24 @@ fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToke
         then:
             selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetUnresolved rhs_head.span
         else:
-            if:
-                gt candidate_count 1
-                then:
-                    selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
-                else:
-                    match v::get &pipe_candidates 0:
-                        Option::Some candidate:
-                            match selfhost_call_reduce_pipe_target_ascription_check &arena candidate target_ascription:
-                                Result::Ok _unit:
+            match target_ascription:
+                Option::Some expectation:
+                    match selfhost_call_reduce_pipe_target_ascription_select_candidate &arena &pipe_candidates expectation rhs_head candidate_count:
+                        Result::Ok candidate:
+                            selfhost_call_reduce_pipe_single_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count pipe_index rhs_suffix_index
+                        Result::Err e:
+                            selfhost_call_reduce_pipe_free_candidates_tree_existing_error arena checked_tree pipe_candidates e
+                Option::None:
+                    if:
+                        gt candidate_count 1
+                        then:
+                            selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
+                        else:
+                            match v::get &pipe_candidates 0:
+                                Option::Some candidate:
                                     selfhost_call_reduce_pipe_single_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count pipe_index rhs_suffix_index
-                                Result::Err e:
-                                    selfhost_call_reduce_pipe_free_candidates_tree_existing_error arena checked_tree pipe_candidates e
-                        Option::None:
-                            selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+                                Option::None:
+                                    selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
 
 //: selfhost_call_reduce_pipe_ascribed_target_with_source: `%T target` pipe 右辺を callable target として[検査/けんさ]する
 //:

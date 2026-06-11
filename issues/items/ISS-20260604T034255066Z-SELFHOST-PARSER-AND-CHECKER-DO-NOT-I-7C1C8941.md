@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-06-04
-updated: 2026-06-06
+updated: 2026-06-11
 target: "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/check/checker.nepl"
 ---
 
@@ -91,7 +91,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-06: pipe の fail-closed 境界を stage1 の実行可能 smoke に追加した。`1 |> add 2 |> add 3` は `PipeUnsupportedMultiple`、`|> add 1` は `PipeMissingLeftOperand`、`1 |>` は `PipeMissingRightTarget`、`1 |> 2` と `1 |> %i32 add 2` は `PipeRightTargetUnsupported`、`1 2 |> add 3` は `PipeLeftSegmentNotSingleValue`、`1 |> answer` かつ `answer : fn void i32` は `PipeTargetRequiresInput` として、source-backed body-line reducer を実際に通した typed error を確認する。これは chain / ascribed target / lambda target を受理する実装ではなく、未対応形を fallback success へ流さない契約を固定する checkpoint である。
 - 2026-06-11: source-backed reducer に ascribed pipe target を追加した。`1 |> %fn i32 fn i32 i32 add 2` は RHS の `%fn ... add 2` を source token range として `selfhost_expr_ascription_project_head_expectation` へ渡し、projection が返す callable type expectation と expression-first token から target prefix item を復元する。target は現 slice では `NamedValue` だけを受理し、候補が 1 件だけなら candidate callable type と ascribed function type を同じ arena 内で照合する。一致する場合は suffix cursor を `target_index + 1` にして `add 1 2` 相当の `DirectCall` checked tree へ進むため、`%fn ...` の型式 token を実引数として誤消費しない。projection 失敗は `PipeTargetAscriptionProjectionFailed`、型不一致は `PipeTargetAscriptionTypeMismatch` として typed enum error に分ける。
 - 2026-06-11: subagent review `019eb4b9-e966-7240-8661-a0922b7bc942` は blocker なしで approve。non-blocker として、現 slice では candidate count が 1 件になった後で target ascription を照合するため、`%fn ... overloaded_name` による overload narrowing はまだ行わないことが確認された。この narrowing は generic inference / overload solver と同じ後続の advanced pipe target candidate narrowing として残す。
-- 残件: lambda / borrow / pipe chain / advanced pipe target argument expression checking、ascribed pipe target による overload narrowing、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-11: ascribed pipe target の overload narrowing を追加した。`selfhost_call_reduce_pipe_candidates_with_source` は `target_ascription = Some` の場合、候補数だけで先に `PipeTargetAmbiguous` を返さず、projected function type と candidate callable type の構造一致で候補を絞る。一致 0 件は `PipeTargetAscriptionTypeMismatch`、一致 1 件はその candidate で direct call 正規化へ進み、同じ callable type に一致する候補が複数残る場合だけ `PipeTargetAmbiguous` にする。`target_ascription = None` の複数候補は従来通り曖昧なままにし、引数式を先読みする探索拡大はこの slice では行わない。stage1 smoke は `add : fn i32 i32` と `add : fn i32 fn i32 i32` の同名候補を置き、`1 |> %fn i32 fn i32 i32 add 2` が2引数版だけを選び、checked argument order を保つことを実行可能に確認する。さらに、注釈型に一致する overload が 0 件の case を `PipeTargetAscriptionTypeMismatch`、同じ callable type に複数一致する case を `PipeTargetAmbiguous` として source-backed reducer 経由で拒否する negative smoke も public pipe fail-closed 群へ接続した。
+- 残件: lambda / borrow / pipe chain / advanced pipe target argument expression checking、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -133,6 +134,13 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/issues.js check --dir issues`: pass
 - `git diff --check`: pass
 - subagent review `019eb4b9-e966-7240-8661-a0922b7bc942`: approve
+
+2026-06-11 ascribed pipe target overload narrowing checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-target-overload-narrowing-initial.json`: total=7, passed=7
+- subagent review `019eb4c8-30f7-7ca0-b591-772bdbdc316f`: blocker なし。`target_ascription = Some` の場合だけ callable type equality で候補を絞り、一致 0 / 1 / 複数を typed error / success / ambiguity に分ける方針を妥当と確認。
+- subagent review `019eb4d0-46c1-7281-8e33-6f7c9d8b3a62`: blocker なし。non-blocker として、unused helper の削除と 0 件一致 / 重複一致の runtime negative smoke 追加を推奨。unused helper は削除し、negative smoke は `selfhost_check_expr_stage1_pipe_failclosed_body_line` へ接続した。
 
 2026-06-05 NamedValue HIR identity checkpoint:
 
