@@ -42,6 +42,21 @@ assert.match(
 );
 assert.match(
     worker,
+    /class\s+CompilerInitializationError\s+extends\s+Error/,
+    "playground worker must distinguish compiler asset initialization failure from user compile errors",
+);
+assert.match(
+    worker,
+    /function\s+resetCompilerInitializationState\s*\(\s*\)[\s\S]*compilerInitPromise\s*=\s*null[\s\S]*compilerSession\s*=\s*null[\s\S]*compilerSessionChecked\s*=\s*false/,
+    "playground worker must clear init promise and session state after compiler initialization failure",
+);
+assert.match(
+    worker,
+    /compilerInitPromise\s*=\s*\(async\s*\(\)\s*=>[\s\S]*?\}\)\(\)\.catch\(\(error\)\s*=>\s*\{[\s\S]*resetCompilerInitializationState\(\);[\s\S]*throw\s+new\s+CompilerInitializationError\(error\);/,
+    "playground worker must not cache a rejected compiler initialization promise",
+);
+assert.match(
+    worker,
     /function\s+compilerApiForSession\s*\(\s*compilerModule:\s*any\s*\):\s*any/,
     "playground worker must centralize session selection",
 );
@@ -64,6 +79,16 @@ assert.match(
     worker,
     /typeof\s+session\.compile_outputs_with_vfs\s*===\s*'function'/,
     "playground worker must only select a session that exposes the compile output API",
+);
+assert.match(
+    worker,
+    /isCompilerInitFailure[\s\S]*phase\s*=\s*isCompilerInitFailure[\s\S]*\?\s*'compiler-init'/,
+    "playground worker must report compiler initialization failure as a non-compile phase",
+);
+assert.match(
+    worker,
+    /recoverable:\s*phase\s*===\s*'compile'/,
+    "playground worker must keep only user compile failures recoverable for the persistent worker",
 );
 assert.match(
     worker,
@@ -102,8 +127,13 @@ assert.match(
 );
 assert.match(
     shell,
-    /finish\(true\)/,
+    /worker\s*===\s*this\.compilerWorker\s*&&\s*!message\.recoverable[\s\S]*finish\(true\)/,
     "playground shell must terminate the persistent compiler worker after a worker-level error",
+);
+assert.match(
+    shell,
+    /phase\?:\s*'compile'\s*\|\s*'runtime'\s*\|\s*'worker'\s*\|\s*'compiler-init'/,
+    "playground shell must accept explicit compiler initialization failure classification",
 );
 
 console.log("playground compiler session policy passed");

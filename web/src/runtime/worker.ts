@@ -41,7 +41,7 @@ type WorkerExitMessage = {
 type WorkerErrorMessage = {
     type: 'error';
     message: string;
-    phase: 'compile' | 'runtime' | 'worker';
+    phase: 'compile' | 'runtime' | 'worker' | 'compiler-init';
     recoverable: boolean;
 };
 
@@ -89,6 +89,19 @@ type LastGuiWebInputEvent =
 let compilerInitPromise: Promise<any> | null = null;
 let compilerSession: any | null = null;
 let compilerSessionChecked = false;
+
+class CompilerInitializationError extends Error {
+    original: unknown;
+
+    constructor(error: unknown) {
+        const message = error instanceof Error && error.message
+            ? error.message
+            : String(error);
+        super(`compiler initialization failed: ${message}`);
+        this.name = 'CompilerInitializationError';
+        this.original = error;
+    }
+}
 
 class WorkerWASI extends WASI {
     stdinBuffer: Int32Array | null = null;
@@ -456,19 +469,35 @@ async function loadCompilerBindings(assets: CompilerAssetUrls): Promise<any> {
                 await compilerModule.default({ module_or_path: assets.wasmUrl });
             }
             return compilerModule;
-        })();
+        })().catch((error) => {
+            resetCompilerInitializationState();
+            throw new CompilerInitializationError(error);
+        });
     }
     return compilerInitPromise;
 }
 
+function resetCompilerInitializationState() {
+    compilerInitPromise = null;
+    compilerSession = null;
+    compilerSessionChecked = false;
+}
+
 function compilerApiForSession(compilerModule: any): any {
     if (!compilerSessionChecked) {
-        compilerSessionChecked = true;
-        if (typeof compilerModule.CompilerSession === 'function') {
-            const session = new compilerModule.CompilerSession();
-            if (typeof session.compile_outputs_with_vfs === 'function') {
-                compilerSession = session;
+        try {
+            let selectedSession: any | null = null;
+            if (typeof compilerModule.CompilerSession === 'function') {
+                const session = new compilerModule.CompilerSession();
+                if (typeof session.compile_outputs_with_vfs === 'function') {
+                    selectedSession = session;
+                }
             }
+            compilerSession = selectedSession;
+            compilerSessionChecked = true;
+        } catch (error) {
+            resetCompilerInitializationState();
+            throw new CompilerInitializationError(error);
         }
     }
     return compilerSession || compilerModule;
@@ -604,7 +633,10 @@ self.onmessage = async (event: MessageEvent<IncomingMessage>) => {
             await executeNeplg2(message);
         }
     } catch (error: any) {
-        const phase = message.type === 'execute-neplg2' && !message.runAfterBuild ? 'compile' : 'runtime';
+        const isCompilerInitFailure = error instanceof CompilerInitializationError;
+        const phase = isCompilerInitFailure
+            ? 'compiler-init'
+            : message.type === 'execute-neplg2' && !message.runAfterBuild ? 'compile' : 'runtime';
         postWorkerMessage({
             type: 'error',
             message: error?.message ? String(error.message) : String(error),

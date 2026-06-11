@@ -29,9 +29,16 @@ async function loadCompilerBindings(assets: CompilerAssetUrls): Promise<any> {
                 await compilerModule.default({ module_or_path: assets.wasmUrl });
             }
             return compilerModule;
-        })();
+        })().catch((error) => {
+            resetCompilerInitializationState();
+            throw error;
+        });
     }
     return compilerInitPromise;
+}
+
+function resetCompilerInitializationState() {
+    compilerInitPromise = null;
 }
 
 function analyzeSemantics(compilerModule: any, request: AnalysisRequest): any {

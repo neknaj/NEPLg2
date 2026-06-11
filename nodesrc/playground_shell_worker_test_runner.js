@@ -36,6 +36,7 @@ function createTerminalStub() {
 
 class FakeWorker {
     static instances = [];
+    static executeResponses = [];
 
     constructor() {
         this.onmessage = null;
@@ -49,6 +50,11 @@ class FakeWorker {
         this.messages.push(message);
         queueMicrotask(() => {
             if (message.type === 'execute-neplg2') {
+                const scripted = FakeWorker.executeResponses.shift();
+                if (scripted?.type === 'error') {
+                    this.onmessage?.({ data: scripted });
+                    return;
+                }
                 this.onmessage?.({
                     data: {
                         type: 'compile_result',
@@ -157,6 +163,44 @@ async function runShellWorkerRegression() {
         assert.equal(FakeWorker.instances[2].terminated, true);
         assert.equal(terminal.written.join(''), 'ok\nok\n');
 
+        const initRecoveryStart = FakeWorker.instances.length;
+        const initRecoveryTerminal = createTerminalStub();
+        const initRecoveryVfs = new VFS();
+        initRecoveryVfs.writeFile('/examples/recover.nepl', 'print "recover"\n');
+        const initRecoveryShell = new Shell(initRecoveryTerminal, initRecoveryVfs);
+        FakeWorker.executeResponses.push({
+            type: 'error',
+            message: 'compiler initialization failed: transient asset load failure',
+            phase: 'compiler-init',
+            recoverable: false,
+        });
+        const initFailureResult = await initRecoveryShell.cmdNeplg2(['build', '-i', '/examples/recover.nepl', '--emit', 'wasm']);
+        assert.match(initFailureResult, /Compilation Failed: compiler initialization failed/);
+        assert.equal(FakeWorker.instances[initRecoveryStart].terminated, true);
+        const initRetryResult = await initRecoveryShell.cmdNeplg2(['build', '-i', '/examples/recover.nepl', '--emit', 'wasm']);
+        assert.equal(initRetryResult, 'Build complete.');
+        assert.equal(FakeWorker.instances.length, initRecoveryStart + 2);
+        assert.equal(FakeWorker.instances[initRecoveryStart + 1].messages[0].type, 'execute-neplg2');
+
+        const compileRecoveryStart = FakeWorker.instances.length;
+        const compileRecoveryTerminal = createTerminalStub();
+        const compileRecoveryVfs = new VFS();
+        compileRecoveryVfs.writeFile('/examples/compile-error.nepl', 'missing_symbol\n');
+        const compileRecoveryShell = new Shell(compileRecoveryTerminal, compileRecoveryVfs);
+        FakeWorker.executeResponses.push({
+            type: 'error',
+            message: 'undefined identifier',
+            phase: 'compile',
+            recoverable: true,
+        });
+        const compileFailureResult = await compileRecoveryShell.cmdNeplg2(['build', '-i', '/examples/compile-error.nepl', '--emit', 'wasm']);
+        assert.match(compileFailureResult, /Compilation Failed: undefined identifier/);
+        assert.equal(FakeWorker.instances[compileRecoveryStart].terminated, false);
+        const compileRetryResult = await compileRecoveryShell.cmdNeplg2(['build', '-i', '/examples/compile-error.nepl', '--emit', 'wasm']);
+        assert.equal(compileRetryResult, 'Build complete.');
+        assert.equal(FakeWorker.instances.length, compileRecoveryStart + 1);
+        assert.equal(FakeWorker.instances[compileRecoveryStart].messages[1].type, 'execute-neplg2');
+
         return {
             ok: true,
             checks: [
@@ -168,6 +212,8 @@ async function runShellWorkerRegression() {
                 'neplg2 run compiles through the persistent worker and executes through an ephemeral runtime worker',
                 'compile outputs are written back to the VFS on the main thread',
                 'wasmi execution also uses the worker protocol and streams stdout',
+                'compiler initialization failure discards the persistent compiler worker',
+                'recoverable compile errors keep the persistent compiler worker reusable',
             ],
         };
     } finally {
@@ -175,6 +221,7 @@ async function runShellWorkerRegression() {
         global.window = originalWindow;
         global.document = originalDocument;
         FakeWorker.instances.length = 0;
+        FakeWorker.executeResponses.length = 0;
     }
 }
 

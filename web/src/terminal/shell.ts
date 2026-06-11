@@ -28,7 +28,7 @@ type WorkerExitMessage = {
 type WorkerErrorMessage = {
     type: 'error';
     message: string;
-    phase?: 'compile' | 'runtime' | 'worker';
+    phase?: 'compile' | 'runtime' | 'worker' | 'compiler-init';
     recoverable?: boolean;
 };
 

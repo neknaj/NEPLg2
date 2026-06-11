@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T23:14:13.243Z",
+  "generated_at": "2026-06-11T23:23:08.598Z",
   "counts": {
     "total": 1371,
-    "open": 60,
-    "resolved": 1311,
+    "open": 59,
+    "resolved": 1312,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -23,8 +23,8 @@
       },
       "tools": {
         "total": 24,
-        "open": 10,
-        "resolved": 14
+        "open": 9,
+        "resolved": 15
       },
       "neplg21": {
         "total": 2,
@@ -623,21 +623,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260611T164151256Z-WEB-PLAYGROUND-SELFHOST-COMPILER-SEL-8C7025F5.md"
-    },
-    {
-      "id": "ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866",
-      "title": "Persistent compiler worker must recover from asset initialization failure",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-06-11",
-      "updated": "2026-06-11",
-      "target": "web/src/runtime/worker.ts; web/src/terminal/shell.ts",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866.md"
     },
     {
       "id": "ISS-20260611T164151841Z-NEPLG2-TERMINAL-COMMAND-NEEDS-REAL-S-C21C6BD7",
@@ -17708,6 +17693,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260521T141951855Z-COLLECTION-SLOT-LIFECYCLE-MODULE-EXC-964028BB.md"
+    },
+    {
+      "id": "ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866",
+      "title": "Persistent compiler worker must recover from asset initialization failure",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-06-11",
+      "updated": "2026-06-12",
+      "target": "web/src/runtime/worker.ts; web/src/terminal/shell.ts",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",

@@ -1232,6 +1232,50 @@ MERGE_APPROVED
 - pass: `node nodesrc/issues.js index --dir issues`
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `git diff --check`
+
+## 2026-06-12 Agent Web Playground compiler worker recovery checkpoint
+
+### scope
+
+- branch: `agent2/playground-worker-recovery-20260612`
+- fixed_issue: `ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- subagent_review_id: `019eb8f9-d44e-7f11-a8f5-2157c0fe5360`
+
+### unfinished_inventory
+
+- P1 `PERSISTENT-COMPILER-WORKER-MUST-RECOVER`: compiler asset initialization failure 後に page reload なしで retry できるよう今回修正した。
+- P1 canvas editor の大規模 document rendering / movement scaling、selfhost compiler selector の capability gating、GUI close lifecycle / queue ownership、browser smoke CI、editor panel explicit dispose lifecycle は未完了。
+- GUI/TUI standard library 側では formal Wasm host import ABI、std/gui scheduler / timeslice contract、native formal host、embedded backend、TUI terminal backend 移行が未完了。
+
+### implementation
+
+- runtime worker に `CompilerInitializationError` と `resetCompilerInitializationState` を追加した。
+- `import()` / wasm-bindgen `default()` / `CompilerSession` construction failure は compiler init lifecycle failure として扱い、init promise、session、checked flag を reset する。
+- runtime worker は compiler init failure を `phase: 'compiler-init'`, `recoverable: false` として shell に返す。
+- shell 側の worker error type に `compiler-init` phase を追加し、既存の non-recoverable path で persistent compiler worker を破棄する。
+- analysis worker の compiler init promise も reject 後に reset するよう修正した。
+- `nodesrc/test_playground_worker_init_recovery.js` を追加し、初回 wasm-bindgen init reject 後に同じ worker module が rejected promise を再利用せず retry 成功することを固定した。
+- `nodesrc/playground_shell_worker_test_runner.js` に compiler-init failure では worker を破棄し、recoverable compile error では worker を維持する regression を追加した。
+
+### subagent_review
+
+- review: asset init failure と user compile error を一律 `compile` / recoverable として扱うと shell の persistent worker 破棄責務が機能しないと指摘された。
+- review: `compilerInitPromise` だけでなく `compilerSession` / `compilerSessionChecked` も同じ lifecycle で reset する必要があると指摘された。
+- response: compiler init 専用 error classification を追加し、runtime worker reset と shell non-recoverable worker discard の両方を固定した。analysis worker の同種 promise cache も reset するようにした。
+
+### verification
+
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_playground_compiler_session_policy.js`
+- pass: `node nodesrc/test_playground_worker_init_recovery.js`
+- pass: `node nodesrc/playground_shell_worker_test_runner.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の変更範囲では退行なし。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-worker-recovery-after-trunk.json` total=13 passed=13 failed=0
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
 - skipped: `trunk build`; stdlib-only changes and doctest runner fixed message says Rust/web generated artifacts were untouched.
 
 ## subagent review
