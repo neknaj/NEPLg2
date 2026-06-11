@@ -97,7 +97,12 @@ assertIncludes(metrics, "renderHistoryChart", "metrics.html must render historic
 
 assertIncludes(tests, "ansiToHtml", "tests.html must render ANSI diagnostic colors as HTML spans");
 assertIncludes(tests, "parseDiagnosticError", "tests.html must parse compile_fail diagnostic mismatch details");
+assertIncludes(tests, "resultTextFields", "tests.html must collect compiler output from result.error, compile_error, stderr, and related fields");
+assertIncludes(tests, "hasAnsi", "tests.html must detect ANSI compiler output outside diagnostic mismatch reports");
+assertIncludes(tests, "looksLikeCompilerOutput", "tests.html must identify ordinary compiler diagnostics before the raw fallback");
+assertIncludes(tests, "renderTerminalOutput", "tests.html must route ordinary compiler output through ANSI-aware terminal rendering");
 assertIncludes(tests, "Compiler output", "tests.html must split compiler output from mismatch metadata");
+assertNotIncludes(tests, 'return `<pre>${escapeHtml(text || JSON.stringify(result, null, 2))}</pre>`;', "tests.html must not render ANSI compiler diagnostics through the raw escaped pre fallback");
 assertIncludes(tests, "Selfhost compiler", "tests.html must show selfhost compiler check reports separately from Rust compiler reports");
 assertIncludes(tests, "compiler check", "tests.html must not present selfhost checks as runtime doctests");
 assertIncludes(tests, "loadReportSet", "tests.html must load current and last-completed report sets through one path");

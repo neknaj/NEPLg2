@@ -593,6 +593,36 @@
             };
         }
 
+        function resultTextFields(result, message) {
+            const fields = [];
+            const seen = new Set();
+            function push(key, value) {
+                if (typeof value !== "string" || value.length === 0 || seen.has(value)) return;
+                seen.add(value);
+                fields.push({ key, value });
+            }
+            push("message", message);
+            for (const key of ["error", "reason", "message", "compile_error", "stderr", "stdout", "detail"]) {
+                if (result && Object.prototype.hasOwnProperty.call(result, key)) push(key, result[key]);
+            }
+            return fields;
+        }
+
+        function hasAnsi(value) {
+            return /\x1b\[[0-9;]*m/.test(String(value ?? ""));
+        }
+
+        function looksLikeCompilerOutput(value) {
+            const text = String(value ?? "");
+            return hasAnsi(text)
+                || /(^|\n)(error|warning|note)\[[^\]\n]+\]/.test(text)
+                || /(^|\n)\s*-->\s+/.test(text);
+        }
+
+        function renderTerminalOutput(label, value) {
+            return `<div class="terminal-label">${escapeHtml(label)}</div><pre class="terminal-output">${ansiToHtml(value)}</pre>`;
+        }
+
         function renderFieldValue(value) {
             if (Array.isArray(value)) return value.length > 0 ? value.map((item) => String(item)).join("\n") : "(empty)";
             if (value && typeof value === "object") return JSON.stringify(value, null, 2);
@@ -600,24 +630,31 @@
         }
 
         function renderResultDetail(result, message) {
-            const text = String(message || "");
-            const isDiagnosticMismatch = /^compile_fail diagnostic (?:code|span) mismatch/m.test(text);
-            if (isDiagnosticMismatch || (result && result.compile_error)) {
-                const parsed = parseDiagnosticError(result, text);
-                const fields = parsed.fields.map((field) => `<div class="diagnostic-field">
+            const fields = resultTextFields(result, message);
+            const text = fields.length > 0 ? fields[0].value : "";
+            const combinedText = fields.map((field) => field.value).join("\n");
+            const isDiagnosticMismatch = /^compile_fail diagnostic (?:code|span) mismatch/m.test(combinedText);
+            const hasStructuredCompileError = result && typeof result.compile_error === "string" && result.compile_error.length > 0;
+            if (isDiagnosticMismatch || hasStructuredCompileError || /^compile_error:\s*/m.test(combinedText)) {
+                const parsed = parseDiagnosticError(result, combinedText);
+                const diagnosticFields = parsed.fields.map((field) => `<div class="diagnostic-field">
                     <div class="k">${escapeHtml(field.key)}</div>
                     <div class="v">${escapeHtml(renderFieldValue(field.value))}</div>
                 </div>`).join("");
                 const summary = parsed.summary ? `<pre>${escapeHtml(parsed.summary)}</pre>` : "";
-                const terminal = parsed.compileError ? `<div class="terminal-label">Compiler output</div><pre class="terminal-output">${ansiToHtml(parsed.compileError)}</pre>` : "";
+                const terminal = parsed.compileError ? renderTerminalOutput("Compiler output", parsed.compileError) : "";
                 return `<div class="result-detail"><div class="diagnostic-card">
                     <div class="diagnostic-title">${escapeHtml(parsed.title)}</div>
-                    ${fields ? `<div class="diagnostic-fields">${fields}</div>` : ""}
+                    ${diagnosticFields ? `<div class="diagnostic-fields">${diagnosticFields}</div>` : ""}
                     ${summary}
                     ${terminal}
                 </div></div>`;
             }
-            return `<pre>${escapeHtml(text || JSON.stringify(result, null, 2))}</pre>`;
+            if (text && looksLikeCompilerOutput(text)) {
+                return `<div class="result-detail"><div class="diagnostic-card">${renderTerminalOutput("Compiler output", text)}</div></div>`;
+            }
+            if (text) return `<div class="result-detail"><pre>${escapeHtml(text)}</pre></div>`;
+            return `<div class="result-detail"><pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre></div>`;
         }
 
         function resultStatus(result) {

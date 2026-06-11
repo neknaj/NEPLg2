@@ -1,3 +1,37 @@
+# 2026-06-12 Agent2 tests.html compiler output rendering checkpoint
+
+- 対象 branch: `agent2/fix-tests-html-diagnostic-rendering`
+- 対象: `https://neknaj.github.io/NEPLg2/tests.html` の失敗詳細表示
+- 現象:
+  - `compile_fail diagnostic code/span mismatch` は HTML の構造化表示と ANSI 色変換に対応していた。
+  - 一方で、公開済み `last-completed` の JSON には `result.error` に直接 ANSI 付き compiler output が入る失敗行があり、その経路は raw `<pre>` fallback に落ちていた。
+  - そのため、同じ `tests.html` 内で HTML 表示に対応できた失敗詳細と、生の ANSI / JSON 風表示に見える失敗詳細が混在していた。
+- root cause:
+  - `renderResultDetail` が `compile_fail diagnostic ... mismatch` と `compile_error` field だけを `ansiToHtml` に通していた。
+  - 通常の `error` / `reason` / `message` / `stderr` / `stdout` / `detail` の compiler output を同じ表示 contract に統合していなかった。
+- implementation:
+  - `web/tests.html` に `resultTextFields`、`hasAnsi`、`looksLikeCompilerOutput`、`renderTerminalOutput` を追加した。
+  - 診断ミスマッチ以外の ANSI 付き compiler output も `.terminal-output` 経路で `ansiToHtml` に通すようにした。
+  - `compile_error:` 行、構造化 `compile_error` field、通常の compiler diagnostic 文字列を同じ端末表示 component へ集約した。
+  - Pages contract test に、通常 compiler output が raw fallback に落ちないことを固定した。
+- verification:
+  - pass: `node nodesrc/test_pages_ci_metrics_contract.js`
+  - pass: `node -` による `web/tests.html` script 構文検査
+  - pass: 公開済み `last-completed` JSON を用いた集計で、ANSI を含む失敗行は `rawAnsi=0`
+    - `nmd-tests.json`: `ansi=29 terminal=29 rawAnsi=0`
+    - `tests-current.json`: `ansi=34 terminal=34 rawAnsi=0`
+    - `tests-dual-tests.json`: `ansi=57 terminal=57 rawAnsi=0`
+    - `tests-dual-stdlib.json`: `ansi=2 terminal=2 rawAnsi=0`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - pass: `trunk build`
+  - pass: `node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\tests-html-rendering-playground-editor.json`
+  - pass: `web/dist/tests.html` script 構文検査
+- known warning:
+  - `trunk build` は Trunk 0.20.3 から 0.21.14 への更新通知と tool version mismatch の info を出すが、build は成功した。
+  - source policy の stdlib/selfhost documentation contract は既存の report-only gap を表示する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue predicate checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
