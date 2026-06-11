@@ -2,8 +2,8 @@
 id: ISS-20260611T164152135Z-CLOSING-TERMINAL-PANES-MUST-DISPOSE--EF2A307C
 title: "Closing terminal panes must dispose Shell workers GUI windows and input listeners"
 area: tools
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P0
 type: bug
 created: 2026-06-11
@@ -40,3 +40,18 @@ Add Shell.dispose that interrupts active work, closes GUI windows, clears timers
 ## 検証
 
 Run GUI app, close terminal pane, and assert worker termination, floating window removal, timer cleanup, and listener count stability.
+
+## 2026-06-12 Agent2 修正
+
+`Shell.dispose` を追加し、active worker interrupt、GUI window / timer cleanup、persistent compiler worker termination、GUI input listener unregister をまとめて行うようにした。
+
+`CanvasTerminal.dispose` は blink interval だけでなく `shell.dispose` を呼ぶ。`registerGuiWebInputEventListener` に対応する `unregisterGuiWebInputEventListener` を追加し、terminal pane close / workspace redraw で古い Shell listener が残らないようにした。
+
+検証:
+
+- `npm --prefix web run build:ts`
+- `node nodesrc/test_web_gui_input_bridge.js`
+- `node nodesrc/test_web_gui_shared_event_queue.js`
+- `node nodesrc/test_web_gui_runtime_bridge.js`
+- `node nodesrc/test_web_gui_floating_window_source.js`
+- `node nodesrc/playground_shell_worker_test_runner.js`

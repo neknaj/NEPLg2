@@ -493,6 +493,8 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(workerSource, /lastGuiWebInputEvent = \{ kind: 'empty' \}/);
     assert.match(workerSource, /return -1;/);
     assert.match(shellSource, /registerGuiWebInputEventListener/);
+    assert.match(shellSource, /unregisterGuiWebInputEventListener/);
+    assert.match(shellSource, /dispose\(\)[\s\S]*unregisterGuiWebInputEventListener/);
     assert.match(shellSource, /writeGuiWebSharedInputEvent/);
     assert.match(shellSource, /guiSab/);
     assert.match(shellSource, /guiRuntimeInputWindowIds/);
@@ -501,6 +503,7 @@ async function runWebGuiSharedEventQueueRegression() {
     assert.match(shellSource, /stopActiveGuiProcessFromWindowClose/);
     assert.match(shellSource, /closeGuiRuntimeWindows/);
     assert.match(shellSource, /closeGuiWebRuntimeHostFrameWindow/);
+    assert.match(shellSource, /interrupt\(options: InterruptOptions = \{\}\)/);
     assert.match(shellSource, /configureGuiRuntimeTimer/);
     assert.match(shellSource, /queueGuiRuntimeTimerTick/);
     assert.match(windowManagerSource, /queueHostWindowEvent/);

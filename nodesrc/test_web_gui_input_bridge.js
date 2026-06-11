@@ -29,6 +29,28 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(cleared.kind, "ok");
     assert.equal(cleared.value, "cleared");
 
+    const removedObserved = [];
+    const removedListener = {
+        kind: "gui-input-listener",
+        onInputEvent: (event) => removedObserved.push(event),
+    };
+    const registeredRemoved = inputBridge.registerGuiWebInputEventListener(removedListener);
+    assert.equal(registeredRemoved.kind, "ok");
+    const unregisteredRemoved = inputBridge.unregisterGuiWebInputEventListener(removedListener);
+    assert.equal(unregisteredRemoved.kind, "ok");
+    assert.equal(unregisteredRemoved.value, "unregistered");
+    const queuedAfterUnregister = inputBridge.queueGuiWebInputEvent({
+        kind: "action",
+        windowId: 3,
+        actionId: 99,
+        point: { x: 1, y: 2 },
+    });
+    assert.equal(queuedAfterUnregister.kind, "ok");
+    assert.equal(removedObserved.length, 0);
+    const discardedAfterUnregister = inputBridge.takeGuiWebInputEvents();
+    assert.equal(discardedAfterUnregister.kind, "ok");
+    assert.equal(discardedAfterUnregister.value.length, 1);
+
     const observed = [];
     const registered = inputBridge.registerGuiWebInputEventListener({
         kind: "gui-input-listener",
@@ -422,6 +444,7 @@ async function runWebGuiInputBridgeRegression() {
     assert.match(inputBridgeSource, /guiWebInputEventsWithTimer/);
     assert.match(inputBridgeSource, /isUnicodeScalarValue/);
     assert.match(inputBridgeSource, /registerGuiWebInputEventListener/);
+    assert.match(inputBridgeSource, /unregisterGuiWebInputEventListener/);
     assert.match(panelSource, /queueGuiWebInputEvent/);
     assert.match(panelSource, /handleCanvasPointerDown/);
     assert.match(panelSource, /pointermove/);
@@ -465,6 +488,7 @@ async function runWebGuiInputBridgeRegression() {
             "Web GUI input bridge queues Unicode scalar text input events as typed values",
             "Web GUI input bridge queues window events as typed values",
             "Web GUI input bridge queues timer events and preserves event ordering barriers",
+            "Web GUI input bridge unregisters listeners for disposed runtimes",
             "Web GUI floating windows publish host-frame resize and close requests through the input queue",
             "Web GUI input bridge notifies typed listeners without app-state simulation",
             "Web GUI input bridge exposes take/reset event boundaries",

@@ -2,7 +2,7 @@ import { resolveCompilerAssets, type CompilerAssetUrls } from '../runtime/compil
 import { VFS } from '../runtime/vfs.js';
 import { GuiWebStdoutProtocolParser, type GuiWebStdoutProtocolEvent } from '../gui-preview/stdout-protocol.js';
 import { closeGuiWebRuntimeHostFrameWindow, presentGuiWebRuntimeFrame } from '../gui-preview/runtime-bridge.js';
-import { registerGuiWebInputEventListener, type GuiWebInputEvent } from '../gui-preview/input-bridge.js';
+import { registerGuiWebInputEventListener, unregisterGuiWebInputEventListener, type GuiWebInputEvent, type GuiWebInputEventListener } from '../gui-preview/input-bridge.js';
 import {
     createGuiWebSharedEventBuffer,
     resetGuiWebSharedEventBuffer,
@@ -79,6 +79,10 @@ type ShellOptions = {
     getCompilerMode?: () => string;
 };
 
+type InterruptOptions = {
+    report?: boolean;
+};
+
 type GuiRuntimeTimerState = {
     handle: ReturnType<typeof setInterval>;
     windowId: number;
@@ -110,6 +114,8 @@ export class Shell {
     private currentProcessReject: ((reason?: any) => void) | null;
     private guiStdoutProtocolParser: GuiWebStdoutProtocolParser;
     private getCompilerModeOption: () => string;
+    private guiInputListener: GuiWebInputEventListener;
+    private disposed: boolean;
 
     constructor(terminal: any, vfs: VFS, options: ShellOptions = {}) {
         this.terminal = terminal;
@@ -138,10 +144,12 @@ export class Shell {
         this.getCompilerModeOption = typeof options.getCompilerMode === 'function'
             ? options.getCompilerMode
             : () => 'rust';
-        registerGuiWebInputEventListener({
+        this.guiInputListener = {
             kind: 'gui-input-listener',
             onInputEvent: (event) => this.handleGuiInputEvent(event),
-        });
+        };
+        this.disposed = false;
+        registerGuiWebInputEventListener(this.guiInputListener);
     }
 
     async executeLine(line: string) {
@@ -865,10 +873,11 @@ export class Shell {
         return { flags, positional };
     }
 
-    interrupt() {
+    interrupt(options: InterruptOptions = {}) {
         if (!this.activeWorker) {
             return;
         }
+        const report = options.report !== false;
         if (this.activeWorker === this.compilerWorker) {
             this.compilerWorker = null;
             this.compilerWorkerAssetKey = null;
@@ -879,7 +888,9 @@ export class Shell {
         this.guiRuntimeInputWindowIds = new Set();
         this.activeWorker.terminate();
         this.activeWorker = null;
-        this.terminal.printError('\nProcess interrupted.');
+        if (report) {
+            this.terminal.printError('\nProcess interrupted.');
+        }
         if (this.stdinBuffer) {
             Atomics.store(this.stdinBuffer, 0, -1);
             Atomics.notify(this.stdinBuffer, 0);
@@ -895,6 +906,28 @@ export class Shell {
             return;
         }
         this.interrupt();
+    }
+
+    dispose() {
+        if (this.disposed) {
+            return;
+        }
+        this.disposed = true;
+        if (this.activeWorker) {
+            this.interrupt({ report: false });
+        } else {
+            this.closeGuiRuntimeWindows();
+            this.clearGuiRuntimeTimers();
+            this.guiRuntimeInputActive = false;
+            this.guiRuntimeInputWindowIds = new Set();
+        }
+        if (this.compilerWorker) {
+            this.compilerWorker.terminate();
+            this.compilerWorker = null;
+            this.compilerWorkerAssetKey = null;
+        }
+        unregisterGuiWebInputEventListener(this.guiInputListener);
+        this.currentProcessReject = null;
     }
 
     private closeGuiRuntimeWindows() {

@@ -609,5 +609,6 @@ export class CanvasTerminal {
 
     dispose() {
         clearInterval(this.blinkInterval);
+        this.shell.dispose();
     }
 }

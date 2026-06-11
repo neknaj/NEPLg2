@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T16:41:54.224Z",
+  "generated_at": "2026-06-11T16:45:20.392Z",
   "counts": {
     "total": 1367,
-    "open": 63,
-    "resolved": 1304,
+    "open": 62,
+    "resolved": 1305,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -13,8 +13,8 @@
       },
       "tools": {
         "total": 20,
-        "open": 13,
-        "resolved": 7
+        "open": 12,
+        "resolved": 8
       },
       "core": {
         "total": 665,
@@ -203,21 +203,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260611T164150659Z-WEB-PLAYGROUND-ANALYSIS-SPANS-MUST-P-CFF77E8E.md"
-    },
-    {
-      "id": "ISS-20260611T164152135Z-CLOSING-TERMINAL-PANES-MUST-DISPOSE--EF2A307C",
-      "title": "Closing terminal panes must dispose Shell workers GUI windows and input listeners",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-06-11",
-      "updated": "2026-06-11",
-      "target": "web/src/terminal/terminal.ts; web/src/terminal/shell.ts; web/src/workspace/panel-manager.ts; web/src/gui-preview/input-bridge.ts",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260611T164152135Z-CLOSING-TERMINAL-PANES-MUST-DISPOSE--EF2A307C.md"
     },
     {
       "id": "ISS-20260611T164152433Z-STOP-ACTION-MUST-TARGET-THE-ACTIVE-G-8A98A569",
@@ -1883,6 +1868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260515T203122854Z-STD-ENV-CLIARG-GET-CHECKED-ACCEPTS-N-19FA44EB.md"
+    },
+    {
+      "id": "ISS-20260611T164152135Z-CLOSING-TERMINAL-PANES-MUST-DISPOSE--EF2A307C",
+      "title": "Closing terminal panes must dispose Shell workers GUI windows and input listeners",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-06-11",
+      "updated": "2026-06-11",
+      "target": "web/src/terminal/terminal.ts; web/src/terminal/shell.ts; web/src/workspace/panel-manager.ts; web/src/gui-preview/input-bridge.ts",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260611T164152135Z-CLOSING-TERMINAL-PANES-MUST-DISPOSE--EF2A307C.md"
     },
     {
       "id": "ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524",

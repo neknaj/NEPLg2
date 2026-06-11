@@ -143,6 +143,11 @@ export function registerGuiWebInputEventListener(listener: GuiWebInputEventListe
     return { kind: 'ok', value: 'registered' };
 }
 
+export function unregisterGuiWebInputEventListener(listener: GuiWebInputEventListener): GuiWebInputResult<'unregistered'> {
+    inputEventListeners = inputEventListeners.filter((candidate) => candidate !== listener);
+    return { kind: 'ok', value: 'unregistered' };
+}
+
 export function clearGuiWebInputEventListeners(): GuiWebInputResult<'cleared'> {
     inputEventListeners = [];
     return { kind: 'ok', value: 'cleared' };
