@@ -54947,6 +54947,62 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `git diff --check`
 
+## 2026-06-12 Agent selfhost memo trait stable source evidence checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-source-fingerprint-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- related_issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- zenn_policy_checked: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_source_fingerprint.nepl` を追加し、scanner candidate table と stable public surface evidence table を突き合わせる producer gate を作った。
+- `SelfhostMemoTraitStableSourceFingerprintEvidence` は module identity、stable trait definition key、normalized public signature の fingerprint availability を型付き payload として保持する。`SelfhostMemoTraitStableSourceEvidenceRecord` は `MemoKey` / `MemoValue` の source kind と typed fingerprint evidence を分けて保持する。`some 0` は scanner placeholder と同じ値なので stable evidence として受理せず、placeholder fingerprint error で fail-closed にする。
+- producer は scanner candidate table の fingerprint を trusted payload として使わない。candidate table は `MemoKey` / `MemoValue` candidate の presence / duplicate evidence としてだけ扱い、accepted payload は stable evidence table から作る。
+- `selfhost_memo_trait_definition_source_table_from_stable_evidence_result` は candidate 欠落、candidate 重複、evidence 欠落、evidence 重複、fingerprint 未確定、placeholder fingerprint を `SelfhostMemoTraitStableSourceProduceErrorKind` として fail-closed に返す。
+- 成功時だけ `signature_available = true` の `SelfhostMemoTraitDefinitionSourceRecord` を作り、最終的な trusted registry 化は既存 `selfhost_memo_trait_trusted_source_registry_from_definition_table` へ委譲する。
+- `stdlib/neplg2/core/check/module.nepl` facade と `nodesrc/test_selfhost_memo_trait_source_fingerprint_contract.js`、`nodesrc/run_source_policy_regressions.js`、関連 doc / issue / todo を更新した。
+
+### zenn_policy
+
+- Result / enum: stable source producer の失敗は bool や文字列にせず、typed enum と `Result` で保持した。
+- static check: error equality helper は enum variant の exhaustive code projection を使い、wildcard arm を使っていない。
+- responsibility: producer は checker-layer に置き、`core/ty` は checker/syntax へ依存しない。proof store も producer output へ直接依存せず、trusted registry Result API だけを使う。
+- fail-closed: scanner の source spelling / span / placeholder fingerprint だけで trusted source identity を作らない。stable evidence の fingerprint が 1 つでも欠ける場合は accepted record に進まない。
+- doc comment: module / public type / public function に日本語の目的、契約、現状、計算量、doctestを記述した。コメント行数や file size を抑制する検査は追加していない。
+- prototype policy: public surface hash の本体を未実装のまま成功扱いせず、今回の実装は stable evidence consumer / producer gate として明示した。
+
+### verification
+
+- subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+- subagent_review_count: 2
+- subagent_review_result:
+  - `019eb689-ea44-7972-8bf1-1f791cfecd18` は scanner placeholder fingerprint を trusted source identity に昇格していないこと、Result / enum error、fail-closed、DAG、doc comment、行数・コメント長制限不在を確認し、実装方針を approve した。Required は未追跡 file を commit 対象に含める operational item のみ。
+  - `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7` は初回 review で `some 0` placeholder fingerprint が accepted path に進み得ることを Blocker として指摘した。`selfhost_memo_trait_stable_source_fingerprint_value_result` と placeholder error enum、stage0 smoke、source policy を追加して修正した。
+  - follow-up review では `some 0` placeholder の Blocker は解消済み、public helper doc comment の補強も確認済み。残っていた Required は note の pending 更新のみだったため、この checkpoint に反映した。
+  - final follow-up review では Blocker / Required なし、`MERGE_APPROVED` を確認した。
+- pass: `node nodesrc/test_selfhost_memo_trait_source_fingerprint_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_source_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_source_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_source_fingerprint.nepl -o tmp/selfhost-memo-trait-source-fingerprint.json --dist web/dist -j 1 --assert-io --no-tree` total=1 passed=1
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (LF -> CRLF warning のみ)
+
+### residual
+
+- actual typed public surface materializer から module identity / stable trait definition key / normalized trait signature fingerprint を生成する実装は未実装。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は proof store の stored proof 入力へ未接続。
+- `memo_call` private cache proof、Resource IR `PrivateCache` non-escape proof、sealed backend representation は未実装。
+
 ### warnings
 
 - existing_warnings: Git の LF -> CRLF conversion warning、Node WASI ExperimentalWarning、source policy documentation contract の既存 sample gaps、trunk の update notice / wasm-bindgen tool version mismatch notice。

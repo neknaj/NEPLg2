@@ -22,18 +22,34 @@ const summaryUpdate = read("stdlib/neplg2/core/check/module/summary_update.nepl"
 const diagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
 const rawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const declarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
+const memoTraitSourceFingerprint = read("stdlib/neplg2/core/check/module/memo_trait_source_fingerprint.nepl");
 const memoTraitSourceScan = read("stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl");
 const orchestrate = read("stdlib/neplg2/core/check/module/orchestrate.nepl");
-const implementation = [summary, summaryUpdate, diagnostic, rawAdapter, declarationAdapter, memoTraitSourceScan, orchestrate].join("\n");
+const implementation = [
+    summary,
+    summaryUpdate,
+    diagnostic,
+    rawAdapter,
+    declarationAdapter,
+    memoTraitSourceFingerprint,
+    memoTraitSourceScan,
+    orchestrate,
+].join("\n");
 
 assert.match(facade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(facade, /pub #import "\.\/module\/memo_trait_source_fingerprint" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
 assert.match(facade, /pub #import "\.\/module\/orchestrate" as \*/);
 assert.deepEqual(
     Array.from(facade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
         .sort(),
-    ["./module/memo_trait_source_scan as *", "./module/orchestrate as *", "./module/summary as *"],
-    "module facade must re-export only the public summary, memo trait source scanner, and orchestration surfaces",
+    [
+        "./module/memo_trait_source_fingerprint as *",
+        "./module/memo_trait_source_scan as *",
+        "./module/orchestrate as *",
+        "./module/summary as *",
+    ],
+    "module facade must re-export only the public summary, memo trait source evidence, memo trait source scanner, and orchestration surfaces",
 );
 assert.doesNotMatch(facade, /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/m, "module facade must not own implementation");
 assert.doesNotMatch(facade, /#import "neplg2\/core\/proof"/, "module facade must not import proof internals");

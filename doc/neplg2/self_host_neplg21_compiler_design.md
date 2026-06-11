@@ -484,6 +484,10 @@ Resource IR では `MemoizedFunctionValue` と `PrivateCache` / `PrivateState` p
 
 2026-06-11 selfhost compiler-known primitive identity registry checkpoint では、上記の trusted identity を lowering-local な `SelfhostCompilerKnownMemoCallIdentity` から、`builtins/prelude/compiler_known.nepl` の共有 `SelfhostCompilerKnownPrimitiveIdentity` へ移した。identity は `SelfhostCompilerKnownPrimitiveKind::MemoCall`、監査用 `module_path` / `symbol`、resolver-local `DefId` を持つ。`lower/hir/memo_call.nepl` は `SelfhostCompilerKnownPrimitiveKind::MemoCall` と candidate `DefId` の両方が一致する場合だけ accepted path へ進む。これにより、typecheck、HIR lowering、Resource IR、backend が将来同じ primitive kind を参照できる。prelude registry は `lower/hir`、`hir`、`check/expr` に依存せず、source hash / policy hash materialization、`MemoKey` / `MemoValue`、private cache proof、sealed backend は引き続き後続 slice に残す。
 
+2026-06-12 selfhost `MemoKey` / `MemoValue` stable source evidence checkpoint では、`core/check/module/memo_trait_source_fingerprint.nepl` を追加し、AST scanner が作る `signature_available = false` の候補 table と、typed public surface materializer が将来渡す stable fingerprint evidence を突き合わせる境界を作った。candidate table は `MemoKey` / `MemoValue` trait declaration が 1 件ずつ存在することと重複しないことだけを証明し、fingerprint payload には使わない。accepted source identity の材料は、別 evidence table が持つ module identity、stable trait definition key、normalized public signature fingerprint の 3 つがすべて存在し、かつ scanner placeholder と同じ `0` ではない場合だけ作られる。
+
+この checkpoint は public surface hash の計算本体ではない。hash 計算、trait signature normalization、module identity の永続化、re-export を含む public surface materializer は後続 slice に残る。ただし、後続 materializer が入った後も、scanner の source spelling や span だけを trusted source identity へ昇格させず、欠落・重複・未確定 fingerprint を typed `Result` で fail-closed にする API 境界はここで固定した。
+
 Phase 2 では、`run_private` / `mask_private` に相当する一般 private region effect へ拡張する。
 
 ## HIR

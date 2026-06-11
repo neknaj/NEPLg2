@@ -595,12 +595,18 @@ assert.match(
 );
 
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_fingerprint" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/orchestrate" as \*/);
 assert.deepEqual(
     Array.from(moduleCheckerFacade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
         .sort(),
-    ["./module/memo_trait_source_scan as *", "./module/orchestrate as *", "./module/summary as *"],
+    [
+        "./module/memo_trait_source_fingerprint as *",
+        "./module/memo_trait_source_scan as *",
+        "./module/orchestrate as *",
+        "./module/summary as *",
+    ],
     "module checker facade must re-export only the intended public modules",
 );
 assert.doesNotMatch(

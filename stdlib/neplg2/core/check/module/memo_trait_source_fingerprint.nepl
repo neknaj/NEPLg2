@@ -1,0 +1,616 @@
+#indent 4
+
+//: # check/module/memo_trait_source_fingerprint
+//: `MemoKey` / `MemoValue` trait definition の scanner 候補と stable public surface evidence を[突/つ]き[合/あ]わせる接続層です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_source_scan.nepl` が作る `signature_available = false` の候補 table を、そのまま trusted registry に昇格させないための producer gate を定義します。
+//: - 将来の typed public surface materializer が計算する module / symbol / signature fingerprint を、scanner 候補の存在と欠落・重複検査に重ねてから `SelfhostMemoTraitDefinitionSourceRecord` へ変換します。
+//: - fingerprint の計算規則そのものはこの module に置きません。この module は「検査済み evidence を受け取る境界」であり、source text、display name、path suffix、diagnostic text を accepted identity の authority にしません。
+//:
+//: [契約/けいやく]:
+//: - candidate table に `MemoKey` と `MemoValue` の候補が 1 件ずつある場合だけ stable source record を作ります。
+//: - candidate table 側または evidence table 側で duplicate flag が立っている場合は、最初の record を黙って採用せず typed error で拒否します。
+//: - evidence record は module / symbol / signature fingerprint をすべて `Option::Some` で持つ必要があります。いずれかが `none` の場合、その source kind と fingerprint 種別に対応する enum error を返します。
+//: - fingerprint `0` は scanner placeholder と同じ値であり、stable public surface evidence として扱いません。`some 0` は availability ありではなく placeholder evidence として拒否します。
+//: - 成功した record は `signature_available = true` で作ります。ただし、その成功は evidence table が typed public surface materializer から渡された場合に限って意味を持ちます。scanner の source spelling や span だけからはこの API を呼んではいけません。
+//:
+//: [現状/げんじょう]:
+//: - これは stable public surface hash の計算実装ではありません。hash 計算、trait signature normalization、module identity の永続化、re-export を含む public surface materializer は後続 slice で実装します。
+//: - この段階で固定するのは、stable evidence が入った後も欠落・重複・未確定 fingerprint を fail-closed に扱う API と責務境界です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `MemoKey` / `MemoValue` の固定 2 slot だけを扱うため、evidence table の追加、検証、registry 変換はいずれも O(1) 時間・O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_source_fingerprint" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_stable_source_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted_registry
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_stable_source_produce_error_kind_eq (unwrap_err summary.missing_candidate_rejected) SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyCandidateMissing
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_stable_source_produce_error_kind_eq (unwrap_err summary.duplicate_candidate_rejected) SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyCandidateDuplicate
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_stable_source_produce_error_kind_eq (unwrap_err summary.missing_evidence_rejected) SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueEvidenceMissing
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_stable_source_produce_error_kind_eq (unwrap_err summary.duplicate_evidence_rejected) SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyEvidenceDuplicate
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_stable_source_produce_error_kind_eq (unwrap_err summary.missing_fingerprint_rejected) SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyModuleFingerprintMissing
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_stable_source_produce_error_kind_eq (unwrap_err summary.placeholder_fingerprint_rejected) SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyModuleFingerprintPlaceholder
+//:     let shown checks_print_report checks7
+//:     checks_exit_code shown
+//: ```
+
+#import "core/option" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+#import "neplg2/core/ty/ty/memo_trait_source" as *
+
+//: SelfhostMemoTraitStableSourceFingerprintEvidence: stable source fingerprint の availability-aware payload
+//:
+//: [目的/もくてき]:
+//: - module identity、stable trait definition key、normalized public signature fingerprint の未確定状態を 1 つの typed payload にまとめます。
+//: - raw `Option i32` の並びを各 caller が直接扱うと、module / symbol / signature の順序取り違えが起きやすくなります。この wrapper は未確定 fingerprint の分類を producer gate の入力境界に閉じます。
+//:
+//: [契約/けいやく]:
+//: - `module_hash` は module identity の fingerprint です。
+//: - `symbol_hash` は module 内の stable trait definition key の fingerprint です。
+//: - `signature_hash` は normalized public trait signature の fingerprint です。
+//: - いずれかが `none` の場合、producer は source kind と欠けた fingerprint 種別に対応する typed error を返します。
+//: - `some 0` は stable evidence ではなく placeholder として扱います。実際の hash producer は accepted fingerprint に 0 を使ってはいけません。
+pub struct SelfhostMemoTraitStableSourceFingerprintEvidence:
+    module_hash %Option i32
+    symbol_hash %Option i32
+    signature_hash %Option i32
+
+//: SelfhostMemoTraitStableSourceEvidenceRecord: stable source record producer が読む fingerprint evidence
+//:
+//: [目的/もくてき]:
+//: - typed public surface materializer が計算した stable evidence を、`MemoKey` / `MemoValue` の source record 化に必要な最小 payload として保持します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は evidence が `MemoKey` と `MemoValue` のどちらの trait definition に対応するかを表します。
+//: - `fingerprint` は module / symbol / signature fingerprint の availability-aware wrapper です。
+//: - wrapper 内の 3 つの fingerprint はすべて `some` の場合だけ trusted source identity の材料になります。`none` は未計算または不一致を表し、accepted path へ進めません。
+pub struct SelfhostMemoTraitStableSourceEvidenceRecord:
+    kind %SelfhostMemoTraitSourceKind
+    fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence
+
+//: SelfhostMemoTraitStableSourceEvidenceTable: MemoKey / MemoValue stable evidence の固定 table
+//:
+//: [目的/もくてき]:
+//: - stable public surface materializer 由来の evidence を source kind ごとの fixed slot に分け、欠落と重複を registry materialization より前で検出します。
+//:
+//: [契約/けいやく]:
+//: - duplicate flag が true の source kind は、たとえ最初の record が完全でも fail-closed にします。
+//: - この table は accepted registry ではありません。必ず `selfhost_memo_trait_definition_source_table_from_stable_evidence_result` を通し、scanner candidate table と突き合わせます。
+pub struct SelfhostMemoTraitStableSourceEvidenceTable:
+    memo_key %Option SelfhostMemoTraitStableSourceEvidenceRecord
+    memo_value %Option SelfhostMemoTraitStableSourceEvidenceRecord
+    duplicate_memo_key %bool
+    duplicate_memo_value %bool
+
+//: SelfhostMemoTraitStableSourceProduceErrorKind: stable source record producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - scanner candidate、stable evidence、fingerprint availability のどこで trusted source record 化が止まったかを enum として保持します。
+//: - bool や文字列に潰さないことで、後続 diagnostic と source policy が拒否境界を取り違えずに検査できます。
+pub enum SelfhostMemoTraitStableSourceProduceErrorKind:
+    MemoKeyCandidateMissing
+    MemoValueCandidateMissing
+    MemoKeyCandidateDuplicate
+    MemoValueCandidateDuplicate
+    MemoKeyEvidenceMissing
+    MemoValueEvidenceMissing
+    MemoKeyEvidenceDuplicate
+    MemoValueEvidenceDuplicate
+    MemoKeyEvidenceKindMismatch
+    MemoValueEvidenceKindMismatch
+    MemoKeyModuleFingerprintMissing
+    MemoKeySymbolFingerprintMissing
+    MemoKeySignatureFingerprintMissing
+    MemoKeyModuleFingerprintPlaceholder
+    MemoKeySymbolFingerprintPlaceholder
+    MemoKeySignatureFingerprintPlaceholder
+    MemoValueModuleFingerprintMissing
+    MemoValueSymbolFingerprintMissing
+    MemoValueSignatureFingerprintMissing
+    MemoValueModuleFingerprintPlaceholder
+    MemoValueSymbolFingerprintPlaceholder
+    MemoValueSignatureFingerprintPlaceholder
+
+//: SelfhostMemoTraitStableSourceRegistryErrorKind: stable source producer と registry validator の結合エラー
+//:
+//: [目的/もくてき]:
+//: - stable evidence から definition source table を作る段階と、既存 trusted registry validator へ渡す段階を区別します。
+pub enum SelfhostMemoTraitStableSourceRegistryErrorKind:
+    StableSourceRejected %SelfhostMemoTraitStableSourceProduceErrorKind
+    RegistryRejected %SelfhostMemoTraitTrustedSourceRegistryErrorKind
+
+//: SelfhostMemoTraitStableSourceStage0Summary: stable source producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted path と、欠落・重複・fingerprint 未確定の代表 fail-closed path を 1 つの値にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `accepted_registry` は scanner candidate table と complete evidence table の両方が揃った場合に trusted registry まで進める代表結果です。
+//: - `missing_candidate_rejected` は scanner candidate table に `MemoKey` が無い場合の拒否です。
+//: - `duplicate_candidate_rejected` は scanner candidate table に `MemoKey` が複数ある場合の拒否です。
+//: - `missing_evidence_rejected` は stable evidence table に `MemoValue` evidence が無い場合の拒否です。
+//: - `duplicate_evidence_rejected` は stable evidence table に `MemoKey` evidence が複数ある場合の拒否です。
+//: - `missing_fingerprint_rejected` は `MemoKey` evidence の module fingerprint が未確定の場合の拒否です。
+//: - `placeholder_fingerprint_rejected` は `MemoKey` evidence の module fingerprint が placeholder 0 の場合の拒否です。
+pub struct SelfhostMemoTraitStableSourceStage0Summary:
+    accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceRegistryErrorKind
+    missing_candidate_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind
+    duplicate_candidate_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind
+    missing_evidence_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind
+    duplicate_evidence_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind
+    missing_fingerprint_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind
+    placeholder_fingerprint_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind
+
+impl Clone for SelfhostMemoTraitStableSourceFingerprintEvidence:
+    fn clone %fn &SelfhostMemoTraitStableSourceFingerprintEvidence SelfhostMemoTraitStableSourceFingerprintEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceFingerprintEvidence:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceFingerprintEvidence SelfhostMemoTraitStableSourceFingerprintEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceEvidenceRecord:
+    fn clone %fn &SelfhostMemoTraitStableSourceEvidenceRecord SelfhostMemoTraitStableSourceEvidenceRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceEvidenceRecord:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceEvidenceRecord SelfhostMemoTraitStableSourceEvidenceRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceEvidenceTable:
+    fn clone %fn &SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceEvidenceTable \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceEvidenceTable:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceEvidenceTable SelfhostMemoTraitStableSourceEvidenceTable \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceProduceErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableSourceProduceErrorKind SelfhostMemoTraitStableSourceProduceErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceProduceErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceProduceErrorKind SelfhostMemoTraitStableSourceProduceErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceRegistryErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableSourceRegistryErrorKind SelfhostMemoTraitStableSourceRegistryErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceRegistryErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceRegistryErrorKind SelfhostMemoTraitStableSourceRegistryErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableSourceStage0Summary:
+    fn clone %fn &SelfhostMemoTraitStableSourceStage0Summary SelfhostMemoTraitStableSourceStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableSourceStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitStableSourceStage0Summary SelfhostMemoTraitStableSourceStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_stable_source_fingerprint_evidence_new: stable fingerprint evidence wrapper を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module / symbol / signature fingerprint の availability を typed wrapper にまとめます。
+//:
+//: [契約/けいやく]:
+//: - この constructor は availability を記録するだけです。すべてが `some` であるか、`some 0` が混じっていないかは key/value producer が `Result` で検査します。
+pub fn selfhost_memo_trait_stable_source_fingerprint_evidence_new %fn Option i32 fn Option i32 fn Option i32 SelfhostMemoTraitStableSourceFingerprintEvidence \module_hash\symbol_hash\signature_hash:
+    SelfhostMemoTraitStableSourceFingerprintEvidence module_hash symbol_hash signature_hash
+
+//: selfhost_memo_trait_stable_source_evidence_record_new: stable evidence record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public surface materializer が計算した fingerprint evidence を typed payload に束ねます。
+//:
+//: [契約/けいやく]:
+//: - この constructor は evidence を検証しません。fingerprint の有無と source kind の整合は key/value ごとの producer が `Result` で検査します。
+pub fn selfhost_memo_trait_stable_source_evidence_record_new %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitStableSourceFingerprintEvidence SelfhostMemoTraitStableSourceEvidenceRecord \kind\fingerprint:
+    SelfhostMemoTraitStableSourceEvidenceRecord kind fingerprint
+
+//: selfhost_memo_trait_stable_source_evidence_table_empty: stable evidence table の空値を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stable public surface materializer が見つけた `MemoKey` / `MemoValue` evidence を追加していく初期 table を作ります。
+//:
+//: [契約/けいやく]:
+//: - 初期状態では `MemoKey` / `MemoValue` の record はどちらも欠落しており、duplicate flag も立っていません。
+//: - 空 table を producer に渡した場合は accepted path へ進まず、missing evidence として `Result::Err` になります。
+//:
+//: [現状/げんじょう]:
+//: - table は fixed 2 slot です。将来 memoization trait が増える場合は、source kind enum とこの table の両方を拡張します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)。
+//: - [空間/くうかん]: O(1)。
+pub fn selfhost_memo_trait_stable_source_evidence_table_empty %fn void SelfhostMemoTraitStableSourceEvidenceTable \void:
+    SelfhostMemoTraitStableSourceEvidenceTable none none false false
+
+//: selfhost_memo_trait_stable_source_evidence_table_with_key: MemoKey evidence を table に[入/い]れる
+fn selfhost_memo_trait_stable_source_evidence_table_with_key %fn SelfhostMemoTraitStableSourceEvidenceTable fn SelfhostMemoTraitStableSourceEvidenceRecord SelfhostMemoTraitStableSourceEvidenceTable \table\record:
+    match table.memo_key:
+        Option::Some _existing:
+            SelfhostMemoTraitStableSourceEvidenceTable table.memo_key table.memo_value true table.duplicate_memo_value
+        Option::None:
+            SelfhostMemoTraitStableSourceEvidenceTable (some record) table.memo_value table.duplicate_memo_key table.duplicate_memo_value
+
+//: selfhost_memo_trait_stable_source_evidence_table_with_value: MemoValue evidence を table に[入/い]れる
+fn selfhost_memo_trait_stable_source_evidence_table_with_value %fn SelfhostMemoTraitStableSourceEvidenceTable fn SelfhostMemoTraitStableSourceEvidenceRecord SelfhostMemoTraitStableSourceEvidenceTable \table\record:
+    match table.memo_value:
+        Option::Some _existing:
+            SelfhostMemoTraitStableSourceEvidenceTable table.memo_key table.memo_value table.duplicate_memo_key true
+        Option::None:
+            SelfhostMemoTraitStableSourceEvidenceTable table.memo_key (some record) table.duplicate_memo_key table.duplicate_memo_value
+
+//: selfhost_memo_trait_stable_source_evidence_table_add_record: evidence record を kind に従って table へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - stable evidence record を `MemoKey` / `MemoValue` の fixed slot に振り分け、重複を record 上書きではなく duplicate flag として保存します。
+//:
+//: [契約/けいやく]:
+//: - 同じ source kind を複数回追加した場合、existing record は置き換えず duplicate flag だけを立てます。
+//: - duplicate flag が立った table は producer で必ず拒否されます。後から完全な record を足しても、この duplicate 状態は解除しません。
+//:
+//: [現状/げんじょう]:
+//: - source kind が 2 種類だけなので exhaustive match で分岐します。variant 追加時は match と table shape の両方が更新対象になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - [時間/じかん]: O(1)。
+//: - [空間/くうかん]: O(1)。
+pub fn selfhost_memo_trait_stable_source_evidence_table_add_record %fn SelfhostMemoTraitStableSourceEvidenceTable fn SelfhostMemoTraitStableSourceEvidenceRecord SelfhostMemoTraitStableSourceEvidenceTable \table\record:
+    match record.kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            selfhost_memo_trait_stable_source_evidence_table_with_key table record
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            selfhost_memo_trait_stable_source_evidence_table_with_value table record
+
+//: selfhost_memo_trait_stable_source_produce_error_kind_code: producer error を比較用 code へ[写/うつ]す
+//:
+//: [注意/ちゅうい]:
+//: - この code は doctest の equality helper 専用です。accepted source identity や diagnostic code の authority には使いません。
+//: - wildcard arm は使いません。variant が増えた場合はこの projection の更新漏れが見えるようにします。
+fn selfhost_memo_trait_stable_source_produce_error_kind_code %fn SelfhostMemoTraitStableSourceProduceErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyCandidateMissing:
+            1
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueCandidateMissing:
+            2
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyCandidateDuplicate:
+            3
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueCandidateDuplicate:
+            4
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyEvidenceMissing:
+            5
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueEvidenceMissing:
+            6
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyEvidenceDuplicate:
+            7
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueEvidenceDuplicate:
+            8
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyEvidenceKindMismatch:
+            9
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueEvidenceKindMismatch:
+            10
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyModuleFingerprintMissing:
+            11
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySymbolFingerprintMissing:
+            12
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySignatureFingerprintMissing:
+            13
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyModuleFingerprintPlaceholder:
+            14
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySymbolFingerprintPlaceholder:
+            15
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySignatureFingerprintPlaceholder:
+            16
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueModuleFingerprintMissing:
+            17
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSymbolFingerprintMissing:
+            18
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSignatureFingerprintMissing:
+            19
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueModuleFingerprintPlaceholder:
+            20
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSymbolFingerprintPlaceholder:
+            21
+        SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSignatureFingerprintPlaceholder:
+            22
+
+//: selfhost_memo_trait_stable_source_produce_error_kind_eq: producer error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_source_produce_error_kind_eq %fn SelfhostMemoTraitStableSourceProduceErrorKind fn SelfhostMemoTraitStableSourceProduceErrorKind bool \a\b:
+    eq:
+        selfhost_memo_trait_stable_source_produce_error_kind_code a
+        selfhost_memo_trait_stable_source_produce_error_kind_code b
+
+//: selfhost_memo_trait_stable_source_registry_error_kind_eq: registry 結合 error kind が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - producer 側の拒否と registry validator 側の拒否を混同しません。
+pub fn selfhost_memo_trait_stable_source_registry_error_kind_eq %fn SelfhostMemoTraitStableSourceRegistryErrorKind fn SelfhostMemoTraitStableSourceRegistryErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStableSourceRegistryErrorKind::StableSourceRejected produce_error:
+            match b:
+                SelfhostMemoTraitStableSourceRegistryErrorKind::StableSourceRejected other_produce_error:
+                    selfhost_memo_trait_stable_source_produce_error_kind_eq produce_error other_produce_error
+                SelfhostMemoTraitStableSourceRegistryErrorKind::RegistryRejected _registry_error:
+                    false
+        SelfhostMemoTraitStableSourceRegistryErrorKind::RegistryRejected registry_error:
+            match b:
+                SelfhostMemoTraitStableSourceRegistryErrorKind::StableSourceRejected _produce_error:
+                    false
+                SelfhostMemoTraitStableSourceRegistryErrorKind::RegistryRejected other_registry_error:
+                    selfhost_memo_trait_trusted_source_registry_error_kind_eq registry_error other_registry_error
+
+//: selfhost_memo_trait_stable_source_fingerprint_value_result: stable fingerprint 値を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - availability wrapper 内の 1 fingerprint を、trusted source identity に渡してよい非 placeholder 値へ変換します。
+//:
+//: [契約/けいやく]:
+//: - `none` は caller が渡した missing error で拒否します。
+//: - `some 0` は scanner placeholder と同じ値なので、caller が渡した placeholder error で拒否します。
+//: - `some n` かつ `n != 0` の場合だけ `Result::Ok n` を返します。
+fn selfhost_memo_trait_stable_source_fingerprint_value_result %fn Option i32 fn SelfhostMemoTraitStableSourceProduceErrorKind fn SelfhostMemoTraitStableSourceProduceErrorKind Result i32 SelfhostMemoTraitStableSourceProduceErrorKind \fingerprint\missing_error\placeholder_error:
+    match fingerprint:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err placeholder_error
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err missing_error
+
+//: selfhost_memo_trait_stable_source_key_evidence_to_record: MemoKey evidence を trusted source record へ[変換/へんかん]する
+fn selfhost_memo_trait_stable_source_key_evidence_to_record %fn SelfhostMemoTraitStableSourceEvidenceRecord Result SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitStableSourceProduceErrorKind \evidence:
+    if:
+        selfhost_memo_trait_source_kind_eq evidence.kind SelfhostMemoTraitSourceKind::MemoKeyTrait
+        then:
+            match selfhost_memo_trait_stable_source_fingerprint_value_result evidence.fingerprint.module_hash SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyModuleFingerprintMissing SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyModuleFingerprintPlaceholder:
+                Result::Ok module_hash:
+                    match selfhost_memo_trait_stable_source_fingerprint_value_result evidence.fingerprint.symbol_hash SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySymbolFingerprintMissing SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySymbolFingerprintPlaceholder:
+                        Result::Ok symbol_hash:
+                            match selfhost_memo_trait_stable_source_fingerprint_value_result evidence.fingerprint.signature_hash SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySignatureFingerprintMissing SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeySignatureFingerprintPlaceholder:
+                                Result::Ok signature_hash:
+                                    Result::Ok:
+                                        selfhost_memo_trait_definition_source_record_new:
+                                            SelfhostMemoTraitSourceKind::MemoKeyTrait
+                                            selfhost_memo_trait_definition_fingerprint_new module_hash symbol_hash signature_hash
+                                            true
+                                Result::Err signature_error:
+                                    Result::Err signature_error
+                        Result::Err symbol_error:
+                            Result::Err symbol_error
+                Result::Err module_error:
+                    Result::Err module_error
+        else:
+            Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyEvidenceKindMismatch
+
+//: selfhost_memo_trait_stable_source_value_evidence_to_record: MemoValue evidence を trusted source record へ[変換/へんかん]する
+fn selfhost_memo_trait_stable_source_value_evidence_to_record %fn SelfhostMemoTraitStableSourceEvidenceRecord Result SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitStableSourceProduceErrorKind \evidence:
+    if:
+        selfhost_memo_trait_source_kind_eq evidence.kind SelfhostMemoTraitSourceKind::MemoValueTrait
+        then:
+            match selfhost_memo_trait_stable_source_fingerprint_value_result evidence.fingerprint.module_hash SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueModuleFingerprintMissing SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueModuleFingerprintPlaceholder:
+                Result::Ok module_hash:
+                    match selfhost_memo_trait_stable_source_fingerprint_value_result evidence.fingerprint.symbol_hash SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSymbolFingerprintMissing SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSymbolFingerprintPlaceholder:
+                        Result::Ok symbol_hash:
+                            match selfhost_memo_trait_stable_source_fingerprint_value_result evidence.fingerprint.signature_hash SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSignatureFingerprintMissing SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueSignatureFingerprintPlaceholder:
+                                Result::Ok signature_hash:
+                                    Result::Ok:
+                                        selfhost_memo_trait_definition_source_record_new:
+                                            SelfhostMemoTraitSourceKind::MemoValueTrait
+                                            selfhost_memo_trait_definition_fingerprint_new module_hash symbol_hash signature_hash
+                                            true
+                                Result::Err signature_error:
+                                    Result::Err signature_error
+                        Result::Err symbol_error:
+                            Result::Err symbol_error
+                Result::Err module_error:
+                    Result::Err module_error
+        else:
+            Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueEvidenceKindMismatch
+
+//: selfhost_memo_trait_definition_source_table_from_stable_records: verified record 2 件から definition table を[作/つく]る
+fn selfhost_memo_trait_definition_source_table_from_stable_records %fn SelfhostMemoTraitDefinitionSourceRecord fn SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitDefinitionSourceTable \key_record\value_record:
+    let table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record table0 key_record
+    selfhost_memo_trait_definition_source_table_add_record table1 value_record
+
+//: selfhost_memo_trait_definition_source_table_from_stable_evidence_records_result: stable evidence record を[検査/けんさ]して definition table へ[変換/へんかん]する
+fn selfhost_memo_trait_definition_source_table_from_stable_evidence_records_result %fn SelfhostMemoTraitStableSourceEvidenceRecord fn SelfhostMemoTraitStableSourceEvidenceRecord Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind \key_evidence\value_evidence:
+    match selfhost_memo_trait_stable_source_key_evidence_to_record key_evidence:
+        Result::Ok key_record:
+            match selfhost_memo_trait_stable_source_value_evidence_to_record value_evidence:
+                Result::Ok value_record:
+                    Result::Ok selfhost_memo_trait_definition_source_table_from_stable_records key_record value_record
+                Result::Err value_error:
+                    Result::Err value_error
+        Result::Err key_error:
+            Result::Err key_error
+
+//: selfhost_memo_trait_definition_source_table_from_stable_evidence_result: scanner candidate と stable evidence から trusted source table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - scanner が見つけた `MemoKey` / `MemoValue` 候補と、public surface materializer 由来の stable fingerprint evidence が両方揃った場合だけ、`signature_available = true` の definition source table を作ります。
+//:
+//: [契約/けいやく]:
+//: - candidate table の fingerprint は使いません。candidate table は presence / duplicate evidence としてだけ扱います。
+//: - stable evidence の fingerprint が揃っていても、candidate が欠ける場合は trusted source record を作りません。
+//: - 返された table も accepted registry ではありません。既存の `selfhost_memo_trait_trusted_source_registry_from_definition_table` を通して最終 materialization を行います。
+pub fn selfhost_memo_trait_definition_source_table_from_stable_evidence_result %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitStableSourceEvidenceTable Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind \candidates\evidence:
+    if:
+        candidates.duplicate_memo_key
+        then:
+            Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyCandidateDuplicate
+        else:
+            if:
+                candidates.duplicate_memo_value
+                then:
+                    Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueCandidateDuplicate
+                else:
+                    if:
+                        evidence.duplicate_memo_key
+                        then:
+                            Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyEvidenceDuplicate
+                        else:
+                            if:
+                                evidence.duplicate_memo_value
+                                then:
+                                    Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueEvidenceDuplicate
+                                else:
+                                    match candidates.memo_key:
+                                        Option::Some _key_candidate:
+                                            match candidates.memo_value:
+                                                Option::Some _value_candidate:
+                                                    match evidence.memo_key:
+                                                        Option::Some key_evidence:
+                                                            match evidence.memo_value:
+                                                                Option::Some value_evidence:
+                                                                    selfhost_memo_trait_definition_source_table_from_stable_evidence_records_result key_evidence value_evidence
+                                                                Option::None:
+                                                                    Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueEvidenceMissing
+                                                        Option::None:
+                                                            Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyEvidenceMissing
+                                                Option::None:
+                                                    Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoValueCandidateMissing
+                                        Option::None:
+                                            Result::Err SelfhostMemoTraitStableSourceProduceErrorKind::MemoKeyCandidateMissing
+
+//: selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result: stable source table を trusted registry へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - stable evidence producer の `Result` と既存 registry validator の `Result` を、caller が区別できる 1 つの API として公開します。
+pub fn selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitStableSourceEvidenceTable Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceRegistryErrorKind \candidates\evidence:
+    match selfhost_memo_trait_definition_source_table_from_stable_evidence_result candidates evidence:
+        Result::Ok table:
+            match selfhost_memo_trait_trusted_source_registry_from_definition_table table:
+                Result::Ok registry:
+                    Result::Ok registry
+                Result::Err registry_error:
+                    Result::Err SelfhostMemoTraitStableSourceRegistryErrorKind::RegistryRejected registry_error
+        Result::Err produce_error:
+            Result::Err SelfhostMemoTraitStableSourceRegistryErrorKind::StableSourceRejected produce_error
+
+//: selfhost_memo_trait_stable_source_stage0_candidate_table: stage0 用 scanner candidate table を[作/つく]る
+fn selfhost_memo_trait_stable_source_stage0_candidate_table %fn void SelfhostMemoTraitDefinitionSourceTable \void:
+    let table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let key_candidate %SelfhostMemoTraitDefinitionSourceRecord:
+        selfhost_memo_trait_definition_source_record_new:
+            SelfhostMemoTraitSourceKind::MemoKeyTrait
+            selfhost_memo_trait_definition_fingerprint_new 0 0 0
+            false
+    let value_candidate %SelfhostMemoTraitDefinitionSourceRecord:
+        selfhost_memo_trait_definition_source_record_new:
+            SelfhostMemoTraitSourceKind::MemoValueTrait
+            selfhost_memo_trait_definition_fingerprint_new 0 0 0
+            false
+    let table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record table0 key_candidate
+    selfhost_memo_trait_definition_source_table_add_record table1 value_candidate
+
+//: selfhost_memo_trait_stable_source_stage0_complete_evidence_table: stage0 用 stable evidence table を[作/つく]る
+fn selfhost_memo_trait_stable_source_stage0_complete_evidence_table %fn void SelfhostMemoTraitStableSourceEvidenceTable \void:
+    let table0 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_empty
+    let key_fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+        selfhost_memo_trait_stable_source_fingerprint_evidence_new (some 100) (some 101) (some 102)
+    let key_evidence %SelfhostMemoTraitStableSourceEvidenceRecord:
+        selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoKeyTrait key_fingerprint
+    let value_fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+        selfhost_memo_trait_stable_source_fingerprint_evidence_new (some 200) (some 201) (some 202)
+    let value_evidence %SelfhostMemoTraitStableSourceEvidenceRecord:
+        selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoValueTrait value_fingerprint
+    let table1 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record table0 key_evidence
+    selfhost_memo_trait_stable_source_evidence_table_add_record table1 value_evidence
+
+//: selfhost_memo_trait_stable_source_stage0_summary_new: stable source producer smoke summary を[作/つく]る
+fn selfhost_memo_trait_stable_source_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceRegistryErrorKind fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind fn Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind SelfhostMemoTraitStableSourceStage0Summary \accepted_registry\missing_candidate_rejected\duplicate_candidate_rejected\missing_evidence_rejected\duplicate_evidence_rejected\missing_fingerprint_rejected\placeholder_fingerprint_rejected:
+    SelfhostMemoTraitStableSourceStage0Summary accepted_registry missing_candidate_rejected duplicate_candidate_rejected missing_evidence_rejected duplicate_evidence_rejected missing_fingerprint_rejected placeholder_fingerprint_rejected
+
+//: selfhost_memo_trait_stable_source_stage0: stable source producer の代表結果を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - complete candidate + complete evidence の accepted path と、候補欠落、候補重複、evidence 欠落、evidence 重複、fingerprint 未確定の代表拒否を同時に確認します。
+pub fn selfhost_memo_trait_stable_source_stage0 %fn void SelfhostMemoTraitStableSourceStage0Summary \void:
+    let candidates %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_stable_source_stage0_candidate_table
+    let evidence %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_stage0_complete_evidence_table
+    let accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitStableSourceRegistryErrorKind:
+        selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result candidates evidence
+    let missing_candidate_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind:
+        selfhost_memo_trait_definition_source_table_from_stable_evidence_result selfhost_memo_trait_definition_source_table_empty evidence
+    let key_candidate %SelfhostMemoTraitDefinitionSourceRecord:
+        selfhost_memo_trait_definition_source_record_new:
+            SelfhostMemoTraitSourceKind::MemoKeyTrait
+            selfhost_memo_trait_definition_fingerprint_new 0 0 0
+            false
+    let duplicate_candidate_table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let duplicate_candidate_table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record duplicate_candidate_table0 key_candidate
+    let duplicate_candidate_table2 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record duplicate_candidate_table1 key_candidate
+    let duplicate_candidate_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind:
+        selfhost_memo_trait_definition_source_table_from_stable_evidence_result duplicate_candidate_table2 evidence
+    let key_fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+        selfhost_memo_trait_stable_source_fingerprint_evidence_new (some 100) (some 101) (some 102)
+    let key_evidence %SelfhostMemoTraitStableSourceEvidenceRecord:
+        selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoKeyTrait key_fingerprint
+    let missing_evidence_table0 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_empty
+    let missing_evidence_table1 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record missing_evidence_table0 key_evidence
+    let missing_evidence_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind:
+        selfhost_memo_trait_definition_source_table_from_stable_evidence_result candidates missing_evidence_table1
+    let duplicate_evidence_table0 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_empty
+    let duplicate_evidence_table1 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record duplicate_evidence_table0 key_evidence
+    let duplicate_evidence_table2 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record duplicate_evidence_table1 key_evidence
+    let duplicate_evidence_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind:
+        selfhost_memo_trait_definition_source_table_from_stable_evidence_result candidates duplicate_evidence_table2
+    let missing_fingerprint_evidence0 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_empty
+    let missing_fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+        selfhost_memo_trait_stable_source_fingerprint_evidence_new none (some 101) (some 102)
+    let missing_fingerprint_key %SelfhostMemoTraitStableSourceEvidenceRecord:
+        selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoKeyTrait missing_fingerprint
+    let value_fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+        selfhost_memo_trait_stable_source_fingerprint_evidence_new (some 200) (some 201) (some 202)
+    let value_evidence %SelfhostMemoTraitStableSourceEvidenceRecord:
+        selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoValueTrait value_fingerprint
+    let missing_fingerprint_evidence1 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record missing_fingerprint_evidence0 missing_fingerprint_key
+    let missing_fingerprint_evidence2 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record missing_fingerprint_evidence1 value_evidence
+    let missing_fingerprint_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind:
+        selfhost_memo_trait_definition_source_table_from_stable_evidence_result candidates missing_fingerprint_evidence2
+    let placeholder_fingerprint_evidence0 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_empty
+    let placeholder_fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+        selfhost_memo_trait_stable_source_fingerprint_evidence_new (some 0) (some 101) (some 102)
+    let placeholder_fingerprint_key %SelfhostMemoTraitStableSourceEvidenceRecord:
+        selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoKeyTrait placeholder_fingerprint
+    let placeholder_fingerprint_evidence1 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record placeholder_fingerprint_evidence0 placeholder_fingerprint_key
+    let placeholder_fingerprint_evidence2 %SelfhostMemoTraitStableSourceEvidenceTable selfhost_memo_trait_stable_source_evidence_table_add_record placeholder_fingerprint_evidence1 value_evidence
+    let placeholder_fingerprint_rejected %Result SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitStableSourceProduceErrorKind:
+        selfhost_memo_trait_definition_source_table_from_stable_evidence_result candidates placeholder_fingerprint_evidence2
+    selfhost_memo_trait_stable_source_stage0_summary_new:
+        accepted_registry
+        missing_candidate_rejected
+        duplicate_candidate_rejected
+        missing_evidence_rejected
+        duplicate_evidence_rejected
+        missing_fingerprint_rejected
+        placeholder_fingerprint_rejected
