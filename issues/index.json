@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T22:58:15.389Z",
+  "generated_at": "2026-06-11T23:14:13.243Z",
   "counts": {
     "total": 1371,
-    "open": 61,
-    "resolved": 1310,
+    "open": 60,
+    "resolved": 1311,
     "by_area": {
       "stdlib": {
         "total": 358,
         "open": 17,
         "resolved": 341
-      },
-      "tools": {
-        "total": 24,
-        "open": 11,
-        "resolved": 13
       },
       "core": {
         "total": 665,
@@ -25,6 +20,11 @@
         "total": 119,
         "open": 4,
         "resolved": 115
+      },
+      "tools": {
+        "total": 24,
+        "open": 10,
+        "resolved": 14
       },
       "neplg21": {
         "total": 2,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754.md"
-    },
-    {
-      "id": "ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A",
-      "title": "Web Playground definition navigation must carry target path and range",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-06-11",
-      "updated": "2026-06-11",
-      "target": "web/src/editor-core/language-analysis.ts; web/src/editor/editor-input-handler.ts; web/src/workspace/panel-manager.ts",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A.md"
     },
     {
       "id": "ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37",
@@ -1943,6 +1928,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260611T170007270Z-WEB-PLAYGROUND-SEMANTIC-DERIVED-UI-M-1BD8D563.md"
+    },
+    {
+      "id": "ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A",
+      "title": "Web Playground definition navigation must carry target path and range",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-06-11",
+      "updated": "2026-06-12",
+      "target": "web/src/editor-core/language-analysis.ts; web/src/editor/editor-input-handler.ts; web/src/workspace/panel-manager.ts",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A.md"
     },
     {
       "id": "ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524",

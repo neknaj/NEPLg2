@@ -171,6 +171,9 @@ class CanvasEditor {
         this.inputHandler = new EditorInputHandler(this);
         this.domUI = new EditorDOMUI(this, domElements);
         this.onCursorChange = options.onCursorChange || null;
+        this.onDefinitionNavigation = typeof options.onDefinitionNavigation === 'function'
+            ? options.onDefinitionNavigation
+            : null;
         this.init();
     }
     init() {

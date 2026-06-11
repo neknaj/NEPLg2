@@ -264,6 +264,11 @@ export type DefinitionLocation = {
     isCrossFile?: boolean;
 };
 
+export type AnalysisTextRange = {
+    startIndex: number;
+    endIndex: number;
+};
+
 export type Occurrence = {
     startIndex: number;
     endIndex: number;
@@ -1382,6 +1387,20 @@ function definitionLocationFromSpan(prepared: PreparedLanguageAnalysis, source?:
     };
 }
 
+export function mapAnalysisSpanToTextRange(text: string, source?: AnalysisSpan | null, activePath?: string | null): AnalysisTextRange | null {
+    const prepared = prepareAnalysis(text, {
+        activePath: normalizeAnalysisPath(activePath) ?? spanFilePath(source),
+    });
+    const span = spanFromPrepared(prepared, source);
+    if (!span || span.endIndex < span.startIndex) {
+        return null;
+    }
+    return {
+        startIndex: span.startIndex,
+        endIndex: span.endIndex,
+    };
+}
+
 export function getHoverInfoFromAnalysis(text: string, snapshot: LanguageAnalysisSnapshot | null | undefined, index: number): HoverInfo | null {
     const prepared = prepareAnalysis(text, snapshot);
     const insight = getTokenInsightFromAnalysis(text, snapshot, index);
@@ -1470,6 +1489,7 @@ const bridge = {
     getTokenInsightFromAnalysis,
     getHoverInfoFromAnalysis,
     getDefinitionLocationFromAnalysis,
+    mapAnalysisSpanToTextRange,
     getOccurrencesFromAnalysis,
 };
 

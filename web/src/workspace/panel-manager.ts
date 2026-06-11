@@ -1,4 +1,9 @@
 import { createPlaygroundEditor, PlaygroundEditor } from '../editor-core/browser-adapter.js';
+import {
+    mapAnalysisSpanToTextRange,
+    type AnalysisTextRange,
+    type DefinitionLocation,
+} from '../editor-core/language-analysis.js';
 import { installGuiWebRuntimeBridge, registerGuiWebRuntimePresenter } from '../gui-preview/runtime-bridge.js';
 import { GuiFloatingWindowManager } from '../gui-preview/window-manager.js';
 import { FileExplorer } from '../library/explorer.js';
@@ -68,6 +73,8 @@ type ExplorerRuntime = {
 
 type LeafRuntime = EditorRuntime | TerminalRuntime | ExplorerRuntime;
 
+type DefinitionNavigationRange = AnalysisTextRange;
+
 type PanelManagerOptions = {
     root: HTMLElement;
     guiWindowLayer: HTMLElement;
@@ -81,6 +88,29 @@ type PanelManagerOptions = {
 };
 
 const WORKSPACE_STORAGE_KEY = 'neplg2-playground-workspace-v1';
+
+function normalizeDefinitionTargetPath(location: DefinitionLocation | null | undefined): string | null {
+    const value = location?.targetPath;
+    if (typeof value !== 'string') {
+        return null;
+    }
+    let normalized = value.trim().replace(/\\/g, '/');
+    while (normalized.length > 1 && normalized.endsWith('/')) {
+        normalized = normalized.slice(0, -1);
+    }
+    return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeDefinitionNavigationRange(range: DefinitionLocation['targetRange']): DefinitionNavigationRange | null {
+    const start = Number(range?.startIndex);
+    const end = Number(range?.endIndex ?? start);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+        return null;
+    }
+    const startIndex = Math.max(0, Math.trunc(start));
+    const endIndex = Math.max(startIndex, Math.trunc(end));
+    return { startIndex, endIndex };
+}
 
 export class PlaygroundPanelManager {
     root: HTMLElement;
@@ -572,6 +602,9 @@ export class PlaygroundPanelManager {
                 this.cursorSpan.textContent = `Ln ${pos.row + 1}, Col ${pos.col + 1}`;
                 this.scheduleAnalysisInsight(runtime, index);
             },
+            onDefinitionNavigation: (location: unknown) => {
+                this.openDefinitionTarget(location as DefinitionLocation);
+            },
         });
         runtime.editor.setFontSize(this.currentFontSize);
         runtime.tabManager = new TabManager(tabbarEl, runtime.editor, this.vfs, {
@@ -868,6 +901,44 @@ export class PlaygroundPanelManager {
         this.setFocusedLeaf(editorRuntime.leafId);
         editorRuntime.tabManager.openFile(path);
         editorRuntime.editor.focus();
+    }
+
+    openDefinitionTarget(location: DefinitionLocation | null | undefined): boolean {
+        if (!location) {
+            return false;
+        }
+        const targetPath = normalizeDefinitionTargetPath(location);
+        if (!targetPath || !this.canOpenDefinitionTargetPath(targetPath)) {
+            return false;
+        }
+        const editorRuntime = this.getFocusedEditorRuntime() || this.leafRuntimeMap.get(this.ensureEditorLeaf());
+        if (!editorRuntime || editorRuntime.panelKind !== 'editor') {
+            return false;
+        }
+        this.setFocusedLeaf(editorRuntime.leafId);
+        editorRuntime.tabManager.openFile(targetPath);
+        const range = this.resolveDefinitionNavigationRange(editorRuntime, targetPath, location);
+        if (range) {
+            editorRuntime.editor.moveCursorToRange(range);
+        }
+        editorRuntime.editor.focus();
+        return true;
+    }
+
+    canOpenDefinitionTargetPath(path: string): boolean {
+        if (!this.vfs || typeof this.vfs.exists !== 'function') {
+            return true;
+        }
+        return this.vfs.exists(path) === true;
+    }
+
+    resolveDefinitionNavigationRange(editorRuntime: EditorRuntime, targetPath: string, location: DefinitionLocation): DefinitionNavigationRange | null {
+        const directRange = normalizeDefinitionNavigationRange(location.targetRange);
+        if (directRange) {
+            return directRange;
+        }
+        const text = typeof editorRuntime.editor.getText === 'function' ? editorRuntime.editor.getText() : '';
+        return mapAnalysisSpanToTextRange(text, location.targetSpan ?? null, targetPath);
     }
 
     splitPanel(leafId: string, dir: 'h' | 'v') {

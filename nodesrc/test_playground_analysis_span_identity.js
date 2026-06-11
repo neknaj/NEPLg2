@@ -169,6 +169,17 @@ async function main() {
     assert.deepEqual(location.targetByteRange, { startByte: 8, endByte: 11 });
     assert.equal(location.targetIndex, 0, "cross-file definitions must not move the active editor cursor by a byte offset");
 
+    const importedSource = "見出し😀\nfn add value\n";
+    const mappedRange = bridge.mapAnalysisSpanToTextRange(
+        importedSource,
+        byteSpan(importedSource, "value", { filePath: importedPath }),
+        importedPath,
+    );
+    assert.deepEqual(mappedRange, {
+        startIndex: importedSource.indexOf("value"),
+        endIndex: importedSource.indexOf("value") + "value".length,
+    }, "definition navigation must map target-file byte spans to the target editor UTF-16 range");
+
     const occurrences = bridge.getOccurrencesFromAnalysis(source, definitionSnapshot, source.indexOf("add"));
     assert.deepEqual(occurrences, [{
         startIndex: source.indexOf("add"),

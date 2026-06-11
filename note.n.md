@@ -55187,3 +55187,47 @@ MERGE_APPROVED
 - worker init failure recovery は `ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866` として未完了。
 - VFS revision を明示する async protocol、cross-file span path/range、non-ASCII char offset mapping は別 P0 issue として未完了。
 - worker を edit ごとに terminate するため、将来的には interruptable compiler API または latest-only worker mailbox で compiler init cache を保ちながら cancellation できるようにする余地がある。
+
+## 2026-06-12 Agent Web Playground definition navigation checkpoint
+
+### scope
+
+- branch: `agent2/playground-definition-navigation-20260612`
+- fixed_issue: `ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- subagent_review_id: `019eb8f0-4ffb-75b1-a189-06f1412e9db7`
+
+### unfinished_inventory
+
+- P0 `WEB-PLAYGROUND-DEFINITION-NAVIGATION`: cross-file definition target を workspace tab で開き、target file range に cursor を移す処理を今回修正した。
+- P1 canvas editor の大規模 document rendering / movement scaling、selfhost compiler selector の capability gating、worker init failure recovery、GUI close lifecycle / queue ownership、browser smoke CI は未完了。
+- GUI/TUI standard library 側では formal Wasm host import ABI、std/gui scheduler / timeslice contract、native formal host、embedded backend、TUI terminal backend 移行が未完了。
+
+### implementation
+
+- `language-analysis.ts` に `mapAnalysisSpanToTextRange` を公開し、target file 本文に対して compiler span を UTF-16 editor range へ変換する共通 mapper にした。
+- `CanvasEditor` / `PlaygroundEditor` に definition navigation callback と cursor range movement adapter を追加した。
+- F12 の same-file definition は active editor 内で `targetRange.startIndex` を優先して移動し、cross-file definition は active editor の `targetIndex` を使わず workspace callback へ委譲する。
+- `PanelManager.openDefinitionTarget` は target path を VFS で確認し、target tab を開いた後に target file text 上で range を解決して cursor を移す。
+- `nodesrc/test_playground_definition_navigation_contract.js` を追加し、editor と workspace の責務分離、target tab open 後の range 解決、missing target path の fail-closed policy を source contract として固定した。
+
+### subagent_review
+
+- review: editor は workspace/tab を直接 import せず、cross-file navigation は callback / command として外へ委譲すべきと確認された。
+- review: cross-file `targetIndex` は active editor の位置として使わず、target file text に対して byte / line-col span を再解決する必要があると確認された。
+- response: callback 経路を追加し、`targetIndex` ではなく `mapAnalysisSpanToTextRange` と target tab open 後の document text を使う実装にした。
+
+### verification
+
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_playground_definition_navigation_contract.js`
+- pass: `node nodesrc/test_playground_analysis_span_identity.js`
+- pass: `node nodesrc/test_playground_analysis_freshness.js`
+- pass: `node nodesrc/test_neplg2_language_provider_vfs.js`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-definition-navigation.json` total=13 passed=13 failed=0
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の変更範囲では退行なし。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-definition-navigation-after-trunk.json` total=13 passed=13 failed=0
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`

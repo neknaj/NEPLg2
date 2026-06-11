@@ -254,9 +254,15 @@ class EditorInputHandler {
                 const location = await this.editor.languageProvider.getDefinitionLocation(this.editor.cursor);
                 if (location) {
                     if (location.isCrossFile || (location.targetPath && location.targetPath !== this.editor.languageProvider.path)) {
+                        if (typeof this.editor.onDefinitionNavigation === 'function') {
+                            this.editor.onDefinitionNavigation(location);
+                        }
                         return;
                     }
-                    this.editor.setCursor(location.targetIndex);
+                    const targetIndex = typeof location.targetRange?.startIndex === 'number'
+                        ? location.targetRange.startIndex
+                        : location.targetIndex;
+                    this.editor.setCursor(targetIndex);
                     this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
                 }
             }

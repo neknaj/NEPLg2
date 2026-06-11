@@ -11,12 +11,18 @@ type PlaygroundEditorOptions = {
     initialText?: string;
     editorOptions?: Record<string, unknown>;
     onCursorChange?: (index: number) => void;
+    onDefinitionNavigation?: (location: unknown) => void;
 };
 
 type PlaygroundDocumentReplacement = {
     path: string | null;
     text: string;
     editable: boolean;
+};
+
+type PlaygroundTextRange = {
+    startIndex: number;
+    endIndex?: number;
 };
 
 export class PlaygroundEditor {
@@ -37,13 +43,14 @@ export class PlaygroundEditor {
             initialText = '',
             editorOptions = {},
             onCursorChange,
+            onDefinitionNavigation,
         } = options;
 
         this.inner = new CanvasEditor(
             canvas,
             textarea,
             { popup, problemsPanel, completionList },
-            { ...editorOptions, onCursorChange },
+            { ...editorOptions, onCursorChange, onDefinitionNavigation },
         );
         this.providers = { ...languageProviders };
         this.currentLanguage = null;
@@ -105,6 +112,14 @@ export class PlaygroundEditor {
 
     getText(): string {
         return this.inner.text;
+    }
+
+    moveCursorToRange(range: PlaygroundTextRange): void {
+        const textLength = typeof this.inner.text === 'string' ? this.inner.text.length : 0;
+        const start = Math.max(0, Math.min(textLength, Number(range.startIndex ?? 0)));
+        this.inner.setCursor(start);
+        this.inner.selectionStart = start;
+        this.inner.selectionEnd = start;
     }
 
     setPath(path: string | null): void {

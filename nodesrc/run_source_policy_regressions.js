@@ -244,6 +244,7 @@ const checks = [
     "nodesrc/test_diagnostic_code_first_boundary.js",
     "nodesrc/test_editor_diagnostic_code_contract.js",
     "nodesrc/test_playground_analysis_span_identity.js",
+    "nodesrc/test_playground_definition_navigation_contract.js",
     "nodesrc/test_editor_current_syntax_highlighting.js",
     "nodesrc/test_neplg2_language_provider_vfs.js",
     "nodesrc/test_playground_analysis_freshness.js",
