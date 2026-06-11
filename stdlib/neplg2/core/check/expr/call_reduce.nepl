@@ -1666,6 +1666,376 @@ fn selfhost_call_reduce_pipe_target_ascription_select_candidate %fn &SelfhostTyp
         Result::Err e:
             Result::Err e
 
+//: selfhost_call_reduce_pipe_candidate_applicability_from_error: 候補 probe の失敗を[分類/ぶんるい]する
+//:
+//: [目的/もくてき]:
+//: - 候補ごとの軽量 probe が返した call reduction error を、候補不一致か、probe 不足かへ分類します。
+//: - 注釈無し pipe target narrowing では、型不一致・引数数不一致・result expectation mismatch は候補固有の `NoMatch` として扱えます。
+//: - source-backed owner checker が必要な失敗や generic 未解決は `ProbeUnsupported` とし、別候補を誤選択しないようにします。
+//:
+//: [契約/けいやく]:
+//: - この関数は診断を作りません。最終的な error kind は候補列全体の集計後に caller が決めます。
+//: - 未対応または境界外の error は candidate 固有の不一致にしません。安全側で `ProbeUnsupported` として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match だけなので O(1) です。
+fn selfhost_call_reduce_pipe_candidate_applicability_from_error %fn SelfhostCallReduceError SelfhostPipeCandidateApplicability \error:
+    match error.kind:
+        SelfhostCallReduceErrorKind::EmptyInput:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::UnsupportedPrefixItem:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::UnresolvedName:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::NotCallable:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::PartialApplicationRejected:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::ArgumentTypeMismatch:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentAscriptionExpectedTypeConflict:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNamedValueUnresolved:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNamedValuePendingBinding:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNamedValueUnsupportedBinding:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueExpectedFunctionType:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingName:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueUnresolved:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueAmbiguous:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValuePendingBinding:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueMissingSignature:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueHeadTokenOutOfBounds:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueOutOfMemory:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueGenericUnsupported:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentFunctionValueTypeMismatch:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralTokenOutOfBounds:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralBoolInvalid:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralI32Invalid:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralI32RadixUnsupported:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralF32Invalid:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringMalformed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeUnsupported:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringEscapeMalformed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringSliceFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralStringBuildFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharMalformed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharEscapeUnsupported:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharInvalidScalar:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentLiteralCharMultipleScalars:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNegativeLiteralMissingOperand:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::ArgumentNegativeLiteralOperandNotNumeric:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::ArgumentNegativeLiteralSpanJoinFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNegativeLiteralTypeMismatch:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidatePendingBinding:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateMissingSignature:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateHeadTokenOutOfBounds:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateOutOfMemory:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ArgumentNestedCandidateInternalInvariant:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::TrailingBlockBodySegmentFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::TrailingBlockBodyEmpty:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::TrailingBlockBodyMultipleSegments:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::TrailingBlockBodyNestedBlockUnsupported:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::TrailingBlockBodyPrefixBuildFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::TrailingBlockBodyCandidateCollectFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::TrailingBlockBodyUnitTypeMissing:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeMissingLeftOperand:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeMissingRightTarget:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeUnsupportedMultiple:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeRightTargetUnsupported:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetPendingBinding:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetMissingSignature:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetHeadTokenOutOfBounds:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetOutOfMemory:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetInternalInvariant:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetUnresolved:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetAmbiguous:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::PipeTargetAscriptionProjectionFailed:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::PipeTargetAscriptionTypeMismatch:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::PipeTargetRequiresInput:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::PipeLeftSegmentNotSingleValue:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::UnsupportedArgumentExpression:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::OverloadNoCandidate:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::OverloadAmbiguous:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::GenericInferenceEvidenceMissing:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::GenericInferenceConflict:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::GenericInferenceUnsupported:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::ExpectedTypeMismatch:
+            SelfhostPipeCandidateApplicability::NoMatch
+        SelfhostCallReduceErrorKind::CheckedTreeBuildInvalidOperation:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::OutOfMemory:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+        SelfhostCallReduceErrorKind::InternalInvariant:
+            SelfhostPipeCandidateApplicability::ProbeUnsupported
+
+//: selfhost_call_reduce_pipe_candidate_suffix_applicability: pipe 右辺 suffix が candidate の残り引数へ[合/あ]うか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - pipe target の第1引数に左辺が合うと分かった後、右辺 suffix と最終 result expectation だけを借用で検査します。
+//: - 成功 path では checked argument payload を作らず、候補選択に必要な「合うかどうか」だけを調べます。
+//:
+//: [契約/けいやく]:
+//: - `rhs_suffix_index` から `item_count` までをこの pipe 段の suffix とみなします。chain の次段 pipe は caller が `item_count` で切り落としています。
+//: - 借用 reducer が扱えない引数式は `ProbeUnsupported` です。source-backed owner reducer をここで候補ごとに試行してはいけません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Match`: suffix と result expectation まで合いました。
+//: - `NoMatch`: candidate 固有の型・arity・result 不一致が分かりました。
+//: - `ProbeUnsupported`: source-backed checker でなければ判定できません。
+fn selfhost_call_reduce_pipe_candidate_suffix_applicability %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn i32 fn Option SelfhostTypeExpectation fn SelfhostExprPrefixItem fn i32 fn i32 Result SelfhostPipeCandidateApplicability SelfhostCallReduceError \arena\prefix\candidate\param_count\expected\rhs_head\item_count\rhs_suffix_index:
+    match selfhost_call_reduce_argument_type_check_loop arena prefix candidate param_count 1 rhs_suffix_index item_count rhs_head:
+        Result::Ok _unit:
+            match selfhost_call_reduce_expected_result arena candidate expected:
+                Result::Ok _result_type:
+                    Result::Ok SelfhostPipeCandidateApplicability::Match
+                Result::Err e:
+                    Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
+        Result::Err e:
+            Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
+
+//: selfhost_call_reduce_pipe_candidate_applicability: 1 pipe target candidate を軽量 probe する
+//:
+//: [目的/もくてき]:
+//: - 注釈無し pipe target が複数候補を持つ場合に、左辺、右辺 suffix、外側 expected type で候補を一意に絞れるかを調べます。
+//: - この probe は source text や checked tree owner を消費しません。候補確定後だけ既存の source-backed reducer を一度実行します。
+//:
+//: [契約/けいやく]:
+//: - generic 未解決 candidate は `ProbeUnsupported` です。generic solver が無い段階で別候補を選ぶと将来の推論結果を隠すためです。
+//: - `left_argument = Some` は pipe chain 2 段目以降の checked 左辺です。型一致だけを見て、checked tree node を再解釈しません。
+//: - `left_argument = None` は単一 pipe または chain 1 段目です。左辺 segment は借用 argument matcher が pipe 位置までちょうど消費できる場合だけ `Match` 候補へ進めます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補1件につき、第1引数型取得 O(1)、型一致または左辺借用 matcher、suffix の parameter 数に比例する借用 matcher を行います。
+fn selfhost_call_reduce_pipe_candidate_applicability %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 Result SelfhostPipeCandidateApplicability SelfhostCallReduceError \arena\prefix\candidate\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index:
+    match selfhost_call_reduce_generic_state_error candidate:
+        Result::Ok _unit:
+            match selfhost_type_arena_function_arg_count arena candidate.callable_type:
+                Option::Some param_count:
+                    if:
+                        eq param_count 0
+                        then:
+                            Result::Ok SelfhostPipeCandidateApplicability::NoMatch
+                        else:
+                            match selfhost_type_arena_function_arg arena candidate.callable_type 0:
+                                Option::Some first_arg_type:
+                                    match left_argument:
+                                        Option::Some checked_left:
+                                            if:
+                                                selfhost_type_arena_types_equal arena checked_left.value_type first_arg_type
+                                                then:
+                                                    selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected rhs_head item_count rhs_suffix_index
+                                                else:
+                                                    Result::Ok SelfhostPipeCandidateApplicability::NoMatch
+                                        Option::None:
+                                            match selfhost_expr_argument_match_at arena prefix 0 pipe_index first_arg_type:
+                                                Result::Ok left_match:
+                                                    if:
+                                                        eq left_match.next_index pipe_index
+                                                        then:
+                                                            selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected rhs_head item_count rhs_suffix_index
+                                                        else:
+                                                            Result::Ok SelfhostPipeCandidateApplicability::ProbeUnsupported
+                                                Result::Err e:
+                                                    match selfhost_call_reduce_error_from_argument_match e rhs_head:
+                                                        Result::Ok _unit:
+                                                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+                                                        Result::Err call_error:
+                                                            Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error call_error
+                                Option::None:
+                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+                Option::None:
+                    Result::Ok SelfhostPipeCandidateApplicability::NoMatch
+        Result::Err e:
+            Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
+
+//: selfhost_call_reduce_pipe_candidate_probe_summary_next: 候補 probe summary を 1 件ぶん[更新/こうしん]する
+//:
+//: [目的/もくてき]:
+//: - 候補列を 1 pass で集計するため、現在の summary と probe 結果から次の summary を作ります。
+//: - candidate payload は summary に保存せず、必要になった場合に同じ probe 規則を使う first-match helper が取り出します。
+//:
+//: [計算量/けいさんりょう]:
+//: - copy payload の組み立てだけなので O(1) です。
+fn selfhost_call_reduce_pipe_candidate_probe_summary_next %fn SelfhostPipeCandidateProbeSummary fn SelfhostPipeCandidateApplicability SelfhostPipeCandidateProbeSummary \summary\applicability:
+    match applicability:
+        SelfhostPipeCandidateApplicability::Match:
+            SelfhostPipeCandidateProbeSummary add summary.match_count 1 summary.unsupported_count
+        SelfhostPipeCandidateApplicability::NoMatch:
+            summary
+        SelfhostPipeCandidateApplicability::ProbeUnsupported:
+            SelfhostPipeCandidateProbeSummary summary.match_count add summary.unsupported_count 1
+
+//: selfhost_call_reduce_pipe_candidate_probe_summary_loop: pipe target 候補列を軽量 probe で[集計/しゅうけい]する
+//:
+//: [目的/もくてき]:
+//: - 注釈無し pipe target の候補列を左から1回だけ走査し、候補不一致、一致、probe未対応を集計します。
+//: - 候補 vector の owner は caller が保持し、この helper は借用だけを行います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: 候補列全体の match / unsupported count です。実際の一致 candidate payload は、summary が一意一致を示した後に `selfhost_call_reduce_pipe_candidate_probe_first_match_loop` が同じ規則で取り直します。
+//: - `Err(PipeTargetInternalInvariant)`: 候補数と vector 取得結果が矛盾しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数を c、1候補の軽量 probe cost を p として O(c * p) です。
+fn selfhost_call_reduce_pipe_candidate_probe_summary_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 fn SelfhostPipeCandidateProbeSummary Result SelfhostPipeCandidateProbeSummary SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count\summary:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Ok summary
+        else:
+            match v::get pipe_candidates idx:
+                Option::Some candidate:
+                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected left_argument rhs_head item_count pipe_index rhs_suffix_index:
+                        Result::Ok applicability:
+                            let next_summary %SelfhostPipeCandidateProbeSummary selfhost_call_reduce_pipe_candidate_probe_summary_next summary applicability
+                            selfhost_call_reduce_pipe_candidate_probe_summary_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count next_summary
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+
+//: selfhost_call_reduce_pipe_candidate_probe_first_match_loop: 軽量 probe で一致する最初の candidate を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - summary で `match_count == 1` と確認した後、同じ applicability 規則で唯一の一致 candidate を取り出します。
+//: - summary payload に candidate を保存しないため、型式境界を単純に保ったまま候補 payload を安全に復元できます。
+//:
+//: [契約/けいやく]:
+//: - caller は `unsupported_count == 0` かつ `match_count == 1` を先に確認してから呼びます。
+//: - それでも一致候補が見つからない場合は、候補列の取得または事前集計との不整合として `PipeTargetInternalInvariant` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数 c と1候補 probe cost p に対して最悪 O(c * p) です。呼び出しは唯一候補を採用する場合だけです。
+fn selfhost_call_reduce_pipe_candidate_probe_first_match_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+        else:
+            match v::get pipe_candidates idx:
+                Option::Some candidate:
+                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected left_argument rhs_head item_count pipe_index rhs_suffix_index:
+                        Result::Ok applicability:
+                            match applicability:
+                                SelfhostPipeCandidateApplicability::Match:
+                                    Result::Ok candidate
+                                SelfhostPipeCandidateApplicability::NoMatch:
+                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
+                                SelfhostPipeCandidateApplicability::ProbeUnsupported:
+                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+
+//: selfhost_call_reduce_pipe_target_argument_select_candidate: 注釈無し pipe target を引数列で[選別/せんべつ]する
+//:
+//: [目的/もくてき]:
+//: - `left |> target suffix...` の target が overload されている場合に、左辺と suffix の型・消費幅で候補を一意化できるか判定します。
+//: - type ascription が無くても、NEPLg2.1 の前置情報と引数型から探索空間を狭められるケースを扱います。
+//:
+//: [場合分/ばあいわ]け:
+//: - `Match` が 1 件で、`ProbeUnsupported` が 0 件ならその候補を返します。
+//: - `Match` が 0 件で、`ProbeUnsupported` が 0 件なら `PipeTargetNoApplicableCandidate` です。
+//: - `Match` が複数、または `ProbeUnsupported` が 1 件以上なら `PipeTargetAmbiguous` です。未対応式を不一致扱いしてはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補列を1回だけ走査するため、候補数 c と1候補 probe cost p に対して O(c * p) です。
+fn selfhost_call_reduce_pipe_target_argument_select_candidate %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\candidate_count:
+    let initial %SelfhostPipeCandidateProbeSummary SelfhostPipeCandidateProbeSummary 0 0
+    match selfhost_call_reduce_pipe_candidate_probe_summary_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count initial:
+        Result::Ok summary:
+            if:
+                gt summary.unsupported_count 0
+                then:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
+                else:
+                    if:
+                        eq summary.match_count 0
+                        then:
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate rhs_head.span
+                        else:
+                            if:
+                                gt summary.match_count 1
+                                then:
+                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
+                                else:
+                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_call_reduce_pipe_finish_candidate_with_checked_left: checked 左辺を第1引数として direct call を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -1824,11 +2194,13 @@ fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec Selfho
 //: [目的/もくてき]:
 //: - pipe target の候補 0/1/複数を分け、1 候補だけを direct call 正規化へ進めます。
 //: - `target_ascription` がある場合は、複数候補を先に曖昧扱いせず、注釈型と callable type が一致する候補へ絞り込みます。
+//: - `target_ascription` が無い場合でも、左辺と右辺 suffix を借用 probe で検査して、候補が一意に決まるならその候補へ進みます。
 //: - 通常 head の `candidates` 引数は左辺 literal などでは意味を持たないため、pipe 右辺は scope と signature table から改めて収集した候補を authority とします。
 //:
 //: [契約/けいやく]:
 //: - `pipe_candidates` owner はこの関数または下位 helper が必ず閉じます。
-//: - 注釈無しの候補 0 は `PipeTargetUnresolved`、複数は `PipeTargetAmbiguous` として fail-closed にします。
+//: - 注釈無しの候補 0 は `PipeTargetUnresolved`、引数 probe で一致候補 0 は `PipeTargetNoApplicableCandidate` として fail-closed にします。
+//: - 借用 probe で判定できない候補が混ざる場合は、source-backed owner reducer を候補ごとに試行せず `PipeTargetAmbiguous` として止めます。
 //: - 注釈有りの候補複数は、注釈型で絞った後も複数残る場合だけ `PipeTargetAmbiguous` にします。
 fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn Option SelfhostCheckedArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\expected\target_ascription\trailing_block\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index:
     let candidate_count %i32 v::len &pipe_candidates
@@ -1852,7 +2224,15 @@ fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToke
                     if:
                         gt candidate_count 1
                         then:
-                            selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
+                            match selfhost_call_reduce_pipe_target_argument_select_candidate &arena prefix &pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index candidate_count:
+                                Result::Ok candidate:
+                                    match left_argument:
+                                        Option::Some checked_left:
+                                            selfhost_call_reduce_pipe_checked_left_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count rhs_suffix_index checked_left
+                                        Option::None:
+                                            selfhost_call_reduce_pipe_single_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count pipe_index rhs_suffix_index
+                                Result::Err e:
+                                    selfhost_call_reduce_pipe_free_candidates_tree_existing_error arena checked_tree pipe_candidates e
                         else:
                             match v::get &pipe_candidates 0:
                                 Option::Some candidate:

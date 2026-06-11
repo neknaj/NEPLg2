@@ -183,7 +183,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PipeMissingLeftOperand[\s\S]*PipeMissingRightTarget[\s\S]*PipeUnsupportedMultiple[\s\S]*PipeRightTargetUnsupported[\s\S]*PipeTargetPendingBinding[\s\S]*PipeTargetMissingSignature[\s\S]*PipeTargetHeadTokenOutOfBounds[\s\S]*PipeTargetOutOfMemory[\s\S]*PipeTargetInternalInvariant[\s\S]*PipeTargetUnresolved[\s\S]*PipeTargetAmbiguous[\s\S]*PipeTargetAscriptionProjectionFailed[\s\S]*PipeTargetAscriptionTypeMismatch[\s\S]*PipeTargetRequiresInput[\s\S]*PipeLeftSegmentNotSingleValue/,
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PipeMissingLeftOperand[\s\S]*PipeMissingRightTarget[\s\S]*PipeUnsupportedMultiple[\s\S]*PipeRightTargetUnsupported[\s\S]*PipeTargetPendingBinding[\s\S]*PipeTargetMissingSignature[\s\S]*PipeTargetHeadTokenOutOfBounds[\s\S]*PipeTargetOutOfMemory[\s\S]*PipeTargetInternalInvariant[\s\S]*PipeTargetUnresolved[\s\S]*PipeTargetAmbiguous[\s\S]*PipeTargetNoApplicableCandidate[\s\S]*PipeTargetAscriptionProjectionFailed[\s\S]*PipeTargetAscriptionTypeMismatch[\s\S]*PipeTargetRequiresInput[\s\S]*PipeLeftSegmentNotSingleValue/,
     "pipe reduction failures must remain typed instead of collapsing into generic unsupported-expression or overload errors",
 );
 assert.match(
@@ -873,13 +873,28 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span[\s\S]*"1 \|> add 2"[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetAmbiguous/,
+    "stage1 must smoke-test non-ascribed pipe target argument narrowing and its zero-match / duplicate-match fail-closed cases",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens/,
+    "stage1 must expose token-owner runners for non-ascribed pipe target argument narrowing fixtures",
+);
+assert.match(
+    source,
     /selfhost_check_expr_stage1_run_pipe_ascribed_target_overload_no_match_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_zero_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_ascribed_target_overload_no_match_rejected_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_duplicate_match_with_i32[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_ascribed_target_duplicate_match_rejected_with_scope/,
     "stage1 must run runtime negative smoke for ascribed pipe target overload no-match and duplicate-match cases",
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
-    "public stage1 body-line smoke must include pipe, pipe chain, ascribed pipe overload narrowing, block result, block sequence, and nested BlockIntro fixtures",
+    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_zero_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_i32[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope/,
+    "stage1 must run runtime smoke for non-ascribed pipe target unique-match, no-applicable, and duplicate-match cases",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
+    "public stage1 body-line smoke must include pipe, pipe chain, ascribed pipe overload narrowing, non-ascribed pipe argument narrowing, block result, block sequence, and nested BlockIntro fixtures",
 );
 assert.match(
     source,
@@ -956,6 +971,26 @@ assert.match(
     /fn selfhost_call_reduce_pipe_target_ascription_select_candidate[\s\S]*selfhost_call_reduce_pipe_target_ascription_match_count_loop[\s\S]*eq match_count 0[\s\S]*PipeTargetAscriptionTypeMismatch[\s\S]*gt match_count 1[\s\S]*PipeTargetAmbiguous[\s\S]*selfhost_call_reduce_pipe_target_ascription_first_match_loop/,
     "ascribed pipe target overload narrowing must distinguish zero, one, and multiple callable-type matches",
 );
+assert.match(
+    source,
+    /pub enum SelfhostPipeCandidateApplicability:[\s\S]*Match[\s\S]*NoMatch[\s\S]*ProbeUnsupported[\s\S]*pub struct SelfhostPipeCandidateProbeSummary:[\s\S]*match_count %i32[\s\S]*unsupported_count %i32/,
+    "pipe target argument narrowing must keep match, no-match, and unsupported probe states as typed data",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_candidate_applicability_from_error[\s\S]*SelfhostCallReduceErrorKind::ArgumentTypeMismatch:[\s\S]*SelfhostPipeCandidateApplicability::NoMatch[\s\S]*SelfhostCallReduceErrorKind::ArgumentAscriptionProjectionFailed:[\s\S]*SelfhostPipeCandidateApplicability::ProbeUnsupported[\s\S]*SelfhostCallReduceErrorKind::ArgumentNamedValueEvidenceMissing:[\s\S]*SelfhostPipeCandidateApplicability::ProbeUnsupported[\s\S]*SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate:[\s\S]*SelfhostPipeCandidateApplicability::NoMatch[\s\S]*SelfhostCallReduceErrorKind::UnsupportedArgumentExpression:[\s\S]*SelfhostPipeCandidateApplicability::ProbeUnsupported[\s\S]*SelfhostCallReduceErrorKind::ExpectedTypeMismatch:[\s\S]*SelfhostPipeCandidateApplicability::NoMatch/,
+    "pipe target argument narrowing must classify ordinary candidate mismatch separately from source-backed unsupported argument evidence",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_candidate_applicability[\s\S]*selfhost_call_reduce_generic_state_error candidate[\s\S]*Option::Some checked_left:[\s\S]*selfhost_type_arena_types_equal arena checked_left\.value_type first_arg_type[\s\S]*Option::None:[\s\S]*selfhost_expr_argument_match_at arena prefix 0 pipe_index first_arg_type[\s\S]*selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected rhs_head item_count rhs_suffix_index/,
+    "pipe target argument narrowing must probe the checked-left path and the source-less left segment without mutating checked tree state",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_candidate_probe_first_match_loop[\s\S]*SelfhostPipeCandidateApplicability::Match:[\s\S]*Result::Ok candidate[\s\S]*fn selfhost_call_reduce_pipe_target_argument_select_candidate[\s\S]*selfhost_call_reduce_pipe_candidate_probe_summary_loop[\s\S]*gt summary\.unsupported_count 0[\s\S]*PipeTargetAmbiguous[\s\S]*eq summary\.match_count 0[\s\S]*PipeTargetNoApplicableCandidate[\s\S]*gt summary\.match_count 1[\s\S]*PipeTargetAmbiguous[\s\S]*selfhost_call_reduce_pipe_candidate_probe_first_match_loop/,
+    "non-ascribed pipe target narrowing must distinguish unsupported probes, zero applicable candidates, and unique matches",
+);
 assertContainsInOrder(
     pipeCandidates,
     [
@@ -966,9 +1001,9 @@ assertContainsInOrder(
         "selfhost_call_reduce_pipe_target_ascription_select_candidate",
         "Option::None:",
         "gt candidate_count 1",
-        "PipeTargetAmbiguous",
+        "selfhost_call_reduce_pipe_target_argument_select_candidate",
     ],
-    "pipe target ascription must narrow candidates before the non-ascribed ambiguity branch",
+    "pipe target ascription must narrow candidates before non-ascribed argument-based candidate selection",
 );
 assert.match(
     source,

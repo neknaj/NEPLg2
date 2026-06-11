@@ -190,6 +190,7 @@ pub enum SelfhostCallReduceErrorKind:
     PipeTargetInternalInvariant
     PipeTargetUnresolved
     PipeTargetAmbiguous
+    PipeTargetNoApplicableCandidate
     PipeTargetAscriptionProjectionFailed
     PipeTargetAscriptionTypeMismatch
     PipeTargetRequiresInput
@@ -212,6 +213,42 @@ impl Clone for SelfhostCallReduceErrorKind:
 impl Copy for SelfhostCallReduceErrorKind:
     fn copy_mark %fn SelfhostCallReduceErrorKind SelfhostCallReduceErrorKind \self:
         self
+
+//: SelfhostPipeCandidateApplicability: pipe target overload の軽量 probe 結果
+//:
+//: [目的/もくてき]:
+//: - 注釈無し pipe target の候補が複数ある場合に、左辺と右辺 suffix の型・消費幅だけで安全に絞り込めるかを enum として表します。
+//: - bool ではなく `Match` / `NoMatch` / `ProbeUnsupported` を分けることで、source-backed checker が必要な高度な引数式を「不一致」と誤分類して別候補を選ぶ退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - `Match` は、借用 probe だけで candidate が pipe の左辺と suffix と外側 expectation に合うと確認できた状態です。
+//: - `NoMatch` は、型不一致、引数過剰、引数不足、result expectation mismatch など、candidate 固有の理由で合わないと確認できた状態です。
+//: - `ProbeUnsupported` は、`%T expr`、nested call、named value、block、future generic solver など、owner を消費する source-backed checker でなければ判定できない状態です。この状態を含む候補列は一意選択せず fail-closed にします。
+pub enum SelfhostPipeCandidateApplicability:
+    Match
+    NoMatch
+    ProbeUnsupported
+
+impl Clone for SelfhostPipeCandidateApplicability:
+    fn clone %fn &SelfhostPipeCandidateApplicability SelfhostPipeCandidateApplicability \self:
+        *self
+
+impl Copy for SelfhostPipeCandidateApplicability:
+    fn copy_mark %fn SelfhostPipeCandidateApplicability SelfhostPipeCandidateApplicability \self:
+        self
+
+//: SelfhostPipeCandidateProbeSummary: pipe target 候補列の軽量 probe 集計
+//:
+//: [目的/もくてき]:
+//: - 注釈無し pipe target の overload 候補を、左辺・suffix・外側 expectation による軽量 probe の結果で集計します。
+//: - `match_count` と `unsupported_count` を分けることで、1 件だけ合う候補があっても、別候補に `ProbeUnsupported` が残る場合は保守的に曖昧として止められます。
+//:
+//: [契約/けいやく]:
+//: - この payload は owner を持たず、候補 vector の集計結果だけを保存します。
+//: - `match_count == 1` の場合でも、実際の candidate payload は同じ probe 規則を使う first-match helper で取り出します。summary に candidate を保存しないことで、record field の型式境界を単純に保ちます。
+pub struct SelfhostPipeCandidateProbeSummary:
+    match_count %i32
+    unsupported_count %i32
 
 //: selfhost_call_reduce_owned_result_new: owner 付き call reduction 成功 payload を[作/つく]る
 pub fn selfhost_call_reduce_owned_result_new %impure fn SelfhostTypeArena impure fn SelfhostCallReduceResult impure fn Vec SelfhostCheckedArgument impure fn SelfhostCheckedExprTree impure fn SelfhostCheckedExprId SelfhostCallReduceOwnedResult \arena\result\checked_arguments\checked_tree\root_expr:
@@ -679,6 +716,12 @@ pub fn selfhost_call_reduce_error_kind_eq %fn SelfhostCallReduceErrorKind fn Sel
         SelfhostCallReduceErrorKind::PipeTargetAmbiguous:
             match b:
                 SelfhostCallReduceErrorKind::PipeTargetAmbiguous:
+                    true
+                _:
+                    false
+        SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate:
+            match b:
+                SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate:
                     true
                 _:
                     false
