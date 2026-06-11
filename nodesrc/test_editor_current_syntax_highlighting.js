@@ -56,7 +56,11 @@ function token(text, kind, needle, occurrence = 0, value = undefined) {
 
 function findPayloadToken(source, payload, needle, occurrence = 0) {
     const tokenSpan = span(source, needle, occurrence);
-    return payload.tokens.find((item) => item.startIndex === tokenSpan.start && item.endIndex === tokenSpan.end);
+    const visibleTokens = [
+        ...(payload.semanticHighlightTokens || []),
+        ...(payload.tokens || []),
+    ];
+    return visibleTokens.find((item) => item.startIndex === tokenSpan.start && item.endIndex === tokenSpan.end);
 }
 
 function assertHighlighted(source, payload, needle, expectedType, occurrence = 0) {

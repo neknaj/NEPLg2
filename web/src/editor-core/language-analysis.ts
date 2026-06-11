@@ -166,8 +166,19 @@ export type EditorInlayHint = {
     exprSpan: { start: number; end: number };
 };
 
+export type EditorAnalysisMetadata = {
+    path: string | null;
+    documentVersion: number;
+    sourcePath: string | null;
+    sourceDocumentVersion: number;
+    analysisVersion: number;
+    freshness: 'empty' | 'provisional' | 'fresh';
+    isFresh: boolean;
+};
+
 export type EditorUpdatePayload = {
     tokens: EditorToken[];
+    semanticHighlightTokens: EditorToken[];
     diagnostics: EditorDiagnostic[];
     foldingRanges: EditorFoldingRange[];
     semanticTokens: EditorSemanticToken[];
@@ -176,6 +187,7 @@ export type EditorUpdatePayload = {
         highlightWhitespace: boolean;
         highlightIndent: boolean;
     };
+    analysis?: EditorAnalysisMetadata;
 };
 
 type TextDiff = {
@@ -879,7 +891,35 @@ function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
             continue;
         }
 
-        let type = normalizeTokenType(kind, token?.debug, typeof token?.value === 'string' ? token.value : undefined);
+        const type = normalizeTokenType(kind, token?.debug, typeof token?.value === 'string' ? token.value : undefined);
+        output.push({
+            startIndex: span.startIndex,
+            endIndex: span.endIndex,
+            type,
+        });
+    }
+
+    output.sort((left, right) => left.startIndex - right.startIndex || left.endIndex - right.endIndex);
+    return output;
+}
+
+function buildSemanticHighlightTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
+    const tokens = analysisArray(prepared.snapshot.lex?.tokens);
+    const output: EditorToken[] = [];
+    const skipKinds = new Set(['Indent', 'Dedent', 'Eof', 'Newline']);
+
+    for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+        const token = tokens[tokenIndex];
+        const kind = String(token?.kind ?? '');
+        if (skipKinds.has(kind) || kind.startsWith('Dir')) {
+            continue;
+        }
+        const span = spanFromPrepared(prepared, token);
+        if (!span || span.endIndex <= span.startIndex) {
+            continue;
+        }
+
+        let type: EditorTokenType | null = null;
         const classification = tokenClassificationAt(prepared, tokenIndex);
         const classifiedType = normalizeEditorTokenType(classification?.category);
         if (classifiedType) {
@@ -893,6 +933,9 @@ function buildEditorTokens(prepared: PreparedLanguageAnalysis): EditorToken[] {
                     type = resolvedType;
                 }
             }
+        }
+        if (!type) {
+            continue;
         }
 
         output.push({
@@ -997,6 +1040,7 @@ export function buildEditorUpdatePayloadFromAnalysis(text: string, snapshot?: La
     const prepared = prepareAnalysis(text, snapshot);
     return {
         tokens: buildEditorTokens(prepared),
+        semanticHighlightTokens: buildSemanticHighlightTokens(prepared),
         diagnostics: collectDiagnostics(prepared),
         foldingRanges: buildFoldingRanges(prepared),
         semanticTokens: buildSemanticTokens(prepared),
@@ -1041,6 +1085,11 @@ export function remapEditorUpdatePayloadForTextChange(previousText: string, next
     };
 
     const tokens = (previousPayload.tokens || [])
+        .map((token) => remapRange(token))
+        .filter((token): token is EditorToken => Boolean(token))
+        .sort((left, right) => left.startIndex - right.startIndex || left.endIndex - right.endIndex);
+
+    const semanticHighlightTokens = (previousPayload.semanticHighlightTokens || [])
         .map((token) => remapRange(token))
         .filter((token): token is EditorToken => Boolean(token))
         .sort((left, right) => left.startIndex - right.startIndex || left.endIndex - right.endIndex);
@@ -1100,6 +1149,7 @@ export function remapEditorUpdatePayloadForTextChange(previousText: string, next
     return {
         ...previousPayload,
         tokens,
+        semanticHighlightTokens,
         diagnostics,
         foldingRanges,
         semanticTokens,

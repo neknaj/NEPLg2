@@ -195,6 +195,9 @@ export class PlaygroundEditor {
         }
         const snapshot = provider.getAnalysisSnapshot();
         const payload = snapshot?.update_payload;
+        if (payload?.analysis && payload.analysis.isFresh !== true) {
+            return [];
+        }
         return Array.isArray(payload?.diagnostics) ? payload.diagnostics : [];
     }
 

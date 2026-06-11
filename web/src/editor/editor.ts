@@ -188,12 +188,19 @@ class CanvasEditor {
     registerLanguageProvider(languageId, provider) {
         this.languageProvider = provider;
         this.languageProvider.onUpdate((data) => {
+            const hasAnalysisMetadata = data.analysis && typeof data.analysis === 'object';
+            const canUseSemanticDerivedPayload = !hasAnalysisMetadata || data.analysis.isFresh === true;
+
             // 1) トークン/診断は「startIndex」でソートしておく（描画側での走査を単純化）
-            this.tokens = (data.tokens || []).slice().sort((a, b) => a.startIndex - b.startIndex);
-            this.diagnostics = (data.diagnostics || []).slice().sort((a, b) => a.startIndex - b.startIndex);
+            const lexicalTokens = (data.tokens || []).slice();
+            const semanticHighlightTokens = canUseSemanticDerivedPayload ? (data.semanticHighlightTokens || []).slice() : [];
+            this.tokens = lexicalTokens.concat(semanticHighlightTokens).sort((a, b) => a.startIndex - b.startIndex);
+            this.diagnostics = canUseSemanticDerivedPayload
+                ? (data.diagnostics || []).slice().sort((a, b) => a.startIndex - b.startIndex)
+                : [];
 
             // 2) 折り畳み範囲
-            this.foldingRanges = data.foldingRanges || [];
+            this.foldingRanges = canUseSemanticDerivedPayload ? data.foldingRanges || [] : [];
             this.foldingRangeByStartLine = new Map();
             for (const r of this.foldingRanges) {
                 this.foldingRangeByStartLine.set(r.startLine, r);

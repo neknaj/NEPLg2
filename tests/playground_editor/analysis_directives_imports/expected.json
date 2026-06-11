@@ -75,6 +75,7 @@
             "type": "operator"
           }
         ],
+        "semanticHighlightTokens": [],
         "diagnostics": [],
         "foldingRanges": [],
         "semanticTokens": [],

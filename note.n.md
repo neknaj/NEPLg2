@@ -55048,3 +55048,61 @@ MERGE_APPROVED
 - current table producer はまだ prepared i32 fingerprint 2 件の Phase 1 であり、actual trait definition table scanner、public surface hash、stable trait definition key 由来の source record producer は未実装。
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は proof store の stored proof 入力へ未接続。
 - `memo_call` private cache proof、Resource IR `PrivateCache` non-escape proof、sealed backend representation は未実装。
+## 2026-06-12 Agent Web Playground analysis freshness checkpoint
+
+### scope
+
+- branch: `agent2/playground-analysis-freshness-20260612`
+- fixed_issue: `ISS-20260611T170007270Z-WEB-PLAYGROUND-SEMANTIC-DERIVED-UI-M-1BD8D563`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- subagent_review_ids: `019eb8af-e2c4-7373-89be-e421491a0cc4`, `019eb8ba-4fe2-76f0-914f-5fd634b2e610`
+
+### unfinished_inventory
+
+- P0 `WEB-PLAYGROUND-SEMANTIC-DERIVED-UI`: stale semantic payload を UI が current として読む問題を今回修正した。
+- P0 `WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUST-NOT-BLOCK-UI`: semantic analysis の worker 化と cancellation protocol は未完了。
+- P0 span file identity / char offset mapping と cross-file definition target path/range は未完了。
+- P1 canvas editor の大規模 document rendering / movement scaling、selfhost compiler selector の capability gating、worker init failure recovery、GUI close lifecycle / queue ownership、browser smoke CI は未完了。
+
+### implementation
+
+- `EditorUpdatePayload.analysis` に path、documentVersion、sourcePath、sourceDocumentVersion、analysisVersion、freshness、isFresh を追加した。
+- `NEPLg2LanguageProvider` に `documentVersion` と freshness metadata を追加し、path/text 変更時に empty / provisional / fresh の状態を payload として明示するようにした。
+- semantic analysis と structural analysis は開始時の path/text/documentVersion を捕捉し、完了時に現在文書と一致しない結果を破棄する。
+- completion の symbol 候補、occurrence、hover、definition、token insight は fresh snapshot でない限り semantic payload を読まない fail-closed contract にした。
+- provisional payload では diagnostics、folding ranges、semantic tokens、inlay hints を空にし、editor / problems API も fresh でない semantic-derived payload を採用しないようにした。
+- token coloring は lexical `tokens` と semantic `semanticHighlightTokens` に分離し、editor は fresh payload の場合だけ semantic overlay を重ねるようにした。
+- 連続編集で provisional が provisional を remap する場合も、metadata の sourceDocumentVersion/sourcePath は元の fresh analysis input を引き継ぐようにした。
+- `nodesrc/test_playground_analysis_freshness.js` を追加し、編集後 debounce 中に stale semantic bridge が呼ばれないことを固定した。
+- `nodesrc/test_playground_editor_performance_policy.js` は旧 `this.text` 引数固定ではなく、freshness metadata と stale gate の存在を検査する契約へ更新した。
+
+### zenn_policy
+
+- static check: freshness を bool だけでなく `empty` / `provisional` / `fresh` の明示状態として payload に持たせた。
+- error boundary: stale semantic payload は成功扱いにせず、UI の derived feature が fail-closed で空結果を返す。
+- responsibility: TypeScript 側の推測で semantic authority を補わず、compiler analysis payload が fresh のときだけ semantic-derived UI の入力にする。
+- root-cause: remap 済み payload を current とみなす根本契約を改め、document identity / version を provider boundary に追加した。
+
+### subagent_review
+
+- priority_review: `019eb8af-e2c4-7373-89be-e421491a0cc4` は stale semantic UI freshness を fixed 済み document-switch P0 の直接残件として、この issue を先に扱う判断を妥当とした。
+- implementation_review: `019eb8ba-4fe2-76f0-914f-5fd634b2e610` は blocker なし。Required として、semantic coloring が `tokens` に混ざると non-fresh payload でも semantic highlight が残る点、連続編集で provisional metadata の sourceDocumentVersion が元の fresh input ではなく直前 version になる点を指摘した。
+- response: lexical `tokens` と semantic `semanticHighlightTokens` を分離し、editor は fresh のときだけ semantic overlay を重ねるようにした。provisional metadata は前 payload の sourceDocumentVersion/sourcePath を引き継ぐようにし、連続編集 regression を追加した。
+
+### verification
+
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_playground_analysis_freshness.js`
+- pass: `node nodesrc/test_neplg2_language_provider_vfs.js`
+- pass: `node nodesrc/test_playground_editor_performance_policy.js`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` total=13 passed=13 failed=0
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `trunk build`
+- pass: `git diff --check`
+
+### residual
+
+- semantic analysis の worker 化、VFS revision を含む async protocol、cross-file span path/range、non-ASCII char offset mapping は別 P0 issue として残っている。
+- fresh でない間の completion は keyword のみに限定している。symbol completion の pending 表示や UI indicator は後続の UI/worker issue で扱う。

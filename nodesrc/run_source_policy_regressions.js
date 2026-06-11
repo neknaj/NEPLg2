@@ -245,6 +245,7 @@ const checks = [
     "nodesrc/test_editor_diagnostic_code_contract.js",
     "nodesrc/test_editor_current_syntax_highlighting.js",
     "nodesrc/test_neplg2_language_provider_vfs.js",
+    "nodesrc/test_playground_analysis_freshness.js",
     "nodesrc/test_doctest_diag_code_metadata.js",
     "nodesrc/test_doctest_exit_code_metadata.js",
     "nodesrc/test_doctest_std_test_assertion_report_contract.js",
