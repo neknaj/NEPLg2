@@ -54443,3 +54443,56 @@ MERGE_APPROVED
 - existing_warnings: Git の LF -> CRLF conversion warning、Node WASI ExperimentalWarning、source policy documentation contract の既存 sample gaps。
 - new_warnings: なし。
 - unexecuted_verification: Browser plugin はこの環境に無く、`playwright` package も checkout に無いため rendered browser smoke は未実行。追加依存は入れず、`trunk build` と Playground 関連 Node regression で確認した。
+
+## 2026-06-12 Agent2 web playground audit and lifecycle fixes
+
+### scope
+
+- branch: `agent2/playground-audit-issues`
+- request: Web Playground 実装を subagent で丁寧にレビューし、残問題を issue 化して開発を開始する。
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+
+### subagent_review
+
+- editor/analysis review: `019eb788-818a-7962-b668-b0d781dc275c` は、UI thread 上の同期 WASM semantic/structural analysis、path/text の非 atomic document switch、stale semantic-derived cursor insight、非 ASCII span と cross-file range、renderer / reducer の document-wide work を指摘した。
+- runtime/compiler review: `019eb4f2-b231-7230-9561-b29b12aaf811` は、selfhost compiler selector の capability gating 欠如、compiler init failure による persistent worker 汚染、runAfterBuild error phase、neplg2 command parser / argv、compile VFS overlay policy、asset URL normalization を指摘した。
+- GUI host/window review: `019eb4fc-ad14-7671-bc12-3952776e52ce` は、terminal pane dispose が Shell / worker / GUI window / listener を止めないこと、Stop が active GUI owner ではなく focused terminal だけを見ること、close-requested contract、retained queue と SAB queue の二重化、silent overflow を指摘した。
+- workspace/test review: `019eb70e-5320-7e80-a072-f8d56a4b8751` は、editor resource dispose、dirty tab close、same-path multi editor ownership、non-editor focus status 表示、path normalization、workspace heavy-operation policy、browser smoke CI 不足を指摘した。
+
+### issues
+
+- created: `ISS-20260611T164150059Z-WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUS-488205A3`
+- created: `ISS-20260611T164150357Z-WEB-PLAYGROUND-DOCUMENT-SWITCH-MUST--6790822A`
+- created: `ISS-20260611T164150659Z-WEB-PLAYGROUND-ANALYSIS-SPANS-MUST-P-CFF77E8E`
+- created: `ISS-20260611T164150959Z-CANVAS-EDITOR-RENDER-AND-MOVEMENT-PA-EB04351C`
+- created: `ISS-20260611T164151256Z-WEB-PLAYGROUND-SELFHOST-COMPILER-SEL-8C7025F5`
+- created: `ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866`
+- created: `ISS-20260611T164151841Z-NEPLG2-TERMINAL-COMMAND-NEEDS-REAL-S-C21C6BD7`
+- fixed: `ISS-20260611T164152135Z-CLOSING-TERMINAL-PANES-MUST-DISPOSE--EF2A307C`
+- fixed: `ISS-20260611T164152433Z-STOP-ACTION-MUST-TARGET-THE-ACTIVE-G-8A98A569`
+- created: `ISS-20260611T164152722Z-GUI-CLOSE-REQUESTED-LIFECYCLE-MUST-C-9494308F`
+- created: `ISS-20260611T164153016Z-WEB-GUI-INPUT-QUEUES-NEED-BOUNDED-OW-4ABE3ECD`
+- created: `ISS-20260611T164153310Z-WORKSPACE-EDITORS-NEED-SHARED-DOCUME-1D4DCAE1`
+- created: `ISS-20260611T164153627Z-WEB-PLAYGROUND-NEEDS-CI-BROWSER-SMOK-2397F899`
+
+### implementation
+
+- `registerGuiWebInputEventListener` に対応する `unregisterGuiWebInputEventListener` を追加した。
+- `Shell.dispose` を追加し、active worker interrupt、GUI runtime window / timer cleanup、persistent compiler worker termination、GUI input listener unregister をまとめて行うようにした。
+- `CanvasTerminal.dispose` から `shell.dispose` を呼ぶようにし、terminal pane close / workspace redraw で Shell resource が残らないようにした。
+- `PlaygroundPanelManager.stopActiveProcess` を追加し、Stop button は focused running terminal を優先しつつ、focused terminal が無い場合でも実行中 terminal runtime を止めるようにした。
+
+### verification
+
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_web_gui_input_bridge.js`
+- pass: `node nodesrc/test_web_gui_shared_event_queue.js`
+- pass: `node nodesrc/test_web_gui_runtime_bridge.js`
+- pass: `node nodesrc/test_web_gui_floating_window_source.js`
+- pass: `node nodesrc/playground_shell_worker_test_runner.js`
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+
+### residual
+
+- Web Playground semantic analysis worker 化、atomic document switch、span/file identity、selfhost compiler capability gating、compiler worker init recovery、neplg2 command parser、GUI close-requested contract、GUI queue telemetry、shared document ownership、browser smoke CI は作成 issue として残る。
