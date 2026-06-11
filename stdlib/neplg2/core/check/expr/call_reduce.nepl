@@ -37,6 +37,7 @@
 #import "./checked_tree_id" as *
 #import "./value_evidence" as *
 #import "./block_body" as *
+#import "./ascription" as *
 
 //: selfhost_call_reduce_generic_state_error: candidate の generic inference state を call reduction error へ[変換/へんかん]する
 //:
@@ -1409,22 +1410,152 @@ fn selfhost_call_reduce_pipe_free_candidates_tree_error_new %impure fn SelfhostT
     selfhost_checked_expr_tree_free checked_tree
     selfhost_call_reduce_free_error_new arena kind span
 
+//: selfhost_call_reduce_pipe_free_candidates_tree_existing_error: pipe 候補 owner と checker owner を[閉/と]じて既存 error を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - ascribed pipe target の型不一致など、すでに具体的な `SelfhostCallReduceError` を作った経路で owner cleanup を一箇所に集めます。
+//:
+//: [契約/けいやく]:
+//: - `pipe_candidates`、`checked_tree`、`arena` はこの関数が必ず閉じます。
+//: - `error` の kind/span は変更しません。
+fn selfhost_call_reduce_pipe_free_candidates_tree_existing_error %impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn Vec SelfhostCallableCandidate impure fn SelfhostCallReduceError Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \arena\checked_tree\pipe_candidates\error:
+    v::free pipe_candidates
+    selfhost_checked_expr_tree_free checked_tree
+    selfhost_call_reduce_free_existing_error arena error
+
+//: selfhost_call_reduce_pipe_span_from_ascription_error: ascription 投影 error の代表 span を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - pipe target ascription の `%T` 投影失敗を `PipeTargetAscriptionProjectionFailed` へ包むとき、元の typed sub-error が持つ位置情報を失わないようにします。
+//:
+//: [契約/けいやく]:
+//: - 表示文字列は生成しません。span だけを取り出し、error kind は caller が pipe 専用 variant として決めます。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum match と field 読み出しだけなので O(1) です。
+fn selfhost_call_reduce_pipe_span_from_ascription_error %fn SelfhostExprAscriptionError SelfhostSourceSpan \error:
+    match error:
+        SelfhostExprAscriptionError::EmptyExpressionRange span:
+            span
+        SelfhostExprAscriptionError::InvalidExpressionRange span:
+            span
+        SelfhostExprAscriptionError::NotTypeAscription span:
+            span
+        SelfhostExprAscriptionError::TypePrefixBuildFailed e:
+            e.span
+        SelfhostExprAscriptionError::TypeReduceFailed e:
+            e.span
+        SelfhostExprAscriptionError::TypeProjectFailed e:
+            e.span
+        SelfhostExprAscriptionError::MissingExpressionTail span:
+            span
+
+//: selfhost_call_reduce_pipe_rhs_range_from_prefix: pipe 右辺を source token range として[切/き]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - `left |> %T target suffix...` の `%T` 境界を type resolver に任せるため、prefix item index の右辺範囲を token range に戻します。
+//: - ascription projector は source token index を authority とするため、prefix item index と token index の変換をここで明示します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(range)`: `rhs_index` から式末尾までを覆う source token range です。
+//: - `Err(error)`: prefix item 取得の不整合です。pipe target 内部不整合として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 先頭 item と末尾 item を 1 回ずつ読むだけなので O(1) です。
+fn selfhost_call_reduce_pipe_rhs_range_from_prefix %fn &SelfhostExprPrefixList fn i32 fn i32 fn SelfhostSourceSpan Result SelfhostSyntaxRange SelfhostCallReduceError \prefix\rhs_index\item_count\fallback_span:
+    match selfhost_expr_prefix_list_get prefix rhs_index:
+        Option::Some first_item:
+            match selfhost_expr_prefix_list_get prefix sub item_count 1:
+                Option::Some last_item:
+                    let token_count %i32 add sub last_item.token_index first_item.token_index 1
+                    let span %SelfhostSourceSpan source_span_new_unchecked first_item.span.file_id first_item.span.start last_item.span.end
+                    Result::Ok selfhost_syntax_range_new_unchecked first_item.token_index token_count span
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant fallback_span
+        Option::None:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant fallback_span
+
+//: selfhost_call_reduce_pipe_find_prefix_item_by_token_loop: token index に対応する pipe RHS item を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - `%T` projector が返す expression-first token を、call reducer が扱う prefix item index に戻します。
+//: - source token index と prefix item index を混同すると suffix 開始位置が壊れるため、pipe 専用の変換境界として保持します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(index)`: `token_index` を持つ prefix item index です。
+//: - `Err(PipeRightTargetUnsupported)`: 対応する expression item が見つかりません。
+//: - `Err(PipeTargetInternalInvariant)`: prefix list の取得に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - `idx` から `item_count` までを線形に見るため O(n) です。探索範囲は RHS の token 数だけに閉じます。
+fn selfhost_call_reduce_pipe_find_prefix_item_by_token_loop %fn &SelfhostExprPrefixList fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostCallReduceError \prefix\idx\item_count\token_index\fallback_span:
+    if:
+        ge idx item_count
+        then:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeRightTargetUnsupported fallback_span
+        else:
+            match selfhost_expr_prefix_list_get prefix idx:
+                Option::Some item:
+                    if:
+                        eq item.token_index token_index
+                        then:
+                            Result::Ok idx
+                        else:
+                            selfhost_call_reduce_pipe_find_prefix_item_by_token_loop prefix add idx 1 item_count token_index fallback_span
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant fallback_span
+
+//: selfhost_call_reduce_pipe_find_prefix_item_by_token: pipe RHS の expression-first token を prefix item index へ[戻/もど]す
+//:
+//: [目的/もくてき]:
+//: - ascribed pipe target の `%T` 直後にある callable target item を特定します。
+//:
+//: [計算量/けいさんりょう]:
+//: - RHS 残り item 数を n として O(n) です。
+fn selfhost_call_reduce_pipe_find_prefix_item_by_token %fn &SelfhostExprPrefixList fn i32 fn i32 fn i32 fn SelfhostSourceSpan Result i32 SelfhostCallReduceError \prefix\start_idx\item_count\token_index\fallback_span:
+    selfhost_call_reduce_pipe_find_prefix_item_by_token_loop prefix start_idx item_count token_index fallback_span
+
+//: selfhost_call_reduce_pipe_target_ascription_check: pipe target 注釈型と callable type を[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - `%fn ... target` の明示注釈が、選択済み pipe target candidate の function type と同じ型であることを確認します。
+//: - 注釈を result expectation や suffix argument ascription と混同せず、target callable そのものの型証拠として扱います。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(unit)`: 注釈が無い、または注釈型と candidate callable type が一致します。
+//: - `Err(PipeTargetAscriptionTypeMismatch)`: 注釈型と candidate callable type が一致しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 型一致判定の実コストは function type tree の大きさに依存します。
+fn selfhost_call_reduce_pipe_target_ascription_check %fn &SelfhostTypeArena fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation Result unit SelfhostCallReduceError \arena\candidate\target_ascription:
+    match target_ascription:
+        Option::Some expectation:
+            if:
+                selfhost_type_arena_types_equal arena expectation.expected_type candidate.callable_type
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAscriptionTypeMismatch expectation.span
+        Option::None:
+            Result::Ok unit
+
 //: selfhost_call_reduce_pipe_single_candidate_with_source: 1 pipe target candidate を direct call として[検査/けんさ]する
 //:
 //: [目的/もくてき]:
 //: - `left |> target right_args...` を、source-backed checked tree 上では `target left right_args...` と同じ `DirectCall` payload へ正規化します。
-//: - 左辺は target の第1 parameter expected type で 1 つの実引数式として検査し、右辺 suffix は既存の source-backed argument loop に第2 parameter から渡します。
+//: - 左辺は target の第1 parameter expected type で 1 つの実引数式として検査し、右辺 suffix は `rhs_suffix_index` から既存の source-backed argument loop に第2 parameter として渡します。
 //:
 //: [契約/けいやく]:
 //: - source-less reducer は pipe を扱いません。この helper は source text、tokens、scope、value evidence、signature table を持つ入口からだけ呼ばれます。
 //: - pipe chain はこの helper へ来る前に `PipeUnsupportedMultiple` として拒否します。
 //: - `pipe_candidates` は成功・失敗のどちらでもこの helper が閉じます。
+//: - `rhs_suffix_index` は実際の target item の直後です。plain target では `pipe_index + 2`、ascribed target では `%T` の型式 token 群を飛ばした `target_index + 1` になります。
 //: - target が 0 引数関数の場合、左辺を差し込む場所がないため `PipeTargetRequiresInput` を返します。
 //: - 左辺 prefix segment が expected type の 1 式としてちょうど pipe 位置まで消費されない場合、suffix を勝手に右辺側へ流さず `PipeLeftSegmentNotSingleValue` を返します。
 //:
 //: [計算量/けいさんりょう]:
 //: - pipe detection は入口で O(n) 済みです。この helper は target parameter 数 p に対して O(p) 回 argument checker を呼びます。左辺 segment の検査は既存 nested/direct argument reducer の計算量に従います。
-fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\candidate\expected\trailing_block\rhs_head\item_count\pipe_index:
+fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\candidate\expected\trailing_block\rhs_head\item_count\pipe_index\rhs_suffix_index:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _unit:
             match selfhost_type_arena_function_arg_count &arena candidate.callable_type:
@@ -1453,7 +1584,7 @@ fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec Selfho
                                                                     let first_arena %SelfhostTypeArena field::get first_state "arena"
                                                                     let first_arguments %Vec SelfhostCheckedArgument field::get first_state "checked_arguments"
                                                                     let first_tree %SelfhostCheckedExprTree field::get first_state "checked_tree"
-                                                                    match selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 add pipe_index 2 item_count trailing_block rhs_head:
+                                                                    match selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 rhs_suffix_index item_count trailing_block rhs_head:
                                                                         Result::Ok state:
                                                                             let checked_arena2 %SelfhostTypeArena field::get state "arena"
                                                                             let checked_arguments2 %Vec SelfhostCheckedArgument field::get state "checked_arguments"
@@ -1511,12 +1642,13 @@ fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec Selfho
 //:
 //: [目的/もくてき]:
 //: - pipe target の候補 0/1/複数を分け、1 候補だけを direct call 正規化へ進めます。
+//: - `target_ascription` がある場合は、候補を実行する前に注釈型と callable type が一致することを確認します。
 //: - 通常 head の `candidates` 引数は左辺 literal などでは意味を持たないため、pipe 右辺は scope と signature table から改めて収集した候補を authority とします。
 //:
 //: [契約/けいやく]:
 //: - `pipe_candidates` owner はこの関数または下位 helper が必ず閉じます。
 //: - 候補 0 は `PipeTargetUnresolved`、複数は `PipeTargetAmbiguous` として fail-closed にします。
-fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\expected\trailing_block\rhs_head\item_count\pipe_index:
+fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\pipe_candidates\expected\target_ascription\trailing_block\rhs_head\item_count\pipe_index\rhs_suffix_index:
     let candidate_count %i32 v::len &pipe_candidates
     if:
         eq candidate_count 0
@@ -1530,9 +1662,65 @@ fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToke
                 else:
                     match v::get &pipe_candidates 0:
                         Option::Some candidate:
-                            selfhost_call_reduce_pipe_single_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count pipe_index
+                            match selfhost_call_reduce_pipe_target_ascription_check &arena candidate target_ascription:
+                                Result::Ok _unit:
+                                    selfhost_call_reduce_pipe_single_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count pipe_index rhs_suffix_index
+                                Result::Err e:
+                                    selfhost_call_reduce_pipe_free_candidates_tree_existing_error arena checked_tree pipe_candidates e
                         Option::None:
                             selfhost_call_reduce_pipe_free_candidates_tree_error_new arena checked_tree pipe_candidates SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
+
+//: selfhost_call_reduce_pipe_ascribed_target_with_source: `%T target` pipe 右辺を callable target として[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `left |> %fn ... target suffix...` を、target callable の型注釈付き pipe として扱います。
+//: - `%T` は suffix argument ではなく target callable 自体への型注釈なので、type resolver で型式境界を決め、型式直後の token から named target item を復元します。
+//:
+//: [契約/けいやく]:
+//: - `%T` の投影に失敗した場合は `PipeTargetAscriptionProjectionFailed` を返し、投影 sub-error の span を保持します。
+//: - 投影失敗時の arena owner は `selfhost_expr_ascription_project_head_expectation` が閉じるため、この関数は checked tree だけを閉じます。
+//: - 型式直後の expression item は `NamedValue` だけを受理します。lambda target、literal target、indirect target はこの slice では `PipeRightTargetUnsupported` です。
+//: - 注釈型は selected candidate の callable type と一致しなければなりません。不一致は `PipeTargetAscriptionTypeMismatch` であり、通常の argument type mismatch や overload failure へ潰しません。
+//: - 成功時、RHS suffix は target item の直後から始まります。`%T` と型式 token は実引数として消費しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - RHS range 生成は O(1)、型式 projection は型式 token 数と型 tree に比例し、target item 復元は RHS item 数に対して O(n) です。
+fn selfhost_call_reduce_pipe_ascribed_target_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn SelfhostExprPrefixItem impure fn i32 impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\expected\trailing_block\ascription_head\item_count\pipe_index\rhs_index:
+    match selfhost_call_reduce_pipe_rhs_range_from_prefix prefix rhs_index item_count ascription_head.span:
+        Result::Ok syntax_range:
+            match selfhost_expr_ascription_project_head_expectation tokens source arena syntax_range:
+                Result::Ok projection:
+                    let target_expectation %SelfhostTypeExpectation selfhost_expr_ascription_head_projection_expectation &projection
+                    let expression_token %i32 selfhost_expr_ascription_head_projection_expression_first_token &projection
+                    let projected_arena %SelfhostTypeArena selfhost_expr_ascription_head_projection_into_arena projection
+                    match selfhost_call_reduce_pipe_find_prefix_item_by_token prefix add rhs_index 1 item_count expression_token target_expectation.span:
+                        Result::Ok target_index:
+                            match selfhost_expr_prefix_list_get prefix target_index:
+                                Option::Some target_item:
+                                    match target_item.kind:
+                                        SelfhostExprPrefixItemKind::NamedValue:
+                                            match selfhost_callable_candidates_collect_for_head_item source tokens target_item scope signatures:
+                                                Result::Ok pipe_candidates:
+                                                    selfhost_call_reduce_pipe_candidates_with_source tokens source projected_arena checked_tree prefix scope value_types signatures pipe_candidates expected some target_expectation trailing_block target_item item_count pipe_index add target_index 1
+                                                Result::Err collect_error:
+                                                    selfhost_checked_expr_tree_free checked_tree
+                                                    selfhost_type_arena_free projected_arena
+                                                    Result::Err selfhost_call_reduce_pipe_error_from_candidate_collect collect_error
+                                        _:
+                                            selfhost_checked_expr_tree_free checked_tree
+                                            selfhost_call_reduce_free_error_new projected_arena SelfhostCallReduceErrorKind::PipeRightTargetUnsupported target_item.span
+                                Option::None:
+                                    selfhost_checked_expr_tree_free checked_tree
+                                    selfhost_call_reduce_free_error_new projected_arena SelfhostCallReduceErrorKind::PipeTargetInternalInvariant target_expectation.span
+                        Result::Err e:
+                            selfhost_checked_expr_tree_free checked_tree
+                            selfhost_call_reduce_free_existing_error projected_arena e
+                Result::Err e:
+                    selfhost_checked_expr_tree_free checked_tree
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAscriptionProjectionFailed selfhost_call_reduce_pipe_span_from_ascription_error e
+        Result::Err e:
+            selfhost_checked_expr_tree_free checked_tree
+            selfhost_call_reduce_free_existing_error arena e
 
 //: selfhost_call_reduce_pipe_prefix_with_source: source-backed pipe expression を direct call へ[正規化/せいきか]する
 //:
@@ -1542,7 +1730,7 @@ fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToke
 //:
 //: [契約/けいやく]:
 //: - `pipe_index == 0` は左辺欠落、`pipe_index + 1 >= item_count` は右辺 target 欠落として拒否します。
-//: - 右辺 target はこの slice では `NamedValue` だけを受理します。ascribed target、lambda target、nested pipe chain は今後の issue に残し、成功扱いしません。
+//: - 右辺 target は `NamedValue`、または `%T NamedValue` の型注釈付き target だけを受理します。lambda target、indirect target、nested pipe chain は今後の issue に残し、成功扱いしません。
 //: - `trailing_block` は既存 argument loop へ渡すため、`left |> target:` の block body は target の残り parameter がある場合だけ消費されます。
 fn selfhost_call_reduce_pipe_prefix_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn i32 impure fn i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\expected\trailing_block\item_count\pipe_index:
     if:
@@ -1574,11 +1762,13 @@ fn selfhost_call_reduce_pipe_prefix_with_source %impure fn &Vec SelfhostToken im
                                 SelfhostExprPrefixItemKind::NamedValue:
                                     match selfhost_callable_candidates_collect_for_head_item source tokens rhs_head scope signatures:
                                         Result::Ok pipe_candidates:
-                                            selfhost_call_reduce_pipe_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates expected trailing_block rhs_head item_count pipe_index
+                                            selfhost_call_reduce_pipe_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures pipe_candidates expected none trailing_block rhs_head item_count pipe_index add rhs_index 1
                                         Result::Err collect_error:
                                             selfhost_checked_expr_tree_free checked_tree
                                             selfhost_type_arena_free arena
                                             Result::Err selfhost_call_reduce_pipe_error_from_candidate_collect collect_error
+                                SelfhostExprPrefixItemKind::TypeAnnotationMarker:
+                                    selfhost_call_reduce_pipe_ascribed_target_with_source tokens source arena checked_tree prefix scope value_types signatures expected trailing_block rhs_head item_count pipe_index rhs_index
                                 _:
                                     selfhost_checked_expr_tree_free checked_tree
                                     selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::PipeRightTargetUnsupported rhs_head.span

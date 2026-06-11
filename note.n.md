@@ -1,3 +1,58 @@
+# 2026-06-11 Agent selfhost ascribed pipe target checkpoint
+
+## review_scope
+
+- branch: `selfhost/ascribed-pipe-target-20260606`
+- base: `origin/main` / `main` at `7508a67a1`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / source-backed pipe target ascription
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- files_read: `AGENTS.md`; `note.n.md`; `todo.md`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/ascription.nepl`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/model.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: pipe chain 結合、lambda target、generic target、borrowed left expression、target ascription による overload narrowing、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 private-cache boundary
+- subagent_review_ids:
+  - `019eb4b9-e966-7240-8661-a0922b7bc942`
+
+## decision
+
+- classification: approve after subagent review and focused verification
+- root_cause: 前回 checkpoint では `left |> %i32 add 2` を `PipeRightTargetUnsupported` として fail-closed にしていたが、実際には `%T` が suffix argument ではなく target callable 自体の型注釈になる形を安全に投影する境界が不足していた。
+- implementation: `call_reduce.nepl` は RHS prefix item 範囲を source token range に戻し、`selfhost_expr_ascription_project_head_expectation` で `%T` の型式境界と expression-first token を得る。そこから prefix item index を復元し、`NamedValue` target の候補を収集して、candidate callable type と ascribed function type が同じ arena 内で一致する場合だけ direct call checked tree へ進む。
+- suffix invariant: plain target は `pipe_index + 2`、ascribed target は `target_index + 1` を suffix cursor とする。これにより `%fn ...` の型式 token を実引数として誤消費しない。
+- typed error: projection 失敗は `PipeTargetAscriptionProjectionFailed`、callable type 不一致は `PipeTargetAscriptionTypeMismatch` として `SelfhostCallReduceErrorKind` に残す。表示文字列や unsupported fallback へ潰さない。
+- owner boundary: projection 成功時の arena owner は pipe reducer が引き継ぎ、成功時は下位 owner result へ渡し、失敗時は明示的に閉じる。projection 失敗時の arena owner は projector が閉じる契約なので、pipe reducer は checked tree だけを閉じる。
+- deferred: subagent review の non-blocker に従い、`%fn ... overloaded_name` で候補を絞り込む overload narrowing は今回の slice では行わない。candidate count が 1 件になった後で ascription を照合する現設計を明示し、advanced pipe target candidate narrowing の後続残件へ残した。
+
+## zenn_check
+
+- Result/Option: 新規 helper は `Result` / `Option` を返し、失敗経路を typed enum error として伝搬する。sentinel index や表示文字列による分岐は追加していない。
+- enum error/display separation: `PipeTargetAscriptionProjectionFailed` と `PipeTargetAscriptionTypeMismatch` を error enum に追加し、source policy contract で variant の存在と写像を固定した。
+- match exhaustiveness: candidate collection error など既存の enum mapping を `_` fallback へ戻さず、target ascription は独立 helper で分岐を分ける。
+- pure core / platform boundary: selfhost checker core 内の source/token/type arena 操作だけを追加し、FileSystem、StdIO、host authority、platform-specific dependency は増やしていない。
+- documentation: 関数コメントは目的、契約、戻り値、owner cleanup、計算量を日本語で記述した。行数制限、file-size gate、comment-volume gate、doc comment 長制限は追加していない。
+- prototype policy: 後方互換維持のために曖昧な成功経路を開かず、未実装の overload narrowing、lambda/borrow/generic target、pipe chain は issue / todo / doc の残件に残した。
+
+## subagent_review
+
+- `019eb4b9-e966-7240-8661-a0922b7bc942`:
+  - blocker: none
+  - non-blocker: target ascription は candidate count が 1 件になった後で照合されるため、ascription による overload disambiguation は未実装。後続の advanced pipe target candidate narrowing として記録した。
+  - approve: typed enum diagnostics、projection owner、suffix cursor invariant、doc comments、no line-count gate が Zenn 方針と整合。
+
+## verification
+
+- pass: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- pass: `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` with CRLF conversion warnings only
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-ascribed-pipe-target.json` total=7, passed=7
+
+## next
+
+- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` remains open for lambda / borrow / pipe chain / advanced pipe target argument expression checking, ascribed target overload narrowing, generic instantiation inference, trait solving, indirect call, and `memo_call` Phase 1.
+- `todo.md` now lists only those remaining selfhost checker tasks for this issue slice.
+
 # 2026-06-06 Agent selfhost checked tree reducer connection checkpoint
 
 ## review_scope

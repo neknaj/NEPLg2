@@ -24,7 +24,7 @@
 
 2026-04-26 NEPLg2 Self-host
 
-- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の後続 slice として、lambda / borrow / pipe chain / ascribed pipe target / advanced pipe target argument expression checking、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 境界を追加する。単一式 block、複数式 block sequence、nested `BlockIntro`、単一 `left |> named_target suffix...` pipe は source-backed reducer の成功経路では `CheckedExpr` id へ接続済みで、代表的な pipe 未対応形の fail-closed smoke も固定済みなので、残る legacy summary variant は source-less / fail-closed 境界として扱い、通常 HIR lowering authority に戻さない
+- `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の後続 slice として、lambda / borrow / pipe chain / advanced pipe target argument expression checking、ascribed pipe target による overload narrowing、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 境界を追加する。単一式 block、複数式 block sequence、nested `BlockIntro`、単一 `left |> named_target suffix...` pipe、単一 `left |> %fn ... named_target suffix...` pipe は source-backed reducer の成功経路では `CheckedExpr` id へ接続済みで、代表的な pipe 未対応形の fail-closed smoke も固定済みなので、残る legacy summary variant は source-less / fail-closed 境界として扱い、通常 HIR lowering authority に戻さない
 - `stdlib/doc-comment-boilerplate` branch で `ISS-20260426T060358681Z-STDLIB-DOC-COMMENTS-STILL-CONTAIN-GE-2D7384D1` に沿って boilerplate 化した stdlib doc comment を具体的な説明へ置き換える
 - `nodesrc/selfhost-focused-tests` branch で `stdlib/neplg2` focused test の実行経路と JSON 確認を整備する
 
