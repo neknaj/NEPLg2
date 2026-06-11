@@ -54928,3 +54928,62 @@ MERGE_APPROVED
 - actual type declaration table から layout evidence を生成する producer は未実装。
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、enum / sum layout、hazard proof は未実装。
 - `memo_trait_layout` は現時点で `SelfhostMemoTraitAggregateFieldRange` / `SelfhostMemoTraitAggregateFieldEvidence` を `memo_trait_producer` から import している。後続で producer が layout validator を呼ぶ段階では、小さな共有 model module への分離を検討する。
+
+## 2026-06-12 Agent selfhost memo trait source table checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-source-registry-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- related_issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- zenn_policy_checked: `https://zenn.dev/bem130/articles/1b352797de94e7`。2026-06-02 更新版を確認し、Result / enum error、match 網羅性、DAG 分割、丁寧な doc comment、試作段階でも設計負債を残さない方針をこの slice の基準にした。
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- subagent_review_ids: `019eb6ba-39dc-71e2-81ff-07eaeac1c305`, `019eb6c6-cec9-7000-8696-c18d8b800ee0`
+
+### implementation
+
+- `memo_trait_source.nepl` に `SelfhostMemoTraitDefinitionSourceTable` を追加し、current trusted source registry を fixed table から materialize する経路へ変更した。
+- definition source table は `MemoKey` / `MemoValue` の `Option SelfhostMemoTraitDefinitionSourceRecord` と duplicate flag を持ち、missing key、missing value、duplicate key、duplicate value、key source rejected、value source rejected を typed registry error として区別する。
+- `selfhost_memo_trait_trusted_source_registry_current_result` は table-backed validator 経由になり、proof store policy 用 source set は `selfhost_memo_trait_trusted_source_identity_set_current_result` からだけ取得する。
+- per-kind current source identity helper は Stage 0 の materializer smoke 用 private helper に戻し、外部 caller が missing / duplicate validation を迂回できないようにした。
+- registry error equality は整数 code projection ではなく、payload 付き enum を明示 match で比較する実装に戻した。
+- source policy regression、関連 doc / issue / todo を更新し、current registry が table-backed であること、proof store が raw source constructor や per-kind current helper を authority にしないことを固定した。
+
+### zenn_policy
+
+- Result / enum: table validation failure は bool や文字列に潰さず `SelfhostMemoTraitTrustedSourceRegistryErrorKind` に保持する。
+- static check: registry error equality は wildcard を使わず、variant と payload を明示 match する。
+- responsibility: proof store は source identity の組み立てを行わず、`memo_trait_source` の Result API から policy source set を受け取る。
+- fail-closed: missing / duplicate / source rejected はすべて registry materialization 前後の typed error として拒否し、不完全な policy source set を作らない。
+- doc comment: module / table / validator / current API に日本語の目的、契約、現状、計算量、doctest、未実装境界を書いた。コメント行数や file size を抑制する検査は追加していない。
+
+### subagent_review
+
+- design_review: `019eb6ba-39dc-71e2-81ff-07eaeac1c305` は、Missing / Duplicate / SourceRejected を MemoKey 側と MemoValue 側で区別し、stage0 を public validator 経由にする必要があると指摘した。
+- design_review: `019eb6c6-cec9-7000-8696-c18d8b800ee0` は、fixed Option slot と duplicate flag の table-backed current registry に blocker なしと判断した。
+- implementation_review: `019eb6ba-39dc-71e2-81ff-07eaeac1c305` は、per-kind current source identity helper が public のままだと table validation を迂回できる点を Required として指摘した。
+- response: per-kind current source identity helper を private に戻し、contract test も public authority 禁止と table-backed registry authority を検査する形へ修正した。
+- implementation_review: `019eb6c6-cec9-7000-8696-c18d8b800ee0` は blocker / required なし。error priority の doc 明確化 suggestion は validator doc comment に反映した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_source_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_policy_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_layout_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_source.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-source.json" --dist web/dist -j 1 --assert-io --no-tree` total=1 passed=1
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-source-table.json" --dist web/dist -j 1 --assert-io --no-tree` total=10 passed=10
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の変更範囲では退行なし。
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+
+### residual
+
+- current table producer はまだ prepared i32 fingerprint 2 件の Phase 1 であり、actual trait definition table scanner、public surface hash、stable trait definition key 由来の source record producer は未実装。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は proof store の stored proof 入力へ未接続。
+- `memo_call` private cache proof、Resource IR `PrivateCache` non-escape proof、sealed backend representation は未実装。

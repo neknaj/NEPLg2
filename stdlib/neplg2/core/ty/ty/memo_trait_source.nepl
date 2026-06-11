@@ -11,20 +11,20 @@
 //: [契約/けいやく]:
 //: - `SelfhostMemoTraitTrustedSourceRegistry` は `MemoKey` と `MemoValue` の source identity を両方持ちます。片方が欠けた registry は作りません。
 //: - source identity は `SelfhostMemoTraitDefinitionSourceRecord` から materializer を通して作ります。expected kind と record kind が一致しない場合や、signature fingerprint が未確定の場合は `Result::Err` にします。
-//: - `selfhost_memo_trait_trusted_source_registry_current_result` は、現 selfhost compiler が使う prepared source identity registry を `Result` で返します。
+//: - `selfhost_memo_trait_trusted_source_registry_current_result` は、現 selfhost compiler が使う table-backed source identity registry を `Result` で返します。
 //: - `selfhost_memo_trait_trusted_source_registry_sources` は proof store policy に渡す `SelfhostMemoTraitSourceIdentitySet` を返します。
 //: - `selfhost_memo_trait_trusted_source_registry_is_current` は、registry が current source identity と一致するかを typed equality で確認します。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 では module / symbol / signature の fingerprint payload は事前に用意した i32 値です。ただし raw i32 を proof store 側へ散らさず、typed definition source record と materializer の境界に閉じています。
-//: - これは trait definition table から source text や public surface hash を走査する実装ではありません。将来 `MemoKey` / `MemoValue` trait definition table が入ったら、この module の current definition record producer を table 由来の stable trait definition key へ置き換えます。その場合も proof store はこの registry から source set を受け取るだけで、source text を再読しません。
+//: - Phase 1 では module / symbol / signature の fingerprint payload は事前に用意した i32 値です。ただし raw i32 を proof store 側へ散らさず、typed definition source table と materializer の境界に閉じています。
+//: - これは source text や public surface hash を走査する full trait definition table ではありません。将来 `MemoKey` / `MemoValue` trait definition table が入ったら、この module の current table producer を stable trait definition key 由来の table へ置き換えます。その場合も proof store はこの registry から source set を受け取るだけで、source text を再読しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - current registry の構築、source materialization、source set projection、current 判定はすべて Copy payload の field 構築、variant match、または equality だけなので O(1) です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -33,6 +33,12 @@
 //: ##: [5] ok
 //: ##: [6] ok
 //: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
+//: ##: [11] ok
+//: ##: [12] ok
+//: ##: [13] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -51,12 +57,19 @@
 //:     let checks6 checks_push checks5 check summary.memo_value_materialized
 //:     let checks7 checks_push checks6 check selfhost_memo_trait_source_materialize_error_kind_eq (unwrap_err summary.kind_mismatch_rejected) SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch
 //:     let checks8 checks_push checks7 check selfhost_memo_trait_source_materialize_error_kind_eq (unwrap_err summary.signature_missing_rejected) SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing
-//:     let shown checks_print_report checks8
+//:     let checks9 checks_push checks8 check selfhost_memo_trait_trusted_source_registry_error_kind_eq (unwrap_err summary.table_missing_key_rejected) SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing
+//:     let checks10 checks_push checks9 check selfhost_memo_trait_trusted_source_registry_error_kind_eq (unwrap_err summary.table_missing_value_rejected) SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing
+//:     let checks11 checks_push checks10 check selfhost_memo_trait_trusted_source_registry_error_kind_eq (unwrap_err summary.table_duplicate_key_rejected) SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate
+//:     let checks12 checks_push checks11 check selfhost_memo_trait_trusted_source_registry_error_kind_eq (unwrap_err summary.table_duplicate_value_rejected) SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate
+//:     let checks13 checks_push checks12 check selfhost_memo_trait_trusted_source_registry_error_kind_eq (unwrap_err summary.table_key_source_rejected) SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing
+//:     let checks14 checks_push checks13 check selfhost_memo_trait_trusted_source_registry_error_kind_eq (unwrap_err summary.table_value_source_rejected) SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing
+//:     let shown checks_print_report checks14
 //:     checks_exit_code shown
 //: ```
 
 #import "core/field" as field
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "./memo_trait_policy" as *
@@ -91,6 +104,28 @@ pub struct SelfhostMemoTraitDefinitionSourceRecord:
     fingerprint %SelfhostMemoTraitDefinitionFingerprint
     signature_available %bool
 
+//: SelfhostMemoTraitDefinitionSourceTable: trusted memo trait definition source record の小さな table
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` の current source record を、個別 helper 直結ではなく table selection 経由で registry に渡します。
+//: - 欠落と重複を source identity materialization の前に typed error として分類し、proof store policy に不完全な source set が入らないようにします。
+//:
+//: [契約/けいやく]:
+//: - `memo_key` は `SelfhostMemoTraitSourceKind::MemoKeyTrait` record が 1 件だけ見つかった場合に `some(record)` です。
+//: - `memo_value` は `SelfhostMemoTraitSourceKind::MemoValueTrait` record が 1 件だけ見つかった場合に `some(record)` です。
+//: - duplicate flag が true の場合、対応する source kind は複数 record を持つため registry へ進めません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 の current table は固定 2 件です。将来 full trait definition table に接続する場合も、この table payload へ投影してから同じ validator を通します。
+//:
+//: [計算量/けいさんりょう]:
+//: - table は固定 2 slot なので、追加、検証、registry 変換はいずれも O(1) です。
+pub struct SelfhostMemoTraitDefinitionSourceTable:
+    memo_key %Option SelfhostMemoTraitDefinitionSourceRecord
+    memo_value %Option SelfhostMemoTraitDefinitionSourceRecord
+    duplicate_memo_key %bool
+    duplicate_memo_value %bool
+
 //: SelfhostMemoTraitSourceMaterializeErrorKind: source identity materialization の拒否理由
 //:
 //: [目的/もくてき]:
@@ -105,6 +140,10 @@ pub enum SelfhostMemoTraitSourceMaterializeErrorKind:
 //: - current registry の MemoKey 側と MemoValue 側のどちらの source materialization が壊れたかを区別します。
 //: - registry current path が materializer の `Result` を捨てず、失敗原因を typed payload として保持できるようにします。
 pub enum SelfhostMemoTraitTrustedSourceRegistryErrorKind:
+    MemoKeyDefinitionMissing
+    MemoValueDefinitionMissing
+    MemoKeyDefinitionDuplicate
+    MemoValueDefinitionDuplicate
     MemoKeySourceRejected %SelfhostMemoTraitSourceMaterializeErrorKind
     MemoValueSourceRejected %SelfhostMemoTraitSourceMaterializeErrorKind
 
@@ -132,6 +171,9 @@ pub struct SelfhostMemoTraitTrustedSourceRegistry:
 //: - `registry_is_current` は、registry snapshot が current compiler policy と一致した場合に `true` になります。
 //: - `memo_key_materialized` と `memo_value_materialized` は、current prepared definition source record が materializer で `Ok` になったことを表します。
 //: - `kind_mismatch_rejected` と `signature_missing_rejected` は、拒否 case を `Result::Err` として保持します。bool に潰さないことで、error enum の追加時に match の網羅性検査が効きます。
+//: - `table_missing_key_rejected` と `table_missing_value_rejected` は、definition source table の欠落を registry validator が拒否した代表結果です。
+//: - `table_duplicate_key_rejected` と `table_duplicate_value_rejected` は、definition source table の重複を registry validator が拒否した代表結果です。
+//: - `table_key_source_rejected` と `table_value_source_rejected` は、table record は存在するが materializer が source identity 化を拒否した代表結果です。
 //:
 //: [現状/げんじょう]:
 //: - 現在の summary は Stage 0 の smoke 用です。full trait definition table から stable source record を生成する段階では、同じ summary field を使い、入力だけを table-backed producer に置き換えます。
@@ -147,6 +189,12 @@ pub struct SelfhostMemoTraitTrustedSourceRegistryStage0Summary:
     memo_value_materialized %bool
     kind_mismatch_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind
     signature_missing_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind
+    table_missing_key_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind
+    table_missing_value_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind
+    table_duplicate_key_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind
+    table_duplicate_value_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind
+    table_key_source_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind
+    table_value_source_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind
 
 impl Clone for SelfhostMemoTraitDefinitionFingerprint:
     fn clone %fn &SelfhostMemoTraitDefinitionFingerprint SelfhostMemoTraitDefinitionFingerprint \self:
@@ -162,6 +210,14 @@ impl Clone for SelfhostMemoTraitDefinitionSourceRecord:
 
 impl Copy for SelfhostMemoTraitDefinitionSourceRecord:
     fn copy_mark %fn SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitDefinitionSourceRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitDefinitionSourceTable:
+    fn clone %fn &SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionSourceTable \self:
+        *self
+
+impl Copy for SelfhostMemoTraitDefinitionSourceTable:
+    fn copy_mark %fn SelfhostMemoTraitDefinitionSourceTable SelfhostMemoTraitDefinitionSourceTable \self:
         self
 
 impl Clone for SelfhostMemoTraitSourceMaterializeErrorKind:
@@ -234,6 +290,53 @@ pub fn selfhost_memo_trait_definition_fingerprint_new %fn i32 fn i32 fn i32 Self
 pub fn selfhost_memo_trait_definition_source_record_new %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitDefinitionFingerprint fn bool SelfhostMemoTraitDefinitionSourceRecord \kind\fingerprint\signature_available:
     SelfhostMemoTraitDefinitionSourceRecord kind fingerprint signature_available
 
+//: selfhost_memo_trait_definition_source_table_empty: trusted source definition table の空値を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - current registry や将来の trait definition table materializer が、MemoKey / MemoValue record の欠落を `none` として表せる初期値を作ります。
+//:
+//: [契約/けいやく]:
+//: - 空 table はまだ trusted registry ではありません。`selfhost_memo_trait_trusted_source_registry_from_definition_table` を通すと missing error になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 field を初期化するだけなので O(1) です。
+pub fn selfhost_memo_trait_definition_source_table_empty %fn void SelfhostMemoTraitDefinitionSourceTable \void:
+    SelfhostMemoTraitDefinitionSourceTable none none false false
+
+//: selfhost_memo_trait_definition_source_table_with_key: MemoKey record を table に[入/い]れる
+fn selfhost_memo_trait_definition_source_table_with_key %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitDefinitionSourceTable \table\record:
+    match table.memo_key:
+        Option::Some _existing:
+            SelfhostMemoTraitDefinitionSourceTable table.memo_key table.memo_value true table.duplicate_memo_value
+        Option::None:
+            SelfhostMemoTraitDefinitionSourceTable (some record) table.memo_value table.duplicate_memo_key table.duplicate_memo_value
+
+//: selfhost_memo_trait_definition_source_table_with_value: MemoValue record を table に[入/い]れる
+fn selfhost_memo_trait_definition_source_table_with_value %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitDefinitionSourceTable \table\record:
+    match table.memo_value:
+        Option::Some _existing:
+            SelfhostMemoTraitDefinitionSourceTable table.memo_key table.memo_value table.duplicate_memo_key true
+        Option::None:
+            SelfhostMemoTraitDefinitionSourceTable table.memo_key (some record) table.duplicate_memo_key table.duplicate_memo_value
+
+//: selfhost_memo_trait_definition_source_table_add_record: source record を kind に従って table へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - trait definition table から得た record を、MemoKey / MemoValue の typed slot へ分類します。
+//:
+//: [契約/けいやく]:
+//: - 同じ source kind を複数回追加した場合、既存 record は置き換えず duplicate flag だけを立てます。
+//: - duplicate flag が立った table は registry materialization で fail-closed になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - source kind の match と固定 slot 更新だけなので O(1) です。
+pub fn selfhost_memo_trait_definition_source_table_add_record %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitDefinitionSourceRecord SelfhostMemoTraitDefinitionSourceTable \table\record:
+    match record.kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            selfhost_memo_trait_definition_source_table_with_key table record
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            selfhost_memo_trait_definition_source_table_with_value table record
+
 //: selfhost_memo_trait_source_materialize_error_kind_eq: materializer error kind が同じか[返/かえ]す
 //:
 //: [契約/けいやく]:
@@ -253,20 +356,104 @@ pub fn selfhost_memo_trait_source_materialize_error_kind_eq %fn SelfhostMemoTrai
                 SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing:
                     true
 
+//: selfhost_memo_trait_source_materialize_error_kind_code: materializer error kind を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error kind が増えた場合は code projection を明示的に更新します。
+fn selfhost_memo_trait_source_materialize_error_kind_code %fn SelfhostMemoTraitSourceMaterializeErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceMaterializeErrorKind::KindMismatch:
+            1
+        SelfhostMemoTraitSourceMaterializeErrorKind::SignatureMissing:
+            2
+
 //: selfhost_memo_trait_trusted_source_registry_error_kind_eq: registry error kind が同じか[返/かえ]す
 //:
 //: [契約/けいやく]:
 //: - MemoKey 側と MemoValue 側を混同しません。payload の materialize error kind も比較します。
+//: - wildcard arm は使いません。registry error kind が増えた場合は match の網羅性検査で比較処理の更新漏れを検出します。
 pub fn selfhost_memo_trait_trusted_source_registry_error_kind_eq %fn SelfhostMemoTraitTrustedSourceRegistryErrorKind fn SelfhostMemoTraitTrustedSourceRegistryErrorKind bool \a\b:
     match a:
+        SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing:
+            match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing:
+                    true
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected _b_error:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected _b_error:
+                    false
+        SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing:
+            match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing:
+                    true
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected _b_error:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected _b_error:
+                    false
+        SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate:
+            match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate:
+                    true
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected _b_error:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected _b_error:
+                    false
+        SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate:
+            match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate:
+                    true
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected _b_error:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected _b_error:
+                    false
         SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected a_error:
             match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate:
+                    false
                 SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected b_error:
                     selfhost_memo_trait_source_materialize_error_kind_eq a_error b_error
                 SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected _b_error:
                     false
         SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected a_error:
             match b:
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate:
+                    false
+                SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate:
+                    false
                 SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected _b_error:
                     false
                 SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected b_error:
@@ -300,7 +487,7 @@ pub fn selfhost_memo_trait_source_identity_from_definition %fn SelfhostMemoTrait
 //: selfhost_memo_trait_trusted_memo_key_definition_source_current: current MemoKey definition record を[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - 現 compiler が信頼する `MemoKey` trait source fingerprint を、materializer input として返します。
+//: - 現 compiler が信頼する `MemoKey` trait source fingerprint を、current definition source table の 1 record として返します。
 //:
 //: [現状/げんじょう]:
 //: - fingerprint payload は prepared value です。trait definition table が入ったら、この helper の入力だけを table 由来の stable definition key へ置き換えます。
@@ -313,7 +500,7 @@ fn selfhost_memo_trait_trusted_memo_key_definition_source_current %fn void Selfh
 //: selfhost_memo_trait_trusted_memo_value_definition_source_current: current MemoValue definition record を[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - 現 compiler が信頼する `MemoValue` trait source fingerprint を、materializer input として返します。
+//: - 現 compiler が信頼する `MemoValue` trait source fingerprint を、current definition source table の 1 record として返します。
 //:
 //: [現状/げんじょう]:
 //: - fingerprint payload は prepared value です。trait definition table が入ったら、この helper の入力だけを table 由来の stable definition key へ置き換えます。
@@ -323,6 +510,22 @@ fn selfhost_memo_trait_trusted_memo_value_definition_source_current %fn void Sel
         selfhost_memo_trait_definition_fingerprint_new 20 21 22
         true
 
+//: selfhost_memo_trait_definition_source_table_current: current MemoKey / MemoValue definition table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - current registry が個別 prepared record helper へ直結せず、definition table の欠落・重複検査を通るようにします。
+//:
+//: [契約/けいやく]:
+//: - Phase 1 では固定 2 record の table です。
+//: - 将来 full trait definition table を導入する場合は、この関数が parser / checker 由来の stable trait definition record table を返すように置き換わります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 2 record を追加するだけなので O(1) です。
+fn selfhost_memo_trait_definition_source_table_current %fn void SelfhostMemoTraitDefinitionSourceTable \void:
+    let table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record table0 selfhost_memo_trait_trusted_memo_key_definition_source_current
+    selfhost_memo_trait_definition_source_table_add_record table1 selfhost_memo_trait_trusted_memo_value_definition_source_current
+
 //: selfhost_memo_trait_trusted_source_registry_new: trusted source registry を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -331,38 +534,82 @@ fn selfhost_memo_trait_trusted_memo_value_definition_source_current %fn void Sel
 fn selfhost_memo_trait_trusted_source_registry_new %fn SelfhostMemoTraitSourceIdentity fn SelfhostMemoTraitSourceIdentity SelfhostMemoTraitTrustedSourceRegistry \memo_key\memo_value:
     SelfhostMemoTraitTrustedSourceRegistry memo_key memo_value
 
-//: selfhost_memo_trait_trusted_memo_key_source_identity_current_result: current MemoKey source identity を Result で[返/かえ]す
+//: selfhost_memo_trait_trusted_memo_key_source_identity_current_result: current MemoKey source identity materializer smoke を Result で[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - current MemoKey definition record を materializer へ通し、kind mismatch や signature missing を呼び出し側が扱える `Result` にします。
-pub fn selfhost_memo_trait_trusted_memo_key_source_identity_current_result %fn void Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind \void:
-    selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait selfhost_memo_trait_trusted_memo_key_definition_source_current
-
-//: selfhost_memo_trait_trusted_memo_value_source_identity_current_result: current MemoValue source identity を Result で[返/かえ]す
-//:
-//: [目的/もくてき]:
-//: - current MemoValue definition record を materializer へ通し、kind mismatch や signature missing を呼び出し側が扱える `Result` にします。
-pub fn selfhost_memo_trait_trusted_memo_value_source_identity_current_result %fn void Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind \void:
-    selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait selfhost_memo_trait_trusted_memo_value_definition_source_current
-
-//: selfhost_memo_trait_trusted_source_registry_current_result: current MemoKey / MemoValue source registry を Result で[返/かえ]す
-//:
-//: [目的/もくてき]:
-//: - MemoKey と MemoValue の current source identity をそれぞれ materialize し、どちらが失敗したかを typed registry error として返します。
+//: - current MemoKey definition record を materializer へ通し、Stage 0 smoke が kind mismatch や signature missing の扱いを確認できるようにします。
 //:
 //: [契約/けいやく]:
-//: - MemoKey 側が失敗した場合は `MemoKeySourceRejected` を返します。
-//: - MemoValue 側が失敗した場合は `MemoValueSourceRejected` を返します。
-pub fn selfhost_memo_trait_trusted_source_registry_current_result %fn void Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind \void:
-    match selfhost_memo_trait_trusted_memo_key_source_identity_current_result:
+//: - この helper は公開しません。proof store policy 用 source set は、欠落・重複検査を持つ `selfhost_memo_trait_trusted_source_registry_current_result` からだけ取得します。
+fn selfhost_memo_trait_trusted_memo_key_source_identity_current_result %fn void Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind \void:
+    selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait selfhost_memo_trait_trusted_memo_key_definition_source_current
+
+//: selfhost_memo_trait_trusted_memo_value_source_identity_current_result: current MemoValue source identity materializer smoke を Result で[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - current MemoValue definition record を materializer へ通し、Stage 0 smoke が kind mismatch や signature missing の扱いを確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - この helper は公開しません。proof store policy 用 source set は、欠落・重複検査を持つ `selfhost_memo_trait_trusted_source_registry_current_result` からだけ取得します。
+fn selfhost_memo_trait_trusted_memo_value_source_identity_current_result %fn void Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind \void:
+    selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait selfhost_memo_trait_trusted_memo_value_definition_source_current
+
+//: selfhost_memo_trait_trusted_source_registry_from_definition_records: 検出済み record から trusted registry を[作/つく]る
+fn selfhost_memo_trait_trusted_source_registry_from_definition_records %fn SelfhostMemoTraitDefinitionSourceRecord fn SelfhostMemoTraitDefinitionSourceRecord Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind \key_record\value_record:
+    match selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait key_record:
         Result::Ok memo_key:
-            match selfhost_memo_trait_trusted_memo_value_source_identity_current_result:
+            match selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait value_record:
                 Result::Ok memo_value:
                     Result::Ok selfhost_memo_trait_trusted_source_registry_new memo_key memo_value
                 Result::Err value_error:
                     Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueSourceRejected value_error
         Result::Err key_error:
             Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeySourceRejected key_error
+
+//: selfhost_memo_trait_trusted_source_registry_from_definition_table: definition table から trusted registry を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - table-backed producer が集めた MemoKey / MemoValue definition source record を検証し、proof store policy 用 registry に materialize します。
+//:
+//: [契約/けいやく]:
+//: - MemoKey record が無い場合は `MemoKeyDefinitionMissing` です。
+//: - MemoValue record が無い場合は `MemoValueDefinitionMissing` です。
+//: - 同じ kind が複数見つかった場合は duplicate error です。最初の record を黙って採用してはいけません。
+//: - record の expected kind や signature availability は `selfhost_memo_trait_source_identity_from_definition` が検査し、対応する source rejected error へ写します。
+//: - 複数の異常が同時にある場合は、duplicate を欠落や source rejected より先に拒否し、MemoKey 側の duplicate を MemoValue 側の duplicate より先に返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 slot と 2 件の materialization だけなので O(1) です。
+pub fn selfhost_memo_trait_trusted_source_registry_from_definition_table %fn SelfhostMemoTraitDefinitionSourceTable Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind \table:
+    if:
+        table.duplicate_memo_key
+        then:
+            Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionDuplicate
+        else:
+            if:
+                table.duplicate_memo_value
+                then:
+                    Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionDuplicate
+                else:
+                    match table.memo_key:
+                        Option::Some key_record:
+                            match table.memo_value:
+                                Option::Some value_record:
+                                    selfhost_memo_trait_trusted_source_registry_from_definition_records key_record value_record
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoValueDefinitionMissing
+                        Option::None:
+                            Result::Err SelfhostMemoTraitTrustedSourceRegistryErrorKind::MemoKeyDefinitionMissing
+
+//: selfhost_memo_trait_trusted_source_registry_current_result: current MemoKey / MemoValue source registry を Result で[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - current definition source table を作り、欠落・重複・materialization failure を typed registry error として返します。
+//:
+//: [契約/けいやく]:
+//: - proof store はこの API から current source set を取得し、source record や raw fingerprint を直接組み立てません。
+pub fn selfhost_memo_trait_trusted_source_registry_current_result %fn void Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind \void:
+    selfhost_memo_trait_trusted_source_registry_from_definition_table selfhost_memo_trait_definition_source_table_current
 
 //: selfhost_memo_trait_trusted_source_registry_sources: registry から proof policy 用 source set を[作/つく]る
 //:
@@ -396,8 +643,8 @@ pub fn selfhost_memo_trait_trusted_source_registry_is_current %fn &SelfhostMemoT
             false
 
 //: selfhost_memo_trait_trusted_source_registry_stage0_summary_new: registry smoke summary を[作/つく]る
-fn selfhost_memo_trait_trusted_source_registry_stage0_summary_new %fn bool fn bool fn bool fn bool fn bool fn bool fn Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind fn Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind SelfhostMemoTraitTrustedSourceRegistryStage0Summary \memo_key_kind\memo_value_kind\source_set_matches\registry_is_current\memo_key_materialized\memo_value_materialized\kind_mismatch_rejected\signature_missing_rejected:
-    SelfhostMemoTraitTrustedSourceRegistryStage0Summary memo_key_kind memo_value_kind source_set_matches registry_is_current memo_key_materialized memo_value_materialized kind_mismatch_rejected signature_missing_rejected
+fn selfhost_memo_trait_trusted_source_registry_stage0_summary_new %fn bool fn bool fn bool fn bool fn bool fn bool fn Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind fn Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind SelfhostMemoTraitTrustedSourceRegistryStage0Summary \memo_key_kind\memo_value_kind\source_set_matches\registry_is_current\memo_key_materialized\memo_value_materialized\kind_mismatch_rejected\signature_missing_rejected\table_missing_key_rejected\table_missing_value_rejected\table_duplicate_key_rejected\table_duplicate_value_rejected\table_key_source_rejected\table_value_source_rejected:
+    SelfhostMemoTraitTrustedSourceRegistryStage0Summary memo_key_kind memo_value_kind source_set_matches registry_is_current memo_key_materialized memo_value_materialized kind_mismatch_rejected signature_missing_rejected table_missing_key_rejected table_missing_value_rejected table_duplicate_key_rejected table_duplicate_value_rejected table_key_source_rejected table_value_source_rejected
 
 //: selfhost_memo_trait_trusted_source_registry_stage0: current registry の代表検査を[返/かえ]す
 //:
@@ -412,10 +659,37 @@ pub fn selfhost_memo_trait_trusted_source_registry_stage0 %fn void SelfhostMemoT
             SelfhostMemoTraitSourceKind::MemoKeyTrait
             selfhost_memo_trait_definition_fingerprint_new 10 11 12
             false
+    let missing_value_signature_record %SelfhostMemoTraitDefinitionSourceRecord:
+        selfhost_memo_trait_definition_source_record_new:
+            SelfhostMemoTraitSourceKind::MemoValueTrait
+            selfhost_memo_trait_definition_fingerprint_new 20 21 22
+            false
     let materialized_key %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait key_record
     let materialized_value %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait value_record
     let kind_mismatch_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoValueTrait key_record
     let signature_missing_rejected %Result SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceMaterializeErrorKind selfhost_memo_trait_source_identity_from_definition SelfhostMemoTraitSourceKind::MemoKeyTrait missing_signature_record
+    let missing_key_table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let missing_key_table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record missing_key_table0 value_record
+    let missing_value_table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let missing_value_table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record missing_value_table0 key_record
+    let duplicate_key_table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let duplicate_key_table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record duplicate_key_table0 key_record
+    let duplicate_key_table2 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record duplicate_key_table1 key_record
+    let duplicate_value_table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let duplicate_value_table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record duplicate_value_table0 value_record
+    let duplicate_value_table2 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record duplicate_value_table1 value_record
+    let key_source_rejected_table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let key_source_rejected_table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record key_source_rejected_table0 missing_signature_record
+    let key_source_rejected_table2 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record key_source_rejected_table1 value_record
+    let value_source_rejected_table0 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_empty
+    let value_source_rejected_table1 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record value_source_rejected_table0 key_record
+    let value_source_rejected_table2 %SelfhostMemoTraitDefinitionSourceTable selfhost_memo_trait_definition_source_table_add_record value_source_rejected_table1 missing_value_signature_record
+    let table_missing_key_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind selfhost_memo_trait_trusted_source_registry_from_definition_table missing_key_table1
+    let table_missing_value_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind selfhost_memo_trait_trusted_source_registry_from_definition_table missing_value_table1
+    let table_duplicate_key_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind selfhost_memo_trait_trusted_source_registry_from_definition_table duplicate_key_table2
+    let table_duplicate_value_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind selfhost_memo_trait_trusted_source_registry_from_definition_table duplicate_value_table2
+    let table_key_source_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind selfhost_memo_trait_trusted_source_registry_from_definition_table key_source_rejected_table2
+    let table_value_source_rejected %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitTrustedSourceRegistryErrorKind selfhost_memo_trait_trusted_source_registry_from_definition_table value_source_rejected_table2
     match selfhost_memo_trait_trusted_source_registry_current_result:
         Result::Ok registry:
             let memo_key %SelfhostMemoTraitSourceIdentity *field::get_ref &registry "memo_key"
@@ -432,6 +706,12 @@ pub fn selfhost_memo_trait_trusted_source_registry_stage0 %fn void SelfhostMemoT
                         is_ok materialized_value
                         kind_mismatch_rejected
                         signature_missing_rejected
+                        table_missing_key_rejected
+                        table_missing_value_rejected
+                        table_duplicate_key_rejected
+                        table_duplicate_value_rejected
+                        table_key_source_rejected
+                        table_value_source_rejected
                 Result::Err _source_set_error:
                     selfhost_memo_trait_trusted_source_registry_stage0_summary_new:
                         false
@@ -442,6 +722,12 @@ pub fn selfhost_memo_trait_trusted_source_registry_stage0 %fn void SelfhostMemoT
                         is_ok materialized_value
                         kind_mismatch_rejected
                         signature_missing_rejected
+                        table_missing_key_rejected
+                        table_missing_value_rejected
+                        table_duplicate_key_rejected
+                        table_duplicate_value_rejected
+                        table_key_source_rejected
+                        table_value_source_rejected
         Result::Err _registry_error:
             selfhost_memo_trait_trusted_source_registry_stage0_summary_new:
                 false
@@ -452,3 +738,9 @@ pub fn selfhost_memo_trait_trusted_source_registry_stage0 %fn void SelfhostMemoT
                 is_ok materialized_value
                 kind_mismatch_rejected
                 signature_missing_rejected
+                table_missing_key_rejected
+                table_missing_value_rejected
+                table_duplicate_key_rejected
+                table_duplicate_value_rejected
+                table_key_source_rejected
+                table_value_source_rejected
