@@ -1,3 +1,56 @@
+# 2026-06-11 Agent selfhost pipe chain trailing block success checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: confirmed for root-cause fixes, Plan-first development, Japanese selfhost comments, no line-count or doc-comment-length suppression, issue/note/todo/doc updates, checkpoint commit after tests.
+- 対象 branch: `selfhost/pipe-chain-trailing-block-success-20260611`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / pipe chain trailing block argument success path
+- subagent_review_ids: `019eb6ba-39dc-71e2-81ff-07eaeac1c305`; `019eb6c6-cec9-7000-8696-c18d8b800ee0`
+- subagent_review_count: 2
+- classification: selfhost implementation slice review
+- decision: MERGE_APPROVED
+- Zenn policy gate:
+  - Result/Option: chain continue/finish は `Option next_pipe` と `Option trailing_block` をそのまま通し、末尾 block を中間段で例外処理せず最終段の既存 argument checker に渡す。
+  - enum/static check: error classification は既存 enum のまま、後段右辺欠落と literal target は typed fail-closed smoke で維持した。
+  - root cause: 前 checkpoint の制約は「chain に block があること」自体を拒否していたが、実際の境界は「block は chain 全体の最終段にだけ属する」である。今回の修正は中間段の拒否を外し、既存の `segment_trailing` が最終段だけへ渡る構造を authority にした。
+  - pure/core boundary: selfhost compiler の core stdlib 側だけを変更し、host IO や外部状態には触れていない。
+  - doc comment: 新規 helper は目的、契約、戻り値、計算量を日本語で記述し、コメント量や行数を抑制する検査は追加していない。
+- implementation:
+  - `stdlib/neplg2/core/check/expr/call_reduce.nepl`: `selfhost_call_reduce_pipe_chain_finish_or_continue` が trailing block を理由に次段へ進むことを拒否しないようにした。中間段では `segment_trailing = none` のまま、最終段だけが trailing block を消費する。
+  - `stdlib/neplg2/core/check/expr/stage1.nepl`: `1 |> add 2 |> add:\n    add 1 1` が、最終段の第1引数に前段 `CheckedExpr [0, 4)`、第2引数に `BlockResult` の `CheckedExpr [6, 6)` を持つことを確認する smoke を追加した。
+  - `nodesrc/test_selfhost_expr_call_reduce_contract.js`: chain trailing block の source policy を fail-closed から accepted final-segment BlockResult topology へ更新した。
+  - `todo.md` / issue / design doc: pipe chain trailing block argument を完了済み境界へ移し、残件から外した。
+- subagent review:
+  - `019eb6ba-39dc-71e2-81ff-07eaeac1c305`: next slice 選定として pipe chain trailing block success path を推奨。単一 pipe trailing block と pipe chain checked-tree の既存境界を組み合わせる小さな root-cause sliceであり、lambda / borrow / generic / trait / memo_call は同時に混ぜない判断を支持した。
+  - `019eb6c6-cec9-7000-8696-c18d8b800ee0`: Blocker なし。Non-blocker として `selfhost_check_expr_stage1_pipe_chain_trailing_block_segment` と `selfhost_check_expr_stage1_make_pipe_chain_trailing_block_tokens` の doc comment が旧 fail-closed 説明のままだと指摘した。修正済み。Question なし。Approval: 承認可能。
+- policy/spec:
+  - root cause: trailing block は chain の中間段に属さず、chain 全体の最終段に属する。中間段で拒否する旧境界は安全側ではあったが、既存の checked tree / BlockResult authority を利用すれば曖昧にせず成功経路へ進められる。
+  - impact: `1 |> add 2 |> add:` が accepted syntax になり、最終段の第1引数は前段 `CheckedExpr [0, 4)`、第2引数は `BlockResult` の `CheckedExpr [6, 6)` になる。
+  - completion conditions: source-backed reducer が中間段で block を消費しないこと、最終段だけが block を消費すること、checked tree topology を stage1 と source policy で固定すること、後段 missing-right / literal target の fail-closed smoke が残ること。
+- implementation/test:
+  - Blocker: none after review comment update.
+  - Non-blocker: old doc comment wording was fixed.
+  - Question: none.
+  - Approve: yes.
+  - source_policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js` が final-segment BlockResult topology、前段 checked expression、body direct call payload、public smoke order を固定する。コメント抑制、行数制限、doc comment 長制限の検査は追加していない。
+- verification:
+  - pass: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-chain-trailing-block.json` total=7 passed=7
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `git diff --check`
+- verify:
+  - `nodesrc/selfhost_zenn_review_response_check.js`: not run because the implementation review was delivered through subagent final text, not a saved response file.
+  - source policy: contract suite updated and checked.
+  - 既存 warning: stdlib/selfhost documentation contract reports pre-existing doc gaps under warn-only source policy output.
+  - 今回差分由来 warning: none.
+  - 検証済み: focused selfhost runtime smoke、source policy contract、Zenn gate、issues check、diff check passed.
+  - 行数制限: not added.
+  - doc comment 長制限: not added.
+- residual:
+  - lambda suffix、borrow-aware pipe operands、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1、cross-arena serialized canonical key / fingerprint、nested generic binder depth / stable binder identity は issue open のまま。
+- 次 slice:
+  - lambda suffix、borrow-aware pipe operands、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 のいずれかを issue 境界に沿って選ぶ。
+
 # 2026-06-11 Agent selfhost pipe trailing block candidate checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`

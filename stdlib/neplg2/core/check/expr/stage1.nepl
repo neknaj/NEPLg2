@@ -1034,12 +1034,12 @@ fn selfhost_check_expr_stage1_pipe_chain_segment %fn void SelfhostBodySegment \v
 //: selfhost_check_expr_stage1_pipe_chain_trailing_block_segment: `1 |> add 2 |> add:` の block-intro segment を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - pipe chain に末尾 block が付いた未対応形を fail-closed smoke で確認するため、head と body の range を fixture 化します。
-//: - 現 checkpoint では単一 pipe の trailing block だけを受理し、chain の最終段に block を流して意味を曖昧にしないことを固定します。
+//: - pipe chain に末尾 block が付いた success path を確認するため、head と body の range を fixture 化します。
+//: - chain の中間段はこの body range を消費せず、最終 pipe 段だけが block body を `BlockResult` checked tree node として受け取ることを固定します。
 //:
 //: [契約/けいやく]:
 //: - head range は token buffer の `1`、`|>`、`add`、`2`、`|>`、`add` の 6 token を指します。
-//: - body range は nested body の `add 1 1` の 3 token を指しますが、chain dispatcher は次段 pipe がある時点でこの trailing block を拒否します。
+//: - body range は nested body の `add 1 1` の 3 token を指します。outer prefix list の suffix ではないため、checked argument の消費範囲は `[6, 6)` になります。
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 range を作るだけなので O(1) です。
@@ -1951,8 +1951,8 @@ fn selfhost_check_expr_stage1_make_pipe_chain_tokens %impure fn void Result Vec 
 //: selfhost_check_expr_stage1_make_pipe_chain_trailing_block_tokens: `1 |> add 2 |> add:` と block body の token buffer を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - pipe chain に trailing block が付いた未対応形を runtime smoke で拒否するため、head tokens と body tokens を同じ owner に置きます。
-//: - body tokens は `SelfhostBodySegment.body` range でだけ参照され、chain reducer が後段 pipe の suffix として勝手に読むことはありません。
+//: - pipe chain に trailing block が付いた success fixture を runtime smoke で確認するため、head tokens と body tokens を同じ owner に置きます。
+//: - body tokens は `SelfhostBodySegment.body` range でだけ参照され、chain reducer が中間段や後段 pipe の通常 suffix として勝手に読むことはありません。
 //:
 //: [契約/けいやく]:
 //: - head token index は `0:1`, `1:|>`, `2:add`, `3:2`, `4:|>`, `5:add` です。
@@ -2922,6 +2922,40 @@ fn selfhost_check_expr_stage1_success_has_pipe_chain_argument_order %fn &Selfhos
                 Option::None:
                     false
 
+//: selfhost_check_expr_stage1_success_has_pipe_chain_trailing_block_argument_order: pipe chain 末尾 block の checked argument 順序を[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `1 |> add 2 |> add:` の最終段が、前段 `1 |> add 2` の checked expression を第1引数、末尾 block result を第2引数として保存することを確認します。
+//: - chain の中間段では block を消費せず、最終段だけが `BlockResult` node への `CheckedExpr` payload を受け取る契約を runtime smoke で固定します。
+//:
+//: [契約/けいやく]:
+//: - fixture source は固定であり、head prefix item index は `0:1`, `1:|>`, `2:add`, `3:2`, `4:|>`, `5:add` です。
+//: - body token は `6:add`, `7:1`, `8:1` であり、outer prefix list には含まれないため block argument の消費範囲は `[6, 6)` になります。
+//: - `success` は borrow であり、この helper は内部 Vec を解放しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: checked argument が2件で、0番目が前段 checked expression `[0, 4)`、1番目が末尾 block node への `CheckedExpr [6, 6)` です。
+//: - `false`: checked argument 数、Vec access、payload kind、または消費範囲が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定2件の Vec access と payload match だけなので O(1) です。
+fn selfhost_check_expr_stage1_success_has_pipe_chain_trailing_block_argument_order %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
+    if:
+        not eq v::len checked_arguments 2
+        then:
+            false
+        else:
+            match v::get checked_arguments 0:
+                Option::Some first:
+                    match v::get checked_arguments 1:
+                        Option::Some second:
+                            and selfhost_check_expr_stage1_argument_is_checked_expr_range &first 0 4 selfhost_check_expr_stage1_argument_is_block_result_checked_expr_range &second 6 6
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
 //: selfhost_check_expr_stage1_checked_expr_argument_id: checked expression argument の expr id を[取/と]り[出/だ]す
 //:
 //: [目的/もくてき]:
@@ -3149,6 +3183,132 @@ fn selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call %fn &Se
                                                     match selfhost_check_expr_stage1_checked_expr_argument_id &first:
                                                         Option::Some previous_expr:
                                                             selfhost_check_expr_stage1_pipe_chain_previous_call_arguments_ok tree previous_expr
+                                                        Option::None:
+                                                            false
+                                        Option::None:
+                                            false
+                                Option::None:
+                                    false
+                _:
+                    false
+        Option::None:
+            false
+
+//: selfhost_check_expr_stage1_pipe_chain_trailing_block_body_call_ok: pipe chain 末尾 block body node の direct call payload を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `1 |> add 2 |> add:` fixture の block body `add 1 1` が checked tree 内で2引数 direct call node として保存されたことを確認します。
+//: - chain の最終段へ渡された block argument が単なる placeholder ではなく、body expression を型検査済み node として保持していることを固定します。
+//:
+//: [契約/けいやく]:
+//: - `expr_id` は `BlockResult` node の body expression id です。
+//: - body source の prefix item index は `6:add`, `7:1`, `8:1` であり、child arguments は `[7, 8)` と `[8, 9)` に一致しなければなりません。
+//: - この helper は tree を borrow するだけで owner を移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 参照先が `add` の2引数 `DirectCall` で、body argument payload が期待通りです。
+//: - `false`: node lookup、node kind、candidate name、argument range、payload、または範囲が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed fixture の node 1 件と argument 2 件だけを読むため O(1) です。
+fn selfhost_check_expr_stage1_pipe_chain_trailing_block_body_call_ok %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprId bool \tree\expr_id:
+    match selfhost_checked_expr_tree_get_node tree expr_id:
+        Option::Some node:
+            match node.kind:
+                SelfhostCheckedExprNodeKind::DirectCall call:
+                    let arguments %SelfhostCheckedArgumentRange call.arguments
+                    if:
+                        not and string_search::str_eq call.candidate.name "add" eq selfhost_checked_argument_range_count arguments 2
+                        then:
+                            false
+                        else:
+                            match selfhost_checked_expr_tree_get_argument tree arguments 0:
+                                Option::Some first:
+                                    match selfhost_checked_expr_tree_get_argument tree arguments 1:
+                                        Option::Some second:
+                                            and selfhost_check_expr_stage1_argument_is_i32_literal_range &first 1 7 8 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 1 8 9
+                                        Option::None:
+                                            false
+                                Option::None:
+                                    false
+                _:
+                    false
+        Option::None:
+            false
+
+//: selfhost_check_expr_stage1_pipe_chain_trailing_block_node_ok: pipe chain 末尾 block argument が `BlockResult` node へ[接続/せつぞく]しているか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - 最終段 direct call の第2引数から得た checked expression id が、checked tree 上の `BlockResult` node を指すことを確認します。
+//: - `CheckedExpr [6, 6)` の range だけでは body node との接続を保証できないため、block node と body direct call の両方を辿ります。
+//:
+//: [契約/けいやく]:
+//: - `expr_id` は outer checked argument の `CheckedExpr` payload から取り出した id です。
+//: - `BlockResult` node の body expression は `selfhost_check_expr_stage1_pipe_chain_trailing_block_body_call_ok` でさらに検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: node kind が `BlockResult` で、body expression も期待した direct call payload でした。
+//: - `false`: node lookup、node kind、または body payload が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed fixture の block node 1 件と body node 1 件だけを読むため O(1) です。
+fn selfhost_check_expr_stage1_pipe_chain_trailing_block_node_ok %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprId bool \tree\expr_id:
+    match selfhost_checked_expr_tree_get_node tree expr_id:
+        Option::Some node:
+            match node.kind:
+                SelfhostCheckedExprNodeKind::BlockResult body_expr:
+                    selfhost_check_expr_stage1_pipe_chain_trailing_block_body_call_ok tree body_expr
+                _:
+                    false
+        Option::None:
+            false
+
+//: selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call_and_block_result: chain root から前段 node と末尾 block node まで[辿/たど]れるか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `1 |> add 2 |> add:` の最終 root が `DirectCall` で、第1引数として前段 direct call node、第2引数として末尾 block result node を参照していることを確認します。
+//: - HIR lowering が source token を再解釈せず、checked tree DAG の node id だけで chain と block body を辿れるようにする topology contract です。
+//:
+//: [契約/けいやく]:
+//: - root は後段 `add` の2引数 direct call です。
+//: - 第1引数は前段 `[0, 4)` の `CheckedExpr`、第2引数は suffix token を持たない `[6, 6)` の `CheckedExpr` です。
+//: - 第1引数の参照先は `selfhost_check_expr_stage1_pipe_chain_previous_call_arguments_ok`、第2引数の参照先は `selfhost_check_expr_stage1_pipe_chain_trailing_block_node_ok` で検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: root、前段 node、block result node、body call node が期待した topology と argument payload を持っています。
+//: - `false`: root id、node kind、argument count、argument kind、または参照先 node が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed fixture の root node 1 件、前段 node 1 件、block node 1 件、body node 1 件、argument 6 件を読むため O(1) です。
+fn selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call_and_block_result %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let tree %&SelfhostCheckedExprTree selfhost_expression_line_check_success_checked_tree success
+    let root_expr %SelfhostCheckedExprId selfhost_expression_line_check_success_root_expr success
+    match selfhost_checked_expr_tree_get_node tree root_expr:
+        Option::Some node:
+            match node.kind:
+                SelfhostCheckedExprNodeKind::DirectCall call:
+                    let arguments %SelfhostCheckedArgumentRange call.arguments
+                    if:
+                        not and string_search::str_eq call.candidate.name "add" eq selfhost_checked_argument_range_count arguments 2
+                        then:
+                            false
+                        else:
+                            match selfhost_checked_expr_tree_get_argument tree arguments 0:
+                                Option::Some first:
+                                    match selfhost_checked_expr_tree_get_argument tree arguments 1:
+                                        Option::Some second:
+                                            if:
+                                                not and selfhost_check_expr_stage1_argument_is_checked_expr_range &first 0 4 selfhost_check_expr_stage1_argument_is_block_result_checked_expr_range &second 6 6
+                                                then:
+                                                    false
+                                                else:
+                                                    match selfhost_check_expr_stage1_checked_expr_argument_id &first:
+                                                        Option::Some previous_expr:
+                                                            match selfhost_check_expr_stage1_checked_expr_argument_id &second:
+                                                                Option::Some block_expr:
+                                                                    and selfhost_check_expr_stage1_pipe_chain_previous_call_arguments_ok tree previous_expr selfhost_check_expr_stage1_pipe_chain_trailing_block_node_ok tree block_expr
+                                                                Option::None:
+                                                                    false
                                                         Option::None:
                                                             false
                                         Option::None:
@@ -6597,32 +6757,51 @@ fn selfhost_check_expr_stage1_run_pipe_chain_error_after_first_stage_with_tokens
             v::free tokens
             1
 
-//: selfhost_check_expr_stage1_pipe_chain_trailing_block_rejected_with_i32: chain trailing block rejection を[確認/かくにん]する
+//: selfhost_check_expr_stage1_pipe_chain_trailing_block_ok_with_i32: chain trailing block success を[確認/かくにん]する
 //:
 //: [目的/もくてき]:
-//: - `1 |> add 2 |> add:` のように pipe chain に末尾 block が付いた未対応形を、`UnexpectedTrailingBlockArgument` として拒否することを確認します。
-//: - 現 checkpoint は単一 pipe trailing block のみを受理するため、chain の後段へ block を流して成功扱いにしない契約を固定します。
+//: - `1 |> add 2 |> add:` のように pipe chain に末尾 block が付いた形を、最終段の第2引数として成功させることを確認します。
+//: - 中間段 `1 |> add 2` では block を消費せず、前段 direct call node を `CheckedExpr` として後段へ渡してから、最終段だけが `BlockResult` argument を受け取る契約を固定します。
 //:
 //: [契約/けいやく]:
 //: - `tokens` と `arena` はこの helper が消費します。
-//: - `add : fn i32 fn i32 i32` を context に登録し、前段 `1 |> add 2` は成功できる状態にしてから trailing block 境界だけを観測します。
+//: - `add : fn i32 fn i32 i32` を context に登録し、前段と後段のどちらも同じ callable binding を使います。
+//: - block body `add 1 1` も同じ context で型検査し、checked tree 内の `BlockResult` node と body `DirectCall` node を topology helper で確認します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `true`: pipe chain trailing block が期待通り拒否されました。
-//: - `false`: setup 失敗、別 error、または誤成功です。
+//: - `true`: pipe chain trailing block が期待通り最終段の `BlockResult` argument として接続されました。
+//: - `false`: setup、pipe target collection、block body check、または checked tree topology が期待と違います。
 //:
 //: [計算量/けいさんりょう]:
-//: - setup は O(1) です。reducer は chain token 数に対する pipe scan と前段 call の引数検査を行います。
-fn selfhost_check_expr_stage1_pipe_chain_trailing_block_rejected_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\i32_type:
+//: - setup は O(1) です。reducer は chain token 数に対する pipe scan、前段 call の引数検査、最終段 call の引数検査、block body の単一 expression check を行います。
+fn selfhost_check_expr_stage1_pipe_chain_trailing_block_ok_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
         Result::Ok add_alloc:
             let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
             let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
             let add_span %SelfhostSourceSpan source_span_new_unchecked 0 5 8
-            match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
-                Result::Ok context:
-                    let segment %SelfhostBodySegment selfhost_check_expr_stage1_pipe_chain_trailing_block_segment
-                    selfhost_check_expr_stage1_pipe_block_intro_error_with_context tokens "1 |> add 2 |> add:\n    add 1 1" segment next_arena context SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument
+            match selfhost_check_expr_stage1_make_candidate_vec add_type:
+                Result::Ok candidates:
+                    match selfhost_check_expr_stage1_value_context_with_function "add" add_type add_span:
+                        Result::Ok context:
+                            let segment %SelfhostBodySegment selfhost_check_expr_stage1_pipe_chain_trailing_block_segment
+                            match selfhost_check_expr_stage1_reduce_block_intro_with_value_context &tokens "1 |> add 2 |> add:\n    add 1 1" segment next_arena context &candidates none:
+                                Result::Ok success:
+                                    let argument_order_ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_pipe_chain_trailing_block_argument_order &success
+                                    let ok %bool and argument_order_ok selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call_and_block_result &success
+                                    selfhost_expression_line_check_success_free success
+                                    v::free candidates
+                                    v::free tokens
+                                    ok
+                                Result::Err _e:
+                                    v::free candidates
+                                    v::free tokens
+                                    false
+                        Result::Err _e:
+                            selfhost_type_arena_free next_arena
+                            v::free candidates
+                            v::free tokens
+                            false
                 Result::Err _e:
                     selfhost_type_arena_free next_arena
                     v::free tokens
@@ -6631,17 +6810,17 @@ fn selfhost_check_expr_stage1_pipe_chain_trailing_block_rejected_with_i32 %impur
             v::free tokens
             false
 
-//: selfhost_check_expr_stage1_run_pipe_chain_trailing_block_with_tokens: token owner から chain trailing block rejection smoke を[起動/きどう]する
+//: selfhost_check_expr_stage1_run_pipe_chain_trailing_block_with_tokens: token owner から chain trailing block success smoke を[起動/きどう]する
 //:
 //: [目的/もくてき]:
-//: - pipe chain trailing block fixture に primitive `i32` arena fixture を付け、単一 pipe 以外の trailing block を拒否する helper へ渡します。
+//: - pipe chain trailing block fixture に primitive `i32` arena fixture を付け、最終段だけが block result を消費する success helper へ渡します。
 //:
 //: [契約/けいやく]:
 //: - arena setup 失敗時は token owner をこの helper が閉じます。
 //: - setup 成功後は token owner と arena owner を下位 helper へ移動します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: chain trailing block rejection smoke が通りました。
+//: - `0`: chain trailing block success smoke が通りました。
 //: - `1`: setup または下位 helper が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
@@ -6653,7 +6832,7 @@ fn selfhost_check_expr_stage1_run_pipe_chain_trailing_block_with_tokens %impure 
                 Result::Ok i32_alloc:
                     let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
-                    if selfhost_check_expr_stage1_pipe_chain_trailing_block_rejected_with_i32 tokens arena1 i32_type 0 1
+                    if selfhost_check_expr_stage1_pipe_chain_trailing_block_ok_with_i32 tokens arena1 i32_type 0 1
                 Result::Err _e:
                     v::free tokens
                     1
@@ -7910,18 +8089,17 @@ pub fn selfhost_check_expr_stage1_function_value_argument_body_line %impure fn v
 //: [目的/もくてき]:
 //: - 前段 `1 |> add 2` が成功した後に現れる不正な後段 pipe を、代表的な typed error として確認します。
 //: - 単一 pipe の negative smoke だけでは、chain dispatcher が後段 error を見落とす退行を検出できないため、chain 専用の fail-closed path を分けて実行します。
-//: - chain trailing block は現 checkpoint の accepted syntax ではないため、単一 pipe trailing block と混同して後段 target の不足引数に流さないことも確認します。
 //:
 //: [契約/けいやく]:
-//: - missing-right fixture が通った場合だけ literal-target fixture を実行し、さらにそれが通った場合だけ chain trailing block fixture を実行します。
+//: - missing-right fixture が通った場合だけ literal-target fixture を実行します。
 //: - token buffer owner は各 runner へ移動し、runner が cleanup を担当します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: 後段 pipe の右辺欠落、literal target、chain trailing block が期待通り拒否されました。
+//: - `0`: 後段 pipe の右辺欠落と literal target が期待通り拒否されました。
 //: - `1`: token setup、前段 setup、後段 error 分類、または cleanup 境界のいずれかが失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - 固定 token fixture を最大 3 回作るため setup は O(1) です。各 reducer は chain token 数に対する pipe scan と前段 call の引数検査を行います。
+//: - 固定 token fixture を最大 2 回作るため setup は O(1) です。各 reducer は chain token 数に対する pipe scan と前段 call の引数検査を行います。
 pub fn selfhost_check_expr_stage1_pipe_chain_failclosed_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_chain_missing_right_tokens:
         Result::Ok missing_right_tokens:
@@ -7935,11 +8113,7 @@ pub fn selfhost_check_expr_stage1_pipe_chain_failclosed_body_line %impure fn voi
                             if:
                                 eq literal_target 0
                                 then:
-                                    match selfhost_check_expr_stage1_make_pipe_chain_trailing_block_tokens:
-                                        Result::Ok chain_block_tokens:
-                                            selfhost_check_expr_stage1_run_pipe_chain_trailing_block_with_tokens chain_block_tokens
-                                        Result::Err _e:
-                                            1
+                                    0
                                 else:
                                     1
                         Result::Err _e:
@@ -8133,7 +8307,7 @@ pub fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body
 //: selfhost_check_expr_stage1_pipe_body_line: pipe expression smoke を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
-//: - public body-line smoke から `1 |> add 2`、`1 |> %fn i32 fn i32 i32 add 2`、`1 |> add 2 |> add 3` の source-backed pipe 正規化を確認します。
+//: - public body-line smoke から `1 |> add 2`、`1 |> %fn i32 fn i32 i32 add 2`、`1 |> add 2 |> add 3`、`1 |> add 2 |> add:` の source-backed pipe 正規化を確認します。
 //: - 同名 function overload が複数ある場合でも、明示 target ascription が callable type と一致する1候補へ探索空間を狭めることを確認します。
 //: - target ascription が無い場合でも、pipe 左辺と RHS suffix の引数列から同名 overload を一意化できる最小 case、source-backed suffix success case、その 0 件 / 複数件 fail-closed case を確認します。
 //: - RHS suffix が token を持たず末尾 block だけを持つ場合も、block body を `BlockResult` として target の残り parameter に渡し、overload 候補選択でも余剰 block と不足 block を区別します。
@@ -8147,11 +8321,11 @@ pub fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body
 //: - token setup に失敗した場合は status `1` を返します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: plain pipe、function type 注釈付き pipe target、ascription による overload narrowing、注釈無し target の argument narrowing、pipe trailing block、nested suffix checked tree 接続、left nested overload、pipe chain、chain 後段 fail-closed、代表的な単一 pipe 不正形が期待通りでした。
+//: - `0`: plain pipe、function type 注釈付き pipe target、ascription による overload narrowing、注釈無し target の argument narrowing、pipe trailing block、nested suffix checked tree 接続、left nested overload、pipe chain、pipe chain trailing block、chain 後段 fail-closed、代表的な単一 pipe 不正形が期待通りでした。
 //: - `1`: token setup または pipe reducer が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - 固定 token fixture を最大 25 回作るため setup は O(1) です。支配的な計算量は pipe scan、target ascription projection、candidate narrowing、argument probe、argument checker、block body check に従います。
+//: - 固定 token fixture を最大 26 回作るため setup は O(1) です。支配的な計算量は pipe scan、target ascription projection、candidate narrowing、argument probe、argument checker、block body check に従います。
 pub fn selfhost_check_expr_stage1_pipe_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_tokens:
         Result::Ok tokens:
@@ -8205,12 +8379,22 @@ pub fn selfhost_check_expr_stage1_pipe_body_line %impure fn void i32 \void:
                                                                                                                                     if:
                                                                                                                                         eq chain_success 0
                                                                                                                                         then:
-                                                                                                                                            let chain_failclosed %i32 selfhost_check_expr_stage1_pipe_chain_failclosed_body_line
-                                                                                                                                            if:
-                                                                                                                                                eq chain_failclosed 0
-                                                                                                                                                then:
-                                                                                                                                                    selfhost_check_expr_stage1_pipe_failclosed_body_line
-                                                                                                                                                else:
+                                                                                                                                            match selfhost_check_expr_stage1_make_pipe_chain_trailing_block_tokens:
+                                                                                                                                                Result::Ok chain_block_tokens:
+                                                                                                                                                    let chain_block_success %i32 selfhost_check_expr_stage1_run_pipe_chain_trailing_block_with_tokens chain_block_tokens
+                                                                                                                                                    if:
+                                                                                                                                                        eq chain_block_success 0
+                                                                                                                                                        then:
+                                                                                                                                                            let chain_failclosed %i32 selfhost_check_expr_stage1_pipe_chain_failclosed_body_line
+                                                                                                                                                            if:
+                                                                                                                                                                eq chain_failclosed 0
+                                                                                                                                                                then:
+                                                                                                                                                                    selfhost_check_expr_stage1_pipe_failclosed_body_line
+                                                                                                                                                                else:
+                                                                                                                                                                    1
+                                                                                                                                                        else:
+                                                                                                                                                            1
+                                                                                                                                                Result::Err _e:
                                                                                                                                                     1
                                                                                                                                         else:
                                                                                                                                             1

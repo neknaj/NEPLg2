@@ -2935,17 +2935,12 @@ fn selfhost_call_reduce_pipe_chain_continue_after_step %impure fn &Vec SelfhostT
 //: [契約/けいやく]:
 //: - `next_pipe` が `None` の場合、`owned` は caller へ返ります。
 //: - `next_pipe` が `Some` の場合、`owned` は消費され、次段 reducer へ owner が移ります。
-//: - `trailing_block` はこの checkpoint では単一 pipe にだけ許可します。次段 pipe がある場合は block がどの段に属するかを曖昧にせず、前段 owner を閉じて `UnexpectedTrailingBlockArgument` で止めます。
+//: - `trailing_block` は chain 全体の末尾 block です。中間段では消費せず、次段へ保持したまま渡します。
+//: - 実際に block を引数として使えるのは `selfhost_call_reduce_pipe_chain_continue_with_left` が `next_pipe = None` と判断した最終段だけです。これにより、`a |> f b |> g:` の block が `f` 側へ誤って結び付くことを防ぎます。
 fn selfhost_call_reduce_pipe_chain_finish_or_continue %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostCallReduceOwnedResult impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn i32 impure fn Option i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\owned\prefix\scope\value_types\signatures\expected\trailing_block\item_count\next_pipe:
     match next_pipe:
         Option::Some next_pipe_index:
-            match trailing_block:
-                Option::Some block_arg:
-                    let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
-                    let arena %SelfhostTypeArena selfhost_call_reduce_owned_result_parts_into_arena parts
-                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument block_arg.span
-                Option::None:
-                    selfhost_call_reduce_pipe_chain_continue_after_step tokens source owned prefix scope value_types signatures expected trailing_block item_count next_pipe_index
+            selfhost_call_reduce_pipe_chain_continue_after_step tokens source owned prefix scope value_types signatures expected trailing_block item_count next_pipe_index
         Option::None:
             Result::Ok owned
 
@@ -2958,7 +2953,7 @@ fn selfhost_call_reduce_pipe_chain_finish_or_continue %impure fn &Vec SelfhostTo
 //: [契約/けいやく]:
 //: - `pipe_index + 1` が無い場合は `PipeMissingRightTarget` です。
 //: - 次の pipe がある場合、現在段の `item_count` はその pipe 手前に切り、最終 expected type と trailing block は渡しません。
-//: - `trailing_block` が存在する pipe chain は `selfhost_call_reduce_pipe_chain_finish_or_continue` が次段へ進む前に拒否するため、ここへ来る後段処理では trailing block は単一 pipe の最終段だけに残ります。
+//: - `trailing_block` が存在しても中間段では `segment_trailing = none` にします。block を消費する権限は、次 pipe が無い最終段だけにあります。
 //: - lambda target、literal target、indirect target は単一 pipe と同じく、この slice では `PipeRightTargetUnsupported` です。
 //:
 //: [計算量/けいさんりょう]:
