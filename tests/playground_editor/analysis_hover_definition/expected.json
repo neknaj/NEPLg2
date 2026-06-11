@@ -12,7 +12,8 @@
           "startLine": 4,
           "startCol": 6,
           "endLine": 4,
-          "endCol": 9
+          "endCol": 9,
+          "filePath": null
         },
         "inferredType": "fn()->i32",
         "exprSpan": {
@@ -37,7 +38,8 @@
               "start_col": 3,
               "end_line": 1,
               "end_col": 6
-            }
+            },
+            "filePath": null
           }
         ],
         "resolvedDefinition": {
@@ -51,7 +53,8 @@
             "start_col": 3,
             "end_line": 1,
             "end_col": 6
-          }
+          },
+          "filePath": null
         }
       }
     },
@@ -68,7 +71,25 @@
       "kind": "definition",
       "index": 47,
       "value": {
-        "targetIndex": 28
+        "targetIndex": 28,
+        "targetPath": null,
+        "targetRange": {
+          "startIndex": 28,
+          "endIndex": 31
+        },
+        "targetByteRange": {
+          "startByte": 28,
+          "endByte": 31
+        },
+        "targetSpan": {
+          "start": 28,
+          "end": 31,
+          "start_line": 1,
+          "start_col": 3,
+          "end_line": 1,
+          "end_col": 6
+        },
+        "isCrossFile": false
       }
     },
     {

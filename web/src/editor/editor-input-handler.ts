@@ -253,6 +253,9 @@ class EditorInputHandler {
             if (this.editor.languageProvider) {
                 const location = await this.editor.languageProvider.getDefinitionLocation(this.editor.cursor);
                 if (location) {
+                    if (location.isCrossFile || (location.targetPath && location.targetPath !== this.editor.languageProvider.path)) {
+                        return;
+                    }
                     this.editor.setCursor(location.targetIndex);
                     this.editor.selectionStart = this.editor.selectionEnd = this.editor.cursor;
                 }

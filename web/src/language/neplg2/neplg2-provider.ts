@@ -34,8 +34,6 @@ class NEPLg2LanguageProvider {
             'unit', 'bool', 'char', 'str', 'i32',
             '#entry', '#target', '#indent', '#import', '#intrinsic', '@merge',
         ];
-        this.lineStarts = [0];
-        this.byteOffsets = [0];
     }
 
     onUpdate(callback) {
@@ -135,7 +133,6 @@ class NEPLg2LanguageProvider {
             : this.path;
         this.documentVersion += 1;
         this.text = nextText;
-        this._rebuildOffsetMaps();
         if (this.lastUpdatePayload) {
             const provisionalPayload = this._buildIncrementalPayload(previousText, this.text, this.lastUpdatePayload);
             if (provisionalPayload) {
@@ -170,7 +167,6 @@ class NEPLg2LanguageProvider {
         this.documentVersion += 1;
         this.path = nextPath;
         this.text = nextText;
-        this._rebuildOffsetMaps();
         this._clearAnalysisState();
         this._publishEmptyPayload();
         this._scheduleAnalysis(false);
@@ -338,6 +334,18 @@ class NEPLg2LanguageProvider {
         return window.NEPLPlaygroundLanguageAnalysis;
     }
 
+    _analysisSnapshot(path = this.path) {
+        return {
+            path,
+            sourcePath: path,
+            activePath: path,
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        };
+    }
+
     _vfsSnapshotForAnalysis(path = this.path, text = this.text) {
         if (!path || !String(path).endsWith('.nepl')) {
             return null;
@@ -365,78 +373,9 @@ class NEPLg2LanguageProvider {
 
     _publishEmptyPayload() {
         const bridge = this._analysisBridge();
-        const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        }), 'empty');
+        const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(this.text, this._analysisSnapshot()), 'empty');
         this.lastUpdatePayload = payload;
         this.updateCallback(payload);
-    }
-
-    _rebuildOffsetMaps() {
-        const s = this.text || '';
-        this.lineStarts = [0];
-        this.byteOffsets = new Array(s.length + 1);
-        this.byteOffsets[0] = 0;
-
-        let i = 0;
-        let bytes = 0;
-        while (i < s.length) {
-            const cp = s.codePointAt(i);
-            const chLen = cp > 0xffff ? 2 : 1;
-            if (cp <= 0x7f) bytes += 1;
-            else if (cp <= 0x7ff) bytes += 2;
-            else if (cp <= 0xffff) bytes += 3;
-            else bytes += 4;
-
-            const next = i + chLen;
-            for (let j = i + 1; j <= next && j <= s.length; j++) {
-                this.byteOffsets[j] = bytes;
-            }
-            if (cp === 10) {
-                this.lineStarts.push(next);
-            }
-            i = next;
-        }
-        for (let j = 0; j <= s.length; j++) {
-            if (!Number.isFinite(this.byteOffsets[j])) this.byteOffsets[j] = bytes;
-        }
-    }
-
-    _lineColToIndex(line, col) {
-        const s = this.text || '';
-        const li = Number(line);
-        const ci = Number(col);
-        if (!Number.isFinite(li) || !Number.isFinite(ci) || li < 0 || ci < 0) return null;
-        if (!Array.isArray(this.lineStarts) || li >= this.lineStarts.length) return null;
-
-        const start = this.lineStarts[li];
-        const lineEnd = li + 1 < this.lineStarts.length ? this.lineStarts[li + 1] - 1 : s.length;
-        let idx = start;
-        let remain = ci;
-        while (idx < lineEnd && remain > 0) {
-            const cp = s.codePointAt(idx);
-            idx += cp > 0xffff ? 2 : 1;
-            remain -= 1;
-        }
-        return Math.max(0, Math.min(s.length, idx));
-    }
-
-    _byteOffsetToIndex(byteOffset) {
-        const b = Number(byteOffset);
-        if (!Number.isFinite(b) || b <= 0) return 0;
-        const arr = this.byteOffsets || [0];
-        let lo = 0;
-        let hi = arr.length - 1;
-        while (lo < hi) {
-            const mid = Math.floor((lo + hi) / 2);
-            if (arr[mid] < b) lo = mid + 1;
-            else hi = mid;
-        }
-        if (arr[lo] === b) return lo;
-        return Math.max(0, lo - 1);
     }
 
     _analyzeAndPublish(version) {
@@ -476,12 +415,7 @@ class NEPLg2LanguageProvider {
             this.semantics = message.semantics || null;
             const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
             this.definitionById = new Map(defs.map((d) => [d.id, d]));
-            const payload = this._decoratePayload(message.payload || this._analysisBridge().buildEditorUpdatePayloadFromAnalysis(analysisText, {
-                lex: this.lex,
-                parse: this.parse,
-                resolve: this.resolve,
-                semantics: this.semantics,
-            }), 'fresh', {
+            const payload = this._decoratePayload(message.payload || this._analysisBridge().buildEditorUpdatePayloadFromAnalysis(analysisText, this._analysisSnapshot(analysisPath)), 'fresh', {
                 sourceDocumentVersion: analysisDocumentVersion,
                 sourcePath: analysisPath,
             });
@@ -505,12 +439,7 @@ class NEPLg2LanguageProvider {
         this.semantics = null;
         this.definitionById.clear();
         const bridge = this._analysisBridge();
-        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(text, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        });
+        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(text, this._analysisSnapshot(path));
         const payload = this._decoratePayload({
             ...payloadBase,
             diagnostics: [{
@@ -540,12 +469,7 @@ class NEPLg2LanguageProvider {
             if (!this._isCurrentAnalysisInput(version, analysisDocumentVersion, analysisPath, analysisText)) {
                 return;
             }
-            const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(analysisText, {
-                lex: this.lex,
-                parse: this.parse,
-                resolve: this.resolve,
-                semantics: this.semantics,
-            }), 'fresh', {
+            const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(analysisText, this._analysisSnapshot(analysisPath)), 'fresh', {
                 sourceDocumentVersion: analysisDocumentVersion,
                 sourcePath: analysisPath,
             });
@@ -593,12 +517,7 @@ class NEPLg2LanguageProvider {
         const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
         this.definitionById = new Map(defs.map((d) => [d.id, d]));
         const bridge = this._analysisBridge();
-        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(analysisText, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        });
+        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(analysisText, this._analysisSnapshot(analysisPath));
         const payload = this._decoratePayload({
             ...payloadBase,
             diagnostics: [...(payloadBase.diagnostics || []), ...fallbackDiagnostics].sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex),
@@ -625,12 +544,7 @@ class NEPLg2LanguageProvider {
             }
             if (this._ensureStructuralParse()) {
                 const bridge = this._analysisBridge();
-                const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(text, {
-                    lex: this.lex,
-                    parse: this.parse,
-                    resolve: this.resolve,
-                    semantics: this.semantics,
-                }), 'fresh', {
+                const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(text, this._analysisSnapshot(path)), 'fresh', {
                     sourceDocumentVersion: documentVersion,
                     sourcePath: path,
                 });
@@ -685,12 +599,7 @@ class NEPLg2LanguageProvider {
 
     _publishStructuralPayload(text, documentVersion, path) {
         const bridge = this._analysisBridge();
-        const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(text, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        }), 'fresh', {
+        const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(text, this._analysisSnapshot(path)), 'fresh', {
             sourceDocumentVersion: documentVersion,
             sourcePath: path,
         });
@@ -720,83 +629,12 @@ class NEPLg2LanguageProvider {
         }
     }
 
-    _spanFrom(obj) {
-        const s = obj && obj.span;
-        if (!s) return null;
-        const lcStart = this._lineColToIndex(s.start_line, s.start_col);
-        const lcEnd = this._lineColToIndex(s.end_line, s.end_col);
-        const start = Number.isFinite(lcStart) ? lcStart : this._byteOffsetToIndex(s.start ?? 0);
-        const end = Number.isFinite(lcEnd) ? lcEnd : this._byteOffsetToIndex(s.end ?? 0);
-        return {
-            startIndex: start,
-            endIndex: end,
-            startLine: Number(s.start_line ?? 0),
-            startCol: Number(s.start_col ?? 0),
-            endLine: Number(s.end_line ?? 0),
-            endCol: Number(s.end_col ?? 0),
-        };
-    }
-
-    _tokenAt(index) {
-        const tokens = Array.isArray(this.lex?.tokens) ? this.lex.tokens : [];
-        for (let i = 0; i < tokens.length; i++) {
-            const sp = this._spanFrom(tokens[i]);
-            if (sp && index >= sp.startIndex && index < sp.endIndex) {
-                return { token: tokens[i], tokenIndex: i, span: sp };
-            }
-        }
-        return null;
-    }
-
-    _tokenSemanticByIndex(tokenIndex) {
-        const tokenSem = Array.isArray(this.semantics?.token_semantics) ? this.semantics.token_semantics : [];
-        return tokenSem.find((x) => Number(x?.token_index) === tokenIndex) || null;
-    }
-
-    _tokenResolutionByIndex(tokenIndex) {
-        const tokenRes = Array.isArray(this.semantics?.token_resolution) ? this.semantics.token_resolution : [];
-        return tokenRes.find((x) => Number(x?.token_index) === tokenIndex) || null;
-    }
-
-    _formatSpan(sp) {
-        if (!sp) return null;
-        return `[${Number(sp.start ?? 0)}, ${Number(sp.end ?? 0)})`;
-    }
-
-    _formatHoverExpression(sp) {
-        if (!sp) return null;
-        const start = Math.max(0, Math.min(this.text.length, Math.trunc(Number(sp.start ?? 0))));
-        const end = Math.max(start, Math.min(this.text.length, Math.trunc(Number(sp.end ?? start))));
-        const snippet = this.text.slice(start, end).replace(/\s+/g, ' ').trim();
-        if (!snippet) return null;
-        if (snippet.length <= 160) return snippet;
-        return `${snippet.slice(0, 157)}...`;
-    }
-
-    _definitionCandidates(tr) {
-        if (!tr || !Array.isArray(tr.candidate_def_ids)) return [];
-        return tr.candidate_def_ids
-            .map((id) => this.definitionById.get(id))
-            .filter(Boolean)
-            .map((d) => ({
-                id: d.id,
-                name: d.name,
-                kind: d.kind,
-                span: d.span || null,
-            }));
-    }
-
     getTokenInsight(index) {
         if (!this._hasFreshAnalysis()) {
             return null;
         }
         const bridge = this._analysisBridge();
-        return bridge.getTokenInsightFromAnalysis(this.text, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        }, index);
+        return bridge.getTokenInsightFromAnalysis(this.text, this._analysisSnapshot(), index);
     }
 
     async getHoverInfo(index) {
@@ -804,12 +642,7 @@ class NEPLg2LanguageProvider {
             return null;
         }
         const bridge = this._analysisBridge();
-        return bridge.getHoverInfoFromAnalysis(this.text, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        }, index);
+        return bridge.getHoverInfoFromAnalysis(this.text, this._analysisSnapshot(), index);
     }
 
     async getDefinitionLocation(index) {
@@ -817,12 +650,7 @@ class NEPLg2LanguageProvider {
             return null;
         }
         const bridge = this._analysisBridge();
-        return bridge.getDefinitionLocationFromAnalysis(this.text, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        }, index);
+        return bridge.getDefinitionLocationFromAnalysis(this.text, this._analysisSnapshot(), index);
     }
 
     async getDefinitionCandidates(index) {
@@ -835,33 +663,7 @@ class NEPLg2LanguageProvider {
             return [];
         }
         const bridge = this._analysisBridge();
-        return bridge.getOccurrencesFromAnalysis(this.text, {
-            lex: this.lex,
-            parse: this.parse,
-            resolve: this.resolve,
-            semantics: this.semantics,
-        }, index);
-    }
-
-    _referenceAt(index) {
-        const refs = Array.isArray(this.resolve?.references) ? this.resolve.references : [];
-        let best = null;
-        let bestWidth = Number.MAX_SAFE_INTEGER;
-        for (const r of refs) {
-            const sp = this._spanFrom({ span: r?.span });
-            if (!sp) continue;
-            const s = Number(sp.startIndex ?? -1);
-            const e = Number(sp.endIndex ?? -1);
-            if (s < 0 || e <= s) continue;
-            if (index >= s && index < e) {
-                const w = e - s;
-                if (w < bestWidth) {
-                    best = r;
-                    bestWidth = w;
-                }
-            }
-        }
-        return best;
+        return bridge.getOccurrencesFromAnalysis(this.text, this._analysisSnapshot(), index);
     }
 
     _wordAt(index) {

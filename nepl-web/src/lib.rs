@@ -501,6 +501,14 @@ fn token_to_js(source: &str, token: &Token) -> JsValue {
 }
 
 fn diagnostics_to_js(source: &str, diagnostics: &[Diagnostic]) -> JsValue {
+    diagnostics_to_js_with_map(source, None, diagnostics)
+}
+
+fn diagnostics_to_js_with_map(
+    source: &str,
+    source_map: Option<&SourceMap>,
+    diagnostics: &[Diagnostic],
+) -> JsValue {
     let arr = js_sys::Array::new();
     for d in diagnostics {
         let obj = js_sys::Object::new();
@@ -531,7 +539,7 @@ fn diagnostics_to_js(source: &str, diagnostics: &[Diagnostic]) -> JsValue {
         let _ = Reflect::set(
             &obj,
             &JsValue::from_str("primary"),
-            &span_to_js(source, d.primary.span),
+            &span_to_js_with_map(source, d.primary.span, source_map),
         );
 
         let secondary = js_sys::Array::new();
@@ -540,7 +548,7 @@ fn diagnostics_to_js(source: &str, diagnostics: &[Diagnostic]) -> JsValue {
             let _ = Reflect::set(
                 &sub,
                 &JsValue::from_str("span"),
-                &span_to_js(source, s.span),
+                &span_to_js_with_map(source, s.span, source_map),
             );
             let _ = Reflect::set(
                 &sub,
@@ -3503,7 +3511,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
         .any(|d| matches!(d.severity, Severity::Error));
     all_diags.extend(tc.diagnostics.clone());
 
-    let diagnostics = diagnostics_to_js(source, &all_diags);
+    let diagnostics = diagnostics_to_js_with_map(source, Some(&source_map), &all_diags);
     let _ = Reflect::set(&out, &JsValue::from_str("diagnostics"), &diagnostics);
 
     if let Some(hir_module) = tc.module {

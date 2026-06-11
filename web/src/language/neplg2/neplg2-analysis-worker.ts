@@ -76,6 +76,9 @@ async function handleAnalyze(request: AnalysisRequest) {
     }
 
     const payloadBase = buildEditorUpdatePayloadFromAnalysis(request.text, {
+        path: request.path,
+        sourcePath: request.path,
+        activePath: request.path,
         lex,
         parse,
         resolve,
