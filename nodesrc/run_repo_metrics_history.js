@@ -32,7 +32,7 @@ function parseArgs(argv) {
     const args = {
         root: ".",
         ref: "HEAD",
-        limit: 24,
+        limit: 100,
         json: "",
         workRoot: path.join("tmp", "repo_metrics_history"),
         keepWorktrees: false,
@@ -71,6 +71,8 @@ function parseArgs(argv) {
 
 function usage() {
     console.log("Usage: node nodesrc/run_repo_metrics_history.js --root <repo> --limit <n> --json <out.json>");
+    console.log("");
+    console.log("Samples approximately <n> commits evenly from all commits reachable from --ref.");
 }
 
 function ensureDir(dir) {
@@ -91,12 +93,10 @@ function resolveGitRoot(root) {
     return path.resolve(result.stdout.trim());
 }
 
-function loadCommits(root, ref, limit) {
+function loadCommits(root, ref) {
     const result = requireOk(run([
         "git",
         "log",
-        "--first-parent",
-        `--max-count=${Math.floor(limit)}`,
         "--format=%H%x09%ct%x09%s",
         ref,
     ], { cwd: root }), "git log");
@@ -113,6 +113,23 @@ function loadCommits(root, ref, limit) {
             };
         })
         .reverse();
+}
+
+function sampleCommits(commits, limit) {
+    const target = Math.floor(limit);
+    if (commits.length <= target) return commits;
+    if (target === 1) return [commits[commits.length - 1]];
+
+    const out = [];
+    const last = commits.length - 1;
+    let previousIndex = -1;
+    for (let i = 0; i < target; i++) {
+        const index = Math.round((i * last) / (target - 1));
+        if (index === previousIndex) continue;
+        out.push(commits[index]);
+        previousIndex = index;
+    }
+    return out;
 }
 
 function sumRows(rows) {
@@ -141,9 +158,13 @@ function sumRows(rows) {
 function summarizeMetrics(metricsJson) {
     if (!metricsJson) return null;
     const byArea = Array.isArray(metricsJson.byArea) ? metricsJson.byArea : [];
+    const byExtension = Array.isArray(metricsJson.byExtension) ? metricsJson.byExtension : [];
+    const byContentKind = Array.isArray(metricsJson.byContentKind) ? metricsJson.byContentKind : [];
     return {
         totals: sumRows(byArea),
         by_area: Object.fromEntries(byArea.map((row) => [row.name, row])),
+        by_extension: Object.fromEntries(byExtension.map((row) => [row.name, row])),
+        by_content_kind: Object.fromEntries(byContentKind.map((row) => [row.name, row])),
     };
 }
 
@@ -254,7 +275,8 @@ function main() {
     }
 
     const root = resolveGitRoot(path.resolve(args.root));
-    const commits = loadCommits(root, args.ref, args.limit);
+    const allCommits = loadCommits(root, args.ref);
+    const commits = sampleCommits(allCommits, args.limit);
     const runId = `${Date.now()}-${process.pid}-${Math.random().toString(16).slice(2)}`;
     const workRoot = path.resolve(root, args.workRoot);
     const worktreeRoot = path.join(workRoot, "worktrees");
@@ -270,6 +292,8 @@ function main() {
         generated_at: new Date().toISOString(),
         ref: args.ref,
         limit: args.limit,
+        total_commit_count: allCommits.length,
+        sampling: "even-reachable-commits",
         revision_count: revisions.length,
         revisions,
         deltas: buildDeltas(revisions),
@@ -278,6 +302,8 @@ function main() {
     console.log(JSON.stringify({
         schema: payload.schema,
         revisions: payload.revision_count,
+        total_commit_count: payload.total_commit_count,
+        sampling: payload.sampling,
         json: args.json,
         errors: revisions.filter((r) => r.metrics_error).length,
     }, null, 2));

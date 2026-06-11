@@ -52,7 +52,7 @@ assertIncludes(workflow, "if [ -d web/dist ]; then", "CI may normalize Trunk ver
 assertIncludes(workflow, "cp -a web/dist/. dist/", "CI should copy web/dist only after checking that it exists");
 assertIncludes(workflow, "test -f dist/metrics.html", "CI must verify metrics.html is present in the Pages artifact root");
 assertIncludes(workflow, "node nodesrc/run_repo_metrics.js --root . --json dist/metrics/repo_metrics.json --csv dist/metrics/repo_metrics.csv", "CI must run repo_metrics.ts through the wrapper");
-assertIncludes(workflow, "node nodesrc/run_repo_metrics_history.js --root . --limit 24 --json dist/metrics/repo_metrics_history.json", "CI must publish historical repo metrics for the Pages chart");
+assertIncludes(workflow, "node nodesrc/run_repo_metrics_history.js --root . --limit 100 --json dist/metrics/repo_metrics_history.json", "CI must publish approximately 100 sampled historical repo metrics for the Pages chart");
 assertIncludes(workflow, "selfhost-doctest:", "CI must publish selfhost compiler check doctest artifacts");
 assertIncludes(workflow, "Selfhost compiler check doctests", "CI must label selfhost doctests as compiler checks");
 assertIncludes(workflow, '--timeout-marker "${timeout_marker}"', "selfhost timeout-nonfatal runs must emit a timeout marker");
@@ -82,6 +82,11 @@ assertIncludes(runner, "node_modules", "wrapper should fall back to the repo Typ
 assertIncludes(historyRunner, "neplg2-repo-metrics-history/v1", "metrics history JSON must have a stable schema");
 assertIncludes(historyRunner, "git worktree", "metrics history must inspect historical commits without moving the current checkout");
 assertIncludes(historyRunner, "nodesrc\", \"run_repo_metrics.js", "metrics history must reuse the repo_metrics.ts wrapper as the metrics authority");
+assertIncludes(historyRunner, "sampleCommits", "metrics history must sample across the complete reachable commit history instead of only loading recent commits");
+assertIncludes(historyRunner, "total_commit_count", "metrics history must report the complete reachable commit count used for sampling context");
+assertIncludes(historyRunner, "even-reachable-commits", "metrics history must declare the sampling strategy");
+assertIncludes(historyRunner, "by_extension", "metrics history must preserve extension buckets for history presets");
+assertIncludes(historyRunner, "by_content_kind", "metrics history must preserve content-kind buckets for history presets");
 assertIncludes(selfhostRunner, "neplg2-selfhost-doctest/v1", "selfhost doctest checker JSON must have a stable schema");
 assertIncludes(selfhostRunner, "selfhost_pipeline_check_loaded_root", "selfhost doctest checker must run the real selfhost compiler pipeline");
 assertIncludes(selfhostRunner, "compiler_check", "selfhost doctest checker must label results as compiler checks instead of runtime doctests");
@@ -92,7 +97,11 @@ assertIncludes(selfhostCompleter, "summarize(payload.results)", "selfhost timeou
 assertIncludes(metrics, "./metrics/repo_metrics.json", "metrics.html must load the generated metrics JSON by default");
 assertIncludes(metrics, "./metrics/repo_metrics.csv", "metrics.html must link the generated metrics CSV");
 assertIncludes(metrics, "./metrics/repo_metrics_history.json", "metrics.html must load the generated history JSON");
-assertIncludes(metrics, "Line Count History", "metrics.html must expose a line count history chart");
+assertIncludes(metrics, "Repository History", "metrics.html must expose a repository history chart");
+assertIncludes(metrics, "history-preset", "metrics.html must let users switch history graph presets");
+assertIncludes(metrics, "By Content Kind", "metrics.html must expose a content-kind history graph preset");
+assertIncludes(metrics, "By Extension", "metrics.html must expose an extension history graph preset");
+assertIncludes(metrics, "topHistoryNames", "metrics.html must choose extension history series from the current sampled history");
 assertIncludes(metrics, "renderHistoryChart", "metrics.html must render historical metrics as a chart");
 
 assertIncludes(tests, "ansiToHtml", "tests.html must render ANSI diagnostic colors as HTML spans");

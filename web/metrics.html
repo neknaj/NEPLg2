@@ -80,6 +80,7 @@
         }
 
         input,
+        select,
         button,
         a.button {
             min-height: 34px;
@@ -96,6 +97,10 @@
         input {
             width: min(360px, 78vw);
             font-family: var(--mono);
+        }
+
+        select {
+            font-family: var(--sans);
         }
 
         button,
@@ -212,6 +217,21 @@
             padding: 14px;
         }
 
+        .history-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .history-toolbar label {
+            color: var(--muted);
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
         .chart-legend {
             display: flex;
             gap: 10px;
@@ -293,8 +313,17 @@
         <div id="status" class="notice">Loading metrics.</div>
         <div id="summary" class="summary"></div>
         <section id="history-section" hidden>
-            <h2>Line Count History</h2>
+            <h2>Repository History</h2>
             <div class="chart-wrap">
+                <div class="history-toolbar">
+                    <label for="history-preset">Preset</label>
+                    <select id="history-preset">
+                        <option value="overview">Overview</option>
+                        <option value="content-kind">By Content Kind</option>
+                        <option value="extension">By Extension</option>
+                        <option value="area">By Area</option>
+                    </select>
+                </div>
                 <div id="history-status" class="notice">Loading metrics history.</div>
                 <div id="history-chart" class="history-chart" aria-label="Repository line count history"></div>
                 <div id="history-table"></div>
@@ -313,6 +342,24 @@
         const historyStatusEl = document.getElementById("history-status");
         const historyChartEl = document.getElementById("history-chart");
         const historyTableEl = document.getElementById("history-table");
+        const historyPresetEl = document.getElementById("history-preset");
+        let historyPayload = null;
+
+        const historyColors = ["#9bc7ff", "#9ee7b7", "#ffd38a", "#e6b3ff", "#8bd3dd", "#f6b3a4", "#c4d7ff", "#d8e38f"];
+        const contentKindLabels = {
+            blank: "blank",
+            source: "source",
+            doc_comment: "doc comments",
+            document: "documents",
+            test: "test lines",
+            comment: "comments",
+            other: "other",
+        };
+        const areaLabels = {
+            source_tree: "source tree",
+            top_level_docs_tests: "docs/tests/examples",
+            other: "other",
+        };
 
         function escapeHtml(value) {
             return String(value ?? "")
@@ -383,24 +430,93 @@
             };
         }
 
-        function metricSeries(revisions) {
+        function bucketRow(point, bucketName, name) {
+            return point.revision.metrics
+                && point.revision.metrics[bucketName]
+                && point.revision.metrics[bucketName][name]
+                ? point.revision.metrics[bucketName][name]
+                : null;
+        }
+
+        function rowLines(point, bucketName, name) {
+            const row = bucketRow(point, bucketName, name);
+            return Number(row && row.lines || 0);
+        }
+
+        function latestPoint(points) {
+            for (let i = points.length - 1; i >= 0; i--) {
+                if (points[i].revision && points[i].revision.metrics) return points[i];
+            }
+            return null;
+        }
+
+        function topHistoryNames(points, bucketName, limit) {
+            const latest = latestPoint(points);
+            const bucket = latest && latest.revision.metrics && latest.revision.metrics[bucketName];
+            if (!bucket || typeof bucket !== "object") return [];
+            return Object.entries(bucket)
+                .map(([name, row]) => ({ name, lines: Number(row && row.lines || 0) }))
+                .filter((row) => row.lines > 0)
+                .sort((a, b) => b.lines - a.lines || a.name.localeCompare(b.name))
+                .slice(0, limit)
+                .map((row) => row.name);
+        }
+
+        function namedSeries(names, labelFor, valueFor) {
+            return names.map((name, index) => ({
+                key: name,
+                label: labelFor(name),
+                color: historyColors[index % historyColors.length],
+                value: (point) => valueFor(point, name),
+            }));
+        }
+
+        function metricSeries(revisions, preset) {
             const points = revisions
                 .map((revision, index) => ({ revision, index, totals: historyTotals(revision) }))
                 .filter((point) => point.totals);
+            if (preset === "content-kind") {
+                const names = ["source", "doc_comment", "document", "test", "comment", "other", "blank"];
+                return {
+                    points,
+                    label: "By Content Kind",
+                    series: namedSeries(names, (name) => contentKindLabels[name] || name, (point, name) => rowLines(point, "by_content_kind", name)),
+                };
+            }
+            if (preset === "extension") {
+                const names = topHistoryNames(points, "by_extension", 8);
+                return {
+                    points,
+                    label: "By Extension",
+                    series: namedSeries(names, (name) => name, (point, name) => rowLines(point, "by_extension", name)),
+                };
+            }
+            if (preset === "area") {
+                const names = ["source_tree", "top_level_docs_tests", "other"];
+                return {
+                    points,
+                    label: "By Area",
+                    series: namedSeries(names, (name) => areaLabels[name] || name, (point, name) => rowLines(point, "by_area", name)),
+                };
+            }
             return {
                 points,
+                label: "Overview",
                 series: [
-                    { key: "lines", label: "total lines", color: "#9bc7ff", value: (p) => p.totals.lines },
-                    { key: "source", label: "source", color: "#9ee7b7", value: (p) => p.totals.source },
-                    { key: "docs", label: "docs", color: "#ffd38a", value: (p) => p.totals.docs },
-                    { key: "test", label: "test lines", color: "#e6b3ff", value: (p) => p.totals.test },
+                    { key: "lines", label: "total lines", color: historyColors[0], value: (p) => p.totals.lines },
+                    { key: "source", label: "source", color: historyColors[1], value: (p) => p.totals.source },
+                    { key: "docs", label: "docs", color: historyColors[2], value: (p) => p.totals.docs },
+                    { key: "test", label: "test lines", color: historyColors[3], value: (p) => p.totals.test },
                 ],
             };
         }
 
-        function renderHistoryChart(points, series) {
+        function renderHistoryChart(points, series, presetLabel) {
             if (points.length === 0) {
                 return `<div class="notice">No history metrics are available.</div>`;
+            }
+            if (series.length === 0) {
+                return `<div class="notice">No ${escapeHtml(presetLabel)} history series are available.</div>`;
             }
             const width = 1040;
             const height = 340;
@@ -481,11 +597,15 @@
 
         function renderHistory(payload) {
             const revisions = Array.isArray(payload && payload.revisions) ? payload.revisions : [];
-            const { points, series } = metricSeries(revisions);
+            historyPayload = payload;
+            const preset = historyPresetEl.value || "overview";
+            const { points, series, label } = metricSeries(revisions, preset);
             historySectionEl.hidden = false;
             const errors = revisions.filter((revision) => revision.metrics_error).length;
-            historyStatusEl.innerHTML = `Loaded ${fmt.format(points.length)} historical revision(s).${errors ? ` <span class="error">${fmt.format(errors)} revision(s) had metrics errors.</span>` : ""}`;
-            historyChartEl.innerHTML = renderHistoryChart(points, series);
+            const totalCommits = Number(payload && payload.total_commit_count || revisions.length || 0);
+            const sampling = payload && payload.sampling ? ` ${escapeHtml(payload.sampling)}.` : "";
+            historyStatusEl.innerHTML = `Loaded ${fmt.format(points.length)} sampled historical revision(s) from ${fmt.format(totalCommits)} commit(s). Preset: ${escapeHtml(label)}.${sampling}${errors ? ` <span class="error">${fmt.format(errors)} revision(s) had metrics errors.</span>` : ""}`;
+            historyChartEl.innerHTML = renderHistoryChart(points, series, label);
             historyTableEl.innerHTML = renderHistoryTable(points);
         }
 
@@ -543,6 +663,9 @@
         }
 
         document.getElementById("load").addEventListener("click", loadMetrics);
+        historyPresetEl.addEventListener("change", () => {
+            if (historyPayload) renderHistory(historyPayload);
+        });
         loadMetrics();
     </script>
 </body>

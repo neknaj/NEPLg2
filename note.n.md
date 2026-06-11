@@ -1,3 +1,44 @@
+# 2026-06-12 Agent2 metrics history sampling preset checkpoint
+
+- 対象 branch: `agent2/metrics-history-sampling-presets`
+- 対象: `metrics.html` / `nodesrc/run_repo_metrics_history.js`
+- 現象:
+  - `metrics.html` は `Loaded 24 historical revision(s).` の直近 24 commit だけを表示していた。
+  - 現在の `HEAD` 到達可能 commit は `3775` 件あり、直近 24 件だけでは長期的な行数変化がほとんど見えない。
+  - history JSON は totals / area 中心で、extension や content kind の履歴系列を切り替えるための bucket 情報を保持していなかった。
+- root cause:
+  - CI が `run_repo_metrics_history.js --limit 24` を呼び、script 側も `git log --first-parent --max-count=limit` で直近だけを切っていた。
+  - `metrics.html` は history graph を overview 固定で描画し、表示 preset の概念を持っていなかった。
+- implementation:
+  - `run_repo_metrics_history.js` の default limit を `100` に変更した。
+  - `HEAD` から到達可能な全 commit を古い順に並べ、`sampleCommits` で先頭から末尾までほぼ等間隔に `limit` 件を選ぶようにした。
+  - history JSON に `total_commit_count`、`sampling: even-reachable-commits`、`by_extension`、`by_content_kind` を追加した。
+  - CI の metrics history 生成を `--limit 100` に変更した。
+  - `metrics.html` に history preset select を追加し、`Overview`、`By Content Kind`、`By Extension`、`By Area` を切り替えられるようにした。
+  - extension preset は最新サンプル時点の line 数上位 8 extension を系列として選ぶ。
+- verification:
+  - pass: `node nodesrc/test_pages_ci_metrics_contract.js`
+  - pass: `web/metrics.html` script 構文検査
+  - pass: `node nodesrc\run_repo_metrics_history.js --root . --limit 5 --json tmp\repo_metrics_history_sample.json`
+    - `total_commit_count=3775`
+    - `revision_count=5`
+    - `sampling=even-reachable-commits`
+    - `last_is_head=true`
+    - latest revision has `by_extension`, `by_content_kind`, `by_area`
+  - pass: `trunk build`
+  - pass: `web/dist/metrics.html` script 構文検査
+  - pass: DOM stub による `Overview` / `By Extension` / `By Content Kind` preset render smoke
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+- frontend_validation:
+  - Browser plugin: not available in this session.
+  - Playwright: not installed in this checkout; dependency installationは行っていない。
+  - 代替として Trunk build、HTML script 構文検査、DOM stub による preset interaction smoke を実施した。
+- known warning:
+  - `trunk build` は Trunk 0.20.3 から 0.21.14 への更新通知と tool version mismatch の info を出すが、build は成功した。
+  - source policy の stdlib/selfhost documentation contract は既存の report-only gap を表示する。
+
 # 2026-06-12 Agent2 tests.html compiler output rendering checkpoint
 
 - 対象 branch: `agent2/fix-tests-html-diagnostic-rendering`

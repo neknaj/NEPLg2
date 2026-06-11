@@ -70,7 +70,7 @@ jobs:
               run: |
                   mkdir -p dist/metrics
                   node nodesrc/run_repo_metrics.js --root . --json dist/metrics/repo_metrics.json --csv dist/metrics/repo_metrics.csv
-                  node nodesrc/run_repo_metrics_history.js --root . --limit 24 --json dist/metrics/repo_metrics_history.json
+                  node nodesrc/run_repo_metrics_history.js --root . --limit 100 --json dist/metrics/repo_metrics_history.json
 
             - name: Upload bootstrap build artifacts
               uses: actions/upload-artifact@v4
