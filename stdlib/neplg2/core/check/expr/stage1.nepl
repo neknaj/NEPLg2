@@ -1284,11 +1284,12 @@ fn selfhost_check_expr_stage1_make_pipe_tokens %impure fn void Result Vec Selfho
 //: selfhost_check_expr_stage1_make_pipe_suffix_ascribed_argument_tokens: `1 |> add %i32 2` の token buffer を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - 注釈無し pipe target の argument probe が、source-backed checker を必要とする suffix argument に出会った場合の fail-closed fixture です。
+//: - 注釈無し pipe target の argument probe が、source-backed checker を必要とする suffix argument に出会った場合の success fixture です。
 //: - `add` までは通常の RHS target として扱い、`%i32 2` は target ascription ではなく suffix argument の型注釈として残します。
 //:
 //: [契約/けいやく]:
 //: - 借用 probe は `%T expr` の型式 spelling を持たないため、この suffix を candidate 固有の不一致として扱ってはいけません。
+//: - 他候補がすべて `NoMatch` で、`SourceBackedRequired` が1候補だけ残り、`SelectionBlockedUnsupported` が無い場合に限り、既存 source-backed checker がその1候補を検査します。
 //: - 成功時は caller が token vector owner を受け取り、runner が必ず解放します。
 //: - token push failure 時は `selfhost_check_expr_stage1_push_token` が途中 owner を閉じます。
 //:
@@ -2312,6 +2313,40 @@ fn selfhost_check_expr_stage1_success_has_ascribed_pipe_argument_order %fn &Self
                 Option::None:
                     false
 
+//: selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order: pipe suffix の型注釈付き argument 順序を[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `1 |> add %i32 2` の pipe 正規化が、注釈無し target の一意な source-backed suffix candidate を選び、checked argument list に左辺 `1` と suffix 内側 literal `2` を保存することを確認します。
+//: - `%i32 2` は target callable への注釈ではなく、右辺 suffix の 1 実引数式です。target token の直後から source-backed argument checker へ渡されなければなりません。
+//:
+//: [契約/けいやく]:
+//: - fixture source は固定であり、prefix item index は `0:IntLiteral`, `1:Pipe`, `2:add`, `3:%`, `4:i32`, `5:IntLiteral` です。
+//: - 現 checkpoint の argument-scope ascription payload は inner literal の consume range を保持するため、suffix argument の checked range は `[5, 6)` です。
+//: - `success` は borrow であり、この helper は内部 owner を移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: checked argument が2件で、0番目が左辺 `1`、1番目が suffix の semantic `I32Literal(2)` です。
+//: - `false`: checked argument 数、payload kind、literal 値、または consume-width が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定2件の Vec access と payload match だけなので O(1) です。
+fn selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
+    if:
+        not eq v::len checked_arguments 2
+        then:
+            false
+        else:
+            match v::get checked_arguments 0:
+                Option::Some first:
+                    match v::get checked_arguments 1:
+                        Option::Some second:
+                            and selfhost_check_expr_stage1_argument_is_i32_literal_range &first 1 0 1 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 2 5 6
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
 //: selfhost_check_expr_stage1_success_is_one_arg_direct_call: reducer success が1引数 direct call か[調/しら]べる
 //:
 //: [目的/もくてき]:
@@ -3313,29 +3348,46 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_wi
             v::free tokens
             false
 
-//: selfhost_check_expr_stage1_pipe_unascribed_target_probe_unsupported_rejected_with_scope: 注釈無し pipe target の判定不能 probe を[確認/かくにん]する
+//: selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope: 注釈無し pipe target の唯一判定不能候補を source-backed に[確認/かくにん]する
 //:
 //: [目的/もくてき]:
-//: - `1 |> add %i32 2` の suffix argument は source-backed checker なら `%i32 2` として検査できますが、注釈無し target narrowing の借用 probe だけでは安全に判定できません。
-//: - 片方の candidate が suffix 余剰で `NoMatch` になり、もう片方が ascription suffix で `ProbeUnsupported` になる状況を作り、unsupported を不一致扱いして候補選択しないことを確認します。
+//: - `1 |> add %i32 2` の suffix argument は借用 probe では `SourceBackedRequired` ですが、source-backed checker なら `%i32 2` として検査できます。
+//: - 片方の candidate が suffix 余剰で `NoMatch` になり、もう片方だけが ascription suffix で `SourceBackedRequired` になる状況を作り、唯一残った候補だけを source-backed finisher へ渡せることを確認します。
 //:
 //: [契約/けいやく]:
 //: - `one_arg_type` は pipe 左辺だけなら満たせるが suffix が余る function type です。
 //: - `two_arg_type` は左辺と suffix が型としては合い得るため、source-backed ascription checker が必要な function type です。
-//: - `ProbeUnsupported` が 1 件でも残る場合、現在の slice は `PipeTargetAmbiguous` として fail-closed にします。
+//: - `Match` が 0 件で `SourceBackedRequired` が 1 件だけ、かつ `SelectionBlockedUnsupported` が 0 件のときだけ成功候補へ進みます。`Match` との混在、複数の source-backed 必須候補、選択禁止の未対応は別候補の可能性を隠すため曖昧のままにします。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `true`: 判定不能 probe を含む候補列が `PipeTargetAmbiguous` として拒否されました。
-//: - `false`: setup 失敗、別 error、または誤成功です。
+//: - `true`: 唯一の判定不能候補が source-backed checker で検査され、2引数 direct call として成功しました。
+//: - `false`: setup 失敗、候補選択、argument check、または success payload が期待と違います。
 //:
 //: [計算量/けいさんりょう]:
-//: - fixture setup は O(1) です。reducer 側は候補数 c と各候補の軽量 argument probe cost p に対して O(c * p) で集計します。
-fn selfhost_check_expr_stage1_pipe_unascribed_target_probe_unsupported_rejected_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\one_arg_type\two_arg_type:
-    let add_span %SelfhostSourceSpan source_span_new_unchecked 0 5 8
-    match selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span:
-        Result::Ok context:
-            let segment %SelfhostBodySegment selfhost_check_expr_stage1_pipe_error_segment 6 15
-            selfhost_check_expr_stage1_pipe_error_with_context tokens "1 |> add %i32 2" segment arena context SelfhostCallReduceErrorKind::PipeTargetAmbiguous
+//: - fixture setup は O(1) です。reducer 側は候補数 c と各候補の軽量 probe cost p に対して O(c * p) で集計し、唯一の source-backed candidate だけを既存 argument checker へ渡します。
+fn selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\one_arg_type\two_arg_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_pipe_error_segment 6 15
+    match selfhost_check_expr_stage1_make_candidate_vec two_arg_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 5 8
+            match selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "1 |> add %i32 2" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
         Result::Err _e:
             selfhost_type_arena_free arena
             v::free tokens
@@ -4292,24 +4344,24 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_i3
             v::free tokens
             1
 
-//: selfhost_check_expr_stage1_run_pipe_unascribed_target_probe_unsupported_with_i32: 注釈無し pipe target の判定不能 probe rejection smoke を[実行/じっこう]する
+//: selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_i32: 注釈無し pipe target の唯一判定不能候補 success smoke を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
-//: - primitive `i32` を使って `add : fn i32 i32` と `add : fn i32 fn i32 i32` の2候補を構築し、`1 |> add %i32 2` が一意候補へ進まないことを確認します。
-//: - source-backed checker なら `%i32 2` を suffix argument として検査できますが、この候補選択段階では owner を消費しない借用 probe だけを使うため、判定不能を `PipeTargetAmbiguous` にします。
+//: - primitive `i32` を使って `add : fn i32 i32` と `add : fn i32 fn i32 i32` の2候補を構築し、`1 |> add %i32 2` が唯一の source-backed candidate として2引数版を選ぶことを確認します。
+//: - 借用 probe の段階では2引数版が `SourceBackedRequired` ですが、1引数版は suffix 余剰で `NoMatch` と分かるため、既存 source-backed finisher を1回だけ実行できます。
 //:
 //: [契約/けいやく]:
 //: - setup 成功後の arena owner と token owner は下位 helper へ移動します。
 //: - function type allocation に失敗した場合だけ、この helper が token owner を閉じます。arena owner は allocation helper 側で閉じられます。
-//: - この helper は高度な suffix argument を成功させるものではなく、未対応式を不一致扱いしない fail-closed 境界を固定します。
+//: - 複数の判定不能候補を source-backed に総当たりしません。成功へ進むのは borrowed summary が一意の判定不能候補だけを残した場合です。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: 判定不能 probe が `PipeTargetAmbiguous` として拒否されました。
-//: - `1`: setup、分類、または下位 reducer が失敗しました。
+//: - `0`: 唯一の判定不能候補が source-backed suffix argument checker で検査され、direct call へ正規化されました。
+//: - `1`: setup、候補選択、argument check、または下位 reducer が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - type fixture setup は固定個数なので O(1) です。下位 reducer は候補数 c と argument probe cost p に対して O(c * p) で集計します。
-fn selfhost_check_expr_stage1_run_pipe_unascribed_target_probe_unsupported_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+//: - type fixture setup は固定個数なので O(1) です。下位 reducer は候補集計後、一意の source-backed finisher だけを実行します。
+fn selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
     match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
         Result::Ok one_alloc:
             let one_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &one_alloc
@@ -4318,7 +4370,7 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_probe_unsupported_with_
                 Result::Ok two_alloc:
                     let two_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &two_alloc
                     let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena two_alloc
-                    if selfhost_check_expr_stage1_pipe_unascribed_target_probe_unsupported_rejected_with_scope tokens arena2 one_type two_type 0 1
+                    if selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope tokens arena2 one_type two_type 0 1
                 Result::Err _e:
                     v::free tokens
                     1
@@ -5015,29 +5067,29 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_to
             v::free tokens
             1
 
-//: selfhost_check_expr_stage1_run_pipe_unascribed_target_probe_unsupported_with_tokens: token owner から判定不能 probe rejection smoke を[起動/きどう]する
+//: selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens: token owner から唯一判定不能候補 success smoke を[起動/きどう]する
 //:
 //: [目的/もくてき]:
-//: - `1 |> add %i32 2` 用 token buffer に primitive `i32` arena fixture を付け、argument-based pipe target narrowing の判定不能 probe rejection へ渡します。
+//: - `1 |> add %i32 2` 用 token buffer に primitive `i32` arena fixture を付け、argument-based pipe target narrowing の唯一判定不能候補 success へ渡します。
 //:
 //: [契約/けいやく]:
 //: - arena 初期化または primitive 追加に失敗した場合、この helper が token owner を閉じます。
 //: - setup 成功後は token owner と arena owner を i32-level helper へ移動します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: 判定不能 probe が `PipeTargetAmbiguous` として拒否されました。
+//: - `0`: 唯一の判定不能候補が source-backed suffix argument checker により成功しました。
 //: - `1`: setup または下位 helper が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
 //: - primitive fixture setup は O(1) です。下位 reducer の計算量は候補数と argument probe に従います。
-fn selfhost_check_expr_stage1_run_pipe_unascribed_target_probe_unsupported_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+fn selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
     match selfhost_type_arena_new:
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok i32_alloc:
                     let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
-                    selfhost_check_expr_stage1_run_pipe_unascribed_target_probe_unsupported_with_i32 tokens arena1 i32_type
+                    selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_i32 tokens arena1 i32_type
                 Result::Err _e:
                     v::free tokens
                     1
@@ -5622,14 +5674,14 @@ fn selfhost_check_expr_stage1_pipe_failclosed_body_line %impure fn void i32 \voi
 //: [目的/もくてき]:
 //: - `1 |> add 2` を使い、target ascription が無くても pipe 左辺と suffix の引数列から同名 overload を一意化できる success case を確認します。
 //: - 同じ source で、適用可能候補 0 件と複数一致の negative case も続けて確認し、候補選択を first-match や unresolved fallback にしない契約を固定します。
-//: - `1 |> add %i32 2` では、source-backed checker が必要な suffix argument を借用 probe が不一致扱いしないことを確認します。
+//: - `1 |> add %i32 2` では、source-backed checker が必要な suffix argument を、他候補がすべて `NoMatch` のときだけ一意の success path へ渡すことを確認します。
 //:
 //: [契約/けいやく]:
 //: - 各 token buffer owner は対応する runner へ移動し、runner が cleanup を担当します。
 //: - success case が通った後だけ negative case を実行します。success path が壊れている状態で error 分類だけを見て green にしないためです。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: argument-based narrowing success、no-applicable rejection、duplicate-match rejection、probe-unsupported rejection がすべて期待通りでした。
+//: - `0`: argument-based narrowing success、no-applicable rejection、duplicate-match rejection、single-probe-unsupported success がすべて期待通りでした。
 //: - `1`: token setup、probe narrowing、error 分類、または cleanup 境界のいずれかが失敗しました。
 //:
 //: [計算量/けいさんりょう]:
@@ -5655,7 +5707,7 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
                                                 then:
                                                     match selfhost_check_expr_stage1_make_pipe_suffix_ascribed_argument_tokens:
                                                         Result::Ok unsupported_tokens:
-                                                            selfhost_check_expr_stage1_run_pipe_unascribed_target_probe_unsupported_with_tokens unsupported_tokens
+                                                            selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens unsupported_tokens
                                                         Result::Err _e:
                                                             1
                                                 else:
