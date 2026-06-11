@@ -855,6 +855,22 @@ fn selfhost_check_expr_stage1_nested_call_argument_segment %fn void SelfhostBody
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 5 source_span_new_unchecked 0 0 13
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_general_nested_overload_argument_segment: `outer add 1 2 3` 全体を指す expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - outer call の途中 argument として同名 overloaded nested call が現れ、nested call の後ろに outer call の残り argument が続く range を fixture 化します。
+//: - final-range narrowing だけでは inner `add` が `1 2` で止まったあとに outer `3` を読む経路を確認できないため、この専用 segment で一般 nested overload boundary を固定します。
+//:
+//: [契約/けいやく]:
+//: - head range は token buffer の `outer`、`add`、`1`、`2`、`3` の5 token 全体を指します。
+//: - source span は `"outer add 1 2 3"` の byte range 0..15 です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 range を作るだけなので O(1) です。
+fn selfhost_check_expr_stage1_general_nested_overload_argument_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 5 source_span_new_unchecked 0 0 15
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
 //: selfhost_check_expr_stage1_shadowed_function_argument_segment: `add add 2` 全体を指す expression segment を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -963,6 +979,22 @@ fn selfhost_check_expr_stage1_pipe_suffix_nested_call_segment %fn void SelfhostB
 //: [計算量/けいさんりょう]:
 //: - 固定 range を作るだけなので O(1) です。
 fn selfhost_check_expr_stage1_pipe_suffix_same_name_nested_call_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 6 source_span_new_unchecked 0 0 16
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
+//: selfhost_check_expr_stage1_pipe_left_nested_overload_segment: `add 1 2 |> use 3` の expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - pipe 左辺が同名 overloaded nested call である regression fixture の range を固定します。
+//: - 左辺は pipe operator 直前の `[0, 4)` で1値にならなければならず、右辺 target `use` の suffix `3` を左辺 nested overload の continuation として使ってはいけません。
+//:
+//: [契約/けいやく]:
+//: - source text は固定で、prefix item は `0:add`, `1:1`, `2:2`, `3:|>`, `4:use`, `5:3` です。
+//: - `ExpressionLine` の終端は source byte 16 です。
+//:
+//: [計算量/けいさんりょう]:
+//: - segment record 構築だけなので O(1) です。
+fn selfhost_check_expr_stage1_pipe_left_nested_overload_segment %fn void SelfhostBodySegment \void:
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 6 source_span_new_unchecked 0 0 16
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
@@ -1357,6 +1389,47 @@ fn selfhost_check_expr_stage1_make_nested_call_argument_tokens %impure fn void R
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_make_general_nested_overload_argument_tokens: `outer add 1 2 3` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - outer function は単一候補、inner `add` は同名 overload 2 件という fixture を source-backed reducer へ渡すための token 列を作ります。
+//: - inner `add` の2引数候補が `1 2` を消費し、outer の残り argument として `3` が残ることを checked tree smoke で確認します。
+//:
+//: [契約/けいやく]:
+//: - source spelling は `"outer add 1 2 3"` と対応します。
+//: - token owner は caller が受け取り、runner が必ず解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定5 tokenを push するため O(1) です。
+fn selfhost_check_expr_stage1_make_general_nested_overload_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let outer_name %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 5
+            match selfhost_check_expr_stage1_push_token tokens0 outer_name:
+                Result::Ok tokens1:
+                    let inner_add %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 6 9
+                    match selfhost_check_expr_stage1_push_token tokens1 inner_add:
+                        Result::Ok tokens2:
+                            let inner_arg0 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 10 11
+                            match selfhost_check_expr_stage1_push_token tokens2 inner_arg0:
+                                Result::Ok tokens3:
+                                    let inner_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 12 13
+                                    match selfhost_check_expr_stage1_push_token tokens3 inner_arg1:
+                                        Result::Ok tokens4:
+                                            let outer_arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 14 15
+                                            selfhost_check_expr_stage1_push_token tokens4 outer_arg1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_check_expr_stage1_make_shadowed_function_argument_tokens: `add add 2` の token buffer を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -1671,6 +1744,58 @@ fn selfhost_check_expr_stage1_make_pipe_suffix_same_name_nested_call_tokens %imp
                                                 Result::Ok tokens5:
                                                     let rhs_nested_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 15 16
                                                     selfhost_check_expr_stage1_push_token tokens5 rhs_nested_arg
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_pipe_left_nested_overload_tokens: `add 1 2 |> use 3` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - pipe left segment 内の同名 overloaded nested call が、pipe target の suffix を continuation として借用しないことを確認する fixture です。
+//: - `add 1 2` は左辺だけで1つの checked expression になり、`use` の第1引数へ `CheckedExpr` として渡されます。
+//:
+//: [契約/けいやく]:
+//: - token index は `0:add`, `1:1`, `2:2`, `3:|>`, `4:use`, `5:3` です。
+//: - source span は `"add 1 2 |> use 3"` の byte range に合わせます。
+//: - 成功時は caller が token vector owner を受け取り、runner が必ず解放します。
+//: - token push failure 時は `selfhost_check_expr_stage1_push_token` が途中 owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(tokens)`: fixture の 6 token を持つ vector owner です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 6 token だけを作るため O(1) です。
+fn selfhost_check_expr_stage1_make_pipe_left_nested_overload_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 add_token:
+                Result::Ok tokens1:
+                    let first_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 4 5
+                    match selfhost_check_expr_stage1_push_token tokens1 first_arg:
+                        Result::Ok tokens2:
+                            let second_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 6 7
+                            match selfhost_check_expr_stage1_push_token tokens2 second_arg:
+                                Result::Ok tokens3:
+                                    let pipe_token %SelfhostToken selfhost_token_new TokenKind::Pipe source_span_new_unchecked 0 8 10
+                                    match selfhost_check_expr_stage1_push_token tokens3 pipe_token:
+                                        Result::Ok tokens4:
+                                            let use_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 11 14
+                                            match selfhost_check_expr_stage1_push_token tokens4 use_token:
+                                                Result::Ok tokens5:
+                                                    let suffix_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 15 16
+                                                    selfhost_check_expr_stage1_push_token tokens5 suffix_arg
                                                 Result::Err e:
                                                     Result::Err e
                                         Result::Err e:
@@ -2812,6 +2937,262 @@ fn selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_ca
         Option::None:
             false
 
+//: selfhost_check_expr_stage1_pipe_left_nested_child_arguments_ok: pipe left の nested call node を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `add 1 2 |> use 3` の左辺 `add 1 2` が、pipe target suffix `3` を含まず checked tree 内の2引数 `DirectCall` node として保存されたことを確認します。
+//: - pipe left segment の nested overload narrowing が `FinalRange` 境界を使う契約を、child argument range の検査で固定します。
+//:
+//: [契約/けいやく]:
+//: - child call の selected candidate name は `expected_name` と一致しなければなりません。
+//: - child arguments は prefix item `[1, 2)` の `I32Literal(1)` と `[2, 3)` の `I32Literal(2)` だけです。
+//: - 右辺 suffix `3` は child ではなく root `use` の第2引数でなければなりません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 参照先が `expected_name` の2引数 `DirectCall` で、child argument が期待通りでした。
+//: - `false`: node lookup、node kind、argument range、payload、または範囲が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed fixture の node 1 件と argument 2 件だけを読むため O(1) です。
+fn selfhost_check_expr_stage1_pipe_left_nested_child_arguments_ok %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprId fn str bool \tree\expr_id\expected_name:
+    match selfhost_checked_expr_tree_get_node tree expr_id:
+        Option::Some node:
+            match node.kind:
+                SelfhostCheckedExprNodeKind::DirectCall call:
+                    let arguments %SelfhostCheckedArgumentRange call.arguments
+                    if:
+                        not and string_search::str_eq call.candidate.name expected_name eq selfhost_checked_argument_range_count arguments 2
+                        then:
+                            false
+                        else:
+                            match selfhost_checked_expr_tree_get_argument tree arguments 0:
+                                Option::Some first:
+                                    match selfhost_checked_expr_tree_get_argument tree arguments 1:
+                                        Option::Some second:
+                                            and selfhost_check_expr_stage1_argument_is_i32_literal_range &first 1 1 2 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 2 2 3
+                                        Option::None:
+                                            false
+                                Option::None:
+                                    false
+                _:
+                    false
+        Option::None:
+            false
+
+//: selfhost_check_expr_stage1_success_has_pipe_left_nested_overload_argument_order: pipe left nested の root argument 順序を[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `add 1 2 |> use 3` の root `use` call が、左辺 nested expression と右辺 suffix literal をこの順に checked argument list へ保存することを確認します。
+//: - 左辺 nested overload が pipe target の suffix を continuation として借用すると、第1引数の consume range や第2引数の残り方が壊れるため、この helper で退行を検出します。
+//:
+//: [契約/けいやく]:
+//: - outer checked argument の第1要素は `[0, 4)` の `CheckedExpr` で、第2要素は `[5, 6)` の `I32Literal(3)` です。
+//: - `success` は borrow であり、この helper は内部 Vec を解放しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: checked argument が2件で、0番目が left nested call、1番目が pipe suffix literal です。
+//: - `false`: checked argument 数、payload kind、literal 値、または consume-width が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定2件の Vec access と payload match だけなので O(1) です。
+fn selfhost_check_expr_stage1_success_has_pipe_left_nested_overload_argument_order %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
+    if:
+        not eq v::len checked_arguments 2
+        then:
+            false
+        else:
+            match v::get checked_arguments 0:
+                Option::Some first:
+                    match v::get checked_arguments 1:
+                        Option::Some second:
+                            and selfhost_check_expr_stage1_argument_is_checked_expr_range &first 0 4 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 3 5 6
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_check_expr_stage1_pipe_left_nested_root_links_child_direct_call: pipe root から left nested node へ[接続/せつぞく]しているか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `add 1 2 |> use 3` の root `use` direct call が、第1引数として left `add 1 2` node を `CheckedExpr` 参照し、第2引数として suffix `3` を保持していることを確認します。
+//: - left segment の縮約結果を source token へ戻して再解釈せず、checked tree topology だけで HIR lowering へ渡す契約を固定します。
+//:
+//: [契約/けいやく]:
+//: - root は `use` の2引数 direct call です。
+//: - 第1引数は left nested call の checked expression `[0, 4)`、第2引数は literal `3` `[5, 6)` です。
+//: - checked tree 参照先が見つからない場合や legacy summary variant の場合は `false` にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: root と child の両方が期待した `DirectCall` topology と argument payload を持っています。
+//: - `false`: root id、node kind、argument count、argument kind、または child 参照先が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed fixture の root node 1 件、child node 1 件、argument 4 件を読むため O(1) です。
+fn selfhost_check_expr_stage1_pipe_left_nested_root_links_child_direct_call %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let tree %&SelfhostCheckedExprTree selfhost_expression_line_check_success_checked_tree success
+    let root_expr %SelfhostCheckedExprId selfhost_expression_line_check_success_root_expr success
+    match selfhost_checked_expr_tree_get_node tree root_expr:
+        Option::Some node:
+            match node.kind:
+                SelfhostCheckedExprNodeKind::DirectCall call:
+                    let arguments %SelfhostCheckedArgumentRange call.arguments
+                    if:
+                        not and string_search::str_eq call.candidate.name "use" eq selfhost_checked_argument_range_count arguments 2
+                        then:
+                            false
+                        else:
+                            match selfhost_checked_expr_tree_get_argument tree arguments 0:
+                                Option::Some first:
+                                    match selfhost_checked_expr_tree_get_argument tree arguments 1:
+                                        Option::Some second:
+                                            if:
+                                                not and selfhost_check_expr_stage1_argument_is_checked_expr_range &first 0 4 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 3 5 6
+                                                then:
+                                                    false
+                                                else:
+                                                    match selfhost_check_expr_stage1_checked_expr_argument_id &first:
+                                                        Option::Some child_expr:
+                                                            selfhost_check_expr_stage1_pipe_left_nested_child_arguments_ok tree child_expr "add"
+                                                        Option::None:
+                                                            false
+                                        Option::None:
+                                            false
+                                Option::None:
+                                    false
+                _:
+                    false
+        Option::None:
+            false
+
+//: selfhost_check_expr_stage1_general_nested_child_arguments_ok: 一般 nested call node の argument を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `outer add 1 2 3` の inner `add 1 2` が checked tree 内で2引数 `DirectCall` node として保存されたことを確認します。
+//: - outer の残り argument `3` を inner call へ誤消費する退行を、child argument range の検査で検出します。
+//:
+//: [契約/けいやく]:
+//: - inner call の selected candidate name は `expected_name` と一致しなければなりません。
+//: - inner call の prefix item index は `1:<name>`, `2:1`, `3:2` であり、child arguments は `[2, 3)` と `[3, 4)` に一致しなければなりません。
+//: - `NestedDirectCall` summary variant は成功扱いにしません。HIR lowering の authority は checked tree node と checked argument payload です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 参照先が `expected_name` の2引数 `DirectCall` で、child argument が `I32Literal(1)`、`I32Literal(2)` の順です。
+//: - `false`: node lookup、node kind、argument range、payload、または範囲が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed fixture の node 1 件と argument 2 件だけを読むため O(1) です。
+fn selfhost_check_expr_stage1_general_nested_child_arguments_ok %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprId fn str bool \tree\expr_id\expected_name:
+    match selfhost_checked_expr_tree_get_node tree expr_id:
+        Option::Some node:
+            match node.kind:
+                SelfhostCheckedExprNodeKind::DirectCall call:
+                    let arguments %SelfhostCheckedArgumentRange call.arguments
+                    if:
+                        not and string_search::str_eq call.candidate.name expected_name eq selfhost_checked_argument_range_count arguments 2
+                        then:
+                            false
+                        else:
+                            match selfhost_checked_expr_tree_get_argument tree arguments 0:
+                                Option::Some first:
+                                    match selfhost_checked_expr_tree_get_argument tree arguments 1:
+                                        Option::Some second:
+                                            and selfhost_check_expr_stage1_argument_is_i32_literal_range &first 1 2 3 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 2 3 4
+                                        Option::None:
+                                            false
+                                Option::None:
+                                    false
+                _:
+                    false
+        Option::None:
+            false
+
+//: selfhost_check_expr_stage1_success_has_general_nested_overload_argument_order: outer/nested の argument 順序を[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `outer add 1 2 3` の outer checked argument list が、inner `add 1 2` の checked expression と後続 literal `3` をこの順に保存することを確認します。
+//: - final-range narrowing だけでは inner call が suffix 全体を消費する形しか見られないため、この helper は一般 nested overload boundary の consume-width を固定します。
+//:
+//: [契約/けいやく]:
+//: - outer checked argument の第1要素は `[1, 4)` の `CheckedExpr` で、第2要素は `[4, 5)` の `I32Literal(3)` です。
+//: - `success` は borrow であり、この helper は内部 Vec を解放しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: checked argument が2件で、0番目が inner call、1番目が outer の残り literal です。
+//: - `false`: checked argument 数、payload kind、literal 値、または consume-width が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定2件の Vec access と payload match だけなので O(1) です。
+fn selfhost_check_expr_stage1_success_has_general_nested_overload_argument_order %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
+    if:
+        not eq v::len checked_arguments 2
+        then:
+            false
+        else:
+            match v::get checked_arguments 0:
+                Option::Some first:
+                    match v::get checked_arguments 1:
+                        Option::Some second:
+                            and selfhost_check_expr_stage1_argument_is_checked_expr_range &first 1 4 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 3 4 5
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_check_expr_stage1_general_nested_root_links_child_direct_call: outer call から inner nested node へ[接続/せつぞく]しているか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `outer add 1 2 3` の root direct call が第1引数として inner `add 1 2` node を `CheckedExpr` 参照し、第2引数として `3` を保持していることを確認します。
+//: - source token を HIR lowering で再解釈せず、checked tree topology だけで nested call を下ろせる契約を固定します。
+//:
+//: [契約/けいやく]:
+//: - root は outer の2引数 direct call です。
+//: - 第1引数は nested call の checked expression `[1, 4)`、第2引数は literal `3` `[4, 5)` です。
+//: - checked tree 参照先が見つからない場合や legacy summary variant の場合は `false` にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: root と child の両方が期待した `DirectCall` topology と argument payload を持っています。
+//: - `false`: root id、node kind、argument count、argument kind、または child 参照先が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed fixture の root node 1 件、child node 1 件、argument 4 件を読むため O(1) です。
+fn selfhost_check_expr_stage1_general_nested_root_links_child_direct_call %fn &SelfhostExpressionLineCheckSuccess fn str bool \success\expected_child_name:
+    let tree %&SelfhostCheckedExprTree selfhost_expression_line_check_success_checked_tree success
+    let root_expr %SelfhostCheckedExprId selfhost_expression_line_check_success_root_expr success
+    match selfhost_checked_expr_tree_get_node tree root_expr:
+        Option::Some node:
+            match node.kind:
+                SelfhostCheckedExprNodeKind::DirectCall call:
+                    let arguments %SelfhostCheckedArgumentRange call.arguments
+                    if:
+                        not eq selfhost_checked_argument_range_count arguments 2
+                        then:
+                            false
+                        else:
+                            match selfhost_checked_expr_tree_get_argument tree arguments 0:
+                                Option::Some first:
+                                    match selfhost_checked_expr_tree_get_argument tree arguments 1:
+                                        Option::Some second:
+                                            if:
+                                                not and selfhost_check_expr_stage1_argument_is_checked_expr_range &first 1 4 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 3 4 5
+                                                then:
+                                                    false
+                                                else:
+                                                    match selfhost_check_expr_stage1_checked_expr_argument_id &first:
+                                                        Option::Some child_expr:
+                                                            selfhost_check_expr_stage1_general_nested_child_arguments_ok tree child_expr expected_child_name
+                                                        Option::None:
+                                                            false
+                                        Option::None:
+                                            false
+                                Option::None:
+                                    false
+                _:
+                    false
+        Option::None:
+            false
+
 //: selfhost_check_expr_stage1_success_has_ascribed_pipe_argument_order: ascribed pipe 正規化後の checked argument 順序を[調/しら]べる
 //:
 //: [目的/もくてき]:
@@ -3342,6 +3723,96 @@ fn selfhost_check_expr_stage1_nested_call_argument_ok_with_scope %impure fn Vec 
                             v::free candidates
                             v::free tokens
                             false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
+//: selfhost_check_expr_stage1_general_nested_overload_argument_ok_with_scope: `outer add 1 2 3` の一般 nested overload を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - inner `add` に1引数版と2引数版があるとき、outer continuation まで borrowed probe して2引数版だけを選べることを確認します。
+//: - final-range narrowing では inner call が残り範囲全体を消費する形しか扱えないため、この smoke は inner `add 1 2` の後ろに outer argument `3` が残る一般境界を固定します。
+//:
+//: [契約/けいやく]:
+//: - top-level candidate vector は `"outer"` の単一候補です。inner `add` overload は value context の scope/signature table から収集されます。
+//: - 成功時は outer root と inner child の checked tree topology まで確認します。単なる success だけでは selected inner candidate の consume-width を固定できません。
+//: - `arena`、`tokens`、candidate vector、context は成功・失敗にかかわらずこの helper が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: inner 2引数版 `add 1 2` が outer 第1引数になり、`3` が outer 第2引数になりました。
+//: - `false`: setup、reducer、checked argument order、または checked tree topology が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture 上は inner overload 2 件と outer 残り parameter 1 件だけを probe するため O(1) です。一般には候補数 c、inner parameter 数 p、outer 残り parameter 数 r に対して O(c * (p + r)) です。
+fn selfhost_check_expr_stage1_general_nested_overload_argument_ok_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\one_arg_type\two_arg_type\outer_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_general_nested_overload_argument_segment
+    match selfhost_check_expr_stage1_make_named_candidate_vec "outer" outer_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 6 9
+            match selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "outer add 1 2 3" segment arena context &candidates none:
+                        Result::Ok success:
+                            let order_ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_general_nested_overload_argument_order &success
+                            let ok %bool and order_ok selfhost_check_expr_stage1_general_nested_root_links_child_direct_call &success "add"
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
+//: selfhost_check_expr_stage1_general_nested_overload_duplicate_rejected_with_scope: 一般 nested overload の複数一致を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - inner `add` に同じ2引数 function type の候補が2件ある場合、outer continuation を含めても一意化できないため `OverloadAmbiguous` として拒否されることを確認します。
+//: - 候補順や最初に見つかった DefId による選択へ戻ると、overload 解決が fixture order に依存してしまうため、この negative smoke で禁止します。
+//:
+//: [契約/けいやく]:
+//: - top-level candidate vector は `"outer"` の単一候補です。inner `add` だけが同一型2候補を持ちます。
+//: - token owner、arena owner、candidate vector、context は成功・失敗にかかわらずこの helper が閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 複数一致が `OverloadAmbiguous` として拒否されました。
+//: - `false`: setup、error kind、または誤った success path が発生しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture 上は inner candidate 2 件だけを probe するため O(1) です。一般には候補数と continuation probe に従います。
+fn selfhost_check_expr_stage1_general_nested_overload_duplicate_rejected_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\matching_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_general_nested_overload_argument_segment
+    match selfhost_check_expr_stage1_make_named_candidate_vec "outer" matching_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 6 9
+            match selfhost_check_expr_stage1_value_context_with_two_functions "add" matching_type matching_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "outer add 1 2 3" segment arena context &candidates none:
+                        Result::Ok success:
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            false
+                        Result::Err e:
+                            let ok %bool selfhost_expression_line_check_error_is_call_reduce_kind e SelfhostCallReduceErrorKind::OverloadAmbiguous
+                            v::free candidates
+                            v::free tokens
+                            ok
                 Result::Err _e:
                     selfhost_type_arena_free arena
                     v::free candidates
@@ -4101,6 +4572,53 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_same_name_nested_suffix_suc
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_pipe_left_nested_overload_succeeds_with_scope: pipe left nested overload を source-backed に[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `add 1 2 |> use 3` の left segment `add 1 2` が、同名 overloaded `add` 候補から2引数版だけを選び、pipe target `use` の第1引数へ `CheckedExpr` として渡されることを確認します。
+//: - left segment の nested overload narrowing が pipe target の suffix `3` を outer continuation として使う退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - context は `add : fn i32 i32`、`add : fn i32 fn i32 i32`、`use : fn i32 fn i32 i32` を持ちます。
+//: - pipe left の `add 1 2` は `FinalRange` 境界で `[0, 3)` を完全消費し、pipe operator を含む left range `[0, 4)` の checked expression になります。
+//: - `use` root の第2引数は suffix `3` の literal payload でなければなりません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: left nested call と root pipe target の checked tree topology が期待通りでした。
+//: - `false`: setup、候補選択、argument check、または checked tree topology が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。reducer 側は pipe scan、left segment の complete-match probe、target suffix check に従います。
+fn selfhost_check_expr_stage1_pipe_left_nested_overload_succeeds_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\one_arg_type\two_arg_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_pipe_left_nested_overload_segment
+    match selfhost_check_expr_stage1_make_candidate_vec two_arg_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 0 3
+            let use_span %SelfhostSourceSpan source_span_new_unchecked 0 11 14
+            match selfhost_check_expr_stage1_value_context_with_two_functions_and_named_function "add" one_arg_type two_arg_type add_span "use" two_arg_type use_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "add 1 2 |> use 3" segment arena context &candidates none:
+                        Result::Ok success:
+                            let order_ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_pipe_left_nested_overload_argument_order &success
+                            let ok %bool and order_ok selfhost_check_expr_stage1_pipe_left_nested_root_links_child_direct_call &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_pipe_ascribed_target_overload_no_match_rejected_with_scope: 注釈型に[一致/いっち]する overload が無い場合を[確認/かくにん]する
 //:
 //: [目的/もくてき]:
@@ -4633,6 +5151,64 @@ fn selfhost_check_expr_stage1_run_nested_call_argument_with_i32 %impure fn Vec S
             let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
             let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
             if selfhost_check_expr_stage1_nested_call_argument_ok_with_scope tokens next_arena add_type 0 1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_general_nested_overload_argument_with_i32: 一般 nested overload smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `outer add 1 2 3` で inner `add` の overload を outer continuation 付きで選ぶ経路を、実行可能 stage1 smoke として固定します。
+//: - inner が argument 範囲全体を消費しない形を扱うため、final-range narrowing だけに退行するとこの smoke は失敗します。
+//:
+//: [契約/けいやく]:
+//: - `one_type` は inner `add 1` 候補、`two_type` は inner `add 1 2` 候補兼 outer `outer` 候補として使います。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時は token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: 一般 nested overload continuation fixture が通りました。
+//: - `1`: setup、candidate collection、reducer、または checked tree topology が期待と違いました。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture 上は固定2候補だけを追加するため setup は O(1) です。下位 reducer は候補数と continuation probe に従います。
+fn selfhost_check_expr_stage1_run_general_nested_overload_argument_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
+        Result::Ok one_alloc:
+            let one_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &one_alloc
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena one_alloc
+            match selfhost_check_expr_stage1_add_two_i32_function arena1 i32_type:
+                Result::Ok two_alloc:
+                    let two_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &two_alloc
+                    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena two_alloc
+                    if selfhost_check_expr_stage1_general_nested_overload_argument_ok_with_scope tokens arena2 one_type two_type two_type 0 1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_general_nested_overload_duplicate_with_i32: 一般 nested overload 複数一致 smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `outer add 1 2 3` で inner `add` の2引数候補が2件一致する場合に、first-match ではなく `OverloadAmbiguous` へ閉じることを確認します。
+//:
+//: [契約/けいやく]:
+//: - `two_type` は inner duplicate 候補と outer 候補の両方に使います。candidate identity は違っても callable type と continuation が同じなので曖昧です。
+//: - setup 成功後の owner は下位 fixture へ移動し、setup 失敗時は token owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: 複数一致が期待通り拒否されました。
+//: - `1`: setup、error kind、または下位 reducer が期待と違いました。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture 上は固定1型だけを追加するため setup は O(1) です。下位 reducer は候補数と continuation probe に従います。
+fn selfhost_check_expr_stage1_run_general_nested_overload_duplicate_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_two_i32_function arena i32_type:
+        Result::Ok two_alloc:
+            let two_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &two_alloc
+            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena two_alloc
+            if selfhost_check_expr_stage1_general_nested_overload_duplicate_rejected_with_scope tokens next_arena two_type 0 1
         Result::Err _e:
             v::free tokens
             1
@@ -5241,6 +5817,70 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix
                     let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
                     selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_i32: pipe left nested overload smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - primitive `i32` を使って `add` の1引数/2引数 overload と `use` の2引数型を構築し、`add 1 2 |> use 3` が正しく縮約されることを確認します。
+//: - pipe left の nested overload narrowing が target suffix を continuation として使わない境界を実行可能に固定します。
+//:
+//: [契約/けいやく]:
+//: - `one_type` は `add 1` 候補、`two_type` は `add 1 2` 候補兼 `use` target 型として使います。
+//: - setup 成功後の arena owner と token owner は下位 helper へ移動します。
+//: - function type allocation に失敗した場合だけ、この helper が token owner を閉じます。arena owner は allocation helper 側で閉じられます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: pipe left nested overload fixture が通りました。
+//: - `1`: setup、候補選択、argument check、または checked tree topology が期待と違いました。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture 上は固定2型だけを追加するため setup は O(1) です。下位 reducer は pipe scan、left nested complete-match、suffix argument check に従います。
+fn selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
+        Result::Ok one_alloc:
+            let one_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &one_alloc
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena one_alloc
+            match selfhost_check_expr_stage1_add_two_i32_function arena1 i32_type:
+                Result::Ok two_alloc:
+                    let two_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &two_alloc
+                    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena two_alloc
+                    if selfhost_check_expr_stage1_pipe_left_nested_overload_succeeds_with_scope tokens arena2 one_type two_type 0 1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_tokens: token owner から pipe left nested overload smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `add 1 2 |> use 3` 用 token buffer に primitive `i32` arena fixture を付け、left nested overload regression helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - arena setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後は token owner と arena owner を下位 helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: pipe left nested overload smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive fixture setup は O(1) です。下位 reducer の計算量は pipe scan、left nested候補数、target suffix check に従います。
+fn selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_i32 tokens arena1 i32_type
                 Result::Err _e:
                     v::free tokens
                     1
@@ -6117,6 +6757,66 @@ fn selfhost_check_expr_stage1_run_nested_call_argument_with_tokens %impure fn Ve
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_general_nested_overload_argument_with_tokens: token owner から一般 nested overload smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `outer add 1 2 3` 用 token buffer に primitive `i32` arena fixture を付け、inner overloaded nested call と outer continuation の成功経路へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: 一般 nested overload continuation smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive fixture setup は O(1) です。下位 reducer の候補数と continuation probe が支配的です。
+fn selfhost_check_expr_stage1_run_general_nested_overload_argument_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_general_nested_overload_argument_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_general_nested_overload_duplicate_with_tokens: token owner から一般 nested 複数一致 smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `outer add 1 2 3` 用 token buffer に primitive `i32` arena fixture を付け、inner duplicate overload rejection helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後の owner は i32-level helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: 一般 nested overload duplicate rejection smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive fixture setup は O(1) です。下位 reducer の候補数と continuation probe が支配的です。
+fn selfhost_check_expr_stage1_run_general_nested_overload_duplicate_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_general_nested_overload_duplicate_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_trailing_block_argument_with_tokens: token owner から trailing block argument smoke を[起動/きどう]する
 //:
 //: [目的/もくてき]:
@@ -6286,7 +6986,7 @@ fn selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens %impure
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を2回作るため setup は O(1) です。支配的な計算量は各 reducer 呼び出しです。
-fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_ascribed_tokens:
         Result::Ok tokens:
             let ok_result %i32 selfhost_check_expr_stage1_run_ascription_with_tokens tokens
@@ -6318,7 +7018,7 @@ fn selfhost_check_expr_stage1_ascription_body_line %impure fn void i32 \void:
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は下位 reducer です。
-fn selfhost_check_expr_stage1_ascribed_argument_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_ascribed_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_ascribed_argument_i32_tokens:
         Result::Ok tokens:
             let ok_result %i32 selfhost_check_expr_stage1_run_ascribed_argument_with_tokens tokens
@@ -6350,7 +7050,7 @@ fn selfhost_check_expr_stage1_ascribed_argument_body_line %impure fn void i32 \v
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を最大3回作るため setup は O(1) です。支配的な計算量は下位 reducer の name evidence 探索です。
-fn selfhost_check_expr_stage1_named_argument_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_named_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_named_argument_tokens:
         Result::Ok tokens:
             let ok_result %i32 selfhost_check_expr_stage1_run_named_argument_with_tokens tokens
@@ -6380,28 +7080,48 @@ fn selfhost_check_expr_stage1_named_argument_body_line %impure fn void i32 \void
 //: selfhost_check_expr_stage1_nested_call_argument_body_line: nested call と shadowed function smoke を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
-//: - nested named call argument が cursor を正しく返すことと、同名 local value が function binding を shadow することを同じ body-line slice で確認します。
+//: - nested named call argument が cursor を正しく返すこと、同名 overloaded nested call が outer continuation 付きで一意化されること、同じ continuation 条件に複数候補が一致したら拒否されること、同名 local value が function binding を shadow することを同じ body-line slice で確認します。
 //:
 //: [契約/けいやく]:
-//: - nested call success が通った後だけ shadowing regression check を実行します。
+//: - 単一候補 nested call success が通った後だけ一般 nested overload continuation を実行し、それも通った後だけ duplicate rejection と shadowing regression check を実行します。
 //: - token buffer owner は各 runner へ移動し、runner が cleanup を担当します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: nested call argument と shadowed function value evidence が期待通りでした。
+//: - `0`: nested call argument、一般 nested overload continuation、duplicate rejection、shadowed function value evidence が期待通りでした。
 //: - `1`: token setup またはいずれかの smoke helper が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は下位 reducer の nested call 探索です。
-fn selfhost_check_expr_stage1_nested_call_argument_body_line %impure fn void i32 \void:
+//: - 固定 token fixture を最大4回作るため setup は O(1) です。支配的な計算量は下位 reducer の nested call 探索です。
+pub fn selfhost_check_expr_stage1_nested_call_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_nested_call_argument_tokens:
         Result::Ok tokens:
             let nested_result %i32 selfhost_check_expr_stage1_run_nested_call_argument_with_tokens tokens
             if:
                 eq nested_result 0
                 then:
-                    match selfhost_check_expr_stage1_make_shadowed_function_argument_tokens:
-                        Result::Ok shadow_tokens:
-                            selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens shadow_tokens
+                    match selfhost_check_expr_stage1_make_general_nested_overload_argument_tokens:
+                        Result::Ok general_tokens:
+                            let general_result %i32 selfhost_check_expr_stage1_run_general_nested_overload_argument_with_tokens general_tokens
+                            if:
+                                eq general_result 0
+                                then:
+                                    match selfhost_check_expr_stage1_make_general_nested_overload_argument_tokens:
+                                        Result::Ok duplicate_tokens:
+                                            let duplicate_result %i32 selfhost_check_expr_stage1_run_general_nested_overload_duplicate_with_tokens duplicate_tokens
+                                            if:
+                                                eq duplicate_result 0
+                                                then:
+                                                    match selfhost_check_expr_stage1_make_shadowed_function_argument_tokens:
+                                                        Result::Ok shadow_tokens:
+                                                            selfhost_check_expr_stage1_run_shadowed_function_argument_with_tokens shadow_tokens
+                                                        Result::Err _e:
+                                                            1
+                                                else:
+                                                    1
+                                        Result::Err _e:
+                                            1
+                                else:
+                                    1
                         Result::Err _e:
                             1
                 else:
@@ -6425,7 +7145,7 @@ fn selfhost_check_expr_stage1_nested_call_argument_body_line %impure fn void i32
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は function value candidate matching と reducer 探索です。
-fn selfhost_check_expr_stage1_function_value_argument_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_function_value_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_function_value_argument_tokens:
         Result::Ok tokens:
             let ok_result %i32 selfhost_check_expr_stage1_run_function_value_argument_with_tokens tokens
@@ -6458,7 +7178,7 @@ fn selfhost_check_expr_stage1_function_value_argument_body_line %impure fn void 
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を最大 2 回作るため setup は O(1) です。各 reducer は chain token 数に対する pipe scan と前段 call の引数検査を行います。
-fn selfhost_check_expr_stage1_pipe_chain_failclosed_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_pipe_chain_failclosed_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_chain_missing_right_tokens:
         Result::Ok missing_right_tokens:
             let missing_right %i32 selfhost_check_expr_stage1_run_pipe_chain_error_after_first_stage_with_tokens missing_right_tokens "1 |> add 2 |>" 5 13 SelfhostCallReduceErrorKind::PipeMissingRightTarget
@@ -6492,7 +7212,7 @@ fn selfhost_check_expr_stage1_pipe_chain_failclosed_body_line %impure fn void i3
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を最大 8 回作るため setup は O(1) です。各 reducer は prefix item 数に対する O(n) pipe scan を行います。
-fn selfhost_check_expr_stage1_pipe_failclosed_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_pipe_failclosed_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_missing_left_tokens:
         Result::Ok missing_left_tokens:
             let missing_left %i32 selfhost_check_expr_stage1_run_pipe_missing_left_with_tokens missing_left_tokens
@@ -6589,7 +7309,7 @@ fn selfhost_check_expr_stage1_pipe_failclosed_body_line %impure fn void i32 \voi
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を最大 7 回作るため setup は O(1) です。各 reducer は候補数と argument probe cost に従います。
-fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_tokens:
         Result::Ok success_tokens:
             let success %i32 selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens success_tokens
@@ -6663,6 +7383,7 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
 //: - 同名 function overload が複数ある場合でも、明示 target ascription が callable type と一致する1候補へ探索空間を狭めることを確認します。
 //: - target ascription が無い場合でも、pipe 左辺と RHS suffix の引数列から同名 overload を一意化できる最小 case、source-backed suffix success case、その 0 件 / 複数件 fail-closed case を確認します。
 //: - suffix が nested direct call の場合は、outer call の argument を legacy summary ではなく `CheckedExpr` として checked tree へ接続することを確認します。同名 overloaded inner call は、expected result と consume-width で一意に確認できる範囲だけ成功させます。
+//: - pipe 左辺が nested overloaded call の場合は、pipe target suffix を left segment の continuation として使わず、left range を完全消費する候補だけを選ぶことを確認します。
 //: - pipe は部分適用ではなく、右辺 callable の第1引数に左辺 checked argument を差し込む syntax sugar として扱うことを固定します。
 //: - success case が通った後、不正な形や target ascription mismatch が typed pipe error として fail-closed になる negative smoke 群も実行します。
 //:
@@ -6671,12 +7392,12 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
 //: - token setup に失敗した場合は status `1` を返します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: plain pipe、function type 注釈付き pipe target、ascription による overload narrowing、注釈無し target の argument narrowing、nested suffix checked tree 接続、pipe chain、chain 後段 fail-closed、代表的な単一 pipe 不正形が期待通りでした。
+//: - `0`: plain pipe、function type 注釈付き pipe target、ascription による overload narrowing、注釈無し target の argument narrowing、nested suffix checked tree 接続、left nested overload、pipe chain、chain 後段 fail-closed、代表的な単一 pipe 不正形が期待通りでした。
 //: - `1`: token setup または pipe reducer が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - 固定 token fixture を最大 21 回作るため setup は O(1) です。支配的な計算量は pipe scan、target ascription projection、candidate narrowing、argument probe、argument checker に従います。
-fn selfhost_check_expr_stage1_pipe_body_line %impure fn void i32 \void:
+//: - 固定 token fixture を最大 22 回作るため setup は O(1) です。支配的な計算量は pipe scan、target ascription projection、candidate narrowing、argument probe、argument checker に従います。
+pub fn selfhost_check_expr_stage1_pipe_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_tokens:
         Result::Ok tokens:
             let success %i32 selfhost_check_expr_stage1_run_pipe_with_tokens tokens
@@ -6699,18 +7420,28 @@ fn selfhost_check_expr_stage1_pipe_body_line %impure fn void i32 \void:
                                                     if:
                                                         eq argument_narrowing 0
                                                         then:
-                                                            match selfhost_check_expr_stage1_make_pipe_chain_tokens:
-                                                                Result::Ok chain_tokens:
-                                                                    let chain_success %i32 selfhost_check_expr_stage1_run_pipe_chain_with_tokens chain_tokens
+                                                            match selfhost_check_expr_stage1_make_pipe_left_nested_overload_tokens:
+                                                                Result::Ok left_nested_tokens:
+                                                                    let left_nested_success %i32 selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_tokens left_nested_tokens
                                                                     if:
-                                                                        eq chain_success 0
+                                                                        eq left_nested_success 0
                                                                         then:
-                                                                            let chain_failclosed %i32 selfhost_check_expr_stage1_pipe_chain_failclosed_body_line
-                                                                            if:
-                                                                                eq chain_failclosed 0
-                                                                                then:
-                                                                                    selfhost_check_expr_stage1_pipe_failclosed_body_line
-                                                                                else:
+                                                                            match selfhost_check_expr_stage1_make_pipe_chain_tokens:
+                                                                                Result::Ok chain_tokens:
+                                                                                    let chain_success %i32 selfhost_check_expr_stage1_run_pipe_chain_with_tokens chain_tokens
+                                                                                    if:
+                                                                                        eq chain_success 0
+                                                                                        then:
+                                                                                            let chain_failclosed %i32 selfhost_check_expr_stage1_pipe_chain_failclosed_body_line
+                                                                                            if:
+                                                                                                eq chain_failclosed 0
+                                                                                                then:
+                                                                                                    selfhost_check_expr_stage1_pipe_failclosed_body_line
+                                                                                                else:
+                                                                                                    1
+                                                                                        else:
+                                                                                            1
+                                                                                Result::Err _e:
                                                                                     1
                                                                         else:
                                                                             1
@@ -6746,7 +7477,7 @@ fn selfhost_check_expr_stage1_pipe_body_line %impure fn void i32 \void:
 //:
 //: [計算量/けいさんりょう]:
 //: - setup は O(1) です。支配的な計算量は block body segment 数と nested reducer 探索に従います。
-fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_trailing_block_argument_tokens:
         Result::Ok tokens:
             selfhost_check_expr_stage1_run_trailing_block_argument_with_tokens tokens
@@ -6769,7 +7500,7 @@ fn selfhost_check_expr_stage1_trailing_block_argument_body_line %impure fn void 
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を最大2回作るため setup は O(1) です。支配的な計算量は block body segment 数と nested reducer 探索に従います。
-fn selfhost_check_expr_stage1_trailing_block_sequence_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_trailing_block_sequence_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_trailing_block_sequence_tokens:
         Result::Ok tokens:
             let ok_result %i32 selfhost_check_expr_stage1_run_trailing_block_sequence_with_tokens tokens
@@ -6802,14 +7533,38 @@ fn selfhost_check_expr_stage1_trailing_block_sequence_body_line %impure fn void 
 //:
 //: [計算量/けいさんりょう]:
 //: - 固定 token fixture を1回作るため setup は O(1) です。支配的な計算量は nested block depth と reducer 探索に従います。
-fn selfhost_check_expr_stage1_trailing_block_nested_body_line %impure fn void i32 \void:
+pub fn selfhost_check_expr_stage1_trailing_block_nested_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_trailing_block_nested_tokens:
         Result::Ok tokens:
             selfhost_check_expr_stage1_run_trailing_block_nested_with_tokens tokens
         Result::Err _e:
             1
 
-//: selfhost_check_expr_stage1_body_line: body expression line 接続の smoke API
+//: selfhost_check_expr_stage1_direct_body_line: direct named call の最小 body-line smoke API
+//:
+//: [目的/もくてき]:
+//: - `ExpressionLine.head` から prefix list を作り、direct named call reduction へ渡す最小の縦切りを確認します。
+//: - doctest や source policy の focused smoke から、巨大な集約 API を経由せず direct call 境界だけを検査できるようにします。
+//:
+//: [契約/けいやく]:
+//: - token buffer owner は direct call runner へ移動し、runner が cleanup を担当します。
+//: - token setup に失敗した場合は status `1` を返します。
+//: - この API は direct named call の接続だけを確認し、ascription、nested argument、pipe、trailing block の検査はそれぞれの public smoke API に分けます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: direct named call reduction が期待通りでした。
+//: - `1`: token setup または direct named call reduction が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を1回作るため setup は O(1) です。支配的な計算量は prefix item 数と direct call reducer の候補数に従います。
+pub fn selfhost_check_expr_stage1_direct_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_tokens:
+        Result::Ok tokens:
+            selfhost_check_expr_stage1_run_with_tokens tokens
+        Result::Err _e:
+            1
+
+//: selfhost_check_expr_stage1_body_line: body expression line 接続の集約 smoke API
 //:
 //: [目的/もくてき]:
 //: - `ExpressionLine.head` から prefix list を作り、direct named call reduction へ渡す縦切りを確認します。
@@ -6834,53 +7589,50 @@ fn selfhost_check_expr_stage1_trailing_block_nested_body_line %impure fn void i3
 //:
 //: [契約/けいやく]:
 //: - この public smoke API は詳細な typed error を返さず、selfhost compiler の縦切り regression を `0/1` status に畳みます。
+//: - 互換性のために各 focused smoke API を順に呼ぶ集約入口として残します。doctest や小さな回帰検査では、default timeout 内で原因を切り分けられるように focused public smoke API を直接呼びます。
 //: - 下位 helper は token owner、arena owner、candidate vector、value context の cleanup をそれぞれの契約に従って行います。
 //: - ここで実行する fixture は固定の `i32` / `bool` / `add` / `takes` を使う focused smoke であり、stdlib 全体の overload / generic / impure callable 検査を置き換えるものではありません。
 //:
 //: [計算量/けいさんりょう]:
 //: - この entry 自身は固定個数の smoke helper を順に呼ぶため O(1) 個の reducer 呼び出しです。各 reducer の支配的な計算量は prefix item 数、candidate 数、block body segment 数に従います。
 pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
-    match selfhost_check_expr_stage1_make_tokens:
-        Result::Ok tokens:
-            let base %i32 selfhost_check_expr_stage1_run_with_tokens tokens
+    let base %i32 selfhost_check_expr_stage1_direct_body_line
+    if:
+        eq base 0
+        then:
+            let ascription_base %i32 selfhost_check_expr_stage1_ascription_body_line
             if:
-                eq base 0
+                eq ascription_base 0
                 then:
-                    let ascription_base %i32 selfhost_check_expr_stage1_ascription_body_line
+                    let argument_ascription %i32 selfhost_check_expr_stage1_ascribed_argument_body_line
                     if:
-                        eq ascription_base 0
+                        eq argument_ascription 0
                         then:
-                            let argument_ascription %i32 selfhost_check_expr_stage1_ascribed_argument_body_line
+                            let named_argument %i32 selfhost_check_expr_stage1_named_argument_body_line
                             if:
-                                eq argument_ascription 0
+                                eq named_argument 0
                                 then:
-                                    let named_argument %i32 selfhost_check_expr_stage1_named_argument_body_line
+                                    let nested_argument %i32 selfhost_check_expr_stage1_nested_call_argument_body_line
                                     if:
-                                        eq named_argument 0
+                                        eq nested_argument 0
                                         then:
-                                            let nested_argument %i32 selfhost_check_expr_stage1_nested_call_argument_body_line
+                                            let function_value_argument %i32 selfhost_check_expr_stage1_function_value_argument_body_line
                                             if:
-                                                eq nested_argument 0
+                                                eq function_value_argument 0
                                                 then:
-                                                    let function_value_argument %i32 selfhost_check_expr_stage1_function_value_argument_body_line
+                                                    let pipe_argument %i32 selfhost_check_expr_stage1_pipe_body_line
                                                     if:
-                                                        eq function_value_argument 0
+                                                        eq pipe_argument 0
                                                         then:
-                                                            let pipe_argument %i32 selfhost_check_expr_stage1_pipe_body_line
+                                                            let trailing_block %i32 selfhost_check_expr_stage1_trailing_block_argument_body_line
                                                             if:
-                                                                eq pipe_argument 0
+                                                                eq trailing_block 0
                                                                 then:
-                                                                    let trailing_block %i32 selfhost_check_expr_stage1_trailing_block_argument_body_line
+                                                                    let trailing_sequence %i32 selfhost_check_expr_stage1_trailing_block_sequence_body_line
                                                                     if:
-                                                                        eq trailing_block 0
+                                                                        eq trailing_sequence 0
                                                                         then:
-                                                                            let trailing_sequence %i32 selfhost_check_expr_stage1_trailing_block_sequence_body_line
-                                                                            if:
-                                                                                eq trailing_sequence 0
-                                                                                then:
-                                                                                    selfhost_check_expr_stage1_trailing_block_nested_body_line
-                                                                                else:
-                                                                                    1
+                                                                            selfhost_check_expr_stage1_trailing_block_nested_body_line
                                                                         else:
                                                                             1
                                                                 else:
@@ -6897,5 +7649,5 @@ pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
                             1
                 else:
                     1
-        Result::Err _e:
+        else:
             1

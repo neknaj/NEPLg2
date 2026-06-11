@@ -336,6 +336,41 @@ struct SelfhostCallReduceNestedArgumentState:
     checked_arguments %Vec SelfhostCheckedArgument
     match_value %SelfhostExprArgumentMatch
 
+//: SelfhostNestedCandidateBorrowedSelection: 借用 probe で一意化された nested candidate
+//:
+//: [目的/もくてき]:
+//: - continuation-aware selector が選んだ candidate と、その candidate が借用 probe 上で消費した直後の `next_index` を一緒に運びます。
+//: - source-backed finisher 実行後に実際の consume-width と比較し、selector と finisher の規則がずれた場合は fail-closed にできます。
+//:
+//: [契約/けいやく]:
+//: - `next_index` は `candidate` の nested call が飽和した直後の prefix item index です。
+//: - この record は arena owner、checked tree owner、source token、scope、signature table を持ちません。候補ごとの source-backed 投機実行を避けるための借用選択 payload です。
+struct SelfhostNestedCandidateBorrowedSelection:
+    candidate %SelfhostCallableCandidate
+    next_index %i32
+
+//: SelfhostNestedArgumentBoundary: nested argument overload を絞り込む境界
+//:
+//: [目的/もくてき]:
+//: - named argument 位置で同名 callable 候補が複数あるとき、その nested call がどこまで source 範囲を消費すべきかを enum として明示します。
+//: - 通常 call の非末尾 argument では outer continuation を使えます。一方、pipe 左辺では pipe operator の直前までで単一値を作る必要があり、pipe target の後続引数を left segment の選別材料にしてはいけません。
+//:
+//: [契約/けいやく]:
+//: - `FinalRange` は `item_count` まで完全消費できる候補だけを許します。pipe left や、1つの argument 範囲全体を閉じる境界で使います。
+//: - `OuterContinuation` は nested call の直後から外側 call の残り parameter が借用 matcher で満たせる候補だけを許します。通常 argument loop の non-final nested boundary で使います。
+//: - この enum は bool flag ではなく、境界を追加するときに match の網羅性検査で caller 更新漏れを検出するための契約です。
+enum SelfhostNestedArgumentBoundary:
+    FinalRange
+    OuterContinuation
+
+impl Clone for SelfhostNestedArgumentBoundary:
+    fn clone %fn &SelfhostNestedArgumentBoundary SelfhostNestedArgumentBoundary \self:
+        *self
+
+impl Copy for SelfhostNestedArgumentBoundary:
+    fn copy_mark %fn SelfhostNestedArgumentBoundary SelfhostNestedArgumentBoundary \self:
+        self
+
 //: selfhost_call_reduce_argument_check_state_new: argument loop state を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -359,6 +394,10 @@ fn selfhost_call_reduce_argument_match_state_new %impure fn SelfhostTypeArena im
 //: selfhost_call_reduce_nested_argument_state_new: nested argument loop state を[作/つく]る
 fn selfhost_call_reduce_nested_argument_state_new %impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn Vec SelfhostCheckedArgument impure fn SelfhostExprArgumentMatch SelfhostCallReduceNestedArgumentState \arena\checked_tree\checked_arguments\match_value:
     SelfhostCallReduceNestedArgumentState arena checked_tree checked_arguments match_value
+
+//: selfhost_nested_candidate_borrowed_selection_new: 借用 candidate selection を[作/つく]る
+fn selfhost_nested_candidate_borrowed_selection_new %fn SelfhostCallableCandidate fn i32 SelfhostNestedCandidateBorrowedSelection \candidate\next_index:
+    SelfhostNestedCandidateBorrowedSelection candidate next_index
 
 //: selfhost_call_reduce_argument_check_state_free: argument loop state の owner を[解放/かいほう]する
 //:
@@ -597,7 +636,7 @@ fn selfhost_call_reduce_argument_consume_loop_with_source %impure fn &Vec Selfho
                 else:
                     match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
                         Option::Some expected_arg_type:
-                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_arg_type head:
+                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures SelfhostNestedArgumentBoundary::OuterContinuation candidate param_count param_idx item_index item_count expected_arg_type head:
                                 Result::Ok match_state:
                                     let argument_match %SelfhostExprArgumentMatch field::get match_state "match_value"
                                     let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"
@@ -756,6 +795,219 @@ fn selfhost_call_reduce_nested_candidate_complete_borrowed_matches %fn &Selfhost
         Result::Err e:
             Result::Err e
 
+//: selfhost_call_reduce_candidate_borrowed_next_index_loop: 借用 matcher で候補の実引数を[消費/しょうひ]する
+//:
+//: [目的/もくてき]:
+//: - 候補の parameter 列だけを source-less borrowed argument matcher で走査し、候補呼び出しが飽和した直後の prefix item index を返します。
+//: - caller は返された `next_index` を使い、外側 consumer の残り parameter が後続 item を受け取れるかを別途確認します。
+//:
+//: [契約/けいやく]:
+//: - この helper は `item_index == item_count` を成功条件にしません。nested call が外側 call の途中 argument である場合、後続 item は外側 call の残り argument として読む必要があるためです。
+//: - `selfhost_expr_argument_match_at` で扱えない source-backed 専用式は typed error のまま返し、候補固有の不一致へ丸めません。
+//: - arena owner、checked tree、checked argument owner を受け取らず、候補ごとの source-backed reducer 投機実行を構造的にできない境界にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_index)`: candidate の全 parameter を消費し、次に読むべき prefix item index が得られました。
+//: - `Err(error)`: partial application、argument type mismatch、unsupported expression、または内部不整合です。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 数 p に対して O(p) 回、source-less argument matcher を呼びます。
+fn selfhost_call_reduce_candidate_borrowed_next_index_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn i32 fn i32 fn i32 fn i32 fn SelfhostExprPrefixItem Result i32 SelfhostCallReduceError \arena\prefix\candidate\param_count\param_idx\item_index\item_count\head:
+    if:
+        ge param_idx param_count
+        then:
+            Result::Ok item_index
+        else:
+            if:
+                ge item_index item_count
+                then:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PartialApplicationRejected head.span
+                else:
+                    match selfhost_type_arena_function_arg arena candidate.callable_type param_idx:
+                        Option::Some expected_arg_type:
+                            match selfhost_expr_argument_match_at arena prefix item_index item_count expected_arg_type:
+                                Result::Ok argument_match:
+                                    selfhost_call_reduce_candidate_borrowed_next_index_loop arena prefix candidate param_count add param_idx 1 argument_match.next_index item_count head
+                                Result::Err argument_error:
+                                    Result::Err selfhost_call_reduce_error_from_argument_match_owned argument_error head
+                        Option::None:
+                            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+//: selfhost_call_reduce_nested_candidate_borrowed_next_index: nested 候補の消費後 cursor を[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - source-backed nested argument の候補が、外側 parameter の expected type を返す完全な nested call として何 item 消費するかを借用 probe で求めます。
+//: - final-range narrowing では `next_index == item_count` だけを成功にしていましたが、一般 nested argument では `next_index` の後ろを外側 call が続けて消費できる場合があります。
+//:
+//: [契約/けいやく]:
+//: - `item_index` は nested callee head です。実引数 probe は `item_index + 1` から始めます。
+//: - candidate の result type は外側 argument の `expected_type` と一致しなければなりません。
+//: - generic 未解決や source-backed 専用 argument は成功扱いせず、typed error として caller へ返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(next_index)`: nested call 候補は飽和し、結果型も外側 expected type に一致しました。
+//: - `Err(error)`: 候補固有の不一致、または no-match にしてはいけない未対応・内部失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - nested candidate の parameter 数 p に対して O(p) です。
+fn selfhost_call_reduce_nested_candidate_borrowed_next_index %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem Result i32 SelfhostCallReduceError \arena\prefix\candidate\item_index\item_count\expected_type\head:
+    match selfhost_call_reduce_generic_state_error candidate:
+        Result::Ok _unit:
+            match selfhost_type_arena_function_arg_count arena candidate.callable_type:
+                Option::Some param_count:
+                    match selfhost_call_reduce_candidate_borrowed_next_index_loop arena prefix candidate param_count 0 add item_index 1 item_count head:
+                        Result::Ok next_index:
+                            let expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::OuterConsumerArgument head.span
+                            match selfhost_call_reduce_expected_result arena candidate some expected:
+                                Result::Ok _result_type:
+                                    Result::Ok next_index
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::NotCallable candidate.span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_call_reduce_nested_candidate_continuation_borrowed_matches: inner 候補と outer continuation を借用で[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - inner nested call が外側 argument 範囲全体を消費しない場合でも、外側 call の残り parameter が後続 item をちょうど消費できるなら、その inner 候補を選択可能にします。
+//: - `outer add 1 2 3` では、inner `add 1` を選ぶと outer 側に余分な item が残り、inner `add 1 2` を選ぶと outer の次 parameter が `3` を消費できます。この差を source-less continuation probe で確認します。
+//:
+//: [契約/けいやく]:
+//: - この helper は source-backed owner reducer を実行しません。inner 候補の consume-width と outer continuation の両方を borrowed matcher だけで確認します。
+//: - inner 候補固有の型・arity 不一致、または outer continuation 固有の型・arity 不一致は `Ok(false)` です。
+//: - source-backed checker が必要な未対応式、generic 未解決、内部 invariant、OOM などは no-match にせず `Err(error)` として fail-closed にします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(true)`: inner candidate と外側 continuation がどちらも一致しました。
+//: - `Ok(false)`: 候補固有の不一致により、この candidate は選べません。
+//: - `Err(error)`: 候補選択へ使ってはいけない未対応・内部失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - inner parameter 数を p、outer 残り parameter 数を r とすると O(p + r) です。
+fn selfhost_call_reduce_nested_candidate_continuation_borrowed_matches %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn SelfhostCallableCandidate fn i32 fn i32 fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem Result bool SelfhostCallReduceError \arena\prefix\nested_candidate\outer_candidate\outer_param_count\outer_param_idx\item_index\item_count\expected_type\head:
+    match selfhost_call_reduce_nested_candidate_borrowed_next_index arena prefix nested_candidate item_index item_count expected_type head:
+        Result::Ok next_index:
+            match selfhost_call_reduce_argument_type_check_loop arena prefix outer_candidate outer_param_count add outer_param_idx 1 next_index item_count head:
+                Result::Ok _ok:
+                    Result::Ok true
+                Result::Err e:
+                    if:
+                        selfhost_call_reduce_nested_candidate_error_is_no_match e
+                        then:
+                            Result::Ok false
+                        else:
+                            Result::Err e
+        Result::Err e:
+            if:
+                selfhost_call_reduce_nested_candidate_error_is_no_match e
+                then:
+                    Result::Ok false
+                else:
+                    Result::Err e
+
+//: selfhost_call_reduce_nested_candidate_continuation_match_count_loop: continuation 付き nested 候補数を[数/かぞ]える
+//:
+//: [目的/もくてき]:
+//: - inner call の consume-width と outer continuation の両方に一致する候補数を数えます。
+//: - final-range だけに依存せず、outer call の後続 argument が残る一般 nested overload boundary を扱います。
+//:
+//: [契約/けいやく]:
+//: - candidate vector owner は caller が保持します。
+//: - no-match にできない失敗が見つかった場合、集計を中断して typed error を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数 c、inner parameter 数 p、outer 残り parameter 数 r に対して O(c * (p + r)) です。
+fn selfhost_call_reduce_nested_candidate_continuation_match_count_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn SelfhostCallableCandidate fn i32 fn i32 fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 fn i32 Result i32 SelfhostCallReduceError \arena\prefix\candidates\outer_candidate\outer_param_count\outer_param_idx\item_index\item_count\expected_type\head\idx\candidate_count:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Ok 0
+        else:
+            match v::get candidates idx:
+                Option::Some candidate:
+                    match selfhost_call_reduce_nested_candidate_continuation_match_count_loop arena prefix candidates outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head add idx 1 candidate_count:
+                        Result::Ok rest:
+                            match selfhost_call_reduce_nested_candidate_continuation_borrowed_matches arena prefix candidate outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head:
+                                Result::Ok matched:
+                                    if:
+                                        matched
+                                        then:
+                                            Result::Ok add rest 1
+                                        else:
+                                            Result::Ok rest
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+//: selfhost_call_reduce_nested_candidate_continuation_first_match_loop: continuation 一致候補を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - match count が 1 であることを確認した後、同じ continuation probe 規則で実際の candidate payload と borrowed `next_index` を復元します。
+//:
+//: [契約/けいやく]:
+//: - caller は `match_count == 1` を確認済みでなければなりません。
+//: - 一致候補が見つからない場合は、事前集計との矛盾として `InternalInvariant` を返します。
+//: - 返した `next_index` は source-backed finisher の実消費幅と照合されます。ここで candidate だけを返すと、probe と finisher の規則ずれを検出できません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数 c、inner parameter 数 p、outer 残り parameter 数 r に対して最悪 O(c * (p + r)) です。
+fn selfhost_call_reduce_nested_candidate_continuation_first_match_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn SelfhostCallableCandidate fn i32 fn i32 fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 fn i32 Result SelfhostNestedCandidateBorrowedSelection SelfhostCallReduceError \arena\prefix\candidates\outer_candidate\outer_param_count\outer_param_idx\item_index\item_count\expected_type\head\idx\candidate_count:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+        else:
+            match v::get candidates idx:
+                Option::Some candidate:
+                    match selfhost_call_reduce_nested_candidate_continuation_borrowed_matches arena prefix candidate outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head:
+                        Result::Ok matched:
+                            if:
+                                matched
+                                then:
+                                    match selfhost_call_reduce_nested_candidate_borrowed_next_index arena prefix candidate item_index item_count expected_type head:
+                                        Result::Ok next_index:
+                                            Result::Ok selfhost_nested_candidate_borrowed_selection_new candidate next_index
+                                        Result::Err e:
+                                            Result::Err e
+                                else:
+                                    selfhost_call_reduce_nested_candidate_continuation_first_match_loop arena prefix candidates outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head add idx 1 candidate_count
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+//: selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match: outer continuation で nested 候補を[選別/せんべつ]する
+//:
+//: [目的/もくてき]:
+//: - 複数候補の nested direct call を、inner consume-width、result expectation、outer continuation の3条件で一意化します。
+//: - inner call が source-backed argument 範囲全体を消費しない一般 nested overload boundary でも、外側 call の残り argument が borrowed matcher で確認できる範囲だけを安全に成功させます。
+//:
+//: [場合分/ばあいわ]け:
+//: - 一致候補が 1 件なら `Ok(candidate)` です。
+//: - 一致候補が 0 件または 2 件以上なら `OverloadAmbiguous` です。source-backed owner を候補ごとに試行する材料が無いため、first-match や値 fallback には進みません。
+//: - no-match にできない未対応・内部失敗は、その typed error をそのまま返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補列を最大2回走査するため、候補数 c、inner parameter 数 p、outer 残り parameter 数 r に対して O(c * (p + r)) です。
+fn selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn SelfhostCallableCandidate fn i32 fn i32 fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 Result SelfhostNestedCandidateBorrowedSelection SelfhostCallReduceError \arena\prefix\candidates\outer_candidate\outer_param_count\outer_param_idx\item_index\item_count\expected_type\head\candidate_count:
+    match selfhost_call_reduce_nested_candidate_continuation_match_count_loop arena prefix candidates outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head 0 candidate_count:
+        Result::Ok match_count:
+            if:
+                eq match_count 1
+                then:
+                    selfhost_call_reduce_nested_candidate_continuation_first_match_loop arena prefix candidates outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head 0 candidate_count
+                else:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_call_reduce_nested_candidate_match_count_loop: 完全消費できる nested 候補数を[数/かぞ]える
 //:
 //: [目的/もくてき]:
@@ -856,11 +1108,13 @@ fn selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match %fn &
 //: [目的/もくてき]:
 //: - argument position の named item について、callable candidate が 0/1/複数のどれかを判定します。
 //: - candidate がない場合は通常の値式として direct argument reducer に委譲し、1 つだけなら nested direct call として縮約します。
-//: - 複数 candidate の場合は、source-backed owner reducer を投機実行せず、borrowed matcher で完全消費と result expectation を満たす一意候補だけを採用します。
+//: - 複数 candidate の場合は、source-backed owner reducer を投機実行せず、`boundary` が要求する borrowed matcher で一意候補だけを採用します。
 //:
 //: [契約/けいやく]:
 //: - `candidates` Vec はこの関数が必ず解放します。
-//: - 複数 candidate で borrowed match が 0 件または複数件の場合は `OverloadAmbiguous` です。first-match、値 fallback、候補ごとの source-backed 総当たりには進みません。
+//: - `FinalRange` の複数 candidate では、`item_count` まで完全消費できる候補だけを一意化します。pipe left はこの境界を使い、pipe target の suffix を left 側の選別材料にしません。
+//: - `OuterContinuation` の複数 candidate では、inner consume-width、result expectation、outer continuation を満たす候補だけを一意化します。
+//: - borrowed match が 0 件または複数件の場合は `OverloadAmbiguous` です。first-match、値 fallback、候補ごとの source-backed 総当たりには進みません。
 //: - 0 candidate の場合も、named value が通常の値である可能性を残すため、direct argument check を実行します。
 //:
 //: [戻/もど]り[値/ち]:
@@ -868,8 +1122,8 @@ fn selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match %fn &
 //: - `Err(error)`: ambiguity、candidate vector 不整合、または委譲先 reducer の失敗です。
 //:
 //: [計算量/けいさんりょう]:
-//: - 複数 candidate の場合は、候補数 c と各候補の parameter 数 p に対して O(c * p) の borrowed probe を行い、一意候補の source-backed finisher だけを 1 回実行します。
-fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\item_index\item_count\expected_type\head:
+//: - 複数 candidate の場合は、`FinalRange` なら候補数 c、inner parameter 数 p に対して O(c * p) です。`OuterContinuation` なら外側残り parameter 数 r を加えて O(c * (p + r)) です。一意候補の source-backed finisher だけを 1 回実行します。
+fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn SelfhostNestedArgumentBoundary impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\boundary\outer_candidate\outer_param_count\outer_param_idx\item_index\item_count\expected_type\head:
     let candidate_count %i32 v::len &candidates
     if:
         eq candidate_count 0
@@ -880,16 +1134,59 @@ fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec Self
             if:
                 gt candidate_count 1
                 then:
-                    match selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match &arena prefix &candidates item_index item_count expected_type head candidate_count:
-                        Result::Ok candidate:
-                            let reduced %Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures candidate item_index item_count expected_type head
-                            v::free candidates
-                            reduced
-                        Result::Err e:
-                            v::free candidates
-                            selfhost_type_arena_free arena
-                            selfhost_checked_expr_tree_free checked_tree
-                            Result::Err e
+                    match boundary:
+                        SelfhostNestedArgumentBoundary::FinalRange:
+                            match selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match &arena prefix &candidates item_index item_count expected_type head candidate_count:
+                                Result::Ok selected_candidate:
+                                    let reduced %Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures selected_candidate item_index item_count expected_type head
+                                    v::free candidates
+                                    match reduced:
+                                        Result::Ok match_state:
+                                            let argument_match %SelfhostExprArgumentMatch field::get match_state "match_value"
+                                            if:
+                                                eq argument_match.next_index item_count
+                                                then:
+                                                    Result::Ok match_state
+                                                else:
+                                                    let checked_arena %SelfhostTypeArena field::get match_state "arena"
+                                                    let checked_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"
+                                                    selfhost_type_arena_free checked_arena
+                                                    selfhost_checked_expr_tree_free checked_tree
+                                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    v::free candidates
+                                    selfhost_type_arena_free arena
+                                    selfhost_checked_expr_tree_free checked_tree
+                                    Result::Err e
+                        SelfhostNestedArgumentBoundary::OuterContinuation:
+                            match selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match &arena prefix &candidates outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head candidate_count:
+                                Result::Ok selection:
+                                    let selected_candidate %SelfhostCallableCandidate field::get selection "candidate"
+                                    let probed_next_index %i32 field::get selection "next_index"
+                                    let reduced %Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures selected_candidate item_index item_count expected_type head
+                                    v::free candidates
+                                    match reduced:
+                                        Result::Ok match_state:
+                                            let argument_match %SelfhostExprArgumentMatch field::get match_state "match_value"
+                                            if:
+                                                eq argument_match.next_index probed_next_index
+                                                then:
+                                                    Result::Ok match_state
+                                                else:
+                                                    let checked_arena %SelfhostTypeArena field::get match_state "arena"
+                                                    let checked_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"
+                                                    selfhost_type_arena_free checked_arena
+                                                    selfhost_checked_expr_tree_free checked_tree
+                                                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    v::free candidates
+                                    selfhost_type_arena_free arena
+                                    selfhost_checked_expr_tree_free checked_tree
+                                    Result::Err e
                 else:
                     match v::get &candidates 0:
                         Option::Some candidate:
@@ -911,23 +1208,23 @@ fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec Self
 //: [契約/けいやく]:
 //: - candidate 収集が失敗した場合は、arena owner を閉じたうえで candidate collect error を call reduction error へ写像します。
 //: - `item_index` が prefix 範囲外なら internal invariant として fail-closed します。
-//: - nested/direct の選択は source token と signature table に基づきます。複数候補は、source-backed argument 範囲の末尾までを完全消費でき、かつ outer expected type と result type が一致する候補が 1 件だけである場合に限って選択します。
-//: - これは pipe 専用の規則ではなく、source-backed nested argument の final-range narrowing です。候補ごとに source-backed owner reducer を投機実行せず、borrowed matcher で一意性を確認できる範囲だけを成功扱いします。
+//: - nested/direct の選択は source token と signature table に基づきます。複数候補は、`boundary` が要求する消費幅と expected type が borrowed matcher で一意に確認できる場合だけ選択します。
+//: - `OuterContinuation` は source-backed nested argument の一般 overload boundary です。`FinalRange` は pipe left など、範囲全体が1値にならなければならない境界です。どちらも候補ごとの source-backed owner reducer を投機実行しません。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(owned_match)`: item 位置から始まる 1 実引数が検査済みです。
 //: - `Err(error)`: 候補収集失敗、曖昧候補、範囲外、または委譲先 reducer の失敗です。
 //:
 //: [計算量/けいさんりょう]:
-//: - named value では candidate 収集コストに加えて nested/direct reducer のコストがかかります。複数 nested 候補では候補数 c と parameter 数 p に対して O(c * p) の borrowed final-range probe を行います。named value 以外では direct reducer のコストだけです。
-fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
+//: - named value では candidate 収集コストに加えて nested/direct reducer のコストがかかります。複数 nested 候補では、`FinalRange` は O(c * p)、`OuterContinuation` は O(c * (p + r)) の borrowed probe を行います。named value 以外では direct reducer のコストだけです。
+fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn SelfhostNestedArgumentBoundary impure fn SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\boundary\outer_candidate\outer_param_count\outer_param_idx\item_index\item_count\expected_type\head:
     match selfhost_expr_prefix_list_get prefix item_index:
         Option::Some item:
             match item.kind:
                 SelfhostExprPrefixItemKind::NamedValue:
                     match selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures:
                         Result::Ok nested_candidates:
-                            selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates item_index item_count expected_type item
+                            selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates boundary outer_candidate outer_param_count outer_param_idx item_index item_count expected_type item
                         Result::Err collect_error:
                             selfhost_type_arena_free arena
                             selfhost_checked_expr_tree_free checked_tree
@@ -1269,7 +1566,7 @@ fn selfhost_call_reduce_argument_type_check_loop_with_source %impure fn &Vec Sel
                 else:
                     match selfhost_type_arena_function_arg &arena candidate.callable_type param_idx:
                         Option::Some expected_arg_type:
-                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_arg_type head:
+                            match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures SelfhostNestedArgumentBoundary::OuterContinuation candidate param_count param_idx item_index item_count expected_arg_type head:
                                 Result::Ok match_state:
                                     let argument_match %SelfhostExprArgumentMatch field::get match_state "match_value"
                                     let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"
@@ -2400,7 +2697,7 @@ fn selfhost_call_reduce_pipe_single_candidate_with_source %impure fn &Vec Selfho
                         else:
                             match selfhost_type_arena_function_arg &arena candidate.callable_type 0:
                                 Option::Some first_arg_type:
-                                    match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures 0 pipe_index first_arg_type rhs_head:
+                                    match selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures SelfhostNestedArgumentBoundary::FinalRange candidate param_count 0 0 pipe_index first_arg_type rhs_head:
                                         Result::Ok left_state:
                                             let left_match %SelfhostExprArgumentMatch field::get left_state "match_value"
                                             let checked_argument %SelfhostCheckedArgument field::get left_state "checked_argument"

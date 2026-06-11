@@ -1,3 +1,80 @@
+# 2026-06-11 Agent selfhost general nested overload boundary checkpoint
+
+- branch: `selfhost/general-nested-overload-boundary-20260611`
+- base: `main` at `babb46a97`
+- head: working tree before commit on `selfhost/general-nested-overload-boundary-20260611`
+- decision: `MERGE_APPROVED`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / source-backed general nested overload boundary and pipe-left final-range boundary
+- files_read: `AGENTS.md`; `plan.md`; `todo.md`; `note.n.md`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `tests/stdlib/neplg2_call_reduce.n.md`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/selfhost_zenn_review_response_check.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: Rust compiler crates, Web UI, codegen backend, Resource IR implementation outside the selfhost call reducer slice
+- subagent_review_ids: `019eb594-fd38-7442-91ec-39bbfc618066`; `019eb4e9-964b-7e81-b0f7-44a8f473b098`
+- subagent_review_count: 2
+- subagent review:
+  - `019eb594-fd38-7442-91ec-39bbfc618066`: first review found a Blocker that pipe left was using outer continuation and could use pipe target suffix as narrowing evidence. The implementation was redesigned with `SelfhostNestedArgumentBoundary::FinalRange` and `SelfhostNestedArgumentBoundary::OuterContinuation`. Re-review found Blocker none, Non-blocker only that a future payload enum could further strengthen type-level call-site evidence, and Approve for this slice.
+  - `019eb4e9-964b-7e81-b0f7-44a8f473b098`: earlier review found a Blocker in the added stage1 smoke due `resource.cell.uninit`. Current focused tests no longer reproduce that blocker; the remaining executable issue was the markdown doctest timeout from calling the huge aggregate smoke, fixed by limiting that public doctest to direct-call connection and leaving broad regression to the focused suite.
+- policy/spec classification: Approve
+- policy/spec file/function: `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `todo.md`
+- policy/spec finding: Blocker none. The issue remains open only for explicitly listed residual scopes.
+- policy/spec root_cause: final-range nested arguments and outer-continuation nested arguments were previously both represented by implicit caller convention, which allowed pipe-left semantics to share a selector meant for normal call arguments.
+- policy/spec reason: `SelfhostNestedArgumentBoundary` makes the range contract explicit and keeps `void`/NEPLg2.1 syntax and checked-tree authority unchanged.
+- policy/spec recommended_fix: completed in this checkpoint; future work should move raw outer continuation fields into a payload enum only if another caller boundary appears.
+- source_policy: updated
+- source_policy_reason: `nodesrc/test_selfhost_expr_call_reduce_contract.js` now checks the enum boundary, the continuation selector, the probe/finisher `next_index` invariant, stage1 general nested overload smoke, and pipe-left nested overload smoke without line-count or comment-volume gates.
+- policy/spec doc_issue_note: design doc, issue record, issue index, todo, and this note were updated.
+- policy/spec verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/issues.js check --dir issues`
+- implementation/test classification: Approve
+- implementation/test file/function: `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `tests/stdlib/neplg2_call_reduce.n.md`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- implementation/test finding: Blocker none. `OuterContinuation` is used by normal argument loops; `FinalRange` is used by pipe-left reduction.
+- implementation/test root_cause: the reducer needed two different narrowing boundaries because a normal nested argument may leave suffix items for the outer call, while a pipe-left segment must close before the pipe operator.
+- implementation/test reason: borrowed selectors reduce the candidate set without source-backed owner speculation; the selected finisher runs once and verifies the borrowed `next_index`.
+- implementation/test recommended_fix: completed by adding `SelfhostNestedCandidateBorrowedSelection`, continuation borrowed matching, `SelfhostNestedArgumentBoundary`, and stage1 smoke for `outer add 1 2 3` / `add 1 2 |> use 3`.
+- implementation/test source_policy: updated
+- implementation/test source_policy_reason: `nodesrc/test_selfhost_expr_call_reduce_contract.js` pins boundary enum use, final-range versus outer-continuation call sites, no owner/source inputs in the borrowed selector, stage1 topology, and markdown doctest scope.
+- implementation/test doc_issue_note: `tests/stdlib/neplg2_call_reduce.n.md` now keeps only the direct-call public doctest so default compile timeout is not used as a hidden quality gate; broad regression stays in `stdlib/neplg2/core/check`.
+- implementation/test verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-call-reduce-md-after-direct-scope.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-general-nested-overload-boundary.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `git diff --check`
+- zenn_check:
+  - Result/Option: `stdlib/neplg2/core/check/expr/call_reduce.nepl` keeps selector and finisher errors in `Result`; candidate count and optional type/function arguments stay explicit in `selfhost_call_reduce_nested_named_candidates_with_source`.
+  - enum error/display separation: `stdlib/neplg2/core/check/expr/call_reduce.nepl` keeps reducer diagnostics in `SelfhostCallReduceErrorKind`; `SelfhostNestedArgumentBoundary` is an enum, not a bool.
+  - match exhaustiveness: `stdlib/neplg2/core/check/expr/call_reduce.nepl` matches `SelfhostNestedArgumentBoundary::FinalRange` and `SelfhostNestedArgumentBoundary::OuterContinuation` explicitly at candidate selection.
+  - pure/impure boundary: only `stdlib/neplg2/core/check/expr/*.nepl`, docs, issues, and source-policy tests changed; no host IO or platform authority was added.
+  - authority boundary: `stdlib/neplg2/core/check/expr/stage1.nepl` validates checked tree topology and `nodesrc/test_selfhost_expr_call_reduce_contract.js` pins that HIR lowering does not need source token replay.
+  - owner/free: `stdlib/neplg2/core/check/expr/call_reduce.nepl` closes candidate vectors, token owners, checked tree owners, and arenas on selector error, finisher error, and invariant mismatch paths.
+  - zero-cost/performance: `selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match` in `call_reduce.nepl` uses borrowed probe and runs the source-backed finisher once; `tests/stdlib/neplg2_call_reduce.n.md` avoids a huge aggregate doctest compile.
+  - doc comment: `SelfhostNestedArgumentBoundary` in `stdlib/neplg2/core/check/expr/call_reduce.nepl` and `selfhost_check_expr_stage1_direct_body_line` in `stdlib/neplg2/core/check/expr/stage1.nepl` describe purpose, contract, return cases, and complexity in Japanese.
+  - prototype/fail-closed: `doc/neplg2/self_host_neplg21_compiler_design.md` and `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md` keep block/lambda/borrow/generic/trait cases as explicit residual fail-closed work.
+- evidence_to_record note: `note.n.md`
+- evidence_to_record issue: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`
+- evidence_to_record source policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- evidence_to_record tests: executed and listed below
+- warnings existing_warnings: Node WASI `ExperimentalWarning`; Git LF-to-CRLF replacement warnings from `git diff --check`; existing selfhost/stdlib documentation gap samples reported by documentation contracts.
+- warnings new_warnings: none
+- summary blockers: none
+- summary non_blockers: future refinement may encode outer continuation fields inside a boundary payload enum if another caller boundary is added.
+- summary questions: none
+- summary approve: Approve
+- residual_risk: none
+- unexecuted_verification: none
+- executed verification:
+  - pass: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+  - pass: `node nodesrc/test_selfhost_hir_lowering_contract.js`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-call-reduce-md-after-direct-scope.json` total=6, passed=6
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-general-nested-overload-boundary.json` total=7, passed=7
+  - pass: `node nodesrc/test_selfhost_documentation_contract.js`
+  - pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js index --dir issues`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` with existing LF-to-CRLF warnings only
+- 未実行の検証:
+  - none
+- 既存 warning:
+  - Node WASI `ExperimentalWarning`
+  - Git LF-to-CRLF replacement warnings from `git diff --check`
+  - existing selfhost/stdlib documentation gap samples
+- 今回差分由来 warning:
+  - none
+
 # 2026-06-11 Agent selfhost pipe chain checked-tree checkpoint
 
 ## review_scope

@@ -628,8 +628,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_arg_type head[\s\S]*let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"[\s\S]*let next_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"[\s\S]*selfhost_call_reduce_push_checked_argument next_arena checked_arguments next_tree checked_argument head\.span[\s\S]*argument_match\.next_index/,
-    "source-backed call reduction must keep each consumed argument's checked payload while advancing the cursor",
+    /selfhost_type_arena_function_arg &arena candidate\.callable_type param_idx[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures SelfhostNestedArgumentBoundary::OuterContinuation candidate param_count param_idx item_index item_count expected_arg_type head[\s\S]*let checked_argument %SelfhostCheckedArgument field::get match_state "checked_argument"[\s\S]*let next_tree %SelfhostCheckedExprTree field::get match_state "checked_tree"[\s\S]*selfhost_call_reduce_push_checked_argument next_arena checked_arguments next_tree checked_argument head\.span[\s\S]*argument_match\.next_index/,
+    "source-backed call reduction must keep each consumed argument's checked payload while passing the outer candidate cursor to nested overload narrowing",
 );
 assert.match(
     source,
@@ -643,13 +643,18 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures[\s\S]*selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates item_index item_count expected_type item/,
+    /selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures[\s\S]*selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates boundary outer_candidate outer_param_count outer_param_idx item_index item_count expected_type item/,
     "nested named call arguments must collect inner candidates from the argument head and reduce them with the outer expected argument type",
 );
 assert.match(
     source,
-    /eq candidate_count 0[\s\S]*selfhost_call_reduce_argument_match_direct_with_source tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_type head[\s\S]*gt candidate_count 1[\s\S]*selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match &arena prefix &candidates item_index item_count expected_type head candidate_count[\s\S]*selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures candidate item_index item_count expected_type head/,
-    "named argument handling must fall back to value evidence only when no visible function candidates exist",
+    /eq candidate_count 0[\s\S]*selfhost_call_reduce_argument_match_direct_with_source tokens source arena checked_tree prefix scope value_types signatures item_index item_count expected_type head[\s\S]*gt candidate_count 1[\s\S]*match boundary:[\s\S]*SelfhostNestedArgumentBoundary::FinalRange:[\s\S]*selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match &arena prefix &candidates item_index item_count expected_type head candidate_count[\s\S]*eq argument_match\.next_index item_count[\s\S]*SelfhostNestedArgumentBoundary::OuterContinuation:[\s\S]*selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match &arena prefix &candidates outer_candidate outer_param_count outer_param_idx item_index item_count expected_type head candidate_count[\s\S]*eq argument_match\.next_index probed_next_index[\s\S]*selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures candidate item_index item_count expected_type head/,
+    "named argument handling must fall back to value evidence only when no visible function candidates exist and must separate final-range and continuation-aware borrowed narrowing for multiple candidates",
+);
+assert.match(
+    source,
+    /enum SelfhostNestedArgumentBoundary:[\s\S]*FinalRange[\s\S]*OuterContinuation[\s\S]*impl Clone for SelfhostNestedArgumentBoundary[\s\S]*impl Copy for SelfhostNestedArgumentBoundary/,
+    "nested argument overload narrowing must expose final-range versus outer-continuation as an enum contract rather than a bool or implicit caller convention",
 );
 assertContainsInOrder(
     source,
@@ -662,23 +667,44 @@ assertContainsInOrder(
         "fn selfhost_call_reduce_nested_candidate_complete_borrowed_matches",
         "selfhost_call_reduce_argument_type_check_loop arena prefix candidate param_count 0 add item_index 1 item_count head",
         "selfhost_call_reduce_expected_result arena candidate some expected",
+        "fn selfhost_call_reduce_candidate_borrowed_next_index_loop",
+        "Result::Ok item_index",
+        "selfhost_expr_argument_match_at arena prefix item_index item_count expected_arg_type",
+        "argument_match.next_index",
+        "fn selfhost_call_reduce_nested_candidate_borrowed_next_index",
+        "selfhost_call_reduce_candidate_borrowed_next_index_loop arena prefix candidate param_count 0 add item_index 1 item_count head",
+        "fn selfhost_call_reduce_nested_candidate_continuation_borrowed_matches",
+        "selfhost_call_reduce_argument_type_check_loop arena prefix outer_candidate outer_param_count add outer_param_idx 1 next_index item_count head",
+        "fn selfhost_call_reduce_nested_candidate_continuation_match_count_loop",
+        "fn selfhost_call_reduce_nested_candidate_continuation_first_match_loop",
+        "Result SelfhostNestedCandidateBorrowedSelection SelfhostCallReduceError",
+        "Result::Ok selfhost_nested_candidate_borrowed_selection_new candidate next_index",
+        "fn selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match",
+        "Result SelfhostNestedCandidateBorrowedSelection SelfhostCallReduceError",
+        "eq match_count 1",
+        "SelfhostCallReduceErrorKind::OverloadAmbiguous",
         "fn selfhost_call_reduce_nested_candidate_match_count_loop",
         "fn selfhost_call_reduce_nested_candidate_first_match_loop",
         "fn selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match",
         "eq match_count 1",
         "SelfhostCallReduceErrorKind::OverloadAmbiguous",
     ],
-    "source-backed nested overload narrowing must use expected result plus complete borrowed consumption and must count zero/one/many matches before selecting",
+    "source-backed nested overload narrowing must use borrowed consume-width, outer continuation, and expected result while retaining final-range probe helpers",
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \\arena\\prefix\\candidates\\item_index\\item_count\\expected_type\\head\\candidate_count:/,
-    "nested overload selector must stay a borrowed final-range probe and must not take tokens, source text, scope, value evidence, signatures, checked tree, or owner reducer inputs",
+    /fn selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn SelfhostCallableCandidate fn i32 fn i32 fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 Result SelfhostNestedCandidateBorrowedSelection SelfhostCallReduceError \\arena\\prefix\\candidates\\outer_candidate\\outer_param_count\\outer_param_idx\\item_index\\item_count\\expected_type\\head\\candidate_count:/,
+    "nested overload selector must stay a borrowed continuation probe, return probed next_index, and must not take tokens, source text, scope, value evidence, signatures, checked tree, or owner reducer inputs",
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_argument_match_at_with_source_or_nested[\s\S]*selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures[\s\S]*selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates item_index item_count expected_type item/,
-    "same-name nested narrowing is owned by the common source-backed nested argument path rather than a pipe-only special case",
+    /SelfhostNestedCandidateBorrowedSelection:[\s\S]*candidate %SelfhostCallableCandidate[\s\S]*next_index %i32[\s\S]*selfhost_call_reduce_nested_candidate_select_by_continuation_borrowed_match[\s\S]*let selected_candidate %SelfhostCallableCandidate field::get selection "candidate"[\s\S]*let probed_next_index %i32 field::get selection "next_index"[\s\S]*selfhost_call_reduce_nested_single_named_candidate_with_source[\s\S]*let argument_match %SelfhostExprArgumentMatch field::get match_state "match_value"[\s\S]*eq argument_match\.next_index probed_next_index[\s\S]*SelfhostCallReduceErrorKind::InternalInvariant/,
+    "source-backed nested overload selection must verify that the finisher consumes the same next_index as the borrowed probe",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_argument_match_at_with_source_or_nested[\s\S]*boundary\\outer_candidate\\outer_param_count\\outer_param_idx\\item_index\\item_count\\expected_type\\head:[\s\S]*selfhost_callable_candidates_collect_for_head_item source tokens item scope signatures[\s\S]*selfhost_call_reduce_nested_named_candidates_with_source tokens source arena checked_tree prefix scope value_types signatures nested_candidates boundary outer_candidate outer_param_count outer_param_idx item_index item_count expected_type item/,
+    "same-name nested narrowing is owned by the common source-backed nested argument path and receives an explicit boundary plus the outer continuation cursor",
 );
 assert.match(
     source,
@@ -852,6 +878,11 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_check_expr_stage1_make_general_nested_overload_argument_tokens[\s\S]*"outer add 1 2 3"[\s\S]*selfhost_check_expr_stage1_general_nested_overload_argument_ok_with_scope[\s\S]*selfhost_check_expr_stage1_success_has_general_nested_overload_argument_order[\s\S]*selfhost_check_expr_stage1_general_nested_root_links_child_direct_call &success "add"[\s\S]*selfhost_check_expr_stage1_general_nested_overload_duplicate_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::OverloadAmbiguous[\s\S]*selfhost_check_expr_stage1_run_general_nested_overload_argument_with_tokens[\s\S]*selfhost_check_expr_stage1_run_general_nested_overload_duplicate_with_tokens[\s\S]*selfhost_check_expr_stage1_nested_call_argument_body_line/,
+    "stage1 must smoke-test general nested overload narrowing where the inner call leaves an outer continuation argument and duplicate matches stay ambiguous",
+);
+assert.match(
+    source,
     /selfhost_check_expr_stage1_trailing_block_argument_segment[\s\S]*SelfhostBodySegmentKind::BlockIntro[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_result_ok[\s\S]*"add 1:\\n    add 1 1"[\s\S]*selfhost_check_expr_stage1_success_is_two_arg_direct_call/,
     "stage1 must smoke-test that a trailing block argument is checked as a BlockResult expression",
 );
@@ -874,6 +905,11 @@ assert.match(
     source,
     /selfhost_check_expr_stage1_pipe_chain_segment[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_argument_is_checked_expr_range[\s\S]*SelfhostCheckedArgumentKind::CheckedExpr[\s\S]*selfhost_check_expr_stage1_success_has_pipe_chain_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call[\s\S]*selfhost_checked_expr_tree_get_node tree root_expr[\s\S]*Option::Some node[\s\S]*Option::Some first[\s\S]*Option::Some second[\s\S]*selfhost_check_expr_stage1_pipe_chain_previous_call_arguments_ok tree previous_expr[\s\S]*Option::None[\s\S]*"1 \|> add 2 \|> add 3"[\s\S]*selfhost_check_expr_stage1_pipe_chain_direct_call_ok_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens/,
     "stage1 must smoke-test that a pipe chain is normalized through a checked intermediate expression",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_pipe_left_nested_overload_segment[\s\S]*"add 1 2 \|> use 3"[\s\S]*selfhost_check_expr_stage1_make_pipe_left_nested_overload_tokens[\s\S]*TokenKind::Pipe source_span_new_unchecked 0 8 10[\s\S]*TokenKind::Ident source_span_new_unchecked 0 11 14[\s\S]*selfhost_check_expr_stage1_success_has_pipe_left_nested_overload_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_left_nested_root_links_child_direct_call[\s\S]*selfhost_check_expr_stage1_pipe_left_nested_overload_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions_and_named_function "add" one_arg_type two_arg_type add_span "use" two_arg_type use_span[\s\S]*selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_body_line/,
+    "stage1 must smoke-test that a pipe left nested overload consumes only the left range and does not use the pipe target suffix as continuation",
 );
 assert.match(
     source,
@@ -902,13 +938,13 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span[\s\S]*"1 \|> add 2"[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetAmbiguous[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope[\s\S]*"1 \|> add %i32 2"[\s\S]*selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions_and_typed_value "add" one_arg_type two_arg_type add_span "x" i32_type x_span[\s\S]*"1 \|> add x"[\s\S]*selfhost_check_expr_stage1_success_has_pipe_suffix_named_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_nested_suffix_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions_and_named_function "add" one_arg_type two_arg_type add_span "sum" two_arg_type sum_span[\s\S]*"1 \|> add sum 2 3"[\s\S]*selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call &success "sum"[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_same_name_nested_suffix_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span[\s\S]*"1 \|> add add 2 3"[\s\S]*selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call &success "add"/,
+    /selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span[\s\S]*"1 \|> add 2"[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetAmbiguous[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope[\s\S]*"1 \|> add %i32 2"[\s\S]*selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions_and_typed_value "add" one_arg_type two_arg_type add_span "x" i32_type x_span[\s\S]*"1 \|> add x"[\s\S]*selfhost_check_expr_stage1_success_has_pipe_suffix_named_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_nested_suffix_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions_and_named_function "add" one_arg_type two_arg_type add_span "sum" two_arg_type sum_span[\s\S]*"1 \|> add sum 2 3"[\s\S]*selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call &success "sum"[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_same_name_nested_suffix_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span[\s\S]*"1 \|> add add 2 3"[\s\S]*selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call &success "add"[\s\S]*selfhost_check_expr_stage1_pipe_left_nested_overload_succeeds_with_scope[\s\S]*"add 1 2 \|> use 3"/,
     "stage1 must smoke-test non-ascribed pipe target argument narrowing, its fail-closed cases, single source-backed suffix success cases, and same-name nested suffix checked tree topology",
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_tokens/,
-    "stage1 must expose token-owner runners for non-ascribed pipe target argument narrowing fixtures",
+    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_left_nested_overload_with_tokens/,
+    "stage1 must expose token-owner runners for non-ascribed pipe target and pipe-left nested overload fixtures",
 );
 assert.match(
     source,
@@ -1036,7 +1072,7 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_pipe_finish_candidate_with_checked_left[\s\S]*selfhost_call_reduce_push_checked_argument arena checked_arguments checked_tree left_argument rhs_head\.span[\s\S]*selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 rhs_suffix_index item_count trailing_block rhs_head[\s\S]*selfhost_checked_expr_tree_add_direct_call_borrowed checked_tree2 candidate result_type call_span &checked_arguments2[\s\S]*fn selfhost_call_reduce_pipe_single_candidate_with_source[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures 0 pipe_index first_arg_type rhs_head[\s\S]*selfhost_call_reduce_pipe_finish_candidate_with_checked_left tokens source checked_arena left_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count rhs_suffix_index param_count checked_argument/,
+    /fn selfhost_call_reduce_pipe_finish_candidate_with_checked_left[\s\S]*selfhost_call_reduce_push_checked_argument arena checked_arguments checked_tree left_argument rhs_head\.span[\s\S]*selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 rhs_suffix_index item_count trailing_block rhs_head[\s\S]*selfhost_checked_expr_tree_add_direct_call_borrowed checked_tree2 candidate result_type call_span &checked_arguments2[\s\S]*fn selfhost_call_reduce_pipe_single_candidate_with_source[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures SelfhostNestedArgumentBoundary::FinalRange candidate param_count 0 0 pipe_index first_arg_type rhs_head[\s\S]*selfhost_call_reduce_pipe_finish_candidate_with_checked_left tokens source checked_arena left_tree prefix scope value_types signatures pipe_candidates candidate expected trailing_block rhs_head item_count rhs_suffix_index param_count checked_argument/,
     "pipe reduction must type-check the left side as the first argument and then reuse the shared checked-left finisher for the right-side suffix",
 );
 assert.match(

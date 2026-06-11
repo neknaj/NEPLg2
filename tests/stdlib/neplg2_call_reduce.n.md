@@ -348,7 +348,7 @@ fn main %impure fn void i32 \void:
             checks_exit_code shown
 ```
 
-## expression_line_segment_connects_to_call_reduction
+## expression_line_segment_connects_to_direct_call_reduction
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -365,7 +365,7 @@ stdout: mlstr:
 
 fn main %impure fn void i32 \void:
     let checks0 checks_new
-    let checks1 checks_push checks0 check_eq_i32 0 selfhost_check_expr_stage1_body_line
+    let checks1 checks_push checks0 check_eq_i32 0 selfhost_check_expr_stage1_direct_body_line
     let shown checks_print_report checks1
     checks_exit_code shown
 ```
