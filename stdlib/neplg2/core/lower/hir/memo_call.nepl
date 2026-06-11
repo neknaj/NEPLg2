@@ -1,0 +1,359 @@
+#indent 4
+
+//: # lower/hir/memo_call
+//: compiler-known `memo_call` 呼び出しを memoized function value HIR へ落とす境界です。
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` は通常の direct call と同じ構文縮約を通りますが、HIR では `Call` ではなく `MemoizedFunctionValue` leaf として保存する必要があります。
+//: - user code が同名の `memo_call` を定義しても trusted primitive にはなりません。この module は caller から渡された compiler-known identity の `DefId` と、reducer が選んだ callee candidate の `DefId` を比較します。
+//: - source token や candidate の表示名を再読せず、checker が保存した `SelfhostReducedCall`、callee candidate、checked argument payload だけを authority とします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostCompilerKnownMemoCallIdentity` は resolver / stdlib registry 側が「stdlib の正確な memo_call 定義」として構築した identity です。この module はその構築処理を行いません。
+//: - `module_path` と `symbol` は監査・診断用の metadata です。現 checkpoint の accepted 判定は candidate name ではなく `DefId` equality だけを使います。
+//: - Phase 1 では `memo_call @func` だけを accepted path にします。`memo_call @func arg` の即時適用や複数引数は、memoization 境界を HIR に残せないため拒否します。
+//: - 引数は `SelfhostCheckedArgumentKind::FunctionValue` でなければなりません。bare name や通常値から暗黙に function value を作ることはありません。
+//: - source function value 自体の DefId / generic / effect 検査は `lower/hir/function_value.nepl` の Phase 1 gate に委譲します。
+//:
+//: [現状実装/げんじょうじっそう]:
+//: - この module は private cache allocation、`MemoKey` / `MemoValue` trait bound、sealed SourceCapability、Resource IR `PrivateCache` proof、backend wrapper を作りません。
+//: - `DefId` は現在の selfhost resolver session 内の identity であり、永続 artifact 境界では module source identity / source hash / policy hash と組み合わせる必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive 判定、引数数確認、1 個の checked argument 取り出し、source function value gate はすべて O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/argument_payload" as *
+//:| #import "neplg2/core/check/expr/call_candidate" as *
+//:| #import "neplg2/core/check/expr/model" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/lower/hir" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 12 20 28
+//:     let fn_ty %SelfhostTypeId selfhost_type_id_new 7
+//:     let other_ty %SelfhostTypeId selfhost_type_id_new 8
+//:     let trusted %SelfhostCompilerKnownMemoCallIdentity selfhost_compiler_known_memo_call_identity_new "stdlib/core/memo.nepl" "memo_call" selfhost_def_id_new 100
+//:     let memo_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "memo_call" selfhost_def_id_new 100 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     let user_memo_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "memo_call" selfhost_def_id_new 101 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     let source_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" selfhost_def_id_new 31 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+//:     let checked_arg %SelfhostCheckedArgument selfhost_checked_argument_function_value 1 3 fn_ty span source_candidate
+//:     let checked_args0 %Vec SelfhostCheckedArgument unwrap_ok v::new
+//:     let checked_args1 %Vec SelfhostCheckedArgument unwrap_ok v::push checked_args0 checked_arg
+//:     let call %SelfhostReducedCall selfhost_reduced_call_new 0 1 fn_ty span
+//:     match selfhost_hir_expr_memo_call_from_direct_call_plan call memo_candidate &checked_args1 &trusted:
+//:         Result::Ok expr:
+//:             let checks1 checks_push checks0 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &expr SelfhostHirExprKind::MemoizedFunctionValue
+//:             match selfhost_hir_expr_memo_call_from_direct_call_plan call user_memo_candidate &checked_args1 &trusted:
+//:                 Result::Ok _bad_user:
+//:                     v::free checked_args1
+//:                     let checks2 checks_push checks1 Result::Err "user memo_call was accepted"
+//:                     let shown checks_print_report checks2
+//:                     checks_exit_code shown
+//:                 Result::Err user_error:
+//:                     let checks2 checks_push checks1 check selfhost_memo_call_lower_error_kind_eq user_error.kind SelfhostMemoCallLowerErrorKind::PrimitiveIdentityMismatch
+//:                     let immediate_call %SelfhostReducedCall selfhost_reduced_call_new 0 2 fn_ty span
+//:                     match selfhost_hir_expr_memo_call_from_direct_call_plan immediate_call memo_candidate &checked_args1 &trusted:
+//:                         Result::Ok _bad_immediate:
+//:                             v::free checked_args1
+//:                             let checks3 checks_push checks2 Result::Err "immediate memo_call was accepted"
+//:                             let shown checks_print_report checks3
+//:                             checks_exit_code shown
+//:                         Result::Err immediate_error:
+//:                             let checks3 checks_push checks2 check selfhost_memo_call_lower_error_kind_eq immediate_error.kind SelfhostMemoCallLowerErrorKind::ArgumentCountUnsupported
+//:                             let mismatch_call %SelfhostReducedCall selfhost_reduced_call_new 0 1 other_ty span
+//:                             match selfhost_hir_expr_memo_call_from_direct_call_plan mismatch_call memo_candidate &checked_args1 &trusted:
+//:                                 Result::Ok _bad_result_type:
+//:                                     v::free checked_args1
+//:                                     let checks4 checks_push checks3 Result::Err "result type mismatch was accepted"
+//:                                     let shown checks_print_report checks4
+//:                                     checks_exit_code shown
+//:                                 Result::Err mismatch_error:
+//:                                     let checks4 checks_push checks3 check selfhost_memo_call_lower_error_kind_eq mismatch_error.kind SelfhostMemoCallLowerErrorKind::ResultTypeMismatch
+//:                                     let unit_arg %SelfhostCheckedArgument selfhost_checked_argument_unit_value 1 2 fn_ty span
+//:                                     let non_function_args0 %Vec SelfhostCheckedArgument unwrap_ok v::new
+//:                                     let non_function_args1 %Vec SelfhostCheckedArgument unwrap_ok v::push non_function_args0 unit_arg
+//:                                     match selfhost_hir_expr_memo_call_from_direct_call_plan call memo_candidate &non_function_args1 &trusted:
+//:                                         Result::Ok _bad_argument:
+//:                                             v::free checked_args1
+//:                                             v::free non_function_args1
+//:                                             let checks5 checks_push checks4 Result::Err "non-function memo argument was accepted"
+//:                                             let shown checks_print_report checks5
+//:                                             checks_exit_code shown
+//:                                         Result::Err argument_error:
+//:                                             v::free checked_args1
+//:                                             v::free non_function_args1
+//:                                             let checks5 checks_push checks4 check selfhost_memo_call_lower_error_kind_eq argument_error.kind SelfhostMemoCallLowerErrorKind::ArgumentNotFunctionValue
+//:                                             let shown checks_print_report checks5
+//:                                             checks_exit_code shown
+//:         Result::Err _error:
+//:             v::free checked_args1
+//:             let checks1 checks_push checks0 Result::Err "trusted memo_call lowering failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/check/expr/argument_payload" as *
+#import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/check/expr/model" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/ty" as *
+#import "./function_value" as *
+
+//: SelfhostCompilerKnownMemoCallIdentity: stdlib `memo_call` primitive の trusted identity
+//:
+//: [目的/もくてき]:
+//: - resolver / stdlib registry が確認した `memo_call` 定義を、lowering 層へ typed value として渡します。
+//: - `module_path` と `symbol` は、人間が報告や監査で「どの定義を trusted primitive として登録したか」を確認するための metadata です。
+//: - accepted path の authority は `def_id` です。candidate の表示名や import alias から primitive を推測してはいけません。
+//:
+//: [契約/けいやく]:
+//: - この record は通常の source code から構築される値ではなく、compiler が stdlib source identity を検査した後に作る値として扱います。
+//: - 永続 cache / artifact へ進む段階では、`module_path` だけでなく stdlib source hash と policy hash を組み合わせる必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築と field access は O(1) です。
+pub struct SelfhostCompilerKnownMemoCallIdentity:
+    module_path %str
+    symbol %str
+    def_id %SelfhostDefId
+
+impl Clone for SelfhostCompilerKnownMemoCallIdentity:
+    fn clone %fn &SelfhostCompilerKnownMemoCallIdentity SelfhostCompilerKnownMemoCallIdentity \self:
+        *self
+
+impl Copy for SelfhostCompilerKnownMemoCallIdentity:
+    fn copy_mark %fn SelfhostCompilerKnownMemoCallIdentity SelfhostCompilerKnownMemoCallIdentity \self:
+        self
+
+//: SelfhostMemoCallLowerErrorKind: `memo_call` HIR lowering の失敗分類
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` 専用経路の失敗を enum として分類し、診断層が表示文字列ではなく機械的な理由で分岐できるようにします。
+//:
+//: [分類/ぶんるい]:
+//: - `PrimitiveIdentityMismatch` は、callee candidate が trusted stdlib `memo_call` の `DefId` と一致しない場合です。同名 user 関数はここで拒否されます。
+//: - `ArgumentCountUnsupported` は、Phase 1 が受理する 1 引数形 `memo_call @func` ではない場合です。即時適用 `memo_call @func arg` もこの分類です。
+//: - `CheckedArgumentCountMismatch` と `ArgumentMissing` は、call reducer の arity と checked argument payload Vec が一致しない不変条件違反です。
+//: - `ArgumentNotFunctionValue` は、引数が明示 `@ident` function value として検査済みでない場合です。
+//: - `ResultTypeMismatch` は、call result type と source function value type が一致しない場合です。これは typechecker 側の memo_call signature と argument evidence のずれを示します。
+//: - `FunctionValueFailed` は、source function value が DefId 欠落、generic 未対応、impure などで Phase 1 gate を通過できない場合です。
+pub enum SelfhostMemoCallLowerErrorKind:
+    PrimitiveIdentityMismatch
+    ArgumentCountUnsupported
+    CheckedArgumentCountMismatch
+    ArgumentMissing
+    ArgumentNotFunctionValue
+    ResultTypeMismatch
+    FunctionValueFailed %SelfhostFunctionValueLowerErrorKind
+
+impl Clone for SelfhostMemoCallLowerErrorKind:
+    fn clone %fn &SelfhostMemoCallLowerErrorKind SelfhostMemoCallLowerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoCallLowerErrorKind:
+    fn copy_mark %fn SelfhostMemoCallLowerErrorKind SelfhostMemoCallLowerErrorKind \self:
+        self
+
+//: SelfhostMemoCallLowerError: `memo_call` HIR lowering の typed error payload
+//:
+//: [目的/もくてき]:
+//: - error kind と span を一緒に保持し、primitive 判定、arity、argument payload、source function value gate のどこで失敗したかを診断側へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は表示文ではなく enum error です。表示、翻訳、補足説明は診断 projection で別に行います。
+//: - `span` は失敗した call expression または argument の source span です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 構築と copy は O(1) です。
+pub struct SelfhostMemoCallLowerError:
+    kind %SelfhostMemoCallLowerErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostMemoCallLowerError:
+    fn clone %fn &SelfhostMemoCallLowerError SelfhostMemoCallLowerError \self:
+        *self
+
+impl Copy for SelfhostMemoCallLowerError:
+    fn copy_mark %fn SelfhostMemoCallLowerError SelfhostMemoCallLowerError \self:
+        self
+
+//: selfhost_compiler_known_memo_call_identity_new: trusted `memo_call` identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stdlib registry / resolver が確認した `memo_call` 定義を lowering 層へ渡す record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - caller は `module_path` と `symbol` が stdlib の期待定義を指すことを、この constructor の外で検査していなければなりません。
+//: - この constructor は文字列 path を検査しません。path suffix allowlist をここに入れると、source identity proof と lowering が混ざるためです。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn selfhost_compiler_known_memo_call_identity_new %fn str fn str fn SelfhostDefId SelfhostCompilerKnownMemoCallIdentity \module_path\symbol\def_id:
+    SelfhostCompilerKnownMemoCallIdentity module_path symbol def_id
+
+//: selfhost_memo_call_lower_error_new: `memo_call` lowering error を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 失敗分類と source span を typed error payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - 表示文字列はここで作りません。診断層が enum kind を match して表示します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn selfhost_memo_call_lower_error_new %fn SelfhostMemoCallLowerErrorKind fn SelfhostSourceSpan SelfhostMemoCallLowerError \kind\span:
+    SelfhostMemoCallLowerError kind span
+
+//: selfhost_compiler_known_memo_call_identity_matches_candidate: callee candidate が trusted memo_call か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - user-defined 同名関数や import alias による文字列一致ではなく、resolver が確定した `DefId` で compiler-known primitive を判定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: candidate の `DefId` が trusted identity の `DefId` と一致します。
+//: - `false`: 同名であっても別定義です。caller は `PrimitiveIdentityMismatch` として拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `DefId` の index 比較だけなので O(1) です。
+pub fn selfhost_compiler_known_memo_call_identity_matches_candidate %fn &SelfhostCompilerKnownMemoCallIdentity fn SelfhostCallableCandidate bool \identity\candidate:
+    selfhost_def_id_eq *field::get_ref identity "def_id" candidate.def_id
+
+//: selfhost_memo_call_lower_error_kind_eq: `memo_call` lowering error kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - focused test が表示文言ではなく typed error kind を確認できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 2 つの error kind は同じ分類です。`FunctionValueFailed` は内側 error kind も比較します。
+//: - `false`: 分類が異なります。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum 分岐だけなので O(1) です。
+pub fn selfhost_memo_call_lower_error_kind_eq %fn SelfhostMemoCallLowerErrorKind fn SelfhostMemoCallLowerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoCallLowerErrorKind::PrimitiveIdentityMismatch:
+            match b:
+                SelfhostMemoCallLowerErrorKind::PrimitiveIdentityMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoCallLowerErrorKind::ArgumentCountUnsupported:
+            match b:
+                SelfhostMemoCallLowerErrorKind::ArgumentCountUnsupported:
+                    true
+                _:
+                    false
+        SelfhostMemoCallLowerErrorKind::CheckedArgumentCountMismatch:
+            match b:
+                SelfhostMemoCallLowerErrorKind::CheckedArgumentCountMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoCallLowerErrorKind::ArgumentMissing:
+            match b:
+                SelfhostMemoCallLowerErrorKind::ArgumentMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoCallLowerErrorKind::ArgumentNotFunctionValue:
+            match b:
+                SelfhostMemoCallLowerErrorKind::ArgumentNotFunctionValue:
+                    true
+                _:
+                    false
+        SelfhostMemoCallLowerErrorKind::ResultTypeMismatch:
+            match b:
+                SelfhostMemoCallLowerErrorKind::ResultTypeMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoCallLowerErrorKind::FunctionValueFailed a_kind:
+            match b:
+                SelfhostMemoCallLowerErrorKind::FunctionValueFailed b_kind:
+                    selfhost_function_value_lower_error_kind_eq a_kind b_kind
+                _:
+                    false
+
+//: selfhost_hir_expr_memo_call_from_direct_call_plan: direct call evidence から memoized HIR expression を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - reducer が `memo_call @func` として縮約した call evidence を、HIR `MemoizedFunctionValue` leaf へ変換します。
+//: - 通常 direct call lowering と同じく、source token、prefix item、scope lookup を再実行せず、reducer-selected callee candidate と checked argument payload だけを読みます。
+//:
+//: [契約/けいやく]:
+//: - `callee_candidate` は `call.candidate_index` で選ばれた candidate でなければなりません。この helper は candidate Vec を再検索しません。
+//: - `compiler_known` は stdlib registry が構築した trusted identity です。candidate の `name` が `memo_call` かどうかは accepted 判定に使いません。
+//: - `checked_arguments` は reducer が受理した実引数 payload を順番通りに持ちます。Phase 1 では長さ 1 かつ `FunctionValue` payload だけを受理します。
+//: - call result type は source function value の callable type と一致している必要があります。違う場合は checker 側の memo_call signature projection が壊れています。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(expr)`: `MemoizedFunctionValue` HIR leaf です。
+//: - `Err(PrimitiveIdentityMismatch)`: callee は trusted stdlib `memo_call` ではありません。
+//: - `Err(ArgumentCountUnsupported)`: Phase 1 が受理する 1 引数形ではありません。
+//: - `Err(ArgumentNotFunctionValue)`: 引数が明示 `@ident` function value ではありません。
+//: - `Err(ResultTypeMismatch)`: call result type と function value type が一致しません。
+//: - `Err(FunctionValueFailed(_))`: source function value が memoized value Phase 1 gate を通りません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 1 個の checked argument だけを読むため O(1) です。
+pub fn selfhost_hir_expr_memo_call_from_direct_call_plan %fn SelfhostReducedCall fn SelfhostCallableCandidate fn &Vec SelfhostCheckedArgument fn &SelfhostCompilerKnownMemoCallIdentity Result SelfhostHirExpr SelfhostMemoCallLowerError \call\callee_candidate\checked_arguments\compiler_known:
+    if:
+        not selfhost_compiler_known_memo_call_identity_matches_candidate compiler_known callee_candidate
+        then:
+            Result::Err selfhost_memo_call_lower_error_new SelfhostMemoCallLowerErrorKind::PrimitiveIdentityMismatch call.span
+        else:
+            if:
+                not eq call.argument_count 1
+                then:
+                    Result::Err selfhost_memo_call_lower_error_new SelfhostMemoCallLowerErrorKind::ArgumentCountUnsupported call.span
+                else:
+                    if:
+                        not eq v::len checked_arguments 1
+                        then:
+                            Result::Err selfhost_memo_call_lower_error_new SelfhostMemoCallLowerErrorKind::CheckedArgumentCountMismatch call.span
+                        else:
+                            match v::get checked_arguments 0:
+                                Option::Some source_argument:
+                                    match selfhost_checked_argument_function_value_candidate &source_argument:
+                                        Option::Some source_candidate:
+                                            if:
+                                                not selfhost_type_id_eq call.result_type source_candidate.callable_type
+                                                then:
+                                                    Result::Err selfhost_memo_call_lower_error_new SelfhostMemoCallLowerErrorKind::ResultTypeMismatch call.span
+                                                else:
+                                                    match selfhost_hir_expr_memoized_function_value_from_candidate source_candidate source_argument.span:
+                                                        Result::Ok expr:
+                                                            Result::Ok expr
+                                                        Result::Err e:
+                                                            Result::Err selfhost_memo_call_lower_error_new (SelfhostMemoCallLowerErrorKind::FunctionValueFailed e.kind) source_argument.span
+                                        Option::None:
+                                            Result::Err selfhost_memo_call_lower_error_new SelfhostMemoCallLowerErrorKind::ArgumentNotFunctionValue source_argument.span
+                                Option::None:
+                                    Result::Err selfhost_memo_call_lower_error_new SelfhostMemoCallLowerErrorKind::ArgumentMissing call.span

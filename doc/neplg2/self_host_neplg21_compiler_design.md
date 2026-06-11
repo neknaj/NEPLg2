@@ -438,7 +438,7 @@ memo_call:
 Phase 1 では、実装範囲を保守的にする。
 
 - 引数は明示的な `@ident` で得た non-capturing named pure function value に限定する。
-- user が定義した同名の通常関数を `memo_call` primitive として扱わない。compiler-known 判定は stdlib の正確な module / symbol identity に限定する。
+- user が定義した同名の通常関数を `memo_call` primitive として扱わない。compiler-known 判定は stdlib source identity を確認した registry が発行する trusted `DefId` に限定し、candidate の表示名や token spelling を allowlist として扱わない。
 - `memo_call @f arg` のような即時適用は Phase 1 では受理しない。まず `memo_call @f` が memoized function value を返す境界を固定する。
 - `func` は monomorphic な 1 引数 pure function とする。複数引数は tuple key 化を別段階にする。
 - `K` と `V` は Copy または conservative MemoKey / MemoValue として認められる型に限定する。
@@ -449,6 +449,8 @@ Phase 1 では、実装範囲を保守的にする。
 Resource IR では `MemoizedFunctionValue` と `PrivateCache` / `PrivateState` proof boundary を持つ。cache implementation correctness は trusted stdlib primitive と tests の責務とし、compiler は effect escape と public observation を検査する。
 
 現行 Rust 実装は、`memo_call @f` の typecheck / HIR 境界を先に持つ段階である。sealed backend cache representation と通常 compile path の private-cache mask proof は未完成のため、セルフホスト設計でも「backend private cache は fail-closed」「SourceCapability と private-cache mask proof は別 authority」として扱う。
+
+2026-06-11 selfhost memo_call compiler-known identity gate checkpoint では、`lower/hir/memo_call.nepl` を追加し、`memo_call @func` として縮約済みの direct-call evidence から HIR `MemoizedFunctionValue` leaf を作る入口を分離した。`SelfhostCompilerKnownMemoCallIdentity` は resolver / stdlib registry が source identity を確認した後に渡す trusted `DefId` と、監査用の `module_path` / `symbol` を持つ。accepted 判定は `DefId` equality だけを使い、`candidate.name == "memo_call"` や source token lexeme を読み直さない。Phase 1 helper は `FunctionValue` checked argument 1 個だけを受理し、即時適用、通常値、result type mismatch、同名 user 関数を typed error で fail-closed にする。source function value の DefId / generic / Pure gate は既存 `lower/hir/function_value.nepl` に委譲し、private cache allocation、`MemoKey` / `MemoValue`、Resource IR `PrivateCache` proof、backend wrapper は後続 slice に残す。
 
 Phase 2 では、`run_private` / `mask_private` に相当する一般 private region effect へ拡張する。
 

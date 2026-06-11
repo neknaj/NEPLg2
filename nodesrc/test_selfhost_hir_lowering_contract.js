@@ -14,8 +14,9 @@ function readRepoFile(relPath) {
 
 const facade = readRepoFile("stdlib/neplg2/core/lower/hir.nepl");
 const functionValue = readRepoFile("stdlib/neplg2/core/lower/hir/function_value.nepl");
+const memoCall = readRepoFile("stdlib/neplg2/core/lower/hir/memo_call.nepl");
 const directCall = readRepoFile("stdlib/neplg2/core/lower/hir/direct_call.nepl");
-const source = `${facade}\n${functionValue}\n${directCall}`;
+const source = `${facade}\n${functionValue}\n${memoCall}\n${directCall}`;
 const checkExprSource = readCheckExprSource(repoRoot);
 
 function assertDirectCallDoc(name, requiredParts) {
@@ -46,6 +47,11 @@ assert.match(
     facade,
     /^pub #import "\.\/hir\/function_value" as \*$/m,
     "lower/hir facade must re-export the function value lowering split module",
+);
+assert.match(
+    facade,
+    /^pub #import "\.\/hir\/memo_call" as \*$/m,
+    "lower/hir facade must re-export the memo_call lowering split module",
 );
 assert.match(
     facade,
@@ -96,6 +102,36 @@ assert.match(
     source,
     /pub fn selfhost_hir_expr_memoized_function_value_from_candidate %fn SelfhostCallableCandidate fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError[\s\S]*selfhost_function_value_identity_from_candidate candidate[\s\S]*selfhost_hir_expr_memoized_function_value_from_identity identity span/,
     "memoized function value candidate lowering must reuse typed function value identity construction instead of string-name reconstruction",
+);
+assert.match(
+    memoCall,
+    /# lower\/hir\/memo_call[\s\S]*pub struct SelfhostCompilerKnownMemoCallIdentity:[\s\S]*module_path %str[\s\S]*symbol %str[\s\S]*def_id %SelfhostDefId/,
+    "memo_call lowering must carry a compiler-known primitive identity with source metadata and DefId authority",
+);
+assert.match(
+    memoCall,
+    /pub fn selfhost_compiler_known_memo_call_identity_matches_candidate %fn &SelfhostCompilerKnownMemoCallIdentity fn SelfhostCallableCandidate bool[\s\S]*selfhost_def_id_eq \*field::get_ref identity "def_id" candidate\.def_id/,
+    "memo_call primitive detection must use trusted DefId equality rather than candidate spelling",
+);
+assert.doesNotMatch(
+    memoCall,
+    /string_search::str_eq[\s\S]*memo_call|candidate\.name[\s\S]*memo_call/,
+    "memo_call primitive detection must not be a name allowlist",
+);
+assert.match(
+    memoCall,
+    /pub enum SelfhostMemoCallLowerErrorKind:[\s\S]*PrimitiveIdentityMismatch[\s\S]*ArgumentCountUnsupported[\s\S]*CheckedArgumentCountMismatch[\s\S]*ArgumentMissing[\s\S]*ArgumentNotFunctionValue[\s\S]*ResultTypeMismatch[\s\S]*FunctionValueFailed %SelfhostFunctionValueLowerErrorKind/,
+    "memo_call lowering failures must stay as typed enum payloads",
+);
+assert.match(
+    memoCall,
+    /pub fn selfhost_hir_expr_memo_call_from_direct_call_plan %fn SelfhostReducedCall fn SelfhostCallableCandidate fn &Vec SelfhostCheckedArgument fn &SelfhostCompilerKnownMemoCallIdentity Result SelfhostHirExpr SelfhostMemoCallLowerError[\s\S]*not selfhost_compiler_known_memo_call_identity_matches_candidate compiler_known callee_candidate[\s\S]*PrimitiveIdentityMismatch[\s\S]*not eq call\.argument_count 1[\s\S]*ArgumentCountUnsupported[\s\S]*not eq v::len checked_arguments 1[\s\S]*CheckedArgumentCountMismatch/,
+    "memo_call direct-call lowering must verify trusted callee identity and exactly one checked argument",
+);
+assert.match(
+    memoCall,
+    /pub fn selfhost_hir_expr_memo_call_from_direct_call_plan[\s\S]*selfhost_checked_argument_function_value_candidate &source_argument[\s\S]*Option::Some source_candidate:[\s\S]*not selfhost_type_id_eq call\.result_type source_candidate\.callable_type[\s\S]*ResultTypeMismatch[\s\S]*selfhost_hir_expr_memoized_function_value_from_candidate source_candidate source_argument\.span[\s\S]*FunctionValueFailed e\.kind[\s\S]*Option::None:[\s\S]*ArgumentNotFunctionValue/,
+    "memo_call direct-call lowering must verify trusted callee identity, exactly one FunctionValue argument, result type agreement, and function-value Phase 1 gate",
 );
 assert.match(
     source,

@@ -53990,6 +53990,64 @@ MERGE_APPROVED
 - indirect call、`memo_call` Phase 1、PrivateCache proof、trait solving、lambda / borrow を含む複合式 success path は引き続き同 issue の残件。
 - unexecuted_verification: `trunk build` は stdlib selfhost slice で必須ではないため未実行。Rust / web build artifact 変更は今回含まない。
 
+## 2026-06-11 Agent selfhost memo_call compiler-known identity gate checkpoint
+
+### scope
+
+- branch: `selfhost/memo-call-source-identity-20260611`
+- issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- related_issue: `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C`
+- zenn_policy_checked: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- files_changed: `stdlib/neplg2/core/lower/hir/memo_call.nepl`; `stdlib/neplg2/core/lower/hir.nepl`; `nodesrc/test_selfhost_hir_lowering_contract.js`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `todo.md`
+- subagent_review_ids:
+  - `019eb6cf-79b9-72d1-8213-fa9063648489`
+  - `019eb6db-8694-7752-8416-5faedf3ee553`
+
+### implementation
+
+- `lower/hir/memo_call.nepl` を追加し、`memo_call @func` として縮約済みの direct-call evidence から `MemoizedFunctionValue` HIR leaf を作る境界を分離した。
+- `SelfhostCompilerKnownMemoCallIdentity` は trusted `DefId` と監査用 `module_path` / `symbol` を保持する。accepted primitive 判定は `selfhost_def_id_eq` による DefId equality だけを使い、`candidate.name` や source token spelling は読まない。
+- `SelfhostMemoCallLowerErrorKind` を追加し、同名 user 関数、即時適用や複数引数、checked argument 個数不一致、通常値 argument、result type mismatch、source function value gate failure を typed error で分けた。
+- `selfhost_hir_expr_memo_call_from_direct_call_plan` は `FunctionValue` checked argument 1 個だけを受理し、source function candidate を既存 `selfhost_hir_expr_memoized_function_value_from_candidate` へ渡す。DefId あり / monomorphic / Pure の gate は既存 `function_value` moduleで再検査する。
+- private cache allocation、`MemoKey` / `MemoValue`、Resource IR `PrivateCache` proof、sealed backend representation、`memo_call @func arg` の即時適用 accepted path はこの slice では開かず、doc / issue / todo に残件として維持した。
+
+### zenn_policy
+
+- typed authority: primitive 判定を名前文字列 allowlist ではなく trusted DefId identity にした。
+- enum/static-check: memo_call 専用 failure は `SelfhostMemoCallLowerErrorKind` として保持し、表示文言へ直接丸めない。
+- Result/fail-closed: unsupported shape は通常 direct call や plain `FnValue` へ fallback せず `Err` で止める。
+- source reread prohibition: lowering は source token、prefix item、scope lookup、candidate collection を再実行せず、checked evidence だけを消費する。
+- doc comment: 新規 module / struct / enum / helper に目的、契約、戻り値、現状未実装、計算量を日本語で記述した。コメント行数を抑制する検査は追加していない。
+
+### subagent_review
+
+- design_review: `019eb6cf-79b9-72d1-8213-fa9063648489` は、`candidate.name == "memo_call"` や表示 symbol を primitive 判定に混ぜないこと、trusted identity を型で分けること、`FunctionValue` 1 個以外へ広げないこと、通常 call path へ fallback しない typed error を blocker として指摘した。実装は dedicated identity struct、DefId equality、typed error enum、FunctionValue-only gate で対応した。
+- implementation_review: `019eb6db-8694-7752-8416-5faedf3ee553` は、cache proof / backend を先取りしないこと、`memo_call @func` の `@func` 側は既存 function value identity gate を再利用すること、source policy で名前allowlist退行を固定することを推奨した。実装は `PrivateCache` / `MemoKey` / backend import を持たず、contract test で `string_search::str_eq ... memo_call` と `candidate.name ... memo_call` を禁止した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- pass: `node nodesrc/test_selfhost_hir_expr_payload.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/memo_call.nepl -o tmp-selfhost-memo-call-tests.json --dist web/dist -j 1 --assert-io --no-tree`: total=1, passed=1
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir.nepl -o tmp-selfhost-lower-hir-tests.json --dist web/dist -j 1 --assert-io --no-tree`: total=1, passed=1
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### warnings
+
+- existing_warnings: Node WASI ExperimentalWarning、documentation contract の既存 sample gaps、Git の LF -> CRLF conversion warning。
+- first_doctest_failure_fixed: `&SelfhostCompilerKnownMemoCallIdentity` の field access に `identity.def_id` を直接使って `type.field.invalid_access` になった。既存NEPLg2.1の参照field accessに合わせ、`*field::get_ref identity "def_id"` へ修正した。
+
+### residual
+
+- trusted identity constructor は registry / resolver が source identity を確認した後に呼ぶ前提であり、実際の stdlib source hash / policy hash materialization は後続 slice。
+- `MemoKey` / `MemoValue` structural predicate、private cache SourceCapability、Resource IR `PrivateCache` non-escape proof、sealed backend representation は未実装。
+- `memo_call @func arg` の即時適用、alias / pass-through function value、function literal、returned function value の accepted path はこの slice では開かない。
+- unexecuted_verification: `trunk build` は stdlib selfhost slice で必須ではないため未実行。Rust / web build artifact 変更は今回含まない。
+
 ## 2026-06-11 Agent selfhost memoized function value HIR boundary checkpoint
 
 ### scope

@@ -12,7 +12,7 @@
 //: - 未対応の lowering は成功扱いせず、各 split module の typed error として返します。
 //:
 //: [現状/げんじょう]:
-//: - 現 checkpoint では function value identity、`memo_call @pure_named_func` Phase 1 の memoized function value HIR boundary、checked argument list を使う direct call lowering boundary を持ちます。private cache proof、literal 以外の複合 lowering、Resource IR lowering は後続 slice で追加します。
+//: - 現 checkpoint では function value identity、`memo_call @pure_named_func` Phase 1 の memoized function value HIR boundary、compiler-known `memo_call` DefId identity gate、checked argument list を使う direct call lowering boundary を持ちます。private cache proof、literal 以外の複合 lowering、Resource IR lowering は後続 slice で追加します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
@@ -98,4 +98,5 @@
 //: ```
 
 pub #import "./hir/function_value" as *
+pub #import "./hir/memo_call" as *
 pub #import "./hir/direct_call" as *
