@@ -362,6 +362,83 @@ fn selfhost_check_expr_stage1_value_context_with_two_functions %impure fn str im
         Result::Err e:
             Result::Err e
 
+//: selfhost_check_expr_stage1_value_context_with_two_functions_and_typed_value: 同名 function overload と local 型証拠を持つ context を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 注釈無し pipe target の source-backed suffix smoke で、RHS target の同名 overload と suffix 側の named value evidence を同じ scope / evidence table に置きます。
+//: - 手作り candidate だけで成功させず、target は callable signature table、suffix の `NamedValue` は value evidence table からそれぞれ DefId-linked に解決されることを確認します。
+//:
+//: [契約/けいやく]:
+//: - 2 つの function binding は `function_name` を共有し、`first_type` と `second_type` に接続されます。
+//: - local binding は `value_name` を持ち、その DefId だけに `value_type` evidence を登録します。名前の spelling だけで型を推測してはいけません。
+//: - 成功時は context owner を返し、caller が `selfhost_check_expr_stage1_value_context_free` で scope、value evidence table、signature table を閉じます。
+//: - 各 add helper / table add helper は入力 owner を消費します。失敗時は、この helper が callee に渡していない残り owner だけを閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(context)`: 同名 function overload 2 件と、typed local value 1 件を持つ context owner です。
+//: - `Err(error)`: binding、evidence、signature、または table 作成が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 3 binding / 1 evidence / 2 signature だけを作るため O(1) です。
+fn selfhost_check_expr_stage1_value_context_with_two_functions_and_typed_value %impure fn str impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn str impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostCheckExprStage1ValueContext StdErrorKind \function_name\first_type\second_type\function_span\value_name\value_type\value_span:
+    match selfhost_name_scope_new:
+        Result::Ok scope0:
+            let first_binding %SelfhostNameBinding selfhost_name_binding_pending function_name SelfhostDefKind::Function function_span
+            match selfhost_name_scope_add_binding scope0 first_binding:
+                Result::Ok first_added:
+                    let first_def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &first_added
+                    let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope first_added
+                    let second_binding %SelfhostNameBinding selfhost_name_binding_pending function_name SelfhostDefKind::Function function_span
+                    match selfhost_name_scope_add_binding scope1 second_binding:
+                        Result::Ok second_added:
+                            let second_def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &second_added
+                            let scope2 %SelfhostNameScope selfhost_name_scope_add_result_into_scope second_added
+                            let value_binding %SelfhostNameBinding selfhost_name_binding_pending value_name SelfhostDefKind::Local value_span
+                            match selfhost_name_scope_add_binding scope2 value_binding:
+                                Result::Ok value_added:
+                                    let value_def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &value_added
+                                    let scope3 %SelfhostNameScope selfhost_name_scope_add_result_into_scope value_added
+                                    match selfhost_value_type_evidence_table_new:
+                                        Result::Ok value_types0:
+                                            let evidence %SelfhostValueTypeEvidence selfhost_value_type_evidence_new value_def_id value_type value_span
+                                            match selfhost_value_type_evidence_table_add value_types0 evidence:
+                                                Result::Ok value_types1:
+                                                    match selfhost_callable_signature_table_new:
+                                                        Result::Ok signatures0:
+                                                            let first_signature %SelfhostCallableSignature selfhost_callable_signature_new first_def_id first_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired function_span
+                                                            match selfhost_callable_signature_table_add signatures0 first_signature:
+                                                                Result::Ok signatures1:
+                                                                    let second_signature %SelfhostCallableSignature selfhost_callable_signature_new second_def_id second_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired function_span
+                                                                    match selfhost_callable_signature_table_add signatures1 second_signature:
+                                                                        Result::Ok signatures2:
+                                                                            Result::Ok selfhost_check_expr_stage1_value_context_new scope3 value_types1 signatures2
+                                                                        Result::Err e:
+                                                                            selfhost_value_type_evidence_table_free value_types1
+                                                                            selfhost_name_scope_free scope3
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    selfhost_value_type_evidence_table_free value_types1
+                                                                    selfhost_name_scope_free scope3
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            selfhost_value_type_evidence_table_free value_types1
+                                                            selfhost_name_scope_free scope3
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    selfhost_name_scope_free scope3
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_name_scope_free scope3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_check_expr_stage1_value_context_with_shadowed_function_value: function を同名 local で shadow した context を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -758,6 +835,22 @@ fn selfhost_check_expr_stage1_implicit_function_value_argument_segment %fn void 
 //: [計算量/けいさんりょう]:
 //: - 固定 range を作るだけなので O(1) です。
 fn selfhost_check_expr_stage1_pipe_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 4 source_span_new_unchecked 0 0 10
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
+//: selfhost_check_expr_stage1_pipe_suffix_named_argument_segment: `1 |> add x` の expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - pipe 右辺 suffix が named value の場合でも、expression line 全体を同じ source-backed reducer に渡す range fixture です。
+//: - token range は `1 |> add 2` と同じ 4 token ですが、suffix payload の期待が literal ではなく `NamedValue` なので別 helper として契約を分けます。
+//:
+//: [契約/けいやく]:
+//: - head range は token buffer の `1`、`|>`、`add`、`x` の 4 token 全体を指します。
+//: - source span は `"1 |> add x"` の byte range 0..10 です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 range を作るだけなので O(1) です。
+fn selfhost_check_expr_stage1_pipe_suffix_named_argument_segment %fn void SelfhostBodySegment \void:
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 4 source_span_new_unchecked 0 0 10
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
@@ -1324,6 +1417,48 @@ fn selfhost_check_expr_stage1_make_pipe_suffix_ascribed_argument_tokens %impure 
                                                     Result::Err e
                                         Result::Err e:
                                             Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_pipe_suffix_named_argument_tokens: `1 |> add x` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 注釈無し pipe target の argument probe が、scope / value evidence を必要とする named suffix に出会った場合の success fixture です。
+//: - `x` は spelling だけでは型を持たず、source-backed checker が `SelfhostValueTypeEvidenceTable` を参照できる場合だけ `NamedValue` argument として成功します。
+//:
+//: [契約/けいやく]:
+//: - 借用 probe は value evidence table を持たないため、`x` を候補固有の不一致として扱ってはいけません。
+//: - 他候補がすべて `NoMatch` で、`SourceBackedRequired` が1候補だけ残り、`SelectionBlockedUnsupported` が無い場合に限り、既存 source-backed checker がその1候補を検査します。
+//: - 成功時は caller が token vector owner を受け取り、runner が必ず解放します。
+//: - token push failure 時は `selfhost_check_expr_stage1_push_token` が途中 owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(tokens)`: `1`、`|>`、`add`、`x` の 4 token を持つ vector owner です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 4 token だけを作るため O(1) です。
+fn selfhost_check_expr_stage1_make_pipe_suffix_named_argument_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let lhs %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 0 1
+            match selfhost_check_expr_stage1_push_token tokens0 lhs:
+                Result::Ok tokens1:
+                    let pipe_token %SelfhostToken selfhost_token_new TokenKind::Pipe source_span_new_unchecked 0 2 4
+                    match selfhost_check_expr_stage1_push_token tokens1 pipe_token:
+                        Result::Ok tokens2:
+                            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 5 8
+                            match selfhost_check_expr_stage1_push_token tokens2 add_token:
+                                Result::Ok tokens3:
+                                    let named_arg %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 9 10
+                                    selfhost_check_expr_stage1_push_token tokens3 named_arg
                                 Result::Err e:
                                     Result::Err e
                         Result::Err e:
@@ -2098,6 +2233,56 @@ fn selfhost_check_expr_stage1_argument_is_checked_expr_range %fn &SelfhostChecke
                 SelfhostCheckedArgumentKind::BlockResult:
                     false
 
+//: selfhost_check_expr_stage1_argument_is_named_value_range: checked argument が指定範囲の named value か[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - pipe suffix の `x` が、source spelling の再読みに戻らず `SelfhostCheckedArgumentKind::NamedValue` payload として保存されたことを確認します。
+//: - HIR lowering はこの payload の DefId-linked identity から `Var` child を作るため、smoke test でも payload kind と consume range を直接見る必要があります。
+//:
+//: [契約/けいやく]:
+//: - `start_index` と `next_index` は prefix list 上の半開区間です。`1 |> add x` では suffix `x` が `[3, 4)` になります。
+//: - identity payload の具体値は scope allocation order に依存するため、この helper は kind と消費範囲だけを確認します。
+//: - この helper は borrow を観測するだけで、checked argument owner を移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: argument kind が `NamedValue` で、消費範囲も期待と一致します。
+//: - `false`: kind または消費範囲が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - argument payload 1 件を O(1) で確認します。
+fn selfhost_check_expr_stage1_argument_is_named_value_range %fn &SelfhostCheckedArgument fn i32 fn i32 bool \argument\expected_start\expected_next:
+    let checked_argument %SelfhostCheckedArgument *argument
+    if:
+        not and eq checked_argument.start_index expected_start eq checked_argument.next_index expected_next
+        then:
+            false
+        else:
+            match checked_argument.kind:
+                SelfhostCheckedArgumentKind::UnitValue:
+                    false
+                SelfhostCheckedArgumentKind::BoolLiteral _value:
+                    false
+                SelfhostCheckedArgumentKind::I32Literal _value:
+                    false
+                SelfhostCheckedArgumentKind::F32Literal _value:
+                    false
+                SelfhostCheckedArgumentKind::CharLiteral _value:
+                    false
+                SelfhostCheckedArgumentKind::StrLiteral _value:
+                    false
+                SelfhostCheckedArgumentKind::NamedValue _identity:
+                    true
+                SelfhostCheckedArgumentKind::TypedExpression:
+                    false
+                SelfhostCheckedArgumentKind::FunctionValue _candidate:
+                    false
+                SelfhostCheckedArgumentKind::CheckedExpr _expr_id:
+                    false
+                SelfhostCheckedArgumentKind::NestedDirectCall _candidate:
+                    false
+                SelfhostCheckedArgumentKind::BlockResult:
+                    false
+
 //: selfhost_check_expr_stage1_success_has_pipe_argument_order: pipe 正規化後の checked argument 順序を[調/しら]べる
 //:
 //: [目的/もくてき]:
@@ -2342,6 +2527,40 @@ fn selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order %f
                     match v::get checked_arguments 1:
                         Option::Some second:
                             and selfhost_check_expr_stage1_argument_is_i32_literal_range &first 1 0 1 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 2 5 6
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_check_expr_stage1_success_has_pipe_suffix_named_argument_order: pipe suffix の named argument 順序を[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - `1 |> add x` の pipe 正規化が、注釈無し target の一意な source-backed suffix candidate を選び、checked argument list に左辺 `1` と suffix `x` を保存することを確認します。
+//: - `x` は value evidence table で照合済みの `NamedValue` payload でなければならず、HIR lowering が source token や scope lookup を再実行しない契約を固定します。
+//:
+//: [契約/けいやく]:
+//: - fixture source は固定であり、prefix item index は `0:IntLiteral`, `1:Pipe`, `2:add`, `3:NamedValue(x)` です。
+//: - suffix argument の checked range は `[3, 4)` で、identity payload の具体値は scope allocation order に依存するため検査しません。
+//: - `success` は borrow であり、この helper は内部 owner を移動しません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: checked argument が2件で、0番目が左辺 `I32Literal(1)`、1番目が suffix の `NamedValue` です。
+//: - `false`: checked argument 数、payload kind、literal 値、または consume-width が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定2件の Vec access と payload match だけなので O(1) です。
+fn selfhost_check_expr_stage1_success_has_pipe_suffix_named_argument_order %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
+    if:
+        not eq v::len checked_arguments 2
+        then:
+            false
+        else:
+            match v::get checked_arguments 0:
+                Option::Some first:
+                    match v::get checked_arguments 1:
+                        Option::Some second:
+                            and selfhost_check_expr_stage1_argument_is_i32_literal_range &first 1 0 1 selfhost_check_expr_stage1_argument_is_named_value_range &second 3 4
                         Option::None:
                             false
                 Option::None:
@@ -3393,6 +3612,53 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_su
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope: 注釈無し pipe target の named suffix を source-backed に[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `1 |> add x` の suffix argument は借用 probe では value evidence table を見られないため `SourceBackedRequired` ですが、source-backed checker なら `x: i32` の証拠で検査できます。
+//: - 片方の candidate が suffix 余剰で `NoMatch` になり、もう片方だけが named suffix で `SourceBackedRequired` になる状況を作り、唯一残った候補だけを source-backed finisher へ渡せることを確認します。
+//:
+//: [契約/けいやく]:
+//: - `one_arg_type` は pipe 左辺だけなら満たせるが suffix が余る function type です。
+//: - `two_arg_type` は左辺と `x` がどちらも `i32` として合い得る function type です。
+//: - context は同名 function binding 2 件と `x: i32` の value evidence を同時に持ち、target selection と suffix value check がそれぞれ正しい authority から証拠を取ることを要求します。
+//: - `Match` が 0 件で `SourceBackedRequired` が 1 件だけ、かつ `SelectionBlockedUnsupported` が 0 件のときだけ成功候補へ進みます。複数 source-backed 必須候補や selection-blocked 未対応は引き続き曖昧のままにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 唯一の判定不能候補が source-backed checker で検査され、2引数 direct call として成功しました。
+//: - `false`: setup 失敗、候補選択、named value evidence、または success payload が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。reducer 側は候補数 c と各候補の軽量 probe cost p に対して O(c * p) で集計し、唯一の source-backed candidate だけを既存 argument checker へ渡します。
+fn selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\one_arg_type\two_arg_type\i32_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_pipe_suffix_named_argument_segment
+    match selfhost_check_expr_stage1_make_candidate_vec two_arg_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 5 8
+            let x_span %SelfhostSourceSpan source_span_new_unchecked 0 9 10
+            match selfhost_check_expr_stage1_value_context_with_two_functions_and_typed_value "add" one_arg_type two_arg_type add_span "x" i32_type x_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "1 |> add x" segment arena context &candidates none:
+                        Result::Ok success:
+                            let ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_pipe_suffix_named_argument_order &success
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_pipe_ascribed_target_overload_no_match_rejected_with_scope: 注釈型に[一致/いっち]する overload が無い場合を[確認/かくにん]する
 //:
 //: [目的/もくてき]:
@@ -4378,6 +4644,40 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupporte
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_i32: 注釈無し pipe target の named suffix success smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - primitive `i32` を使って `add : fn i32 i32` と `add : fn i32 fn i32 i32` の2候補を構築し、`1 |> add x` が唯一の source-backed candidate として2引数版を選ぶことを確認します。
+//: - 借用 probe の段階では2引数版が `SourceBackedRequired` ですが、source-backed finisher は `x: i32` の DefId-linked evidence を見られるため `NamedValue` argument として成功します。
+//:
+//: [契約/けいやく]:
+//: - setup 成功後の arena owner と token owner は下位 helper へ移動します。
+//: - function type allocation に失敗した場合だけ、この helper が token owner を閉じます。arena owner は allocation helper 側で閉じられます。
+//: - 複数の判定不能候補を source-backed に総当たりしません。成功へ進むのは borrowed summary が一意の判定不能候補だけを残した場合です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: 唯一の判定不能候補が source-backed suffix named value checker で検査され、direct call へ正規化されました。
+//: - `1`: setup、候補選択、value evidence check、または下位 reducer が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - type fixture setup は固定個数なので O(1) です。下位 reducer は候補集計後、一意の source-backed finisher だけを実行します。
+fn selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
+        Result::Ok one_alloc:
+            let one_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &one_alloc
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena one_alloc
+            match selfhost_check_expr_stage1_add_two_i32_function arena1 i32_type:
+                Result::Ok two_alloc:
+                    let two_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &two_alloc
+                    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena two_alloc
+                    if selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope tokens arena2 one_type two_type i32_type 0 1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_pipe_chain_with_i32: pipe chain success smoke を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
@@ -5097,6 +5397,36 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupporte
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens: token owner から named suffix success smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `1 |> add x` 用 token buffer に primitive `i32` arena fixture を付け、source-backed named suffix の i32-level helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - arena setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後は token owner と arena owner を下位 helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: named suffix smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive fixture setup は O(1) です。下位 reducer は候補数と source-backed named value evidence check に従います。
+fn selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_named_argument_with_tokens: token owner から named argument success smoke を[起動/きどう]する
 //:
 //: [目的/もくてき]:
@@ -5675,17 +6005,18 @@ fn selfhost_check_expr_stage1_pipe_failclosed_body_line %impure fn void i32 \voi
 //: - `1 |> add 2` を使い、target ascription が無くても pipe 左辺と suffix の引数列から同名 overload を一意化できる success case を確認します。
 //: - 同じ source で、適用可能候補 0 件と複数一致の negative case も続けて確認し、候補選択を first-match や unresolved fallback にしない契約を固定します。
 //: - `1 |> add %i32 2` では、source-backed checker が必要な suffix argument を、他候補がすべて `NoMatch` のときだけ一意の success path へ渡すことを確認します。
+//: - `1 |> add x` では、source-backed checker が value evidence table を使って named suffix を `NamedValue` payload にできることを確認します。
 //:
 //: [契約/けいやく]:
 //: - 各 token buffer owner は対応する runner へ移動し、runner が cleanup を担当します。
 //: - success case が通った後だけ negative case を実行します。success path が壊れている状態で error 分類だけを見て green にしないためです。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: argument-based narrowing success、no-applicable rejection、duplicate-match rejection、single-probe-unsupported success がすべて期待通りでした。
+//: - `0`: argument-based narrowing success、no-applicable rejection、duplicate-match rejection、ascribed suffix success、named suffix success がすべて期待通りでした。
 //: - `1`: token setup、probe narrowing、error 分類、または cleanup 境界のいずれかが失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - 固定 token fixture を最大 4 回作るため setup は O(1) です。各 reducer は候補数と argument probe cost に従います。
+//: - 固定 token fixture を最大 5 回作るため setup は O(1) です。各 reducer は候補数と argument probe cost に従います。
 fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_tokens:
         Result::Ok success_tokens:
@@ -5707,7 +6038,17 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
                                                 then:
                                                     match selfhost_check_expr_stage1_make_pipe_suffix_ascribed_argument_tokens:
                                                         Result::Ok unsupported_tokens:
-                                                            selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens unsupported_tokens
+                                                            let unsupported %i32 selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens unsupported_tokens
+                                                            if:
+                                                                eq unsupported 0
+                                                                then:
+                                                                    match selfhost_check_expr_stage1_make_pipe_suffix_named_argument_tokens:
+                                                                        Result::Ok named_tokens:
+                                                                            selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens named_tokens
+                                                                        Result::Err _e:
+                                                                            1
+                                                                else:
+                                                                    1
                                                         Result::Err _e:
                                                             1
                                                 else:
@@ -5728,7 +6069,7 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
 //: [目的/もくてき]:
 //: - public body-line smoke から `1 |> add 2`、`1 |> %fn i32 fn i32 i32 add 2`、`1 |> add 2 |> add 3` の source-backed pipe 正規化を確認します。
 //: - 同名 function overload が複数ある場合でも、明示 target ascription が callable type と一致する1候補へ探索空間を狭めることを確認します。
-//: - target ascription が無い場合でも、pipe 左辺と RHS suffix の引数列から同名 overload を一意化できる最小 case と、その 0 件 / 複数件 fail-closed case を確認します。
+//: - target ascription が無い場合でも、pipe 左辺と RHS suffix の引数列から同名 overload を一意化できる最小 case、source-backed suffix success case、その 0 件 / 複数件 fail-closed case を確認します。
 //: - pipe は部分適用ではなく、右辺 callable の第1引数に左辺 checked argument を差し込む syntax sugar として扱うことを固定します。
 //: - success case が通った後、不正な形や target ascription mismatch が typed pipe error として fail-closed になる negative smoke 群も実行します。
 //:
@@ -5741,7 +6082,7 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
 //: - `1`: token setup または pipe reducer が失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - 固定 token fixture を最大 19 回作るため setup は O(1) です。支配的な計算量は pipe scan、target ascription projection、candidate narrowing、argument probe、argument checker に従います。
+//: - 固定 token fixture を最大 20 回作るため setup は O(1) です。支配的な計算量は pipe scan、target ascription projection、candidate narrowing、argument probe、argument checker に従います。
 fn selfhost_check_expr_stage1_pipe_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_tokens:
         Result::Ok tokens:
@@ -5887,6 +6228,7 @@ fn selfhost_check_expr_stage1_trailing_block_nested_body_line %impure fn void i3
 //: - 明示 `@ident` function value argument は、expected function type と同じ signature を持つ monomorphic named function だけを受理することを確認します。
 //: - bare function name を expected function type の位置に置いても、暗黙 function value や部分適用として成功しないことを確認します。
 //: - `1 |> add 2` は、左辺を右辺 callable の第1引数として扱う source-backed pipe 正規化により、2引数 direct call として成功することを確認します。
+//: - `1 |> add x` は、注釈無し pipe target の候補選択で一意に残った source-backed suffix を `x: i32` の value evidence で `NamedValue` payload へ変換できることを確認します。
 //: - `1 |> add 2 |> add 3` は、前段 direct call の checked tree node を次段第1引数として渡す左結合 pipe chain として成功することを確認します。
 //: - 左辺欠落、右辺欠落、literal RHS target、ascribed RHS target、multi-value left、0 引数 RHS target は、不正形を成功扱いせず pipe-specific typed error として fail-closed にすることを確認します。
 //: - `BlockIntro` 専用入口では、末尾 block argument が nested body を `BlockResult` または `BlockSequence` として検査し、outer call の不足 parameter を満たすことを確認します。

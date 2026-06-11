@@ -873,12 +873,12 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span[\s\S]*"1 \|> add 2"[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetAmbiguous[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope[\s\S]*"1 \|> add %i32 2"[\s\S]*selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order/,
-    "stage1 must smoke-test non-ascribed pipe target argument narrowing, its fail-closed cases, and the single source-backed unsupported success case",
+    /selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span[\s\S]*"1 \|> add 2"[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetNoApplicableCandidate[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::PipeTargetAmbiguous[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope[\s\S]*"1 \|> add %i32 2"[\s\S]*selfhost_check_expr_stage1_success_has_pipe_suffix_ascribed_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_value_context_with_two_functions_and_typed_value "add" one_arg_type two_arg_type add_span "x" i32_type x_span[\s\S]*"1 \|> add x"[\s\S]*selfhost_check_expr_stage1_success_has_pipe_suffix_named_argument_order/,
+    "stage1 must smoke-test non-ascribed pipe target argument narrowing, its fail-closed cases, and the single source-backed suffix success cases",
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens/,
+    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens/,
     "stage1 must expose token-owner runners for non-ascribed pipe target argument narrowing fixtures",
 );
 assert.match(
@@ -888,12 +888,12 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_zero_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_i32[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope/,
-    "stage1 must run runtime smoke for non-ascribed pipe target unique-match, no-applicable, duplicate-match, and single source-backed unsupported success cases",
+    /selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_zero_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_no_applicable_rejected_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_i32[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_duplicate_match_rejected_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_single_probe_unsupported_succeeds_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_i32[\s\S]*selfhost_check_expr_stage1_add_one_i32_function[\s\S]*selfhost_check_expr_stage1_add_two_i32_function[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope/,
+    "stage1 must run runtime smoke for non-ascribed pipe target unique-match, no-applicable, duplicate-match, and source-backed suffix success cases",
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_suffix_ascribed_argument_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
+    /selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_suffix_ascribed_argument_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_suffix_named_argument_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
     "public stage1 body-line smoke must include pipe, pipe chain, ascribed pipe overload narrowing, non-ascribed pipe argument narrowing, block result, block sequence, and nested BlockIntro fixtures",
 );
 assert.match(
@@ -910,6 +910,33 @@ assert.match(
     source,
     /selfhost_check_expr_stage1_make_ascribed_named_argument_tokens[\s\S]*"add %i32 x 2"[\s\S]*selfhost_check_expr_stage1_ascribed_named_argument_ok_with_scope/,
     "stage1 must smoke-test argument-scope ascription with a named value tail",
+);
+assertContainsInOrder(
+    source,
+    [
+        "fn selfhost_check_expr_stage1_value_context_with_two_functions_and_typed_value",
+        "SelfhostDefKind::Function",
+        "SelfhostDefKind::Function",
+        "SelfhostDefKind::Local",
+        "selfhost_value_type_evidence_new value_def_id value_type value_span",
+        "selfhost_callable_signature_new first_def_id first_type",
+        "selfhost_callable_signature_new second_def_id second_type",
+    ],
+    "stage1 must build one context that contains same-name pipe target overloads and a DefId-linked typed local value",
+);
+assertContainsInOrder(
+    source,
+    [
+        "selfhost_check_expr_stage1_make_pipe_suffix_named_argument_tokens",
+        "`1 |> add x`",
+        "TokenKind::Ident source_span_new_unchecked 0 9 10",
+        "selfhost_check_expr_stage1_argument_is_named_value_range",
+        "SelfhostCheckedArgumentKind::NamedValue _identity:",
+        "selfhost_check_expr_stage1_success_has_pipe_suffix_named_argument_order",
+        "selfhost_check_expr_stage1_pipe_unascribed_target_named_suffix_succeeds_with_scope",
+        "\"1 |> add x\"",
+    ],
+    "stage1 must smoke-test that a source-backed pipe suffix named value becomes a NamedValue checked argument",
 );
 assert.match(
     bodyLine,

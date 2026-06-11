@@ -96,7 +96,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-11: 注釈無し pipe target の単純な引数列 narrowing を追加した。`target_ascription = None` で候補が複数ある場合、source-backed owner reducer を候補ごとに投機実行せず、pipe 左辺と RHS suffix を borrowed probe で `Match` / `NoMatch` / `ProbeUnsupported` に分類して集計する。unsupported が混じる場合は `PipeTargetAmbiguous` として安全側に止め、一致 0 件は `PipeTargetNoApplicableCandidate`、一致複数は `PipeTargetAmbiguous`、一意一致だけを既存の checked-left finisher へ渡す。stage1 smoke は `1 |> add 2` で `fn i32 i32` と `fn i32 fn i32 i32` の同名候補から2引数版だけを選ぶ success case、適用候補 0 件 case、同じ callable type に複数一致する case を public pipe body-line から実行する。`UnsupportedArgumentExpression`、argument ascription projection failure、NamedValue evidence missing など source-backed 検査が必要な probe は candidate-specific mismatch にせず `ProbeUnsupported` へ分類する契約も source policy で固定した。
 - 2026-06-11: 注釈無し pipe target の `ProbeUnsupported` runtime smoke を追加した。`1 |> add %i32 2` は、`add : fn i32 i32` では suffix 余剰により `NoMatch`、`add : fn i32 fn i32 i32` では `%i32 2` が source-backed argument checker を必要とするため `ProbeUnsupported` になる。この候補列を `PipeTargetAmbiguous` として拒否することを stage1 public smoke で確認し、borrowed probe が高度な suffix argument を不一致扱いして別候補を選ぶ退行を防いだ。これは advanced suffix expression の成功実装ではなく、source-backed checker を候補ごとに投機実行しない fail-closed 境界である。
 - 2026-06-11: 注釈無し pipe target の唯一 source-backed 必須候補を source-backed finisher へ接続した。subagent review で、従来の `ProbeUnsupported` は `%i32 2` のような再検査可能な suffix と、generic 未解決・内部境界・OOM のような選んではいけない未対応を同じ variant に潰していると指摘されたため、`SelfhostPipeCandidateApplicability` を `SourceBackedRequired` と `SelectionBlockedUnsupported` に分離した。`Match` が 0 件、`SourceBackedRequired` が 1 件、`SelectionBlockedUnsupported` が 0 件の場合だけ、候補ごとの投機実行を広げず、その1候補だけを既存の checked-left / source-backed suffix checker へ渡す。これにより `1 |> add %i32 2` は `add : fn i32 i32` が suffix 余剰で `NoMatch`、`add : fn i32 fn i32 i32` だけが `%i32 2` の source-backed 検査を必要とする状況で2引数版 direct call として成功する。`Match` と `SourceBackedRequired` の混在、`SourceBackedRequired` 複数件、または `SelectionBlockedUnsupported` が1件以上ある場合は引き続き `PipeTargetAmbiguous` として fail-closed にする。stage1 smoke は checked argument order と `%i32 2` の内側 literal payload を確認し、HIR lowering が source token を再読しない契約を保つ。
-- 残件: lambda / borrow / source-backed pipe suffix の複合式・named value・block など `%T literal` を越える成功 path、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-11: 注釈無し pipe target の唯一 source-backed named suffix を source-backed finisher へ接続した。`1 |> add x` は、borrowed probe では `x` の value evidence table を参照できないため2引数版 candidate が `SourceBackedRequired` になり、1引数版 candidate は suffix 余剰で `NoMatch` になる。`Match` 0 件、`SourceBackedRequired` 1 件、`SelectionBlockedUnsupported` 0 件という既存条件を満たす場合だけ、その1候補を source-backed finisher に渡し、`SelfhostValueTypeEvidenceTable` の DefId-linked `x: i32` evidence から `SelfhostCheckedArgumentKind::NamedValue` payload を作る。stage1 smoke は checked argument order が左辺 `I32Literal(1) [0, 1)`、suffix `NamedValue [3, 4)` であることを確認し、HIR lowering が source token / scope lookup / value evidence lookup を再実行しない契約を固定した。
+- 残件: lambda / borrow / source-backed pipe suffix の block / nested call / lambda など `%T literal` と named value を越える複合式 success path、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -181,6 +182,20 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 
 - `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
 - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-probe-unsupported.json`: total=7, passed=7
+
+2026-06-11 source-backed pipe named suffix checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+- `node nodesrc/test_selfhost_documentation_contract.js`: pass
+- `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+- `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-source-backed-named-suffix.json`: total=7, passed=7
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+- `node nodesrc/issues.js index --dir issues`: pass
+- `node nodesrc/issues.js check --dir issues`: pass
+- `git diff --check`: pass
+- subagent review `019eb594-fd38-7442-91ec-39bbfc618066`: blocker なし。`call_reduce.nepl` の finisher 条件を広げず、`1 |> add x` の `NamedValue` payload が source token 再読ではなく scope / value evidence 由来であることを確認済み。
 
 2026-06-05 NamedValue HIR identity checkpoint:
 
