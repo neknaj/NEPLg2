@@ -35,6 +35,7 @@ const inputHandler = read("web/src/editor/editor-input-handler.ts");
 const browserAdapter = read("web/src/editor-core/browser-adapter.ts");
 const languageAnalysis = read("web/src/editor-core/language-analysis.ts");
 const provider = read("web/src/language/neplg2/neplg2-provider.ts");
+const analysisWorker = read("web/src/language/neplg2/neplg2-analysis-worker.ts");
 const panelManager = read("web/src/workspace/panel-manager.ts");
 const main = read("web/src/main.ts");
 const html = read("web/index.html");
@@ -74,6 +75,46 @@ assert.match(
     provider,
     /_scheduleStructuralAnalysis\(version,\s*analysisText,\s*analysisDocumentVersion,\s*analysisPath\)/,
     "AST/folding parse must be scheduled after the semantic payload is published",
+);
+assert.match(
+    provider,
+    /new Worker\('dist_ts\/language\/neplg2\/neplg2-analysis-worker\.js',\s*\{\s*type:\s*'module'\s*\}\)/,
+    "NEPLg2 semantic analysis must run through a dedicated module worker when compiler assets are available",
+);
+assert.match(
+    provider,
+    /_cancelActiveAnalysisWorkerRequests\('analysis input changed'\)/,
+    "active analysis worker requests must be cancelled when editor input changes",
+);
+assert.match(
+    provider,
+    /_analyzeAndPublish\(version\)\s*\{[\s\S]*this\._canUseAnalysisWorker\(\)[\s\S]*this\._analyzeAndPublishWithWorker/,
+    "semantic publish scheduling must choose the worker path before synchronous fallback",
+);
+assert.match(
+    provider,
+    /_requestStructuralParseWithWorker\(version,\s*text,\s*documentVersion,\s*path\)\s*\{[\s\S]*type:\s*'parse'[\s\S]*this\.parse\s*=\s*\{[\s\S]*module:\s*message\.module/,
+    "structural parse must use the analysis worker and publish only returned parse modules",
+);
+assert.doesNotMatch(
+    methodBody(provider, "getHoverInfo"),
+    /_ensureStructuralParse\(/,
+    "hover must not force a synchronous structural parse before the scheduled worker result",
+);
+assert.match(
+    analysisWorker,
+    /import\s+\{\s*buildEditorUpdatePayloadFromAnalysis\s*\}\s+from\s+'..\/..\/editor-core\/language-analysis\.js'/,
+    "analysis worker must build editor payloads through the shared language-analysis bridge",
+);
+assert.match(
+    analysisWorker,
+    /analyze_semantics_with_vfs[\s\S]*analyze_semantics/,
+    "analysis worker must preserve the VFS semantic analysis path before inline fallback",
+);
+assert.match(
+    analysisWorker,
+    /analyze_parse\(request\.text\)/,
+    "analysis worker must own structural parse calls instead of running them on the UI thread",
 );
 assert.match(
     provider,
@@ -155,6 +196,11 @@ assert.match(
     main,
     /let\s+compilerMode\s*=\s*normalizeCompilerMode\(compilerModeSelect\?\.value\)/,
     "main playground controller must keep Rust as the normalized default compiler mode",
+);
+assert.match(
+    main,
+    /NEPLg2CompilerAssets\s*=\s*readCompilerAssetsFromDocument\(document\)[\s\S]*new PlaygroundPanelManager/,
+    "compiler asset metadata must be available before restored editor tabs create NEPLg2 analysis providers",
 );
 
 console.log("playground editor performance policy passed");

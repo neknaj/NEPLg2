@@ -92,6 +92,7 @@ function startApp() {
     document.querySelector('.status-left')?.appendChild(analysisSpan);
     const terminalStatusSpan = document.getElementById('terminal-status') as HTMLElement;
     let compilerMode = normalizeCompilerMode(compilerModeSelect?.value);
+    (window as any).NEPLg2CompilerAssets = readCompilerAssetsFromDocument(document);
 
     const panelManager = new PlaygroundPanelManager({
         root: workspaceRoot,
@@ -105,8 +106,6 @@ function startApp() {
         terminalStatusSpan,
     });
     panelManager.redraw();
-
-    (window as any).NEPLg2CompilerAssets = readCompilerAssetsFromDocument(document);
 
     const openInitialDocument = () => {
         const initialPath = vfs.exists('/examples/rpn.nepl') ? '/examples/rpn.nepl' : '/README';

@@ -245,7 +245,261 @@ async function main() {
     assert.equal(provider.getTokenInsight(0).definitionCandidates[0].name, "semantic-definition");
     assert.equal(semanticCalls.tokenInsight, 2);
 
+    await runWorkerAnalysisScenario(providerPath);
+
     console.log("playground analysis freshness regression passed");
+}
+
+async function runWorkerAnalysisScenario(providerPath) {
+    const timers = [];
+    const updates = [];
+    const syncCalls = {
+        semantics: 0,
+        parse: 0,
+        hover: 0,
+    };
+    const workerInstances = [];
+
+    class FakeWorker {
+        constructor(pathValue, options) {
+            this.path = pathValue;
+            this.options = options;
+            this.messages = [];
+            this.terminated = false;
+            this.onmessage = null;
+            this.onerror = null;
+            workerInstances.push(this);
+        }
+
+        postMessage(message) {
+            this.messages.push(message);
+        }
+
+        terminate() {
+            this.terminated = true;
+        }
+    }
+
+    const context = {
+        console,
+        Worker: FakeWorker,
+        setTimeout(callback) {
+            const id = timers.length;
+            timers.push({ callback, active: true });
+            return id;
+        },
+        clearTimeout(id) {
+            if (timers[id]) {
+                timers[id].active = false;
+            }
+        },
+        window: {
+            NEPLg2CompilerAssets: {
+                moduleUrl: "compiler.js",
+                wasmUrl: "compiler_bg.wasm",
+            },
+            wasmBindings: {
+                analyze_lex() {
+                    throw new Error("sync analyze_lex must not be called when analysis worker is available");
+                },
+                analyze_parse() {
+                    syncCalls.parse += 1;
+                    throw new Error("sync analyze_parse must not be called when analysis worker is available");
+                },
+                analyze_semantics() {
+                    syncCalls.semantics += 1;
+                    throw new Error("sync analyze_semantics must not be called when analysis worker is available");
+                },
+            },
+            NEPLPlaygroundLanguageAnalysis: {
+                buildEditorUpdatePayloadFromAnalysis(text, snapshot) {
+                    return {
+                        text,
+                        snapshot,
+                        tokens: [],
+                        semanticHighlightTokens: [],
+                        diagnostics: [],
+                        foldingRanges: [],
+                        semanticTokens: [],
+                        inlayHints: [],
+                        config: {
+                            highlightWhitespace: false,
+                            highlightIndent: true,
+                        },
+                    };
+                },
+                remapEditorUpdatePayloadForTextChange(previousText, nextText, previousPayload) {
+                    return {
+                        ...previousPayload,
+                        text: nextText,
+                        remappedFrom: previousText,
+                    };
+                },
+                getTokenInsightFromAnalysis() {
+                    return {
+                        definitionCandidates: [],
+                    };
+                },
+                getHoverInfoFromAnalysis() {
+                    syncCalls.hover += 1;
+                    return { content: "worker hover", startIndex: 0, endIndex: 1 };
+                },
+                getDefinitionLocationFromAnalysis() {
+                    return { targetIndex: 0 };
+                },
+                getOccurrencesFromAnalysis() {
+                    return [];
+                },
+            },
+        },
+    };
+
+    vm.runInNewContext(fs.readFileSync(providerPath, "utf8"), context, { filename: providerPath });
+    const provider = new context.window.NEPLg2LanguageProvider();
+    provider.onUpdate((payload) => updates.push(payload));
+
+    provider.replaceDocument({
+        path: "/examples/main.nepl",
+        text: "firstSymbol\n",
+        editable: true,
+    });
+    runNextTimer(timers);
+
+    assert.equal(workerInstances.length, 1);
+    const firstWorker = workerInstances[0];
+    assert.equal(firstWorker.options.type, "module");
+    assert.match(String(firstWorker.path), /neplg2-analysis-worker\.js/);
+    const firstRequest = firstWorker.messages.at(-1);
+    assert.equal(firstRequest.type, "analyze");
+    assert.equal(firstRequest.path, "/examples/main.nepl");
+    assert.equal(firstRequest.text, "firstSymbol\n");
+    assert.equal(firstRequest.compiler.moduleUrl, context.window.NEPLg2CompilerAssets.moduleUrl);
+    assert.equal(firstRequest.compiler.wasmUrl, context.window.NEPLg2CompilerAssets.wasmUrl);
+    assert.equal(syncCalls.semantics, 0);
+    assert.equal(syncCalls.parse, 0);
+
+    provider.updateText("secondSymbol\n");
+    assert.equal(firstWorker.terminated, true);
+    firstWorker.onmessage({
+        data: buildWorkerAnalysisResult(firstRequest.requestId, "firstSymbol"),
+    });
+    await flushMicrotasks();
+    assert.notEqual(updates.at(-1).analysis?.freshness, "fresh");
+
+    runNextTimer(timers);
+    assert.equal(workerInstances.length, 2);
+    const secondWorker = workerInstances[1];
+    const secondRequest = secondWorker.messages.at(-1);
+    assert.equal(secondRequest.type, "analyze");
+    assert.equal(secondRequest.text, "secondSymbol\n");
+    secondWorker.onmessage({
+        data: buildWorkerAnalysisResult(secondRequest.requestId, "secondSymbol"),
+    });
+    await flushMicrotasks();
+
+    const fresh = updates.at(-1);
+    assert.equal(fresh.analysis.freshness, "fresh");
+    assert.equal(fresh.analysis.documentVersion, 2);
+    assert.equal(fresh.analysis.sourceDocumentVersion, 2);
+    assert.equal(syncCalls.semantics, 0);
+    assert.equal(syncCalls.parse, 0);
+
+    assert.deepEqual(await provider.getHoverInfo(0), { content: "worker hover", startIndex: 0, endIndex: 1 });
+    assert.equal(syncCalls.hover, 1);
+    assert.equal(syncCalls.parse, 0);
+
+    runNextTimer(timers);
+    const parseRequest = secondWorker.messages.at(-1);
+    assert.equal(parseRequest.type, "parse");
+    secondWorker.onmessage({
+        data: {
+            type: "structural-result",
+            requestId: parseRequest.requestId,
+            module: { root: { kind: "Module" } },
+        },
+    });
+    await flushMicrotasks();
+    assert.equal(syncCalls.parse, 0);
+}
+
+function buildWorkerAnalysisResult(requestId, symbol) {
+    const span = {
+        start: 0,
+        end: symbol.length,
+        start_line: 0,
+        start_col: 0,
+        end_line: 0,
+        end_col: symbol.length,
+    };
+    const lex = {
+        tokens: [{
+            kind: "Ident",
+            value: symbol,
+            span,
+        }],
+        diagnostics: [],
+    };
+    const resolve = {
+        definitions: [{
+            id: 1,
+            name: symbol,
+            kind: "fn",
+            span,
+        }],
+        references: [{
+            name: symbol,
+            resolved_def_id: 1,
+            span,
+        }],
+        by_name: {
+            [symbol]: [{ id: 1 }],
+        },
+    };
+    const semantics = {
+        ok: true,
+        tokens: lex.tokens,
+        diagnostics: [],
+        name_resolution: resolve,
+        token_resolution: [{
+            token_index: 0,
+            name: symbol,
+            resolved_def_id: 1,
+            candidate_def_ids: [1],
+        }],
+        token_semantics: [],
+        token_classifications: [],
+        syntax_ranges: [],
+    };
+    const parse = {
+        ok: true,
+        module: null,
+        diagnostics: [],
+    };
+    return {
+        type: "analysis-result",
+        requestId,
+        lex,
+        parse,
+        resolve,
+        semantics,
+        payload: {
+            tokens: [],
+            semanticHighlightTokens: [],
+            diagnostics: [],
+            foldingRanges: [],
+            semanticTokens: [],
+            inlayHints: [],
+            config: {
+                highlightWhitespace: false,
+                highlightIndent: true,
+            },
+        },
+    };
+}
+
+async function flushMicrotasks() {
+    await Promise.resolve();
+    await Promise.resolve();
 }
 
 function runNextTimer(timers) {

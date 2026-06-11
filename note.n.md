@@ -55106,3 +55106,49 @@ MERGE_APPROVED
 
 - semantic analysis の worker 化、VFS revision を含む async protocol、cross-file span path/range、non-ASCII char offset mapping は別 P0 issue として残っている。
 - fresh でない間の completion は keyword のみに限定している。symbol completion の pending 表示や UI indicator は後続の UI/worker issue で扱う。
+
+## 2026-06-12 Agent Web Playground analysis worker checkpoint
+
+### scope
+
+- branch: `agent2/playground-analysis-worker-20260612`
+- fixed_issue: `ISS-20260611T164150059Z-WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUS-488205A3`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+
+### unfinished_inventory
+
+- P0 `WEB-PLAYGROUND-SEMANTIC-ANALYSIS-MUST-NOT-BLOCK-UI`: main thread 同期 semantic / structural analysis を今回 worker 化した。
+- P0 span file identity / char offset mapping と cross-file definition target path/range は未完了。
+- P1 canvas editor の大規模 document rendering / movement scaling、selfhost compiler selector の capability gating、worker init failure recovery、GUI close lifecycle / queue ownership、browser smoke CI は未完了。
+- GUI/TUI standard library 側では formal Wasm host import ABI、std/gui scheduler / timeslice contract、native formal host、embedded backend、TUI terminal backend 移行が未完了。
+
+### implementation
+
+- `web/src/language/neplg2/neplg2-analysis-worker.ts` を追加し、`analyze_semantics_with_vfs` / `analyze_semantics` と `analyze_parse` を module worker 側で実行するようにした。
+- `NEPLg2LanguageProvider` は compiler asset metadata がある場合に worker 経路を選び、requestId と documentVersion / analysisVersion で current response だけを fresh payload として採用する。
+- 編集や文書切り替えで active worker request が残っている場合は worker を terminate し、古い semantic / structural response は publish しない。
+- hover は structural parse を同期実行せず、fresh semantic snapshot だけで返す。AST が必要な経路は worker structural parse を schedule し、未完了なら `null` を返す。
+- compiler asset metadata を `PlaygroundPanelManager.redraw()` より前に設定し、復元タブの provider も worker 経路を使えるようにした。
+- `nodesrc/test_playground_analysis_freshness.js` に worker available scenario を追加し、同期 WASM semantic / parse 呼び出しが行われないこと、古い worker が terminate されること、hover が parse を強制しないことを固定した。
+- `nodesrc/test_playground_editor_performance_policy.js` に analysis worker、cancellation、asset 初期化順の source policy を追加した。
+
+### policy
+
+- root-cause: debounce の調整ではなく、重い semantic / structural analysis の実行場所を UI thread から分離した。
+- static check: worker response は requestId と documentVersion / analysisVersion の一致を満たす場合だけ採用し、古い response は fail-closed に破棄する。
+- responsibility: editor UI は payload 表示と user interaction を担当し、compiler analysis は worker boundary に閉じる。
+- no silent stale state: 編集時に active worker request を terminate し、古い解析結果を current UI として扱わない。
+
+### verification
+
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_playground_analysis_freshness.js`
+- pass: `node nodesrc/test_playground_editor_performance_policy.js`
+- pass: `node nodesrc/test_neplg2_language_provider_vfs.js`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests.json` total=13 passed=13 failed=0
+
+### residual
+
+- worker init failure recovery は `ISS-20260611T164151552Z-PERSISTENT-COMPILER-WORKER-MUST-RECO-173C1866` として未完了。
+- VFS revision を明示する async protocol、cross-file span path/range、non-ASCII char offset mapping は別 P0 issue として未完了。
+- worker を edit ごとに terminate するため、将来的には interruptable compiler API または latest-only worker mailbox で compiler init cache を保ちながら cancellation できるようにする余地がある。

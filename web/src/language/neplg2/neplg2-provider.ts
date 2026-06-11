@@ -13,6 +13,11 @@ class NEPLg2LanguageProvider {
         this.semantics = null;
         this.documentVersion = 0;
         this.analysisVersion = 0;
+        this.analysisWorker = null;
+        this.analysisWorkerRequests = new Map();
+        this.nextAnalysisWorkerRequestId = 1;
+        this.currentSemanticWorkerRequestId = null;
+        this.currentStructuralWorkerRequestId = null;
         this.pendingTimer = null;
         this.pendingIdleCallback = null;
         this.pendingStructuralTimer = null;
@@ -59,6 +64,7 @@ class NEPLg2LanguageProvider {
             this.pendingIdleCallback = null;
         }
         this._cancelPendingStructuralAnalysis();
+        this._cancelActiveAnalysisWorkerRequests('analysis input changed');
     }
 
     _cancelPendingStructuralAnalysis() {
@@ -70,6 +76,27 @@ class NEPLg2LanguageProvider {
             window.cancelIdleCallback(this.pendingStructuralIdleCallback);
             this.pendingStructuralIdleCallback = null;
         }
+        const hadStructuralWorkerRequest = this.currentStructuralWorkerRequestId != null;
+        this.currentStructuralWorkerRequestId = null;
+        if (hadStructuralWorkerRequest) {
+            this._cancelActiveAnalysisWorkerRequests('structural analysis input changed');
+            return;
+        }
+    }
+
+    _cancelActiveAnalysisWorkerRequests(reason) {
+        if (!this.analysisWorker || this.analysisWorkerRequests.size === 0) {
+            return;
+        }
+        const error = new Error(reason || 'analysis cancelled');
+        for (const request of this.analysisWorkerRequests.values()) {
+            request.reject(error);
+        }
+        this.analysisWorkerRequests.clear();
+        this.currentSemanticWorkerRequestId = null;
+        this.currentStructuralWorkerRequestId = null;
+        this.analysisWorker.terminate();
+        this.analysisWorker = null;
     }
 
     _scheduleAnalysis(immediate = false) {
@@ -228,6 +255,82 @@ class NEPLg2LanguageProvider {
         return window.wasmBindings || null;
     }
 
+    _compilerAssets() {
+        const assets = this.options.compilerAssets || window.NEPLg2CompilerAssets || null;
+        if (!assets?.moduleUrl || !assets?.wasmUrl) {
+            return null;
+        }
+        return {
+            moduleUrl: String(assets.moduleUrl),
+            wasmUrl: String(assets.wasmUrl),
+        };
+    }
+
+    _canUseAnalysisWorker() {
+        return typeof Worker !== 'undefined'
+            && this._compilerAssets() !== null;
+    }
+
+    _analysisWorkerInstance() {
+        if (!this._canUseAnalysisWorker()) {
+            return null;
+        }
+        if (this.analysisWorker) {
+            return this.analysisWorker;
+        }
+        const worker = new Worker('dist_ts/language/neplg2/neplg2-analysis-worker.js', { type: 'module' });
+        worker.onmessage = (event) => this._handleAnalysisWorkerMessage(event.data || {});
+        worker.onerror = (event) => {
+            const message = event?.message || 'analysis worker failed';
+            this._rejectAnalysisWorkerRequests(new Error(message));
+            this.analysisWorker = null;
+        };
+        this.analysisWorker = worker;
+        return this.analysisWorker;
+    }
+
+    _rejectAnalysisWorkerRequests(error) {
+        for (const request of this.analysisWorkerRequests.values()) {
+            request.reject(error);
+        }
+        this.analysisWorkerRequests.clear();
+        this.currentSemanticWorkerRequestId = null;
+        this.currentStructuralWorkerRequestId = null;
+    }
+
+    _handleAnalysisWorkerMessage(message) {
+        const requestId = Number(message?.requestId);
+        const request = this.analysisWorkerRequests.get(requestId);
+        if (!request) {
+            return;
+        }
+        this.analysisWorkerRequests.delete(requestId);
+        if (message?.type === 'analysis-error') {
+            request.reject(new Error(String(message.message || 'analysis worker error')));
+            return;
+        }
+        request.resolve(message);
+    }
+
+    _postAnalysisWorkerRequest(message) {
+        const worker = this._analysisWorkerInstance();
+        const compiler = this._compilerAssets();
+        if (!worker || !compiler) {
+            return null;
+        }
+        const requestId = this.nextAnalysisWorkerRequestId++;
+        const request = {
+            ...message,
+            requestId,
+            compiler,
+        };
+        const promise = new Promise((resolve, reject) => {
+            this.analysisWorkerRequests.set(requestId, { resolve, reject });
+        });
+        worker.postMessage(request);
+        return { requestId, promise };
+    }
+
     _analysisBridge() {
         if (typeof window === 'undefined' || !window.NEPLPlaygroundLanguageAnalysis) {
             throw new Error('NEPLPlaygroundLanguageAnalysis is required');
@@ -340,6 +443,92 @@ class NEPLg2LanguageProvider {
         const analysisDocumentVersion = this.documentVersion;
         const analysisPath = this.path;
         const analysisText = this.text;
+        if (this._canUseAnalysisWorker()) {
+            this._analyzeAndPublishWithWorker(version, analysisDocumentVersion, analysisPath, analysisText);
+            return;
+        }
+        this._analyzeAndPublishSynchronously(version, analysisDocumentVersion, analysisPath, analysisText);
+    }
+
+    _analyzeAndPublishWithWorker(version, analysisDocumentVersion, analysisPath, analysisText) {
+        const request = this._postAnalysisWorkerRequest({
+            type: 'analyze',
+            path: analysisPath,
+            text: analysisText,
+            vfsSnapshot: this._vfsSnapshotForAnalysis(analysisPath, analysisText),
+        });
+        if (!request) {
+            this._analyzeAndPublishSynchronously(version, analysisDocumentVersion, analysisPath, analysisText);
+            return;
+        }
+        this.currentSemanticWorkerRequestId = request.requestId;
+        request.promise.then((message) => {
+            if (this.currentSemanticWorkerRequestId !== request.requestId) {
+                return;
+            }
+            this.currentSemanticWorkerRequestId = null;
+            if (!this._isCurrentAnalysisInput(version, analysisDocumentVersion, analysisPath, analysisText)) {
+                return;
+            }
+            this.lex = message.lex || { tokens: [], diagnostics: [] };
+            this.parse = message.parse || null;
+            this.resolve = message.resolve || null;
+            this.semantics = message.semantics || null;
+            const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
+            this.definitionById = new Map(defs.map((d) => [d.id, d]));
+            const payload = this._decoratePayload(message.payload || this._analysisBridge().buildEditorUpdatePayloadFromAnalysis(analysisText, {
+                lex: this.lex,
+                parse: this.parse,
+                resolve: this.resolve,
+                semantics: this.semantics,
+            }), 'fresh', {
+                sourceDocumentVersion: analysisDocumentVersion,
+                sourcePath: analysisPath,
+            });
+            this.lastUpdatePayload = payload;
+            this.lastAnalyzedText = analysisText;
+            this.updateCallback(payload);
+            this._scheduleStructuralAnalysis(version, analysisText, analysisDocumentVersion, analysisPath);
+        }).catch((error) => {
+            if (!this._isCurrentAnalysisInput(version, analysisDocumentVersion, analysisPath, analysisText)) {
+                return;
+            }
+            console.warn('[NEPLg2LanguageProvider] analysis worker failed:', error);
+            this._publishAnalysisFailurePayload(analysisText, analysisDocumentVersion, analysisPath, error);
+        });
+    }
+
+    _publishAnalysisFailurePayload(text, documentVersion, path, error) {
+        this.lex = { tokens: [], diagnostics: [] };
+        this.parse = null;
+        this.resolve = null;
+        this.semantics = null;
+        this.definitionById.clear();
+        const bridge = this._analysisBridge();
+        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        });
+        const payload = this._decoratePayload({
+            ...payloadBase,
+            diagnostics: [{
+                startIndex: 0,
+                endIndex: 0,
+                message: `analysis worker failed: ${String(error?.message || error)}`,
+                severity: 'error',
+            }],
+        }, 'fresh', {
+            sourceDocumentVersion: documentVersion,
+            sourcePath: path,
+        });
+        this.lastUpdatePayload = payload;
+        this.lastAnalyzedText = text;
+        this.updateCallback(payload);
+    }
+
+    _analyzeAndPublishSynchronously(version, analysisDocumentVersion, analysisPath, analysisText) {
         const wasm = this._wasm();
         if (!wasm || typeof wasm.analyze_lex !== 'function') {
             this.lex = { tokens: [], diagnostics: [] };
@@ -430,6 +619,10 @@ class NEPLg2LanguageProvider {
             if (!this._isCurrentAnalysisInput(version, documentVersion, path, text)) {
                 return;
             }
+            if (this._canUseAnalysisWorker()) {
+                this._requestStructuralParseWithWorker(version, text, documentVersion, path);
+                return;
+            }
             if (this._ensureStructuralParse()) {
                 const bridge = this._analysisBridge();
                 const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(text, {
@@ -453,6 +646,56 @@ class NEPLg2LanguageProvider {
                 run();
             }
         }, this.structuralAnalyzeDelayMs);
+    }
+
+    _requestStructuralParseWithWorker(version, text, documentVersion, path) {
+        const request = this._postAnalysisWorkerRequest({
+            type: 'parse',
+            text,
+        });
+        if (!request) {
+            if (this._ensureStructuralParse()) {
+                this._publishStructuralPayload(text, documentVersion, path);
+            }
+            return;
+        }
+        this.currentStructuralWorkerRequestId = request.requestId;
+        request.promise.then((message) => {
+            if (this.currentStructuralWorkerRequestId !== request.requestId) {
+                return;
+            }
+            this.currentStructuralWorkerRequestId = null;
+            if (!this._isCurrentAnalysisInput(version, documentVersion, path, text)) {
+                return;
+            }
+            this.parse = {
+                ...(this.parse || {}),
+                module: message.module || null,
+                diagnostics: [],
+            };
+            if (this.parse?.module) {
+                this._publishStructuralPayload(text, documentVersion, path);
+            }
+        }).catch((error) => {
+            if (this._isCurrentAnalysisInput(version, documentVersion, path, text)) {
+                console.warn('[NEPLg2LanguageProvider] structural analysis worker failed:', error);
+            }
+        });
+    }
+
+    _publishStructuralPayload(text, documentVersion, path) {
+        const bridge = this._analysisBridge();
+        const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        }), 'fresh', {
+            sourceDocumentVersion: documentVersion,
+            sourcePath: path,
+        });
+        this.lastUpdatePayload = payload;
+        this.updateCallback(payload);
     }
 
     _ensureStructuralParse() {
@@ -560,7 +803,6 @@ class NEPLg2LanguageProvider {
         if (!this._hasFreshAnalysis()) {
             return null;
         }
-        this._ensureStructuralParse();
         const bridge = this._analysisBridge();
         return bridge.getHoverInfoFromAnalysis(this.text, {
             lex: this.lex,
@@ -783,6 +1025,10 @@ class NEPLg2LanguageProvider {
     }
 
     getAst() {
+        if (!this.parse?.module && this._canUseAnalysisWorker() && this._hasFreshAnalysis()) {
+            this._scheduleStructuralAnalysis(this.analysisVersion, this.text, this.documentVersion, this.path);
+            return null;
+        }
         this._ensureStructuralParse();
         return this.parse?.module?.root || null;
     }
