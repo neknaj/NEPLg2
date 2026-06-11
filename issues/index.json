@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T15:16:22.170Z",
+  "generated_at": "2026-06-11T15:38:28.167Z",
   "counts": {
     "total": 1354,
     "open": 50,
@@ -288,8 +288,8 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-05-31",
-      "target": "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std",
+      "updated": "2026-06-12",
+      "target": "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std; stdlib/neplg2/core/ty",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md"
@@ -348,7 +348,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-06-11",
+      "updated": "2026-06-12",
       "target": "nepl-core/src/typecheck; nepl-core/src/resource; stdlib",
       "legacy_id": "",
       "source": "",
@@ -528,7 +528,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-06-04",
-      "updated": "2026-06-11",
+      "updated": "2026-06-12",
       "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/check/checker.nepl",
       "legacy_id": "",
       "source": "",

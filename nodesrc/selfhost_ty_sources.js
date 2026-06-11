@@ -11,6 +11,7 @@ const TY_ROOT_REEXPORT_FILES = [
     "stdlib/neplg2/core/ty/ty/arena.nepl",
     "stdlib/neplg2/core/ty/ty/eq.nepl",
     "stdlib/neplg2/core/ty/ty/key.nepl",
+    "stdlib/neplg2/core/ty/ty/memo_trait.nepl",
     "stdlib/neplg2/core/ty/ty/stage0.nepl",
 ];
 const TY_SPLIT_FILES = [
@@ -23,6 +24,7 @@ const TY_SPLIT_FILES = [
     "stdlib/neplg2/core/ty/ty/arena.nepl",
     "stdlib/neplg2/core/ty/ty/eq.nepl",
     "stdlib/neplg2/core/ty/ty/key.nepl",
+    "stdlib/neplg2/core/ty/ty/memo_trait.nepl",
     "stdlib/neplg2/core/ty/ty/stage0.nepl",
 ];
 

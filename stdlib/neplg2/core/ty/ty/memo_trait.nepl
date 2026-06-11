@@ -1,0 +1,613 @@
+#indent 4
+
+//: # ty/memo_trait
+//: `memo_call` Phase 1 が使う `MemoKey` / `MemoValue` の self-host 側 structural predicate を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` は private cache の key と value を安全に保存します。そのため key には pure で安定した equality / hash が必要で、value には cache storage の identity を外へ漏らさず Copy 相当で返せることが必要です。
+//: - `Copy` だけでは function value、raw memory handle、owner token、public mutable state 由来の値まで通してしまうため、この module は memoization 専用の追加 predicate を enum error として返します。
+//: - typechecker、HIR lowering、Resource IR、backend が同じ拒否理由を共有できるよう、文字列診断ではなく `SelfhostMemoTraitRejectKind` を authority にします。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_memo_key_type_result` は、現 checkpoint では `unit`、`bool`、`i32`、`u8`、`char` だけを受理します。
+//: - `selfhost_memo_value_type_result` は、key と同じ型に加えて `f32` を受理します。`f32` は NaN、符号付き zero、正規化、hash consistency の仕様が固定されるまで key としては拒否します。
+//: - `str`、`function`、`named`、`applied`、`parameter`、`error`、`never`、`i64`、`f64`、存在しない `TypeId` は fail-closed に拒否します。
+//: - `Named` / `Applied` は Rust 実装の最終方針では structural aggregate として受理され得ます。ただし self-host の現行 `TypeArena` は field layout、trait impl evidence、drop/copy evidence を持たないため、ここで推測して受理してはいけません。
+//:
+//: [現状/げんじょう]:
+//: - この module は trait solver ではありません。`MemoKey` / `MemoValue` の trait definition source identity、Copy trait evidence、Drop なし proof、private cache region proof は後続 stage が接続します。
+//: - `I64` / `F64` は self-host 型モデルには載っていますが、現 Rust compiler の Phase 1 memo predicate と parity が固定されていないため、明示的に unsupported として拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `TypeId` lookup と record variant の match だけなので O(1) です。
+//: - 将来 aggregate を受理する段階では、対象 aggregate から到達する field type 数に比例する O(n) の構造走査になります。その時点では cycle / recursive type の proof boundary も追加します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_result_is_accept summary.unit_key
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_result_is_accept summary.i32_key
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.f32_key) SelfhostMemoTraitRejectKind::F32KeyUnsupported
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_result_is_accept summary.f32_value
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.function_value) SelfhostMemoTraitRejectKind::FunctionUnsupported
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./kind/model" as *
+#import "./record" as *
+
+//: SelfhostMemoTraitRejectKind: `MemoKey` / `MemoValue` structural predicate の拒否理由
+//:
+//: [目的/もくてき]:
+//: - memoization の拒否を単なる `false` にせず、診断や regression test が「どの安全条件で拒否したか」を enum として確認できるようにします。
+//:
+//: [分類/ぶんるい]:
+//: - `MissingTypeRecord` は arena に存在しない `TypeId` です。
+//: - `ErrorTypeUnsupported` は既に壊れた型を memo trait evidence として使おうとした場合です。
+//: - `I64Unsupported` と `F64Unsupported` は backend scalar parity と hash/value policy が未固定の型を保守的に拒否した場合です。
+//: - `F32KeyUnsupported` は `f32` を key にしようとした場合です。value としての `f32` は Phase 1 で受理します。
+//: - `StrUnsupported` は immutable string の equality/hash/clone/drop proof が未接続であるため拒否した場合です。
+//: - `NeverUnsupported` は値を作れない型を memo trait の具体 payload として扱わないための拒否です。
+//: - `FunctionUnsupported` は function identity の canonicalization と cache namespace が未完成なため拒否した場合です。
+//: - `NamedLayoutUnknown` と `AppliedLayoutUnknown` は field layout と trait evidence を持たない aggregate を推測で受理しないための拒否です。
+//: - `ParameterUnresolved` は generic parameter が concrete type に代入される前に predicate へ来た場合です。
+pub enum SelfhostMemoTraitRejectKind:
+    MissingTypeRecord
+    ErrorTypeUnsupported
+    I64Unsupported
+    F32KeyUnsupported
+    F64Unsupported
+    StrUnsupported
+    NeverUnsupported
+    FunctionUnsupported
+    NamedLayoutUnknown
+    AppliedLayoutUnknown
+    ParameterUnresolved
+
+impl Clone for SelfhostMemoTraitRejectKind:
+    fn clone %fn &SelfhostMemoTraitRejectKind SelfhostMemoTraitRejectKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitRejectKind:
+    fn copy_mark %fn SelfhostMemoTraitRejectKind SelfhostMemoTraitRejectKind \self:
+        self
+
+//: SelfhostMemoTraitStage0Summary: focused doctest 用の代表 predicate 結果
+//:
+//: [目的/もくてき]:
+//: - module-level doctest が arena owner の構築を繰り返さず、受理と拒否の代表例だけを確認できるようにします。
+//: - production predicate の戻り値型と同じ `Result unit SelfhostMemoTraitRejectKind` を保持し、テストが bool だけではなく拒否理由も確認できるようにします。
+pub struct SelfhostMemoTraitStage0Summary:
+    unit_key %Result unit SelfhostMemoTraitRejectKind
+    i32_key %Result unit SelfhostMemoTraitRejectKind
+    f32_key %Result unit SelfhostMemoTraitRejectKind
+    f32_value %Result unit SelfhostMemoTraitRejectKind
+    function_value %Result unit SelfhostMemoTraitRejectKind
+
+//: selfhost_memo_trait_result_is_accept: memo trait predicate result が成功か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - diagnostic や detailed test は `Result` の中身を match しますが、call gate では「受理されたか」だけを扱いたい場所もあります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: predicate は `Ok unit` です。
+//: - `false`: predicate は `Err(kind)` です。caller は必要に応じて `kind` を診断へ渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum tag の match だけなので O(1) です。
+pub fn selfhost_memo_trait_result_is_accept %fn Result unit SelfhostMemoTraitRejectKind bool \result:
+    match result:
+        Result::Ok _unit:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_reject_kind_eq: 拒否理由が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - focused test と diagnostic projection が表示文字列ではなく enum variant を比較できるようにします。
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。新しい拒否理由を追加した場合、この比較関数も明示的に更新する必要があります。
+pub fn selfhost_memo_trait_reject_kind_eq %fn SelfhostMemoTraitRejectKind fn SelfhostMemoTraitRejectKind bool \a\b:
+    match a:
+        SelfhostMemoTraitRejectKind::MissingTypeRecord:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    true
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    true
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::I64Unsupported:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    true
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    true
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::F64Unsupported:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    true
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::StrUnsupported:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    true
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::NeverUnsupported:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    true
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::FunctionUnsupported:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    true
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    true
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    true
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    false
+        SelfhostMemoTraitRejectKind::ParameterUnresolved:
+            match b:
+                SelfhostMemoTraitRejectKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::I64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::F64Unsupported:
+                    false
+                SelfhostMemoTraitRejectKind::StrUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NeverUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::FunctionUnsupported:
+                    false
+                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+                    false
+                SelfhostMemoTraitRejectKind::ParameterUnresolved:
+                    true
+
+//: selfhost_memo_key_primitive_result: primitive 型が `MemoKey` Phase 1 を満たすか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - key 側の許可集合を value 側と分け、`f32` が value では受理されるが key では拒否される契約を明示します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok unit`: primitive は Phase 1 の memo key として受理できます。
+//: - `Err(kind)`: primitive は key として拒否されます。
+fn selfhost_memo_key_primitive_result %fn SelfhostPrimitiveTypeKind Result unit SelfhostMemoTraitRejectKind \kind:
+    match kind:
+        SelfhostPrimitiveTypeKind::Error:
+            Result::Err SelfhostMemoTraitRejectKind::ErrorTypeUnsupported
+        SelfhostPrimitiveTypeKind::Unit:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::Bool:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::I32:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::I64:
+            Result::Err SelfhostMemoTraitRejectKind::I64Unsupported
+        SelfhostPrimitiveTypeKind::U8:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::Char:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::Str:
+            Result::Err SelfhostMemoTraitRejectKind::StrUnsupported
+        SelfhostPrimitiveTypeKind::F32:
+            Result::Err SelfhostMemoTraitRejectKind::F32KeyUnsupported
+        SelfhostPrimitiveTypeKind::F64:
+            Result::Err SelfhostMemoTraitRejectKind::F64Unsupported
+        SelfhostPrimitiveTypeKind::Never:
+            Result::Err SelfhostMemoTraitRejectKind::NeverUnsupported
+
+//: selfhost_memo_value_primitive_result: primitive 型が `MemoValue` Phase 1 を満たすか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - value 側は cache hit 時に Copy 相当で返せればよいため、key では拒否する `f32` を受理します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok unit`: primitive は Phase 1 の memo value として受理できます。
+//: - `Err(kind)`: primitive は value として拒否されます。
+fn selfhost_memo_value_primitive_result %fn SelfhostPrimitiveTypeKind Result unit SelfhostMemoTraitRejectKind \kind:
+    match kind:
+        SelfhostPrimitiveTypeKind::Error:
+            Result::Err SelfhostMemoTraitRejectKind::ErrorTypeUnsupported
+        SelfhostPrimitiveTypeKind::Unit:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::Bool:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::I32:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::I64:
+            Result::Err SelfhostMemoTraitRejectKind::I64Unsupported
+        SelfhostPrimitiveTypeKind::U8:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::Char:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::Str:
+            Result::Err SelfhostMemoTraitRejectKind::StrUnsupported
+        SelfhostPrimitiveTypeKind::F32:
+            Result::Ok unit
+        SelfhostPrimitiveTypeKind::F64:
+            Result::Err SelfhostMemoTraitRejectKind::F64Unsupported
+        SelfhostPrimitiveTypeKind::Never:
+            Result::Err SelfhostMemoTraitRejectKind::NeverUnsupported
+
+//: selfhost_memo_key_type_result: TypeArena 上の型が `MemoKey` Phase 1 を満たすか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `memo_call` gate が key type を検査するとき、arena record だけを authority として fail-closed に分類します。
+//:
+//: [契約/けいやく]:
+//: - `Named` / `Applied` は field layout と trait evidence が接続されるまで拒否します。これは Rust 実装の structural aggregate acceptance を否定するものではなく、self-host 側で未証明の aggregate を推測で通さないための境界です。
+//: - `Parameter` は concrete substitution 後に再度 predicate へ渡す必要があります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok unit`: key type として受理できます。
+//: - `Err(kind)`: `kind` が拒否理由です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn selfhost_memo_key_type_result %fn &SelfhostTypeArena fn SelfhostTypeId Result unit SelfhostMemoTraitRejectKind \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive kind:
+                    selfhost_memo_key_primitive_result kind
+                SelfhostTypeRecord::Named _named:
+                    Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
+                SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::Applied _applied:
+                    Result::Err SelfhostMemoTraitRejectKind::AppliedLayoutUnknown
+                SelfhostTypeRecord::Function _function:
+                    Result::Err SelfhostMemoTraitRejectKind::FunctionUnsupported
+        Option::None:
+            Result::Err SelfhostMemoTraitRejectKind::MissingTypeRecord
+
+//: selfhost_memo_value_type_result: TypeArena 上の型が `MemoValue` Phase 1 を満たすか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `memo_call` gate が result type を検査するとき、cache storage への reference / identity を外へ漏らさない Phase 1 value だけを受理します。
+//:
+//: [契約/けいやく]:
+//: - value predicate は key predicate より少し広く、`f32` を受理します。
+//: - `str` や aggregate owner は Clone/Drop/identity proof が未接続なので拒否します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok unit`: value type として受理できます。
+//: - `Err(kind)`: `kind` が拒否理由です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn selfhost_memo_value_type_result %fn &SelfhostTypeArena fn SelfhostTypeId Result unit SelfhostMemoTraitRejectKind \arena\type_id:
+    match selfhost_type_arena_get_record arena type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive kind:
+                    selfhost_memo_value_primitive_result kind
+                SelfhostTypeRecord::Named _named:
+                    Result::Err SelfhostMemoTraitRejectKind::NamedLayoutUnknown
+                SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::Applied _applied:
+                    Result::Err SelfhostMemoTraitRejectKind::AppliedLayoutUnknown
+                SelfhostTypeRecord::Function _function:
+                    Result::Err SelfhostMemoTraitRejectKind::FunctionUnsupported
+        Option::None:
+            Result::Err SelfhostMemoTraitRejectKind::MissingTypeRecord
+
+//: selfhost_memo_key_type_is_allowed: `MemoKey` predicate を bool へ落とす adapter
+//:
+//: [目的/もくてき]:
+//: - 既存の call gate が bool predicate を要求する場所で使います。失敗理由が必要な診断経路では `selfhost_memo_key_type_result` を直接使ってください。
+pub fn selfhost_memo_key_type_is_allowed %fn &SelfhostTypeArena fn SelfhostTypeId bool \arena\type_id:
+    selfhost_memo_trait_result_is_accept selfhost_memo_key_type_result arena type_id
+
+//: selfhost_memo_value_type_is_allowed: `MemoValue` predicate を bool へ落とす adapter
+//:
+//: [目的/もくてき]:
+//: - 既存の call gate が bool predicate を要求する場所で使います。失敗理由が必要な診断経路では `selfhost_memo_value_type_result` を直接使ってください。
+pub fn selfhost_memo_value_type_is_allowed %fn &SelfhostTypeArena fn SelfhostTypeId bool \arena\type_id:
+    selfhost_memo_trait_result_is_accept selfhost_memo_value_type_result arena type_id
+
+//: selfhost_memo_trait_stage0_summary_new: stage0 doctest 用 summary を[作/つく]る
+fn selfhost_memo_trait_stage0_summary_new %fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitStage0Summary \unit_key\i32_key\f32_key\f32_value\function_value:
+    SelfhostMemoTraitStage0Summary unit_key i32_key f32_key f32_value function_value
+
+//: selfhost_memo_trait_stage0_finish: doctest 用 TypeArena を解放して summary を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - smoke test で作った arena owner を漏らさず、predicate 結果だけを戻します。
+fn selfhost_memo_trait_stage0_finish %impure fn SelfhostTypeArena impure fn Result unit SelfhostMemoTraitRejectKind impure fn Result unit SelfhostMemoTraitRejectKind impure fn Result unit SelfhostMemoTraitRejectKind impure fn Result unit SelfhostMemoTraitRejectKind impure fn Result unit SelfhostMemoTraitRejectKind Result SelfhostMemoTraitStage0Summary StdErrorKind \arena\unit_key\i32_key\f32_key\f32_value\function_value:
+    selfhost_type_arena_free arena
+    Result::Ok selfhost_memo_trait_stage0_summary_new unit_key i32_key f32_key f32_value function_value
+
+//: selfhost_memo_trait_stage0: `MemoKey` / `MemoValue` predicate の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - doctest から小さく呼べるよう、unit/i32/f32/function の代表型を arena に登録し、Phase 1 の受理・拒否境界をまとめて返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: arena 構築に成功し、summary の各 field に predicate 結果が入っています。
+//: - `Err(error)`: arena / Vec の確保に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の型だけを追加するため O(1) です。
+pub fn selfhost_memo_trait_stage0 %impure fn void Result SelfhostMemoTraitStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok allocated_unit:
+                    let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_unit
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_unit
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::I32:
+                        Result::Ok allocated_i32:
+                            let i32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_i32
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_i32
+                            match selfhost_type_arena_add_primitive arena2 SelfhostPrimitiveTypeKind::F32:
+                                Result::Ok allocated_f32:
+                                    let f32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_f32
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_f32
+                                    let params0 %Result Vec SelfhostTypeId StdErrorKind v::new
+                                    match params0:
+                                        Result::Ok params_empty:
+                                            match selfhost_type_arena_add_function arena3 params_empty i32_id:
+                                                Result::Ok allocated_function:
+                                                    let function_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_function
+                                                    let arena4 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_function
+                                                    let unit_key %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result &arena4 unit_id
+                                                    let i32_key %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result &arena4 i32_id
+                                                    let f32_key %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result &arena4 f32_id
+                                                    let f32_value %Result unit SelfhostMemoTraitRejectKind selfhost_memo_value_type_result &arena4 f32_id
+                                                    let function_value %Result unit SelfhostMemoTraitRejectKind selfhost_memo_value_type_result &arena4 function_id
+                                                    selfhost_memo_trait_stage0_finish arena4 unit_key i32_key f32_key f32_value function_value
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

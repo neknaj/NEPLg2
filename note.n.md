@@ -1,3 +1,77 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue predicate checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: confirmed for root-cause fixes, Plan-first development, Japanese selfhost comments, no line-count or doc-comment-length suppression, issue/note/todo/doc updates, checkpoint commit after tests.
+- 対象 branch: `selfhost/memo-traits-structural-predicate-20260612`
+- base: `main` at `35861d6ce`
+- issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / selfhost `MemoKey` / `MemoValue` primitive fail-closed predicate for `memo_call`
+- related_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`; `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C`
+- subagent_review_ids: `019eb6cf-79b9-72d1-8213-fa9063648489`; `019eb6db-8694-7752-8416-5faedf3ee553`
+- subagent_review_count: 2
+- classification: selfhost implementation slice review
+- decision: implementation accepted after focused tests and source policy.
+- implementation:
+  - `stdlib/neplg2/core/ty/ty/memo_trait.nepl` を追加し、`memo_call` Phase 1 の key/value 型 predicate を `core/ty` に閉じた。
+  - 主 API は `Result unit SelfhostMemoTraitRejectKind` を返す。`bool` helper は既存 gate 用 adapter であり、診断や source policy は enum reason を参照する。
+  - `MemoKey` は `unit` / `bool` / `i32` / `u8` / `char` を受理し、`MemoValue` は同じ集合に `f32` を追加して受理する。
+  - `f32` key、`I64` / `F64`、`str`、`never`、`error`、function type、named type、applied type、generic parameter、missing `TypeId` は fail-closed に拒否する。
+  - `Named` / `Applied` は Rust 実装の structural aggregate acceptance を否定せず、selfhost 側の field layout / trait evidence / Drop-Copy proof が未接続であるため `NamedLayoutUnknown` / `AppliedLayoutUnknown` として保留する。
+  - `ty.nepl` facade と `nodesrc/selfhost_ty_sources.js` を更新し、split module として source policy の対象にした。
+- zenn_policy:
+  - enum/static check: memo trait rejection を bool や文字列ではなく `SelfhostMemoTraitRejectKind` で管理し、`match` の explicit equality を用意した。
+  - Result/Option: predicate は `Result unit SelfhostMemoTraitRejectKind` を返し、missing `TypeId` は `Option::None` から typed error へ写す。
+  - DAG/responsibility: module は `core/ty` 内に閉じ、checker、HIR、Resource IR、backend、compiler-known registry に依存しない。
+  - pure/core boundary: predicate は arena record を読むだけの pure function とし、cache allocation、SourceCapability、backend wrapper を作らない。
+  - doc comment: module / enum / public helper に目的、契約、現状、戻り値、計算量、制約、典型例を日本語で記述した。行数制限やコメント量制限は追加していない。
+- subagent review:
+  - `019eb6cf-79b9-72d1-8213-fa9063648489`: Blocker なし。`named` / `applied` を覗かず fail-closed にすること、`lower/hir` / `resource` / `backend` / `check/expr` に依存しないこと、missing type record を typed reason として分けることを確認。Approve。
+  - `019eb6db-8694-7752-8416-5faedf3ee553`: Blocker なし。selfhost 側は Rust Phase 1 の完全移植ではなく、現 `TypeArena` が持つ証拠だけで安全に言える primitive subset として文書化すべきと指摘。doc comment と issue に反映済み。Approve。
+- policy/spec:
+  - Blocker: none after review.
+  - Non-blocker: aggregate acceptance は layout / trait evidence が接続されてから同じ predicate を structural traversal に拡張する。
+  - Question: `I64` / `F64` の accepted policy は Rust Phase 1 parity が固定されるまで拒否を維持する。
+  - Approve: yes.
+- implementation/test:
+  - Blocker: initial doctest import used `neplg2/core/ty/ty` facade from a split module comment and violated split contract. Doctest now imports `neplg2/core/ty/ty/memo_trait` directly.
+  - Non-blocker: existing documentation contract gaps are pre-existing report-only debt.
+  - Question: none for this slice.
+  - Approve: focused doctests, source policy contract, documentation baseline, issue check, and diff check passed.
+- source_policy: `nodesrc/test_selfhost_memo_trait_predicate_contract.js` now pins facade re-export, `core/ty` dependency boundary, enum reject reasons, key/value primitive accepted sets, `f32` key rejection / value acceptance, named/applied/parameter/missing fail-closed mapping, bool adapter derivation from typed Result, and absence of line-count / doc-comment-length restriction.
+- source policy: updated.
+- verify:
+  - `nodesrc/selfhost_zenn_review_response_check.js`: not run because the subagent reviews were live agent responses, not saved response files.
+  - `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+  - `node nodesrc/test_selfhost_ty_split_contract.js`
+  - `node nodesrc/test_selfhost_documentation_contract.js`
+  - `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait.nepl -o $env:TEMP/neplg2-selfhost-memo-trait-doctest.json --dist web/dist -j 1 --assert-io --no-tree`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o $env:TEMP/neplg2-selfhost-ty-doctest.json --dist web/dist -j 1 --assert-io --no-tree`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - `node nodesrc/issues.js index --dir issues`
+  - `node nodesrc/issues.js check --dir issues`
+  - `git diff --check`
+- 既存 warning: Node WASI ExperimentalWarning, Git LF-to-CRLF replacement warnings from diff check, stdlib/selfhost documentation contract pre-existing report-only gap samples.
+- 今回差分由来 warning: none.
+- 検証済み: focused selfhost runtime doctests, memo trait contract, ty split contract, documentation baseline, full source policy warn-only, issue index/check, diff check.
+- 行数制限: not added.
+- doc comment 長制限: not added.
+- verification:
+  - pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/test_selfhost_documentation_contract.js`
+  - pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait.nepl -o $env:TEMP/neplg2-selfhost-memo-trait-doctest.json --dist web/dist -j 1 --assert-io --no-tree` total=1 passed=1
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o $env:TEMP/neplg2-selfhost-ty-doctest.json --dist web/dist -j 1 --assert-io --no-tree` total=4 passed=4
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js index --dir issues`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+- residual:
+  - private cache proof / backend representation、`MemoKey` / `MemoValue` aggregate layout / trait evidence 接続、source hash / policy hash materialization、即時適用 accepted path、generic / trait solver は未実装。
+- 次 slice:
+  - `MemoKey` / `MemoValue` aggregate layout / trait evidence、private cache SourceCapability / Resource proof、または source hash / policy hash materialization のうち、issue境界が小さいものを選ぶ。
+
 # 2026-06-11 Agent selfhost compiler-known primitive identity registry checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`

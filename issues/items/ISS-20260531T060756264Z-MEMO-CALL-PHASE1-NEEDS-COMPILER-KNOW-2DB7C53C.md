@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-11
+updated: 2026-06-12
 target: "nepl-core/src/typecheck; nepl-core/src/resource; stdlib"
 ---
 
@@ -90,3 +90,11 @@ memoized function value kind を保持するだけであり、`PrivateCache` を
 `stdlib/neplg2/core/builtins/prelude/compiler_known.nepl` を追加し、selfhost 側でも `memo_call` を lowering-local な専用 identity ではなく、共有の `SelfhostCompilerKnownPrimitiveIdentity` として扱うようにした。identity は `SelfhostCompilerKnownPrimitiveKind::MemoCall`、監査用 `module_path` / `symbol`、resolver-local `DefId` を持つ。accepted path は `kind == MemoCall` と trusted `DefId` equality の両方で判定し、candidate name、import alias、path suffix、source token reread では判定しない。
 
 `lower/hir/memo_call.nepl` はこの shared identity を消費する adapter に変わった。これにより、typecheck、HIR lowering、Resource IR、backend が将来同じ primitive kind を参照できる。prelude registry は `lower/hir`、`hir`、`check/expr` に依存しない。source hash / policy hash の materialization、`MemoKey` / `MemoValue` structural predicate、private cache SourceCapability、Resource IR `PrivateCache` proof、sealed backend representation、即時適用 accepted path は引き続き残件である。
+
+## 2026-06-12 selfhost MemoKey / MemoValue predicate checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait.nepl` を追加し、selfhost compiler が `memo_call` Phase 1 の key / value 型を `SelfhostTypeArena` record から保守的に分類できるようにした。predicate は `bool` だけを返さず、`Result unit SelfhostMemoTraitRejectKind` を返す。これにより、missing type record、`f32` key、function type、named / applied layout evidence missing、generic parameter unresolved などを診断と source policy が別々に確認できる。
+
+現 checkpoint の `MemoKey` は `unit`、`bool`、`i32`、`u8`、`char` だけを受理する。`MemoValue` は同じ集合に加えて `f32` を受理する。`f32` は value として Copy 相当に返せるが、hash / equality の正規化が未固定なので key では拒否する。`I64` / `F64` は selfhost primitive model には存在するが、Rust Phase 1 accepted set と parity が固定されていないため拒否する。
+
+`Named` / `Applied` は、Rust 実装では field が `MemoKey` / `MemoValue` だけで構成される structural Copy aggregate として受理され得る。ただし selfhost `TypeArena` には field layout、trait impl evidence、Drop / Copy proof がまだ無いため、この checkpoint は aggregate を `NamedLayoutUnknown` / `AppliedLayoutUnknown` で fail-closed にする。後続 slice では、type constructor layout evidence と trait solving を接続したうえで同じ predicate を structural traversal に拡張する。

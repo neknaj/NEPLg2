@@ -49,4 +49,5 @@ pub #import "./ty/record" as *
 pub #import "./ty/arena" as *
 pub #import "./ty/eq" as *
 pub #import "./ty/key" as *
+pub #import "./ty/memo_trait" as *
 pub #import "./ty/stage0" as *
