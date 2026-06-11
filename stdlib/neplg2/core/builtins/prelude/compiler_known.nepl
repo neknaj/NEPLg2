@@ -1,0 +1,189 @@
+#indent 4
+
+//: # prelude/compiler_known
+//: compiler-known primitive の[共有/きょうゆう] identity を[管理/かんり]する module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_call` のように、通常の stdlib 関数として見えるが compiler が特別な静的検査境界として扱う primitive を、文字列 allowlist ではなく enum と `DefId` で表します。
+//: - typecheck、HIR lowering、Resource IR、backend が同じ primitive kind と resolved definition identity を共有できるようにします。
+//: - `module_path` と `symbol` は監査・診断用 metadata として保持し、accepted path の authority は `kind` と `def_id` に分けます。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostCompilerKnownPrimitiveIdentity` は resolver / stdlib registry が source identity を確認したあとに作る値です。この module は source file hash や policy hash の検査を行いません。
+//: - `module_path` と `symbol` は報告・診断・artifact key の材料ですが、candidate の表示名だけで compiler-known primitive として受理してはいけません。
+//: - `selfhost_compiler_known_primitive_identity_matches_def_id` は primitive kind と `DefId` の両方を比較します。別 kind の同じ `DefId` や同名 user 関数を通しません。
+//:
+//: [現状/げんじょう]:
+//: - 現 checkpoint で登録する compiler-known primitive は `MemoCall` だけです。
+//: - private cache proof、`MemoKey` / `MemoValue`、backend の sealed cache representation はこの registry では扱いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - registry count / index lookup / identity match は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/builtins/prelude" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let def_id %SelfhostDefId selfhost_def_id_new 42
+//:     let identity %SelfhostCompilerKnownPrimitiveIdentity selfhost_compiler_known_memo_call_identity_new def_id
+//:     let checks1 checks_push checks0 check selfhost_compiler_known_primitive_kind_eq identity.kind SelfhostCompilerKnownPrimitiveKind::MemoCall
+//:     let checks2 checks_push checks1 assert_str_eq "module path" "stdlib/core/memo.nepl" identity.module_path
+//:     let checks3 checks_push checks2 assert_str_eq "symbol" "memo_call" identity.symbol
+//:     let checks4 checks_push checks3 check selfhost_compiler_known_primitive_identity_matches_def_id &identity SelfhostCompilerKnownPrimitiveKind::MemoCall def_id
+//:     let shown checks_print_report checks4
+//:     checks_exit_code shown
+//: ```
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/resolve/name_resolver" as *
+
+//: SelfhostCompilerKnownPrimitiveKind: compiler-known primitive の[分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - compiler が特別扱いする stdlib primitive を、source spelling ではなく enum variant として表します。
+//: - 新しい primitive を追加した場合、typecheck / HIR / Resource IR / backend の match 漏れを静的に見つけやすくします。
+//:
+//: [分類/ぶんるい]:
+//: - `MemoCall` は `memo_call @func` の Phase 1 memoized function value 境界です。
+pub enum SelfhostCompilerKnownPrimitiveKind:
+    MemoCall
+
+impl Clone for SelfhostCompilerKnownPrimitiveKind:
+    fn clone %fn &SelfhostCompilerKnownPrimitiveKind SelfhostCompilerKnownPrimitiveKind \self:
+        *self
+
+impl Copy for SelfhostCompilerKnownPrimitiveKind:
+    fn copy_mark %fn SelfhostCompilerKnownPrimitiveKind SelfhostCompilerKnownPrimitiveKind \self:
+        self
+
+//: SelfhostCompilerKnownPrimitiveIdentity: 解決済み compiler-known primitive identity
+//:
+//: [目的/もくてき]:
+//: - source identity 確認後の compiler-known primitive を、primitive kind、監査用 metadata、resolver-local `DefId` の組として保持します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は compiler 内の意味論上の primitive 分類です。
+//: - `module_path` と `symbol` は人間向けの監査・診断と長寿命 artifact key の材料です。
+//: - `def_id` は現在の resolver session で選ばれた実定義です。永続 cache では source hash / policy hash と組み合わせる必要があります。
+pub struct SelfhostCompilerKnownPrimitiveIdentity:
+    kind %SelfhostCompilerKnownPrimitiveKind
+    module_path %str
+    symbol %str
+    def_id %SelfhostDefId
+
+impl Clone for SelfhostCompilerKnownPrimitiveIdentity:
+    fn clone %fn &SelfhostCompilerKnownPrimitiveIdentity SelfhostCompilerKnownPrimitiveIdentity \self:
+        *self
+
+impl Copy for SelfhostCompilerKnownPrimitiveIdentity:
+    fn copy_mark %fn SelfhostCompilerKnownPrimitiveIdentity SelfhostCompilerKnownPrimitiveIdentity \self:
+        self
+
+//: selfhost_compiler_known_primitive_kind_eq: primitive kind が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - tests と lowering が表示文字列ではなく enum variant を比較できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: 2 つの primitive kind は同じ分類です。
+//: - `false`: 分類が異なります。
+pub fn selfhost_compiler_known_primitive_kind_eq %fn SelfhostCompilerKnownPrimitiveKind fn SelfhostCompilerKnownPrimitiveKind bool \a\b:
+    match a:
+        SelfhostCompilerKnownPrimitiveKind::MemoCall:
+            match b:
+                SelfhostCompilerKnownPrimitiveKind::MemoCall:
+                    true
+
+//: selfhost_compiler_known_primitive_identity_new: compiler-known primitive identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - registry / resolver が source identity を確認した primitive 定義を、後続 stage へ渡せる typed identity にまとめます。
+//:
+//: [契約/けいやく]:
+//: - caller は `module_path` / `symbol` / source hash / policy hash が期待する stdlib primitive と一致することを、この constructor の外で確認していなければなりません。
+//: - この constructor は path suffix や symbol spelling の allowlist 判定を行いません。
+pub fn selfhost_compiler_known_primitive_identity_new %fn SelfhostCompilerKnownPrimitiveKind fn str fn str fn SelfhostDefId SelfhostCompilerKnownPrimitiveIdentity \kind\module_path\symbol\def_id:
+    SelfhostCompilerKnownPrimitiveIdentity kind module_path symbol def_id
+
+//: selfhost_compiler_known_memo_call_module_path: `memo_call` primitive の canonical module path を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 診断・監査・artifact key で使う canonical metadata を registry に集約します。
+//:
+//: [注意/ちゅうい]:
+//: - この文字列だけで primitive 判定をしてはいけません。source identity 確認と `DefId` equality が accepted path の authority です。
+pub fn selfhost_compiler_known_memo_call_module_path %fn void str \void:
+    "stdlib/core/memo.nepl"
+
+//: selfhost_compiler_known_memo_call_symbol: `memo_call` primitive の canonical symbol を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 診断・監査・artifact key で使う canonical symbol を registry に集約します。
+//:
+//: [注意/ちゅうい]:
+//: - この文字列だけで user-defined 同名関数を trusted primitive として扱ってはいけません。
+pub fn selfhost_compiler_known_memo_call_symbol %fn void str \void:
+    "memo_call"
+
+//: selfhost_compiler_known_memo_call_identity_new: source 確認済み `memo_call` identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - resolver / stdlib registry が `memo_call` の source identity を確認したあと、その resolved `DefId` を compiler-known primitive identity として包みます。
+//:
+//: [契約/けいやく]:
+//: - この関数は source identity 検査そのものではありません。検査済み `DefId` を typed primitive identity に投影するだけです。
+pub fn selfhost_compiler_known_memo_call_identity_new %fn SelfhostDefId SelfhostCompilerKnownPrimitiveIdentity \def_id:
+    selfhost_compiler_known_primitive_identity_new SelfhostCompilerKnownPrimitiveKind::MemoCall selfhost_compiler_known_memo_call_module_path selfhost_compiler_known_memo_call_symbol def_id
+
+//: selfhost_compiler_known_primitive_count: compiler-known primitive registry の件数を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - finite registry の範囲を stage0 smoke と将来の integrity check が確認できるようにします。
+pub fn selfhost_compiler_known_primitive_count %fn void i32 \void:
+    1
+
+//: selfhost_compiler_known_primitive_kind_at: registry index から primitive kind を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - compiler-known primitive の有限集合を index lookup で走査できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Some(kind)`: index に対応する primitive kind です。
+//: - `None`: index が範囲外です。
+pub fn selfhost_compiler_known_primitive_kind_at %fn i32 Option SelfhostCompilerKnownPrimitiveKind \index:
+    match index:
+        0:
+            some SelfhostCompilerKnownPrimitiveKind::MemoCall
+        _:
+            none
+
+//: selfhost_compiler_known_primitive_identity_matches_def_id: kind と DefId が一致するか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - lowering や checker が、表示名ではなく trusted primitive kind と resolved `DefId` の組で accepted path を判定できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: identity の kind と `DefId` がどちらも期待値と一致します。
+//: - `false`: primitive kind が違う、または別定義です。
+//:
+//: [計算量/けいさんりょう]:
+//: - enum 比較と integer index 比較だけなので O(1) です。
+pub fn selfhost_compiler_known_primitive_identity_matches_def_id %fn &SelfhostCompilerKnownPrimitiveIdentity fn SelfhostCompilerKnownPrimitiveKind fn SelfhostDefId bool \identity\kind\def_id:
+    let kind_ok %bool selfhost_compiler_known_primitive_kind_eq *field::get_ref identity "kind" kind
+    let def_id_ok %bool selfhost_def_id_eq *field::get_ref identity "def_id" def_id
+    and kind_ok def_id_ok

@@ -36,6 +36,7 @@
 
 
 pub #import "./prelude/model" as *
+pub #import "./prelude/compiler_known" as *
 pub #import "./prelude/kind" as *
 pub #import "./prelude/signature" as *
 pub #import "./prelude/function_registry" as *

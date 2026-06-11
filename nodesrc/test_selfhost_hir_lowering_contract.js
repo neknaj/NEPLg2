@@ -13,10 +13,12 @@ function readRepoFile(relPath) {
 }
 
 const facade = readRepoFile("stdlib/neplg2/core/lower/hir.nepl");
+const preludeFacade = readRepoFile("stdlib/neplg2/core/builtins/prelude.nepl");
+const compilerKnown = readRepoFile("stdlib/neplg2/core/builtins/prelude/compiler_known.nepl");
 const functionValue = readRepoFile("stdlib/neplg2/core/lower/hir/function_value.nepl");
 const memoCall = readRepoFile("stdlib/neplg2/core/lower/hir/memo_call.nepl");
 const directCall = readRepoFile("stdlib/neplg2/core/lower/hir/direct_call.nepl");
-const source = `${facade}\n${functionValue}\n${memoCall}\n${directCall}`;
+const source = `${facade}\n${preludeFacade}\n${compilerKnown}\n${functionValue}\n${memoCall}\n${directCall}`;
 const checkExprSource = readCheckExprSource(repoRoot);
 
 function assertDirectCallDoc(name, requiredParts) {
@@ -52,6 +54,11 @@ assert.match(
     facade,
     /^pub #import "\.\/hir\/memo_call" as \*$/m,
     "lower/hir facade must re-export the memo_call lowering split module",
+);
+assert.match(
+    preludeFacade,
+    /^pub #import "\.\/prelude\/compiler_known" as \*$/m,
+    "builtins/prelude facade must re-export the compiler-known primitive identity registry",
 );
 assert.match(
     facade,
@@ -104,19 +111,44 @@ assert.match(
     "memoized function value candidate lowering must reuse typed function value identity construction instead of string-name reconstruction",
 );
 assert.match(
+    compilerKnown,
+    /# prelude\/compiler_known[\s\S]*pub enum SelfhostCompilerKnownPrimitiveKind:[\s\S]*MemoCall[\s\S]*pub struct SelfhostCompilerKnownPrimitiveIdentity:[\s\S]*kind %SelfhostCompilerKnownPrimitiveKind[\s\S]*module_path %str[\s\S]*symbol %str[\s\S]*def_id %SelfhostDefId/,
+    "compiler-known primitive identity must live in the shared prelude registry with kind, metadata, and DefId authority",
+);
+assert.doesNotMatch(
+    compilerKnown,
+    /#import "neplg2\/core\/(?:lower|hir|check)\//,
+    "compiler-known primitive registry must stay independent from lower/hir, HIR, and checker modules",
+);
+assert.doesNotMatch(
     memoCall,
-    /# lower\/hir\/memo_call[\s\S]*pub struct SelfhostCompilerKnownMemoCallIdentity:[\s\S]*module_path %str[\s\S]*symbol %str[\s\S]*def_id %SelfhostDefId/,
-    "memo_call lowering must carry a compiler-known primitive identity with source metadata and DefId authority",
+    /pub struct SelfhostCompilerKnownMemoCallIdentity/,
+    "memo_call lowering must not own a lowering-local primitive identity type",
 );
 assert.match(
     memoCall,
-    /pub fn selfhost_compiler_known_memo_call_identity_matches_candidate %fn &SelfhostCompilerKnownMemoCallIdentity fn SelfhostCallableCandidate bool[\s\S]*selfhost_def_id_eq \*field::get_ref identity "def_id" candidate\.def_id/,
-    "memo_call primitive detection must use trusted DefId equality rather than candidate spelling",
+    /pub fn selfhost_compiler_known_memo_call_identity_matches_candidate %fn &SelfhostCompilerKnownPrimitiveIdentity fn SelfhostCallableCandidate bool[\s\S]*selfhost_compiler_known_primitive_identity_matches_def_id identity SelfhostCompilerKnownPrimitiveKind::MemoCall candidate\.def_id/,
+    "memo_call primitive detection must use the shared compiler-known primitive kind plus trusted DefId equality",
 );
 assert.doesNotMatch(
     memoCall,
     /string_search::str_eq[\s\S]*memo_call|candidate\.name[\s\S]*memo_call/,
     "memo_call primitive detection must not be a name allowlist",
+);
+assert.match(
+    compilerKnown,
+    /selfhost_compiler_known_memo_call_module_path[\s\S]*"stdlib\/core\/memo\.nepl"[\s\S]*selfhost_compiler_known_memo_call_symbol[\s\S]*"memo_call"[\s\S]*selfhost_compiler_known_memo_call_identity_new[\s\S]*SelfhostCompilerKnownPrimitiveKind::MemoCall/,
+    "compiler-known memo_call metadata must be centralized in the registry instead of recreated by lowering",
+);
+assert.doesNotMatch(
+    compilerKnown,
+    /candidate\.name|string_search::str_eq[\s\S]*memo_call/,
+    "compiler-known registry must not perform candidate-name primitive acceptance",
+);
+assert.match(
+    compilerKnown,
+    /pub fn selfhost_compiler_known_primitive_identity_matches_def_id %fn &SelfhostCompilerKnownPrimitiveIdentity fn SelfhostCompilerKnownPrimitiveKind fn SelfhostDefId bool[\s\S]*let kind_ok %bool selfhost_compiler_known_primitive_kind_eq \*field::get_ref identity "kind" kind[\s\S]*let def_id_ok %bool selfhost_def_id_eq \*field::get_ref identity "def_id" def_id[\s\S]*and kind_ok def_id_ok/,
+    "compiler-known identity matching must require both primitive kind and trusted DefId",
 );
 assert.match(
     memoCall,
@@ -125,7 +157,7 @@ assert.match(
 );
 assert.match(
     memoCall,
-    /pub fn selfhost_hir_expr_memo_call_from_direct_call_plan %fn SelfhostReducedCall fn SelfhostCallableCandidate fn &Vec SelfhostCheckedArgument fn &SelfhostCompilerKnownMemoCallIdentity Result SelfhostHirExpr SelfhostMemoCallLowerError[\s\S]*not selfhost_compiler_known_memo_call_identity_matches_candidate compiler_known callee_candidate[\s\S]*PrimitiveIdentityMismatch[\s\S]*not eq call\.argument_count 1[\s\S]*ArgumentCountUnsupported[\s\S]*not eq v::len checked_arguments 1[\s\S]*CheckedArgumentCountMismatch/,
+    /pub fn selfhost_hir_expr_memo_call_from_direct_call_plan %fn SelfhostReducedCall fn SelfhostCallableCandidate fn &Vec SelfhostCheckedArgument fn &SelfhostCompilerKnownPrimitiveIdentity Result SelfhostHirExpr SelfhostMemoCallLowerError[\s\S]*not selfhost_compiler_known_memo_call_identity_matches_candidate compiler_known callee_candidate[\s\S]*PrimitiveIdentityMismatch[\s\S]*not eq call\.argument_count 1[\s\S]*ArgumentCountUnsupported[\s\S]*not eq v::len checked_arguments 1[\s\S]*CheckedArgumentCountMismatch/,
     "memo_call direct-call lowering must verify trusted callee identity and exactly one checked argument",
 );
 assert.match(

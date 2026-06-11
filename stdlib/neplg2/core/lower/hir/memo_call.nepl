@@ -9,8 +9,8 @@
 //: - source token や candidate の表示名を再読せず、checker が保存した `SelfhostReducedCall`、callee candidate、checked argument payload だけを authority とします。
 //:
 //: [契約/けいやく]:
-//: - `SelfhostCompilerKnownMemoCallIdentity` は resolver / stdlib registry 側が「stdlib の正確な memo_call 定義」として構築した identity です。この module はその構築処理を行いません。
-//: - `module_path` と `symbol` は監査・診断用の metadata です。現 checkpoint の accepted 判定は candidate name ではなく `DefId` equality だけを使います。
+//: - `SelfhostCompilerKnownPrimitiveIdentity` は resolver / stdlib registry 側が「stdlib の正確な memo_call 定義」として構築した identity です。この module はその構築処理を行いません。
+//: - `module_path` と `symbol` は監査・診断用の metadata です。現 checkpoint の accepted 判定は candidate name ではなく primitive kind と `DefId` equality だけを使います。
 //: - Phase 1 では `memo_call @func` だけを accepted path にします。`memo_call @func arg` の即時適用や複数引数は、memoization 境界を HIR に残せないため拒否します。
 //: - 引数は `SelfhostCheckedArgumentKind::FunctionValue` でなければなりません。bare name や通常値から暗黙に function value を作ることはありません。
 //: - source function value 自体の DefId / generic / effect 検査は `lower/hir/function_value.nepl` の Phase 1 gate に委譲します。
@@ -36,6 +36,7 @@
 //:| #target std
 //:| #import "alloc/collections/vec" as v
 //:| #import "core/result" as *
+//:| #import "neplg2/core/builtins/prelude" as *
 //:| #import "neplg2/core/check/expr/argument_payload" as *
 //:| #import "neplg2/core/check/expr/call_candidate" as *
 //:| #import "neplg2/core/check/expr/model" as *
@@ -51,7 +52,7 @@
 //:     let span %SelfhostSourceSpan source_span_new_unchecked 12 20 28
 //:     let fn_ty %SelfhostTypeId selfhost_type_id_new 7
 //:     let other_ty %SelfhostTypeId selfhost_type_id_new 8
-//:     let trusted %SelfhostCompilerKnownMemoCallIdentity selfhost_compiler_known_memo_call_identity_new "stdlib/core/memo.nepl" "memo_call" selfhost_def_id_new 100
+//:     let trusted %SelfhostCompilerKnownPrimitiveIdentity selfhost_compiler_known_memo_call_identity_new selfhost_def_id_new 100
 //:     let memo_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "memo_call" selfhost_def_id_new 100 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
 //:     let user_memo_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "memo_call" selfhost_def_id_new 101 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
 //:     let source_candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "add" selfhost_def_id_new 31 fn_ty SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
@@ -112,11 +113,11 @@
 //: ```
 
 #import "alloc/collections/vec" as v
-#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "neplg2/core/builtins/prelude" as *
 #import "neplg2/core/check/expr/argument_payload" as *
 #import "neplg2/core/check/expr/call_candidate" as *
 #import "neplg2/core/check/expr/model" as *
@@ -125,32 +126,6 @@
 #import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/ty/ty" as *
 #import "./function_value" as *
-
-//: SelfhostCompilerKnownMemoCallIdentity: stdlib `memo_call` primitive の trusted identity
-//:
-//: [目的/もくてき]:
-//: - resolver / stdlib registry が確認した `memo_call` 定義を、lowering 層へ typed value として渡します。
-//: - `module_path` と `symbol` は、人間が報告や監査で「どの定義を trusted primitive として登録したか」を確認するための metadata です。
-//: - accepted path の authority は `def_id` です。candidate の表示名や import alias から primitive を推測してはいけません。
-//:
-//: [契約/けいやく]:
-//: - この record は通常の source code から構築される値ではなく、compiler が stdlib source identity を検査した後に作る値として扱います。
-//: - 永続 cache / artifact へ進む段階では、`module_path` だけでなく stdlib source hash と policy hash を組み合わせる必要があります。
-//:
-//: [計算量/けいさんりょう]:
-//: - 構築と field access は O(1) です。
-pub struct SelfhostCompilerKnownMemoCallIdentity:
-    module_path %str
-    symbol %str
-    def_id %SelfhostDefId
-
-impl Clone for SelfhostCompilerKnownMemoCallIdentity:
-    fn clone %fn &SelfhostCompilerKnownMemoCallIdentity SelfhostCompilerKnownMemoCallIdentity \self:
-        *self
-
-impl Copy for SelfhostCompilerKnownMemoCallIdentity:
-    fn copy_mark %fn SelfhostCompilerKnownMemoCallIdentity SelfhostCompilerKnownMemoCallIdentity \self:
-        self
 
 //: SelfhostMemoCallLowerErrorKind: `memo_call` HIR lowering の失敗分類
 //:
@@ -204,20 +179,6 @@ impl Copy for SelfhostMemoCallLowerError:
     fn copy_mark %fn SelfhostMemoCallLowerError SelfhostMemoCallLowerError \self:
         self
 
-//: selfhost_compiler_known_memo_call_identity_new: trusted `memo_call` identity を[作/つく]る
-//:
-//: [目的/もくてき]:
-//: - stdlib registry / resolver が確認した `memo_call` 定義を lowering 層へ渡す record にまとめます。
-//:
-//: [契約/けいやく]:
-//: - caller は `module_path` と `symbol` が stdlib の期待定義を指すことを、この constructor の外で検査していなければなりません。
-//: - この constructor は文字列 path を検査しません。path suffix allowlist をここに入れると、source identity proof と lowering が混ざるためです。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1) です。
-pub fn selfhost_compiler_known_memo_call_identity_new %fn str fn str fn SelfhostDefId SelfhostCompilerKnownMemoCallIdentity \module_path\symbol\def_id:
-    SelfhostCompilerKnownMemoCallIdentity module_path symbol def_id
-
 //: selfhost_memo_call_lower_error_new: `memo_call` lowering error を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -234,16 +195,16 @@ pub fn selfhost_memo_call_lower_error_new %fn SelfhostMemoCallLowerErrorKind fn 
 //: selfhost_compiler_known_memo_call_identity_matches_candidate: callee candidate が trusted memo_call か[返/かえ]す
 //:
 //: [目的/もくてき]:
-//: - user-defined 同名関数や import alias による文字列一致ではなく、resolver が確定した `DefId` で compiler-known primitive を判定します。
+//: - user-defined 同名関数や import alias による文字列一致ではなく、compiler-known primitive kind と resolver が確定した `DefId` で primitive を判定します。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `true`: candidate の `DefId` が trusted identity の `DefId` と一致します。
+//: - `true`: identity の kind が `MemoCall` で、candidate の `DefId` が trusted identity の `DefId` と一致します。
 //: - `false`: 同名であっても別定義です。caller は `PrimitiveIdentityMismatch` として拒否します。
 //:
 //: [計算量/けいさんりょう]:
 //: - `DefId` の index 比較だけなので O(1) です。
-pub fn selfhost_compiler_known_memo_call_identity_matches_candidate %fn &SelfhostCompilerKnownMemoCallIdentity fn SelfhostCallableCandidate bool \identity\candidate:
-    selfhost_def_id_eq *field::get_ref identity "def_id" candidate.def_id
+pub fn selfhost_compiler_known_memo_call_identity_matches_candidate %fn &SelfhostCompilerKnownPrimitiveIdentity fn SelfhostCallableCandidate bool \identity\candidate:
+    selfhost_compiler_known_primitive_identity_matches_def_id identity SelfhostCompilerKnownPrimitiveKind::MemoCall candidate.def_id
 
 //: selfhost_memo_call_lower_error_kind_eq: `memo_call` lowering error kind が同じ分類か[返/かえ]す
 //:
@@ -309,7 +270,7 @@ pub fn selfhost_memo_call_lower_error_kind_eq %fn SelfhostMemoCallLowerErrorKind
 //:
 //: [契約/けいやく]:
 //: - `callee_candidate` は `call.candidate_index` で選ばれた candidate でなければなりません。この helper は candidate Vec を再検索しません。
-//: - `compiler_known` は stdlib registry が構築した trusted identity です。candidate の `name` が `memo_call` かどうかは accepted 判定に使いません。
+//: - `compiler_known` は stdlib registry が構築した trusted primitive identity です。candidate の `name` が `memo_call` かどうかは accepted 判定に使いません。
 //: - `checked_arguments` は reducer が受理した実引数 payload を順番通りに持ちます。Phase 1 では長さ 1 かつ `FunctionValue` payload だけを受理します。
 //: - call result type は source function value の callable type と一致している必要があります。違う場合は checker 側の memo_call signature projection が壊れています。
 //:
@@ -323,7 +284,7 @@ pub fn selfhost_memo_call_lower_error_kind_eq %fn SelfhostMemoCallLowerErrorKind
 //:
 //: [計算量/けいさんりょう]:
 //: - 1 個の checked argument だけを読むため O(1) です。
-pub fn selfhost_hir_expr_memo_call_from_direct_call_plan %fn SelfhostReducedCall fn SelfhostCallableCandidate fn &Vec SelfhostCheckedArgument fn &SelfhostCompilerKnownMemoCallIdentity Result SelfhostHirExpr SelfhostMemoCallLowerError \call\callee_candidate\checked_arguments\compiler_known:
+pub fn selfhost_hir_expr_memo_call_from_direct_call_plan %fn SelfhostReducedCall fn SelfhostCallableCandidate fn &Vec SelfhostCheckedArgument fn &SelfhostCompilerKnownPrimitiveIdentity Result SelfhostHirExpr SelfhostMemoCallLowerError \call\callee_candidate\checked_arguments\compiler_known:
     if:
         not selfhost_compiler_known_memo_call_identity_matches_candidate compiler_known callee_candidate
         then:

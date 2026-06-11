@@ -84,3 +84,9 @@ memoized function value kind を保持するだけであり、`PrivateCache` を
 `stdlib/neplg2/core/lower/hir/function_value.nepl` は、DefId evidence があり、monomorphic で、effect が `Pure` の identity だけを memoized HIR payload に入れる。DefId 欠落、generic identity、impure function はそれぞれ typed error で fail-closed にする。
 
 この checkpoint は selfhost 側の HIR 境界であり、`memo_call` の stdlib compiler-known primitive source identity 判定、`MemoKey` / `MemoValue`、private cache SourceCapability、Resource IR `PrivateCache` non-escape proof、sealed backend representation、即時適用の accepted path は未実装のまま残す。
+
+## 2026-06-11 selfhost compiler-known primitive identity registry checkpoint
+
+`stdlib/neplg2/core/builtins/prelude/compiler_known.nepl` を追加し、selfhost 側でも `memo_call` を lowering-local な専用 identity ではなく、共有の `SelfhostCompilerKnownPrimitiveIdentity` として扱うようにした。identity は `SelfhostCompilerKnownPrimitiveKind::MemoCall`、監査用 `module_path` / `symbol`、resolver-local `DefId` を持つ。accepted path は `kind == MemoCall` と trusted `DefId` equality の両方で判定し、candidate name、import alias、path suffix、source token reread では判定しない。
+
+`lower/hir/memo_call.nepl` はこの shared identity を消費する adapter に変わった。これにより、typecheck、HIR lowering、Resource IR、backend が将来同じ primitive kind を参照できる。prelude registry は `lower/hir`、`hir`、`check/expr` に依存しない。source hash / policy hash の materialization、`MemoKey` / `MemoValue` structural predicate、private cache SourceCapability、Resource IR `PrivateCache` proof、sealed backend representation、即時適用 accepted path は引き続き残件である。

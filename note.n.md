@@ -1,3 +1,66 @@
+# 2026-06-11 Agent selfhost compiler-known primitive identity registry checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: confirmed for root-cause fixes, Plan-first development, Japanese selfhost comments, no line-count or doc-comment-length suppression, issue/note/todo/doc updates, checkpoint commit after tests.
+- 対象 branch: `selfhost/compiler-known-primitive-identity-20260611`
+- base: `main` at `bfa1cac91`
+- issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / compiler-known primitive identity registry for `memo_call`
+- related_issue: `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C`
+- subagent_review_ids: `019eb6cf-79b9-72d1-8213-fa9063648489`; `019eb6db-8694-7752-8416-5faedf3ee553`
+- subagent_review_count: 2
+- classification: selfhost implementation slice review
+- decision: implementation ready after focused fixes and tests.
+- implementation:
+  - `stdlib/neplg2/core/builtins/prelude/compiler_known.nepl` を追加し、compiler-known primitive を `SelfhostCompilerKnownPrimitiveKind` と `SelfhostCompilerKnownPrimitiveIdentity` で表す共有 registry 境界を作った。
+  - `SelfhostCompilerKnownPrimitiveIdentity` は `kind`、監査用 `module_path` / `symbol`、resolver-local `SelfhostDefId` を持つ。`module_path` / `symbol` は accepted 判定ではなく、診断・監査・artifact key の metadata として扱う。
+  - `lower/hir/memo_call.nepl` から lowering-local `SelfhostCompilerKnownMemoCallIdentity` を削除し、shared `SelfhostCompilerKnownPrimitiveIdentity` を消費する adapter に変更した。
+  - `memo_call` accepted 判定は `SelfhostCompilerKnownPrimitiveKind::MemoCall` と candidate `DefId` の両方が一致する場合だけ成功し、candidate name、import alias、path suffix、source token reread には依存しない。
+  - `builtins/prelude/stage0.nepl` に registry count / range / `MemoCall` kind の sanity check を追加し、facade doctest から確認できるようにした。
+- zenn_policy:
+  - enum/static check: primitive authority を文字列ではなく enum kind + struct identity にした。
+  - Result/fail-closed: accepted path は前 checkpoint と同じく memo_call lowering 側で typed error に落とし、通常 direct call へ fallback しない。
+  - DAG/responsibility: shared registry は `lower/hir`、`hir`、`check/expr` を import しない。`lower/hir/memo_call` は registry identity を読むだけで source lookup を再実行しない。
+  - doc comment: 新規 module / enum / struct / helper に目的、契約、現状、戻り値、計算量、注意点を日本語で記述した。行数制限やコメント量制限は追加していない。
+- subagent review:
+  - `019eb6cf-79b9-72d1-8213-fa9063648489`: shared 型は `builtins/prelude` 配下の独立 module に置き、`kind + DefId` を authority にすること、metadata を accepted 判定に使わないこと、prelude 側が lower/hir/check/hir へ依存しないことを blocker として指摘。実装は `compiler_known.nepl` への分離、`SelfhostCompilerKnownPrimitiveKind::MemoCall`、DAG contract test で対応した。
+  - `019eb6db-8694-7752-8416-5faedf3ee553`: 初回レビューは branch snapshot に未反映だったため blocker 扱い。実装後の自己確認では、指摘対象だった lowering-local identity を shared registry へ移し、source policy も更新済み。
+- policy/spec:
+  - Blocker: shared primitive identity が lower/hir、HIR、checker に依存すると、typecheck / Resource IR / backend が同じ authority を共有できなくなる。今回の module は `builtins/prelude/compiler_known.nepl` に分離し、DAG contract を source policy で固定した。
+  - Non-blocker: 現時点で registered primitive kind は `MemoCall` だけなので、kind 不一致 runtime smoke は次に別 primitive を追加するときに足す。
+  - Question: source hash / policy hash をいつ materialize するかは次 slice の設計対象。
+  - Approve: accepted 判定は kind + DefId だけで、metadata 文字列は監査用に留まる。
+- implementation/test:
+  - Blocker: initial doctest failure was caused by moving `selfhost_compiler_known_memo_call_identity_new` into `builtins/prelude` without importing that facade in the `memo_call.nepl` doctest. The doctest import was fixed.
+  - Non-blocker: existing documentation contract gaps are pre-existing report-only debt.
+  - Question: none for this slice.
+  - Approve: focused doctests, HIR lowering contract, documentation baseline, Zenn gate, and issues check passed after fixes.
+- source_policy: `nodesrc/test_selfhost_hir_lowering_contract.js` now pins the shared registry facade export, absence of `SelfhostCompilerKnownMemoCallIdentity`, no `candidate.name` / `string_search::str_eq ... memo_call` primitive acceptance, kind + DefId matching, and no `lower/hir` / `hir` / `check` import from the compiler-known registry.
+- source policy: updated.
+- verify:
+  - `nodesrc/selfhost_zenn_review_response_check.js`: not run because the subagent reviews were live agent responses, not saved response files.
+  - `node nodesrc/test_selfhost_hir_lowering_contract.js`
+  - `node nodesrc/test_selfhost_documentation_contract.js`
+  - `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/builtins/prelude/compiler_known.nepl --dist web/dist -j 1 --assert-io --no-tree`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/memo_call.nepl --dist web/dist -j 1 --assert-io --no-tree`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/builtins/prelude.nepl --dist web/dist -j 1 --assert-io --no-tree`
+  - `node nodesrc/issues.js check --dir issues`
+- 既存 warning: Node WASI ExperimentalWarning and selfhost documentation contract report-only pre-existing gaps.
+- 今回差分由来 warning: none after doctest import fix.
+- 検証済み: focused selfhost runtime doctests, HIR lowering contract, documentation contract baseline, Zenn review gate, issue index/check.
+- 行数制限: not added.
+- doc comment 長制限: not added.
+- verification:
+  - pass: `node nodesrc/test_selfhost_hir_lowering_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/builtins/prelude/compiler_known.nepl --dist web/dist -j 1 --assert-io --no-tree`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/lower/hir/memo_call.nepl --dist web/dist -j 1 --assert-io --no-tree`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/builtins/prelude.nepl --dist web/dist -j 1 --assert-io --no-tree`
+- residual:
+  - source hash / policy hash materialization、`MemoKey` / `MemoValue` structural predicate、private cache SourceCapability、Resource IR `PrivateCache` proof、sealed backend representation、即時適用 accepted path は未実装。
+- 次 slice:
+  - `MemoKey` / `MemoValue` structural predicate、source hash / policy hash materialization、または private cache SourceCapability のうち、issue境界が小さいものを選ぶ。
+
 # 2026-06-11 Agent selfhost pipe chain trailing block success checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`

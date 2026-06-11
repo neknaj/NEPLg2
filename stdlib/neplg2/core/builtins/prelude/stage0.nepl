@@ -8,6 +8,7 @@
 #import "./signature" as *
 #import "./function_registry" as *
 #import "./primitive_registry" as *
+#import "./compiler_known" as *
 
 //: selfhost_prelude_stage0_char_ok: primitive registry に `char` があるか[返/かえ]す
 pub fn selfhost_prelude_stage0_char_ok %fn void bool \void:
@@ -81,6 +82,21 @@ pub fn selfhost_prelude_stage0_realloc_ok %fn void bool \void:
 pub fn selfhost_prelude_stage0_no_extra_builtin_ok %fn void bool \void:
     is_none selfhost_builtin_function_at 3
 
+//: selfhost_prelude_stage0_compiler_known_memo_call_ok: `memo_call` primitive registry が正しいか[返/かえ]す
+pub fn selfhost_prelude_stage0_compiler_known_memo_call_ok %fn void bool \void:
+    if:
+        not eq selfhost_compiler_known_primitive_count 1
+        then:
+            false
+        else:
+            match selfhost_compiler_known_primitive_kind_at 0:
+                Option::Some kind:
+                    let first_ok %bool selfhost_compiler_known_primitive_kind_eq kind SelfhostCompilerKnownPrimitiveKind::MemoCall
+                    let no_extra %bool is_none selfhost_compiler_known_primitive_kind_at 1
+                    and first_ok no_extra
+                Option::None:
+                    false
+
 //: selfhost_prelude_stage0: builtins / prelude registry の最小 sanity check
 pub fn selfhost_prelude_stage0 %fn void i32 \void:
     if:
@@ -100,7 +116,7 @@ pub fn selfhost_prelude_stage0 %fn void i32 \void:
                         else:
                             let primitive_ok %bool selfhost_prelude_stage0_float_never_ok
                             let builtin_ok %bool and selfhost_prelude_stage0_alloc_ok selfhost_prelude_stage0_realloc_ok
-                            let registry_ok %bool and builtin_ok selfhost_prelude_stage0_no_extra_builtin_ok
+                            let registry_ok %bool and and builtin_ok selfhost_prelude_stage0_no_extra_builtin_ok selfhost_prelude_stage0_compiler_known_memo_call_ok
                             if:
                                 and primitive_ok registry_ok
                                 then:
