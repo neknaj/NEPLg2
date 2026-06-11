@@ -53899,3 +53899,59 @@ MERGE_APPROVED
 - output json: `tmp/ci-timeout-playground-editor.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - warnings: source policy regression は既存の documentation sample gap と Node WASI ExperimentalWarning を表示したが exit 0。`git diff --check` の CRLF conversion warning は既存の改行設定由来。今回の failure ではない。
 - residual_risk: GitHub Actions 上の再実行で、該当 doctest step が timeout した場合に warning と artifact upload は残り、wrapper exit code 124 では job を落とさないことを確認する必要がある。
+
+## 2026-06-11 Agent selfhost HIR call identity checkpoint
+
+### scope
+
+- branch: selfhost/continue-issue-slice-20260611
+- issue: ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941
+- zenn_policy_checked: https://zenn.dev/bem130/articles/1b352797de94e7
+- files_changed: stdlib/neplg2/core/hir/hir/expr.nepl; stdlib/neplg2/core/lower/hir/direct_call.nepl; nodesrc/test_selfhost_hir_expr_payload.js; nodesrc/test_selfhost_hir_lowering_contract.js; doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md; issues/index.json; todo.md
+- subagent_review_ids:
+  - 019eb6cf-79b9-72d1-8213-fa9063648489
+
+### implementation
+
+- `SelfhostHirCallExpr` を表示名 `name` と child range だけの payload から、`SelfhostDefId`、callee function type、effect、monomorphic `type_arg_count` を持つ typed callee identity payload へ拡張した。
+- `selfhost_hir_expr_call` は unchecked `type_arg_count` を引数に取らず、現 checkpoint の monomorphic direct call identity として `type_arg_count = 0` を constructor 内で固定する。
+- `lower/hir/direct_call.nepl` は legacy direct-call result 経路と checked-tree direct-call 経路の両方で、selected `SelfhostCallableCandidate` から DefId / callable type / effect を HIR `Call` payload へ移す。
+- HIR lowering は source token、scope lookup、callable candidate collection を再実行しない。checker / reducer が保存した selected candidate を callee identity の authority とする。
+- `SelfhostGenericInferenceState::NoneRequired` 以外の candidate は `GenericCallIdentityUnsupported` で fail-closed にする。`Unique` を暗黙の 0 型引数として HIR に保存しない。
+- generic rejected path の focused doctest を追加し、legacy direct-call result 経路と checked-tree 経路の両方が `GenericCallIdentityUnsupported` を返すことを確認した。
+
+### zenn_policy
+
+- enum/static-check: generic call identity 未対応を文字列ではなく `SelfhostDirectCallLowerErrorKind::GenericCallIdentityUnsupported` で分類し、`selfhost_direct_call_lower_error_kind_eq` も match 分岐で明示した。
+- Result/fail-closed: HIR identity を安全に保存できない generic candidate は成功へ丸めず、module owner を閉じて typed error を返す。
+- source reread prohibition: direct call HIR lowering は source spelling / prefix token / scope / candidate collection を再実行せず、checked evidence だけを消費する。
+- performance/search space: monomorphic 判定は `candidate.generic_state` の O(1) match だけで、generic solver や overload 探索を lowering 層で再実行しない。
+- doc comment: 追加 helper と更新した payload / lowering コメントは目的、契約、戻り値、計算量、後続 issue との境界を日本語で明記した。
+
+### subagent_review
+
+- result: blocker none after fix
+- reviewer: 019eb6cf-79b9-72d1-8213-fa9063648489
+- previous_blocker_fixed: `Unique` generic candidate が `type_arg_count = 0` の HIR `Call` として流れる危険を、`GenericCallIdentityUnsupported` と monomorphic predicate で閉じた。
+- non_blocker_fixed: runtime smoke として `SelfhostGenericInferenceState::Unique` candidate の legacy direct-call lowering / checked-tree lowering rejection を doctest に追加した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_hir_expr_payload.js`
+- pass: `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- pass: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/hir --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-call-identity-hir-final.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-call-identity-lower-generic-final.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-call-identity-check-final.json`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js index --dir issues; node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- generic instantiation の stable type-argument range / canonical key は未実装。`GenericCallIdentityUnsupported` を緩める前に HIR payload と artifact identity に型引数実体を追加する必要がある。
+- indirect call、`memo_call` Phase 1、PrivateCache proof、trait solving、lambda / borrow を含む複合式 success path は引き続き同 issue の残件。
+- unexecuted_verification: `trunk build` は stdlib selfhost slice で必須ではないため未実行。Rust / web build artifact 変更は今回含まない。

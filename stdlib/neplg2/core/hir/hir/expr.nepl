@@ -102,19 +102,28 @@ impl Copy for SelfhostHirFunctionValueIdentityBuildError:
     fn copy_mark %fn SelfhostHirFunctionValueIdentityBuildError SelfhostHirFunctionValueIdentityBuildError \self:
         self
 
-//: SelfhostHirCallExpr: call payload に保存する callee 名と argument child range
+//: SelfhostHirCallExpr: call payload に保存する callee identity と argument child range
 //:
 //: [目的/もくてき]:
-//: - direct call の表示名と、同じ HIR module arena 内にある argument expression range をまとめます。
+//: - direct call の表示名、DefId-linked callable identity、関数型、effect、型引数数、同じ HIR module arena 内にある argument expression range をまとめます。
+//: - `@ident` function value、indirect call、`memo_call`、Resource IR summary が同じ callable を参照していることを後続 phase が型付き payload だけで確認できるようにします。
 //:
 //: [契約/けいやく]:
-//: - `name` は現状の direct call 表示名です。将来の stable callable id 追加後も、型や identity の authority として使ってはいけません。
+//: - `name` は diagnostic / dump / backend symbol 用の表示名です。型や identity の authority として使ってはいけません。
+//: - `def_id` は checker が選んだ `SelfhostCallableCandidate` 由来の定義 identity です。HIR lowering で source token や scope lookup から再構築してはいけません。
+//: - `callable_type` は callee の関数型です。expression 全体の結果型は `SelfhostHirExpr.ty` にあり、この field は callee identity / monomorphize / Resource IR 用の証拠として保持します。
+//: - `effect` は callee の effect 証拠です。pure / impure call boundary、indirect call、`memo_call` の検査はこの payload を参照します。
+//: - `type_arg_count` は現時点では 0 の monomorphic call だけを accepted path にします。generic instantiation の stable type-argument range は後続 issue で追加します。
 //: - `args` は `SelfhostHirModule` arena 内の child range です。range 外参照は module arena 側の invariant で拒否します。
 //:
 //: [計算量/けいさんりょう]:
 //: - record copy と field access は O(1) です。
 pub struct SelfhostHirCallExpr:
     name %str
+    def_id %SelfhostDefId
+    callable_type %SelfhostTypeId
+    effect %SelfhostEffectKind
+    type_arg_count %i32
     args %SelfhostHirChildRange
 
 impl Clone for SelfhostHirCallExpr:
@@ -160,7 +169,7 @@ impl Copy for SelfhostHirValueIdentity:
 //:
 //: [契約/けいやく]:
 //: - `SelfhostHirExpr.ty` が expression type の authority であり、payload variant だけから型を推測してはいけません。
-//: - `FnValue` と `Var` は DefId-linked identity payload を持ちます。source spelling から identity を再構築してはいけません。
+//: - `FnValue`、`Var`、`Call` は DefId-linked identity payload を持ちます。source spelling から identity を再構築してはいけません。
 //: - `Call`、`Block`、`If` は child range を通じて module arena 内の child expression を参照します。
 pub enum SelfhostHirExprPayload:
     Error
@@ -598,9 +607,24 @@ pub fn selfhost_hir_expr_var %fn SelfhostTypeId fn SelfhostSourceSpan fn Selfhos
 pub fn selfhost_hir_expr_fn_value %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirFunctionValueIdentity SelfhostHirExpr \ty\span\identity:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::FnValue identity
 
-//: selfhost_hir_expr_call: call expression record を[作/つく]る
-pub fn selfhost_hir_expr_call %fn SelfhostTypeId fn SelfhostSourceSpan fn str fn SelfhostHirChildRange SelfhostHirExpr \ty\span\name\args:
-    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name args
+//: selfhost_hir_expr_call: direct call expression record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker が選択した callable identity と HIR child argument range を、source 再読なしの call payload として保存します。
+//: - 表示名だけでは `memo_call` / indirect call / Resource IR summary が同じ callable を参照していることを証明できないため、DefId、callee function type、effect、型引数数を同時に受け取ります。
+//:
+//: [契約/けいやく]:
+//: - `name` は表示用です。call target の authority は `def_id`、`callable_type`、`effect`、`type_arg_count` です。
+//: - 現 checkpoint では monomorphic direct call だけを受け取り、payload の `type_arg_count` はこの constructor が 0 に固定します。generic call の stable type-argument identity は後続 issue で追加します。
+//: - この constructor は HIR record を作るだけで、candidate 収集や overload 解決を行いません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostHirExpr`: `Call` payload を持つ typed HIR expression record です。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 構築だけなので O(1) です。
+pub fn selfhost_hir_expr_call %fn SelfhostTypeId fn SelfhostSourceSpan fn str fn SelfhostDefId fn SelfhostTypeId fn SelfhostEffectKind fn SelfhostHirChildRange SelfhostHirExpr \ty\span\name\def_id\callable_type\effect\args:
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name def_id callable_type effect 0 args
 
 //: selfhost_hir_expr_block: block expression record を[作/つく]る
 pub fn selfhost_hir_expr_block %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirChildRange SelfhostHirExpr \ty\span\children:

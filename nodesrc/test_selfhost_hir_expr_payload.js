@@ -48,7 +48,15 @@ assert.deepEqual(
     ["Error", "Unit", "BoolLiteral", "I32Literal", "F32Literal", "StrLiteral", "Var", "FnValue", "Call", "Block", "If"],
     "expression payload variants must cover the current expression kind set",
 );
-assert.match(hir, /(?:pub\s+)?struct SelfhostHirCallExpr:[\s\S]*?\bname\s+<str>[\s\S]*?\bargs\s+<SelfhostHirChildRange>/, "call payload must own callee name and argument range");
+const callExprStruct = topLevelBlock(hir, "struct", "SelfhostHirCallExpr:");
+assert.match(callExprStruct, /\bname\s+<str>/, "call payload must keep the display callee name");
+assert.match(callExprStruct, /\bdef_id\s+<SelfhostDefId>/, "call payload must keep DefId evidence");
+assert.match(callExprStruct, /\bcallable_type\s+<SelfhostTypeId>/, "call payload must keep the callee function type");
+assert.match(callExprStruct, /\beffect\s+<SelfhostEffectKind>/, "call payload must keep the callee effect");
+assert.match(callExprStruct, /\btype_arg_count\s+<i32>/, "call payload must keep generic arity evidence until stable type args exist");
+assert.match(callExprStruct, /\bargs\s+<SelfhostHirChildRange>/, "call payload must keep the argument range");
+assert.match(hir, /\bCall\s+<SelfhostHirCallExpr>/, "call payload must use typed call identity, not a string-only name");
+assert.doesNotMatch(hir, /\bCall\s+<str>/, "call payload must not regress to a string-only identity");
 
 const valueIdentityStruct = topLevelBlock(hir, "struct", "SelfhostHirValueIdentity:");
 assert.match(valueIdentityStruct, /\bsymbol\s+<str>/, "value identity must keep the display symbol");
@@ -58,6 +66,8 @@ assert.match(valueIdentityStruct, /\bkind\s+<SelfhostDefKind>/, "value identity 
 assert.match(hir, /\bVar\s+<SelfhostHirValueIdentity>/, "variable payload must use typed identity, not a string-only name");
 assert.doesNotMatch(hir, /\bVar\s+<str>/, "variable payload must not regress to a string-only identity");
 assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_var\b[^\n]*\bfn\s+str\b/, "variable constructor must not accept a string-only identity");
+assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_call\b[^\n]*\bfn\s+str\s+fn\s+SelfhostHirChildRange\b/, "call constructor must not accept only a string name and argument range");
+assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_call\b[^\n]*\bfn\s+i32\s+fn\s+SelfhostHirChildRange\b/, "call constructor must not expose unchecked type_arg_count");
 
 const fnIdentityStruct = topLevelBlock(hir, "struct", "SelfhostHirFunctionValueIdentity:");
 assert.match(fnIdentityStruct, /\bsymbol\s+<str>/, "function value identity must keep the display/link symbol");
