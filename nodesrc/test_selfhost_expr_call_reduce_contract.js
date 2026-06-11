@@ -903,6 +903,11 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_check_expr_stage1_pipe_trailing_block_segment[\s\S]*SelfhostBodySegmentKind::BlockIntro[\s\S]*selfhost_check_expr_stage1_make_pipe_trailing_block_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_argument_is_block_result_checked_expr_range[\s\S]*SelfhostCheckedArgumentKind::CheckedExpr[\s\S]*selfhost_check_expr_stage1_success_has_pipe_trailing_block_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_trailing_block_body_call_ok[\s\S]*selfhost_check_expr_stage1_pipe_trailing_block_node_ok[\s\S]*SelfhostCheckedExprNodeKind::BlockResult[\s\S]*selfhost_check_expr_stage1_pipe_trailing_block_root_links_block_result[\s\S]*selfhost_check_expr_stage1_pipe_trailing_block_ok_with_scope[\s\S]*"1 \|> add:\\n    add 1 1"[\s\S]*selfhost_check_expr_stage1_pipe_trailing_block_narrows_overload_with_scope[\s\S]*selfhost_check_expr_stage1_pipe_trailing_block_unexpected_rejected_with_scope[\s\S]*SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument[\s\S]*selfhost_check_expr_stage1_run_pipe_trailing_block_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_trailing_block_overload_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_trailing_block_unexpected_with_tokens/,
+    "stage1 must smoke-test that a pipe trailing block is carried as a CheckedExpr argument whose checked-tree node is BlockResult, and participates in overload narrowing",
+);
+assert.match(
+    source,
     /selfhost_check_expr_stage1_pipe_chain_segment[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_argument_is_checked_expr_range[\s\S]*SelfhostCheckedArgumentKind::CheckedExpr[\s\S]*selfhost_check_expr_stage1_success_has_pipe_chain_argument_order[\s\S]*selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call[\s\S]*selfhost_checked_expr_tree_get_node tree root_expr[\s\S]*Option::Some node[\s\S]*Option::Some first[\s\S]*Option::Some second[\s\S]*selfhost_check_expr_stage1_pipe_chain_previous_call_arguments_ok tree previous_expr[\s\S]*Option::None[\s\S]*"1 \|> add 2 \|> add 3"[\s\S]*selfhost_check_expr_stage1_pipe_chain_direct_call_ok_with_scope[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens/,
     "stage1 must smoke-test that a pipe chain is normalized through a checked intermediate expression",
 );
@@ -913,12 +918,12 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_make_pipe_chain_missing_right_tokens[\s\S]*TokenKind::Pipe source_span_new_unchecked 0 11 13[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_literal_target_tokens[\s\S]*TokenKind::IntLiteral source_span_new_unchecked 0 14 15[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*TokenKind::IntLiteral[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*TokenKind::Percent[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*TokenKind::KwFn[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*"1 2 \|> add 3"[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*"answer"/,
+    /selfhost_check_expr_stage1_make_pipe_chain_trailing_block_tokens[\s\S]*TokenKind::Pipe source_span_new_unchecked 0 11 13[\s\S]*TokenKind::Ident source_span_new_unchecked 0 23 26[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_missing_right_tokens[\s\S]*TokenKind::Pipe source_span_new_unchecked 0 11 13[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_literal_target_tokens[\s\S]*TokenKind::IntLiteral source_span_new_unchecked 0 14 15[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*TokenKind::IntLiteral[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*TokenKind::Percent[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*TokenKind::KwFn[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*"1 2 \|> add 3"[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*"answer"/,
     "stage1 must keep executable token fixtures for representative pipe fail-closed cases",
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_pipe_chain_error_after_first_stage_with_i32[\s\S]*SelfhostCallReduceErrorKind[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_error_after_first_stage_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_failclosed_body_line[\s\S]*SelfhostCallReduceErrorKind::PipeMissingRightTarget[\s\S]*SelfhostCallReduceErrorKind::PipeRightTargetUnsupported/,
+    /selfhost_check_expr_stage1_pipe_chain_error_after_first_stage_with_i32[\s\S]*SelfhostCallReduceErrorKind[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_error_after_first_stage_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_trailing_block_rejected_with_i32[\s\S]*SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_trailing_block_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_failclosed_body_line[\s\S]*SelfhostCallReduceErrorKind::PipeMissingRightTarget[\s\S]*SelfhostCallReduceErrorKind::PipeRightTargetUnsupported[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_trailing_block_with_tokens/,
     "stage1 must check pipe-chain downstream fail-closed fixtures against pipe-specific typed errors",
 );
 assert.match(
@@ -960,6 +965,11 @@ assert.match(
     source,
     /selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_no_applicable_with_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_duplicate_match_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_suffix_ascribed_argument_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_single_probe_unsupported_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_suffix_named_argument_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_named_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_suffix_nested_call_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_suffix_same_name_nested_call_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_overload_narrowing_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_chain_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
     "public stage1 body-line smoke must include pipe, pipe chain, ascribed pipe overload narrowing, non-ascribed pipe argument narrowing, block result, block sequence, and nested BlockIntro fixtures",
+);
+assert.match(
+    source,
+    /pub fn selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_trailing_block_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_trailing_block_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_trailing_block_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_trailing_block_overload_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_trailing_block_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_trailing_block_unexpected_with_tokens/,
+    "public pipe smoke must execute success, overload narrowing, and surplus-block rejection for pipe trailing blocks",
 );
 assert.match(
     source,
@@ -1053,7 +1063,7 @@ assert.match(
 assert.match(
     source,
     /fn selfhost_call_reduce_trailing_block_body_single_result[\s\S]*SelfhostTypeExpectationSource::BlockResult[\s\S]*selfhost_call_reduce_trailing_block_segment_result tokens source arena checked_tree scope value_types signatures some block_expected segment[\s\S]*selfhost_checked_expr_tree_add_block_result body_tree expected_type block_span body_expr[\s\S]*selfhost_checked_argument_checked_expr item_index item_index expected_type block_span expr_id[\s\S]*selfhost_call_reduce_trailing_block_body_result[\s\S]*selfhost_block_body_result_segments_from_trailing_block tokens block_arg[\s\S]*selfhost_call_reduce_trailing_block_body_segments_result tokens source arena checked_tree scope value_types signatures expected_type segments block_arg\.span item_index/,
-    "call reduction must segment a trailing block body once, then wrap the checked segment root as a BlockResult payload",
+    "call reduction must segment a trailing block body once, then wrap the checked segment root as a CheckedExpr payload pointing at a BlockResult node",
 );
 assert.match(
     source,
@@ -1132,8 +1142,33 @@ assertContainsInOrder(
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_pipe_candidate_applicability[\s\S]*selfhost_call_reduce_generic_state_error candidate[\s\S]*Option::Some checked_left:[\s\S]*selfhost_type_arena_types_equal arena checked_left\.value_type first_arg_type[\s\S]*Option::None:[\s\S]*selfhost_expr_argument_match_at arena prefix 0 pipe_index first_arg_type[\s\S]*selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected rhs_head item_count rhs_suffix_index/,
+    /fn selfhost_call_reduce_pipe_candidate_suffix_applicability[\s\S]*Option SelfhostTrailingBlockArgument[\s\S]*\\arena\\prefix\\candidate\\param_count\\expected\\trailing_block\\rhs_head\\item_count\\rhs_suffix_index:[\s\S]*Result::Ok _unit:[\s\S]*Option::Some _block_arg:[\s\S]*SelfhostPipeCandidateApplicability::NoMatch[\s\S]*Option::None:[\s\S]*selfhost_call_reduce_expected_result arena candidate expected[\s\S]*Result::Err e:[\s\S]*Option::Some _block_arg:[\s\S]*SelfhostCallReduceErrorKind::PartialApplicationRejected:[\s\S]*SelfhostPipeCandidateApplicability::SourceBackedRequired/,
+    "pipe target suffix probing must reject surplus trailing blocks while keeping block-satisfied partial applications for source-backed reduction",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_candidate_applicability[\s\S]*Option SelfhostTrailingBlockArgument[\s\S]*\\arena\\prefix\\candidate\\expected\\trailing_block\\left_argument[\s\S]*selfhost_call_reduce_generic_state_error candidate[\s\S]*Option::Some checked_left:[\s\S]*selfhost_type_arena_types_equal arena checked_left\.value_type first_arg_type[\s\S]*Option::None:[\s\S]*selfhost_expr_argument_match_at arena prefix 0 pipe_index first_arg_type[\s\S]*selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected trailing_block rhs_head item_count rhs_suffix_index/,
     "pipe target argument narrowing must probe the checked-left path and the source-less left segment without mutating checked tree state",
+);
+assertContainsInOrder(
+    source,
+    [
+        "fn selfhost_call_reduce_pipe_candidate_probe_summary_loop",
+        "\\arena\\prefix\\pipe_candidates\\expected\\trailing_block\\left_argument",
+        "selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index",
+        "fn selfhost_call_reduce_pipe_candidate_probe_first_match_loop",
+        "\\arena\\prefix\\pipe_candidates\\expected\\trailing_block\\left_argument",
+        "selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index",
+        "fn selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop",
+        "\\arena\\prefix\\pipe_candidates\\expected\\trailing_block\\left_argument",
+        "selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index",
+        "fn selfhost_call_reduce_pipe_target_argument_select_candidate",
+        "\\arena\\prefix\\pipe_candidates\\expected\\trailing_block\\left_argument",
+        "selfhost_call_reduce_pipe_candidate_probe_summary_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count initial",
+        "selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count",
+        "selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count",
+    ],
+    "non-ascribed pipe target narrowing must pass trailing-block evidence through every probe pass before selecting the single source-backed finisher candidate",
 );
 assertContainsInOrder(
     source,

@@ -1,3 +1,80 @@
+# 2026-06-11 Agent selfhost pipe trailing block candidate checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: confirmed for root-cause fixes, Plan-first development, Japanese selfhost comments, no line-count or doc-comment-length suppression, issue/note/todo/doc updates, checkpoint commit after tests.
+- 対象 branch: `selfhost/next-prefix-reducer-slice-20260611`
+- base: `main` at `30dc06fdd`
+- head: working tree before commit on `selfhost/next-prefix-reducer-slice-20260611`
+- decision: `MERGE_APPROVED`
+- 対象 issue / slice: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` / single pipe trailing block argument candidate narrowing and pipe-chain trailing-block fail-closed boundary
+- files_read: `AGENTS.md`; `plan.md`; `todo.md`; `note.n.md`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `stdlib/neplg2/core/check/expr/model.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/test_selfhost_zenn_review_gate_contract.js`; `nodesrc/selfhost_zenn_review_response_check.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
+- not_reviewed: Rust compiler crates, Web UI, codegen backend, Resource IR implementation outside the selfhost call reducer slice, memo_call/private-cache implementation
+- subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`; `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+- subagent_review_count: 2
+- subagent review:
+  - `019eb689-ea44-7972-8bf1-1f791cfecd18`: initial review found two Blocker items. The first was that stage1 smoke still expected the legacy `SelfhostCheckedArgumentKind::BlockResult` summary instead of the current checked-tree authority. The second was that pipe chain with trailing block could leak into the final segment as if success path were supported. The implementation now stores the accepted single-pipe block as `CheckedExpr [3, 3)` and verifies the referenced checked tree node is `BlockResult` whose body is `DirectCall(add 1 1)`. Chain trailing block now returns `UnexpectedTrailingBlockArgument` after owner cleanup. Re-review found Blocker none, Non-blocker none, Question none, Approve, and `MERGE_APPROVED`.
+  - `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`: implementation/test review found Blocker none and confirmed the checked-tree topology, chain trailing-block fail-closed path, Japanese doc comments, and absence of line-count/comment-volume suppression. It first returned `MERGE_BLOCKED` only because this note checkpoint did not yet record the Zenn gate evidence. After this checkpoint was added and `node nodesrc/test_selfhost_zenn_review_gate_contract.js` passed, re-review found Blocker none and returned `MERGE_APPROVED`.
+- policy/spec classification: Approve
+- policy/spec file/function: `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `todo.md`
+- policy/spec finding: Blocker none after recording this checkpoint. The issue remains open for explicitly listed next slice work and does not over-close lambda, borrow, generic, trait, indirect call, or memo_call scopes.
+- policy/spec root_cause: single pipe trailing block and pipe-chain trailing block needed different boundaries. A single `left |> target:` can use the block as the target's next source-backed argument, while `left |> target suffix |> target:` with a trailing block would require a separate chain-block design that is not implemented in this slice.
+- policy/spec reason: the accepted path keeps checked-tree authority by storing a `CheckedExpr` argument and checking the referenced `BlockResult` node. The unsupported chain shape is rejected with a typed error instead of being allowed through an accidental final-segment path.
+- policy/spec recommended_fix: completed in this checkpoint; future work should add a separately designed chain trailing-block success path only if the syntax and checked-tree topology are specified first.
+- source_policy: updated
+- source_policy_reason: `nodesrc/test_selfhost_expr_call_reduce_contract.js` now pins suffix probe classification, trailing-block pass-through to candidate selection, `CheckedExpr` plus `BlockResult` topology, overload narrowing, surplus block rejection, and pipe-chain trailing-block fail-closed smoke. It does not add 行数制限 or doc comment 長制限.
+- policy/spec doc_issue_note: design doc, issue record, issue index, todo, and this note were updated.
+- policy/spec verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/issues.js check --dir issues`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+- implementation/test classification: Approve
+- implementation/test file/function: `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- implementation/test finding: Blocker none. `selfhost_call_reduce_pipe_candidate_suffix_applicability` classifies trailing-block candidates without candidate-by-candidate source-backed execution, and `selfhost_call_reduce_pipe_chain_finish_or_continue` rejects chain trailing block as `UnexpectedTrailingBlockArgument`.
+- implementation/test root_cause: the borrowed pipe probe needed to distinguish surplus block, block-satisfied missing argument, and unimplemented selection blockers without expanding the exploration space by running the owner reducer for every overload candidate.
+- implementation/test reason: the existing one-source-backed-candidate rule is preserved: `Match` must be 0, `SourceBackedRequired` must be 1, and `SelectionBlockedUnsupported` must be 0. Accepted source-backed finishing still runs once for the selected candidate.
+- implementation/test recommended_fix: completed by passing `Option SelfhostTrailingBlockArgument` through the pipe probe summary / first-match / first-source-backed passes, treating complete suffix plus block as `NoMatch`, treating block-satisfied `PartialApplicationRejected` as `SourceBackedRequired`, and adding checked-tree topology smoke for accepted single-pipe blocks.
+- implementation/test source_policy: updated
+- implementation/test source_policy_reason: the contract test fixes behavior by semantic authority and typed error kinds, not by line count, byte count, file size, comment line count, or documentation length.
+- implementation/test doc_issue_note: docs and issue now say the accepted payload is `CheckedExpr` pointing at a checked-tree `BlockResult` node, not the old legacy `BlockResult` summary argument.
+- implementation/test verify: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-trailing-block.json`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`
+- zenn_check:
+  - Result/Option: reducer changes keep success/failure in `Result` and candidate optionality in `Option SelfhostTrailingBlockArgument` / `Option SelfhostCheckedArgument`.
+  - enum error/display separation: surplus trailing blocks use `SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument`; selection state uses `SelfhostPipeCandidateApplicability` variants instead of diagnostic text.
+  - match exhaustiveness: new branches explicitly match `Option::Some` / `Option::None`, `PartialApplicationRejected`, and pipe-chain `next_pipe`.
+  - pure/impure boundary: only selfhost compiler stdlib modules, docs, issue records, and Node source-policy tests changed; no host IO or platform effect was introduced into the core reducer.
+  - authority boundary: accepted block arguments are represented by checked tree node identity, not by rereading source text or by a legacy summary payload.
+  - owner/free: the chain trailing-block rejection path converts the owned result back into arena state and relies on checked argument/tree owner cleanup before returning the typed error.
+  - zero-cost/performance: candidate probe remains borrowed and O(candidate count * suffix probe cost); block body checking is not run speculatively for every candidate.
+  - doc comment: added and updated Japanese comments describe purpose, contract, return cases, constraints, and complexity for probe and smoke helpers.
+  - prototype/fail-closed: unsupported pipe-chain trailing-block success path is rejected with a typed error and remains a next slice item rather than an accidental partial implementation.
+- evidence_to_record note: `note.n.md`
+- evidence_to_record issue: `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`
+- evidence_to_record source policy: `nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- evidence_to_record tests: executed and listed below
+- warnings existing_warnings: Node WASI `ExperimentalWarning`; Git LF-to-CRLF replacement warnings from `git diff --check`; existing selfhost/stdlib documentation gap samples reported by documentation contracts.
+- warnings new_warnings: none
+- summary blockers: none
+- summary non_blockers: chain trailing-block success semantics are still a future slice and are intentionally fail-closed here.
+- summary questions: none
+- summary approve: approved MERGE_APPROVED
+- residual_risk: none
+- unexecuted_verification: none
+- executed verification:
+  - pass: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-trailing-block.json` total=7, passed=7
+  - pass: `node nodesrc/test_selfhost_documentation_contract.js`
+  - pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+  - pass: `node nodesrc/issues.js index --dir issues`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+- 検証済み: contract / focused selfhost smoke / doc contract / no-line-count policy / issue index / issue check / diff whitespace were executed locally. `nodesrc/selfhost_zenn_review_response_check.js` and the final Zenn gate are run against this checkpoint.
+- 行数制限: not added
+- doc comment 長制限: not added
+- 既存 warning: Node WASI `ExperimentalWarning`; LF-to-CRLF replacement warnings; existing documentation gap samples
+- 今回差分由来 warning: none
+- source policy: updated, with semantic contract checks only
+- 次 slice: lambda suffix, borrow-aware pipe operands, generic instantiation inference, trait solving, indirect call, memo_call Phase 1, and a separately designed pipe-chain trailing-block success path remain open.
+
 # 2026-06-11 Agent selfhost general nested overload boundary checkpoint
 
 - branch: `selfhost/general-nested-overload-boundary-20260611`

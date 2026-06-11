@@ -2316,28 +2316,41 @@ fn selfhost_call_reduce_pipe_candidate_applicability_from_error %fn SelfhostCall
 //: selfhost_call_reduce_pipe_candidate_suffix_applicability: pipe 右辺 suffix が candidate の残り引数へ[合/あ]うか[調/しら]べる
 //:
 //: [目的/もくてき]:
-//: - pipe target の第1引数に左辺が合うと分かった後、右辺 suffix と最終 result expectation だけを借用で検査します。
+//: - pipe target の第1引数に左辺が合うと分かった後、右辺 suffix、末尾 block の有無、最終 result expectation だけを借用で検査します。
 //: - 成功 path では checked argument payload を作らず、候補選択に必要な「合うかどうか」だけを調べます。
 //:
 //: [契約/けいやく]:
 //: - `rhs_suffix_index` から `item_count` までをこの pipe 段の suffix とみなします。chain の次段 pipe は caller が `item_count` で切り落としています。
+//: - `trailing_block` が `Some` の場合、suffix だけで完全飽和する候補は余剰 block を受け取れないため `NoMatch` です。suffix だけでは引数不足になる候補は、block body の型検査が必要なので `SourceBackedRequired` とします。
 //: - 借用 reducer が扱えないが source-backed checker なら判定できる可能性がある引数式は `SourceBackedRequired` です。source-backed owner reducer をここで候補ごとに試行してはいけません。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Match`: suffix と result expectation まで合いました。
 //: - `NoMatch`: candidate 固有の型・arity・result 不一致が分かりました。
-//: - `SourceBackedRequired`: 既存 source-backed checker でなければ判定できません。
+//: - `SourceBackedRequired`: 既存 source-backed checker でなければ判定できません。末尾 block body の result type 判定もここに含まれます。
 //: - `SelectionBlockedUnsupported`: generic 未解決、内部境界、OOM など、候補選択へ使ってはいけない未対応状態です。
-fn selfhost_call_reduce_pipe_candidate_suffix_applicability %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn i32 fn Option SelfhostTypeExpectation fn SelfhostExprPrefixItem fn i32 fn i32 Result SelfhostPipeCandidateApplicability SelfhostCallReduceError \arena\prefix\candidate\param_count\expected\rhs_head\item_count\rhs_suffix_index:
+fn selfhost_call_reduce_pipe_candidate_suffix_applicability %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn i32 fn Option SelfhostTypeExpectation fn Option SelfhostTrailingBlockArgument fn SelfhostExprPrefixItem fn i32 fn i32 Result SelfhostPipeCandidateApplicability SelfhostCallReduceError \arena\prefix\candidate\param_count\expected\trailing_block\rhs_head\item_count\rhs_suffix_index:
     match selfhost_call_reduce_argument_type_check_loop arena prefix candidate param_count 1 rhs_suffix_index item_count rhs_head:
         Result::Ok _unit:
-            match selfhost_call_reduce_expected_result arena candidate expected:
-                Result::Ok _result_type:
-                    Result::Ok SelfhostPipeCandidateApplicability::Match
-                Result::Err e:
-                    Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
+            match trailing_block:
+                Option::Some _block_arg:
+                    Result::Ok SelfhostPipeCandidateApplicability::NoMatch
+                Option::None:
+                    match selfhost_call_reduce_expected_result arena candidate expected:
+                        Result::Ok _result_type:
+                            Result::Ok SelfhostPipeCandidateApplicability::Match
+                        Result::Err e:
+                            Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
         Result::Err e:
-            Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
+            match trailing_block:
+                Option::Some _block_arg:
+                    match e.kind:
+                        SelfhostCallReduceErrorKind::PartialApplicationRejected:
+                            Result::Ok SelfhostPipeCandidateApplicability::SourceBackedRequired
+                        _:
+                            Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
+                Option::None:
+                    Result::Ok selfhost_call_reduce_pipe_candidate_applicability_from_error e
 
 //: selfhost_call_reduce_pipe_candidate_applicability: 1 pipe target candidate を軽量 probe する
 //:
@@ -2349,10 +2362,11 @@ fn selfhost_call_reduce_pipe_candidate_suffix_applicability %fn &SelfhostTypeAre
 //: - generic 未解決 candidate は `SelectionBlockedUnsupported` です。generic solver が無い段階で別候補を選ぶと将来の推論結果を隠すためです。
 //: - `left_argument = Some` は pipe chain 2 段目以降の checked 左辺です。型一致だけを見て、checked tree node を再解釈しません。
 //: - `left_argument = None` は単一 pipe または chain 1 段目です。左辺 segment は借用 argument matcher が pipe 位置までちょうど消費できる場合だけ `Match` 候補へ進めます。
+//: - 末尾 block がある場合、probe は block body を縮約しません。block で満たせる可能性がある候補だけを `SourceBackedRequired` として残し、余剰 block になる候補は `NoMatch` として落とします。
 //:
 //: [計算量/けいさんりょう]:
 //: - 候補1件につき、第1引数型取得 O(1)、型一致または左辺借用 matcher、suffix の parameter 数に比例する借用 matcher を行います。
-fn selfhost_call_reduce_pipe_candidate_applicability %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 Result SelfhostPipeCandidateApplicability SelfhostCallReduceError \arena\prefix\candidate\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index:
+fn selfhost_call_reduce_pipe_candidate_applicability %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostTrailingBlockArgument fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 Result SelfhostPipeCandidateApplicability SelfhostCallReduceError \arena\prefix\candidate\expected\trailing_block\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index:
     match selfhost_call_reduce_generic_state_error candidate:
         Result::Ok _unit:
             match selfhost_type_arena_function_arg_count arena candidate.callable_type:
@@ -2369,7 +2383,7 @@ fn selfhost_call_reduce_pipe_candidate_applicability %fn &SelfhostTypeArena fn &
                                             if:
                                                 selfhost_type_arena_types_equal arena checked_left.value_type first_arg_type
                                                 then:
-                                                    selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected rhs_head item_count rhs_suffix_index
+                                                    selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected trailing_block rhs_head item_count rhs_suffix_index
                                                 else:
                                                     Result::Ok SelfhostPipeCandidateApplicability::NoMatch
                                         Option::None:
@@ -2378,7 +2392,7 @@ fn selfhost_call_reduce_pipe_candidate_applicability %fn &SelfhostTypeArena fn &
                                                     if:
                                                         eq left_match.next_index pipe_index
                                                         then:
-                                                            selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected rhs_head item_count rhs_suffix_index
+                                                            selfhost_call_reduce_pipe_candidate_suffix_applicability arena prefix candidate param_count expected trailing_block rhs_head item_count rhs_suffix_index
                                                         else:
                                                             Result::Ok SelfhostPipeCandidateApplicability::SourceBackedRequired
                                                 Result::Err e:
@@ -2425,7 +2439,7 @@ fn selfhost_call_reduce_pipe_candidate_probe_summary_next %fn SelfhostPipeCandid
 //:
 //: [計算量/けいさんりょう]:
 //: - 候補数を c、1候補の軽量 probe cost を p として O(c * p) です。
-fn selfhost_call_reduce_pipe_candidate_probe_summary_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 fn SelfhostPipeCandidateProbeSummary Result SelfhostPipeCandidateProbeSummary SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count\summary:
+fn selfhost_call_reduce_pipe_candidate_probe_summary_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostTrailingBlockArgument fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 fn SelfhostPipeCandidateProbeSummary Result SelfhostPipeCandidateProbeSummary SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\trailing_block\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count\summary:
     if:
         ge idx candidate_count
         then:
@@ -2433,10 +2447,10 @@ fn selfhost_call_reduce_pipe_candidate_probe_summary_loop %fn &SelfhostTypeArena
         else:
             match v::get pipe_candidates idx:
                 Option::Some candidate:
-                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected left_argument rhs_head item_count pipe_index rhs_suffix_index:
+                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index:
                         Result::Ok applicability:
                             let next_summary %SelfhostPipeCandidateProbeSummary selfhost_call_reduce_pipe_candidate_probe_summary_next summary applicability
-                            selfhost_call_reduce_pipe_candidate_probe_summary_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count next_summary
+                            selfhost_call_reduce_pipe_candidate_probe_summary_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count next_summary
                         Result::Err e:
                             Result::Err e
                 Option::None:
@@ -2454,7 +2468,7 @@ fn selfhost_call_reduce_pipe_candidate_probe_summary_loop %fn &SelfhostTypeArena
 //:
 //: [計算量/けいさんりょう]:
 //: - 候補数 c と1候補 probe cost p に対して最悪 O(c * p) です。呼び出しは唯一候補を採用する場合だけです。
-fn selfhost_call_reduce_pipe_candidate_probe_first_match_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count:
+fn selfhost_call_reduce_pipe_candidate_probe_first_match_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostTrailingBlockArgument fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\trailing_block\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count:
     if:
         ge idx candidate_count
         then:
@@ -2462,17 +2476,17 @@ fn selfhost_call_reduce_pipe_candidate_probe_first_match_loop %fn &SelfhostTypeA
         else:
             match v::get pipe_candidates idx:
                 Option::Some candidate:
-                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected left_argument rhs_head item_count pipe_index rhs_suffix_index:
+                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index:
                         Result::Ok applicability:
                             match applicability:
                                 SelfhostPipeCandidateApplicability::Match:
                                     Result::Ok candidate
                                 SelfhostPipeCandidateApplicability::NoMatch:
-                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
+                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
                                 SelfhostPipeCandidateApplicability::SourceBackedRequired:
-                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
+                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
                                 SelfhostPipeCandidateApplicability::SelectionBlockedUnsupported:
-                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
+                                    selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
                         Result::Err e:
                             Result::Err e
                 Option::None:
@@ -2495,7 +2509,7 @@ fn selfhost_call_reduce_pipe_candidate_probe_first_match_loop %fn &SelfhostTypeA
 //:
 //: [計算量/けいさんりょう]:
 //: - 候補数 c と1候補 probe cost p に対して最悪 O(c * p) です。呼び出しは唯一の source-backed 必須 candidate を採用する場合だけです。
-fn selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count:
+fn selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostTrailingBlockArgument fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\trailing_block\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\idx\candidate_count:
     if:
         ge idx candidate_count
         then:
@@ -2503,13 +2517,13 @@ fn selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop %
         else:
             match v::get pipe_candidates idx:
                 Option::Some candidate:
-                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected left_argument rhs_head item_count pipe_index rhs_suffix_index:
+                    match selfhost_call_reduce_pipe_candidate_applicability arena prefix candidate expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index:
                         Result::Ok applicability:
                             match applicability:
                                 SelfhostPipeCandidateApplicability::Match:
                                     Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetInternalInvariant rhs_head.span
                                 SelfhostPipeCandidateApplicability::NoMatch:
-                                    selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
+                                    selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index add idx 1 candidate_count
                                 SelfhostPipeCandidateApplicability::SourceBackedRequired:
                                     Result::Ok candidate
                                 SelfhostPipeCandidateApplicability::SelectionBlockedUnsupported:
@@ -2522,7 +2536,7 @@ fn selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop %
 //: selfhost_call_reduce_pipe_target_argument_select_candidate: 注釈無し pipe target を引数列で[選別/せんべつ]する
 //:
 //: [目的/もくてき]:
-//: - `left |> target suffix...` の target が overload されている場合に、左辺と suffix の型・消費幅で候補を一意化できるか判定します。
+//: - `left |> target suffix...` の target が overload されている場合に、左辺、suffix、末尾 block の有無、型・消費幅で候補を一意化できるか判定します。
 //: - type ascription が無くても、NEPLg2.1 の前置情報と引数型から探索空間を狭められるケースを扱います。
 //:
 //: [場合分/ばあいわ]け:
@@ -2533,9 +2547,9 @@ fn selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop %
 //:
 //: [計算量/けいさんりょう]:
 //: - 候補列を1回だけ走査するため、候補数 c と1候補 probe cost p に対して O(c * p) です。
-fn selfhost_call_reduce_pipe_target_argument_select_candidate %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\candidate_count:
+fn selfhost_call_reduce_pipe_target_argument_select_candidate %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn Option SelfhostTypeExpectation fn Option SelfhostTrailingBlockArgument fn Option SelfhostCheckedArgument fn SelfhostExprPrefixItem fn i32 fn i32 fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\pipe_candidates\expected\trailing_block\left_argument\rhs_head\item_count\pipe_index\rhs_suffix_index\candidate_count:
     let initial %SelfhostPipeCandidateProbeSummary SelfhostPipeCandidateProbeSummary 0 0 0
-    match selfhost_call_reduce_pipe_candidate_probe_summary_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count initial:
+    match selfhost_call_reduce_pipe_candidate_probe_summary_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count initial:
         Result::Ok summary:
             if:
                 gt summary.blocked_unsupported_count 0
@@ -2551,7 +2565,7 @@ fn selfhost_call_reduce_pipe_target_argument_select_candidate %fn &SelfhostTypeA
                                     if:
                                         eq summary.source_backed_required_count 1
                                         then:
-                                            selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count
+                                            selfhost_call_reduce_pipe_candidate_probe_first_source_backed_required_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count
                                         else:
                                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
                                 else:
@@ -2567,7 +2581,7 @@ fn selfhost_call_reduce_pipe_target_argument_select_candidate %fn &SelfhostTypeA
                                         then:
                                             Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::PipeTargetAmbiguous rhs_head.span
                                         else:
-                                            selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count
+                                            selfhost_call_reduce_pipe_candidate_probe_first_match_loop arena prefix pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index 0 candidate_count
         Result::Err e:
             Result::Err e
 
@@ -2760,7 +2774,7 @@ fn selfhost_call_reduce_pipe_candidates_with_source %impure fn &Vec SelfhostToke
                     if:
                         gt candidate_count 1
                         then:
-                            match selfhost_call_reduce_pipe_target_argument_select_candidate &arena prefix &pipe_candidates expected left_argument rhs_head item_count pipe_index rhs_suffix_index candidate_count:
+                            match selfhost_call_reduce_pipe_target_argument_select_candidate &arena prefix &pipe_candidates expected trailing_block left_argument rhs_head item_count pipe_index rhs_suffix_index candidate_count:
                                 Result::Ok candidate:
                                     match left_argument:
                                         Option::Some checked_left:
@@ -2921,10 +2935,17 @@ fn selfhost_call_reduce_pipe_chain_continue_after_step %impure fn &Vec SelfhostT
 //: [契約/けいやく]:
 //: - `next_pipe` が `None` の場合、`owned` は caller へ返ります。
 //: - `next_pipe` が `Some` の場合、`owned` は消費され、次段 reducer へ owner が移ります。
+//: - `trailing_block` はこの checkpoint では単一 pipe にだけ許可します。次段 pipe がある場合は block がどの段に属するかを曖昧にせず、前段 owner を閉じて `UnexpectedTrailingBlockArgument` で止めます。
 fn selfhost_call_reduce_pipe_chain_finish_or_continue %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostCallReduceOwnedResult impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Option SelfhostTypeExpectation impure fn Option SelfhostTrailingBlockArgument impure fn i32 impure fn Option i32 Result SelfhostCallReduceOwnedResult SelfhostCallReduceError \tokens\source\owned\prefix\scope\value_types\signatures\expected\trailing_block\item_count\next_pipe:
     match next_pipe:
         Option::Some next_pipe_index:
-            selfhost_call_reduce_pipe_chain_continue_after_step tokens source owned prefix scope value_types signatures expected trailing_block item_count next_pipe_index
+            match trailing_block:
+                Option::Some block_arg:
+                    let parts %SelfhostCallReduceOwnedResultParts selfhost_call_reduce_owned_result_into_parts owned
+                    let arena %SelfhostTypeArena selfhost_call_reduce_owned_result_parts_into_arena parts
+                    selfhost_call_reduce_free_error_new arena SelfhostCallReduceErrorKind::UnexpectedTrailingBlockArgument block_arg.span
+                Option::None:
+                    selfhost_call_reduce_pipe_chain_continue_after_step tokens source owned prefix scope value_types signatures expected trailing_block item_count next_pipe_index
         Option::None:
             Result::Ok owned
 
@@ -2937,7 +2958,7 @@ fn selfhost_call_reduce_pipe_chain_finish_or_continue %impure fn &Vec SelfhostTo
 //: [契約/けいやく]:
 //: - `pipe_index + 1` が無い場合は `PipeMissingRightTarget` です。
 //: - 次の pipe がある場合、現在段の `item_count` はその pipe 手前に切り、最終 expected type と trailing block は渡しません。
-//: - 次の pipe が無い最終段だけが caller から受け取った `expected` と `trailing_block` を使います。
+//: - `trailing_block` が存在する pipe chain は `selfhost_call_reduce_pipe_chain_finish_or_continue` が次段へ進む前に拒否するため、ここへ来る後段処理では trailing block は単一 pipe の最終段だけに残ります。
 //: - lambda target、literal target、indirect target は単一 pipe と同じく、この slice では `PipeRightTargetUnsupported` です。
 //:
 //: [計算量/けいさんりょう]:
