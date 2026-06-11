@@ -46,6 +46,11 @@ function createEditorStub() {
         setPath(pathValue) {
             this.path = pathValue;
         },
+        replaceDocument(document) {
+            this.path = document.path;
+            this.text = String(document.text ?? '');
+            this.editable = Boolean(document.editable);
+        },
         focus() {
             this.focused = true;
         },

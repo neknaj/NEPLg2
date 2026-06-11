@@ -54496,6 +54496,67 @@ MERGE_APPROVED
 ### residual
 
 - Web Playground semantic analysis worker 化、atomic document switch、span/file identity、selfhost compiler capability gating、compiler worker init recovery、neplg2 command parser、GUI close-requested contract、GUI queue telemetry、shared document ownership、browser smoke CI は作成 issue として残る。
+## 2026-06-12 Agent2 web playground follow-up audit and atomic document switch
+
+### scope
+
+- branch: `agent2/playground-audit-followup-20260612`
+- request: Web Playground 実装を subagent で丁寧に再レビューし、残問題を issue 化して開発を開始する。
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+
+### subagent_review
+
+- editor/analysis review: `019eb788-818a-7962-b668-b0d781dc275c` は、completion / occurrence / hover / definition が stale semantic payload を使えること、provisional remap payload に freshness 境界がないこと、path/text の非 atomic API が残ること、cross-file definition が `targetIndex` だけで file path を表現できないことを指摘した。
+- GUI host/window review: `019eb4fc-ad14-7671-bc12-3952776e52ce` は、close-requested が app-visible event になる前に Shell interrupt される contract 不一致、retained queue と SAB queue の二重所有、overflow telemetry 不足を指摘した。
+- compiler/runtime review: `019eb4f2-b231-7230-9561-b29b12aaf811` は、selfhost compiler selector の capability gating、persistent worker init failure recovery、`neplg2 run/build` command grammar / argv、worker error phase 分離を指摘した。
+- workspace/CI review: `019eb70e-5320-7e80-a072-f8d56a4b8751` は、dirty tab close、same-path multi editor ownership、non-editor focus status、editor dispose lifecycle、browser smoke CI gate 不足を指摘した。
+
+### issues
+
+- fixed: `ISS-20260611T164150357Z-WEB-PLAYGROUND-DOCUMENT-SWITCH-MUST--6790822A`
+- created: `ISS-20260611T170007270Z-WEB-PLAYGROUND-SEMANTIC-DERIVED-UI-M-1BD8D563`
+- created: `ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A`
+- created: `ISS-20260611T170007277Z-EDITOR-PANELS-NEED-EXPLICIT-DISPOSE--3406EA52`
+- created: `ISS-20260611T170007346Z-WEB-PLAYGROUND-STATUS-BAR-MUST-DISTI-01F577AC`
+
+### implementation
+
+- `NEPLg2LanguageProvider.replaceDocument` を追加し、`path` と `text` を同時に受け取ってから stale analysis state を破棄し、空 payload publish と delayed analysis scheduling を行うようにした。
+- legacy `NEPLg2LanguageProvider.setPath` は path-only context update として扱い、単独では semantic analysis を schedule しないようにした。
+- `CanvasEditor.replaceDocument` と `PlaygroundEditor.replaceDocument` を追加し、editor surface から provider へ `path`、`text`、`editable` を 1 回の document replacement として渡すようにした。
+- `TabManager.replaceEditorDocument` を追加し、active tab / placeholder / tab close の editor 更新を atomic replacement に集約した。
+- editability、VFS analysis、editor surface、tab transfer、performance policy の tests を atomic document contract に合わせて更新した。
+
+### verification
+
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_neplg2_language_provider_vfs.js`
+- pass: `node nodesrc/test_playground_editor_performance_policy.js`
+- pass: `node nodesrc/playground_editability_test_runner.js`
+- pass: `node nodesrc/playground_editor_surface_test_runner.js`
+- pass: `node nodesrc/playground_tab_transfer_test_runner.js`
+- pass: `node nodesrc/playground_shell_worker_test_runner.js`
+- pass: `node nodesrc/test_web_gui_input_bridge.js`
+- pass: `node nodesrc/test_web_gui_shared_event_queue.js`
+- pass: `node nodesrc/test_web_gui_floating_window_source.js`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-atomic-document.json` (`13/13 passed`)
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `trunk build`
+- pass: `git diff --check`
+
+### warnings
+
+- existing_warnings: Git の LF -> CRLF conversion warning、Node WASI ExperimentalWarning、source policy documentation contract の既存 sample gaps、trunk の update notice / wasm-bindgen tool version mismatch notice。
+- new_warnings: なし。
+
+### residual
+
+- semantic-derived UI の freshness metadata と stale result suppression は `ISS-20260611T170007270Z-WEB-PLAYGROUND-SEMANTIC-DERIVED-UI-M-1BD8D563` に分離した。
+- cross-file definition navigation の `targetPath` / `targetRange` 化は `ISS-20260611T170007276Z-WEB-PLAYGROUND-DEFINITION-NAVIGATION-6DDD7F9A` に分離した。
+- editor dispose lifecycle は `ISS-20260611T170007277Z-EDITOR-PANELS-NEED-EXPLICIT-DISPOSE--3406EA52`、non-editor focus status は `ISS-20260611T170007346Z-WEB-PLAYGROUND-STATUS-BAR-MUST-DISTI-01F577AC` に分離した。
+
 ## 2026-06-12 Agent selfhost memo trait evidence producer summary checkpoint
 
 ### scope
