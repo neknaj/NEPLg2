@@ -11,9 +11,11 @@ const {
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/ty/ty/memo_trait.nepl";
 const producerRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_producer.nepl";
+const proofStoreRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl";
 const facade = readRepoFile(repoRoot, TY_FACADE);
 const source = readRepoFile(repoRoot, relPath);
 const producerSource = readRepoFile(repoRoot, producerRelPath);
+const proofStoreSource = readRepoFile(repoRoot, proofStoreRelPath);
 
 assert.match(
     facade,
@@ -25,6 +27,11 @@ assert.match(
     /^pub #import "\.\/ty\/memo_trait_producer" as \*$/m,
     "ty facade must re-export the memo trait evidence producer split module",
 );
+assert.match(
+    facade,
+    /^pub #import "\.\/ty\/memo_trait_proof_store" as \*$/m,
+    "ty facade must re-export the memo trait proof store split module",
+);
 assert.doesNotMatch(
     source,
     /#import "neplg2\/core\/(?:lower|hir|check|resource|backend)\//,
@@ -34,6 +41,11 @@ assert.doesNotMatch(
     producerSource,
     /#import "neplg2\/core\/(?:lower|hir|check|resource|backend)\//,
     "memo trait evidence producer must stay in core/ty and must not depend on checker, HIR, Resource IR, or backend layers",
+);
+assert.doesNotMatch(
+    proofStoreSource,
+    /#import "neplg2\/core\/(?:lower|hir|check|resource|backend)\//,
+    "memo trait proof store must stay in core/ty and must not depend on checker, HIR, Resource IR, or backend layers",
 );
 assert.match(
     source,
