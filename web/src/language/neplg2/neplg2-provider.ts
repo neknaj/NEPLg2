@@ -11,6 +11,7 @@ class NEPLg2LanguageProvider {
         this.parse = null;
         this.resolve = null;
         this.semantics = null;
+        this.documentVersion = 0;
         this.analysisVersion = 0;
         this.pendingTimer = null;
         this.pendingIdleCallback = null;
@@ -41,6 +42,7 @@ class NEPLg2LanguageProvider {
         if (nextPath === this.path) {
             return;
         }
+        this.documentVersion += 1;
         this.path = nextPath;
         this._cancelPendingAnalysis();
         this._clearAnalysisState();
@@ -97,13 +99,25 @@ class NEPLg2LanguageProvider {
         if (nextText === previousText) {
             return;
         }
+        const previousAnalysis = this.lastUpdatePayload?.analysis || null;
+        const sourceDocumentVersion = Number.isFinite(previousAnalysis?.sourceDocumentVersion)
+            ? Number(previousAnalysis.sourceDocumentVersion)
+            : this.documentVersion;
+        const sourcePath = Object.prototype.hasOwnProperty.call(previousAnalysis || {}, 'sourcePath')
+            ? previousAnalysis.sourcePath
+            : this.path;
+        this.documentVersion += 1;
         this.text = nextText;
         this._rebuildOffsetMaps();
         if (this.lastUpdatePayload) {
             const provisionalPayload = this._buildIncrementalPayload(previousText, this.text, this.lastUpdatePayload);
             if (provisionalPayload) {
-                this.lastUpdatePayload = provisionalPayload;
-                this.updateCallback(provisionalPayload);
+                const payload = this._decoratePayload(this._stripSemanticDerivedPayload(provisionalPayload), 'provisional', {
+                    sourceDocumentVersion,
+                    sourcePath,
+                });
+                this.lastUpdatePayload = payload;
+                this.updateCallback(payload);
             }
         }
         this._scheduleAnalysis();
@@ -126,6 +140,7 @@ class NEPLg2LanguageProvider {
             return;
         }
         this._cancelPendingAnalysis();
+        this.documentVersion += 1;
         this.path = nextPath;
         this.text = nextText;
         this._rebuildOffsetMaps();
@@ -142,6 +157,60 @@ class NEPLg2LanguageProvider {
         this.definitionById.clear();
         this.lastUpdatePayload = null;
         this.lastAnalyzedText = '';
+    }
+
+    _analysisMetadata(freshness, options = {}) {
+        const sourceDocumentVersion = Number.isFinite(options.sourceDocumentVersion)
+            ? Number(options.sourceDocumentVersion)
+            : this.documentVersion;
+        const sourcePath = Object.prototype.hasOwnProperty.call(options, 'sourcePath')
+            ? options.sourcePath
+            : this.path;
+        return {
+            path: this.path,
+            documentVersion: this.documentVersion,
+            sourcePath,
+            sourceDocumentVersion,
+            analysisVersion: this.analysisVersion,
+            freshness,
+            isFresh: freshness === 'fresh',
+        };
+    }
+
+    _decoratePayload(payload, freshness, options = {}) {
+        if (!payload) {
+            return null;
+        }
+        return {
+            ...payload,
+            analysis: this._analysisMetadata(freshness, options),
+        };
+    }
+
+    _stripSemanticDerivedPayload(payload) {
+        return {
+            ...payload,
+            semanticHighlightTokens: [],
+            diagnostics: [],
+            foldingRanges: [],
+            semanticTokens: [],
+            inlayHints: [],
+        };
+    }
+
+    _isCurrentAnalysisInput(version, documentVersion, path, text) {
+        return version === this.analysisVersion
+            && documentVersion === this.documentVersion
+            && path === this.path
+            && text === this.text;
+    }
+
+    _hasFreshAnalysis() {
+        const metadata = this.lastUpdatePayload?.analysis;
+        return metadata?.isFresh === true
+            && metadata.documentVersion === this.documentVersion
+            && metadata.path === this.path
+            && this.lastAnalyzedText === this.text;
     }
 
     _buildIncrementalPayload(previousText, nextText, previousPayload) {
@@ -166,8 +235,8 @@ class NEPLg2LanguageProvider {
         return window.NEPLPlaygroundLanguageAnalysis;
     }
 
-    _vfsSnapshotForAnalysis() {
-        if (!this.path || !String(this.path).endsWith('.nepl')) {
+    _vfsSnapshotForAnalysis(path = this.path, text = this.text) {
+        if (!path || !String(path).endsWith('.nepl')) {
             return null;
         }
         if (!this.vfs || typeof this.vfs.serializeForCompile !== 'function') {
@@ -175,7 +244,7 @@ class NEPLg2LanguageProvider {
         }
         try {
             const snapshot = { ...this.vfs.serializeForCompile() };
-            snapshot[this.path] = this.text;
+            snapshot[path] = text;
             return snapshot;
         } catch (error) {
             console.warn('[NEPLg2LanguageProvider] VFS snapshot failed, falling back to inline semantics:', error);
@@ -183,22 +252,23 @@ class NEPLg2LanguageProvider {
         }
     }
 
-    _analyzeSemantics(wasm) {
-        const vfsSnapshot = this._vfsSnapshotForAnalysis();
+    _analyzeSemantics(wasm, path = this.path, text = this.text) {
+        const vfsSnapshot = this._vfsSnapshotForAnalysis(path, text);
         if (vfsSnapshot && typeof wasm.analyze_semantics_with_vfs === 'function') {
-            return wasm.analyze_semantics_with_vfs(this.path, this.text, vfsSnapshot);
+            return wasm.analyze_semantics_with_vfs(path, text, vfsSnapshot);
         }
-        return wasm.analyze_semantics(this.text);
+        return wasm.analyze_semantics(text);
     }
 
     _publishEmptyPayload() {
         const bridge = this._analysisBridge();
-        const payload = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+        const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
             lex: this.lex,
             parse: this.parse,
             resolve: this.resolve,
             semantics: this.semantics,
-        });
+        }), 'empty');
+        this.lastUpdatePayload = payload;
         this.updateCallback(payload);
     }
 
@@ -267,6 +337,9 @@ class NEPLg2LanguageProvider {
     }
 
     _analyzeAndPublish(version) {
+        const analysisDocumentVersion = this.documentVersion;
+        const analysisPath = this.path;
+        const analysisText = this.text;
         const wasm = this._wasm();
         if (!wasm || typeof wasm.analyze_lex !== 'function') {
             this.lex = { tokens: [], diagnostics: [] };
@@ -275,14 +348,20 @@ class NEPLg2LanguageProvider {
             this.semantics = null;
             this.definitionById.clear();
             const bridge = this._analysisBridge();
-            const payload = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+            if (!this._isCurrentAnalysisInput(version, analysisDocumentVersion, analysisPath, analysisText)) {
+                return;
+            }
+            const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(analysisText, {
                 lex: this.lex,
                 parse: this.parse,
                 resolve: this.resolve,
                 semantics: this.semantics,
+            }), 'fresh', {
+                sourceDocumentVersion: analysisDocumentVersion,
+                sourcePath: analysisPath,
             });
             this.lastUpdatePayload = payload;
-            this.lastAnalyzedText = this.text;
+            this.lastAnalyzedText = analysisText;
             this.updateCallback(payload);
             return;
         }
@@ -295,7 +374,7 @@ class NEPLg2LanguageProvider {
 
         if (typeof wasm.analyze_semantics === 'function') {
             try {
-                this.semantics = this._analyzeSemantics(wasm);
+                this.semantics = this._analyzeSemantics(wasm, analysisPath, analysisText);
                 // analyze_semantics now includes tokens and name_resolution payloads
                 this.lex = {
                     tokens: this.semantics.tokens || [],
@@ -318,43 +397,49 @@ class NEPLg2LanguageProvider {
             }
         }
 
-        if (version !== this.analysisVersion) {
+        if (!this._isCurrentAnalysisInput(version, analysisDocumentVersion, analysisPath, analysisText)) {
             return;
         }
 
         const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
         this.definitionById = new Map(defs.map((d) => [d.id, d]));
         const bridge = this._analysisBridge();
-        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+        const payloadBase = bridge.buildEditorUpdatePayloadFromAnalysis(analysisText, {
             lex: this.lex,
             parse: this.parse,
             resolve: this.resolve,
             semantics: this.semantics,
         });
-        const payload = {
+        const payload = this._decoratePayload({
             ...payloadBase,
             diagnostics: [...(payloadBase.diagnostics || []), ...fallbackDiagnostics].sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex),
-        };
+        }, 'fresh', {
+            sourceDocumentVersion: analysisDocumentVersion,
+            sourcePath: analysisPath,
+        });
         this.lastUpdatePayload = payload;
-        this.lastAnalyzedText = this.text;
+        this.lastAnalyzedText = analysisText;
         this.updateCallback(payload);
-        this._scheduleStructuralAnalysis(version, this.text);
+        this._scheduleStructuralAnalysis(version, analysisText, analysisDocumentVersion, analysisPath);
     }
 
-    _scheduleStructuralAnalysis(version, text) {
+    _scheduleStructuralAnalysis(version, text, documentVersion, path) {
         this._cancelPendingStructuralAnalysis();
         const run = () => {
             this.pendingStructuralIdleCallback = null;
-            if (version !== this.analysisVersion || text !== this.text) {
+            if (!this._isCurrentAnalysisInput(version, documentVersion, path, text)) {
                 return;
             }
             if (this._ensureStructuralParse()) {
                 const bridge = this._analysisBridge();
-                const payload = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+                const payload = this._decoratePayload(bridge.buildEditorUpdatePayloadFromAnalysis(text, {
                     lex: this.lex,
                     parse: this.parse,
                     resolve: this.resolve,
                     semantics: this.semantics,
+                }), 'fresh', {
+                    sourceDocumentVersion: documentVersion,
+                    sourcePath: path,
                 });
                 this.lastUpdatePayload = payload;
                 this.updateCallback(payload);
@@ -459,6 +544,9 @@ class NEPLg2LanguageProvider {
     }
 
     getTokenInsight(index) {
+        if (!this._hasFreshAnalysis()) {
+            return null;
+        }
         const bridge = this._analysisBridge();
         return bridge.getTokenInsightFromAnalysis(this.text, {
             lex: this.lex,
@@ -469,6 +557,9 @@ class NEPLg2LanguageProvider {
     }
 
     async getHoverInfo(index) {
+        if (!this._hasFreshAnalysis()) {
+            return null;
+        }
         this._ensureStructuralParse();
         const bridge = this._analysisBridge();
         return bridge.getHoverInfoFromAnalysis(this.text, {
@@ -480,6 +571,9 @@ class NEPLg2LanguageProvider {
     }
 
     async getDefinitionLocation(index) {
+        if (!this._hasFreshAnalysis()) {
+            return null;
+        }
         const bridge = this._analysisBridge();
         return bridge.getDefinitionLocationFromAnalysis(this.text, {
             lex: this.lex,
@@ -495,6 +589,9 @@ class NEPLg2LanguageProvider {
     }
 
     async getOccurrences(index) {
+        if (!this._hasFreshAnalysis()) {
+            return [];
+        }
         const bridge = this._analysisBridge();
         return bridge.getOccurrencesFromAnalysis(this.text, {
             lex: this.lex,
@@ -550,6 +647,9 @@ class NEPLg2LanguageProvider {
     }
 
     _collectCompletionSymbols() {
+        if (!this._hasFreshAnalysis()) {
+            return [];
+        }
         const names = new Map();
         const defs = Array.isArray(this.resolve?.definitions) ? this.resolve.definitions : [];
         for (const d of defs) {

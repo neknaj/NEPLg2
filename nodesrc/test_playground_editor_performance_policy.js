@@ -32,6 +32,8 @@ function methodBody(source, name) {
 
 const editor = read("web/src/editor/editor.ts");
 const inputHandler = read("web/src/editor/editor-input-handler.ts");
+const browserAdapter = read("web/src/editor-core/browser-adapter.ts");
+const languageAnalysis = read("web/src/editor-core/language-analysis.ts");
 const provider = read("web/src/language/neplg2/neplg2-provider.ts");
 const panelManager = read("web/src/workspace/panel-manager.ts");
 const main = read("web/src/main.ts");
@@ -70,13 +72,63 @@ assert.doesNotMatch(
 );
 assert.match(
     provider,
-    /_scheduleStructuralAnalysis\(version,\s*this\.text\)/,
+    /_scheduleStructuralAnalysis\(version,\s*analysisText,\s*analysisDocumentVersion,\s*analysisPath\)/,
     "AST/folding parse must be scheduled after the semantic payload is published",
+);
+assert.match(
+    provider,
+    /_analysisMetadata\(freshness,\s*options\s*=\s*\{\}\)[\s\S]*documentVersion:[\s\S]*sourceDocumentVersion[\s\S]*freshness,[\s\S]*isFresh:/,
+    "analysis payloads must expose document identity and freshness metadata",
+);
+assert.match(
+    languageAnalysis,
+    /semanticHighlightTokens:\s*EditorToken\[\]/,
+    "semantic highlight tokens must be separated from lexical tokens in the payload contract",
+);
+assert.match(
+    languageAnalysis,
+    /tokens:\s*buildEditorTokens\(prepared\),[\s\S]*semanticHighlightTokens:\s*buildSemanticHighlightTokens\(prepared\),/,
+    "language analysis must publish lexical tokens and semantic highlight overlays separately",
+);
+assert.match(
+    provider,
+    /_hasFreshAnalysis\(\)[\s\S]*metadata\?\.isFresh\s*===\s*true[\s\S]*metadata\.documentVersion\s*===\s*this\.documentVersion[\s\S]*metadata\.path\s*===\s*this\.path/,
+    "semantic-derived UI must require fresh analysis for the active document",
+);
+assert.match(
+    provider,
+    /_stripSemanticDerivedPayload\(payload\)[\s\S]*semanticHighlightTokens:\s*\[\][\s\S]*diagnostics:\s*\[\][\s\S]*foldingRanges:\s*\[\][\s\S]*semanticTokens:\s*\[\][\s\S]*inlayHints:\s*\[\]/,
+    "provisional analysis payloads must not carry stale semantic-derived editor data",
 );
 assert.doesNotMatch(
     methodBody(provider, "_analyzeAndPublish"),
     /wasm\.analyze_parse\(this\.text\)/,
     "semantic publish path must not run an extra parse before returning editor tokens",
+);
+assert.match(
+    methodBody(provider, "getTokenInsight"),
+    /if\s*\(!this\._hasFreshAnalysis\(\)\)\s*\{\s*return null;/,
+    "token insight must fail closed while semantic analysis is stale",
+);
+assert.match(
+    methodBody(provider, "getHoverInfo"),
+    /if\s*\(!this\._hasFreshAnalysis\(\)\)\s*\{\s*return null;/,
+    "hover must fail closed while semantic analysis is stale",
+);
+assert.match(
+    methodBody(provider, "getOccurrences"),
+    /if\s*\(!this\._hasFreshAnalysis\(\)\)\s*\{\s*return \[\];/,
+    "occurrences must fail closed while semantic analysis is stale",
+);
+assert.match(
+    methodBody(editor, "registerLanguageProvider"),
+    /canUseSemanticDerivedPayload[\s\S]*data\.analysis\.isFresh\s*===\s*true[\s\S]*semanticHighlightTokens\s*=\s*canUseSemanticDerivedPayload[\s\S]*this\.diagnostics\s*=\s*canUseSemanticDerivedPayload[\s\S]*this\.foldingRanges\s*=\s*canUseSemanticDerivedPayload/,
+    "editor semantic highlighting diagnostics and folding ranges must reject stale analysis payloads",
+);
+assert.match(
+    methodBody(browserAdapter, "getProblems"),
+    /payload\?\.analysis[\s\S]*payload\.analysis\.isFresh\s*!==\s*true[\s\S]*return \[\];/,
+    "problems API must reject stale analysis payloads",
 );
 assert.match(
     read("web/src/library/tabs.ts"),
