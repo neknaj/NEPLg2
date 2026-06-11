@@ -89,7 +89,9 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-06: trailing block body 内の nested `BlockIntro` を source-backed reducer へ接続した。`call_reduce.nepl` に segment dispatcher を追加し、`ExpressionLine` は従来の block body input builder、`BlockIntro` は `segment.head` だけの prefix list と `segment.body` の `SelfhostTrailingBlockArgument` に分けて、同じ `SelfhostCheckedExprTree` owner の中で再帰検査する。legacy single-input API は nested `BlockIntro` を引き続き `NestedBlockUnsupported` として拒否するが、通常成功経路は dispatcher を通る。stage1 には `TokenKind::Colon` を含む `add 1 add 1: add 1 1` fixture を追加し、`BlockIntro.body` を flat prefix list に直接渡さない契約を source policy で固定した。
 - 2026-06-06: source-backed reducer に単一 pipe expression の direct-call 正規化を追加した。`1 |> add 2` は prefix list を1回走査して単一 `PipeOperator` を確認し、右辺 `add` を scope / callable signature table から DefId-linked target として収集し、左辺 `1` を target の第1 parameter expected type で検査して checked argument 0 番目へ保存する。右辺 suffix の `2` は既存 argument loop に第2 parameter から渡し、checked argument 1 番目として保存する。複数 pipe chain は `PipeUnsupportedMultiple`、`NamedValue` 以外の右辺 target は `PipeRightTargetUnsupported`、0引数 target は `PipeTargetRequiresInput` として fail-closed にし、source-less reducer は引き続き named-head-only にした。subagent review の指摘に従い、candidate collection error から pipe error への写像は `_` で潰さず全 enum variant を明示分岐にした。
 - 2026-06-06: pipe の fail-closed 境界を stage1 の実行可能 smoke に追加した。`1 |> add 2 |> add 3` は `PipeUnsupportedMultiple`、`|> add 1` は `PipeMissingLeftOperand`、`1 |>` は `PipeMissingRightTarget`、`1 |> 2` と `1 |> %i32 add 2` は `PipeRightTargetUnsupported`、`1 2 |> add 3` は `PipeLeftSegmentNotSingleValue`、`1 |> answer` かつ `answer : fn void i32` は `PipeTargetRequiresInput` として、source-backed body-line reducer を実際に通した typed error を確認する。これは chain / ascribed target / lambda target を受理する実装ではなく、未対応形を fallback success へ流さない契約を固定する checkpoint である。
-- 残件: lambda / borrow / pipe chain / ascribed pipe target / advanced pipe target argument expression checking、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-11: source-backed reducer に ascribed pipe target を追加した。`1 |> %fn i32 fn i32 i32 add 2` は RHS の `%fn ... add 2` を source token range として `selfhost_expr_ascription_project_head_expectation` へ渡し、projection が返す callable type expectation と expression-first token から target prefix item を復元する。target は現 slice では `NamedValue` だけを受理し、候補が 1 件だけなら candidate callable type と ascribed function type を同じ arena 内で照合する。一致する場合は suffix cursor を `target_index + 1` にして `add 1 2` 相当の `DirectCall` checked tree へ進むため、`%fn ...` の型式 token を実引数として誤消費しない。projection 失敗は `PipeTargetAscriptionProjectionFailed`、型不一致は `PipeTargetAscriptionTypeMismatch` として typed enum error に分ける。
+- 2026-06-11: subagent review `019eb4b9-e966-7240-8661-a0922b7bc942` は blocker なしで approve。non-blocker として、現 slice では candidate count が 1 件になった後で target ascription を照合するため、`%fn ... overloaded_name` による overload narrowing はまだ行わないことが確認された。この narrowing は generic inference / overload solver と同じ後続の advanced pipe target candidate narrowing として残す。
+- 残件: lambda / borrow / pipe chain / advanced pipe target argument expression checking、ascribed pipe target による overload narrowing、generic instantiation inference、trait solving、numeric suffix の言語仕様化、binary / octal radix の扱い、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -119,6 +121,18 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/run_source_policy_regressions.js --warn-only`（既存 5 warning のみ）
 - `node nodesrc/issues.js check --dir issues`
 - `git diff --check`
+
+2026-06-11 ascribed pipe target checkpoint:
+
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+- `node nodesrc/test_selfhost_documentation_contract.js`: pass
+- `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+- `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+- `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-ascribed-pipe-target.json`: total=7, passed=7
+- `node nodesrc/issues.js check --dir issues`: pass
+- `git diff --check`: pass
+- subagent review `019eb4b9-e966-7240-8661-a0922b7bc942`: approve
 
 2026-06-05 NamedValue HIR identity checkpoint:
 

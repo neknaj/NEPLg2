@@ -178,7 +178,7 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PipeMissingLeftOperand[\s\S]*PipeMissingRightTarget[\s\S]*PipeUnsupportedMultiple[\s\S]*PipeRightTargetUnsupported[\s\S]*PipeTargetPendingBinding[\s\S]*PipeTargetMissingSignature[\s\S]*PipeTargetHeadTokenOutOfBounds[\s\S]*PipeTargetOutOfMemory[\s\S]*PipeTargetInternalInvariant[\s\S]*PipeTargetUnresolved[\s\S]*PipeTargetAmbiguous[\s\S]*PipeTargetRequiresInput[\s\S]*PipeLeftSegmentNotSingleValue/,
+    /pub enum SelfhostCallReduceErrorKind:[\s\S]*PipeMissingLeftOperand[\s\S]*PipeMissingRightTarget[\s\S]*PipeUnsupportedMultiple[\s\S]*PipeRightTargetUnsupported[\s\S]*PipeTargetPendingBinding[\s\S]*PipeTargetMissingSignature[\s\S]*PipeTargetHeadTokenOutOfBounds[\s\S]*PipeTargetOutOfMemory[\s\S]*PipeTargetInternalInvariant[\s\S]*PipeTargetUnresolved[\s\S]*PipeTargetAmbiguous[\s\S]*PipeTargetAscriptionProjectionFailed[\s\S]*PipeTargetAscriptionTypeMismatch[\s\S]*PipeTargetRequiresInput[\s\S]*PipeLeftSegmentNotSingleValue/,
     "pipe reduction failures must remain typed instead of collapsing into generic unsupported-expression or overload errors",
 );
 assert.match(
@@ -838,22 +838,22 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*TokenKind::IntLiteral[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*TokenKind::Percent[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*"1 2 \|> add 3"[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*"answer"/,
+    /selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*TokenKind::Pipe[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*TokenKind::IntLiteral[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*TokenKind::Percent[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*TokenKind::KwFn[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*"1 2 \|> add 3"[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*"answer"/,
     "stage1 must keep executable token fixtures for representative pipe fail-closed cases",
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeUnsupportedMultiple[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_left_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeMissingLeftOperand[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_right_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeMissingRightTarget[\s\S]*selfhost_check_expr_stage1_run_pipe_literal_target_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeRightTargetUnsupported[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeRightTargetUnsupported[\s\S]*selfhost_check_expr_stage1_pipe_multi_value_left_rejected_with_i32[\s\S]*SelfhostCallReduceErrorKind::PipeLeftSegmentNotSingleValue[\s\S]*selfhost_check_expr_stage1_pipe_zero_arg_target_rejected_with_i32[\s\S]*SelfhostCallReduceErrorKind::PipeTargetRequiresInput/,
+    /selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeUnsupportedMultiple[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_left_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeMissingLeftOperand[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_right_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeMissingRightTarget[\s\S]*selfhost_check_expr_stage1_run_pipe_literal_target_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeRightTargetUnsupported[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_mismatch_with_tokens[\s\S]*SelfhostCallReduceErrorKind::PipeTargetAscriptionTypeMismatch[\s\S]*selfhost_check_expr_stage1_pipe_multi_value_left_rejected_with_i32[\s\S]*SelfhostCallReduceErrorKind::PipeLeftSegmentNotSingleValue[\s\S]*selfhost_check_expr_stage1_pipe_zero_arg_target_rejected_with_i32[\s\S]*SelfhostCallReduceErrorKind::PipeTargetRequiresInput/,
     "stage1 must check pipe fail-closed fixtures against pipe-specific typed errors",
 );
 assert.match(
     source,
-    /selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_left_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_right_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_literal_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_multi_value_left_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_zero_arg_target_with_tokens/,
+    /selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_chain_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_chain_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_left_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_left_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_missing_right_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_missing_right_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_literal_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_literal_target_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_mismatch_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_multi_value_left_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_multi_value_left_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_zero_arg_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_zero_arg_target_with_tokens/,
     "stage1 public pipe smoke must run the representative pipe fail-closed cases",
 );
 assert.match(
     source,
-    /pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
+    /selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_make_pipe_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_with_tokens[\s\S]*selfhost_check_expr_stage1_make_pipe_ascribed_function_target_tokens[\s\S]*selfhost_check_expr_stage1_run_pipe_ascribed_target_with_tokens[\s\S]*selfhost_check_expr_stage1_pipe_failclosed_body_line[\s\S]*pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_pipe_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_argument_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_sequence_body_line[\s\S]*selfhost_check_expr_stage1_trailing_block_nested_body_line/,
     "public stage1 body-line smoke must include pipe, block result, block sequence, and nested BlockIntro fixtures",
 );
 assert.match(
@@ -913,8 +913,18 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_call_reduce_pipe_single_candidate_with_source[\s\S]*selfhost_type_arena_function_arg &arena candidate\.callable_type 0[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures 0 pipe_index first_arg_type rhs_head[\s\S]*selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 add pipe_index 2 item_count trailing_block rhs_head[\s\S]*selfhost_checked_expr_tree_add_direct_call_borrowed checked_tree2 candidate result_type call_span &checked_arguments2/,
+    /fn selfhost_call_reduce_pipe_single_candidate_with_source[\s\S]*rhs_suffix_index[\s\S]*selfhost_type_arena_function_arg &arena candidate\.callable_type 0[\s\S]*selfhost_call_reduce_argument_match_at_with_source_or_nested tokens source arena checked_tree prefix scope value_types signatures 0 pipe_index first_arg_type rhs_head[\s\S]*selfhost_call_reduce_argument_type_check_loop_with_source tokens source first_arena first_arguments first_tree prefix scope value_types signatures candidate param_count 1 rhs_suffix_index item_count trailing_block rhs_head[\s\S]*selfhost_checked_expr_tree_add_direct_call_borrowed checked_tree2 candidate result_type call_span &checked_arguments2/,
     "pipe reduction must type-check the left side as the first argument and then reuse the source-backed argument loop for the right-side suffix",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_target_ascription_check[\s\S]*selfhost_type_arena_types_equal arena expectation\.expected_type candidate\.callable_type[\s\S]*PipeTargetAscriptionTypeMismatch/,
+    "ascribed pipe target type checking must compare the projected annotation with the selected callable type",
+);
+assert.match(
+    source,
+    /fn selfhost_call_reduce_pipe_ascribed_target_with_source[\s\S]*selfhost_expr_ascription_project_head_expectation tokens source arena syntax_range[\s\S]*selfhost_expr_ascription_head_projection_expression_first_token[\s\S]*selfhost_call_reduce_pipe_find_prefix_item_by_token prefix add rhs_index 1 item_count expression_token[\s\S]*selfhost_call_reduce_pipe_candidates_with_source tokens source projected_arena checked_tree prefix scope value_types signatures pipe_candidates expected some target_expectation trailing_block target_item item_count pipe_index add target_index 1/,
+    "ascribed pipe targets must project the function type, recover the named target token, and start the suffix scan after that target",
 );
 assert.match(
     source,
