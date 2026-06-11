@@ -1,3 +1,68 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue typed proof policy checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: 確認済み。root cause 修正、Plan-first、`plan.md` 不編集、`note.n.md` / `todo.md` / doc / issue 更新、selfhost 日本語 doc comment、行数制限と doc comment 長制限の禁止、commit 前検証をこの slice の作業基準にした。
+- 対象 branch: `selfhost/memo-trait-policy-identity-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` typed proof store policy identity
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- classification: selfhost implementation slice review
+- decision: implementation accepted after typed policy source policy hardening, focused doctests, full source policy regression, issues check, diff check, and two subagent reviews.
+- implementation:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_policy.nepl` を追加し、proof store policy identity を `SelfhostMemoTraitSourceIdentitySet` と `SelfhostMemoTraitRuleIdentity` に分離した。
+  - `SelfhostMemoTraitSourceKind` は `MemoKeyTrait` / `MemoValueTrait` を enum として分け、source kind、module hash、symbol hash、signature hash を typed source identity として比較する。
+  - `SelfhostMemoTraitRuleIdentity` は schema version、solver version、primitive rule hash、aggregate rule hash、hazard rule hash を分けて保持する。
+  - `SelfhostMemoTraitProofStorePolicy` は raw `trait_source_hash` / raw `rule_hash` を持たず、typed source identity set と typed rule identity の組だけを authority にする。
+  - `memo_trait_proof_store.nepl` は policy 定義を所有せず、`memo_trait_policy.nepl` を import して canonical key + typed policy が一致する proof だけを再利用する。
+  - `ty.nepl` facade、`nodesrc/selfhost_ty_sources.js`、source policy contract、issue、todo を更新した。
+- policy/spec:
+  - Blocker: none after review. raw `trait_source_hash` / `rule_hash` を proof store policy の公開境界に残すことは初回 review で blocker 相当の条件として扱い、実装で削除した。
+  - Required: 初回実装後 review で、`nodesrc/test_selfhost_memo_trait_policy_contract.js` が新 policy module 自体の typed constructor signature を固定していない点を Required として受けた。typed constructor signature と raw-i32 constructor 禁止を source policy に追加して修正済み。
+  - Non-blocker: trait definition table から `MemoKey` / `MemoValue` source identity を実生成する registry、type constructor layout evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は次 slice に残る。
+  - Question: serialized `.neplproof` / `.neplmeta` へ載せる段階では、現在の i32 fingerprint payload を stable trait definition key / public surface hash / stable nominal key へ置き換える必要がある。
+  - Approve: policy identity は enum / struct payload に分離され、display string、source text、path suffix を authority にしていない。
+- implementation/test:
+  - Blocker: none after final review.
+  - Required: typed constructor guard を追加し、`node nodesrc/test_selfhost_memo_trait_policy_contract.js` と `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を再実行して pass。
+  - Non-blocker: 新規 file は commit 時に `git add` する operational item として残るが、設計・実装上の blocker ではない。
+  - Question: source policy は constructor signature と raw field 禁止を固定したが、将来 source identity generator が入るときは generator 入力の stable key も別 contract にする。
+  - Approve: focused doctest、core/ty suite、source policy regression で代表境界を検査した。
+- subagent review:
+  - subagent_review_ids: `019eb7c3-3473-7cf2-ba81-ea3fb8bd1f27`, `019eb6cf-79b9-72d1-8213-fa9063648489`
+  - subagent_review_count: 2
+  - `019eb7c3-3473-7cf2-ba81-ea3fb8bd1f27` は raw policy constructor guard 不足を Required として指摘した。`nodesrc/test_selfhost_memo_trait_policy_contract.js` に typed constructor signature と raw-i32 constructor / raw hash field 禁止を追加し、再 review で Blocker / Required なし、Verdict は approved。
+  - `019eb6cf-79b9-72d1-8213-fa9063648489` は raw hash 露出なし、equality payload 比較、display 分離、core/ty DAG、source policy、issue/todo 残件整理を確認し、Blocker なし、Required は untracked file を add する operational item のみ、Verdict は Approve。
+- source_policy:
+  - `nodesrc/test_selfhost_memo_trait_policy_contract.js` を追加し、typed source identity / typed rule identity / typed proof store policy / typed constructor signature / raw hash field 禁止 / raw-i32 constructor 禁止 / no line count / no comment length guard を固定した。
+  - `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、proof store が `memo_trait_policy` を import し、raw policy hash 境界を持たないことを固定した。
+  - `nodesrc/run_source_policy_regressions.js` に新規 contract を登録した。
+  - source_policy: updated
+  - source_policy_reason: typed policy identity は proof reuse authority なので、source policy で raw constructor 退行を検出する必要がある。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_policy_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_policy.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-policy-doctest.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-proof-store-doctest.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-policy-identity.json" --dist web/dist -j 1 --assert-io --no-tree` pass 8/8
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_documentation_contract.js`
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+  - `nodesrc/selfhost_zenn_review_response_check.js`: live subagent review を直接扱い、review response の必須項目はこの checkpoint と `nodesrc/test_selfhost_zenn_review_gate_contract.js` で固定した。
+  - source policy: full warn-only regression は exit 0。新規 `test_selfhost_memo_trait_policy_contract.js` は pass。
+  - 既存 warning: stdlib / selfhost documentation contract は既存 baseline と report-only doctest gap を表示する。
+  - 今回差分由来 warning: なし。
+- residual:
+  - residual_risk: none for this typed policy identity slice after source-policy hardening and two reviews.
+  - unexecuted_verification: none for this slice.
+  - new warnings: none.
+  - 次 slice: trait definition table から `MemoKey` / `MemoValue` typed source identity を実生成する registry、type constructor layout evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue canonical proof store checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
