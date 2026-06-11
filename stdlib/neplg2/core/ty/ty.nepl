@@ -52,5 +52,6 @@ pub #import "./ty/key" as *
 pub #import "./ty/memo_trait" as *
 pub #import "./ty/memo_trait_producer" as *
 pub #import "./ty/memo_trait_policy" as *
+pub #import "./ty/memo_trait_source" as *
 pub #import "./ty/memo_trait_proof_store" as *
 pub #import "./ty/stage0" as *

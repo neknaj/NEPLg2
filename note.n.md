@@ -1,3 +1,67 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue trusted source registry checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: 確認済み。root cause 修正、Plan-first、`plan.md` 不編集、`note.n.md` / `todo.md` / doc / issue 更新、selfhost 日本語 doc comment、行数制限と doc comment 長制限の禁止、commit 前検証をこの slice の作業基準にした。
+- 対象 branch: `selfhost/memo-trait-source-registry-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` trusted source registry
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- classification: selfhost implementation slice review
+- decision: implementation accepted after trusted source registry boundary hardening, focused doctests, source policy checks, issues check, diff check, and two subagent reviews.
+- implementation:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_source.nepl` を追加し、`MemoKey` / `MemoValue` の current prepared source identity を proof store policy へ渡す registry 境界を作った。
+  - `SelfhostMemoTraitTrustedSourceRegistry` は typed `SelfhostMemoTraitSourceIdentity` を `memo_key` / `memo_value` に分けて持ち、display 名、path suffix、diagnostic text を authority にしない。
+  - `selfhost_memo_trait_trusted_source_registry_sources` と `selfhost_memo_trait_trusted_source_registry_is_current` は registry を borrow し、`field::get_ref` で Copy payload を取り出すため、registry owner を消費しない。
+  - `selfhost_memo_trait_trusted_source_registry_new` は private helper にした。外部 caller が同じ型の source identity を入れ替えた trusted registry を作る公開経路は持たせない。
+  - `memo_trait_proof_store.nepl` の stage0 は `selfhost_memo_trait_trusted_source_identity_set_current` から source identity set を受け取り、proof store 内で `SelfhostMemoTraitSourceKind::MemoKeyTrait` / `MemoValueTrait` や `selfhost_memo_trait_source_identity_new` を直接呼ばない。
+  - `ty.nepl` facade、`nodesrc/selfhost_ty_sources.js`、source policy contract、issue、todo を更新した。
+- policy/spec:
+  - Blocker: none after review.
+  - Required: subagent review で trusted registry constructor が public のままだと `MemoKey` / `MemoValue` identity を外部から入れ替えられると指摘された。constructor を private helper に変更し、source policy で public constructor の退行を禁止した。
+  - Non-blocker: artifact snapshot を外部入力として読む段階では、constructor を公開するのではなく、kind mismatch を `Result` で拒否する validator を追加する。
+  - Question: Phase 1 の prepared i32 fingerprint payload は full trait definition table materializer ではない。serialized `.neplproof` / `.neplmeta` へ載せる段階では stable trait definition key / public surface hash / stable nominal key へ置き換える。
+  - Approve: source identity construction は proof store から分離され、proof store は typed source identity set と typed rule identity の policy だけを authority にする。
+- implementation/test:
+  - Blocker: none after final review.
+  - Required: public constructor hardening を修正し、`node nodesrc/test_selfhost_memo_trait_source_contract.js` と `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_source.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-source-doctest-after-review.json" --dist web/dist -j 1 --assert-io --no-tree` を再実行して pass。
+  - Non-blocker: full trait definition table から source text / public surface hash / signature hash を materialize する producer は次 slice に残る。
+  - Question: proof store が受け取る registry snapshot を永続 artifact から復元する段階では、typed validator の戻り値と diagnostic display を分離する。
+  - Approve: focused source policy、module doctest、core/ty suite、warn-only source policy regression で代表境界を検査した。
+- subagent review:
+  - subagent_review_ids: `019eb7c3-3473-7cf2-ba81-ea3fb8bd1f27`, `019eb6cf-79b9-72d1-8213-fa9063648489`
+  - subagent_review_count: 2
+  - `019eb7c3-3473-7cf2-ba81-ea3fb8bd1f27` は Blocker / Required なし。prepared fingerprint registry と full trait definition table materializer の境界、proof store が source identity を手作業で作らないこと、borrow projection、DAG/source policy、issue/todo residual を確認した。Non-blocker として、任意 registry snapshot 入力を受ける段階では `is_current` または typed validation が必要と指摘した。
+  - `019eb6cf-79b9-72d1-8213-fa9063648489` は Blocker なし。Required として public constructor が同型 payload の入れ替えを許す点を指摘した。constructor を private にし、source policy に public constructor 禁止を追加して対応済み。untracked file は commit 時に stage する operational item。
+- source_policy:
+  - `nodesrc/test_selfhost_memo_trait_source_contract.js` を追加し、facade export、source list、proof store import、DAG、module doc、prepared fingerprint 残件、display metadata 非 authority、typed registry fields、borrow projection、typed equality、proof-store-local constructor 禁止、private registry constructor、no line count / no comment length guard を固定した。
+  - `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、proof store が `memo_trait_source` を import し、source kind constructor / source identity constructor を直接使わないことを固定した。
+  - `nodesrc/run_source_policy_regressions.js` に新規 contract を登録した。
+  - source_policy: updated
+  - source_policy_reason: trusted source identity は proof reuse authority なので、source policy で proof store への raw constructor 逆流と public trusted registry constructor の退行を検出する必要がある。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_policy_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_source.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-source-doctest-after-review.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-proof-store-source-registry-doctest.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-source-registry.json" --dist web/dist -j 1 --assert-io --no-tree` pass 9/9
+  - 検証済み: `node nodesrc/test_selfhost_documentation_contract.js`
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+  - `nodesrc/selfhost_zenn_review_response_check.js`: live subagent review を直接扱い、review response の必須項目はこの checkpoint と `nodesrc/test_selfhost_zenn_review_gate_contract.js` で固定した。
+  - source policy: full warn-only regression は exit 0。新規 `test_selfhost_memo_trait_source_contract.js` は constructor private 化後も pass。
+  - 既存 warning: stdlib / selfhost documentation contract は既存 baseline と report-only doctest gap を表示する。
+  - 今回差分由来 warning: なし。
+- residual:
+  - residual_risk: none for this trusted source registry slice after public-constructor hardening and two reviews.
+  - unexecuted_verification: none for this slice.
+  - new warnings: none.
+  - 次 slice: trait definition table から prepared fingerprint ではない stable source identity を生成する materializer、type constructor layout evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue typed proof policy checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
