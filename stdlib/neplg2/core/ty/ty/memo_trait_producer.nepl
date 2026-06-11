@@ -1,0 +1,661 @@
+#indent 4
+
+//: # ty/memo_trait_producer
+//: `MemoKey` / `MemoValue` aggregate proof を session-local evidence table 用 record へ[変換/へんかん]する producer boundary です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait.nepl` の evidence-aware predicate は `Named` / `Applied` type の証拠を消費します。この module は、後続の layout / trait solver が作った aggregate proof を、消費側が読める `SelfhostMemoTraitEvidenceRecord` へ変換する入口を置きます。
+//: - consumer 側だけで fake evidence を無視するのではなく、producer 側でも primitive、function、generic parameter、missing type record を typed error として拒否します。
+//:
+//: [契約/けいやく]:
+//: - この module は field layout solver でも trait solver でもありません。入力の `SelfhostMemoTraitAggregateProof` は、別 stage が作った field layout summary、Copy / Drop / Eq / Hash proof status、cache escape hazard を 1 つにまとめた証拠 payload です。
+//: - producer が accepted record を作るのは `SelfhostTypeRecord::Named` と `SelfhostTypeRecord::Applied` だけです。
+//: - `Named` / `Applied` であっても、field layout、trait proof、hazard 判定、recursive aggregate boundary のいずれかが missing / unknown / rejected であれば accepted record へ変換しません。
+//: - `SelfhostTypeId` は session-local です。永続 artifact や cross-arena cache へ載せる場合は、`SelfhostCanonicalTypeKeyArena` と solver policy hash で索引した別の proof store から、この session-local producer へ投影します。
+//: - `key_result` と `value_result` は `Result unit SelfhostMemoTraitRejectKind` のまま保持します。拒否理由を bool や文字列へ潰しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では trusted proof summary の producer gate だけを実装しています。struct / enum field traversal、recursive aggregate の cycle 検出、trait source identity、pure Eq / Hash / Clone / Drop proof の計算本体は後続 slice でこの producer の入力側に接続します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `aggregate_proof_to_record` は arena record lookup と variant match だけなので O(1) です。
+//: - canonical key indexed proof store からこの producer へ投影する段階では、canonical key projection と key equality の分だけ O(n) になります。その探索範囲はこの module ではなく proof store 側の契約として管理します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_evidence_producer_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_evidence_produce_result_is_accept summary.named_produced
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_evidence_produce_result_is_accept summary.applied_produced
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.primitive_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.missing_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::MissingTypeRecord
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.missing_layout_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::MissingFieldLayout
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.invalid_range_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::InvalidFieldRange
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.hazard_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::ExternalHandle
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_result_is_accept summary.named_key_with_produced_evidence
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_result_is_accept summary.applied_key_with_produced_evidence
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_reject_kind_eq (unwrap_err summary.applied_value_with_produced_evidence) SelfhostMemoTraitRejectKind::StrUnsupported
+//:             let shown checks_print_report checks10
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait evidence producer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./kind/model" as *
+#import "./memo_trait" as *
+#import "./record" as *
+
+//: SelfhostMemoTraitAggregateFieldRange: aggregate field proof が参照する field table 範囲
+//:
+//: [目的/もくてき]:
+//: - producer に渡された aggregate proof が「field layout を見た」という事実を、単なる `bool` ではなく範囲 payload として保持します。
+//: - 現 stage では field table 本体は未接続ですが、後続 solver が substitution 済み field type id range を渡す場所を先に固定します。
+//:
+//: [契約/けいやく]:
+//: - `field_count = 0` は field を持たない aggregate を表します。
+//: - `field_count > 0` の場合、`first_field` は後続 solver が管理する field summary table の開始 index です。
+pub struct SelfhostMemoTraitAggregateFieldRange:
+    first_field %i32
+    field_count %i32
+
+impl Clone for SelfhostMemoTraitAggregateFieldRange:
+    fn clone %fn &SelfhostMemoTraitAggregateFieldRange SelfhostMemoTraitAggregateFieldRange \self:
+        *self
+
+impl Copy for SelfhostMemoTraitAggregateFieldRange:
+    fn copy_mark %fn SelfhostMemoTraitAggregateFieldRange SelfhostMemoTraitAggregateFieldRange \self:
+        self
+
+//: SelfhostMemoTraitAggregateFieldEvidence: aggregate field layout summary の状態
+//:
+//: [目的/もくてき]:
+//: - field layout が存在する場合と、未接続 / 未代入 / 再帰境界到達で受理できない場合を enum として分けます。
+pub enum SelfhostMemoTraitAggregateFieldEvidence:
+    Known %SelfhostMemoTraitAggregateFieldRange
+    MissingLayout
+    GenericArgumentUnsubstituted
+    CycleLimitReached
+
+impl Clone for SelfhostMemoTraitAggregateFieldEvidence:
+    fn clone %fn &SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitAggregateFieldEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitAggregateFieldEvidence:
+    fn copy_mark %fn SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitAggregateFieldEvidence \self:
+        self
+
+//: SelfhostMemoTraitAggregateProofStatus: trait / operation proof の状態
+//:
+//: [目的/もくてき]:
+//: - Copy / Drop / Eq / Hash の各 proof を同じ形で扱います。`Proven` 以外は producer gate で typed reject へ変換します。
+pub enum SelfhostMemoTraitAggregateProofStatus:
+    Proven
+    Missing
+    Impure
+    Unknown
+
+impl Clone for SelfhostMemoTraitAggregateProofStatus:
+    fn clone %fn &SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitAggregateProofStatus \self:
+        *self
+
+impl Copy for SelfhostMemoTraitAggregateProofStatus:
+    fn copy_mark %fn SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitAggregateProofStatus \self:
+        self
+
+//: SelfhostMemoTraitAggregateHazardEvidence: cache 境界へ漏らしてはいけない hazard の分類
+//:
+//: [目的/もくてき]:
+//: - value が cache 内部参照、external handle、owner token、public mutable state を含む場合に、producer が accepted record を作らないようにします。
+pub enum SelfhostMemoTraitAggregateHazardEvidence:
+    NoHazard
+    CacheReferenceEscape
+    ExternalHandle
+    OwnerToken
+    PublicMutableState
+    Unknown
+
+impl Clone for SelfhostMemoTraitAggregateHazardEvidence:
+    fn clone %fn &SelfhostMemoTraitAggregateHazardEvidence SelfhostMemoTraitAggregateHazardEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitAggregateHazardEvidence:
+    fn copy_mark %fn SelfhostMemoTraitAggregateHazardEvidence SelfhostMemoTraitAggregateHazardEvidence \self:
+        self
+
+//: selfhost_memo_trait_aggregate_field_range_new: aggregate field range payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 後続 solver が持つ field summary table の範囲を proof summary へ入れるための小さい constructor です。
+pub fn selfhost_memo_trait_aggregate_field_range_new %fn i32 fn i32 SelfhostMemoTraitAggregateFieldRange \first_field\field_count:
+    SelfhostMemoTraitAggregateFieldRange first_field field_count
+
+//: selfhost_memo_trait_aggregate_field_range_is_valid: field range payload が有効か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `Known(range)` が単なる tag だけで accepted にならないよう、range payload の最小不変条件を producer gate でも確認します。
+//:
+//: [契約/けいやく]:
+//: - `field_count = 0` は field を持たない aggregate として有効です。
+//: - `first_field` と `field_count` は負であってはいけません。
+//: - `first_field + field_count` が i32 の正の範囲を越える payload は、後続 field summary table lookup の根拠にできないため拒否します。
+pub fn selfhost_memo_trait_aggregate_field_range_is_valid %fn SelfhostMemoTraitAggregateFieldRange bool \range:
+    and:
+        ge range.first_field 0
+        and ge range.field_count 0 le range.field_count sub 2147483647 range.first_field
+
+//: selfhost_memo_trait_aggregate_field_evidence_known: field layout 済み evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stage0 や後続 solver が、substitution 済み field range を `Known(range)` として明示できるようにします。
+pub fn selfhost_memo_trait_aggregate_field_evidence_known %fn i32 fn i32 SelfhostMemoTraitAggregateFieldEvidence \first_field\field_count:
+    SelfhostMemoTraitAggregateFieldEvidence::Known selfhost_memo_trait_aggregate_field_range_new first_field field_count
+
+//: SelfhostMemoTraitAggregateProof: solver が作る aggregate memo trait proof summary
+//:
+//: [目的/もくてき]:
+//: - field layout / trait solver 側で計算済みの field summary、operation proof、hazard classification、`MemoKey` / `MemoValue` 判定結果を producer gate へ渡す Copy payload としてまとめます。
+//:
+//: [契約/けいやく]:
+//: - `type_id` は同じ `SelfhostTypeArena` 内の `Named` または `Applied` record を指す必要があります。
+//: - この struct 自体は証明を計算しません。作成元は substitution 済み field layout、Copy / Drop / Eq / Hash、no-cache-ref-escape、external handle / owner token / public mutable state を検査してから payload を渡します。
+//: - producer は `Known` field evidence、`Proven` proof status、`NoHazard` だけを accepted record へ進めます。missing / unknown は fail-closed です。
+//: - key と value の結果を別々に持つため、`f32` を含む aggregate のように key は拒否し value は受理する、という非対称な結果を表せます。
+pub struct SelfhostMemoTraitAggregateProof:
+    type_id %SelfhostTypeId
+    fields %SelfhostMemoTraitAggregateFieldEvidence
+    copy_proof %SelfhostMemoTraitAggregateProofStatus
+    drop_proof %SelfhostMemoTraitAggregateProofStatus
+    eq_proof %SelfhostMemoTraitAggregateProofStatus
+    hash_proof %SelfhostMemoTraitAggregateProofStatus
+    hazard %SelfhostMemoTraitAggregateHazardEvidence
+    key_result %Result unit SelfhostMemoTraitRejectKind
+    value_result %Result unit SelfhostMemoTraitRejectKind
+
+impl Clone for SelfhostMemoTraitAggregateProof:
+    fn clone %fn &SelfhostMemoTraitAggregateProof SelfhostMemoTraitAggregateProof \self:
+        *self
+
+impl Copy for SelfhostMemoTraitAggregateProof:
+    fn copy_mark %fn SelfhostMemoTraitAggregateProof SelfhostMemoTraitAggregateProof \self:
+        self
+
+//: SelfhostMemoTraitEvidenceProduceRejectKind: aggregate proof を record 化できない理由
+//:
+//: [目的/もくてき]:
+//: - producer gate の失敗を bool にせず、どの前提を満たさなかったかを enum として保持します。
+//:
+//: [分類/ぶんるい]:
+//: - `MissingTypeRecord`: `type_id` が arena に存在しません。
+//: - `PrimitiveNotAggregate`: primitive type に対する proof です。primitive policy は `memo_trait.nepl` の primitive predicate が authority です。
+//: - `FunctionNotAggregate`: function type に対する proof です。function identity / backend representation / cache namespace が未完成なので aggregate proof へ変換しません。
+//: - `ParameterUnresolved`: generic parameter が concrete type に置換される前に proof を作ろうとしました。
+//: - `MissingFieldLayout` / `InvalidFieldRange` / `GenericArgumentUnsubstituted` / `CycleLimitReached`: field layout summary が accepted aggregate proof として十分ではありません。
+//: - `*ProofMissing` / `*ProofImpure` / `*ProofUnknown`: Copy / Drop / Eq / Hash proof が `Proven` ではありません。
+//: - hazard 系 variant: cache 内部参照、external handle、owner token、public mutable state、unknown hazard を含むため `MemoValue` evidence にできません。
+pub enum SelfhostMemoTraitEvidenceProduceRejectKind:
+    MissingTypeRecord
+    PrimitiveNotAggregate
+    FunctionNotAggregate
+    ParameterUnresolved
+    MissingFieldLayout
+    InvalidFieldRange
+    GenericArgumentUnsubstituted
+    CycleLimitReached
+    CopyProofMissing
+    CopyProofImpure
+    CopyProofUnknown
+    DropProofMissing
+    DropProofImpure
+    DropProofUnknown
+    EqProofMissing
+    EqProofImpure
+    EqProofUnknown
+    HashProofMissing
+    HashProofImpure
+    HashProofUnknown
+    CacheReferenceEscape
+    ExternalHandle
+    OwnerToken
+    PublicMutableState
+    HazardUnknown
+
+impl Clone for SelfhostMemoTraitEvidenceProduceRejectKind:
+    fn clone %fn &SelfhostMemoTraitEvidenceProduceRejectKind SelfhostMemoTraitEvidenceProduceRejectKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitEvidenceProduceRejectKind:
+    fn copy_mark %fn SelfhostMemoTraitEvidenceProduceRejectKind SelfhostMemoTraitEvidenceProduceRejectKind \self:
+        self
+
+//: SelfhostMemoTraitEvidenceProducerStage0Summary: producer boundary の focused summary
+//:
+//: [目的/もくてき]:
+//: - doctest が producer gate と consumer predicate の接続を小さな expression tree で確認できるようにします。
+//: - producer result と consumer result をどちらも typed `Result` のまま保持し、拒否理由の検査を source regex だけに依存させません。
+pub struct SelfhostMemoTraitEvidenceProducerStage0Summary:
+    named_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    applied_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    primitive_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    missing_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    missing_layout_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    invalid_range_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    hazard_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    named_key_with_produced_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_key_with_produced_evidence %Result unit SelfhostMemoTraitRejectKind
+    applied_value_with_produced_evidence %Result unit SelfhostMemoTraitRejectKind
+
+//: selfhost_memo_trait_aggregate_proof_new: aggregate proof summary を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - solver が計算した field summary、operation proof、hazard classification、key/value predicate result を 1 つの Copy payload にまとめます。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload を作るだけなので O(1) です。
+pub fn selfhost_memo_trait_aggregate_proof_new %fn SelfhostTypeId fn SelfhostMemoTraitAggregateFieldEvidence fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateHazardEvidence fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitAggregateProof \type_id\fields\copy_proof\drop_proof\eq_proof\hash_proof\hazard\key_result\value_result:
+    SelfhostMemoTraitAggregateProof type_id fields copy_proof drop_proof eq_proof hash_proof hazard key_result value_result
+
+//: selfhost_memo_trait_aggregate_proof_known_new: 完全な proof summary を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stage0 や後続 solver が、field layout / Copy / Drop / Eq / Hash / hazard の前提をすべて満たした aggregate proof を短く作れるようにします。
+//:
+//: [契約/けいやく]:
+//: - この helper は「成功 proof を計算する」関数ではありません。caller はすでに検査済みの field range と key/value result だけを渡します。
+pub fn selfhost_memo_trait_aggregate_proof_known_new %fn SelfhostTypeId fn i32 fn i32 fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitAggregateProof \type_id\first_field\field_count\key_result\value_result:
+    let fields %SelfhostMemoTraitAggregateFieldEvidence selfhost_memo_trait_aggregate_field_evidence_known first_field field_count
+    SelfhostMemoTraitAggregateProof type_id fields SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateHazardEvidence::NoHazard key_result value_result
+
+//: selfhost_memo_trait_evidence_produce_result_is_accept: producer result が成功か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest や gate caller が `Result SelfhostMemoTraitEvidenceRecord ...` の成功だけを確認したい場合に使います。拒否理由が必要な場所では `Err(kind)` を match します。
+pub fn selfhost_memo_trait_evidence_produce_result_is_accept %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind bool \result:
+    match result:
+        Result::Ok _record:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_evidence_produce_reject_kind_code: producer 拒否理由を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。新しい拒否理由を追加した場合、この関数も明示的に更新します。
+fn selfhost_memo_trait_evidence_produce_reject_kind_code %fn SelfhostMemoTraitEvidenceProduceRejectKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitEvidenceProduceRejectKind::MissingTypeRecord:
+            0
+        SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate:
+            1
+        SelfhostMemoTraitEvidenceProduceRejectKind::FunctionNotAggregate:
+            2
+        SelfhostMemoTraitEvidenceProduceRejectKind::ParameterUnresolved:
+            3
+        SelfhostMemoTraitEvidenceProduceRejectKind::MissingFieldLayout:
+            4
+        SelfhostMemoTraitEvidenceProduceRejectKind::InvalidFieldRange:
+            5
+        SelfhostMemoTraitEvidenceProduceRejectKind::GenericArgumentUnsubstituted:
+            6
+        SelfhostMemoTraitEvidenceProduceRejectKind::CycleLimitReached:
+            7
+        SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofMissing:
+            8
+        SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofImpure:
+            9
+        SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofUnknown:
+            10
+        SelfhostMemoTraitEvidenceProduceRejectKind::DropProofMissing:
+            11
+        SelfhostMemoTraitEvidenceProduceRejectKind::DropProofImpure:
+            12
+        SelfhostMemoTraitEvidenceProduceRejectKind::DropProofUnknown:
+            13
+        SelfhostMemoTraitEvidenceProduceRejectKind::EqProofMissing:
+            14
+        SelfhostMemoTraitEvidenceProduceRejectKind::EqProofImpure:
+            15
+        SelfhostMemoTraitEvidenceProduceRejectKind::EqProofUnknown:
+            16
+        SelfhostMemoTraitEvidenceProduceRejectKind::HashProofMissing:
+            17
+        SelfhostMemoTraitEvidenceProduceRejectKind::HashProofImpure:
+            18
+        SelfhostMemoTraitEvidenceProduceRejectKind::HashProofUnknown:
+            19
+        SelfhostMemoTraitEvidenceProduceRejectKind::CacheReferenceEscape:
+            20
+        SelfhostMemoTraitEvidenceProduceRejectKind::ExternalHandle:
+            21
+        SelfhostMemoTraitEvidenceProduceRejectKind::OwnerToken:
+            22
+        SelfhostMemoTraitEvidenceProduceRejectKind::PublicMutableState:
+            23
+        SelfhostMemoTraitEvidenceProduceRejectKind::HazardUnknown:
+            24
+
+//: selfhost_memo_trait_evidence_produce_reject_kind_eq: producer 拒否理由が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と regression が表示文字列ではなく enum domain を比較できるようにします。
+pub fn selfhost_memo_trait_evidence_produce_reject_kind_eq %fn SelfhostMemoTraitEvidenceProduceRejectKind fn SelfhostMemoTraitEvidenceProduceRejectKind bool \a\b:
+    eq selfhost_memo_trait_evidence_produce_reject_kind_code a selfhost_memo_trait_evidence_produce_reject_kind_code b
+
+//: selfhost_memo_trait_aggregate_field_evidence_reject: field evidence の欠落理由を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `Named` / `Applied` の variant だけで accepted にせず、field layout solver が substitution 済み summary を渡した場合だけ先へ進めます。
+fn selfhost_memo_trait_aggregate_field_evidence_reject %fn SelfhostMemoTraitAggregateFieldEvidence Option SelfhostMemoTraitEvidenceProduceRejectKind \fields:
+    match fields:
+        SelfhostMemoTraitAggregateFieldEvidence::Known range:
+            if:
+                selfhost_memo_trait_aggregate_field_range_is_valid range
+                then:
+                    none
+                else:
+                    some SelfhostMemoTraitEvidenceProduceRejectKind::InvalidFieldRange
+        SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::MissingFieldLayout
+        SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::GenericArgumentUnsubstituted
+        SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::CycleLimitReached
+
+//: selfhost_memo_trait_copy_proof_status_reject: Copy proof status の拒否理由を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - aggregate value を memo cache から安全に返すために必要な Copy 相当 proof が `Proven` か確認します。
+//: - missing / impure / unknown を同じ拒否に丸めず、diagnostic が根本原因を選べる enum reason を返します。
+fn selfhost_memo_trait_copy_proof_status_reject %fn SelfhostMemoTraitAggregateProofStatus Option SelfhostMemoTraitEvidenceProduceRejectKind \status:
+    match status:
+        SelfhostMemoTraitAggregateProofStatus::Proven:
+            none
+        SelfhostMemoTraitAggregateProofStatus::Missing:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofMissing
+        SelfhostMemoTraitAggregateProofStatus::Impure:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofImpure
+        SelfhostMemoTraitAggregateProofStatus::Unknown:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofUnknown
+
+//: selfhost_memo_trait_drop_proof_status_reject: Drop proof status の拒否理由を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - cache eviction や memoized function value の破棄が外部観測可能な副作用を持たないことを、producer 入力 summary として確認します。
+//: - proof が未接続なら accepted record へ進ませず、後続 solver の責務として残します。
+fn selfhost_memo_trait_drop_proof_status_reject %fn SelfhostMemoTraitAggregateProofStatus Option SelfhostMemoTraitEvidenceProduceRejectKind \status:
+    match status:
+        SelfhostMemoTraitAggregateProofStatus::Proven:
+            none
+        SelfhostMemoTraitAggregateProofStatus::Missing:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::DropProofMissing
+        SelfhostMemoTraitAggregateProofStatus::Impure:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::DropProofImpure
+        SelfhostMemoTraitAggregateProofStatus::Unknown:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::DropProofUnknown
+
+//: selfhost_memo_trait_eq_proof_status_reject: Eq proof status の拒否理由を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - MemoKey として使う aggregate の equality が pure かつ安定であることを、summary の段階で fail-closed に確認します。
+//: - 現 checkpoint では key/value 共通 summary として扱い、将来 value-only aggregate で Eq が不要な場合は key/value proof summary の分離を検討します。
+fn selfhost_memo_trait_eq_proof_status_reject %fn SelfhostMemoTraitAggregateProofStatus Option SelfhostMemoTraitEvidenceProduceRejectKind \status:
+    match status:
+        SelfhostMemoTraitAggregateProofStatus::Proven:
+            none
+        SelfhostMemoTraitAggregateProofStatus::Missing:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::EqProofMissing
+        SelfhostMemoTraitAggregateProofStatus::Impure:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::EqProofImpure
+        SelfhostMemoTraitAggregateProofStatus::Unknown:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::EqProofUnknown
+
+//: selfhost_memo_trait_hash_proof_status_reject: Hash proof status の拒否理由を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - MemoKey として使う aggregate の hash が pure かつ stable equality と整合することを、producer record 化の前に確認します。
+//: - Hash proof が missing / impure / unknown の場合は accepted record にしません。
+fn selfhost_memo_trait_hash_proof_status_reject %fn SelfhostMemoTraitAggregateProofStatus Option SelfhostMemoTraitEvidenceProduceRejectKind \status:
+    match status:
+        SelfhostMemoTraitAggregateProofStatus::Proven:
+            none
+        SelfhostMemoTraitAggregateProofStatus::Missing:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::HashProofMissing
+        SelfhostMemoTraitAggregateProofStatus::Impure:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::HashProofImpure
+        SelfhostMemoTraitAggregateProofStatus::Unknown:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::HashProofUnknown
+
+//: selfhost_memo_trait_hazard_evidence_reject: cache hazard summary の拒否理由を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - cache 内部参照、external handle、owner token、public mutable state を含む aggregate を `MemoValue` evidence として公開しないようにします。
+//: - `Unknown` は安全側に拒否し、hazard analysis が接続されるまで pure memoization へ流しません。
+fn selfhost_memo_trait_hazard_evidence_reject %fn SelfhostMemoTraitAggregateHazardEvidence Option SelfhostMemoTraitEvidenceProduceRejectKind \hazard:
+    match hazard:
+        SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+            none
+        SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::CacheReferenceEscape
+        SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::ExternalHandle
+        SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::OwnerToken
+        SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::PublicMutableState
+        SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+            some SelfhostMemoTraitEvidenceProduceRejectKind::HazardUnknown
+
+//: selfhost_memo_trait_aggregate_proof_reject: proof summary の fail-closed 判定を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - accepted record へ変換する前に、field layout、operation proof、hazard の順に検査し、不完全な proof を typed reason で拒否します。
+//:
+//: [契約/けいやく]:
+//: - この関数は proof を計算しません。渡された summary に `Missing` / `Impure` / `Unknown` が含まれていないことだけを確認します。
+fn selfhost_memo_trait_aggregate_proof_reject %fn SelfhostMemoTraitAggregateProof Option SelfhostMemoTraitEvidenceProduceRejectKind \proof:
+    match selfhost_memo_trait_aggregate_field_evidence_reject proof.fields:
+        Option::Some kind:
+            some kind
+        Option::None:
+            match selfhost_memo_trait_copy_proof_status_reject proof.copy_proof:
+                Option::Some kind:
+                    some kind
+                Option::None:
+                    match selfhost_memo_trait_drop_proof_status_reject proof.drop_proof:
+                        Option::Some kind:
+                            some kind
+                        Option::None:
+                            match selfhost_memo_trait_eq_proof_status_reject proof.eq_proof:
+                                Option::Some kind:
+                                    some kind
+                                Option::None:
+                                    match selfhost_memo_trait_hash_proof_status_reject proof.hash_proof:
+                                        Option::Some kind:
+                                            some kind
+                                        Option::None:
+                                            selfhost_memo_trait_hazard_evidence_reject proof.hazard
+
+//: selfhost_memo_trait_aggregate_proof_to_record: aggregate proof を consumer evidence record へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - trusted solver output を `SelfhostMemoTraitEvidenceRecord` へ変換する唯一の producer gate です。
+//:
+//: [契約/けいやく]:
+//: - `Named` と `Applied` だけが accepted record の候補です。
+//: - 候補であっても proof summary が不完全な場合は `Err(kind)` を返します。
+//: - primitive、function、parameter、missing record は `Err(kind)` です。これにより producer 側でも non-aggregate proof を evidence table へ入れる通常経路を作りません。
+//: - accepted record の key/value result は proof summary をそのまま移します。producer は拒否理由を上書きしません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(record)`: aggregate proof を session-local evidence record として使えます。
+//: - `Err(kind)`: 対象 type は aggregate evidence producer の対象ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - arena record lookup と enum match だけなので O(1) です。
+pub fn selfhost_memo_trait_aggregate_proof_to_record %fn &SelfhostTypeArena fn SelfhostMemoTraitAggregateProof Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind \arena\proof:
+    match selfhost_type_arena_get_record arena proof.type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    Result::Err SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate
+                SelfhostTypeRecord::Named _named:
+                    match selfhost_memo_trait_aggregate_proof_reject proof:
+                        Option::Some kind:
+                            Result::Err kind
+                        Option::None:
+                            Result::Ok selfhost_memo_trait_evidence_record_new proof.type_id proof.key_result proof.value_result
+                SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitEvidenceProduceRejectKind::ParameterUnresolved
+                SelfhostTypeRecord::Applied _applied:
+                    match selfhost_memo_trait_aggregate_proof_reject proof:
+                        Option::Some kind:
+                            Result::Err kind
+                        Option::None:
+                            Result::Ok selfhost_memo_trait_evidence_record_new proof.type_id proof.key_result proof.value_result
+                SelfhostTypeRecord::Function _function:
+                    Result::Err SelfhostMemoTraitEvidenceProduceRejectKind::FunctionNotAggregate
+        Option::None:
+            Result::Err SelfhostMemoTraitEvidenceProduceRejectKind::MissingTypeRecord
+
+//: selfhost_memo_trait_evidence_producer_stage0_add_single_applied: producer smoke 用 applied type を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - producer stage0 が `Applied` record variant を実際に作れるよう、1 個の型引数を持つ applied type の構築だけを局所化します。
+//:
+//: [契約/けいやく]:
+//: - この helper は solver ではありません。型引数の memo proof は作らず、producer gate が `Applied` variant を accepted aggregate として扱うかだけを確認します。
+fn selfhost_memo_trait_evidence_producer_stage0_add_single_applied %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id\arg:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 arg:
+                Result::Ok params1:
+                    selfhost_type_arena_add_applied_named arena nominal_id params1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_evidence_producer_stage0_finish: stage0 owner を[解放/かいほう]して summary を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - smoke 用の TypeArena と evidence table を閉じ、Copy な summary だけを返します。
+fn selfhost_memo_trait_evidence_producer_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitEvidenceTable impure fn SelfhostMemoTraitEvidenceProducerStage0Summary Result SelfhostMemoTraitEvidenceProducerStage0Summary StdErrorKind \arena\table\summary:
+    selfhost_memo_trait_evidence_table_free table
+    selfhost_type_arena_free arena
+    Result::Ok summary
+
+//: selfhost_memo_trait_evidence_producer_stage0: producer gate と consumer 接続の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - `Named` / `Applied` proof だけが evidence record へ変換されることを確認します。
+//: - primitive と missing record は proof summary が `Ok unit` を持っていても producer 側で拒否されることを確認します。
+//: - producer が作った record を consumer table に入れると、evidence-aware predicate が同じ Result payload を返すことを確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: producer result と consumer result の代表値を返します。
+//: - `Err(error)`: smoke 用 arena / table の確保に失敗しました。
+pub fn selfhost_memo_trait_evidence_producer_stage0 %impure fn void Result SelfhostMemoTraitEvidenceProducerStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 selfhost_named_type_id_new 10:
+                Result::Ok allocated_named:
+                    let named_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_named
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_named
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::F32:
+                        Result::Ok allocated_f32:
+                            let f32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_f32
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_f32
+                            match selfhost_memo_trait_evidence_producer_stage0_add_single_applied arena2 (selfhost_named_type_id_new 11) f32_id:
+                                Result::Ok allocated_applied:
+                                    let applied_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_applied
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_applied
+                                    let missing_id %SelfhostTypeId selfhost_type_id_new 9999
+                                    let named_proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_aggregate_proof_known_new named_id 0 0 (Result::Ok unit) (Result::Ok unit)
+                                    let applied_proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_aggregate_proof_known_new applied_id 0 1 (Result::Ok unit) (Result::Err SelfhostMemoTraitRejectKind::StrUnsupported)
+                                    let primitive_proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_aggregate_proof_known_new f32_id 0 0 (Result::Ok unit) (Result::Ok unit)
+                                    let missing_proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_aggregate_proof_known_new missing_id 0 0 (Result::Ok unit) (Result::Ok unit)
+                                    let missing_layout_proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_aggregate_proof_new named_id SelfhostMemoTraitAggregateFieldEvidence::MissingLayout SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
+                                    let invalid_fields %SelfhostMemoTraitAggregateFieldEvidence selfhost_memo_trait_aggregate_field_evidence_known -1 0
+                                    let hazard_fields %SelfhostMemoTraitAggregateFieldEvidence selfhost_memo_trait_aggregate_field_evidence_known 0 0
+                                    let invalid_range_proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_aggregate_proof_new named_id invalid_fields SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
+                                    let hazard_proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_aggregate_proof_new named_id hazard_fields SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle (Result::Ok unit) (Result::Ok unit)
+                                    let named_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_aggregate_proof_to_record &arena3 named_proof
+                                    let applied_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_aggregate_proof_to_record &arena3 applied_proof
+                                    let primitive_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_aggregate_proof_to_record &arena3 primitive_proof
+                                    let missing_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_aggregate_proof_to_record &arena3 missing_proof
+                                    let missing_layout_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_aggregate_proof_to_record &arena3 missing_layout_proof
+                                    let invalid_range_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_aggregate_proof_to_record &arena3 invalid_range_proof
+                                    let hazard_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_aggregate_proof_to_record &arena3 hazard_proof
+                                    match named_produced:
+                                        Result::Ok named_record:
+                                            match applied_produced:
+                                                Result::Ok applied_record:
+                                                    match selfhost_memo_trait_evidence_table_new:
+                                                        Result::Ok table0:
+                                                            match selfhost_memo_trait_evidence_table_push table0 named_record:
+                                                                Result::Ok table1:
+                                                                    match selfhost_memo_trait_evidence_table_push table1 applied_record:
+                                                                        Result::Ok table2:
+                                                                            let named_key_with_produced_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table2 named_id
+                                                                            let applied_key_with_produced_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_key_type_result_with_evidence &arena3 &table2 applied_id
+                                                                            let applied_value_with_produced_evidence %Result unit SelfhostMemoTraitRejectKind selfhost_memo_value_type_result_with_evidence &arena3 &table2 applied_id
+                                                                            let summary %SelfhostMemoTraitEvidenceProducerStage0Summary SelfhostMemoTraitEvidenceProducerStage0Summary named_produced applied_produced primitive_rejected missing_rejected missing_layout_rejected invalid_range_rejected hazard_rejected named_key_with_produced_evidence applied_key_with_produced_evidence applied_value_with_produced_evidence
+                                                                            selfhost_memo_trait_evidence_producer_stage0_finish arena3 table2 summary
+                                                                        Result::Err e:
+                                                                            selfhost_type_arena_free arena3
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    selfhost_type_arena_free arena3
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            selfhost_type_arena_free arena3
+                                                            Result::Err e
+                                                Result::Err _kind:
+                                                    selfhost_type_arena_free arena3
+                                                    Result::Err StdErrorKind::InvalidOperation
+                                        Result::Err _kind:
+                                            selfhost_type_arena_free arena3
+                                            Result::Err StdErrorKind::InvalidOperation
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

@@ -54496,3 +54496,57 @@ MERGE_APPROVED
 ### residual
 
 - Web Playground semantic analysis worker 化、atomic document switch、span/file identity、selfhost compiler capability gating、compiler worker init recovery、neplg2 command parser、GUI close-requested contract、GUI queue telemetry、shared document ownership、browser smoke CI は作成 issue として残る。
+## 2026-06-12 Agent selfhost memo trait evidence producer summary checkpoint
+
+### scope
+
+- branch: `selfhost/memo-traits-evidence-producer-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- related_issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- zenn_policy_checked: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- subagent_review_id: `019eb6db-8694-7752-8416-5faedf3ee553`
+
+### implementation
+
+- `stdlib/neplg2/core/ty/ty/memo_trait_producer.nepl` を追加し、後続 solver が作る aggregate proof summary を `SelfhostMemoTraitEvidenceRecord` へ変換する producer gate を作成した。
+- `SelfhostMemoTraitAggregateProof` は session-local `SelfhostTypeId` だけでなく、field layout summary、Copy / Drop / Eq / Hash proof status、cache escape hazard classification、key/value の `Result unit SelfhostMemoTraitRejectKind` を保持する。
+- `selfhost_memo_trait_aggregate_proof_reject` を追加し、field layout missing、invalid field range、generic argument unsubstituted、cycle limit reached、operation proof missing / impure / unknown、cache reference escape、external handle、owner token、public mutable state、unknown hazard を accepted record に進ませないようにした。
+- accepted record の候補は `Named` / `Applied` だけで、primitive、function、parameter、missing type record は producer 側でも `SelfhostMemoTraitEvidenceProduceRejectKind` で拒否する。
+- `ty.nepl` facade と `nodesrc/selfhost_ty_sources.js` に producer module を追加し、source policy で `core/ty` 境界、proof summary payload、typed reject domain、line-count guard 不在を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、関連 issue、`todo.md` を producer summary 境界に合わせて更新した。
+
+### zenn_policy
+
+- Result / enum: key/value と producer failure は `Result` と enum reason のまま保持し、bool や string に潰していない。
+- static check: reject-kind equality は wildcard ではなく enum variant projection の網羅 match を使い、新 variant 追加時に更新漏れが分かる形にした。
+- DAG / responsibility: producer は `core/ty` に閉じ、checker、HIR、Resource IR、backend、private cache backend へ依存していない。
+- fail-closed: summary が incomplete / unknown の場合は accepted record へ進まず、solver 未実装を成功に見せない。
+- doc comment: module / public type / public function の日本語 doc comment に目的、契約、現状、計算量、doctest、未実装境界を記述した。コメント行数や file size を抑制する検査は追加していない。
+- prototype policy: 後方互換より設計整合性を優先しつつ、この slice は solver 本体ではなく producer summary 契約の固定に限定した。
+
+### subagent_review
+
+- initial_review: `019eb6db-8694-7752-8416-5faedf3ee553` は、`SelfhostTypeArena` / `SelfhostTypeRecord` だけから `Named` / `Applied` を accepted にする設計、session-local `SelfhostTypeId` を永続 proof key にする設計、trait id だけで trusted proof とみなす設計を blocker として指摘した。
+- response: producer input を field layout summary、Copy / Drop / Eq / Hash proof status、hazard classification を持つ explicit proof summary に拡張し、missing / unknown / rejected summary を fail-closed にした。
+- re_review: blocker なし。Required として `Known(range)` の内部不正を見逃さない field range validation が必要と指摘されたため、`selfhost_memo_trait_aggregate_field_range_is_valid` と `InvalidFieldRange` reject を追加した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_producer.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-producer-doctest.json" --dist web/dist -j 1 --assert-io --no-tree` total=1 passed=1
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-producer-doctest.json" --dist web/dist -j 1 --assert-io --no-tree` total=6 passed=6
+- pass_with_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。post-rebase の origin/main 由来と思われる `nodesrc/test_web_gui_input_bridge.js` の `inputBridge.unregisterGuiWebInputEventListener is not a function` warning が 1 件あり、この selfhost slice の変更範囲には含めていない。
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- field layout summary の実生成、trait source identity、Copy / Drop / Eq / Hash pure evidence の実計算、cycle / recursive aggregate の visited set または fuel、canonical type key indexed proof store は未実装。
+- `memo_call` private cache proof、Resource IR `PrivateCache` non-escape proof、sealed backend representation は未実装。
+- `SelfhostTypeId` は session-local の consumer lookup だけに使い、永続 artifact は canonical type key と solver policy hash で索引する必要がある。
