@@ -207,6 +207,67 @@
         .error {
             color: #ffb4b4;
         }
+
+        .chart-wrap {
+            padding: 14px;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-swatch {
+            width: 18px;
+            height: 3px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+
+        .history-chart {
+            width: 100%;
+            min-height: 320px;
+            border: 1px solid #263449;
+            border-radius: 8px;
+            background: #080c12;
+            overflow: hidden;
+        }
+
+        .history-chart svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .axis-label {
+            fill: var(--muted);
+            font: 11px var(--mono);
+        }
+
+        .chart-grid {
+            stroke: #1f2937;
+            stroke-width: 1;
+        }
+
+        .chart-line {
+            fill: none;
+            stroke-width: 2.4;
+        }
+
+        .chart-point {
+            stroke: #080c12;
+            stroke-width: 1.5;
+        }
     </style>
 </head>
 
@@ -222,6 +283,7 @@
                 <button id="load" class="primary">Load</button>
                 <a class="button" href="./metrics/repo_metrics.json">JSON</a>
                 <a class="button" href="./metrics/repo_metrics.csv">CSV</a>
+                <a class="button" href="./metrics/repo_metrics_history.json">History JSON</a>
                 <a class="button" href="./tests.html">Tests</a>
                 <a class="button" href="./">Playground</a>
             </div>
@@ -230,6 +292,14 @@
     <main>
         <div id="status" class="notice">Loading metrics.</div>
         <div id="summary" class="summary"></div>
+        <section id="history-section" hidden>
+            <h2>Line Count History</h2>
+            <div class="chart-wrap">
+                <div id="history-status" class="notice">Loading metrics history.</div>
+                <div id="history-chart" class="history-chart" aria-label="Repository line count history"></div>
+                <div id="history-table"></div>
+            </div>
+        </section>
         <div id="tables"></div>
     </main>
 
@@ -239,6 +309,10 @@
         const summaryEl = document.getElementById("summary");
         const tablesEl = document.getElementById("tables");
         const urlEl = document.getElementById("metrics-url");
+        const historySectionEl = document.getElementById("history-section");
+        const historyStatusEl = document.getElementById("history-status");
+        const historyChartEl = document.getElementById("history-chart");
+        const historyTableEl = document.getElementById("history-table");
 
         function escapeHtml(value) {
             return String(value ?? "")
@@ -296,6 +370,125 @@
             </section>`;
         }
 
+        function historyTotals(revision) {
+            const totals = revision && revision.metrics && revision.metrics.totals;
+            if (!totals) return null;
+            return {
+                files: Number(totals.files || 0),
+                lines: Number(totals.lines || 0),
+                source: Number(totals.source || 0),
+                docs: Number(totals.doc_comment || 0) + Number(totals.document || 0),
+                test: Number(totals.test || 0),
+                testCases: Number(totals.testCases || 0),
+            };
+        }
+
+        function metricSeries(revisions) {
+            const points = revisions
+                .map((revision, index) => ({ revision, index, totals: historyTotals(revision) }))
+                .filter((point) => point.totals);
+            return {
+                points,
+                series: [
+                    { key: "lines", label: "total lines", color: "#9bc7ff", value: (p) => p.totals.lines },
+                    { key: "source", label: "source", color: "#9ee7b7", value: (p) => p.totals.source },
+                    { key: "docs", label: "docs", color: "#ffd38a", value: (p) => p.totals.docs },
+                    { key: "test", label: "test lines", color: "#e6b3ff", value: (p) => p.totals.test },
+                ],
+            };
+        }
+
+        function renderHistoryChart(points, series) {
+            if (points.length === 0) {
+                return `<div class="notice">No history metrics are available.</div>`;
+            }
+            const width = 1040;
+            const height = 340;
+            const pad = { left: 78, right: 20, top: 24, bottom: 58 };
+            const values = [];
+            for (const s of series) {
+                for (const point of points) values.push(s.value(point));
+            }
+            const max = Math.max(...values, 1);
+            const min = Math.min(...values, 0);
+            const range = Math.max(1, max - min);
+            const x = (i) => {
+                if (points.length === 1) return pad.left + (width - pad.left - pad.right) / 2;
+                return pad.left + (i / (points.length - 1)) * (width - pad.left - pad.right);
+            };
+            const y = (value) => pad.top + ((max - value) / range) * (height - pad.top - pad.bottom);
+            const grid = [];
+            for (let i = 0; i <= 4; i++) {
+                const v = min + (range * i / 4);
+                const yy = y(v);
+                grid.push(`<line class="chart-grid" x1="${pad.left}" y1="${yy}" x2="${width - pad.right}" y2="${yy}" />`);
+                grid.push(`<text class="axis-label" x="${pad.left - 10}" y="${yy + 4}" text-anchor="end">${escapeHtml(fmt.format(Math.round(v)))}</text>`);
+            }
+            const lines = series.map((s) => {
+                const d = points.map((point, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(s.value(point)).toFixed(1)}`).join(" ");
+                const circles = points.map((point, i) => `<circle class="chart-point" cx="${x(i).toFixed(1)}" cy="${y(s.value(point)).toFixed(1)}" r="3" fill="${s.color}">
+                    <title>${escapeHtml(point.revision.short)} ${escapeHtml(s.label)}: ${escapeHtml(fmt.format(s.value(point)))}</title>
+                </circle>`).join("");
+                return `<path class="chart-line" d="${d}" stroke="${s.color}" />${circles}`;
+            }).join("");
+            const labels = points.map((point, i) => {
+                const show = i === 0 || i === points.length - 1 || points.length <= 8 || i % Math.ceil(points.length / 8) === 0;
+                if (!show) return "";
+                const label = point.revision.short || String(i + 1);
+                return `<text class="axis-label" x="${x(i).toFixed(1)}" y="${height - 22}" text-anchor="middle" transform="rotate(-28 ${x(i).toFixed(1)} ${height - 22})">${escapeHtml(label)}</text>`;
+            }).join("");
+            const legend = `<div class="chart-legend">${series.map((s) => `<span class="legend-item"><span class="legend-swatch" style="background:${s.color}"></span>${escapeHtml(s.label)}</span>`).join("")}</div>`;
+            return `${legend}<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Repository line count history">
+                ${grid.join("")}
+                ${lines}
+                <line class="chart-grid" x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" />
+                ${labels}
+            </svg>`;
+        }
+
+        function renderHistoryTable(points) {
+            if (points.length === 0) return "";
+            const rows = [...points].reverse();
+            return `<div style="overflow:auto; margin-top:12px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>commit</th>
+                            <th>date</th>
+                            <th>lines</th>
+                            <th>source</th>
+                            <th>docs</th>
+                            <th>test</th>
+                            <th>files</th>
+                            <th>subject</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map((point) => `<tr>
+                            <td class="mono">${escapeHtml(point.revision.short)}</td>
+                            <td class="mono">${escapeHtml(String(point.revision.committed_at || "").slice(0, 10))}</td>
+                            <td>${fmt.format(point.totals.lines)}</td>
+                            <td>${fmt.format(point.totals.source)}</td>
+                            <td>${fmt.format(point.totals.docs)}</td>
+                            <td>${fmt.format(point.totals.test)}</td>
+                            <td>${fmt.format(point.totals.files)}</td>
+                            <td>${escapeHtml(point.revision.subject || "")}</td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+        function renderHistory(payload) {
+            const revisions = Array.isArray(payload && payload.revisions) ? payload.revisions : [];
+            const { points, series } = metricSeries(revisions);
+            historySectionEl.hidden = false;
+            const errors = revisions.filter((revision) => revision.metrics_error).length;
+            historyStatusEl.innerHTML = `Loaded ${fmt.format(points.length)} historical revision(s).${errors ? ` <span class="error">${fmt.format(errors)} revision(s) had metrics errors.</span>` : ""}`;
+            historyChartEl.innerHTML = renderHistoryChart(points, series);
+            historyTableEl.innerHTML = renderHistoryTable(points);
+        }
+
         function render(payload) {
             const extRows = Array.isArray(payload.byExtension) ? payload.byExtension : [];
             const areaRows = Array.isArray(payload.byArea) ? payload.byArea : [];
@@ -327,10 +520,25 @@
                 const res = await fetch(url, { cache: "no-store" });
                 if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
                 render(await res.json());
+                await loadHistory();
             } catch (error) {
                 statusEl.innerHTML = `<span class="error">Could not load metrics:</span> <span class="mono">${escapeHtml(error && error.message ? error.message : error)}</span>`;
                 summaryEl.innerHTML = "";
                 tablesEl.innerHTML = "";
+            }
+        }
+
+        async function loadHistory() {
+            historySectionEl.hidden = false;
+            historyStatusEl.textContent = "Loading metrics history.";
+            historyChartEl.innerHTML = "";
+            historyTableEl.innerHTML = "";
+            try {
+                const res = await fetch("./metrics/repo_metrics_history.json", { cache: "no-store" });
+                if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+                renderHistory(await res.json());
+            } catch (error) {
+                historyStatusEl.innerHTML = `<span class="error">Could not load metrics history:</span> <span class="mono">${escapeHtml(error && error.message ? error.message : error)}</span>`;
             }
         }
 

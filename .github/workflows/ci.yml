@@ -33,6 +33,8 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
             - name: Shared bootstrap build
               uses: ./.github/actions/bootstrap-build
@@ -68,6 +70,7 @@ jobs:
               run: |
                   mkdir -p dist/metrics
                   node nodesrc/run_repo_metrics.js --root . --json dist/metrics/repo_metrics.json --csv dist/metrics/repo_metrics.csv
+                  node nodesrc/run_repo_metrics_history.js --root . --limit 24 --json dist/metrics/repo_metrics_history.json
 
             - name: Upload bootstrap build artifacts
               uses: actions/upload-artifact@v4
@@ -405,6 +408,64 @@ jobs:
                   path: tests-llvm.json
                   if-no-files-found: ignore
 
+    selfhost-doctest:
+        runs-on: ubuntu-latest
+        needs: build
+        timeout-minutes: 25
+
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - id: wasi
+                      label: WASI doctests
+                      inputs: "-i tests"
+                      output: selfhost-wasi-tests.json
+                    - id: nmd
+                      label: .n.md doctests
+                      inputs: "-i tests"
+                      output: selfhost-nmd-tests.json
+                    - id: tutorials
+                      label: Tutorial doctests
+                      inputs: "-i tutorials"
+                      output: selfhost-tutorials-tests.json
+                    - id: examples
+                      label: Example doctests
+                      inputs: "-i examples"
+                      output: selfhost-examples-tests.json
+                    - id: stdlib
+                      label: Stdlib doctests
+                      inputs: "-i stdlib"
+                      output: selfhost-stdlib-tests.json
+                    - id: llvm
+                      label: LLVM doctests
+                      inputs: "-i tests/compiler/llvm_target.n.md"
+                      output: selfhost-llvm-tests.json
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Download bootstrap build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: bootstrap-build
+                  path: .
+
+            - name: Run selfhost compiler check doctests (${{ matrix.label }})
+              run: |
+                  timeout_marker="${{ matrix.output }}.timeout.json"
+                  node nodesrc/ci_timeout.js --minutes 18 --label "Selfhost compiler check doctests (${{ matrix.id }})" --timeout-marker "${timeout_marker}" --timeout-nonfatal -- node nodesrc/run_selfhost_doctest_check.js ${{ matrix.inputs }} -o ${{ matrix.output }} -j 1 --batch-size 80 --failure-nonfatal
+                  node nodesrc/complete_selfhost_doctest_artifact.js --marker "${timeout_marker}" --json "${{ matrix.output }}" --suite-id "${{ matrix.id }}" --suite-label "${{ matrix.label }}" --matrix-inputs "${{ matrix.inputs }}"
+
+            - name: Upload selfhost compiler check JSON (${{ matrix.id }})
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: selfhost-${{ matrix.id }}-tests
+                  path: ${{ matrix.output }}
+                  if-no-files-found: ignore
+
     llvm-dual-test:
         runs-on: ubuntu-latest
         needs: build
@@ -580,12 +641,35 @@ jobs:
             - name: Mark site as pending
               run: |
                   mkdir -p dist/tests
+                  mkdir -p dist/tests/last-completed
+                  pages_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+                  for file in \
+                    status.json \
+                    tests-current.json \
+                    nmd-tests.json \
+                    tutorials-tests.json \
+                    examples-tests.json \
+                    stdlib-tests.json \
+                    tests-llvm.json \
+                    selfhost-wasi-tests.json \
+                    selfhost-nmd-tests.json \
+                    selfhost-tutorials-tests.json \
+                    selfhost-examples-tests.json \
+                    selfhost-stdlib-tests.json \
+                    selfhost-llvm-tests.json \
+                    tests-dual-tests.json \
+                    tests-dual-stdlib.json
+                  do
+                    curl -fsSL "${pages_url}/tests/${file}" -o "dist/tests/last-completed/${file}" || true
+                  done
                   cat > dist/tests/status.json <<EOF
                   {
                     "state": "pending",
                     "message": "Tests are still running.",
                     "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
                     "head_sha": "${{ github.sha }}",
+                    "fallback_status_url": "./tests/last-completed/status.json",
+                    "fallback_results_prefix": "./tests/last-completed/",
                     "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
                   }
                   EOF
@@ -637,6 +721,7 @@ jobs:
             - examples-test
             - stdlib-test
             - llvm-test
+            - selfhost-doctest
             - llvm-dual-test
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() && needs.build.result == 'success'
         timeout-minutes: 10
@@ -693,6 +778,14 @@ jobs:
                   name: llvm-tests
                   path: artifacts/llvm
 
+            - name: Download selfhost compiler check artifacts
+              continue-on-error: true
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: selfhost-*-tests
+                  path: artifacts/selfhost
+                  merge-multiple: true
+
             - name: Download LLVM dual tests artifact
               continue-on-error: true
               uses: actions/download-artifact@v4
@@ -710,6 +803,12 @@ jobs:
                   cp -f artifacts/examples/examples-tests.json dist/tests/examples-tests.json || true
                   cp -f artifacts/stdlib/stdlib-tests.json dist/tests/stdlib-tests.json || true
                   cp -f artifacts/llvm/tests-llvm.json dist/tests/tests-llvm.json || true
+                  cp -f artifacts/selfhost/selfhost-wasi-tests.json dist/tests/selfhost-wasi-tests.json || true
+                  cp -f artifacts/selfhost/selfhost-nmd-tests.json dist/tests/selfhost-nmd-tests.json || true
+                  cp -f artifacts/selfhost/selfhost-tutorials-tests.json dist/tests/selfhost-tutorials-tests.json || true
+                  cp -f artifacts/selfhost/selfhost-examples-tests.json dist/tests/selfhost-examples-tests.json || true
+                  cp -f artifacts/selfhost/selfhost-stdlib-tests.json dist/tests/selfhost-stdlib-tests.json || true
+                  cp -f artifacts/selfhost/selfhost-llvm-tests.json dist/tests/selfhost-llvm-tests.json || true
                   cp -f artifacts/llvm-dual/tests-dual-tests.json dist/tests/tests-dual-tests.json || true
                   cp -f artifacts/llvm-dual/tests-dual-stdlib.json dist/tests/tests-dual-stdlib.json || true
                   if ls artifacts/llvm-dual/tests-dual-tests-shard-*.json >/dev/null 2>&1; then
@@ -738,6 +837,7 @@ jobs:
                     "examples_test": "${{ needs['examples-test'].result }}",
                     "stdlib_test": "${{ needs['stdlib-test'].result }}",
                     "llvm_test": "${{ needs['llvm-test'].result }}",
+                    "selfhost_doctest": "${{ needs['selfhost-doctest'].result }}",
                     "llvm_dual_test": "${{ needs['llvm-dual-test'].result }}"
                   }
                   EOF

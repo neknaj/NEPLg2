@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T13:44:29.202Z",
+  "generated_at": "2026-06-11T14:46:57.632Z",
   "counts": {
-    "total": 1353,
+    "total": 1354,
     "open": 50,
-    "resolved": 1303,
+    "resolved": 1304,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -62,9 +62,9 @@
         "resolved": 2
       },
       "ci": {
-        "total": 4,
+        "total": 5,
         "open": 0,
-        "resolved": 4
+        "resolved": 5
       },
       "compiler/resource-ir": {
         "total": 6,
@@ -1733,6 +1733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T064057030Z-STATIC-CHECK-SOURCE-POLICY-RUNNER-MI-812E7A30.md"
+    },
+    {
+      "id": "ISS-20260611T143313507Z-PAGES-TEST-RESULTS-NEED-STRUCTURED-C-793A6635",
+      "title": "Pages test results need structured current and completed artifacts",
+      "area": "ci",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-06-11",
+      "updated": "2026-06-11",
+      "target": "web/tests.html,.github/workflows/ci.yml",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260611T143313507Z-PAGES-TEST-RESULTS-NEED-STRUCTURED-C-793A6635.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-002-D74F45E6",

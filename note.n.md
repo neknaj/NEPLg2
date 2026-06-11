@@ -53899,3 +53899,37 @@ MERGE_APPROVED
 - output json: `tmp/ci-timeout-playground-editor.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - warnings: source policy regression は既存の documentation sample gap と Node WASI ExperimentalWarning を表示したが exit 0。`git diff --check` の CRLF conversion warning は既存の改行設定由来。今回の failure ではない。
 - residual_risk: GitHub Actions 上の再実行で、該当 doctest step が timeout した場合に warning と artifact upload は残り、wrapper exit code 124 では job を落とさないことを確認する必要がある。
+
+## 2026-06-11 Agent2 Pages test rendering and metrics history checkpoint
+
+- branch: `agent2/pages-test-rendering-metrics-history`
+- plan.md: 確認済み。人が編集するファイルなので変更していない。
+- root_cause_tests_page: `nodesrc/tests.js` の compile_fail diagnostic mismatch は `error` 文字列内に `compile_error: ${JSON.stringify(compileError)}` を含める。`web/tests.html` はこの JSON string を構造化せず、escaped text としてそのまま `<pre>` 表示していたため、ANSI escape や JSON quoting が利用者に露出していた。
+- implementation_tests_page: `web/tests.html` に `parseDiagnosticError` と `ansiToHtml` を追加し、expected / missing / actual codes や spans を metadata card として表示し、compiler output は terminal block に分離した。ANSI SGR の red / blue / green / yellow / magenta / cyan / white / gray / bold / dim は HTML span class へ変換する。
+- root_cause_metrics_page: `web/metrics.html` は current checkout の `repo_metrics.json` / CSV のみを読む設計で、過去 commit の line count artifact が CI で生成されていなかった。さらに GitHub Actions checkout は既定 shallow clone なので、履歴を読むには build job の checkout depth を明示する必要があった。
+- implementation_metrics_page: `nodesrc/run_repo_metrics_history.js` を追加し、first-parent の直近 24 commit を detached worktree で走査して `run_repo_metrics.js` / `repo_metrics.ts` を metrics authority として再利用する。CI build job は `fetch-depth: 0` にし、`dist/metrics/repo_metrics_history.json` を生成する。`web/metrics.html` は history JSON から total / source / docs / test lines の SVG 折れ線グラフと commit table を描画する。
+- source_policy: `nodesrc/test_pages_ci_metrics_contract.js` は build job の full history checkout、history JSON artifact、history schema、worktree-based runner、ANSI HTML rendering、diagnostic detail parsing、history chart rendering を固定する。
+- executed verification: `node nodesrc/test_pages_ci_metrics_contract.js`; `node nodesrc/run_repo_metrics_history.js --root . --limit 3 --json tmp/repo_metrics_history_smoke.json`; `node --check nodesrc/run_repo_metrics_history.js`; `node nodesrc/test_compare_git_versions_summary.js`; `git diff --check`
+- output json: `tmp/repo_metrics_history_smoke.json` は `revision_count=3`, `errors=0`, latest line total `688042`。
+- warnings: `git diff --check` の CRLF conversion warning は既存の改行設定由来。今回の failure ではない。
+- next verification: inline HTML script syntax check、source policy regression、`trunk build`、playground editor JSON check、issue check。
+
+### 2026-06-11 Agent2 Pages selfhost and hierarchy update
+
+- issue: `ISS-20260611T143313507Z-PAGES-TEST-RESULTS-NEED-STRUCTURED-C-793A6635`
+- additional_root_cause_pending: `pages-fast-bundle` は pending site として `dist/tests/status.json` だけを出し、前回 final Pages の test JSON を保持していなかった。そのため latest commit が pending の間、UI が「pending」だけを表示し、最新完了済み結果を参照する source が失われていた。
+- implementation_pending: pending artifact 作成時に現在公開中の Pages から `tests/last-completed/*.json` を退避し、pending `status.json` に `fallback_status_url` と `fallback_results_prefix` を書く。`web/tests.html` は current status と表示中 report source を分け、latest commit は pending であることを明示しながら last-completed report set を表示する。
+- additional_root_cause_selfhost: `nodesrc/tests.js` の runner は `wasm|llvm|all` で、完全な selfhost runtime doctest runner はまだ存在しない。Rust JSON を selfhost 欄に複製すると fake result になる。
+- implementation_selfhost: `nodesrc/run_selfhost_doctest_check.js` を追加し、doctest source を VFS に入れる NEPL harness を Rust bootstrap compiler で実行する。その harness 内で `stdlib/neplg2/core/pipeline` の `selfhost_pipeline_load_root` と `selfhost_pipeline_check_loaded_root` を呼び、selfhost compiler pipeline の accept/reject 結果を `neplg2-selfhost-doctest/v1` JSON にする。runtime assertion ではないため JSON と UI に `check_mode: compiler_check` / `runtime_assertions: false` を明示する。
+- implementation_ci: `.github/workflows/ci.yml` に `selfhost-doctest` matrix を追加し、WASI / .n.md / tutorials / examples / stdlib / LLVM の selfhost compiler check JSON を Pages に publish する。既存 Rust implementation の doctest JSON は互換性のため維持する。
+- implementation_tests_hierarchy: `web/tests.html` の report 定義を `suite` / `implementation` / `method` / `file` に分け、`suite -> implementation -> method -> path` の階層で total / passed / failed / errored / timeout / pass rate を表示する。詳細行は従来通り filter と dataset selector で確認できる。
+- subagent_review_initial: `019eb70e-5320-7e80-a072-f8d56a4b8751` は、完全な selfhost runner は未存在であり、fake selfhost result にしないため selfhost source check と runtime doctest を混同しない表示が必要と確認した。
+- executed verification追加: `node --check nodesrc/run_selfhost_doctest_check.js`; `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/options.nepl -o tmp/selfhost-check-smoke.json --max-cases 1 --batch-size 1 --failure-nonfatal`; inline HTML script syntax check
+- output json追加: `tmp/selfhost-check-smoke.json` は `schema=neplg2-selfhost-doctest/v1`, `total=1`, `passed=1`, `failed=0`, `errored=0`, `check_mode=compiler_check`, `runtime_assertions=false`。
+- residual_risk追加: selfhost compiler check は現時点では selfhost compiler の parse/check pipeline 結果であり、Rust implementation の compile-and-run doctest と同じ意味ではない。UI と JSON ではこの差を明示済みだが、将来 `nodesrc/tests.js --runner selfhost` 相当が実装されたら runner と Pages 表示の method を更新する。
+- subagent_review_blocker: `019eb71a-e920-7d60-a122-215705225052` は、`selfhost-doctest` が timeout 時に JSON を出さず、かつ wrapper が nonfatal のため Pages が artifact 欠落を成功のように公開し得る点を blocker として指摘した。
+- blocker_fix: `nodesrc/complete_selfhost_doctest_artifact.js` を追加し、`ci_timeout.js --timeout-marker` の marker を `neplg2-selfhost-doctest/v1` JSON の synthetic timeout result に変換するようにした。marker がないのに selfhost JSON もない場合は構造的な失敗として止める。`run_selfhost_doctest_check.js` の summary も timeout result を通常 error と分けて集計する。
+- source_policy追加: `nodesrc/test_ci_timeout_policy.js` は selfhost compiler-check runner だけを structured timeout artifact 付き nonfatal wrapper として許可し、その他の非 doctest wrapper は引き続き timeout fatal とする。
+- executed verification追加2: `node nodesrc/test_ci_timeout_policy.js`; `node nodesrc/test_pages_ci_metrics_contract.js`; `node nodesrc/complete_selfhost_doctest_artifact.js --marker tmp/selfhost-timeout-complete-smoke/timeout.json --json tmp/selfhost-timeout-complete-smoke/selfhost-smoke.json --suite-id smoke --suite-label "Smoke doctests" --matrix-inputs "-i tests"`; `node nodesrc/run_source_policy_regressions.js --warn-only`
+- output json追加2: `tmp/selfhost-timeout-complete-smoke/selfhost-smoke.json` は `schema=neplg2-selfhost-doctest/v1`, `timed_out=true`, `total=1`, `errored=1`, `timed_out_count=1`, `result=selfhost-timeout:smoke`。
+- subagent_review_final: `019eb71a-e920-7d60-a122-215705225052` は blocker なし、approve 可と判断した。non-blocker として job pill が nonfatal job success を表示し得る点を挙げたため、`web/tests.html` は report summary に timeout がある場合に `timed_out` を優先表示するようにした。

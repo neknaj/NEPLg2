@@ -218,6 +218,165 @@
             border-top: 1px solid #1f2937;
         }
 
+        .result-detail {
+            border-top: 1px solid #1f2937;
+            background: #0d1420;
+        }
+
+        .diagnostic-card {
+            padding: 12px 14px 14px;
+        }
+
+        .diagnostic-title {
+            margin: 0 0 10px;
+            font-weight: 800;
+            color: var(--fail);
+        }
+
+        .diagnostic-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .diagnostic-field {
+            border: 1px solid #263449;
+            border-radius: 8px;
+            padding: 8px 10px;
+            background: #101928;
+        }
+
+        .diagnostic-field .k {
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .diagnostic-field .v {
+            margin-top: 4px;
+            font-family: var(--mono);
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .terminal-label {
+            margin: 10px 0 6px;
+            color: var(--muted);
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .terminal-output {
+            margin: 0;
+            padding: 12px;
+            border: 1px solid #263449;
+            border-radius: 8px;
+            background: #05080d;
+            color: var(--text);
+            white-space: pre;
+        }
+
+        .ansi-bold {
+            font-weight: 800;
+        }
+
+        .ansi-dim {
+            opacity: 0.72;
+        }
+
+        .ansi-red {
+            color: #ffb4b4;
+        }
+
+        .ansi-green {
+            color: #9ee7b7;
+        }
+
+        .ansi-yellow {
+            color: #ffd38a;
+        }
+
+        .ansi-blue {
+            color: #9bc7ff;
+        }
+
+        .ansi-magenta {
+            color: #e6b3ff;
+        }
+
+        .ansi-cyan {
+            color: #9ee7f0;
+        }
+
+        .ansi-white {
+            color: #f8fafc;
+        }
+
+        .ansi-gray {
+            color: #94a3b8;
+        }
+
+        .fallback-note {
+            margin-top: 8px;
+            padding: 10px 12px;
+            border: 1px solid #3b4660;
+            border-radius: 8px;
+            background: #111827;
+            color: var(--muted);
+        }
+
+        .tree {
+            border-top: 1px solid #1f2937;
+        }
+
+        .tree-node {
+            border-bottom: 1px solid #1f2937;
+            background: #0d1420;
+        }
+
+        .tree-node .tree-node {
+            border-left: 1px solid #263449;
+            margin-left: 16px;
+        }
+
+        .tree-node summary {
+            display: grid;
+            grid-template-columns: minmax(240px, 1fr) auto auto;
+            gap: 12px;
+            align-items: center;
+            padding: 9px 12px;
+            cursor: pointer;
+        }
+
+        .tree-name {
+            overflow-wrap: anywhere;
+        }
+
+        .rate {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 150px;
+        }
+
+        .rate-bar {
+            width: 82px;
+            height: 7px;
+            border-radius: 999px;
+            background: #263449;
+            overflow: hidden;
+        }
+
+        .rate-fill {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: var(--ok);
+        }
+
         .mono {
             font-family: var(--mono);
         }
@@ -289,28 +448,36 @@
                 <div id="loaded" class="hint"></div>
             </div>
             <div id="reports"></div>
+            <div id="hierarchy"></div>
             <div id="results"></div>
         </section>
     </main>
 
     <script>
         const REPORTS = [
-            { id: "wasi", label: "WASI doctests", job: "wasi_test", url: "./tests/tests-current.json" },
-            { id: "nmd", label: ".n.md doctests", job: "nmd_doctest", url: "./tests/nmd-tests.json" },
-            { id: "tutorials", label: "Tutorial doctests", job: "tutorials_test", url: "./tests/tutorials-tests.json" },
-            { id: "examples", label: "Example doctests", job: "examples_test", url: "./tests/examples-tests.json" },
-            { id: "stdlib", label: "Stdlib doctests", job: "stdlib_test", url: "./tests/stdlib-tests.json" },
-            { id: "llvm", label: "LLVM doctests", job: "llvm_test", url: "./tests/tests-llvm.json" },
-            { id: "dual-tests", label: "Dual backend tests", job: "llvm_dual_test", url: "./tests/tests-dual-tests.json" },
-            { id: "dual-stdlib", label: "Dual backend stdlib", job: "llvm_dual_test", url: "./tests/tests-dual-stdlib.json" },
+            { id: "wasi-rust", suite: "WASI doctests", implementation: "Rust compiler", method: "compile and run", job: "wasi_test", file: "tests-current.json" },
+            { id: "wasi-selfhost", suite: "WASI doctests", implementation: "Selfhost compiler", method: "compiler check", job: "selfhost_doctest", file: "selfhost-wasi-tests.json" },
+            { id: "nmd-rust", suite: ".n.md doctests", implementation: "Rust compiler", method: "compile and run", job: "nmd_doctest", file: "nmd-tests.json" },
+            { id: "nmd-selfhost", suite: ".n.md doctests", implementation: "Selfhost compiler", method: "compiler check", job: "selfhost_doctest", file: "selfhost-nmd-tests.json" },
+            { id: "tutorials-rust", suite: "Tutorial doctests", implementation: "Rust compiler", method: "compile and run", job: "tutorials_test", file: "tutorials-tests.json" },
+            { id: "tutorials-selfhost", suite: "Tutorial doctests", implementation: "Selfhost compiler", method: "compiler check", job: "selfhost_doctest", file: "selfhost-tutorials-tests.json" },
+            { id: "examples-rust", suite: "Example doctests", implementation: "Rust compiler", method: "compile and run", job: "examples_test", file: "examples-tests.json" },
+            { id: "examples-selfhost", suite: "Example doctests", implementation: "Selfhost compiler", method: "compiler check", job: "selfhost_doctest", file: "selfhost-examples-tests.json" },
+            { id: "stdlib-rust", suite: "Stdlib doctests", implementation: "Rust compiler", method: "compile and run", job: "stdlib_test", file: "stdlib-tests.json" },
+            { id: "stdlib-selfhost", suite: "Stdlib doctests", implementation: "Selfhost compiler", method: "compiler check", job: "selfhost_doctest", file: "selfhost-stdlib-tests.json" },
+            { id: "llvm-rust", suite: "LLVM doctests", implementation: "Rust LLVM compiler", method: "compile check", job: "llvm_test", file: "tests-llvm.json" },
+            { id: "llvm-selfhost", suite: "LLVM doctests", implementation: "Selfhost compiler", method: "compiler check", job: "selfhost_doctest", file: "selfhost-llvm-tests.json" },
+            { id: "dual-tests", suite: "Dual backend parity", implementation: "Rust compiler", method: "wasm vs llvm", job: "llvm_dual_test", file: "tests-dual-tests.json" },
+            { id: "dual-stdlib", suite: "Dual backend parity", implementation: "Rust compiler", method: "wasm vs llvm", job: "llvm_dual_test", file: "tests-dual-stdlib.json" },
         ];
 
         const fmt = new Intl.NumberFormat("en-US");
-        const state = { status: null, reports: [], filter: "", dataset: "all", showPass: false };
+        const state = { status: null, displayStatus: null, reportSource: { kind: "current", prefix: "./tests/", status: null }, reports: [], filter: "", dataset: "all", showPass: false };
         const els = {
             status: document.getElementById("status"),
             summary: document.getElementById("summary"),
             reports: document.getElementById("reports"),
+            hierarchy: document.getElementById("hierarchy"),
             results: document.getElementById("results"),
             loaded: document.getElementById("loaded"),
             filter: document.getElementById("filter"),
@@ -324,6 +491,133 @@
                 .replaceAll("<", "&lt;")
                 .replaceAll(">", "&gt;")
                 .replaceAll('"', "&quot;");
+        }
+
+        function decodeJsonValue(raw) {
+            try {
+                return JSON.parse(raw);
+            } catch {
+                return raw;
+            }
+        }
+
+        function classed(text, classes) {
+            const escaped = escapeHtml(text);
+            if (!escaped) return "";
+            const cls = Array.from(classes).join(" ");
+            return cls ? `<span class="${cls}">${escaped}</span>` : escaped;
+        }
+
+        function ansiToHtml(value) {
+            const text = String(value ?? "");
+            const re = /\x1b\[([0-9;]*)m/g;
+            const classes = new Set();
+            const colorClasses = new Set(["ansi-red", "ansi-green", "ansi-yellow", "ansi-blue", "ansi-magenta", "ansi-cyan", "ansi-white", "ansi-gray"]);
+            const colorByCode = {
+                30: "ansi-gray",
+                31: "ansi-red",
+                32: "ansi-green",
+                33: "ansi-yellow",
+                34: "ansi-blue",
+                35: "ansi-magenta",
+                36: "ansi-cyan",
+                37: "ansi-white",
+                90: "ansi-gray",
+                91: "ansi-red",
+                92: "ansi-green",
+                93: "ansi-yellow",
+                94: "ansi-blue",
+                95: "ansi-magenta",
+                96: "ansi-cyan",
+                97: "ansi-white",
+            };
+            function resetColor() {
+                for (const cls of colorClasses) classes.delete(cls);
+            }
+            function applyCode(code) {
+                if (code === 0) {
+                    classes.clear();
+                } else if (code === 1) {
+                    classes.add("ansi-bold");
+                } else if (code === 2) {
+                    classes.add("ansi-dim");
+                } else if (code === 22) {
+                    classes.delete("ansi-bold");
+                    classes.delete("ansi-dim");
+                } else if (code === 39) {
+                    resetColor();
+                } else if (Object.prototype.hasOwnProperty.call(colorByCode, code)) {
+                    resetColor();
+                    classes.add(colorByCode[code]);
+                }
+            }
+            let out = "";
+            let last = 0;
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                out += classed(text.slice(last, m.index), classes);
+                const codes = m[1] ? m[1].split(";").map((v) => Number(v || 0)) : [0];
+                for (const code of codes) applyCode(code);
+                last = re.lastIndex;
+            }
+            out += classed(text.slice(last), classes);
+            return out;
+        }
+
+        function parseDiagnosticError(result, message) {
+            const fields = [];
+            const otherLines = [];
+            let compileError = result && typeof result.compile_error === "string" ? result.compile_error : "";
+            for (const line of String(message || "").split("\n")) {
+                const compileMatch = line.match(/^compile_error:\s*(.*)$/);
+                if (compileMatch) {
+                    const decoded = decodeJsonValue(compileMatch[1]);
+                    compileError = String(decoded ?? "");
+                    continue;
+                }
+                const fieldMatch = line.match(/^(expected codes|missing codes|actual codes|expected spans|missing spans|actual spans):\s*(.*)$/);
+                if (fieldMatch) {
+                    fields.push({
+                        key: fieldMatch[1],
+                        value: decodeJsonValue(fieldMatch[2]),
+                    });
+                    continue;
+                }
+                otherLines.push(line);
+            }
+            return {
+                title: otherLines.shift() || "diagnostic mismatch",
+                fields,
+                summary: otherLines.join("\n").trim(),
+                compileError,
+            };
+        }
+
+        function renderFieldValue(value) {
+            if (Array.isArray(value)) return value.length > 0 ? value.map((item) => String(item)).join("\n") : "(empty)";
+            if (value && typeof value === "object") return JSON.stringify(value, null, 2);
+            return String(value ?? "");
+        }
+
+        function renderResultDetail(result, message) {
+            const text = String(message || "");
+            const isDiagnosticMismatch = /^compile_fail diagnostic (?:code|span) mismatch/m.test(text);
+            if (isDiagnosticMismatch || (result && result.compile_error)) {
+                const parsed = parseDiagnosticError(result, text);
+                const fields = parsed.fields.map((field) => `<div class="diagnostic-field">
+                    <div class="k">${escapeHtml(field.key)}</div>
+                    <div class="v">${escapeHtml(renderFieldValue(field.value))}</div>
+                </div>`).join("");
+                const summary = parsed.summary ? `<pre>${escapeHtml(parsed.summary)}</pre>` : "";
+                const terminal = parsed.compileError ? `<div class="terminal-label">Compiler output</div><pre class="terminal-output">${ansiToHtml(parsed.compileError)}</pre>` : "";
+                return `<div class="result-detail"><div class="diagnostic-card">
+                    <div class="diagnostic-title">${escapeHtml(parsed.title)}</div>
+                    ${fields ? `<div class="diagnostic-fields">${fields}</div>` : ""}
+                    ${summary}
+                    ${terminal}
+                </div></div>`;
+            }
+            return `<pre>${escapeHtml(text || JSON.stringify(result, null, 2))}</pre>`;
         }
 
         function resultStatus(result) {
@@ -371,11 +665,29 @@
             return `<div class="stat"><div class="k">${escapeHtml(label)}</div><div class="v mono ${cls}">${fmt.format(value || 0)}</div></div>`;
         }
 
+        function passRate(summary) {
+            const total = Number(summary.total || 0);
+            if (total <= 0) return 0;
+            return Math.round((Number(summary.passed || 0) / total) * 1000) / 10;
+        }
+
+        function rateView(summary) {
+            const rate = passRate(summary);
+            return `<span class="rate"><span class="rate-bar"><span class="rate-fill" style="width:${Math.max(0, Math.min(100, rate))}%"></span></span><span class="mono">${escapeHtml(rate.toFixed(1))}%</span></span>`;
+        }
+
         function jobClass(value) {
             if (value === "success") return "ok";
             if (value === "failure" || value === "cancelled" || value === "timed_out") return "fail";
             if (value === "skipped" || value === "pending") return "warn";
             return "info";
+        }
+
+        function reportJobState(report, summary) {
+            const displayStatus = state.displayStatus || state.status || {};
+            const job = displayStatus?.[report.job] || (displayStatus?.state === "pending" ? "pending" : "unknown");
+            if (Number(summary.timed_out || 0) > 0 && (job === "success" || job === "unknown")) return "timed_out";
+            return job;
         }
 
         async function fetchJson(url) {
@@ -384,9 +696,47 @@
             return await res.json();
         }
 
+        function reportUrl(def, prefix = "./tests/") {
+            return `${prefix}${def.file}`;
+        }
+
+        function reportLabel(report) {
+            const method = report.method ? ` - ${report.method}` : "";
+            return `${report.suite} - ${report.implementation}${method}`;
+        }
+
+        async function loadReportSet(prefix, sourceKind, status) {
+            const loaded = [];
+            for (const def of REPORTS) {
+                const url = reportUrl(def, prefix);
+                try {
+                    const payload = await fetchJson(url);
+                    loaded.push({
+                        ...def,
+                        url,
+                        sourceKind,
+                        payload,
+                        missing: false,
+                        results: Array.isArray(payload?.results) ? payload.results : [],
+                    });
+                } catch (error) {
+                    loaded.push({ ...def, url, sourceKind, payload: null, missing: true, error: String(error && error.message ? error.message : error), results: [] });
+                }
+            }
+            return {
+                status,
+                prefix,
+                kind: sourceKind,
+                reports: loaded,
+                loadedCount: loaded.filter((report) => !report.missing).length,
+            };
+        }
+
         async function loadAll() {
             els.status.textContent = "Loading CI status.";
             state.status = null;
+            state.displayStatus = null;
+            state.reportSource = { kind: "current", prefix: "./tests/", status: null };
             state.reports = [];
             try {
                 state.status = await fetchJson("./tests/status.json");
@@ -394,21 +744,22 @@
                 state.status = { state: "missing", message: String(error && error.message ? error.message : error) };
             }
 
-            const loaded = [];
-            for (const def of REPORTS) {
+            const current = await loadReportSet("./tests/", "current", state.status);
+            let selected = current;
+            if (state.status && state.status.state === "pending") {
+                let fallbackStatus = null;
                 try {
-                    const payload = await fetchJson(def.url);
-                    loaded.push({
-                        ...def,
-                        payload,
-                        missing: false,
-                        results: Array.isArray(payload?.results) ? payload.results : [],
-                    });
+                    fallbackStatus = await fetchJson(state.status.fallback_status_url || "./tests/last-completed/status.json");
                 } catch (error) {
-                    loaded.push({ ...def, payload: null, missing: true, error: String(error && error.message ? error.message : error), results: [] });
+                    fallbackStatus = { state: "missing", message: String(error && error.message ? error.message : error) };
                 }
+                const fallbackPrefix = state.status.fallback_results_prefix || "./tests/last-completed/";
+                const fallback = await loadReportSet(fallbackPrefix, "last-completed", fallbackStatus);
+                if (fallback.loadedCount > 0) selected = fallback;
             }
-            state.reports = loaded;
+            state.displayStatus = selected.status || state.status;
+            state.reportSource = { kind: selected.kind, prefix: selected.prefix, status: selected.status };
+            state.reports = selected.reports;
             populateDatasets();
             render();
         }
@@ -416,7 +767,7 @@
         function populateDatasets() {
             const options = ['<option value="all">all reports</option>'];
             for (const report of state.reports) {
-                options.push(`<option value="${escapeHtml(report.id)}">${escapeHtml(report.label)}</option>`);
+                options.push(`<option value="${escapeHtml(report.id)}">${escapeHtml(reportLabel(report))}</option>`);
             }
             els.dataset.innerHTML = options.join("");
             els.dataset.value = state.dataset;
@@ -433,11 +784,16 @@
                     const status = resultStatus(result);
                     if (!state.showPass && status === "pass") continue;
                     const hay = [
-                        report.label,
+                        reportLabel(report),
+                        report.suite,
+                        report.implementation,
+                        report.method,
                         result.id,
                         result.file,
                         result.path,
                         result.phase,
+                        result.check_mode,
+                        result.implementation,
                         result.error,
                         result.reason,
                         result.message,
@@ -452,7 +808,14 @@
             const status = state.status || {};
             const runLink = status.run_url ? ` <a class="button" href="${escapeHtml(status.run_url)}">Actions Run</a>` : "";
             const sha = status.head_sha ? ` sha <span class="mono">${escapeHtml(String(status.head_sha).slice(0, 12))}</span>` : "";
-            els.status.innerHTML = `state <span class="pill ${jobClass(status.state)} mono">${escapeHtml(status.state || "unknown")}</span>${sha}${runLink} <span class="hint">${escapeHtml(status.message || "")}</span>`;
+            let html = `state <span class="pill ${jobClass(status.state)} mono">${escapeHtml(status.state || "unknown")}</span>${sha}${runLink} <span class="hint">${escapeHtml(status.message || "")}</span>`;
+            if (state.reportSource.kind === "last-completed") {
+                const fallback = state.reportSource.status || {};
+                const fallbackSha = fallback.head_sha ? ` sha <span class="mono">${escapeHtml(String(fallback.head_sha).slice(0, 12))}</span>` : "";
+                const fallbackRun = fallback.run_url ? ` <a class="button" href="${escapeHtml(fallback.run_url)}">Completed Run</a>` : "";
+                html += `<div class="fallback-note">Latest commit results are not published yet. Showing the latest completed test artifacts from <span class="pill ${jobClass(fallback.state)} mono">${escapeHtml(fallback.state || "unknown")}</span>${fallbackSha}${fallbackRun}.</div>`;
+            }
+            els.status.innerHTML = html;
         }
 
         function renderSummary() {
@@ -472,8 +835,11 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>report</th>
+                            <th>suite</th>
+                            <th>implementation</th>
+                            <th>method</th>
                             <th>job</th>
+                            <th>pass rate</th>
                             <th>total</th>
                             <th>passed</th>
                             <th>failed</th>
@@ -485,10 +851,13 @@
                     <tbody>
                         ${state.reports.map((report) => {
                             const s = reportSummary(report);
-                            const job = state.status?.[report.job] || (state.status?.state === "pending" ? "pending" : "unknown");
+                            const job = reportJobState(report, s);
                             return `<tr>
-                                <td>${escapeHtml(report.label)}</td>
+                                <td>${escapeHtml(report.suite)}</td>
+                                <td>${escapeHtml(report.implementation)}</td>
+                                <td>${escapeHtml(report.method || "")}</td>
                                 <td><span class="pill ${jobClass(job)} mono">${escapeHtml(job)}</span></td>
+                                <td>${rateView(s)}</td>
                                 <td>${fmt.format(s.total || 0)}</td>
                                 <td class="ok">${fmt.format(s.passed || 0)}</td>
                                 <td class="${s.failed ? "fail" : ""}">${fmt.format(s.failed || 0)}</td>
@@ -502,6 +871,90 @@
             </div>`;
         }
 
+        function emptySummary() {
+            return { total: 0, passed: 0, failed: 0, errored: 0, timed_out: 0 };
+        }
+
+        function newTreeNode(name) {
+            return { name, summary: emptySummary(), children: new Map() };
+        }
+
+        function treeChild(node, name) {
+            if (!node.children.has(name)) node.children.set(name, newTreeNode(name));
+            return node.children.get(name);
+        }
+
+        function addResultToSummary(summary, result, status) {
+            const timeout = result && typeof result.timeout === "object" && result.timeout !== null;
+            summary.total += 1;
+            if (timeout) summary.timed_out += 1;
+            if (status === "pass") summary.passed += 1;
+            else if (status === "fail") summary.failed += 1;
+            else summary.errored += 1;
+        }
+
+        function pathParts(value) {
+            const normalized = String(value || "(unknown file)").replaceAll("\\", "/");
+            return normalized.split("/").filter((part) => part.length > 0);
+        }
+
+        function addTreePath(root, path, result, status) {
+            let node = root;
+            addResultToSummary(node.summary, result, status);
+            for (const part of path) {
+                node = treeChild(node, part);
+                addResultToSummary(node.summary, result, status);
+            }
+        }
+
+        function buildHierarchy() {
+            const root = newTreeNode("all tests");
+            for (const report of state.reports) {
+                if (report.missing) continue;
+                for (const result of report.results) {
+                    const status = resultStatus(result);
+                    const file = result.file || result.path || "(unknown file)";
+                    addTreePath(root, [
+                        report.suite,
+                        report.implementation,
+                        report.method || "method",
+                        ...pathParts(file),
+                    ], result, status);
+                }
+            }
+            return root;
+        }
+
+        function treeCounts(summary) {
+            return `<span class="hint mono">total ${fmt.format(summary.total)} / pass ${fmt.format(summary.passed)} / fail ${fmt.format(summary.failed)} / error ${fmt.format(summary.errored)} / timeout ${fmt.format(summary.timed_out)}</span>`;
+        }
+
+        function renderTreeNode(node, depth = 0) {
+            const children = Array.from(node.children.values())
+                .sort((a, b) => {
+                    if (b.summary.total !== a.summary.total) return b.summary.total - a.summary.total;
+                    return a.name.localeCompare(b.name);
+                });
+            const body = children.map((child) => renderTreeNode(child, depth + 1)).join("");
+            return `<details class="tree-node" ${depth < 2 ? "open" : ""}>
+                <summary>
+                    <span class="tree-name">${escapeHtml(node.name)}</span>
+                    ${rateView(node.summary)}
+                    ${treeCounts(node.summary)}
+                </summary>
+                ${body}
+            </details>`;
+        }
+
+        function renderHierarchy() {
+            const root = buildHierarchy();
+            if (root.summary.total === 0) {
+                els.hierarchy.innerHTML = `<div class="hint" style="padding:14px;">No hierarchy data is available for the loaded reports.</div>`;
+                return;
+            }
+            els.hierarchy.innerHTML = `<h2>Test Hierarchy</h2><div class="tree">${Array.from(root.children.values()).map((child) => renderTreeNode(child, 0)).join("")}</div>`;
+        }
+
         function renderResults() {
             const rows = filteredResults();
             els.loaded.textContent = `${fmt.format(rows.length)} result row(s)`;
@@ -511,7 +964,7 @@
             }
             els.results.innerHTML = rows.slice(0, 600).map(({ report, result, status }) => {
                 const timeout = result && typeof result.timeout === "object" && result.timeout !== null;
-                const title = `${report.label} / ${result.id || result.file || "(unknown)"}`;
+                const title = `${reportLabel(report)} / ${result.id || result.file || "(unknown)"}`;
                 const message = result.error || result.reason || result.message || "";
                 return `<details ${status === "pass" ? "" : "open"}>
                     <summary>
@@ -522,7 +975,7 @@
                         </span>
                         <span class="hint">${escapeHtml(result.phase || "")}</span>
                     </summary>
-                    <pre>${escapeHtml(message || JSON.stringify(result, null, 2))}</pre>
+                    ${renderResultDetail(result, message)}
                 </details>`;
             }).join("") + (rows.length > 600 ? `<div class="hint" style="padding:14px;">Showing first 600 rows. Narrow the filter to inspect more.</div>` : "");
         }
@@ -531,6 +984,7 @@
             renderStatusLine();
             renderSummary();
             renderReports();
+            renderHierarchy();
             renderResults();
         }
 

@@ -70,11 +70,30 @@ for (const line of workflow.split("\n").filter((l) => l.includes("node nodesrc/t
 
 for (const line of workflow.split("\n").filter((l) => l.includes("node nodesrc/ci_timeout.js") && !l.includes("node nodesrc/tests.js"))) {
     const wrapped = splitWrappedCommand(line);
-    assert.doesNotMatch(
-        wrapped.wrapperArgs,
-        /--timeout-nonfatal/,
-        "non-doctest CI timeout wrappers must remain fatal unless the step can publish structured timeout-only results",
-    );
+    const runsSelfhostStructuredReporter = wrapped.commandArgs.includes("node nodesrc/run_selfhost_doctest_check.js");
+    if (runsSelfhostStructuredReporter) {
+        assert.match(
+            wrapped.wrapperArgs,
+            /--timeout-marker\s+"\$\{timeout_marker\}"/,
+            "selfhost timeout-nonfatal wrappers must emit an explicit timeout marker",
+        );
+        assert.match(
+            wrapped.wrapperArgs,
+            /--timeout-nonfatal/,
+            "selfhost compiler-check timeout should be nonfatal only with a structured timeout artifact",
+        );
+        assert.match(
+            workflow,
+            /node nodesrc\/complete_selfhost_doctest_artifact\.js --marker "\$\{timeout_marker\}" --json "\$\{\{ matrix\.output \}\}"/,
+            "selfhost timeout marker must be converted into the published doctest JSON artifact",
+        );
+    } else {
+        assert.doesNotMatch(
+            wrapped.wrapperArgs,
+            /--timeout-nonfatal/,
+            "non-doctest CI timeout wrappers must remain fatal unless the step can publish structured timeout-only results",
+        );
+    }
 }
 
 const nonTimeoutFailure = runWrapper([
