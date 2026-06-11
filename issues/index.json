@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-11T16:45:20.392Z",
+  "generated_at": "2026-06-11T16:46:13.150Z",
   "counts": {
     "total": 1367,
-    "open": 62,
-    "resolved": 1305,
+    "open": 61,
+    "resolved": 1306,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -13,8 +13,8 @@
       },
       "tools": {
         "total": 20,
-        "open": 12,
-        "resolved": 8
+        "open": 11,
+        "resolved": 9
       },
       "core": {
         "total": 665,
@@ -203,21 +203,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260611T164150659Z-WEB-PLAYGROUND-ANALYSIS-SPANS-MUST-P-CFF77E8E.md"
-    },
-    {
-      "id": "ISS-20260611T164152433Z-STOP-ACTION-MUST-TARGET-THE-ACTIVE-G-8A98A569",
-      "title": "Stop action must target the active GUI process owner instead of only focused terminal",
-      "area": "tools",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-06-11",
-      "updated": "2026-06-11",
-      "target": "web/src/main.ts; web/src/workspace/panel-manager.ts; web/src/terminal/shell.ts",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260611T164152433Z-STOP-ACTION-MUST-TARGET-THE-ACTIVE-G-8A98A569.md"
     },
     {
       "id": "ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37",
@@ -1883,6 +1868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260611T164152135Z-CLOSING-TERMINAL-PANES-MUST-DISPOSE--EF2A307C.md"
+    },
+    {
+      "id": "ISS-20260611T164152433Z-STOP-ACTION-MUST-TARGET-THE-ACTIVE-G-8A98A569",
+      "title": "Stop action must target the active GUI process owner instead of only focused terminal",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-06-11",
+      "updated": "2026-06-11",
+      "target": "web/src/main.ts; web/src/workspace/panel-manager.ts; web/src/terminal/shell.ts",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260611T164152433Z-STOP-ACTION-MUST-TARGET-THE-ACTIVE-G-8A98A569.md"
     },
     {
       "id": "ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524",

@@ -2,8 +2,8 @@
 id: ISS-20260611T164152433Z-STOP-ACTION-MUST-TARGET-THE-ACTIVE-G-8A98A569
 title: "Stop action must target the active GUI process owner instead of only focused terminal"
 area: tools
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P0
 type: bug
 created: 2026-06-11
@@ -40,3 +40,15 @@ Track active process owners in PanelManager or Shell registry. Stop should prefe
 ## 検証
 
 Start a GUI app, focus editor/GUI window/another terminal, press Stop, and confirm the correct worker and windows terminate.
+
+## 2026-06-12 Agent2 修正
+
+`PlaygroundPanelManager.stopActiveProcess` を追加した。Stop は focused terminal が実行中ならそれを優先し、focused terminal が無い、または実行中でない場合は実行中 terminal runtime を探索して interrupt する。
+
+toolbar の Stop button は `getFocusedTerminalRuntime` を直接呼ばず、`panelManager.stopActiveProcess` を通すようにした。これにより editor / GUI window / 別 terminal に focus が移った状態でも、実行中 process owner を止められる。
+
+検証:
+
+- `npm --prefix web run build:ts`
+- `node nodesrc/test_web_gui_floating_window_source.js`
+- `node nodesrc/playground_shell_worker_test_runner.js`

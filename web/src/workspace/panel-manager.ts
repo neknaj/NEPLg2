@@ -818,6 +818,21 @@ export class PlaygroundPanelManager {
         return null;
     }
 
+    stopActiveProcess(): boolean {
+        const focused = this.snapshot.focusedLeafId ? this.leafRuntimeMap.get(this.snapshot.focusedLeafId) : null;
+        if (focused && focused.panelKind === 'terminal' && focused.terminal.shell.isRunning) {
+            focused.terminal.shell.interrupt();
+            return true;
+        }
+        for (const runtime of this.leafRuntimeMap.values()) {
+            if (runtime.panelKind === 'terminal' && runtime.terminal.shell.isRunning) {
+                runtime.terminal.shell.interrupt();
+                return true;
+            }
+        }
+        return false;
+    }
+
     ensureEditorLeaf(): string {
         const existing = this.getFirstEditorRuntime();
         if (existing) {

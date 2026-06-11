@@ -14,6 +14,7 @@ function runWebGuiFloatingWindowSourceRegression() {
     const managerSource = readRepoFile("web", "src", "gui-preview", "window-manager.ts");
     const panelSource = readRepoFile("web", "src", "gui-preview", "panel.ts");
     const panelManagerSource = readRepoFile("web", "src", "workspace", "panel-manager.ts");
+    const mainSource = readRepoFile("web", "src", "main.ts");
     const css = readRepoFile("web", "styles.css");
     const guardedSources = [
         ["window-manager.ts", managerSource],
@@ -60,6 +61,11 @@ function runWebGuiFloatingWindowSourceRegression() {
         assert.doesNotMatch(source, /maximized:\s*boolean/, `${name} must not model window mode as independent booleans`);
     }
     assert.match(panelManagerSource, /new GuiFloatingWindowManager/);
+    assert.match(panelManagerSource, /stopActiveProcess\(\): boolean/);
+    assert.match(panelManagerSource, /focused\.panelKind === 'terminal'[\s\S]*focused\.terminal\.shell\.isRunning/);
+    assert.match(panelManagerSource, /runtime\.panelKind === 'terminal'[\s\S]*runtime\.terminal\.shell\.isRunning/);
+    assert.match(mainSource, /stopBtn\.addEventListener\('click'[\s\S]*panelManager\.stopActiveProcess\(\)/);
+    assert.doesNotMatch(mainSource, /stopBtn\.addEventListener\('click'[\s\S]*getFocusedTerminalRuntime\(\)[\s\S]*shell\.interrupt/);
     assert.doesNotMatch(panelManagerSource, /Open GUI preview/);
     assert.doesNotMatch(panelManagerSource, /createPanelButton\('G'/);
     assert.doesNotMatch(panelManagerSource, /showGuiPreviewForActiveFile|ensureGuiPreviewLeaf|createGuiPreviewRuntime/);
@@ -80,6 +86,7 @@ function runWebGuiFloatingWindowSourceRegression() {
             "GUI floating windows support minimize, maximize, drag, and resize handlers",
             "manual GUI preview panes are not exposed; NEPL execution opens host-frame windows",
             "host event and queue status is separated from the GUI window content",
+            "toolbar Stop targets the active running terminal owner instead of only the focused terminal",
         ],
     };
 }
