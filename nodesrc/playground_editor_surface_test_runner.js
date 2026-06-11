@@ -45,6 +45,7 @@ function createMockEditor() {
         resetCursorBlinkCallCount: 0,
         updateOccurrencesHighlightCallCount: 0,
         updateBracketMatchingCallCount: 0,
+        scheduleCursorDerivedHighlightsCallCount: 0,
         onCursorChangeCallCount: 0,
         foldedLines: new Set([1]),
         scrollX: 12,
@@ -78,6 +79,9 @@ function createMockEditor() {
         },
         updateBracketMatching() {
             this.updateBracketMatchingCallCount += 1;
+        },
+        scheduleCursorDerivedHighlights() {
+            this.scheduleCursorDerivedHighlightsCallCount += 1;
         },
         recordHistory() {
             this.recordHistoryCallCount = (this.recordHistoryCallCount || 0) + 1;
@@ -135,7 +139,8 @@ function runSurfaceRegression() {
     assert.equal(stateOnlyEditor.isOverwriteMode, true);
     assert.equal(stateOnlyEditor.selectionStart, 2);
     assert.equal(stateOnlyEditor.selectionEnd, 5);
-    assert.equal(stateOnlyEditor.updateBracketMatchingCallCount, 1);
+    assert.equal(stateOnlyEditor.updateBracketMatchingCallCount, 0);
+    assert.equal(stateOnlyEditor.scheduleCursorDerivedHighlightsCallCount, 1);
     assert.equal(stateOnlyEditor.onCursorChangeCallCount, 1);
     assert.deepStrictEqual(stateOnlyEditor.tokensByLine, [[{ startCol: 0, endCol: 5, type: 'variable' }], []]);
     assert.deepStrictEqual(stateOnlyEditor.diagnosticsByLine, [[{ startCol: 0, endCol: 5, severity: 'warning', message: 'x' }], []]);
@@ -178,7 +183,8 @@ function runSurfaceRegression() {
     assert.equal(resetEditor.undoStack.length, 0);
     assert.equal(resetEditor.redoStack.length, 0);
     assert.equal(resetEditor.foldedLines.size, 0);
-    assert.equal(resetEditor.updateBracketMatchingCallCount, 1);
+    assert.equal(resetEditor.updateBracketMatchingCallCount, 0);
+    assert.equal(resetEditor.scheduleCursorDerivedHighlightsCallCount, 1);
     assert.equal(resetEditor.onCursorChangeCallCount, 1);
 
     const replaceEditor = createMockEditor();
@@ -230,7 +236,7 @@ function runSurfaceRegression() {
         checks: [
             'cursor move preserves language render caches',
             'selection and overwrite updates preserve language render caches',
-            'reset-style updates clear stale highlights and notify cursor listeners',
+            'reset-style updates clear stale highlights and schedule cursor-derived analysis',
             'selection replacement triggers a single provider update',
             'text edit still refreshes line caches and provider text',
             'setText uses full-document replace instead of incremental analysis',

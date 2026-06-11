@@ -54327,3 +54327,45 @@ MERGE_APPROVED
 - `memo_call @f arg` の即時適用、alias / pass-through function value、function literal、returned function value の accepted path はこの slice では開かない。
 - generic instantiation の stable type-argument range / canonical key、trait solving、indirect call、lambda / borrow を含む複合式 success path は引き続き `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の残件。
 - unexecuted_verification: `trunk build` は stdlib selfhost slice で必須ではないため未実行。Rust / web build artifact 変更は今回含まない。
+
+## 2026-06-12 Agent2 web playground editor performance and compiler mode checkpoint
+
+### scope
+
+- branch: `agent2/playground-editor-performance-compiler-switch`
+- request: Web Playground の file open / edit keyinput が重い問題を、差分 compile / compiler session 前提の設計に沿って軽量化する。Playground で Rust 実装 compiler と selfhost 実装 compiler を切り替え可能にし、現状は Rust を既定にする。
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+
+### implementation
+
+- editor cursor 移動時の occurrences / bracket matching を即時実行せず、`scheduleCursorDerivedHighlights` に集約した。連続 key input 中は古い timer を破棄し、入力経路は cursor / selection / scroll の更新を優先する。
+- panel status bar の token insight 表示を `scheduleAnalysisInsight` に分離した。Ln/Col は即時更新し、型・定義情報だけ短い delay で集約する。
+- `NEPLg2LanguageProvider.replaceDocumentText` は file open 時に stale payload を空 payload で消してから semantic analysis を schedule する。full document open で `analyze_semantics_with_vfs` を即時実行しない。
+- semantic publish path から追加の `analyze_parse` 呼び出しを外し、AST / folding 用 parse は semantic payload 公開後の idle structural analysis へ回した。hover など構造情報が必要な操作では lazy parse を行う。
+- `neplg2 build/run` worker protocol に `compilerMode` を追加した。既定は `rust` で既存 `CompilerSession` reuse path を使う。`selfhost` は experimental mode として分離し、将来の selfhost compile API が export された場合だけ使用する。現状 artifact に API が無い場合は明示的な compile error を返す。
+- Web header に compiler selector を追加した。既存 terminal は compiler mode provider を読むため、selector 変更後も terminal を作り直さず次回 command へ反映する。
+
+### residual
+
+- selfhost compiler は CI でも compiler-check 段階として扱われており、現時点では Rust compiler と同等の runnable WASI artifact output API は Web artifact に無い。Playground の selfhost mode は切替口と境界を用意した段階で、実行可能 output は selfhost 側 API 実装後に接続する。
+- folding range は semantic highlight より遅れて idle parse 後に更新される。file open の初期表示を優先するための設計で、folding の即時性は意図的に下げている。
+
+### verification
+
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_playground_editor_performance_policy.js`
+- pass: `node nodesrc/test_playground_compiler_session_policy.js`
+- pass: `node nodesrc/test_neplg2_language_provider_vfs.js`
+- pass: `node nodesrc/playground_shell_worker_test_runner.js`
+- pass: `node nodesrc/playground_editor_surface_test_runner.js`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-performance.json`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `trunk build`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### warnings
+
+- existing_warnings: Git の LF -> CRLF conversion warning、Node WASI ExperimentalWarning、source policy documentation contract の既存 sample gaps。
+- new_warnings: なし。
+- unexecuted_verification: Browser plugin はこの環境に無く、`playwright` package も checkout に無いため rendered browser smoke は未実行。追加依存は入れず、`trunk build` と Playground 関連 Node regression で確認した。

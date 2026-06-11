@@ -76,6 +76,7 @@ function startApp() {
     const guiWindowLayer = document.getElementById('gui-window-layer') as HTMLElement;
     const popup = document.getElementById('general-popup') as HTMLElement;
     const fontSizeSelect = document.getElementById('font-size-select') as HTMLSelectElement;
+    const compilerModeSelect = document.getElementById('compiler-mode-select') as HTMLSelectElement;
     const runBtn = document.getElementById('run-button') as HTMLButtonElement;
     const compileBtn = document.getElementById('compile-button') as HTMLButtonElement;
     const helpBtn = document.getElementById('help-button') as HTMLButtonElement;
@@ -90,6 +91,7 @@ function startApp() {
     analysisSpan.textContent = '';
     document.querySelector('.status-left')?.appendChild(analysisSpan);
     const terminalStatusSpan = document.getElementById('terminal-status') as HTMLElement;
+    let compilerMode = normalizeCompilerMode(compilerModeSelect?.value);
 
     const panelManager = new PlaygroundPanelManager({
         root: workspaceRoot,
@@ -97,6 +99,7 @@ function startApp() {
         popup,
         vfs,
         createNeplProvider: () => new NEPLg2LanguageProvider({ vfs }),
+        getCompilerMode: () => compilerMode,
         cursorSpan,
         analysisSpan,
         terminalStatusSpan,
@@ -135,6 +138,15 @@ function startApp() {
         panelManager.setFontSize(parseInt(fontSizeSelect.value, 10));
     }
 
+    function normalizeCompilerMode(value: string | null | undefined): 'rust' | 'selfhost' {
+        return value === 'selfhost' ? 'selfhost' : 'rust';
+    }
+
+    function updateCompilerMode() {
+        compilerMode = normalizeCompilerMode(compilerModeSelect?.value);
+        terminalStatusSpan.textContent = `wasi-target:${compilerMode}`;
+    }
+
     runBtn.addEventListener('click', runCurrentFile);
     compileBtn.addEventListener('click', compileCurrentFile);
     helpBtn.addEventListener('click', () => executeCommand('help'));
@@ -163,6 +175,7 @@ function startApp() {
         }
     });
     fontSizeSelect.addEventListener('change', updateFontSize);
+    compilerModeSelect.addEventListener('change', updateCompilerMode);
 
     window.addEventListener('resize', () => panelManager.resizeAll());
 
@@ -171,6 +184,7 @@ function startApp() {
 
     setTimeout(() => {
         updateFontSize();
+        updateCompilerMode();
         panelManager.focusDefaultEditor();
     }, 100);
 }

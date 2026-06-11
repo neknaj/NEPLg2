@@ -20,6 +20,7 @@ const checks = [
     "nodesrc/test_run_test_timing_metadata.js",
     "nodesrc/test_run_test_compiler_session.js",
     "nodesrc/test_playground_compiler_session_policy.js",
+    "nodesrc/test_playground_editor_performance_policy.js",
     "nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_vec_sort_module_split.js",
     "nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js",

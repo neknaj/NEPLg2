@@ -64,6 +64,7 @@ type RunWasmRequest = {
 
 type ExecuteNeplg2Request = {
     type: 'execute-neplg2';
+    compilerMode?: CompilerMode;
     compiler: CompilerAssetUrls;
     entryPath: string;
     source: string;
@@ -78,6 +79,8 @@ type ExecuteNeplg2Request = {
 };
 
 type IncomingMessage = RunWasmRequest | ExecuteNeplg2Request;
+
+type CompilerMode = 'rust' | 'selfhost';
 
 type LastGuiWebInputEvent =
     | { kind: 'empty' }
@@ -511,9 +514,49 @@ async function runWasmBinary(
 
 async function compileNeplg2Outputs(request: ExecuteNeplg2Request): Promise<Record<string, string | Uint8Array>> {
     const compilerModule = await loadCompilerBindings(request.compiler);
+    const mode = request.compilerMode || 'rust';
+    if (mode === 'selfhost') {
+        return compileNeplg2OutputsWithSelfhost(compilerModule, request);
+    }
     const compilerApi = compilerApiForSession(compilerModule);
     const emitArg: string | string[] = request.emitValues.length === 1 ? request.emitValues[0] : request.emitValues;
     const outputs = compilerApi.compile_outputs_with_vfs(
+        request.entryPath,
+        request.source,
+        request.compileVfsData,
+        emitArg,
+        request.attachSource
+    );
+    return cloneCompileOutputs(outputs);
+}
+
+function selfhostCompileApi(compilerModule: any): any | null {
+    const candidates = [
+        compilerModule?.compile_outputs_with_vfs_selfhost,
+        compilerModule?.selfhost_compile_outputs_with_vfs,
+        compilerModule?.compile_outputs_with_vfs_using_selfhost,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'function') {
+            return { kind: 'function', call: candidate };
+        }
+    }
+    if (typeof compilerModule?.SelfhostCompilerSession === 'function') {
+        const session = new compilerModule.SelfhostCompilerSession();
+        if (typeof session.compile_outputs_with_vfs === 'function') {
+            return { kind: 'session', call: session.compile_outputs_with_vfs.bind(session) };
+        }
+    }
+    return null;
+}
+
+async function compileNeplg2OutputsWithSelfhost(compilerModule: any, request: ExecuteNeplg2Request): Promise<Record<string, string | Uint8Array>> {
+    const api = selfhostCompileApi(compilerModule);
+    if (!api) {
+        throw new Error('selfhost compiler mode is selected, but this playground artifact does not expose a selfhost compile_outputs_with_vfs API yet. Use Rust compiler mode until the selfhost compiler reaches runnable artifact output.');
+    }
+    const emitArg: string | string[] = request.emitValues.length === 1 ? request.emitValues[0] : request.emitValues;
+    const outputs = await api.call(
         request.entryPath,
         request.source,
         request.compileVfsData,

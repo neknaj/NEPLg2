@@ -14,12 +14,19 @@ function main() {
     }
 
     const calls = [];
+    const timers = [];
     const context = {
         console,
-        setTimeout() {
-            return 1;
+        setTimeout(callback) {
+            const id = timers.length;
+            timers.push({ callback, active: true });
+            return id;
         },
-        clearTimeout() {},
+        clearTimeout(id) {
+            if (timers[id]) {
+                timers[id].active = false;
+            }
+        },
         window: {
             wasmBindings: {
                 analyze_lex() {
@@ -78,6 +85,12 @@ function main() {
     provider.setPath("/examples/main.nepl");
     const currentText = "#no_prelude\nfn main %fn unit i32 \\u:\n    1\n";
     provider.replaceDocumentText(currentText);
+
+    assert.equal(calls.length, 0);
+    const pendingTimer = timers.find((timer) => timer.active);
+    assert.ok(pendingTimer);
+    pendingTimer.active = false;
+    pendingTimer.callback();
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0].entryPath, "/examples/main.nepl");

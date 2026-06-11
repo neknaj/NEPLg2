@@ -14,7 +14,10 @@ class NEPLg2LanguageProvider {
         this.analysisVersion = 0;
         this.pendingTimer = null;
         this.pendingIdleCallback = null;
+        this.pendingStructuralTimer = null;
+        this.pendingStructuralIdleCallback = null;
         this.analyzeDelayMs = 80;
+        this.structuralAnalyzeDelayMs = 220;
         this.lastUpdatePayload = null;
         this.lastAnalyzedText = '';
         this.definitionById = new Map();
@@ -50,6 +53,18 @@ class NEPLg2LanguageProvider {
         if (this.pendingIdleCallback != null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
             window.cancelIdleCallback(this.pendingIdleCallback);
             this.pendingIdleCallback = null;
+        }
+        this._cancelPendingStructuralAnalysis();
+    }
+
+    _cancelPendingStructuralAnalysis() {
+        if (this.pendingStructuralTimer != null) {
+            clearTimeout(this.pendingStructuralTimer);
+            this.pendingStructuralTimer = null;
+        }
+        if (this.pendingStructuralIdleCallback != null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+            window.cancelIdleCallback(this.pendingStructuralIdleCallback);
+            this.pendingStructuralIdleCallback = null;
         }
     }
 
@@ -100,7 +115,15 @@ class NEPLg2LanguageProvider {
         this._cancelPendingAnalysis();
         this.text = nextText;
         this._rebuildOffsetMaps();
-        this._scheduleAnalysis(true);
+        this.lex = { tokens: [], diagnostics: [] };
+        this.parse = null;
+        this.resolve = null;
+        this.semantics = null;
+        this.definitionById.clear();
+        this.lastUpdatePayload = null;
+        this.lastAnalyzedText = '';
+        this._publishEmptyPayload();
+        this._scheduleAnalysis(false);
     }
 
     _buildIncrementalPayload(previousText, nextText, previousPayload) {
@@ -148,6 +171,17 @@ class NEPLg2LanguageProvider {
             return wasm.analyze_semantics_with_vfs(this.path, this.text, vfsSnapshot);
         }
         return wasm.analyze_semantics(this.text);
+    }
+
+    _publishEmptyPayload() {
+        const bridge = this._analysisBridge();
+        const payload = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+            lex: this.lex,
+            parse: this.parse,
+            resolve: this.resolve,
+            semantics: this.semantics,
+        });
+        this.updateCallback(payload);
     }
 
     _rebuildOffsetMaps() {
@@ -250,15 +284,9 @@ class NEPLg2LanguageProvider {
                     diagnostics: (this.semantics.diagnostics || []).filter((d: any) => d.stage === 'lex')
                 };
                 this.resolve = this.semantics.name_resolution || null;
-                // Currently, parse AST is not directly included, but diagnostics are there
-                // We run analyze_parse strictly to get the AST for folding ranges
-                let parsePayload = null;
-                if (typeof wasm.analyze_parse === 'function') {
-                    try { parsePayload = wasm.analyze_parse(this.text); } catch (e) {}
-                }
                 this.parse = {
                     ok: this.semantics.ok,
-                    module: parsePayload?.module || null,
+                    module: null,
                     diagnostics: [] // We use this.semantics.diagnostics for everything
                 };
             } catch (e) {
@@ -292,6 +320,58 @@ class NEPLg2LanguageProvider {
         this.lastUpdatePayload = payload;
         this.lastAnalyzedText = this.text;
         this.updateCallback(payload);
+        this._scheduleStructuralAnalysis(version, this.text);
+    }
+
+    _scheduleStructuralAnalysis(version, text) {
+        this._cancelPendingStructuralAnalysis();
+        const run = () => {
+            this.pendingStructuralIdleCallback = null;
+            if (version !== this.analysisVersion || text !== this.text) {
+                return;
+            }
+            if (this._ensureStructuralParse()) {
+                const bridge = this._analysisBridge();
+                const payload = bridge.buildEditorUpdatePayloadFromAnalysis(this.text, {
+                    lex: this.lex,
+                    parse: this.parse,
+                    resolve: this.resolve,
+                    semantics: this.semantics,
+                });
+                this.lastUpdatePayload = payload;
+                this.updateCallback(payload);
+            }
+        };
+        this.pendingStructuralTimer = setTimeout(() => {
+            this.pendingStructuralTimer = null;
+            if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+                this.pendingStructuralIdleCallback = window.requestIdleCallback(run, { timeout: 900 });
+            } else {
+                run();
+            }
+        }, this.structuralAnalyzeDelayMs);
+    }
+
+    _ensureStructuralParse() {
+        if (this.parse?.module && this.lastAnalyzedText === this.text) {
+            return true;
+        }
+        const wasm = this._wasm();
+        if (!wasm || typeof wasm.analyze_parse !== 'function') {
+            return false;
+        }
+        try {
+            const parsePayload = wasm.analyze_parse(this.text);
+            this.parse = {
+                ...(this.parse || {}),
+                module: parsePayload?.module || null,
+                diagnostics: [],
+            };
+            return Boolean(this.parse?.module);
+        } catch (error) {
+            console.warn('[NEPLg2LanguageProvider] structural parse failed:', error);
+            return false;
+        }
     }
 
     _spanFrom(obj) {
@@ -371,6 +451,7 @@ class NEPLg2LanguageProvider {
     }
 
     async getHoverInfo(index) {
+        this._ensureStructuralParse();
         const bridge = this._analysisBridge();
         return bridge.getHoverInfoFromAnalysis(this.text, {
             lex: this.lex,
@@ -584,6 +665,7 @@ class NEPLg2LanguageProvider {
     }
 
     getAst() {
+        this._ensureStructuralParse();
         return this.parse?.module?.root || null;
     }
 

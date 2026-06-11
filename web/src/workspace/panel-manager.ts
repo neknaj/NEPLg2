@@ -74,6 +74,7 @@ type PanelManagerOptions = {
     popup: HTMLElement;
     vfs: any;
     createNeplProvider: () => any;
+    getCompilerMode?: () => string;
     cursorSpan: HTMLElement;
     analysisSpan: HTMLElement;
     terminalStatusSpan: HTMLElement;
@@ -87,6 +88,7 @@ export class PlaygroundPanelManager {
     popup: HTMLElement;
     vfs: any;
     createNeplProvider: () => any;
+    getCompilerMode: () => string;
     cursorSpan: HTMLElement;
     analysisSpan: HTMLElement;
     terminalStatusSpan: HTMLElement;
@@ -98,6 +100,8 @@ export class PlaygroundPanelManager {
     currentFontSize: number;
     zoomBadgeTimerMap: Map<string, number>;
     pinchState: { leafId: string; initialZoom: number; initialDist: number } | null;
+    analysisInsightTimer: number | null;
+    analysisInsightVersion: number;
 
     constructor(options: PanelManagerOptions) {
         this.root = options.root;
@@ -110,6 +114,7 @@ export class PlaygroundPanelManager {
         this.popup = options.popup;
         this.vfs = options.vfs;
         this.createNeplProvider = options.createNeplProvider;
+        this.getCompilerMode = options.getCompilerMode || (() => 'rust');
         this.cursorSpan = options.cursorSpan;
         this.analysisSpan = options.analysisSpan;
         this.terminalStatusSpan = options.terminalStatusSpan;
@@ -121,6 +126,8 @@ export class PlaygroundPanelManager {
         this.currentFontSize = 14;
         this.zoomBadgeTimerMap = new Map();
         this.pinchState = null;
+        this.analysisInsightTimer = null;
+        this.analysisInsightVersion = 0;
         this.bindWindowEvents();
     }
 
@@ -563,17 +570,7 @@ export class PlaygroundPanelManager {
                 }
                 const pos = runtime.editor.getCursorPosition(index);
                 this.cursorSpan.textContent = `Ln ${pos.row + 1}, Col ${pos.col + 1}`;
-                const insight = runtime.editor.getTokenInsight(index);
-                if (!insight) {
-                    this.analysisSpan.textContent = '';
-                    return;
-                }
-                const parts: string[] = [];
-                if (insight.inferredType) parts.push(`<${insight.inferredType}>`);
-                if (insight.resolvedDefinition) {
-                    parts.push(`${insight.resolvedDefinition.kind}:${insight.resolvedDefinition.name}`);
-                }
-                this.analysisSpan.textContent = parts.join(' | ');
+                this.scheduleAnalysisInsight(runtime, index);
             },
         });
         runtime.editor.setFontSize(this.currentFontSize);
@@ -631,7 +628,10 @@ export class PlaygroundPanelManager {
         contentEl.appendChild(canvasContainer);
         shell.rootEl.appendChild(contentEl);
 
-        const terminal = new CanvasTerminal(canvas, textarea, null, { vfs: this.vfs });
+        const terminal = new CanvasTerminal(canvas, textarea, null, {
+            vfs: this.vfs,
+            getCompilerMode: this.getCompilerMode,
+        });
         terminal.setFontSize(this.currentFontSize);
 
         const runtime: TerminalRuntime = {
@@ -714,12 +714,40 @@ export class PlaygroundPanelManager {
         if (!runtime) {
             this.cursorSpan.textContent = 'No editor';
             this.analysisSpan.textContent = '';
+            this.cancelAnalysisInsight();
             return;
         }
         const rawEditor = runtime.editor.getRawEditor();
         const index = rawEditor.cursor || 0;
         const pos = runtime.editor.getCursorPosition(index);
         this.cursorSpan.textContent = `Ln ${pos.row + 1}, Col ${pos.col + 1}`;
+        this.scheduleAnalysisInsight(runtime, index, 0);
+    }
+
+    cancelAnalysisInsight() {
+        this.analysisInsightVersion += 1;
+        if (this.analysisInsightTimer !== null) {
+            window.clearTimeout(this.analysisInsightTimer);
+            this.analysisInsightTimer = null;
+        }
+    }
+
+    scheduleAnalysisInsight(runtime: EditorRuntime, index: number, delayMs = 55) {
+        this.cancelAnalysisInsight();
+        const version = this.analysisInsightVersion;
+        this.analysisInsightTimer = window.setTimeout(() => {
+            this.analysisInsightTimer = null;
+            if (version !== this.analysisInsightVersion) {
+                return;
+            }
+            if (this.snapshot.focusedLeafId !== runtime.leafId) {
+                return;
+            }
+            this.updateAnalysisInsight(runtime, index);
+        }, Math.max(0, delayMs));
+    }
+
+    updateAnalysisInsight(runtime: EditorRuntime, index: number) {
         const insight = runtime.editor.getTokenInsight(index);
         if (!insight) {
             this.analysisSpan.textContent = '';
@@ -1215,7 +1243,7 @@ export class PlaygroundPanelManager {
         runtime.terminal.currentInput = command;
         runtime.terminal.execute();
         runtime.terminal.focus();
-        this.terminalStatusSpan.textContent = 'wasi-target';
+        this.terminalStatusSpan.textContent = `wasi-target:${this.getCompilerMode()}`;
     }
 
     showEditorHelp(anchorRect: DOMRect) {
