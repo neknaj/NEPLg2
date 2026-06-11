@@ -53789,3 +53789,100 @@ MERGE_APPROVED
 - approve: approved
 - residual_risk: none
 - unexecuted_verification: none
+
+## 2026-06-11 Agent selfhost binary octal i32 literal checkpoint
+
+- branch: `work/selfhost-next-issue-slice`
+- issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- plan.md: 確認のみ。人が編集するファイルなので変更していない。
+- zenn policy: Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、enum / struct / match による静的検査、`Result` による失敗の明示、source token 再読禁止、探索範囲削減、丁寧な日本語 doc comment、試作段階でも技術的負債を残さない方針を今回の変更に反映した。行数制限やコメント増加を妨げる検査は追加していない。
+- subagent_design_review: `019eb6cf-79b9-72d1-8213-fa9063648489` は、次の selfhost slice として suffix / defaulting へ広げず、`0b` / `0o` integer literal を token-local `i32` payload authority に接続する方針を承認した。lexer token 境界、radix plan、stage1 source-backed smoke、HIR lowering source-free 契約を同じ slice で固定することを推奨した。
+- root_cause: `literal_payload.nepl` は 10 進と `0x` / `0X` 16 進 i32 payload までは source-backed checker で semantic value にしていたが、selfhost lexer / checker の binary / octal 境界はまだ未接続だった。このままでは `0b1010` / `0o12` を source-backed literal payload として扱えず、後段 lowering が source token を再読する設計へ戻る余地が残る。
+- implementation: `syntax/lexer/literal.nepl` に binary / octal digit predicate と `lex_binary_int_end` / `lex_octal_int_end` を追加し、`syntax/lexer/next.nepl` の leading `0` branch から `0b` / `0B` と `0o` / `0O` を `IntLiteral` token として切り出すようにした。`check/expr/literal_payload.nepl` は `SelfhostLiteralI32RadixPlan` で radix 2 / 8 / 10 / 16 と body range を返し、接頭辞除去済み body を `string::to_i32_radix` へ渡す。未知の alphabetic radix marker は `I32RadixUnsupported` として fail-closed に残した。
+- smoke: `selfhost_check_expr_stage1_binary_octal_i32_body_line` は source text `add 0b1010 0o12` を source-backed reducer へ渡し、2 つの checked argument がどちらも `I32Literal(10)` で、range が `[1, 2)` と `[2, 3)` になることを確認する。`tests/stdlib/neplg2_lexer.n.md` には `lexes_binary_and_octal_integer_literals_as_single_tokens` を追加し、selfhost `lex_all` が `0b1010` と `0o12` をそれぞれ 1 個の `IntLiteral` token として返すことを lexer 単体で固定した。
+- docs: `doc/neplg2/self_host_neplg21_compiler_design.md` と対象 issue を更新し、binary / octal i32 literal を完了済みに移した。`todo.md` には binary / octal radix 残件が既に無かったため、今回の差分では変更していない。
+- subagent_implementation_review: `019eb6db-8694-7752-8416-5faedf3ee553` は blocker なしで approve。non-blocker として `argument_payload.nepl` の `I32Literal` constructor comment が 10 進 / 16 進だけの古い説明に読めること、lexer integration の fixture を追加すると契約がより明確になることを指摘した。修正として constructor comment を 10 / 16 / 2 / 8 進の semantic `i32` 正規化へ更新し、Rust parity test ではなく selfhost lexer doctest へ `0b1010` / `0o12` token fixture を追加した。
+- executed verification: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_lexer_rust_parity.js`; `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-lexer-binary-octal.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-binary-octal-i32-final.json`; `node nodesrc/tests.js -i stdlib/neplg2/core/syntax --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-syntax-binary-octal-lexer-final.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `git diff --check`。
+- verification note: 初回 `nodesrc/test_selfhost_lexer_rust_parity.js` への fixture 追加は、Rust `analyze_lex` が現時点で `0b` / `0o` を 1 token にしないため test の責務違反として撤回した。selfhost lexer integration は `tests/stdlib/neplg2_lexer.n.md` の doctest で確認する。`nodesrc/test_selfhost_documentation_contract.js` と `nodesrc/run_source_policy_regressions.js --warn-only` は既存 documentation sample gaps を表示するが exit 0。Node WASI ExperimentalWarning と Git CRLF conversion warning は既存 warning で、今回の failure ではない。
+- existing warnings: Node WASI ExperimentalWarning、既存 documentation sample gap output、Git CRLF warning。
+- new warnings: なし。
+- residual_risk: なし。今回の完了範囲は selfhost lexer / checker の binary / octal i32 payload に限定し、numeric suffix と defaulting は残件として分けた。
+- unexecuted_verification: なし。`trunk build` は stdlib selfhost slice で必須ではないため、focused Node contract と stdlib doctest、source policy regression を acceptance evidence とした。
+- residual work after this slice: lambda / borrow / source-backed pipe suffix の lambda など複合式 success path、generic instantiation inference、trait solving、numeric suffix の言語仕様化、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity。
+
+## 2026-06-11 Agent selfhost binary octal i32 aggregate review
+
+### review_scope
+
+- branch: work/selfhost-next-issue-slice
+- base: origin/main 36439558f
+- head: working tree before commit
+- files_read: AGENTS.md; plan.md; https://zenn.dev/bem130/articles/1b352797de94e7; stdlib/neplg2/core/syntax/lexer/literal.nepl; stdlib/neplg2/core/syntax/lexer/next.nepl; stdlib/neplg2/core/check/expr/literal_payload.nepl; stdlib/neplg2/core/check/expr/argument_payload.nepl; stdlib/neplg2/core/check/expr/stage1.nepl; tests/stdlib/neplg2_lexer.n.md; nodesrc/test_selfhost_expr_call_reduce_contract.js; nodesrc/test_selfhost_documentation_contract.js; doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md; note.n.md
+- not_reviewed: unrelated stdlib modules; Rust compiler lexer parity change; browser UI; unrelated Resource IR performance changes
+- subagent_review_ids:
+  - 019eb6cf-79b9-72d1-8213-fa9063648489
+  - 019eb6db-8694-7752-8416-5faedf3ee553
+- subagent_review_count: 2
+
+### decision
+
+MERGE_APPROVED
+
+### policy/spec
+
+- classification: Approve
+- file/function: doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md; stdlib/neplg2/core/check/expr/argument_payload.nepl
+- finding: No policy/spec blocker remains for the binary / octal i32 literal slice.
+- root_cause: Previous records and constructor comment described only decimal / hex i32 payload and left binary / octal radix as a residual.
+- reason: The docs, issue, and constructor comment now state that decimal / hex / binary / octal spelling is normalized before HIR lowering, while suffix and defaulting remain separate residual work.
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: nodesrc/test_selfhost_expr_call_reduce_contract.js fixes stage1 binary / octal payload behavior, and tests/stdlib/neplg2_lexer.n.md fixes lexer token boundary behavior.
+- doc_issue_note: design doc, issue, and note.n.md are synchronized.
+- verify: node nodesrc/test_selfhost_expr_call_reduce_contract.js; node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/issues.js check --dir issues; git diff --check
+
+### implementation/test
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/syntax/lexer/next.nepl; stdlib/neplg2/core/syntax/lexer/literal.nepl; stdlib/neplg2/core/check/expr/literal_payload.nepl; stdlib/neplg2/core/check/expr/stage1.nepl; tests/stdlib/neplg2_lexer.n.md
+- finding: No implementation/test blocker remains for `0b` / `0o` i32 literal payload.
+- root_cause: The checker had no source-backed radix 2 / 8 payload authority, and the lexer had no selfhost regression proving those spellings stay inside one integer token.
+- reason: The lexer now scans binary / octal digit runs in O(n), the checker uses a token-local radix plan, and stage1 / lexer doctests verify both token boundary and semantic payload.
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: the regression covers both checked argument payload and lexer token boundary without adding Rust parity requirements that current Rust analyze_lex does not satisfy.
+- doc_issue_note: note.n.md records subagent non-blockers and their fixes.
+- verify: node nodesrc/test_selfhost_lexer_rust_parity.js; node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-lexer-binary-octal.json; node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-binary-octal-i32-final.json; node nodesrc/tests.js -i stdlib/neplg2/core/syntax --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-syntax-binary-octal-lexer-final.json
+
+### zenn_check
+
+- Result/Option: literal payload parsing returns typed `Result` errors such as `I32Invalid` and `I32RadixUnsupported` instead of sentinel values.
+- enum error/display separation: unsupported radix is stored as `SelfhostLiteralArgumentErrorKind::I32RadixUnsupported`, and display text is not used as control flow.
+- match exhaustiveness: radix marker branching is explicit for `x` / `X`, `b` / `B`, `o` / `O`, unsupported alphabetic marker, and decimal fallback.
+- pure/impure boundary: checker payload functions are pure data conversion boundaries and do not access FileSystem, StdIO, or global mutable state.
+- authority boundary: HIR lowering consumes `SelfhostCheckedArgumentKind::I32Literal` semantic value and does not parse the source lexeme again.
+- owner/free: stage1 smoke frees token / arena / candidate owners on success and error paths through the existing result branches.
+- zero-cost/performance: lexer scan is a bounded single pass over the digit run, and checker radix selection is token-local with no suffix lookahead or candidate search expansion.
+- doc comment: new and updated NEPL comments explain purpose, contract, return/error conditions, and complexity for lexer helpers and checked argument payload constructor.
+- prototype/fail-closed: numeric suffix, fixed `i32` / `f32` defaulting beyond current Rust parity, generic inference, trait solving, indirect call, and `memo_call` remain explicit residual work.
+
+### evidence_to_record
+
+- note: note.n.md contains Zenn policy, two subagent reviews, executed verification, existing warnings, new warnings, residual_risk, and unexecuted_verification fields.
+- issue: issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md records the binary / octal checkpoint and keeps the issue open for broader work.
+- source policy: nodesrc/test_selfhost_expr_call_reduce_contract.js records stage1 binary / octal payload; tests/stdlib/neplg2_lexer.n.md records lexer token boundary.
+- tests: node nodesrc/test_selfhost_expr_call_reduce_contract.js; node nodesrc/test_selfhost_hir_lowering_contract.js; node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/test_selfhost_lexer_rust_parity.js; node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-lexer-binary-octal.json; node nodesrc/issues.js check --dir issues; git diff --check
+
+### warnings
+
+- existing_warnings: Node WASI ExperimentalWarning, existing documentation sample gap output, and Git CRLF warnings
+- new_warnings: none
+
+### summary
+
+- blockers: none
+- non_blockers: fixed
+- questions: none
+- approve: approved
+- residual_risk: none
+- unexecuted_verification: none

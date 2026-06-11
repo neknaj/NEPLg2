@@ -9,7 +9,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const file = path.join(repoRoot, "tests", "stdlib", "neplg2_lexer.n.md");
 const parsed = parseFile(file);
 
-const expectedCheckCounts = [19, 17, 2, 11, 3, 3, 3, 3, 4, 3, 43, 9, 19, 17];
+const expectedCheckCounts = [19, 9, 17, 2, 11, 3, 3, 3, 3, 4, 3, 43, 9, 19, 17];
 
 assert.equal(parsed.doctests.length, expectedCheckCounts.length, "selfhost lexer doctest count changed");
 

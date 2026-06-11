@@ -11,6 +11,7 @@
 //: - `takes @add` のような明示 function value argument が、expected function type と named callable signature の一致でだけ縮約されることを確認します。
 //: - `takes add` のような bare function name は、NEPLg2.1 の no partial application 規則に従って function value へ暗黙変換されないことを確認します。
 //: - `1 |> add 2` のような pipe expression が、左辺を右辺 callable の第1引数として差し込んだ `DirectCall` checked tree に正規化されることを確認します。
+//: - `add 0b1010 0o12` のような binary / octal integer literal が、source-backed checker で semantic `i32` payload に正規化されることを確認します。
 //:
 //: [契約/けいやく]:
 //: - この module は focused smoke helper だけを持ち、production の接続規則は `body_line.nepl` に置きます。
@@ -825,6 +826,24 @@ fn selfhost_check_expr_stage1_expression_segment %fn void SelfhostBodySegment \v
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 7
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_binary_octal_expression_segment: `add 0b1010 0o12` 全体を指す expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - binary / octal integer literal の source-backed payload smoke で、3 token 全体を expression head として渡します。
+//:
+//: [契約/けいやく]:
+//: - token buffer の 0..3 全体を 1 expression line として扱います。
+//: - この fixture は lexer/parser の full integration ではなく、checker に届いた `IntLiteral` token の semantic payload 化を確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `SelfhostBodySegmentKind::ExpressionLine` の segment です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 record 構築だけなので O(1) です。
+fn selfhost_check_expr_stage1_binary_octal_expression_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 3 source_span_new_unchecked 0 0 15
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
 //: selfhost_check_expr_stage1_ascribed_expression_segment: `%i32 add 1 2` 全体を指す expression segment を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -1193,6 +1212,41 @@ fn selfhost_check_expr_stage1_make_tokens %impure fn void Result Vec SelfhostTok
                         Result::Ok tokens2:
                             let arg1 %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 6 7
                             selfhost_check_expr_stage1_push_token tokens2 arg1
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_binary_octal_i32_tokens: `add 0b1010 0o12` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - binary / octal integer literal が 1 token の `IntLiteral` として checker へ渡ったとき、source slice から semantic `i32` payload を作れることを確認します。
+//:
+//: [契約/けいやく]:
+//: - source text は `"add 0b1010 0o12"` です。
+//: - `0b1010` は prefix item `[1, 2)`、`0o12` は `[2, 3)` の argument として扱います。
+//: - token owner は caller が受け取り、runner が成功・失敗にかかわらず解放します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(tokens)`: 3 token の fixture buffer です。
+//: - `Err(error)`: token buffer allocation または push に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定3 token の push だけなので O(1) です。
+fn selfhost_check_expr_stage1_make_binary_octal_i32_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 0 3
+            match selfhost_check_expr_stage1_push_token tokens0 add_token:
+                Result::Ok tokens1:
+                    let binary_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 4 10
+                    match selfhost_check_expr_stage1_push_token tokens1 binary_arg:
+                        Result::Ok tokens2:
+                            let octal_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 11 15
+                            selfhost_check_expr_stage1_push_token tokens2 octal_arg
                         Result::Err e:
                             Result::Err e
                 Result::Err e:
@@ -2673,6 +2727,39 @@ fn selfhost_check_expr_stage1_argument_is_i32_literal_range %fn &SelfhostChecked
                 SelfhostCheckedArgumentKind::NestedDirectCall _candidate:
                     false
                 SelfhostCheckedArgumentKind::BlockResult:
+                    false
+
+//: selfhost_check_expr_stage1_success_has_binary_octal_i32_arguments: binary / octal literal payload を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `add 0b1010 0o12` の source-backed reduction が、2つの integer argument をどちらも semantic `I32Literal(10)` として保存することを確認します。
+//: - HIR lowering では source token を再読しないため、checked argument payload が radix 解釈後の値を持つことがこの smoke の authority です。
+//:
+//: [契約/けいやく]:
+//: - `success` は `SelfhostExpressionLineCheckSuccess` の borrow です。この helper は内部 owner を解放しません。
+//: - fixture の prefix item index は `0:add`, `1:0b1010`, `2:0o12` です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: checked argument が2件で、binary と octal の両方が `I32Literal(10)` です。
+//: - `false`: argument 数、Vec access、payload kind、値、消費範囲のいずれかが期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定2件の Vec access と payload match だけなので O(1) です。
+fn selfhost_check_expr_stage1_success_has_binary_octal_i32_arguments %fn &SelfhostExpressionLineCheckSuccess bool \success:
+    let checked_arguments %&Vec SelfhostCheckedArgument selfhost_expression_line_check_success_checked_arguments success
+    if:
+        not eq v::len checked_arguments 2
+        then:
+            false
+        else:
+            match v::get checked_arguments 0:
+                Option::Some first:
+                    match v::get checked_arguments 1:
+                        Option::Some second:
+                            and selfhost_check_expr_stage1_argument_is_i32_literal_range &first 10 1 2 selfhost_check_expr_stage1_argument_is_i32_literal_range &second 10 2 3
+                        Option::None:
+                            false
+                Option::None:
                     false
 
 //: selfhost_check_expr_stage1_argument_is_checked_expr_range: checked argument が既存 checked tree node 参照か[調/しら]べる
@@ -5410,6 +5497,42 @@ fn selfhost_check_expr_stage1_pipe_error_with_empty_context %impure fn Vec Selfh
             v::free tokens
             false
 
+//: selfhost_check_expr_stage1_binary_octal_i32_ok_with_candidate: binary / octal i32 literal が direct call payload になるか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `add 0b1010 0o12` を source-backed reducer に渡し、binary と octal の token-local spelling が checker 境界で `I32Literal(10)` に正規化されることを確認します。
+//: - lexer/parser の full integration ではなく、checker が受け取った `IntLiteral` token と source slice から semantic payload を作る境界を固定します。
+//:
+//: [契約/けいやく]:
+//: - `arena`、`tokens`、candidate vector はこの helper が成功・失敗にかかわらず閉じます。
+//: - suffix や numeric defaulting は扱いません。`0b1010` / `0o12` は現 checkpoint の固定 `i32` literal として検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: direct call が2引数で、checked argument payload が `10` / `10` です。
+//: - `false`: setup 失敗、reducer failure、argument payload の退行のいずれかです。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定3 token / 1 candidate の smoke です。literal decode は各 token spelling 長 n に対して O(n) です。
+fn selfhost_check_expr_stage1_binary_octal_i32_ok_with_candidate %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId bool \tokens\arena\add_type:
+    match selfhost_check_expr_stage1_make_candidate_vec add_type:
+        Result::Ok candidates:
+            let segment %SelfhostBodySegment selfhost_check_expr_stage1_binary_octal_expression_segment
+            match selfhost_check_expr_stage1_reduce_body_segment_with_empty_values &tokens "add 0b1010 0o12" segment arena &candidates none:
+                Result::Ok success:
+                    let ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_binary_octal_i32_arguments &success
+                    selfhost_expression_line_check_success_free success
+                    v::free candidates
+                    v::free tokens
+                    ok
+                Result::Err _e:
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
 //: selfhost_check_expr_stage1_run_with_candidate: token / arena / candidate owner を閉じて smoke result を[返/かえ]す
 //:
 //: [目的/もくてき]:
@@ -5588,6 +5711,43 @@ fn selfhost_check_expr_stage1_run_with_tokens %impure fn Vec SelfhostToken i32 \
                     let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
                     selfhost_check_expr_stage1_run_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_binary_octal_i32_with_tokens: token owner から binary / octal literal smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `add 0b1010 0o12` 用 token buffer に primitive `i32` arena fixture を付け、binary / octal literal payload の source-backed success helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - arena setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後は token owner と arena owner を下位 helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: binary / octal integer literal が semantic `i32` payload として検査されました。
+//: - `1`: setup または下位 smoke helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive fixture setup は O(1) です。literal payload decode は token spelling 長に従います。
+fn selfhost_check_expr_stage1_run_binary_octal_i32_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    match selfhost_check_expr_stage1_add_two_i32_function arena1 i32_type:
+                        Result::Ok add_alloc:
+                            let add_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &add_alloc
+                            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena add_alloc
+                            if selfhost_check_expr_stage1_binary_octal_i32_ok_with_candidate tokens next_arena add_type 0 1
+                        Result::Err _e:
+                            v::free tokens
+                            1
                 Result::Err _e:
                     v::free tokens
                     1
@@ -8509,6 +8669,29 @@ pub fn selfhost_check_expr_stage1_trailing_block_nested_body_line %impure fn voi
         Result::Err _e:
             1
 
+//: selfhost_check_expr_stage1_binary_octal_i32_body_line: binary / octal integer literal smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - `0b1010` と `0o12` が source-backed checker で semantic `i32` 値 `10` に正規化されることを確認します。
+//: - HIR lowering が literal lexeme を再読せず、checker payload だけを authority にできる状態を固定します。
+//:
+//: [契約/けいやく]:
+//: - token buffer owner は runner へ移動し、runner が cleanup を担当します。
+//: - この smoke は numeric suffix / defaulting / Rust 側 lexer parity までは扱いません。現行 selfhost の `i32` fixed literal payload の範囲だけを確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: binary / octal literal payload smoke が通りました。
+//: - `1`: token setup または checker payload の検査が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 token fixture を1回作るため setup は O(1) です。支配的な計算量は literal spelling の長さに従う O(n) decode です。
+pub fn selfhost_check_expr_stage1_binary_octal_i32_body_line %impure fn void i32 \void:
+    match selfhost_check_expr_stage1_make_binary_octal_i32_tokens:
+        Result::Ok tokens:
+            selfhost_check_expr_stage1_run_binary_octal_i32_with_tokens tokens
+        Result::Err _e:
+            1
+
 //: selfhost_check_expr_stage1_direct_body_line: direct named call の最小 body-line smoke API
 //:
 //: [目的/もくてき]:
@@ -8539,6 +8722,7 @@ pub fn selfhost_check_expr_stage1_direct_body_line %impure fn void i32 \void:
 //: - `ExpressionLine.head` から prefix list を作り、direct named call reduction へ渡す縦切りを確認します。
 //: - `BlockIntro` が同じ入口から拒否されることも確認し、nested body を flat expression として扱う退行を防ぎます。
 //: - line-head ascription と argument-scope ascription の両方を smoke test に含め、source-backed reducer への接続退行を検出します。
+//: - binary / octal integer literal は source-backed checker で semantic `I32Literal` payload に変換し、lowering 側へ source 再読を戻さないことを確認します。
 //: - `NamedValue` argument は、scope binding と value type evidence が揃う場合だけ通り、binding だけでは拒否されることを確認します。
 //: - nested named call argument は、scope と callable signature table から inner head の候補を集め、消費後 index を外側 call へ返すことを確認します。
 //: - 同名 local が function を shadow している場合は、古い function candidate を復活させず、NamedValue value evidence fallback を使うことも確認します。
@@ -8569,39 +8753,45 @@ pub fn selfhost_check_expr_stage1_body_line %impure fn void i32 \void:
     if:
         eq base 0
         then:
-            let ascription_base %i32 selfhost_check_expr_stage1_ascription_body_line
+            let radix_base %i32 selfhost_check_expr_stage1_binary_octal_i32_body_line
             if:
-                eq ascription_base 0
+                eq radix_base 0
                 then:
-                    let argument_ascription %i32 selfhost_check_expr_stage1_ascribed_argument_body_line
+                    let ascription_base %i32 selfhost_check_expr_stage1_ascription_body_line
                     if:
-                        eq argument_ascription 0
+                        eq ascription_base 0
                         then:
-                            let named_argument %i32 selfhost_check_expr_stage1_named_argument_body_line
+                            let argument_ascription %i32 selfhost_check_expr_stage1_ascribed_argument_body_line
                             if:
-                                eq named_argument 0
+                                eq argument_ascription 0
                                 then:
-                                    let nested_argument %i32 selfhost_check_expr_stage1_nested_call_argument_body_line
+                                    let named_argument %i32 selfhost_check_expr_stage1_named_argument_body_line
                                     if:
-                                        eq nested_argument 0
+                                        eq named_argument 0
                                         then:
-                                            let function_value_argument %i32 selfhost_check_expr_stage1_function_value_argument_body_line
+                                            let nested_argument %i32 selfhost_check_expr_stage1_nested_call_argument_body_line
                                             if:
-                                                eq function_value_argument 0
+                                                eq nested_argument 0
                                                 then:
-                                                    let pipe_argument %i32 selfhost_check_expr_stage1_pipe_body_line
+                                                    let function_value_argument %i32 selfhost_check_expr_stage1_function_value_argument_body_line
                                                     if:
-                                                        eq pipe_argument 0
+                                                        eq function_value_argument 0
                                                         then:
-                                                            let trailing_block %i32 selfhost_check_expr_stage1_trailing_block_argument_body_line
+                                                            let pipe_argument %i32 selfhost_check_expr_stage1_pipe_body_line
                                                             if:
-                                                                eq trailing_block 0
+                                                                eq pipe_argument 0
                                                                 then:
-                                                                    let trailing_sequence %i32 selfhost_check_expr_stage1_trailing_block_sequence_body_line
+                                                                    let trailing_block %i32 selfhost_check_expr_stage1_trailing_block_argument_body_line
                                                                     if:
-                                                                        eq trailing_sequence 0
+                                                                        eq trailing_block 0
                                                                         then:
-                                                                            selfhost_check_expr_stage1_trailing_block_nested_body_line
+                                                                            let trailing_sequence %i32 selfhost_check_expr_stage1_trailing_block_sequence_body_line
+                                                                            if:
+                                                                                eq trailing_sequence 0
+                                                                                then:
+                                                                                    selfhost_check_expr_stage1_trailing_block_nested_body_line
+                                                                                else:
+                                                                                    1
                                                                         else:
                                                                             1
                                                                 else:

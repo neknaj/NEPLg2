@@ -2112,6 +2112,10 @@ const DOC_SECTION_REQUIREMENTS = [
     requirement("stdlib/neplg2/core/syntax/lexer/directive.nepl", "lex_directive_word_at", ["purpose", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/syntax/lexer/indent.nepl", "lex_line_indent_width", ["purpose", "contract", "complexity"]),
     requirement("stdlib/neplg2/core/syntax/lexer/literal.nepl", "lex_is_hex_digit", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/syntax/lexer/literal.nepl", "lex_is_binary_digit", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/syntax/lexer/literal.nepl", "lex_is_octal_digit", ["purpose", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/syntax/lexer/literal.nepl", "lex_binary_int_end", ["purpose", "contract", "returns", "complexity"]),
+    requirement("stdlib/neplg2/core/syntax/lexer/literal.nepl", "lex_octal_int_end", ["purpose", "contract", "returns", "complexity"]),
     requirement("stdlib/neplg2/core/syntax/lexer/raw_mode.nepl", "SelfhostLexerRawMode", ["purpose", "contract"]),
     requirement("stdlib/neplg2/core/syntax/lexer/token_build.nepl", "lex_token_slice", ["purpose", "contract", "complexity"]),
 ];

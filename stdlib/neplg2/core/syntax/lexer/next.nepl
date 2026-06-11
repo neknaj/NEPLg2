@@ -157,13 +157,25 @@ pub fn lex_next %fn str fn i32 fn i32 fn i32 SelfhostToken \source\n\file_id\idx
                                                     let end %i32 lex_hex_int_end source n add start 2
                                                     lex_token_slice TokenKind::IntLiteral source file_id start end
                                                 else:
-                                                    let end %i32 lex_number_end_loop source n add start 1 false
                                                     if:
-                                                        lex_range_has_dot source start end
+                                                        or eq next 'b' eq next 'B'
                                                         then:
-                                                            lex_token_slice TokenKind::FloatLiteral source file_id start end
-                                                        else:
+                                                            let end %i32 lex_binary_int_end source n add start 2
                                                             lex_token_slice TokenKind::IntLiteral source file_id start end
+                                                        else:
+                                                            if:
+                                                                or eq next 'o' eq next 'O'
+                                                                then:
+                                                                    let end %i32 lex_octal_int_end source n add start 2
+                                                                    lex_token_slice TokenKind::IntLiteral source file_id start end
+                                                                else:
+                                                                    let end %i32 lex_number_end_loop source n add start 1 false
+                                                                    if:
+                                                                        lex_range_has_dot source start end
+                                                                        then:
+                                                                            lex_token_slice TokenKind::FloatLiteral source file_id start end
+                                                                        else:
+                                                                            lex_token_slice TokenKind::IntLiteral source file_id start end
                                         else:
                                             let end %i32 lex_number_end_loop source n add start 1 false
                                             if:

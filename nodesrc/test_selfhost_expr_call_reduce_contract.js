@@ -364,8 +364,8 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostLiteralI32RadixPlan[\s\S]*selfhost_literal_argument_i32_radix_plan_from_lexeme[\s\S]*or eq prefix_second 'x' eq prefix_second 'X'[\s\S]*selfhost_literal_i32_radix_plan_new 16[\s\S]*selfhost_literal_argument_i32_unsupported_radix_marker[\s\S]*I32RadixUnsupported[\s\S]*selfhost_literal_argument_i32_body_from_plan[\s\S]*string::to_i32_radix body plan\.radix[\s\S]*selfhost_checked_argument_i32_literal/,
-    "i32 literal arguments must normalize decimal and hex spelling to semantic i32 payloads without rereading source during HIR lowering",
+    /SelfhostLiteralI32RadixPlan[\s\S]*selfhost_literal_argument_i32_radix_plan_from_lexeme[\s\S]*or eq prefix_second 'x' eq prefix_second 'X'[\s\S]*selfhost_literal_i32_radix_plan_new 16[\s\S]*or eq prefix_second 'b' eq prefix_second 'B'[\s\S]*selfhost_literal_i32_radix_plan_new 2[\s\S]*or eq prefix_second 'o' eq prefix_second 'O'[\s\S]*selfhost_literal_i32_radix_plan_new 8[\s\S]*selfhost_literal_argument_i32_unsupported_radix_marker[\s\S]*I32RadixUnsupported[\s\S]*selfhost_literal_argument_i32_body_from_plan[\s\S]*string::to_i32_radix body plan\.radix[\s\S]*selfhost_checked_argument_i32_literal/,
+    "i32 literal arguments must normalize decimal, hex, binary, and octal spelling to semantic i32 payloads without rereading source during HIR lowering",
 );
 assert.match(
     source,
@@ -860,6 +860,11 @@ assert.match(
     source,
     /selfhost_check_expr_stage1_make_ascribed_argument_i32_tokens[\s\S]*"add %i32 1 2"[\s\S]*selfhost_check_expr_stage1_ascribed_argument_ok_with_scope[\s\S]*selfhost_check_expr_stage1_success_is_two_arg_direct_call/,
     "stage1 must smoke-test that argument-scope i32 ascription succeeds through the source-backed reducer",
+);
+assert.match(
+    source,
+    /selfhost_check_expr_stage1_make_binary_octal_i32_tokens[\s\S]*"add 0b1010 0o12"[\s\S]*TokenKind::IntLiteral source_span_new_unchecked 0 4 10[\s\S]*TokenKind::IntLiteral source_span_new_unchecked 0 11 15[\s\S]*selfhost_check_expr_stage1_success_has_binary_octal_i32_arguments[\s\S]*selfhost_check_expr_stage1_argument_is_i32_literal_range &first 10 1 2[\s\S]*selfhost_check_expr_stage1_argument_is_i32_literal_range &second 10 2 3[\s\S]*selfhost_check_expr_stage1_binary_octal_i32_body_line[\s\S]*pub fn selfhost_check_expr_stage1_body_line[\s\S]*selfhost_check_expr_stage1_binary_octal_i32_body_line/,
+    "stage1 must smoke-test that binary and octal integer literal spellings become semantic i32 checked payloads",
 );
 assert.match(
     source,

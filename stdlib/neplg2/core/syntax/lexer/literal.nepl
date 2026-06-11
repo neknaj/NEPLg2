@@ -2,6 +2,19 @@
 
 //: # lexer/literal
 //: numeric / string / char literal の終端走査を[定義/ていぎ]します。
+//:
+//: [目的/もくてき]:
+//: - selfhost lexer が source text を token stream へ分けるとき、literal ごとの byte range を決めます。
+//: - integer literal は prefix の種類ごとに digit 判定を分け、checker が 1 token の spelling を semantic payload へ変換できるようにします。
+//: - string / char literal は closing quote の位置だけを決め、escape の意味値検査は後段の literal payload checker に残します。
+//:
+//: [契約/けいやく]:
+//: - ここで返す offset は byte offset です。char index や source 全体と別の単位を混ぜてはいけません。
+//: - `0x` / `0X` は hex、`0b` / `0B` は binary、`0o` / `0O` は octal の integer token として同一 token に含めます。
+//: - invalid digit に到達した場合はその手前で token を切ります。digit の意味値検査と overflow 検査は `check/expr/literal_payload` が enum error として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 各 scanner は対象 literal spelling の長さ n に対して O(n) です。
 
 #import "core/math" as *
 #import "neplg2/core/syntax/lexer/byte" as *
@@ -23,7 +36,48 @@ pub fn lex_is_hex_digit %fn i32 bool \ch:
     let upper %bool and ge ch 'A' le ch 'F'
     or digit or lower upper
 
+//: lex_is_binary_digit: ASCII binary digit byte か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `0b` / `0B` integer literal の scanner が、token に含めてよい digit を判定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `0` または `1` の ASCII byte です。
+//: - `false`: それ以外の byte または EOF sentinel です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 比較だけなので O(1) です。
+pub fn lex_is_binary_digit %fn i32 bool \ch:
+    or eq ch '0' eq ch '1'
+
+//: lex_is_octal_digit: ASCII octal digit byte か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `0o` / `0O` integer literal の scanner が、token に含めてよい digit を判定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: `0..7` の ASCII byte です。
+//: - `false`: それ以外の byte または EOF sentinel です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 比較だけなので O(1) です。
+pub fn lex_is_octal_digit %fn i32 bool \ch:
+    and ge ch '0' le ch '7'
+
 //: lex_hex_int_end: hexadecimal integer literal の end offset を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `0x` / `0X` prefix の直後から hex digit が続く範囲を走査します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は digit body の先頭 byte offset です。prefix を含めた start ではありません。
+//: - 空 body の場合は `idx` をそのまま返します。空 digit の拒否は checker の `I32Invalid` に委譲します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 最初の非 hex digit または EOF の byte offset です。
+//:
+//: [計算量/けいさんりょう]:
+//: - digit 数 n に対して O(n) です。
 pub fn lex_hex_int_end %fn str fn i32 fn i32 i32 \source\n\idx:
     if:
         ge idx n
@@ -35,6 +89,62 @@ pub fn lex_hex_int_end %fn str fn i32 fn i32 i32 \source\n\idx:
                 lex_is_hex_digit ch
                 then:
                     lex_hex_int_end source n add idx 1
+                else:
+                    idx
+
+//: lex_binary_int_end: binary integer literal の end offset を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `0b` / `0B` prefix の直後から binary digit が続く範囲を走査します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は digit body の先頭 byte offset です。
+//: - 空 body はここでは拒否せず、checker の `I32Invalid` に委譲します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 最初の非 binary digit または EOF の byte offset です。
+//:
+//: [計算量/けいさんりょう]:
+//: - digit 数 n に対して O(n) です。
+pub fn lex_binary_int_end %fn str fn i32 fn i32 i32 \source\n\idx:
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch %i32 lex_byte_or_end source idx
+            if:
+                lex_is_binary_digit ch
+                then:
+                    lex_binary_int_end source n add idx 1
+                else:
+                    idx
+
+//: lex_octal_int_end: octal integer literal の end offset を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `0o` / `0O` prefix の直後から octal digit が続く範囲を走査します。
+//:
+//: [契約/けいやく]:
+//: - `idx` は digit body の先頭 byte offset です。
+//: - 空 body はここでは拒否せず、checker の `I32Invalid` に委譲します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 最初の非 octal digit または EOF の byte offset です。
+//:
+//: [計算量/けいさんりょう]:
+//: - digit 数 n に対して O(n) です。
+pub fn lex_octal_int_end %fn str fn i32 fn i32 i32 \source\n\idx:
+    if:
+        ge idx n
+        then:
+            idx
+        else:
+            let ch %i32 lex_byte_or_end source idx
+            if:
+                lex_is_octal_digit ch
+                then:
+                    lex_octal_int_end source n add idx 1
                 else:
                     idx
 

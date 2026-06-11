@@ -78,6 +78,67 @@ fn main %impure fn void i32 \void:
             checks_exit_code shown
 ```
 
+## lexes_binary_and_octal_integer_literals_as_single_tokens
+
+`0b` / `0B` と `0o` / `0O` は、self-host lexer の integer token 境界で 1 つの `IntLiteral` として切り出す。checker はこの token-local lexeme から radix と digit body を決めるため、ここでは parser や HIR を通さず lexer 単体の token kind と lexeme を固定する。
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
+#import "std/test" as *
+
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
+
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
+    let checks1 checks_push checks check_str_eq expected_kind kind_name
+    checks_push checks1 check_str_eq expected_lexeme lexeme
+
+fn main %impure fn void i32 \void:
+    let source %str "add 0b1010 0o12\n"
+    let checks0 checks_new
+    match lex_all source:
+        Result::Ok tokens:
+            let checks1 checks_push checks0 check_eq_i32 5 len &tokens
+            let checks2 check_token checks1 source &tokens 0 "Ident" "add"
+            let checks3 check_token checks2 source &tokens 1 "IntLiteral" "0b1010"
+            let checks4 check_token checks3 source &tokens 2 "IntLiteral" "0o12"
+            let checks5 check_token checks4 source &tokens 4 "Eof" ""
+            free tokens
+            let shown checks_print_report checks5
+            checks_exit_code shown
+        Result::Err diag:
+            let _msg %str field::get diag "message"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
+            let shown checks_print_report checks1
+            checks_exit_code shown
+```
+
 ## emits_nested_indent_dedent
 
 neplg2:test[stdio, normalize_newlines]
