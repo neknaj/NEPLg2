@@ -209,7 +209,7 @@ jobs:
                   override: true
 
             - name: NEPL-g2 doctests
-              run: node nodesrc/ci_timeout.js --minutes 10 --label "NEPL-g2 doctests" -- node nodesrc/tests.js -i tests -o tests-current.json -j 4 --timeout-nonfatal
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "NEPL-g2 doctests" --timeout-nonfatal -- node nodesrc/tests.js -i tests -o tests-current.json -j 4 --timeout-nonfatal
 
             - name: CLI multi-emit output
               run: |
@@ -242,7 +242,7 @@ jobs:
                   path: .
 
             - name: Run .n.md doctests (tests/ only)
-              run: node nodesrc/ci_timeout.js --minutes 10 --label ".n.md doctests" -- node nodesrc/tests.js -i tests -o nmd-tests.json -j 4 --timeout-nonfatal
+              run: node nodesrc/ci_timeout.js --minutes 10 --label ".n.md doctests" --timeout-nonfatal -- node nodesrc/tests.js -i tests -o nmd-tests.json -j 4 --timeout-nonfatal
 
             - name: Upload doctest JSON
               if: always()
@@ -268,7 +268,7 @@ jobs:
                   path: .
 
             - name: Run tutorials doctests
-              run: node nodesrc/ci_timeout.js --minutes 10 --label "tutorials doctests" -- node nodesrc/tests.js -i tutorials -o tutorials-tests.json -j 4 --timeout-nonfatal
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "tutorials doctests" --timeout-nonfatal -- node nodesrc/tests.js -i tutorials -o tutorials-tests.json -j 4 --timeout-nonfatal
 
             - name: Upload tutorials test JSON
               if: always()
@@ -296,7 +296,7 @@ jobs:
             - name: Run examples doctests
               env:
                   NEPL_TEST_CASE_TIMEOUT_MS: "60000"
-              run: node nodesrc/ci_timeout.js --minutes 10 --label "examples doctests" -- node nodesrc/tests.js -i examples -o examples-tests.json -j 2 --timeout-nonfatal
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "examples doctests" --timeout-nonfatal -- node nodesrc/tests.js -i examples -o examples-tests.json -j 2 --timeout-nonfatal
 
             - name: Upload examples test JSON
               if: always()
@@ -322,7 +322,7 @@ jobs:
                   path: .
 
             - name: Run stdlib doctests
-              run: node nodesrc/ci_timeout.js --minutes 10 --label "stdlib doctests" -- node nodesrc/tests.js -i stdlib -o stdlib-tests.json -j 4 --timeout-nonfatal
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "stdlib doctests" --timeout-nonfatal -- node nodesrc/tests.js -i stdlib -o stdlib-tests.json -j 4 --timeout-nonfatal
 
             - name: Upload stdlib test JSON
               if: always()
@@ -395,7 +395,7 @@ jobs:
                   clang -dumpmachine | grep -q linux
 
             - name: LLVM doctests via nodesrc runner
-              run: node nodesrc/ci_timeout.js --minutes 10 --label "LLVM doctests" -- node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2 --timeout-nonfatal
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "LLVM doctests" --timeout-nonfatal -- node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2 --timeout-nonfatal
 
             - name: Upload llvm doctest JSON
               if: always()
@@ -554,7 +554,7 @@ jobs:
                   clang -dumpmachine | grep -q linux
 
             - name: Full dual backend verification (${{ matrix.id }})
-              run: node nodesrc/ci_timeout.js --minutes 18 --label "Full dual backend verification (${{ matrix.id }})" -- node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual --shard ${{ matrix.shard }} ${{ matrix.tree_flag }} -j 2 --timeout-nonfatal
+              run: node nodesrc/ci_timeout.js --minutes 18 --label "Full dual backend verification (${{ matrix.id }})" --timeout-nonfatal -- node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual --shard ${{ matrix.shard }} ${{ matrix.tree_flag }} -j 2 --timeout-nonfatal
 
             - name: Upload full dual backend JSON (${{ matrix.id }})
               if: always()

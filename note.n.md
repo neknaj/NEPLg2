@@ -53886,3 +53886,16 @@ MERGE_APPROVED
 - approve: approved
 - residual_risk: none
 - unexecuted_verification: none
+
+## 2026-06-11 Agent2 CI timeout nonfatal wrapper checkpoint
+
+- branch: `agent2/fix-ci-timeout-nonfatal-wrapper`
+- target run: GitHub Actions run `27349074520`, job `80806541414`
+- plan.md: 確認のみ。人が編集するファイルなので変更していない。
+- root_cause: `NEPL-g2 doctests` job は `nodesrc/tests.js` 側に `--timeout-nonfatal` を渡していたが、外側の `nodesrc/ci_timeout.js` wrapper には渡していなかった。そのため doctest result JSON を残せても、wrapper が command timeout を exit code 124 として扱い、GitHub Actions job が failure になっていた。
+- implementation: doctest result JSON を upload できる `wasi-test` / `.n.md` / tutorials / examples / stdlib / LLVM doctest / LLVM dual backend shard だけ、`ci_timeout.js` wrapper に `--timeout-nonfatal` を明示した。Cargo compile / Rust test / NM compile / CLI multi-emit は構造化 doctest JSON を生成しないため、timeout を failure のまま維持した。
+- source_policy: `nodesrc/test_ci_timeout_policy.js` は wrapper 引数と child command 引数を分離して検査するようにし、子の `nodesrc/tests.js --timeout-nonfatal` だけで policy test が通らないようにした。非 doctest timeout wrapper には `--timeout-nonfatal` が付かないことも固定した。
+- executed verification: `node nodesrc/test_ci_timeout_policy.js`; `node nodesrc/test_ci_examples_doctest_job.js`; `node nodesrc/test_ci_llvm_dual_shard_job.js`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js check --dir issues`; `git diff --check`; `trunk build`; `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/ci-timeout-playground-editor.json`
+- output json: `tmp/ci-timeout-playground-editor.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- warnings: source policy regression は既存の documentation sample gap と Node WASI ExperimentalWarning を表示したが exit 0。`git diff --check` の CRLF conversion warning は既存の改行設定由来。今回の failure ではない。
+- residual_risk: GitHub Actions 上の再実行で、該当 doctest step が timeout した場合に warning と artifact upload は残り、wrapper exit code 124 では job を落とさないことを確認する必要がある。

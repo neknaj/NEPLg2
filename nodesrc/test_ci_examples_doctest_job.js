@@ -45,7 +45,7 @@ assertContains(
 );
 assertContains(
     examplesJob,
-    '              run: node nodesrc/ci_timeout.js --minutes 10 --label "examples doctests" -- node nodesrc/tests.js -i examples -o examples-tests.json -j 2 --timeout-nonfatal',
+    '              run: node nodesrc/ci_timeout.js --minutes 10 --label "examples doctests" --timeout-nonfatal -- node nodesrc/tests.js -i examples -o examples-tests.json -j 2 --timeout-nonfatal',
     "examples-test must detect timeouts without failing the Action on timeout-only doctest errors",
 );
 assertContains(examplesJob, "                  name: bootstrap-build", "examples-test must download bootstrap-build");

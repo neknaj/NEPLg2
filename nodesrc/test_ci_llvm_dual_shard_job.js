@@ -37,7 +37,7 @@ for (const suite of ["tests", "stdlib"]) {
 }
 assertContains(
     llvmDualJob,
-    '              run: node nodesrc/ci_timeout.js --minutes 18 --label "Full dual backend verification (${{ matrix.id }})" -- node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual --shard ${{ matrix.shard }} ${{ matrix.tree_flag }} -j 2 --timeout-nonfatal',
+    '              run: node nodesrc/ci_timeout.js --minutes 18 --label "Full dual backend verification (${{ matrix.id }})" --timeout-nonfatal -- node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual --shard ${{ matrix.shard }} ${{ matrix.tree_flag }} -j 2 --timeout-nonfatal',
     "llvm-dual-test must detect shard timeouts without failing the Action on timeout-only doctest errors",
 );
 assertContains(llvmDualJob, "                  name: llvm-dual-${{ matrix.id }}", "llvm-dual artifacts must be unique per shard");

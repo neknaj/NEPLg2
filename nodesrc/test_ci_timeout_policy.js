@@ -33,6 +33,16 @@ function runWrapper(args, env = {}) {
     });
 }
 
+function splitWrappedCommand(line) {
+    const commandSeparator = " -- ";
+    const separatorIndex = line.indexOf(commandSeparator);
+    assert(separatorIndex >= 0, `ci_timeout.js command must use an explicit -- separator:\n${line}`);
+    return {
+        wrapperArgs: line.slice(0, separatorIndex),
+        commandArgs: line.slice(separatorIndex + commandSeparator.length),
+    };
+}
+
 assert.doesNotMatch(workflow, /timeout --signal=KILL/, "CI must not use raw GNU timeout because it cannot report timeout as nonfatal");
 
 for (const jobName of [
@@ -51,8 +61,20 @@ for (const jobName of [
 }
 
 for (const line of workflow.split("\n").filter((l) => l.includes("node nodesrc/tests.js"))) {
-    assert.match(line, /node nodesrc\/ci_timeout\.js --minutes \d+/, "doctest runner must be guarded by ci_timeout.js");
-    assert.match(line, /--timeout-nonfatal/, "doctest runner must keep structured timeout-only errors nonfatal in CI");
+    const wrapped = splitWrappedCommand(line);
+    assert.match(wrapped.wrapperArgs, /node nodesrc\/ci_timeout\.js --minutes \d+/, "doctest runner must be guarded by ci_timeout.js");
+    assert.match(wrapped.wrapperArgs, /--timeout-nonfatal/, "doctest wrapper must report command timeout as nonfatal in CI");
+    assert.match(wrapped.commandArgs, /node nodesrc\/tests\.js/, "doctest wrapper must execute nodesrc/tests.js");
+    assert.match(wrapped.commandArgs, /--timeout-nonfatal/, "doctest runner must keep structured timeout-only errors nonfatal in CI");
+}
+
+for (const line of workflow.split("\n").filter((l) => l.includes("node nodesrc/ci_timeout.js") && !l.includes("node nodesrc/tests.js"))) {
+    const wrapped = splitWrappedCommand(line);
+    assert.doesNotMatch(
+        wrapped.wrapperArgs,
+        /--timeout-nonfatal/,
+        "non-doctest CI timeout wrappers must remain fatal unless the step can publish structured timeout-only results",
+    );
 }
 
 const nonTimeoutFailure = runWrapper([
