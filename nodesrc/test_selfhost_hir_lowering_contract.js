@@ -54,13 +54,13 @@ assert.match(
 );
 assert.match(
     source,
-    /# lower\/hir\/function_value[\s\S]*pub enum SelfhostFunctionValueLowerErrorKind:[\s\S]*GenericUnsupported[\s\S]*IdentityBuildFailed/,
-    "function value HIR lowering must live in its own typed-error lower/hir split module",
+    /# lower\/hir\/function_value[\s\S]*pub enum SelfhostFunctionValueLowerErrorKind:[\s\S]*GenericUnsupported[\s\S]*IdentityBuildFailed[\s\S]*MemoSourceMissingDefId[\s\S]*MemoSourceImpureUnsupported/,
+    "function value HIR lowering must live in its own typed-error lower/hir split module and keep memo_call source failures typed",
 );
 assert.match(
     source,
-    /#import "neplg2\/core\/check\/expr\/call_candidate" as \*[\s\S]*#import "neplg2\/core\/hir\/hir" as \*/,
-    "function value lowering must be the explicit layer that knows both checker candidates and HIR records",
+    /#import "neplg2\/core\/check\/expr\/call_candidate" as \*[\s\S]*#import "neplg2\/core\/hir\/hir" as \*[\s\S]*#import "neplg2\/core\/ty\/effect" as \*/,
+    "function value lowering must be the explicit layer that knows checker candidates, HIR records, and effect evidence",
 );
 assert.match(
     source,
@@ -76,6 +76,26 @@ assert.match(
     source,
     /pub fn selfhost_hir_expr_fn_value_from_candidate %fn SelfhostCallableCandidate fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError[\s\S]*selfhost_hir_expr_fn_value candidate\.callable_type span identity/,
     "function value lowering must build a FnValue HIR expression whose type is the candidate function type",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memoized_function_value_identity_is_phase1_accepted %fn SelfhostHirFunctionValueIdentity bool[\s\S]*selfhost_hir_function_value_identity_has_def_id &identity[\s\S]*selfhost_hir_function_value_identity_is_monomorphic &identity[\s\S]*selfhost_effect_kind_eq identity\.effect SelfhostEffectKind::Pure/,
+    "memoized function value lowering must require DefId evidence, monomorphic identity, and Pure effect",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memoized_function_value_identity_phase1_result %fn SelfhostHirFunctionValueIdentity fn SelfhostSourceSpan Result SelfhostHirFunctionValueIdentity SelfhostFunctionValueLowerError[\s\S]*MemoSourceMissingDefId[\s\S]*GenericUnsupported[\s\S]*MemoSourceImpureUnsupported[\s\S]*Result::Ok identity/,
+    "memoized function value identity validation must preserve distinct fail-closed error kinds",
+);
+assert.match(
+    source,
+    /pub fn selfhost_hir_expr_memoized_function_value_from_identity %fn SelfhostHirFunctionValueIdentity fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError[\s\S]*selfhost_memoized_function_value_identity_phase1_result identity span[\s\S]*selfhost_hir_expr_memoized_function_value accepted\.function_ty span accepted/,
+    "memoized function value lowering must build a dedicated HIR payload using the accepted function type",
+);
+assert.match(
+    source,
+    /pub fn selfhost_hir_expr_memoized_function_value_from_candidate %fn SelfhostCallableCandidate fn SelfhostSourceSpan Result SelfhostHirExpr SelfhostFunctionValueLowerError[\s\S]*selfhost_function_value_identity_from_candidate candidate[\s\S]*selfhost_hir_expr_memoized_function_value_from_identity identity span/,
+    "memoized function value candidate lowering must reuse typed function value identity construction instead of string-name reconstruction",
 );
 assert.match(
     source,

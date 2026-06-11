@@ -53955,3 +53955,71 @@ MERGE_APPROVED
 - generic instantiation の stable type-argument range / canonical key は未実装。`GenericCallIdentityUnsupported` を緩める前に HIR payload と artifact identity に型引数実体を追加する必要がある。
 - indirect call、`memo_call` Phase 1、PrivateCache proof、trait solving、lambda / borrow を含む複合式 success path は引き続き同 issue の残件。
 - unexecuted_verification: `trunk build` は stdlib selfhost slice で必須ではないため未実行。Rust / web build artifact 変更は今回含まない。
+
+## 2026-06-11 Agent selfhost memoized function value HIR boundary checkpoint
+
+### scope
+
+- branch: `selfhost/memo-call-hir-boundary-20260611`
+- issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- related_issue: `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C`
+- zenn_policy_checked: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- files_changed: `stdlib/neplg2/core/hir/hir/expr.nepl`; `stdlib/neplg2/core/hir/hir.nepl`; `stdlib/neplg2/core/lower/hir/function_value.nepl`; `stdlib/neplg2/core/lower/hir.nepl`; `nodesrc/test_selfhost_hir_expr_payload.js`; `nodesrc/test_selfhost_hir_lowering_contract.js`; `nodesrc/test_selfhost_documentation_contract.js`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `issues/items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md`; `issues/index.json`; `todo.md`
+- subagent_review_ids:
+  - `019eb6cf-79b9-72d1-8213-fa9063648489`
+  - `019eb6db-8694-7752-8416-5faedf3ee553`
+
+### implementation
+
+- `SelfhostHirExprKind::MemoizedFunctionValue` と `SelfhostHirExprPayload::MemoizedFunctionValue %SelfhostHirFunctionValueIdentity` を追加した。
+- `MemoizedFunctionValue` は HIR leaf expression として扱い、child range accessor は empty range を返す。cache hit / miss、cache size、clear、storage identity を HIR child や public payload として公開しない。
+- `selfhost_hir_expr_memoized_function_value` constructor を追加し、memoized function value の public expression type を `SelfhostHirFunctionValueIdentity.function_ty` として保持できるようにした。
+- `lower/hir/function_value.nepl` に `selfhost_memoized_function_value_identity_is_phase1_accepted`、`selfhost_memoized_function_value_identity_phase1_result`、`selfhost_hir_expr_memoized_function_value_from_identity`、`selfhost_hir_expr_memoized_function_value_from_candidate` を追加した。
+- accepted identity は `def_id = Option::Some`、`type_arg_count = 0`、`effect = Pure` に限定する。DefId 欠落は `MemoSourceMissingDefId`、generic identity は `GenericUnsupported`、impure identity は `MemoSourceImpureUnsupported` で fail-closed にする。
+- `candidate.name` や `memo_call` という spelling から memo identity を再構築しない。candidate path は既存の typed `SelfhostHirFunctionValueIdentity` 生成を再利用する。
+- `memo_call` が stdlib の compiler-known primitive であることの source identity 判定、`MemoKey` / `MemoValue`、private cache SourceCapability、Resource IR `PrivateCache` proof、sealed backend representation、即時適用の accepted path はこの slice では実装せず、doc / issue / todo に残件として明記した。
+
+### zenn_policy
+
+- typed identity: memoized function value payload は `str` ではなく DefId / type / effect / type-arg count を含む `SelfhostHirFunctionValueIdentity`。
+- enum/static-check: 失敗理由は文字列ではなく `SelfhostFunctionValueLowerErrorKind` の variant として保持する。
+- Result/fail-closed: DefId 欠落、generic、impure を成功や通常 `FnValue` fallback に丸めない。
+- authority boundary: HIR lowering は source token / scope lookup / callable candidate collection を再実行しない。checker / reducer が保存した candidate identity を authority とする。
+- private effect boundary: この slice は private cache allocation や Pure mask を実装しない。`PrivateCache` proof と sealed backend representation は後続 issue の責務として残す。
+- doc comment: 新規 public helper には目的、契約、戻り値、計算量、未実装境界を日本語で記述した。コメント行数を抑制する検査は追加していない。
+
+### subagent_review
+
+- design_review: `019eb6cf-79b9-72d1-8213-fa9063648489` は、`memo_call` 判定を名前文字列で行わないこと、`MemoizedFunctionValue` payload を typed identity にすること、generic / impure / alias / pass-through / immediate application / private cache proof を安易に受理しないことを blocker として指摘した。実装は HIR boundary に限定し、DefId / monomorphic / Pure gate と未実装残件の文書化で対応した。
+- implementation_review: `019eb6db-8694-7752-8416-5faedf3ee553` は blocker なし。non-blocker として DefId 欠落 negative path が regex 依存だった点を指摘したため、`Option::None` identity が `MemoSourceMissingDefId` で拒否される facade doctest を追加した。
+- implementation_re_review: `019eb6db-8694-7752-8416-5faedf3ee553` は追加 doctest に blocker なし。`Checked [ok,ok,ok,ok,ok,ok]` の実行結果により DefId 欠落 path が実行ベースで固定されたことを確認した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_hir_expr_payload.js`
+- pass: `node nodesrc/test_selfhost_hir_lowering_contract.js`
+- pass: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/hir --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-memoized-payload-final.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-lower-memoized-hir-final2.json`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/lower/hir.nepl -n 1`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### warnings
+
+- existing_warnings: Node WASI ExperimentalWarning、documentation contract の既存 sample gaps、Git の LF -> CRLF conversion warning。
+- new_warnings: なし。
+
+### residual
+
+- `memo_call` の stdlib compiler-known primitive source identity 判定は未実装。
+- `MemoKey` / `MemoValue`、private cache SourceCapability、Resource IR `PrivateCache` non-escape proof、sealed backend representation は未実装。
+- `memo_call @f arg` の即時適用、alias / pass-through function value、function literal、returned function value の accepted path はこの slice では開かない。
+- generic instantiation の stable type-argument range / canonical key、trait solving、indirect call、lambda / borrow を含む複合式 success path は引き続き `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941` の残件。
+- unexecuted_verification: `trunk build` は stdlib selfhost slice で必須ではないため未実行。Rust / web build artifact 変更は今回含まない。

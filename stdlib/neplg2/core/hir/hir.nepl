@@ -12,13 +12,13 @@
 //: - `SelfhostHirModule` は function / param / expr / expr_children の 4 つの Vec を所有します。
 //: - `SelfhostHirFunctionId` と `SelfhostHirExprId` は arena-local index です。別 module の id と混ぜないでください。
 //: - expression record は variant payload で kind 固有の情報を持ち、child table 範囲は child を持つ payload からだけ参照します。
-//: - 関数値 expression は、表示名だけではなく `SelfhostHirFunctionValueIdentity` に定義 id、関数型、effect、型引数数をまとめて保持します。
+//: - 関数値 expression と memoized function value expression は、表示名だけではなく `SelfhostHirFunctionValueIdentity` に定義 id、関数型、effect、型引数数をまとめて保持します。
 //: - function record は typed parameter range から作り、first_param / param_count で param table 範囲を参照します。
 //:
 //: [注意/ちゅうい]:
 //: - これは S4 HIR stage の最小 model です。完全な lowering、pattern、drop plan は別 issue で追加します。
 //: - string literal は現時点では payload の `str` 値に lexeme / symbol を置く最小表現です。後で string table に分離します。
-//: - `FnValue` identity に `Option::None` の `def_id` や 0 以外の `type_arg_count` が入る場合、それは accepted lowering ではなく後段 checker が拒否するための typed evidence です。
+//: - `FnValue` / `MemoizedFunctionValue` identity に `Option::None` の `def_id` や 0 以外の `type_arg_count` が入る場合、それは accepted lowering ではなく後段 checker が拒否するための typed evidence です。
 //:
 //: [計算量/けいさんりょう]:
 //: - record 追加は Vec の償却 O(1)、再確保時 O(n) です。

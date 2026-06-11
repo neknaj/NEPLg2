@@ -105,7 +105,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 - 2026-06-11: `tests/stdlib/neplg2_call_reduce.n.md` の body-line doctest は direct named call 接続だけを確認する focused smoke に戻した。巨大な `selfhost_check_expr_stage1_body_line` aggregate を public markdown doctest から呼ぶと、Resource IR static check が1関数へ集中し default 60s timeout を超えるためである。広い stage1 regression は `stdlib/neplg2/core/check` focused suite と `nodesrc/test_selfhost_expr_call_reduce_contract.js` の source-policy contract で固定し、timeout値を伸ばす対処にはしない。
 - 2026-06-11: 単一 pipe trailing block argument を注釈無し pipe target narrowing へ接続した。`1 |> add:` のように RHS suffix token が空で末尾 block だけがある場合、borrowed probe は block body を候補ごとに投機検査せず、suffix だけで全 parameter が満たされる候補を余剰 block の `NoMatch`、suffix だけでは `PartialApplicationRejected` になる候補を block body 検査が必要な `SourceBackedRequired` として分類する。既存の `Match` 0 件、`SourceBackedRequired` 1 件、`SelectionBlockedUnsupported` 0 件という条件だけで source-backed finisher へ進めるため、2引数 `add` だけが `CheckedExpr` argument を受け取り、その参照先 checked tree node が `BlockResult` になる。1引数 `add` は `UnexpectedTrailingBlockArgument` として拒否される。pipe chain に trailing block が付く未対応形も同じ typed error で fail-closed にし、stage1 smoke は success、同名 overload narrowing、余剰 block rejection、chain trailing block rejection を public pipe / pipe-chain body-line から実行する。
 - 2026-06-11: pipe chain trailing block argument を source-backed reducer の成功経路へ接続した。`1 |> add 2 |> add:` では、中間段 `1 |> add 2` が末尾 block を消費せず checked `DirectCall` node を作り、その root id を後段の第1引数 `CheckedExpr [0, 4)` として渡す。最終段は次 pipe が無い場合だけ trailing block を第2引数 `CheckedExpr [6, 6)` として受け取り、参照先 checked tree node を `BlockResult` にする。stage1 smoke は root `DirectCall` から前段 `DirectCall` node と `BlockResult` node の両方を辿り、block body `add 1 1` が body-side `DirectCall` node として保存されたことを確認する。後段右辺欠落と literal target は引き続き pipe-chain fail-closed smoke で typed error として固定する。
-- 残件: lambda / borrow / source-backed pipe suffix の lambda など複合式 success path、generic instantiation inference、trait solving、numeric suffix の言語仕様化、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` Phase 1 境界、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
+- 2026-06-11: selfhost `memo_call @pure_named_func` Phase 1 の HIR 受け皿として、`SelfhostHirExprPayload::MemoizedFunctionValue` を追加した。payload は `str` ではなく `SelfhostHirFunctionValueIdentity` を使うため、DefId、function type、effect、type argument count を後続 stage へ渡せる。`lower/hir/function_value.nepl` は DefId あり、monomorphic、`Pure` effect の identity だけを accepted とし、DefId 欠落、generic identity、impure function は typed error で fail-closed にする。この checkpoint は HIR boundary の接続であり、`memo_call` が stdlib の compiler-known primitive であることの source identity 判定、`MemoKey` / `MemoValue`、private cache SourceCapability、Resource IR `PrivateCache` proof、sealed backend representation はまだ実装しない。
+- 残件: lambda / borrow / source-backed pipe suffix の lambda など複合式 success path、generic instantiation inference、trait solving、numeric suffix の言語仕様化、defaulting beyond current Rust fixed `i32` / `f32`、indirect call、`memo_call` の compiler-known source identity 判定 / `MemoKey` / `MemoValue` / private cache proof / backend representation、cross-arena serialized canonical key / fingerprint、nested generic binder depth と stable binder identity は未実装のため、この issue は open のまま維持する。
 
 ## 検証
 
@@ -223,6 +224,24 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
 - `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-trailing-block.json`: total=7, passed=7
 - subagent review: `019eb689-ea44-7972-8bf1-1f791cfecd18` initial review found two blockers, the legacy `BlockResult` argument expectation and pipe-chain trailing-block success leak. This checkpoint fixes both by using `CheckedExpr` plus checked-tree `BlockResult` topology for accepted single-pipe blocks and by rejecting chain trailing blocks as `UnexpectedTrailingBlockArgument`. Final re-review from `019eb689-ea44-7972-8bf1-1f791cfecd18` and `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7` was `MERGE_APPROVED`; detailed evidence is recorded in `note.n.md`.
+
+2026-06-11 selfhost memoized function value HIR boundary checkpoint:
+
+- `node nodesrc/test_selfhost_hir_expr_payload.js`: pass
+- `node nodesrc/test_selfhost_hir_lowering_contract.js`: pass
+- `node nodesrc/test_selfhost_expr_call_reduce_contract.js`: pass
+- `node nodesrc/test_selfhost_documentation_contract.js`: pass
+- `node nodesrc/test_source_policy_no_line_count_limits.js`: pass
+- `node nodesrc/test_selfhost_zenn_review_gate_contract.js`: pass
+- `node nodesrc/tests.js -i stdlib/neplg2/core/hir --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-hir-memoized-payload-final.json`: total=3, passed=3
+- `node nodesrc/tests.js -i stdlib/neplg2/core/lower --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-lower-memoized-hir-final2.json`: total=4, passed=4
+- `node nodesrc/run_doctest.js -i stdlib/neplg2/core/lower/hir.nepl -n 1`: `Checked [ok,ok,ok,ok,ok,ok]`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: pass
+- `node nodesrc/issues.js index --dir issues`: pass
+- `node nodesrc/issues.js check --dir issues`: pass
+- `git diff --check`: pass
+- subagent design review `019eb6cf-79b9-72d1-8213-fa9063648489`: string-name primitive detection, cache proof, generic / impure / DefId missing acceptance を blocker として警告。実装は HIR boundary に限定し、DefId / monomorphic / Pure gate と未実装残件の文書化で対応した。
+- subagent implementation review `019eb6db-8694-7752-8416-5faedf3ee553`: blocker なし。non-blocker として DefId 欠落 negative path の runtime smoke 追加を推奨したため、`Option::None` identity が `MemoSourceMissingDefId` で拒否される facade doctest を追加し、再レビューで approve を得た。
 
 2026-06-05 NamedValue HIR identity checkpoint:
 

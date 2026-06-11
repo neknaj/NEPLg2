@@ -45,7 +45,7 @@ assert.doesNotMatch(exprStruct, /\b(?:first_child|child_count|name|int_value|boo
 
 assert.deepEqual(
     enumVariants(hir, "SelfhostHirExprPayload"),
-    ["Error", "Unit", "BoolLiteral", "I32Literal", "F32Literal", "StrLiteral", "Var", "FnValue", "Call", "Block", "If"],
+    ["Error", "Unit", "BoolLiteral", "I32Literal", "F32Literal", "StrLiteral", "Var", "FnValue", "MemoizedFunctionValue", "Call", "Block", "If"],
     "expression payload variants must cover the current expression kind set",
 );
 const callExprStruct = topLevelBlock(hir, "struct", "SelfhostHirCallExpr:");
@@ -77,6 +77,8 @@ assert.match(fnIdentityStruct, /\beffect\s+<SelfhostEffectKind>/, "function valu
 assert.match(fnIdentityStruct, /\btype_arg_count\s+<i32>/, "function value identity must keep generic arity evidence until a stable type-arg range exists");
 assert.match(hir, /\bFnValue\s+<SelfhostHirFunctionValueIdentity>/, "function value payload must use typed identity, not a string-only name");
 assert.doesNotMatch(hir, /\bFnValue\s+<str>/, "function value payload must not regress to a string-only identity");
+assert.match(hir, /\bMemoizedFunctionValue\s+<SelfhostHirFunctionValueIdentity>/, "memoized function value payload must use typed identity, not a string-only name");
+assert.doesNotMatch(hir, /\bMemoizedFunctionValue\s+<str>/, "memoized function value payload must not regress to a string-only identity");
 
 assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_(?:leaf|with_children)\b/, "flat leaf/children constructors must not remain");
 assert.doesNotMatch(hir, /\bselfhost_hir_expr_new\s+SelfhostHirExprKind::/, "flat kind-driven constructor calls must not remain");
@@ -95,6 +97,7 @@ assert.match(childAccessor, /\bmatch\s+\*field::get_ref\s+expr\s+"payload":/, "c
 assert.match(childAccessor, /\bSelfhostHirExprPayload::Call\s+call:/, "call payload must expose args through child range accessor");
 assert.match(childAccessor, /\bSelfhostHirExprPayload::Block\s+children:/, "block payload must expose child range");
 assert.match(childAccessor, /\bSelfhostHirExprPayload::If\s+branches:/, "if payload must expose branch range");
+assert.match(childAccessor, /\bSelfhostHirExprPayload::MemoizedFunctionValue\s+_identity:[\s\S]*selfhost_hir_child_range_empty/, "memoized function values must be leaf HIR expressions with no cache-state child range");
 assert.doesNotMatch(childAccessor, /\bexpr\.(?:first_child|child_count)\b/, "child range accessor must not read flat child fields");
 
 for (const fnName of [
@@ -106,6 +109,7 @@ for (const fnName of [
     "selfhost_hir_expr_str_literal",
     "selfhost_hir_expr_var",
     "selfhost_hir_expr_fn_value",
+    "selfhost_hir_expr_memoized_function_value",
     "selfhost_hir_expr_call",
     "selfhost_hir_expr_block",
     "selfhost_hir_expr_if",
