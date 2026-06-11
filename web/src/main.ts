@@ -169,10 +169,7 @@ function startApp() {
         }
     });
     stopBtn.addEventListener('click', () => {
-        const terminal = panelManager.getFocusedTerminalRuntime();
-        if (terminal?.terminal.shell?.interrupt) {
-            terminal.terminal.shell.interrupt();
-        }
+        panelManager.stopActiveProcess();
     });
     fontSizeSelect.addEventListener('change', updateFontSize);
     compilerModeSelect.addEventListener('change', updateCompilerMode);
