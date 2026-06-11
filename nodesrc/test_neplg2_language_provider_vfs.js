@@ -83,8 +83,13 @@ function main() {
     const provider = new context.window.NEPLg2LanguageProvider({ vfs });
     provider.onUpdate(() => {});
     provider.setPath("/examples/main.nepl");
+    assert.equal(timers.filter((timer) => timer.active).length, 0);
     const currentText = "#no_prelude\nfn main %fn unit i32 \\u:\n    1\n";
-    provider.replaceDocumentText(currentText);
+    provider.replaceDocument({
+        path: "/examples/main.nepl",
+        text: currentText,
+        editable: true,
+    });
 
     assert.equal(calls.length, 0);
     const pendingTimer = timers.find((timer) => timer.active);

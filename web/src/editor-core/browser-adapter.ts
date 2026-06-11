@@ -13,6 +13,12 @@ type PlaygroundEditorOptions = {
     onCursorChange?: (index: number) => void;
 };
 
+type PlaygroundDocumentReplacement = {
+    path: string | null;
+    text: string;
+    editable: boolean;
+};
+
 export class PlaygroundEditor {
     private readonly inner: any;
     private readonly providers: Record<string, any>;
@@ -74,6 +80,27 @@ export class PlaygroundEditor {
 
     setText(text: string): void {
         this.inner.setText(text);
+    }
+
+    replaceDocument(document: PlaygroundDocumentReplacement): void {
+        const nextPath = typeof document.path === 'string' && document.path.length > 0 ? document.path : null;
+        this.path = nextPath;
+        if (typeof this.inner.setEditable === 'function') {
+            this.inner.setEditable(document.editable);
+        }
+        if (typeof this.inner.replaceDocument === 'function') {
+            this.inner.replaceDocument({
+                path: nextPath,
+                text: document.text,
+                editable: document.editable,
+            });
+            return;
+        }
+        const provider = this.getLanguageProvider();
+        if (provider && typeof provider.setPath === 'function') {
+            provider.setPath(nextPath);
+        }
+        this.inner.setText(document.text);
     }
 
     getText(): string {

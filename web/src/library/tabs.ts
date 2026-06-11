@@ -68,6 +68,26 @@ export class TabManager {
         return this.tabs.map((tab) => ({ ...tab }));
     }
 
+    replaceEditorDocument(path: string | null, content: string, isEditable: boolean) {
+        if (typeof this.editor.replaceDocument === 'function') {
+            this.editor.replaceDocument({
+                path,
+                text: content,
+                editable: isEditable,
+            });
+            return;
+        }
+        if (typeof this.editor.setEditable === 'function') {
+            this.editor.setEditable(isEditable);
+        }
+        if (typeof this.editor.setPath === 'function') {
+            this.editor.setPath(path);
+        } else {
+            this.editor.path = path;
+        }
+        this.editor.setText(content);
+    }
+
     restoreTabs(paths: string[], activePath: string | null = null, pathZooms: Record<string, number> = {}) {
         this.tabs = [];
         this.activeTabIndex = -1;
@@ -86,13 +106,7 @@ export class TabManager {
             });
         }
         if (this.tabs.length === 0) {
-            if (typeof this.editor.setEditable === 'function') {
-                this.editor.setEditable(false);
-            }
-            if (typeof this.editor.setPath === 'function') {
-                this.editor.setPath(null);
-            }
-            this.editor.setText('');
+            this.replaceEditorDocument(null, '', false);
             this.render();
             this.notifyStateChange();
             if (this.onActiveTabChange) {
@@ -155,13 +169,7 @@ export class TabManager {
     }
 
     createDetachedPlaceholder() {
-        if (typeof this.editor.setEditable === 'function') {
-            this.editor.setEditable(false);
-        }
-        if (typeof this.editor.setPath === 'function') {
-            this.editor.setPath(null);
-        }
-        this.editor.setText('');
+        this.replaceEditorDocument(null, '', false);
         if (this.onActiveTabChange) {
             this.onActiveTabChange(null);
         }
@@ -177,15 +185,7 @@ export class TabManager {
         }
         this.activeTabIndex = index;
         const tab = this.tabs[index];
-        if (typeof this.editor.setEditable === 'function') {
-            this.editor.setEditable(tab.isEditable);
-        }
-        if (typeof this.editor.setPath === 'function') {
-            this.editor.setPath(tab.path);
-        } else {
-            this.editor.path = tab.path;
-        }
-        this.editor.setText(tab.content);
+        this.replaceEditorDocument(tab.path, tab.content, tab.isEditable);
         this.render();
         this.notifyStateChange();
         if (this.onActiveTabChange) {
@@ -209,13 +209,7 @@ export class TabManager {
             if (this.activeTabIndex >= 0) {
                 this.setActiveTab(this.activeTabIndex, { focusEditor: false, persistCurrent: false });
             } else {
-                if (typeof this.editor.setEditable === 'function') {
-                    this.editor.setEditable(false);
-                }
-                if (typeof this.editor.setPath === 'function') {
-                    this.editor.setPath(null);
-                }
-                this.editor.setText('');
+                this.replaceEditorDocument(null, '', false);
                 if (this.onActiveTabChange) {
                     this.onActiveTabChange(null);
                 }

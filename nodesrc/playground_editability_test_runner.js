@@ -54,6 +54,7 @@ function createMockEditor(initialText = '') {
         setTextCalls: [],
         setEditableCalls: [],
         setPathCalls: [],
+        replaceDocumentCalls: [],
         getText() {
             return this.text;
         },
@@ -78,15 +79,32 @@ function createMockEditor(initialText = '') {
             this.calls.push({ kind: 'setPath', value: pathValue });
             this.setPathCalls.push(pathValue);
         },
+        replaceDocument(document) {
+            this.path = document.path;
+            this.text = String(document.text ?? '');
+            this.editable = Boolean(document.editable);
+            this.calls.push({
+                kind: 'replaceDocument',
+                path: document.path,
+                text: String(document.text ?? ''),
+                editable: Boolean(document.editable),
+            });
+            this.replaceDocumentCalls.push({
+                path: document.path,
+                text: String(document.text ?? ''),
+                editable: Boolean(document.editable),
+            });
+        },
     };
 }
 
-function assertPathBeforeText(editor, pathValue, textValue) {
-    const pathIndex = editor.calls.findIndex((call) => call.kind === 'setPath' && call.value === pathValue);
-    const textIndex = editor.calls.findIndex((call) => call.kind === 'setText' && call.value === textValue);
-    assert.notEqual(pathIndex, -1, `setPath not called for ${pathValue}`);
-    assert.notEqual(textIndex, -1, `setText not called for ${pathValue}`);
-    assert.ok(pathIndex < textIndex, `setPath must run before setText for ${pathValue}`);
+function assertAtomicDocument(editor, pathValue, textValue, editable) {
+    const found = editor.replaceDocumentCalls.some((call) => (
+        call.path === pathValue
+        && call.text === textValue
+        && call.editable === editable
+    ));
+    assert.ok(found, `replaceDocument must atomically apply ${pathValue}`);
 }
 
 async function runEditabilityRegression() {
@@ -118,7 +136,7 @@ async function runEditabilityRegression() {
         tabs.openFile('/README');
         assert.equal(editor.editable, false);
         assert.equal(tabs.activeTab.isEditable, false);
-        assertPathBeforeText(editor, '/README', 'help text');
+        assertAtomicDocument(editor, '/README', 'help text', false);
 
         editor.text = 'mutated readme text';
         tabs.saveCurrentTab();
@@ -127,7 +145,7 @@ async function runEditabilityRegression() {
         tabs.openFile('/examples/demo.nepl');
         assert.equal(editor.editable, true);
         assert.equal(tabs.activeTab.isEditable, true);
-        assertPathBeforeText(editor, '/examples/demo.nepl', '#entry main\nprint "ok"\n');
+        assertAtomicDocument(editor, '/examples/demo.nepl', '#entry main\nprint "ok"\n', true);
 
         editor.text = '#entry main\nprint "edited"\n';
         tabs.saveCurrentTab();
@@ -138,7 +156,7 @@ async function runEditabilityRegression() {
         assert.equal(editor.path, '/examples/second.nepl');
         assert.equal(editor.editable, true);
         assert.equal(tabs.activeTab.isEditable, true);
-        assertPathBeforeText(editor, '/examples/second.nepl', '#entry main\nprint "second"\n');
+        assertAtomicDocument(editor, '/examples/second.nepl', '#entry main\nprint "second"\n', true);
         tabs.setActiveZoom(1.5);
         assert.equal(tabs.getActiveZoom(), 1.5);
         editor.text = '#entry main\nprint "second edited"\n';
@@ -161,7 +179,7 @@ async function runEditabilityRegression() {
                 'readonly tabs disable editor mutation and skip save',
                 'editable example files remain writable',
                 'tab switching propagates editable state to the editor surface',
-                'tab activation sets the provider path before replacing document text',
+                'tab activation atomically replaces provider path text and editable state',
                 'switching between editable tabs preserves editability and saves the previous tab',
                 'editable tabs preserve their own zoom state across tab switches',
             ],

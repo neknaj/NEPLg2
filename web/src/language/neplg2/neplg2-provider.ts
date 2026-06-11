@@ -42,7 +42,9 @@ class NEPLg2LanguageProvider {
             return;
         }
         this.path = nextPath;
-        this._scheduleAnalysis();
+        this._cancelPendingAnalysis();
+        this._clearAnalysisState();
+        this._publishEmptyPayload();
     }
 
     _cancelPendingAnalysis() {
@@ -107,14 +109,32 @@ class NEPLg2LanguageProvider {
         this._scheduleAnalysis();
     }
 
+    replaceDocument(document) {
+        const nextPath = typeof document?.path === 'string' && document.path.length > 0 ? document.path : null;
+        const nextText = document?.text || '';
+        this._replaceDocument(nextPath, nextText);
+    }
+
     replaceDocumentText(text) {
+        this._replaceDocument(this.path, text || '');
+    }
+
+    _replaceDocument(path, text) {
+        const nextPath = typeof path === 'string' && path.length > 0 ? path : null;
         const nextText = text || '';
-        if (nextText === this.text && this.lastAnalyzedText === nextText && this.lastUpdatePayload) {
+        if (nextPath === this.path && nextText === this.text && this.lastAnalyzedText === nextText && this.lastUpdatePayload) {
             return;
         }
         this._cancelPendingAnalysis();
+        this.path = nextPath;
         this.text = nextText;
         this._rebuildOffsetMaps();
+        this._clearAnalysisState();
+        this._publishEmptyPayload();
+        this._scheduleAnalysis(false);
+    }
+
+    _clearAnalysisState() {
         this.lex = { tokens: [], diagnostics: [] };
         this.parse = null;
         this.resolve = null;
@@ -122,8 +142,6 @@ class NEPLg2LanguageProvider {
         this.definitionById.clear();
         this.lastUpdatePayload = null;
         this.lastAnalyzedText = '';
-        this._publishEmptyPayload();
-        this._scheduleAnalysis(false);
     }
 
     _buildIncrementalPayload(previousText, nextText, previousPayload) {
