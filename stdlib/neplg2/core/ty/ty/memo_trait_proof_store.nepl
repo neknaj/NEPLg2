@@ -1,0 +1,729 @@
+#indent 4
+
+//: # ty/memo_trait_proof_store
+//: `MemoKey` / `MemoValue` aggregate proof を canonical type key で[索引/さくいん]する store boundary です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_producer.nepl` は session-local `SelfhostTypeId` を受け取り、consumer table 用 record へ変換します。この module はその前段として、永続 artifact や cross-arena cache に近い形の proof を `SelfhostCanonicalTypeKeyId` で索引します。
+//: - store record は `SelfhostTypeId` を保持しません。lookup 時に現在の `SelfhostTypeArena` から対象 TypeId を canonical key へ再投影し、store 内の canonical key と構造一致した場合だけ producer gate へ渡します。
+//:
+//: [契約/けいやく]:
+//: - store の key は canonical type key と solver policy identity の組です。policy が違う proof は、型構造が同じでも使いません。
+//: - canonical key が一致しても、stored proof は直接 consumer table へ流しません。現在 arena の `SelfhostTypeId` を使って `SelfhostMemoTraitAggregateProof` を再構成し、既存 producer gate が `Named` / `Applied` record と proof summary を再検査します。
+//: - `SelfhostNamedTypeId` は現段階では stable nominal key ではありません。module path、public surface hash、stable constructor identity が接続されるまでは、この store は selfhost compiler の session / prepared artifact 境界を固定するための Phase 1 API です。
+//: - stale policy、missing proof、unsupported proof kind、projection failure、producer rejection はすべて typed error として返し、bool や表示文字列には潰しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では `Vec` 線形探索です。後続で stable map / serialized `.neplproof` reader を追加する場合も、同じ policy identity と canonical equality を authority にします。
+//: - stored proof は field layout、Copy / Drop / Eq / Hash proof status、hazard、key/value result payload だけを持ち、TypeId や diagnostic span は持ちません。
+//:
+//: [計算量/けいさんりょう]:
+//: - proof 追加は canonical key projection が O(k)、record push が償却 O(1) です。k は対象型から到達する型 node / argument edge 数です。
+//: - lookup は一時 canonical key projection O(k) と、store record 数 n に対する線形探索 O(n * k) です。現段階では proof store の正しさ境界を先に固定し、探索構造の高速化は後続の stable map 化に任せます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_producer" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_store" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_proof_store_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_proof_store_lookup_result_is_accept summary.found
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.stale_policy) SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.missing_key) SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.primitive_rejected) SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.unsupported_kind) SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait proof store stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./key" as *
+#import "./kind/eq" as *
+#import "./kind/model" as *
+#import "./memo_trait" as *
+#import "./memo_trait_producer" as *
+#import "./record" as *
+
+//: SelfhostMemoTraitProofStorePolicy: memo trait solver policy identity
+//:
+//: [目的/もくてき]:
+//: - canonical key が同じでも、MemoKey / MemoValue の判定規則や trusted trait source が変われば proof は再利用できません。この payload は、その再利用境界を小さな Copy 値として表します。
+//:
+//: [契約/けいやく]:
+//: - `schema_version` は store record の形を表します。
+//: - `solver_version` は aggregate traversal と cycle boundary の規則を表します。
+//: - `trait_source_hash` は `MemoKey` / `MemoValue` trait の trusted source identity を表します。
+//: - `rule_hash` は f32 key policy、Copy / Drop / Eq / Hash purity、hazard 分類などの受理規則を表します。
+pub struct SelfhostMemoTraitProofStorePolicy:
+    schema_version %i32
+    solver_version %i32
+    trait_source_hash %i32
+    rule_hash %i32
+
+//: SelfhostMemoTraitStoredProofKind: store record に入っている proof の種類
+//:
+//: [目的/もくてき]:
+//: - 現 stage では key/value 両方の payload を持つ proof だけを producer へ渡します。key-only / value-only proof は将来の分離用に型として予約しますが、この lookup API では fail-closed に拒否します。
+pub enum SelfhostMemoTraitStoredProofKind:
+    KeyAndValue
+    KeyOnlyUnsupported
+    ValueOnlyUnsupported
+
+//: SelfhostMemoTraitStoredAggregateProof: TypeId を持たない aggregate proof payload
+//:
+//: [目的/もくてき]:
+//: - canonical key store に保存する proof から session-local `SelfhostTypeId` を取り除きます。
+//: - lookup 成功後、現在 arena の TypeId と結合して `SelfhostMemoTraitAggregateProof` を再構成します。
+pub struct SelfhostMemoTraitStoredAggregateProof:
+    fields %SelfhostMemoTraitAggregateFieldEvidence
+    copy_proof %SelfhostMemoTraitAggregateProofStatus
+    drop_proof %SelfhostMemoTraitAggregateProofStatus
+    eq_proof %SelfhostMemoTraitAggregateProofStatus
+    hash_proof %SelfhostMemoTraitAggregateProofStatus
+    hazard %SelfhostMemoTraitAggregateHazardEvidence
+    key_result %Result unit SelfhostMemoTraitRejectKind
+    value_result %Result unit SelfhostMemoTraitRejectKind
+
+//: SelfhostMemoTraitProofStoreRecord: canonical key indexed proof record
+//:
+//: [目的/もくてき]:
+//: - `key_id` は、この store が所有する canonical key arena 内の root key です。
+//: - record は `SelfhostTypeId` を持たず、policy と stored proof だけを保持します。
+pub struct SelfhostMemoTraitProofStoreRecord:
+    key_id %SelfhostCanonicalTypeKeyId
+    policy %SelfhostMemoTraitProofStorePolicy
+    proof_kind %SelfhostMemoTraitStoredProofKind
+    proof %SelfhostMemoTraitStoredAggregateProof
+
+//: SelfhostMemoTraitProofStore: canonical key と proof record を所有する store
+//:
+//: [契約/けいやく]:
+//: - `key_arena` は store record の key を所有します。
+//: - lookup 用の一時 canonical key arena はこの store に追加せず、cross-arena equality で比較してから解放します。
+pub struct SelfhostMemoTraitProofStore:
+    key_arena %SelfhostCanonicalTypeKeyArena
+    records %Vec SelfhostMemoTraitProofStoreRecord
+
+//: SelfhostMemoTraitProofStorePushErrorKind: store 追加失敗の分類
+pub enum SelfhostMemoTraitProofStorePushErrorKind:
+    TypeProjectionFailed
+    OutOfMemory
+    InternalInvariant
+
+//: SelfhostMemoTraitProofStoreLookupErrorKind: store lookup 失敗の分類
+//:
+//: [目的/もくてき]:
+//: - fake evidence、stale policy、missing proof、unsupported proof kind、producer rejection を区別し、diagnostic が根本原因を選べるようにします。
+pub enum SelfhostMemoTraitProofStoreLookupErrorKind:
+    TypeProjectionFailed
+    MissingProof
+    PolicyMismatch
+    ProofKindMismatch
+    ProducerRejected %SelfhostMemoTraitEvidenceProduceRejectKind
+
+//: SelfhostMemoTraitProofStoreStage0Summary: proof store focused smoke summary
+pub struct SelfhostMemoTraitProofStoreStage0Summary:
+    found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+    stale_policy %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+    missing_key %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+    primitive_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+    unsupported_kind %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+
+impl Clone for SelfhostMemoTraitProofStorePolicy:
+    fn clone %fn &SelfhostMemoTraitProofStorePolicy SelfhostMemoTraitProofStorePolicy \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStorePolicy:
+    fn copy_mark %fn SelfhostMemoTraitProofStorePolicy SelfhostMemoTraitProofStorePolicy \self:
+        self
+
+impl Clone for SelfhostMemoTraitStoredProofKind:
+    fn clone %fn &SelfhostMemoTraitStoredProofKind SelfhostMemoTraitStoredProofKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStoredProofKind:
+    fn copy_mark %fn SelfhostMemoTraitStoredProofKind SelfhostMemoTraitStoredProofKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStoredAggregateProof:
+    fn clone %fn &SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitStoredAggregateProof \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStoredAggregateProof:
+    fn copy_mark %fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitStoredAggregateProof \self:
+        self
+
+impl Clone for SelfhostMemoTraitProofStoreRecord:
+    fn clone %fn &SelfhostMemoTraitProofStoreRecord SelfhostMemoTraitProofStoreRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStoreRecord:
+    fn copy_mark %fn SelfhostMemoTraitProofStoreRecord SelfhostMemoTraitProofStoreRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitProofStorePushErrorKind:
+    fn clone %fn &SelfhostMemoTraitProofStorePushErrorKind SelfhostMemoTraitProofStorePushErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStorePushErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitProofStorePushErrorKind SelfhostMemoTraitProofStorePushErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitProofStoreLookupErrorKind:
+    fn clone %fn &SelfhostMemoTraitProofStoreLookupErrorKind SelfhostMemoTraitProofStoreLookupErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStoreLookupErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitProofStoreLookupErrorKind SelfhostMemoTraitProofStoreLookupErrorKind \self:
+        self
+
+//: selfhost_memo_trait_proof_store_policy_new: solver policy identity を[作/つく]る
+pub fn selfhost_memo_trait_proof_store_policy_new %fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitProofStorePolicy \schema_version\solver_version\trait_source_hash\rule_hash:
+    SelfhostMemoTraitProofStorePolicy schema_version solver_version trait_source_hash rule_hash
+
+//: selfhost_memo_trait_proof_store_policy_eq: policy identity が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - canonical key が一致しても、policy が一致しなければ proof を再利用しません。
+pub fn selfhost_memo_trait_proof_store_policy_eq %fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitProofStorePolicy bool \a\b:
+    and:
+        eq a.schema_version b.schema_version
+        and:
+            eq a.solver_version b.solver_version
+            and eq a.trait_source_hash b.trait_source_hash eq a.rule_hash b.rule_hash
+
+//: selfhost_memo_trait_stored_aggregate_proof_new: TypeId なし proof payload を[作/つく]る
+pub fn selfhost_memo_trait_stored_aggregate_proof_new %fn SelfhostMemoTraitAggregateFieldEvidence fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateHazardEvidence fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitStoredAggregateProof \fields\copy_proof\drop_proof\eq_proof\hash_proof\hazard\key_result\value_result:
+    SelfhostMemoTraitStoredAggregateProof fields copy_proof drop_proof eq_proof hash_proof hazard key_result value_result
+
+//: selfhost_memo_trait_stored_aggregate_proof_known_new: 完全な stored proof payload を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この helper は proof を計算しません。caller は field range と key/value result が検査済みであることを保証します。
+pub fn selfhost_memo_trait_stored_aggregate_proof_known_new %fn i32 fn i32 fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitStoredAggregateProof \first_field\field_count\key_result\value_result:
+    let fields %SelfhostMemoTraitAggregateFieldEvidence selfhost_memo_trait_aggregate_field_evidence_known first_field field_count
+    SelfhostMemoTraitStoredAggregateProof fields SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateHazardEvidence::NoHazard key_result value_result
+
+//: selfhost_memo_trait_stored_aggregate_proof_to_session: stored proof を現在 TypeId 用 proof に[戻/もど]す
+fn selfhost_memo_trait_stored_aggregate_proof_to_session %fn SelfhostMemoTraitStoredAggregateProof fn SelfhostTypeId SelfhostMemoTraitAggregateProof \stored\type_id:
+    selfhost_memo_trait_aggregate_proof_new type_id stored.fields stored.copy_proof stored.drop_proof stored.eq_proof stored.hash_proof stored.hazard stored.key_result stored.value_result
+
+//: selfhost_memo_trait_proof_store_record_new: store record を[作/つく]る
+fn selfhost_memo_trait_proof_store_record_new %fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStoreRecord \key_id\policy\proof_kind\proof:
+    SelfhostMemoTraitProofStoreRecord key_id policy proof_kind proof
+
+//: selfhost_memo_trait_proof_store_new: [空/から]の proof store を[作/つく]る
+pub fn selfhost_memo_trait_proof_store_new %impure fn void Result SelfhostMemoTraitProofStore StdErrorKind \void:
+    match selfhost_canonical_type_key_arena_new:
+        Result::Ok key_arena:
+            let records_result %Result Vec SelfhostMemoTraitProofStoreRecord StdErrorKind v::new
+            match records_result:
+                Result::Ok records:
+                    Result::Ok SelfhostMemoTraitProofStore key_arena records
+                Result::Err e:
+                    selfhost_canonical_type_key_arena_free key_arena
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_proof_store_free: store が所有する buffer を[解放/かいほう]する
+pub fn selfhost_memo_trait_proof_store_free %impure fn SelfhostMemoTraitProofStore unit \store:
+    selfhost_canonical_type_key_arena_free field::get store "key_arena"
+    v::free field::get store "records"
+
+//: selfhost_memo_trait_proof_store_push_error_from_std: std error を store push error へ[写/うつ]す
+fn selfhost_memo_trait_proof_store_push_error_from_std %fn StdErrorKind SelfhostMemoTraitProofStorePushErrorKind \error:
+    match error:
+        StdErrorKind::Failure:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::OutOfMemory:
+            SelfhostMemoTraitProofStorePushErrorKind::OutOfMemory
+        StdErrorKind::EmptyCollection:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::IndexOutOfBounds:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::KeyNotFound:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::CapacityExceeded:
+            SelfhostMemoTraitProofStorePushErrorKind::OutOfMemory
+        StdErrorKind::InvalidOperation:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::InvalidUtf8:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::ParseError:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::IoError:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+        StdErrorKind::Other:
+            SelfhostMemoTraitProofStorePushErrorKind::InternalInvariant
+
+//: selfhost_memo_trait_proof_store_push_with_kind: proof kind 指定付きで proof を store へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - 入力 `type_id` は現在 arena 内で canonical key へ投影されます。store record には TypeId を保存しません。
+//: - 失敗時は入力 store の owner buffer をこの関数が閉じます。
+pub fn selfhost_memo_trait_proof_store_push_with_kind %impure fn &SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredProofKind impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\store\policy\type_id\proof_kind\proof:
+    let key_arena %SelfhostCanonicalTypeKeyArena field::get store "key_arena"
+    let records %Vec SelfhostMemoTraitProofStoreRecord field::get store "records"
+    match selfhost_canonical_type_key_project_into_arena types key_arena type_id:
+        Result::Ok allocated_key:
+            let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &allocated_key
+            let next_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated_key
+            let record %SelfhostMemoTraitProofStoreRecord selfhost_memo_trait_proof_store_record_new key_id policy proof_kind proof
+            match v::push records record:
+                Result::Ok next_records:
+                    Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_canonical_type_key_arena_free next_key_arena
+                    Result::Err selfhost_memo_trait_proof_store_push_error_from_std error
+        Result::Err _e:
+            v::free records
+            Result::Err SelfhostMemoTraitProofStorePushErrorKind::TypeProjectionFailed
+
+//: selfhost_memo_trait_proof_store_push: key/value 両用 proof を store へ[追加/ついか]する
+pub fn selfhost_memo_trait_proof_store_push %impure fn &SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\store\policy\type_id\proof:
+    selfhost_memo_trait_proof_store_push_with_kind types store policy type_id SelfhostMemoTraitStoredProofKind::KeyAndValue proof
+
+//: selfhost_memo_trait_proof_store_lookup_result_is_accept: lookup result が成功か[返/かえ]す
+pub fn selfhost_memo_trait_proof_store_lookup_result_is_accept %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind bool \result:
+    match result:
+        Result::Ok _record:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_proof_store_lookup_error_kind_code: payload を持たない lookup error を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。
+//: - `ProducerRejected` は payload を持つため、公開 equality ではこの code だけでなく producer reject payload も比較します。
+fn selfhost_memo_trait_proof_store_lookup_error_kind_code %fn SelfhostMemoTraitProofStoreLookupErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitProofStoreLookupErrorKind::TypeProjectionFailed:
+            0
+        SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof:
+            1
+        SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch:
+            2
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch:
+            3
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected _producer_kind:
+            4
+
+//: selfhost_memo_trait_proof_store_lookup_error_kind_eq: lookup error の分類と payload が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `ProducerRejected` は、外側 variant だけでなく `SelfhostMemoTraitEvidenceProduceRejectKind` payload も比較します。
+//: - これにより、primitive fake proof の拒否と missing layout の拒否を誤って同一視しません。
+pub fn selfhost_memo_trait_proof_store_lookup_error_kind_eq %fn SelfhostMemoTraitProofStoreLookupErrorKind fn SelfhostMemoTraitProofStoreLookupErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitProofStoreLookupErrorKind::TypeProjectionFailed:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::TypeProjectionFailed:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected a_kind:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected b_kind:
+                    selfhost_memo_trait_evidence_produce_reject_kind_eq a_kind b_kind
+                _:
+                    false
+
+//: selfhost_memo_trait_proof_store_key_arg_ranges_equal_raw: canonical key argument range を index 付きで[再帰/さいき]比較する
+//:
+//: [目的/もくてき]:
+//: - 別々の arena にある argument range を、同じ位置の key 同士の構造比較へ分解します。
+//:
+//: [契約/けいやく]:
+//: - caller は `a.arg_count == b.arg_count` と、両方の range が有効であることを先に確認します。
+//: - 途中で片側の argument が欠けた場合は、破損した proof key とみなして `false` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 残り argument 数と、各 argument key tree の大きさに比例します。
+fn selfhost_memo_trait_proof_store_key_arg_ranges_equal_raw %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn i32 bool \a_arena\a\b_arena\b\idx:
+    if:
+        ge idx a.arg_count
+        then:
+            true
+        else:
+            match selfhost_canonical_type_key_arena_arg a_arena a idx:
+                Option::Some arg_a:
+                    match selfhost_canonical_type_key_arena_arg b_arena b idx:
+                        Option::Some arg_b:
+                            if:
+                                selfhost_memo_trait_proof_store_canonical_key_equal_cross a_arena arg_a b_arena arg_b
+                                then:
+                                    selfhost_memo_trait_proof_store_key_arg_ranges_equal_raw a_arena a b_arena b add idx 1
+                                else:
+                                    false
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_memo_trait_proof_store_key_arg_ranges_equal_cross: 別 arena の argument range が同じ構造か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - store が所有する canonical key arena と、lookup 時だけ作る一時 arena の argument list を比較します。
+//:
+//: [契約/けいやく]:
+//: - invalid range、argument 数不一致、argument key 不一致はすべて `false` です。
+//: - この関数は診断を作らず、store lookup 側が `MissingProof` や `PolicyMismatch` へ分類します。
+fn selfhost_memo_trait_proof_store_key_arg_ranges_equal_cross %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange bool \a_arena\a\b_arena\b:
+    if:
+        not and selfhost_canonical_type_key_arg_range_is_valid a selfhost_canonical_type_key_arg_range_is_valid b
+        then:
+            false
+        else:
+            if:
+                ne a.arg_count b.arg_count
+                then:
+                    false
+                else:
+                    selfhost_memo_trait_proof_store_key_arg_ranges_equal_raw a_arena a b_arena b 0
+
+//: selfhost_memo_trait_proof_store_canonical_nodes_equal_cross: canonical key node を constructor ごとに[構造/こうぞう]比較する
+//:
+//: [目的/もくてき]:
+//: - primitive、named、parameter、applied、function の各 canonical node を、session-local pointer ではなく payload の意味で比較します。
+//:
+//: [契約/けいやく]:
+//: - constructor が違う node は一致しません。
+//: - `Named` / `Applied` の nominal identity は現段階では `SelfhostNamedTypeId` 比較です。stable module path / public surface hash へ置き換える課題は issue 側に残します。
+//: - `Applied` と `Function` は argument range / result key を再帰的に比較します。
+fn selfhost_memo_trait_proof_store_canonical_nodes_equal_cross %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyNode fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyNode bool \a_arena\a\b_arena\b:
+    match a:
+        SelfhostCanonicalTypeKeyNode::Primitive a_kind:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Primitive b_kind:
+                    let a_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind a_kind
+                    let b_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind b_kind
+                    selfhost_type_kind_eq a_general b_general
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Named a_named:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Named b_named:
+                    selfhost_named_type_id_eq a_named b_named
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Parameter a_parameter:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Parameter b_parameter:
+                    selfhost_type_parameter_binding_eq a_parameter b_parameter
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Applied a_applied:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Applied b_applied:
+                    and:
+                        selfhost_named_type_id_eq a_applied.nominal_id b_applied.nominal_id
+                        selfhost_memo_trait_proof_store_key_arg_ranges_equal_cross a_arena a_applied.args b_arena b_applied.args
+                _:
+                    false
+        SelfhostCanonicalTypeKeyNode::Function a_function:
+            match b:
+                SelfhostCanonicalTypeKeyNode::Function b_function:
+                    and:
+                        selfhost_memo_trait_proof_store_key_arg_ranges_equal_cross a_arena a_function.args b_arena b_function.args
+                        selfhost_memo_trait_proof_store_canonical_key_equal_cross a_arena a_function.result b_arena b_function.result
+                _:
+                    false
+
+//: selfhost_memo_trait_proof_store_canonical_key_equal_cross: 別 arena の canonical key が同じ構造か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - lookup 用に一時 projection した key と、store が所有する key を比較します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 比較する canonical key tree の node / argument edge 数に比例します。
+fn selfhost_memo_trait_proof_store_canonical_key_equal_cross %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId bool \a_arena\a\b_arena\b:
+    match selfhost_canonical_type_key_arena_get_node a_arena a:
+        Option::Some node_a:
+            match selfhost_canonical_type_key_arena_get_node b_arena b:
+                Option::Some node_b:
+                    selfhost_memo_trait_proof_store_canonical_nodes_equal_cross a_arena node_a b_arena node_b
+                Option::None:
+                    false
+        Option::None:
+            false
+
+//: selfhost_memo_trait_proof_store_lookup_record_kind: stored proof kind を producer gate に[通/とお]す
+//:
+//: [目的/もくてき]:
+//: - store に保存された TypeId なし proof payload を、現在 arena の TypeId と結合し、既存の `memo_trait_producer` へ戻します。
+//:
+//: [契約/けいやく]:
+//: - `KeyAndValue` だけが lookup の成功候補です。
+//: - key-only / value-only proof kind は Phase 1 では consumer table の表現が未分離なので `ProofKindMismatch` にします。
+//: - producer gate が aggregate fake proof を拒否した場合は、payload を `ProducerRejected` として保持します。
+fn selfhost_memo_trait_proof_store_lookup_record_kind %fn &SelfhostTypeArena fn SelfhostMemoTraitProofStoreRecord fn SelfhostTypeId Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\record\type_id:
+    match record.proof_kind:
+        SelfhostMemoTraitStoredProofKind::KeyAndValue:
+            let proof %SelfhostMemoTraitAggregateProof selfhost_memo_trait_stored_aggregate_proof_to_session record.proof type_id
+            match selfhost_memo_trait_aggregate_proof_to_record types proof:
+                Result::Ok evidence:
+                    Result::Ok evidence
+                Result::Err kind:
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected kind
+        SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported:
+            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch
+        SelfhostMemoTraitStoredProofKind::ValueOnlyUnsupported:
+            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch
+
+//: selfhost_memo_trait_proof_store_find_projected_loop: projected key に一致する record を[線形/せんけい][探索/たんさく]する
+//:
+//: [目的/もくてき]:
+//: - lookup 時に作った canonical key と store record の canonical key を比較し、canonical key と solver policy の組が一致する record を検証します。
+//:
+//: [契約/けいやく]:
+//: - 同じ canonical key かつ同じ policy が複数回 store に入っている場合は first record wins です。後続の stable map 化では insert 時に duplicate policy を明示します。
+//: - key が一致して policy が違う record は stale proof として記録し、後続に期待 policy の record があるか探索を続けます。
+//: - 探索終了まで期待 policy の record がなく、同じ canonical key の stale proof だけを見つけた場合は `PolicyMismatch` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 数 n と canonical key tree size k に対して O(n * k) です。
+fn selfhost_memo_trait_proof_store_find_projected_loop %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn i32 fn bool Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\idx\saw_policy_mismatch:
+    let records %&Vec SelfhostMemoTraitProofStoreRecord field::get_ref store "records"
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            if:
+                saw_policy_mismatch
+                then:
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch
+                else:
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    let store_key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref store "key_arena"
+                    if:
+                        selfhost_memo_trait_proof_store_canonical_key_equal_cross store_key_arena record.key_id lookup_arena lookup_key
+                        then:
+                            if:
+                                selfhost_memo_trait_proof_store_policy_eq record.policy expected_policy
+                                then:
+                                    selfhost_memo_trait_proof_store_lookup_record_kind types record type_id
+                                else:
+                                    selfhost_memo_trait_proof_store_find_projected_loop types store expected_policy type_id lookup_arena lookup_key add idx 1 true
+                        else:
+                            selfhost_memo_trait_proof_store_find_projected_loop types store expected_policy type_id lookup_arena lookup_key add idx 1 saw_policy_mismatch
+                Option::None:
+                    if:
+                        saw_policy_mismatch
+                        then:
+                            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch
+                        else:
+                            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof
+
+//: selfhost_memo_trait_proof_store_find_projected: projected key の store lookup を[開始/かいし]する
+//:
+//: [目的/もくてき]:
+//: - recursive loop の index 初期値を隠し、caller が record vector の内部表現に依存しない形にします。
+//: - `saw_policy_mismatch` の初期値を `false` にし、stale policy record を見つけたかどうかは loop 内だけで管理します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(record)` は key / policy / producer gate がすべて通った証拠です。
+//: - `Err(kind)` は missing、policy mismatch、proof kind mismatch、producer rejection のいずれかです。
+fn selfhost_memo_trait_proof_store_find_projected %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key:
+    selfhost_memo_trait_proof_store_find_projected_loop types store expected_policy type_id lookup_arena lookup_key 0 false
+
+//: selfhost_memo_trait_proof_store_lookup_record: store から現在 TypeId 用の evidence record を[引/ひ]く
+//:
+//: [目的/もくてき]:
+//: - 現在 arena の `type_id` を canonical key へ投影し、store に同じ canonical key と policy の proof がある場合だけ producer gate に通した evidence record を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(record)`: store proof は現在 arena の TypeId に投影でき、producer gate も通過しました。
+//: - `Err(kind)`: projection、key、policy、proof kind、producer gate のいずれかで fail-closed になりました。
+pub fn selfhost_memo_trait_proof_store_lookup_record %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id:
+    match selfhost_canonical_type_key_project_from_arena types type_id:
+        Result::Ok lookup_alloc:
+            let lookup_key %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &lookup_alloc
+            let lookup_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena lookup_alloc
+            let result %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_find_projected types store expected_policy type_id &lookup_arena lookup_key
+            selfhost_canonical_type_key_arena_free lookup_arena
+            result
+        Result::Err _e:
+            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::TypeProjectionFailed
+
+//: selfhost_memo_trait_proof_store_stage0_summary_new: stage0 の lookup 結果を[集約/しゅうやく]する
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が、正常系と fail-closed 系の代表結果をまとめて検査できるようにします。
+//:
+//: [契約/けいやく]:
+//: - この helper は検査結果を変換せず、各 `Result` をそのまま保持します。
+fn selfhost_memo_trait_proof_store_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind SelfhostMemoTraitProofStoreStage0Summary \found\stale_policy\missing_key\primitive_rejected\unsupported_kind:
+    SelfhostMemoTraitProofStoreStage0Summary found stale_policy missing_key primitive_rejected unsupported_kind
+
+//: selfhost_memo_trait_proof_store_stage0_finish: stage0 owner を[解放/かいほう]して summary を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - smoke 実行中に作った type arena と proof store の owner buffer を正常終了時に閉じます。
+//:
+//: [契約/けいやく]:
+//: - `summary` は Copy payload だけを保持し、解放される arena / store owner を参照しません。
+fn selfhost_memo_trait_proof_store_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStoreStage0Summary Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\store\summary:
+    selfhost_memo_trait_proof_store_free store
+    selfhost_type_arena_free arena
+    Result::Ok summary
+
+//: selfhost_memo_trait_proof_store_stage0_abort: type arena だけを[閉/と]じて stage0 を[失敗/しっぱい]させる
+//:
+//: [目的/もくてき]:
+//: - proof store 作成前、または store owner を次の関数に渡した後の失敗経路で owner leak を防ぎます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - setup smoke の内部 invariant 失敗として `StdErrorKind::InvalidOperation` を返します。
+fn selfhost_memo_trait_proof_store_stage0_abort %impure fn SelfhostTypeArena Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena:
+    selfhost_type_arena_free arena
+    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_proof_store_stage0_abort_with_store: type arena と proof store を[閉/と]じて stage0 を[失敗/しっぱい]させる
+//:
+//: [目的/もくてき]:
+//: - store owner がまだ current scope に残っている失敗経路で、arena と store をまとめて解放します。
+//:
+//: [契約/けいやく]:
+//: - caller はこの関数に渡した owner を以後使ってはいけません。
+fn selfhost_memo_trait_proof_store_stage0_abort_with_store %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\store:
+    selfhost_memo_trait_proof_store_free store
+    selfhost_type_arena_free arena
+    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_proof_store_stage0_after_store: proof store を使う代表 lookup scenario を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - accepted aggregate、stale policy、missing key、primitive fake proof、unsupported proof kind を同じ type arena 上で作ります。
+//:
+//: [契約/けいやく]:
+//: - `named_id` は producer gate が aggregate として受理する named type です。
+//: - `f32_id` は primitive fake aggregate proof が producer gate で拒否されることを固定します。
+//: - `unsupported_id` は key-only proof kind が fail-closed になることを固定します。
+fn selfhost_memo_trait_proof_store_stage0_after_store %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\named_id\f32_id\missing_id\unsupported_id\store0:
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new 1 1 100 200
+    let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new 1 2 100 200
+    let ok_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+    match selfhost_memo_trait_proof_store_push &arena store0 policy named_id ok_proof:
+        Result::Ok store1:
+            let primitive_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+            match selfhost_memo_trait_proof_store_push &arena store1 policy f32_id primitive_proof:
+                Result::Ok store2:
+                    let unsupported_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+                    match selfhost_memo_trait_proof_store_push_with_kind &arena store2 policy unsupported_id SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported unsupported_proof:
+                        Result::Ok store3:
+                            let found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy named_id
+                            let stale %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 stale_policy named_id
+                            let missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy missing_id
+                            let primitive %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy f32_id
+                            let unsupported %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy unsupported_id
+                            let summary %SelfhostMemoTraitProofStoreStage0Summary selfhost_memo_trait_proof_store_stage0_summary_new found stale missing primitive unsupported
+                            selfhost_memo_trait_proof_store_stage0_finish arena store3 summary
+                        Result::Err _e:
+                            selfhost_memo_trait_proof_store_stage0_abort arena
+                Result::Err _e:
+                    selfhost_memo_trait_proof_store_stage0_abort arena
+        Result::Err _e:
+            selfhost_memo_trait_proof_store_stage0_abort arena
+
+//: selfhost_memo_trait_proof_store_stage0_after_types: type setup 後に proof store setup へ[進/すす]む
+//:
+//: [目的/もくてき]:
+//: - type arena の代表 TypeId 群と proof store owner の lifetime を分け、store 作成失敗時に arena を確実に閉じます。
+//:
+//: [契約/けいやく]:
+//: - store 作成に成功した場合、owner は `selfhost_memo_trait_proof_store_stage0_after_store` へ移ります。
+//: - store 作成に失敗した場合、この関数が arena を解放して std error を返します。
+fn selfhost_memo_trait_proof_store_stage0_after_types %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\named_id\f32_id\missing_id\unsupported_id:
+    match selfhost_memo_trait_proof_store_new:
+        Result::Ok proof_store:
+            selfhost_memo_trait_proof_store_stage0_after_store arena named_id f32_id missing_id unsupported_id proof_store
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_proof_store_stage0: canonical proof store の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - accepted aggregate proof が canonical key と policy を通じて session-local evidence record に戻ることを確認します。
+//: - stale policy、missing key、primitive fake proof、unsupported proof kind がそれぞれ typed error で拒否されることを確認します。
+pub fn selfhost_memo_trait_proof_store_stage0 %impure fn void Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 selfhost_named_type_id_new 10:
+                Result::Ok named_alloc:
+                    let named_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &named_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena named_alloc
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::F32:
+                        Result::Ok f32_alloc:
+                            let f32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &f32_alloc
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena f32_alloc
+                            match selfhost_type_arena_add_named arena2 selfhost_named_type_id_new 12:
+                                Result::Ok missing_alloc:
+                                    let missing_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &missing_alloc
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena missing_alloc
+                                    match selfhost_type_arena_add_named arena3 selfhost_named_type_id_new 13:
+                                        Result::Ok unsupported_alloc:
+                                            let unsupported_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &unsupported_alloc
+                                            let arena4 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena unsupported_alloc
+                                            selfhost_memo_trait_proof_store_stage0_after_types arena4 named_id f32_id missing_id unsupported_id
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

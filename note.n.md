@@ -1,3 +1,64 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue canonical proof store checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- AGENTS.md: 確認済み。root cause 修正、Plan-first、`plan.md` 不編集、`note.n.md` / `todo.md` / doc / issue 更新、selfhost 日本語 doc comment、行数制限と doc comment 長制限の禁止、commit 前検証をこの slice の作業基準にした。
+- 対象 branch: `selfhost/memo-trait-proof-store-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost canonical proof store for `MemoKey` / `MemoValue` aggregate proof
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- classification: selfhost implementation slice review
+- decision: implementation accepted after subagent Required fixes, focused doctests, source policy regression, issue check, and diff check.
+- implementation:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl` を追加し、session-local `SelfhostTypeId` を store record に入れない canonical type key indexed proof store を作成した。
+  - store record は canonical key root、solver policy identity、proof kind、TypeId を含まない stored aggregate proof payload を保持する。
+  - lookup は現在 arena の TypeId を一時 canonical key arena へ再投影し、cross-arena canonical equality と policy 一致を確認してから existing producer gate へ戻す。
+  - canonical key が一致しても policy が違う record は stale proof として記録し、後続に期待 policy の record がないか探索を続ける。最後まで期待 policy が無い場合だけ `PolicyMismatch` を返す。
+  - `ProducerRejected` は外側 variant だけでなく producer reject payload も比較する。
+  - stale policy、missing proof、unsupported proof kind、primitive fake proof は typed error で fail-closed になる。
+  - `ty.nepl` facade、`nodesrc/selfhost_ty_sources.js`、source policy contract、doc、issue、todo を更新した。
+- policy/spec:
+  - Blocker: none after final review. 初回 blocker は、persistent proof store に session-local `SelfhostTypeId` を保存してはならないこと、solver policy identity を key に含めること、policy mismatch を fail-closed にすることだった。
+  - Non-blocker: 現段階の `Named` canonical key は `SelfhostNamedTypeId` 比較であり、stable module path / public surface hash / stable constructor identity は次 slice の課題として残る。
+  - Question: `.neplproof` などの serialized artifact に載せるときは、現在の canonical key payload を stable nominal key へ拡張する必要がある。
+  - Approve: store boundary は `core/ty` に閉じ、checker、Resource IR、backend、private cache runtime へ責務を広げていない。
+- implementation/test:
+  - Blocker: none after final review. fake/stale/missing/unsupported proof が typed error で区別され、consumer table へ直接流れないことを source policy と doctest で固定した。
+  - Required: stale policy record で探索を止めず expected policy record を探すこと、`ProducerRejected` payload を比較することを修正し、source policy に追加した。
+  - Non-blocker: type constructor layout evidence、MemoKey / MemoValue trait source identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未実装。
+  - Question: proof store の線形探索は Phase 1 では許容するが、cold compile 高速化に向けて stable map 化と serialized reader へ進める必要がある。
+  - Approve: focused doctest と contract test で代表境界を検査する方針。
+- subagent review:
+  - subagent_review_ids: `019eb7a4-c31b-7041-b167-e75bf9d6a391`
+  - subagent_review_count: 1
+  - `019eb7a4-c31b-7041-b167-e75bf9d6a391` は、永続 proof store に `SelfhostTypeId` を残さないこと、solver policy identity を key に含めること、store hit 後も current TypeId の canonical projection と producer gate を通すことを blocker として指摘した。
+  - 実装は blocker に合わせ、stored proof payload から TypeId を外し、lookup で current TypeId を再投影してから producer gate に通す形にした。
+  - final review: stale policy 探索継続と `ProducerRejected` payload 比較の Required 修正後、Blocker / Required なし。Verdict は通せる。
+- source_policy:
+  - `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を追加し、store record が TypeId を持たないこと、policy mismatch / missing / unsupported / producer rejection が typed error であること、lookup が current TypeId projection と producer gate を通ることを固定した。
+  - stale policy record を見つけても探索継続すること、`ProducerRejected` payload まで比較することを追加で固定した。
+  - `nodesrc/test_selfhost_memo_trait_predicate_contract.js` に proof store facade / layer boundary を追加した。
+  - source policy は行数制限、file size 制限、doc comment 長制限、comment line count 制限を追加していない。
+- verify:
+  - 検証済み: focused doctest `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-proof-store-doctest.json" --dist web/dist -j 1 --assert-io --no-tree`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - 検証済み: `node nodesrc/test_selfhost_documentation_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-proof-store-doctest.json" --dist web/dist -j 1 --assert-io --no-tree` pass 7/7
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+  - `nodesrc/selfhost_zenn_review_response_check.js`: live subagent response を直接扱ったため saved response file 検査ではなく、同じ要求項目を `note.n.md` と source policy contract で固定している。
+  - source policy: full warn-only regression は exit 0。今回追加した selfhost proof store policy は pass。
+  - 既存 warning: stdlib / selfhost documentation contract は既存 baseline と report-only doctest gap を表示する。
+  - 今回差分由来 warning: なし。新規 proof store の declaration doc gap は修正済み。
+  - `git diff --check` は空白エラーなし。Windows の CRLF 変換 warning のみ。
+- residual:
+  - 次 slice: stable nominal key / serialized canonical key fingerprint / `.neplproof` writer-reader、stable map lookup、trait source identity、recursive aggregate / cycle boundary。
+  - type constructor layout evidence、MemoKey / MemoValue trait source identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未実装。
+  - stable nominal key / serialized canonical key fingerprint / `.neplproof` writer-reader はこの slice では未実装。
+
 # 2026-06-12 Agent2 metrics history sampling preset checkpoint
 
 - 対象 branch: `agent2/metrics-history-sampling-presets`
