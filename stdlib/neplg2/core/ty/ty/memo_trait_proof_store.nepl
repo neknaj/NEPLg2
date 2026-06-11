@@ -8,7 +8,7 @@
 //: - store record は `SelfhostTypeId` を保持しません。lookup 時に現在の `SelfhostTypeArena` から対象 TypeId を canonical key へ再投影し、store 内の canonical key と構造一致した場合だけ producer gate へ渡します。
 //:
 //: [契約/けいやく]:
-//: - store の key は canonical type key と solver policy identity の組です。policy が違う proof は、型構造が同じでも使いません。
+//: - store の key は canonical type key と `memo_trait_policy.nepl` が定義する typed solver policy identity の組です。policy が違う proof は、型構造が同じでも使いません。
 //: - canonical key が一致しても、stored proof は直接 consumer table へ流しません。現在 arena の `SelfhostTypeId` を使って `SelfhostMemoTraitAggregateProof` を再構成し、既存 producer gate が `Named` / `Applied` record と proof summary を再検査します。
 //: - `SelfhostNamedTypeId` は現段階では stable nominal key ではありません。module path、public surface hash、stable constructor identity が接続されるまでは、この store は selfhost compiler の session / prepared artifact 境界を固定するための Phase 1 API です。
 //: - stale policy、missing proof、unsupported proof kind、projection failure、producer rejection はすべて typed error として返し、bool や表示文字列には潰しません。
@@ -16,6 +16,7 @@
 //: [現状/げんじょう]:
 //: - Phase 1 では `Vec` 線形探索です。後続で stable map / serialized `.neplproof` reader を追加する場合も、同じ policy identity と canonical equality を authority にします。
 //: - stored proof は field layout、Copy / Drop / Eq / Hash proof status、hazard、key/value result payload だけを持ち、TypeId や diagnostic span は持ちません。
+//: - solver policy identity は source identity と rule identity の typed payload であり、raw `trait_source_hash` や raw `rule_hash` を proof store record の authority にしません。
 //:
 //: [計算量/けいさんりょう]:
 //: - proof 追加は canonical key projection が O(k)、record push が償却 O(1) です。k は対象型から到達する型 node / argument edge 数です。
@@ -67,24 +68,9 @@
 #import "./kind/eq" as *
 #import "./kind/model" as *
 #import "./memo_trait" as *
+#import "./memo_trait_policy" as *
 #import "./memo_trait_producer" as *
 #import "./record" as *
-
-//: SelfhostMemoTraitProofStorePolicy: memo trait solver policy identity
-//:
-//: [目的/もくてき]:
-//: - canonical key が同じでも、MemoKey / MemoValue の判定規則や trusted trait source が変われば proof は再利用できません。この payload は、その再利用境界を小さな Copy 値として表します。
-//:
-//: [契約/けいやく]:
-//: - `schema_version` は store record の形を表します。
-//: - `solver_version` は aggregate traversal と cycle boundary の規則を表します。
-//: - `trait_source_hash` は `MemoKey` / `MemoValue` trait の trusted source identity を表します。
-//: - `rule_hash` は f32 key policy、Copy / Drop / Eq / Hash purity、hazard 分類などの受理規則を表します。
-pub struct SelfhostMemoTraitProofStorePolicy:
-    schema_version %i32
-    solver_version %i32
-    trait_source_hash %i32
-    rule_hash %i32
 
 //: SelfhostMemoTraitStoredProofKind: store record に入っている proof の種類
 //:
@@ -155,14 +141,6 @@ pub struct SelfhostMemoTraitProofStoreStage0Summary:
     primitive_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
     unsupported_kind %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
 
-impl Clone for SelfhostMemoTraitProofStorePolicy:
-    fn clone %fn &SelfhostMemoTraitProofStorePolicy SelfhostMemoTraitProofStorePolicy \self:
-        *self
-
-impl Copy for SelfhostMemoTraitProofStorePolicy:
-    fn copy_mark %fn SelfhostMemoTraitProofStorePolicy SelfhostMemoTraitProofStorePolicy \self:
-        self
-
 impl Clone for SelfhostMemoTraitStoredProofKind:
     fn clone %fn &SelfhostMemoTraitStoredProofKind SelfhostMemoTraitStoredProofKind \self:
         *self
@@ -202,21 +180,6 @@ impl Clone for SelfhostMemoTraitProofStoreLookupErrorKind:
 impl Copy for SelfhostMemoTraitProofStoreLookupErrorKind:
     fn copy_mark %fn SelfhostMemoTraitProofStoreLookupErrorKind SelfhostMemoTraitProofStoreLookupErrorKind \self:
         self
-
-//: selfhost_memo_trait_proof_store_policy_new: solver policy identity を[作/つく]る
-pub fn selfhost_memo_trait_proof_store_policy_new %fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitProofStorePolicy \schema_version\solver_version\trait_source_hash\rule_hash:
-    SelfhostMemoTraitProofStorePolicy schema_version solver_version trait_source_hash rule_hash
-
-//: selfhost_memo_trait_proof_store_policy_eq: policy identity が同じか[返/かえ]す
-//:
-//: [目的/もくてき]:
-//: - canonical key が一致しても、policy が一致しなければ proof を再利用しません。
-pub fn selfhost_memo_trait_proof_store_policy_eq %fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitProofStorePolicy bool \a\b:
-    and:
-        eq a.schema_version b.schema_version
-        and:
-            eq a.solver_version b.solver_version
-            and eq a.trait_source_hash b.trait_source_hash eq a.rule_hash b.rule_hash
 
 //: selfhost_memo_trait_stored_aggregate_proof_new: TypeId なし proof payload を[作/つく]る
 pub fn selfhost_memo_trait_stored_aggregate_proof_new %fn SelfhostMemoTraitAggregateFieldEvidence fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateHazardEvidence fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitStoredAggregateProof \fields\copy_proof\drop_proof\eq_proof\hash_proof\hazard\key_result\value_result:
@@ -651,8 +614,13 @@ fn selfhost_memo_trait_proof_store_stage0_abort_with_store %impure fn SelfhostTy
 //: - `f32_id` は primitive fake aggregate proof が producer gate で拒否されることを固定します。
 //: - `unsupported_id` は key-only proof kind が fail-closed になることを固定します。
 fn selfhost_memo_trait_proof_store_stage0_after_store %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\named_id\f32_id\missing_id\unsupported_id\store0:
-    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new 1 1 100 200
-    let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new 1 2 100 200
+    let key_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
+    let value_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait 20 21 22
+    let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_source_identity_set_new key_source value_source
+    let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 1 30 31 32
+    let stale_rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 2 30 31 32
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources rules
+    let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources stale_rules
     let ok_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
     match selfhost_memo_trait_proof_store_push &arena store0 policy named_id ok_proof:
         Result::Ok store1:

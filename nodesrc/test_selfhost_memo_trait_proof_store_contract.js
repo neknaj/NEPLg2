@@ -10,13 +10,20 @@ const {
 
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl";
+const policyRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_policy.nepl";
 const facade = readRepoFile(repoRoot, TY_FACADE);
 const source = readRepoFile(repoRoot, relPath);
+const policySource = readRepoFile(repoRoot, policyRelPath);
 
 assert.match(
     facade,
     /^pub #import "\.\/ty\/memo_trait_proof_store" as \*$/m,
     "ty facade must re-export the memo trait proof store split module",
+);
+assert.match(
+    source,
+    /^#import "\.\/memo_trait_policy" as \*$/m,
+    "memo trait proof store must import the typed memo trait policy module",
 );
 assert.doesNotMatch(
     source,
@@ -34,9 +41,14 @@ assert.match(
     "proof store must document that persistent records do not store session-local TypeId and lookup reprojects the current TypeId",
 );
 assert.match(
+    policySource,
+    /pub struct SelfhostMemoTraitProofStorePolicy:[\s\S]*sources %SelfhostMemoTraitSourceIdentitySet[\s\S]*rules %SelfhostMemoTraitRuleIdentity/,
+    "proof store policy must keep solver policy identity as typed source and rule payloads",
+);
+assert.doesNotMatch(
     source,
-    /pub struct SelfhostMemoTraitProofStorePolicy:[\s\S]*schema_version %i32[\s\S]*solver_version %i32[\s\S]*trait_source_hash %i32[\s\S]*rule_hash %i32/,
-    "proof store must keep solver policy identity in a typed payload",
+    /trait_source_hash %i32|rule_hash %i32|selfhost_memo_trait_proof_store_policy_new %fn i32 fn i32 fn i32 fn i32/,
+    "proof store must not expose raw trait_source_hash/rule_hash fields or a raw-i32 policy constructor",
 );
 assert.match(
     source,

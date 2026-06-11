@@ -1,0 +1,279 @@
+#indent 4
+
+//: # ty/memo_trait_policy
+//: `MemoKey` / `MemoValue` aggregate proof store が使う solver policy identity を型付き payload として定義するモジュールです。
+//:
+//: [目的/もくてき]:
+//: - canonical type key が同じ proof でも、`MemoKey` / `MemoValue` trait の trusted source や、Copy / Drop / Eq / Hash の受理規則が変われば再利用してはいけません。
+//: - proof store が raw hash を直接比較すると、`MemoKey` trait source と rule fingerprint の取り違えを型検査で防げません。この module は source identity、rule identity、store policy を別々の struct / enum として表します。
+//: - 診断表示名、source text、path suffix は authority にしません。policy は stable fingerprint に投影済みの小さい Copy payload だけを持ち、表示は後続 diagnostic layer の責務にします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitSourceKind` は `MemoKey` と `MemoValue` の trusted trait source を取り違えないための enum です。
+//: - `SelfhostMemoTraitSourceIdentity` は trait source の stable identity を表します。module、symbol、signature の hash はこの型の中でだけ source identity として扱います。
+//: - `SelfhostMemoTraitRuleIdentity` は proof store schema、solver version、primitive rule、aggregate traversal rule、hazard classification rule をまとめます。
+//: - `SelfhostMemoTraitProofStorePolicy` は source identity set と rule identity の組です。proof store はこの policy 全体が一致する場合だけ stored proof を再利用します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では stable fingerprint の入力は i32 hash payload です。これは永続 identity の最終形式ではなく、`.neplproof` / `.neplmeta` へ出す段階で module path、public surface hash、stable trait definition key に置き換えます。
+//: - それでも proof store の公開境界は raw `trait_source_hash` や raw `rule_hash` を受け取りません。hash payload は source identity / rule identity の field として意味づけられます。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor と equality はすべて Copy payload の field 比較だけなので O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "neplg2/core/ty/ty/memo_trait_policy" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_policy_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check summary.same_source
+//:     let checks2 checks_push checks1 check summary.different_source_kind
+//:     let checks3 checks_push checks2 check summary.same_rule
+//:     let checks4 checks_push checks3 check summary.stale_rule
+//:     let checks5 checks_push checks4 check summary.same_policy
+//:     let checks6 checks_push checks5 check summary.stale_policy
+//:     let shown checks_print_report checks6
+//:     checks_exit_code shown
+//: ```
+
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+//: SelfhostMemoTraitSourceKind: memo trait source identity の分類
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` trait definition と `MemoValue` trait definition はどちらも source fingerprint を持ちますが、同じ数値 payload を持っていても意味は異なります。
+//: - enum として分類を持つことで、source identity equality が tag と payload の両方を比較する形になります。
+pub enum SelfhostMemoTraitSourceKind:
+    MemoKeyTrait
+    MemoValueTrait
+
+//: SelfhostMemoTraitSourceIdentity: trusted memo trait source の stable identity
+//:
+//: [目的/もくてき]:
+//: - proof store が参照する trait source を、表示名や source path string ではなく、安定化済み fingerprint payload として保持します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は `MemoKey` / `MemoValue` のどちらの trait source かを表します。
+//: - `module_hash` は trait definition が属する module identity の hash です。
+//: - `symbol_hash` は module 内の trait symbol identity の hash です。
+//: - `signature_hash` は public trait signature と bound contract の hash です。
+pub struct SelfhostMemoTraitSourceIdentity:
+    kind %SelfhostMemoTraitSourceKind
+    module_hash %i32
+    symbol_hash %i32
+    signature_hash %i32
+
+//: SelfhostMemoTraitSourceIdentitySet: MemoKey と MemoValue の source identity pair
+//:
+//: [目的/もくてき]:
+//: - proof store policy は `MemoKey` と `MemoValue` の両方の trusted trait source に依存します。片方だけが一致しても proof を再利用できません。
+pub struct SelfhostMemoTraitSourceIdentitySet:
+    memo_key %SelfhostMemoTraitSourceIdentity
+    memo_value %SelfhostMemoTraitSourceIdentity
+
+//: SelfhostMemoTraitRuleIdentity: memo trait solver rule の stable identity
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` proof の再利用可否は、trait source だけでなく solver の受理規則にも依存します。
+//:
+//: [契約/けいやく]:
+//: - `schema_version` は proof store record と serialized payload の形を表します。
+//: - `solver_version` は aggregate traversal と cycle boundary の規則を表します。
+//: - `primitive_rule_hash` は primitive scalar の key/value 受理規則を表します。
+//: - `aggregate_rule_hash` は field layout、Copy / Drop / Eq / Hash proof の受理規則を表します。
+//: - `hazard_rule_hash` は cache reference escape、external handle、owner token、public mutable state の分類規則を表します。
+pub struct SelfhostMemoTraitRuleIdentity:
+    schema_version %i32
+    solver_version %i32
+    primitive_rule_hash %i32
+    aggregate_rule_hash %i32
+    hazard_rule_hash %i32
+
+//: SelfhostMemoTraitProofStorePolicy: proof store reuse boundary の authority
+//:
+//: [目的/もくてき]:
+//: - canonical key が同じ stored proof を再利用してよいかを、source identity と rule identity の組として固定します。
+//:
+//: [契約/けいやく]:
+//: - `sources` が一致しない proof は、同じ型構造でも stale です。
+//: - `rules` が一致しない proof は、同じ型構造でも stale です。
+pub struct SelfhostMemoTraitProofStorePolicy:
+    sources %SelfhostMemoTraitSourceIdentitySet
+    rules %SelfhostMemoTraitRuleIdentity
+
+//: SelfhostMemoTraitPolicyStage0Summary: policy identity の代表 equality summary
+pub struct SelfhostMemoTraitPolicyStage0Summary:
+    same_source %bool
+    different_source_kind %bool
+    same_rule %bool
+    stale_rule %bool
+    same_policy %bool
+    stale_policy %bool
+
+impl Clone for SelfhostMemoTraitSourceKind:
+    fn clone %fn &SelfhostMemoTraitSourceKind SelfhostMemoTraitSourceKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSourceKind:
+    fn copy_mark %fn SelfhostMemoTraitSourceKind SelfhostMemoTraitSourceKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitSourceIdentity:
+    fn clone %fn &SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceIdentity \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSourceIdentity:
+    fn copy_mark %fn SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceIdentity \self:
+        self
+
+impl Clone for SelfhostMemoTraitSourceIdentitySet:
+    fn clone %fn &SelfhostMemoTraitSourceIdentitySet SelfhostMemoTraitSourceIdentitySet \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSourceIdentitySet:
+    fn copy_mark %fn SelfhostMemoTraitSourceIdentitySet SelfhostMemoTraitSourceIdentitySet \self:
+        self
+
+impl Clone for SelfhostMemoTraitRuleIdentity:
+    fn clone %fn &SelfhostMemoTraitRuleIdentity SelfhostMemoTraitRuleIdentity \self:
+        *self
+
+impl Copy for SelfhostMemoTraitRuleIdentity:
+    fn copy_mark %fn SelfhostMemoTraitRuleIdentity SelfhostMemoTraitRuleIdentity \self:
+        self
+
+impl Clone for SelfhostMemoTraitProofStorePolicy:
+    fn clone %fn &SelfhostMemoTraitProofStorePolicy SelfhostMemoTraitProofStorePolicy \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStorePolicy:
+    fn copy_mark %fn SelfhostMemoTraitProofStorePolicy SelfhostMemoTraitProofStorePolicy \self:
+        self
+
+impl Clone for SelfhostMemoTraitPolicyStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPolicyStage0Summary SelfhostMemoTraitPolicyStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPolicyStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPolicyStage0Summary SelfhostMemoTraitPolicyStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_source_kind_eq: source kind が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。source kind が増えた場合は equality を明示的に更新します。
+pub fn selfhost_memo_trait_source_kind_eq %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitSourceKind bool \a\b:
+    match a:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            match b:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    true
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    false
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            match b:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    false
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    true
+
+//: selfhost_memo_trait_source_identity_new: typed source identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - raw fingerprint payload を、`MemoKey` / `MemoValue` の source identity として意味づけます。
+pub fn selfhost_memo_trait_source_identity_new %fn SelfhostMemoTraitSourceKind fn i32 fn i32 fn i32 SelfhostMemoTraitSourceIdentity \kind\module_hash\symbol_hash\signature_hash:
+    SelfhostMemoTraitSourceIdentity kind module_hash symbol_hash signature_hash
+
+//: selfhost_memo_trait_source_identity_eq: typed source identity が同じか[返/かえ]す
+pub fn selfhost_memo_trait_source_identity_eq %fn SelfhostMemoTraitSourceIdentity fn SelfhostMemoTraitSourceIdentity bool \a\b:
+    and:
+        selfhost_memo_trait_source_kind_eq a.kind b.kind
+        and:
+            eq a.module_hash b.module_hash
+            and:
+                eq a.symbol_hash b.symbol_hash
+                eq a.signature_hash b.signature_hash
+
+//: selfhost_memo_trait_source_identity_set_new: MemoKey / MemoValue source set を[作/つく]る
+pub fn selfhost_memo_trait_source_identity_set_new %fn SelfhostMemoTraitSourceIdentity fn SelfhostMemoTraitSourceIdentity SelfhostMemoTraitSourceIdentitySet \memo_key\memo_value:
+    SelfhostMemoTraitSourceIdentitySet memo_key memo_value
+
+//: selfhost_memo_trait_source_identity_set_eq: MemoKey / MemoValue source set が同じか[返/かえ]す
+pub fn selfhost_memo_trait_source_identity_set_eq %fn SelfhostMemoTraitSourceIdentitySet fn SelfhostMemoTraitSourceIdentitySet bool \a\b:
+    and:
+        selfhost_memo_trait_source_identity_eq a.memo_key b.memo_key
+        selfhost_memo_trait_source_identity_eq a.memo_value b.memo_value
+
+//: selfhost_memo_trait_rule_identity_new: solver rule identity を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - proof store schema と solver rule fingerprint を 1 つの typed payload にまとめます。
+pub fn selfhost_memo_trait_rule_identity_new %fn i32 fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitRuleIdentity \schema_version\solver_version\primitive_rule_hash\aggregate_rule_hash\hazard_rule_hash:
+    SelfhostMemoTraitRuleIdentity schema_version solver_version primitive_rule_hash aggregate_rule_hash hazard_rule_hash
+
+//: selfhost_memo_trait_rule_identity_eq: solver rule identity が同じか[返/かえ]す
+pub fn selfhost_memo_trait_rule_identity_eq %fn SelfhostMemoTraitRuleIdentity fn SelfhostMemoTraitRuleIdentity bool \a\b:
+    and:
+        eq a.schema_version b.schema_version
+        and:
+            eq a.solver_version b.solver_version
+            and:
+                eq a.primitive_rule_hash b.primitive_rule_hash
+                and:
+                    eq a.aggregate_rule_hash b.aggregate_rule_hash
+                    eq a.hazard_rule_hash b.hazard_rule_hash
+
+//: selfhost_memo_trait_proof_store_policy_new: proof store policy identity を[作/つく]る
+pub fn selfhost_memo_trait_proof_store_policy_new %fn SelfhostMemoTraitSourceIdentitySet fn SelfhostMemoTraitRuleIdentity SelfhostMemoTraitProofStorePolicy \sources\rules:
+    SelfhostMemoTraitProofStorePolicy sources rules
+
+//: selfhost_memo_trait_proof_store_policy_eq: proof store policy identity が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - canonical key が一致しても、source identity または rule identity が違えば proof store は stale proof として扱います。
+pub fn selfhost_memo_trait_proof_store_policy_eq %fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitProofStorePolicy bool \a\b:
+    and:
+        selfhost_memo_trait_source_identity_set_eq a.sources b.sources
+        selfhost_memo_trait_rule_identity_eq a.rules b.rules
+
+//: selfhost_memo_trait_policy_stage0_summary_new: policy equality smoke summary を[作/つく]る
+fn selfhost_memo_trait_policy_stage0_summary_new %fn bool fn bool fn bool fn bool fn bool fn bool SelfhostMemoTraitPolicyStage0Summary \same_source\different_source_kind\same_rule\stale_rule\same_policy\stale_policy:
+    SelfhostMemoTraitPolicyStage0Summary same_source different_source_kind same_rule stale_rule same_policy stale_policy
+
+//: selfhost_memo_trait_policy_stage0: source / rule / policy identity の代表比較を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が、source kind、rule fingerprint、policy equality のそれぞれを bool ではなく typed constructor 経由で確認できるようにします。
+pub fn selfhost_memo_trait_policy_stage0 %fn void SelfhostMemoTraitPolicyStage0Summary \void:
+    let key_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
+    let key_source_same %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
+    let value_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait 20 21 22
+    let key_source_with_value_kind %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait 10 11 12
+    let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_source_identity_set_new key_source value_source
+    let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 1 30 31 32
+    let same_rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 1 30 31 32
+    let stale_rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 2 30 31 32
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources rules
+    let same_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources same_rules
+    let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources stale_rules
+    selfhost_memo_trait_policy_stage0_summary_new:
+        selfhost_memo_trait_source_identity_eq key_source key_source_same
+        not selfhost_memo_trait_source_identity_eq key_source key_source_with_value_kind
+        selfhost_memo_trait_rule_identity_eq rules same_rules
+        not selfhost_memo_trait_rule_identity_eq rules stale_rules
+        selfhost_memo_trait_proof_store_policy_eq policy same_policy
+        not selfhost_memo_trait_proof_store_policy_eq policy stale_policy
