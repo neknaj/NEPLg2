@@ -1,3 +1,64 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue source scanner checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。Option / Result、enum-first error、match 網羅性、DAG 依存、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md: 確認済み。root cause 修正、Plan-first、`plan.md` 不編集、`note.n.md` / `todo.md` / doc / issue 更新、selfhost 日本語 doc comment、行数制限と doc comment 長制限の禁止、commit 前検証をこの slice の作業基準にした。
+- 対象 branch: `selfhost/memo-trait-definition-scan-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` actual trait definition source scanner
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- classification: selfhost implementation slice review
+- decision: scanner は accepted source identity authority ではなく、`SelfhostModuleAst` から fail-closed candidate table を作る checker-layer connector として実装する。stable public surface hash / stable trait definition key が無いため、scanner record は `signature_available=false` のまま既存 registry validator で `SignatureMissing` に落とす。
+- implementation:
+  - `stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl` を追加し、`SelfhostModuleItemKind::TraitDecl` だけを `SelfhostMemoTraitDefinitionSourceTable` へ投影する scanner を作った。
+  - scanner は `SelfhostModuleDeclarationKind::Trait`、`SelfhostModuleDeclarationHeadKind::Name`、source span validity、`str_slice_result` を確認し、AST 不整合は `SelfhostMemoTraitDefinitionScanErrorKind` で返す。
+  - `MemoKey` / `MemoValue` の文字列一致は候補分類だけに使い、`selfhost_memo_trait_source_identity_new` は呼ばない。scanner record は `selfhost_memo_trait_definition_source_record_new ... false` で作り、trusted identity へ昇格しない。
+  - `selfhost_memo_trait_trusted_source_registry_scan_module_result` は scanner table result を既存 `selfhost_memo_trait_trusted_source_registry_from_definition_table` に渡し、scan error と registry error を `SelfhostMemoTraitDefinitionScanRegistryErrorKind` で分けて返す。
+  - `stdlib/neplg2/core/check/module.nepl` の facade から scanner を re-export し、module checker public surface として扱えるようにした。
+  - `nodesrc/test_selfhost_memo_trait_source_scan_contract.js` を追加し、依存方向、typed error、table projection、`signature_available=false`、raw source identity constructor 禁止、proof store 直結禁止、行数制限・doc comment 長制限禁止を固定した。
+  - `nodesrc/test_selfhost_module_checker_split_contract.js` と `nodesrc/run_source_policy_regressions.js` を更新し、scannerを public checker connection layer としてsource policyに組み込んだ。
+- subagent review:
+  - subagent_review_ids: `019eb6ba-39dc-71e2-81ff-07eaeac1c305`, `019eb6c6-cec9-7000-8696-c18d8b800ee0`
+  - subagent_review_count: 2
+  - 両方のreviewが、`core/ty` へsyntax AST依存を入れないこと、暫定 fingerprint を `signature_available=true` の trusted identity へ昇格しないこと、scanner outputは `signature_available=false` でfail-closedにすることをRequired/Blockerとして指摘した。
+  - 指摘に従い、scannerは `check/module` に置き、`proof_store` や accepted current registry へ直接接続しない設計にした。
+  - follow-up review では、`note.n.md` checkpoint 形式、proof entry contract の facade list、公開 `SelfhostModuleAst` scan smoke を修正済みとして確認した。2件とも Blocker / Required なし。
+- policy/spec:
+  - Blocker: 暫定 fingerprint や source span / spelling を trusted source identity に昇格してはならない。`signature_available=false` と既存 validator の `SignatureMissing` fail-closed で対応した。
+  - Non-blocker: scanner の public name が長いが、source identity authority ではなく checker connection layer であることを名前とdoc commentで明示しているため現時点では許容する。
+  - Question: stable public surface hash / stable trait definition key の producer は次 slice で扱う。今回のscannerは source spelling を candidate classification にだけ使う。
+  - Approve: design review の必須条件である DAG 依存、Result / enum error、fail-closed current authority 非昇格、doc comment 境界説明を実装へ反映し、follow-up review で Blocker / Required なしを確認した。
+- implementation/test:
+  - Blocker: `proof_store` が scanner output に直接依存しないことを `nodesrc/test_selfhost_memo_trait_source_scan_contract.js` で固定した。
+  - Non-blocker: `run_source_policy_regressions --warn-only` の初回確認では `note.n.md` checkpoint label と proof entry contract の facade list が今回差分由来 warning だった。checkpoint label、proof entry contract、公開 `SelfhostModuleAst` scan smoke を追加して対応した。
+  - Question: full checker package 全体のdoctestはこの slice の直接対象ではない。scanner module doctestとmodule facade doctest、source policyを実行した。
+  - Approve: scanner module doctest、module facade doctest、memo trait source/proof store contracts、issues check、diff check、全体source policyを通し、差分由来warningなしを確認した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: scanner は source identity authority に近い境界なので、`signature_available=true` の混入、raw constructor 呼び出し、`core/ty` への syntax/check import、proof store の scanner 直結をsource policyで止める必要がある。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: review response gate の対象形式を維持する。今回の durable checkpoint は同 gate が要求する項目名に合わせて記録する。
+  - source policy: updated and rerun.
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- verify_so_far:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_scan_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl --no-tree -o tmp/selfhost-memo-trait-source-scan.json -j 1 --dist web/dist --assert-io` pass 1/1
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl --no-tree -o tmp/selfhost-memo-trait-source-scan-public-api.json -j 1 --dist web/dist --assert-io` pass 1/1
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit 0
+  - 検証済み: `node nodesrc/issues.js check --dir issues` files=1371
+  - 検証済み: `git diff --check`
+  - verify: targeted checks and full source policy follow-up passed.
+- warnings:
+  - 既存 warning: stdlib / selfhost documentation contract の既存 baseline は引き続き report-only gap を表示する。
+  - 今回差分由来 warning: none after checkpoint label、proof entry contract、public module scan smoke follow-up.
+- residual:
+  - stable public surface hash、stable trait definition key、trait signature normalization、module identity を持つ source record producer は未実装。これが入るまで scanner は trusted current source authority ではなく、fail-closed candidate table producer として扱う。
+  - residual_risk: none for scanner authority boundary after current source policy updates.
+  - unexecuted_verification: none for focused scanner slice.
+  - new warnings: none after source policy follow-up.
+  - 次 slice: stable public surface hash / stable trait definition key producer と trait signature normalization を scanner table record の `signature_available=true` authority 境界へ接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue source materializer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
