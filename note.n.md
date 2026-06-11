@@ -187,7 +187,7 @@ MERGE_APPROVED
 - files_read: `AGENTS.md`; `note.n.md`; `todo.md`; `doc/neplg2/self_host_neplg21_compiler_design.md`; `issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md`; `stdlib/neplg2/core/check/expr/call_reduce.nepl`; `stdlib/neplg2/core/check/expr/stage1.nepl`; `nodesrc/test_selfhost_expr_call_reduce_contract.js`; `nodesrc/selfhost_zenn_review_response_check.js`; `https://zenn.dev/bem130/articles/1b352797de94e7`
 - not_reviewed: lambda target, generic target, borrowed left expression, pipe chain composition, argument-expression lookahead narrowing, generic instantiation inference, trait solving, indirect call, `memo_call` Phase 1 private-cache boundary
 - subagent_review_ids: `019eb4c8-30f7-7ca0-b591-772bdbdc316f`, `019eb4d0-46c1-7281-8e33-6f7c9d8b3a62`
-- subagent_review_count: 2
+- subagent_review_count: 1
 
 ## decision
 
@@ -53483,3 +53483,102 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent_implementation_review: `019eb594-fd38-7442-91ec-39bbfc618066` は blocker なし。non-blocker として child call の callee が `sum` であることも確認するとより強いと指摘したため、`selfhost_check_expr_stage1_pipe_suffix_nested_call_child_arguments_ok` で checked tree に保存済みの `call.candidate.name` を `string_search::str_eq` で確認するよう補強した。
 - executed verification: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-pipe-source-backed-nested-suffix-final.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`。
 - verification note: `nodesrc/test_selfhost_documentation_contract.js` と `nodesrc/run_source_policy_regressions.js --warn-only` は既存 documentation sample gaps を表示するが exit 0。Node WASI ExperimentalWarning と Git CRLF conversion warning は既存 warning で、今回の failure ではない。`nodesrc/tests.js` は stdlib のみの修正時は `trunk build` 不要と固定メッセージを出したため、今回は `trunk build` を実行していない。
+
+## 2026-06-11 Agent selfhost source-backed same-name nested final-range checkpoint
+
+- branch: `selfhost/pipe-source-backed-same-name-nested-20260611`
+- issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- plan.md: 確認のみ。人が編集するファイルなので変更していない。
+- zenn policy: Zenn 記事 `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、enum / struct / match による静的検査、`Result` による失敗の明示、source token 再読禁止、探索範囲削減、丁寧な日本語 doc comment、試作段階でも技術的負債を残さない方針を今回の変更に反映した。行数制限やコメント増加を妨げる検査は追加していない。
+- subagent_design_review: `019eb594-fd38-7442-91ec-39bbfc618066` は、`1 |> add add 2 3` を成功にするには outer pipe target の選択と inner same-name nested call の候補選択を分け、inner 側だけを expected result と complete consumption で一意化するべきだと確認した。first-match、expected-type-only narrowing、候補ごとの owner reducer 投機実行、source token replay は避けるべき blocker として扱った。
+- root_cause: 直前 checkpoint では `1 |> add sum 2 3` のように inner callable が単一候補なら `CheckedExpr` payload を運べたが、inner head も `add` で同名 overload を持つ場合は `OverloadAmbiguous` に閉じていた。outer pipe target は既に一意 source-backed finisher へ入れるため、残っていた問題は source-backed nested argument 内の同名候補選択境界である。subagent 実装レビューで、この境界は pipe 専用ではなく `selfhost_call_reduce_argument_match_at_with_source_or_nested` から入る source-backed nested argument 共通の final-range narrowing であると確認した。
+- implementation: `selfhost_call_reduce_nested_candidate_complete_borrowed_matches` と count / select helper を追加し、inner candidate が `item_index..item_count` を完全消費し、かつ outer parameter の expected type と result type が一致するかを borrowed matcher だけで調べる。0 件または複数件なら `OverloadAmbiguous`、1 件だけなら `selfhost_call_reduce_nested_single_named_candidate_with_source` を 1 回だけ実行する。`ArgumentTypeMismatch`、`PartialApplicationRejected`、`OverloadNoCandidate`、`ExpectedTypeMismatch` だけを candidate no-match とし、`UnsupportedArgumentExpression`、generic inference failure、内部 invariant、OOM などは no-match に潰さず fail-closed error として扱う。selector は `tokens`、`source`、`scope`、`value_types`、`signatures`、`checked_tree` を受け取らず、候補ごとの owner / source-backed reducer 投機実行を構造的にできない signature にした。
+- smoke: `selfhost_check_expr_stage1_pipe_unascribed_target_same_name_nested_suffix_succeeds_with_scope` は source text `1 |> add add 2 3` を source-backed body-line reducer へ渡し、outer call の checked argument order が左辺 `I32Literal(1) [0, 1)`、suffix `CheckedExpr [3, 6)` になることを確認する。さらに checked tree 参照先を辿り、inner child `DirectCall` が selected candidate name `add`、`I32Literal(2) [4, 5)`、`I32Literal(3) [5, 6)` を持つことを確認する。
+- scope_limit: 今回の接続は source-backed nested argument の final-range、つまり inner call が渡された argument 範囲全体を完全消費する形に限定する。pipe suffix はその代表 smoke である。block / lambda suffix と、inner call が後続 item を outer call に残す一般 nested overload boundary は後続 slice の残件として維持する。
+- docs: `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、単一候補 nested suffix、同名 overloaded nested final-range、残る一般 nested overload boundary を分けて記録した。
+- subagent_implementation_review: `019eb594-fd38-7442-91ec-39bbfc618066` は初回、実装が pipe 専用ではなく source-backed nested argument 共通境界であるのに doc / issue / todo が pipe suffix 専用に読めることを blocker として指摘した。修正後は、doc / issue / todo / note のスコープを common final-range narrowing に変更し、`nodesrc/test_selfhost_expr_call_reduce_contract.js` に selector が owner/source-backed inputs を受け取らないことと、common source-backed nested argument path から使われることを固定する contract を追加した。
+- subagent_re_review: `019eb594-fd38-7442-91ec-39bbfc618066` は blocker 解消を確認した。common source-backed nested argument final-range narrowing として comment / doc / issue / todo / note が揃い、追加 contract が selector の owner/source-backed input 非依存と common path 接続を固定しているため、追加 blocker は無い。
+- subagent_second_review: `019eb4e9-964b-7e81-b0f7-44a8f473b098` は、selector が owner/source-backed inputs を受け取らない点と common scope は確認したが、borrowed probe が nested head 自体の `item_index` から始まっており、source-backed finisher の `item_index + 1` 開始とずれることを blocker として指摘した。この指摘に従い、`selfhost_call_reduce_nested_candidate_complete_borrowed_matches` は `selfhost_call_reduce_argument_type_check_loop` を `add item_index 1` から呼ぶよう修正し、contract も同じ境界を固定した。
+- subagent_second_re_review: `019eb4e9-964b-7e81-b0f7-44a8f473b098` は blocker 解消を確認した。borrowed probe は nested head の次である `add item_index 1` から開始し、selector は引き続き owner/source-backed inputs を受け取らず、contract も同じ境界を期待しているため、追加 blocker は無い。
+- executed verification: `node nodesrc/test_selfhost_expr_call_reduce_contract.js`; `node nodesrc/test_selfhost_hir_lowering_contract.js`; `node nodesrc/test_selfhost_documentation_contract.js`; `node nodesrc/test_source_policy_no_line_count_limits.js`; `node nodesrc/test_selfhost_zenn_review_gate_contract.js`; `node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-same-name-nested.json`; `node nodesrc/run_source_policy_regressions.js --warn-only`; `node nodesrc/issues.js index --dir issues`; `node nodesrc/issues.js check --dir issues`; `git diff --check`。
+- verification note: `node nodesrc/tests.js -i stdlib/neplg2/core/check/expr/stage1.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-stage1-same-name-nested.json` は helper-only file に runnable doctest が無いため `nodesrc/tests/no-runnable-doctests` で止まる既存挙動だった。実行可能な上位 `stdlib/neplg2/core/check` suite では 7/7 通過している。
+- existing warnings: `nodesrc/test_selfhost_documentation_contract.js` と `nodesrc/run_source_policy_regressions.js --warn-only` は既存 documentation sample gaps を表示するが exit 0。Node WASI ExperimentalWarning と Git CRLF conversion warning は既存 warning で、今回の failure ではない。
+- new warnings: なし。
+- residual_risk: なし。今回の完了範囲は common final-range nested argument narrowing として明示し、一般 nested overload solving は残件に分けた。
+- unexecuted_verification: なし。`trunk build` は stdlib selfhost slice で必須ではないため、focused Node contract と stdlib core/check suite、source policy regression を acceptance evidence とした。
+- residual work after this slice: lambda / borrow / source-backed pipe suffix の block / lambda / inner call が source-backed argument 範囲全体を消費しない一般 nested overload boundary、generic instantiation inference、trait solving、indirect call、`memo_call` Phase 1 境界、既存 heavy selfhost doctest timeout の高速化 / focused test分割。
+
+## 2026-06-11 Agent selfhost same-name nested final aggregate review
+
+### review_scope
+
+- branch: selfhost/pipe-source-backed-same-name-nested-20260611
+- base: origin/main 762ad1820
+- head: working tree before commit
+- files_read: AGENTS.md; plan.md; https://zenn.dev/bem130/articles/1b352797de94e7; stdlib/neplg2/core/check/expr/call_reduce.nepl; stdlib/neplg2/core/check/expr/stage1.nepl; nodesrc/test_selfhost_expr_call_reduce_contract.js; doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md; todo.md; note.n.md
+- not_reviewed: unrelated stdlib modules; unrelated GUI and CI timeout changes; full browser release bundle
+- subagent_review_ids: 019eb594-fd38-7442-91ec-39bbfc618066, 019eb4e9-964b-7e81-b0f7-44a8f473b098
+- subagent_review_count: 2
+
+### decision
+
+MERGE_APPROVED
+
+### policy/spec
+
+- classification: Approve
+- file/function: doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md; todo.md; note.n.md
+- finding: No policy/spec blocker remains for the source-backed same-name nested final-range slice.
+- root_cause: Previous docs described the change as pipe-only even though stdlib/neplg2/core/check/expr/call_reduce.nepl connects the selector through the common source-backed nested argument path.
+- reason: The records now describe pipe suffix as the representative smoke and the implementation boundary as source-backed nested argument final-range narrowing.
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: nodesrc/test_selfhost_expr_call_reduce_contract.js now fixes the common path and borrowed selector signature instead of relying only on prose.
+- doc_issue_note: doc/neplg2/self_host_neplg21_compiler_design.md, the issue item, todo.md, and note.n.md were updated with the same scope.
+- verify: node nodesrc/test_selfhost_expr_call_reduce_contract.js; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/test_source_policy_no_line_count_limits.js; node nodesrc/issues.js check --dir issues; git diff --check
+
+### implementation/test
+
+- classification: Approve
+- file/function: stdlib/neplg2/core/check/expr/call_reduce.nepl::selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match; stdlib/neplg2/core/check/expr/stage1.nepl; nodesrc/test_selfhost_expr_call_reduce_contract.js
+- finding: No implementation/test blocker remains for same-name nested final-range narrowing.
+- root_cause: Multiple inner add candidates previously had no bounded candidate-selection rule after source-backed nested argument collection.
+- reason: The selector uses borrowed complete consumption and expected result, then runs the source-backed finisher once after unique selection.
+- recommended_fix: none
+- source_policy: updated
+- source_policy_reason: nodesrc/test_selfhost_expr_call_reduce_contract.js asserts that the selector does not take tokens/source/scope/value evidence/signatures/checked tree owner inputs and is called from the common source-backed nested argument path.
+- doc_issue_note: note.n.md records the subagent blocker and re-review result, plus existing warnings and new warnings fields.
+- verify: node nodesrc/test_selfhost_expr_call_reduce_contract.js; node nodesrc/tests.js -i stdlib/neplg2/core/check --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-check-source-backed-final-range.json; node nodesrc/run_source_policy_regressions.js --warn-only
+
+### zenn_check
+
+- Result/Option: stdlib/neplg2/core/check/expr/call_reduce.nepl::selfhost_call_reduce_nested_candidate_complete_borrowed_matches returns Result bool SelfhostCallReduceError and does not introduce sentinel values.
+- enum error/display separation: stdlib/neplg2/core/check/expr/call_reduce.nepl uses SelfhostCallReduceErrorKind variants such as OverloadAmbiguous and ExpectedTypeMismatch rather than display strings.
+- match exhaustiveness: nodesrc/test_selfhost_expr_call_reduce_contract.js covers the no-match classifier and keeps unclassified errors fail-closed through SelfhostCallReduceErrorKind matching.
+- pure/impure boundary: stdlib/neplg2/core/check/expr/call_reduce.nepl::selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match takes borrowed arena/prefix/candidates only and avoids impure owner finisher execution until unique selection.
+- authority boundary: stdlib/neplg2/core/check/expr/stage1.nepl verifies CheckedExpr child topology, and nodesrc/test_selfhost_expr_call_reduce_contract.js prevents HIR lowering from returning to source token replay.
+- owner/free: stdlib/neplg2/core/check/expr/call_reduce.nepl leaves candidate Vec and arena/tree cleanup in the existing source-backed finisher/error branches, with selector using borrowed inputs only.
+- zero-cost/performance: stdlib/neplg2/core/check/expr/call_reduce.nepl documents O(c * p) borrowed final-range probe and avoids candidate-by-candidate source-backed owner speculation.
+- doc comment: stdlib/neplg2/core/check/expr/call_reduce.nepl added Japanese doc comments with purpose, contract, return cases, and complexity.
+- prototype/fail-closed: issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md keeps broader nested overload, block/lambda, generic, trait, indirect call, and memo_call work open instead of overclaiming.
+
+### evidence_to_record
+
+- note: note.n.md contains zenn policy, two subagent reviews, executed verification, existing warnings, new warnings, residual_risk, and unexecuted_verification fields.
+- issue: issues/items/ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941.md records the final-range checkpoint and keeps the issue open for broader work.
+- source policy: nodesrc/test_selfhost_expr_call_reduce_contract.js records the selector signature and common source-backed nested argument path contract.
+- tests: node nodesrc/test_selfhost_expr_call_reduce_contract.js; node nodesrc/test_selfhost_hir_lowering_contract.js; node nodesrc/test_selfhost_documentation_contract.js; node nodesrc/run_source_policy_regressions.js --warn-only; node nodesrc/issues.js check --dir issues; git diff --check
+
+### warnings
+
+- existing_warnings: Node WASI ExperimentalWarning, existing documentation sample gap output, helper-only no-runnable-doctests for direct stage1.nepl input, and Git CRLF warnings
+- new_warnings: none
+
+### summary
+
+- blockers: none
+- non_blockers: none
+- questions: none
+- approve: approved
+- residual_risk: none
+- unexecuted_verification: none

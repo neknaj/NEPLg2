@@ -950,6 +950,22 @@ fn selfhost_check_expr_stage1_pipe_suffix_nested_call_segment %fn void SelfhostB
     let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 6 source_span_new_unchecked 0 0 16
     selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
 
+//: selfhost_check_expr_stage1_pipe_suffix_same_name_nested_call_segment: `1 |> add add 2 3` の expression segment を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - pipe target と suffix nested call head が同じ `add` である場合に、source-backed reducer が inner overload を消費幅で一意化する入力 range を fixture 化します。
+//: - outer target の候補選択と inner nested call の候補選択は同じ scope / signature table を読むため、first-match や source-backed 総当たりに戻らない契約を確認できます。
+//:
+//: [契約/けいやく]:
+//: - head range は token buffer の `1`、`|>`、outer `add`、inner `add`、`2`、`3` の 6 token 全体を指します。
+//: - source span は `"1 |> add add 2 3"` の byte range 0..16 です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 range を作るだけなので O(1) です。
+fn selfhost_check_expr_stage1_pipe_suffix_same_name_nested_call_segment %fn void SelfhostBodySegment \void:
+    let head %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 6 source_span_new_unchecked 0 0 16
+    selfhost_body_segment_new SelfhostBodySegmentKind::ExpressionLine head selfhost_syntax_range_empty
+
 //: selfhost_check_expr_stage1_pipe_chain_segment: `1 |> add 2 |> add 3` の expression segment を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -1598,6 +1614,57 @@ fn selfhost_check_expr_stage1_make_pipe_suffix_nested_call_tokens %impure fn voi
                                 Result::Ok tokens3:
                                     let sum_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 9 12
                                     match selfhost_check_expr_stage1_push_token tokens3 sum_token:
+                                        Result::Ok tokens4:
+                                            let lhs_nested_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 13 14
+                                            match selfhost_check_expr_stage1_push_token tokens4 lhs_nested_arg:
+                                                Result::Ok tokens5:
+                                                    let rhs_nested_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 15 16
+                                                    selfhost_check_expr_stage1_push_token tokens5 rhs_nested_arg
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_check_expr_stage1_make_pipe_suffix_same_name_nested_call_tokens: `1 |> add add 2 3` の token buffer を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 同名 overloaded nested call narrowing の success fixture です。
+//: - outer `add` は pipe target、inner `add 2 3` は suffix の nested direct call であり、両方が同じ scope / signature table の候補列から解決されます。
+//:
+//: [契約/けいやく]:
+//: - 借用 probe は inner `add` の候補を owner reducer で総当たりしません。`add 2 3` を完全消費できる候補が一意に分かる場合だけ source-backed finisher へ進みます。
+//: - 成功時は caller が token vector owner を受け取り、runner が必ず解放します。
+//: - token push failure 時は `selfhost_check_expr_stage1_push_token` が途中 owner を閉じます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(tokens)`: `1`、`|>`、outer `add`、inner `add`、`2`、`3` の 6 token を持つ vector owner です。
+//: - `Err(error)`: Vec 確保または push が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定 6 token だけを作るため O(1) です。
+fn selfhost_check_expr_stage1_make_pipe_suffix_same_name_nested_call_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match tokens_result:
+        Result::Ok tokens0:
+            let lhs %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 0 1
+            match selfhost_check_expr_stage1_push_token tokens0 lhs:
+                Result::Ok tokens1:
+                    let pipe_token %SelfhostToken selfhost_token_new TokenKind::Pipe source_span_new_unchecked 0 2 4
+                    match selfhost_check_expr_stage1_push_token tokens1 pipe_token:
+                        Result::Ok tokens2:
+                            let outer_add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 5 8
+                            match selfhost_check_expr_stage1_push_token tokens2 outer_add_token:
+                                Result::Ok tokens3:
+                                    let inner_add_token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new_unchecked 0 9 12
+                                    match selfhost_check_expr_stage1_push_token tokens3 inner_add_token:
                                         Result::Ok tokens4:
                                             let lhs_nested_arg %SelfhostToken selfhost_token_new TokenKind::IntLiteral source_span_new_unchecked 0 13 14
                                             match selfhost_check_expr_stage1_push_token tokens4 lhs_nested_arg:
@@ -2618,29 +2685,29 @@ fn selfhost_check_expr_stage1_pipe_chain_root_links_previous_direct_call %fn &Se
 //: selfhost_check_expr_stage1_pipe_suffix_nested_call_child_arguments_ok: suffix nested call node の argument を[検査/けんさ]する
 //:
 //: [目的/もくてき]:
-//: - `1 |> add sum 2 3` の suffix expression `sum 2 3` が、checked tree 内で2引数 `DirectCall` node として保存されたことを確認します。
+//: - pipe suffix の nested expression が、checked tree 内で2引数 `DirectCall` node として保存されたことを確認します。
 //: - 外側 argument が `CheckedExpr` であるだけでは参照先の payload 破損を検出できないため、この helper は inner node の checked argument まで辿ります。
 //:
 //: [契約/けいやく]:
 //: - `expr_id` は outer call の第2引数から取り出した checked expression id です。
-//: - inner call の selected candidate name は `sum` でなければなりません。prefix spelling ではなく checked tree に保存済みの candidate payload を確認します。
-//: - inner call の prefix item index は `3:sum`, `4:2`, `5:3` であり、child arguments は `[4, 5)` と `[5, 6)` に一致しなければなりません。
+//: - inner call の selected candidate name は `expected_name` と一致しなければなりません。prefix spelling ではなく checked tree に保存済みの candidate payload を確認します。
+//: - inner call の prefix item index は `3:<name>`, `4:2`, `5:3` であり、child arguments は `[4, 5)` と `[5, 6)` に一致しなければなりません。
 //: - `NestedDirectCall` summary variant は成功扱いにしません。HIR lowering の authority は checked tree node と checked argument payload です。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `true`: 参照先が `sum` の2引数 `DirectCall` で、child argument が `I32Literal(2)`、`I32Literal(3)` の順です。
+//: - `true`: 参照先が `expected_name` の2引数 `DirectCall` で、child argument が `I32Literal(2)`、`I32Literal(3)` の順です。
 //: - `false`: node lookup、node kind、argument range、payload、または範囲が期待と違います。
 //:
 //: [計算量/けいさんりょう]:
 //: - fixed fixture の node 1 件と argument 2 件だけを読むため O(1) です。
-fn selfhost_check_expr_stage1_pipe_suffix_nested_call_child_arguments_ok %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprId bool \tree\expr_id:
+fn selfhost_check_expr_stage1_pipe_suffix_nested_call_child_arguments_ok %fn &SelfhostCheckedExprTree fn SelfhostCheckedExprId fn str bool \tree\expr_id\expected_name:
     match selfhost_checked_expr_tree_get_node tree expr_id:
         Option::Some node:
             match node.kind:
                 SelfhostCheckedExprNodeKind::DirectCall call:
                     let arguments %SelfhostCheckedArgumentRange call.arguments
                     if:
-                        not and string_search::str_eq call.candidate.name "sum" eq selfhost_checked_argument_range_count arguments 2
+                        not and string_search::str_eq call.candidate.name expected_name eq selfhost_checked_argument_range_count arguments 2
                         then:
                             false
                         else:
@@ -2695,12 +2762,12 @@ fn selfhost_check_expr_stage1_success_has_pipe_suffix_nested_argument_order %fn 
 //: selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call: outer call から suffix nested node へ[接続/せつぞく]しているか[調/しら]べる
 //:
 //: [目的/もくてき]:
-//: - `1 |> add sum 2 3` の root direct call が第2引数として suffix nested call node を参照し、その node が `sum 2 3` の argument payload を保持していることを確認します。
+//: - pipe suffix nested call の root direct call が第2引数として suffix nested call node を参照し、その node が `expected_child_name 2 3` の argument payload を保持していることを確認します。
 //: - HIR lowering が outer argument の `CheckedExpr` id だけを受け取り、source token 3..6 を再解釈しないための topology contract です。
 //:
 //: [契約/けいやく]:
 //: - root は outer `add` の2引数 direct call です。
-//: - 第1引数は左辺 `1` の literal payload、第2引数は `sum 2 3` の checked expression `[3, 6)` です。
+//: - 第1引数は左辺 `1` の literal payload、第2引数は nested suffix の checked expression `[3, 6)` です。
 //: - checked tree 参照先が見つからない場合や legacy summary variant の場合は `false` にします。
 //:
 //: [戻/もど]り[値/ち]:
@@ -2709,7 +2776,7 @@ fn selfhost_check_expr_stage1_success_has_pipe_suffix_nested_argument_order %fn 
 //:
 //: [計算量/けいさんりょう]:
 //: - fixed fixture の root node 1 件、child node 1 件、argument 4 件を読むため O(1) です。
-fn selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call %fn &SelfhostExpressionLineCheckSuccess bool \success:
+fn selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call %fn &SelfhostExpressionLineCheckSuccess fn str bool \success\expected_child_name:
     let tree %&SelfhostCheckedExprTree selfhost_expression_line_check_success_checked_tree success
     let root_expr %SelfhostCheckedExprId selfhost_expression_line_check_success_root_expr success
     match selfhost_checked_expr_tree_get_node tree root_expr:
@@ -2733,7 +2800,7 @@ fn selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_ca
                                                 else:
                                                     match selfhost_check_expr_stage1_checked_expr_argument_id &second:
                                                         Option::Some child_expr:
-                                                            selfhost_check_expr_stage1_pipe_suffix_nested_call_child_arguments_ok tree child_expr
+                                                            selfhost_check_expr_stage1_pipe_suffix_nested_call_child_arguments_ok tree child_expr expected_child_name
                                                         Option::None:
                                                             false
                                         Option::None:
@@ -3968,7 +4035,54 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_nested_suffix_succeeds_with
                     match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "1 |> add sum 2 3" segment arena context &candidates none:
                         Result::Ok success:
                             let order_ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_pipe_suffix_nested_argument_order &success
-                            let ok %bool and order_ok selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call &success
+                            let ok %bool and order_ok selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call &success "sum"
+                            selfhost_expression_line_check_success_free success
+                            v::free candidates
+                            v::free tokens
+                            ok
+                        Result::Err _e:
+                            v::free candidates
+                            v::free tokens
+                            false
+                Result::Err _e:
+                    selfhost_type_arena_free arena
+                    v::free candidates
+                    v::free tokens
+                    false
+        Result::Err _e:
+            selfhost_type_arena_free arena
+            v::free tokens
+            false
+
+//: selfhost_check_expr_stage1_pipe_unascribed_target_same_name_nested_suffix_succeeds_with_scope: 同名 nested suffix を source-backed に[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - `1 |> add add 2 3` の suffix argument が同名 overloaded `add` で始まる場合に、inner candidate を expected result と消費幅で一意化できることを確認します。
+//: - outer target の選択は従来の pipe target probe に従い、source-backed finisher に入った後だけ nested argument 内の同名候補を絞ります。
+//:
+//: [契約/けいやく]:
+//: - context は `add : fn i32 i32` と `add : fn i32 fn i32 i32` の2候補だけを持ち、outer target と inner head の両方が同じ候補列を参照します。
+//: - inner `add : fn i32 i32` は `add 2` までしか消費できず suffix の `3` を余らせるため不一致です。
+//: - inner `add : fn i32 fn i32 i32` は `add 2 3` を完全消費し、result type も outer 第2引数の `i32` expectation に合うため一意候補です。
+//: - 成功時の suffix payload は `SelfhostCheckedArgumentKind::CheckedExpr` であり、参照先 node は inner `add 2 3` の `DirectCall` でなければなりません。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: outer と inner の両方が expected type と consume-width に基づいて正しい2引数版を選び、checked tree topology も期待通りでした。
+//: - `false`: setup、候補選択、nested argument check、または checked tree topology が期待と違います。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixture setup は O(1) です。reducer 側は outer candidate probe と inner candidate probe の候補数・parameter 数に比例しますが、source-backed finisher は一意化後に1回だけ実行します。
+fn selfhost_check_expr_stage1_pipe_unascribed_target_same_name_nested_suffix_succeeds_with_scope %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId bool \tokens\arena\one_arg_type\two_arg_type:
+    let segment %SelfhostBodySegment selfhost_check_expr_stage1_pipe_suffix_same_name_nested_call_segment
+    match selfhost_check_expr_stage1_make_candidate_vec two_arg_type:
+        Result::Ok candidates:
+            let add_span %SelfhostSourceSpan source_span_new_unchecked 0 5 8
+            match selfhost_check_expr_stage1_value_context_with_two_functions "add" one_arg_type two_arg_type add_span:
+                Result::Ok context:
+                    match selfhost_check_expr_stage1_reduce_body_segment_with_value_context &tokens "1 |> add add 2 3" segment arena context &candidates none:
+                        Result::Ok success:
+                            let order_ok %bool and selfhost_check_expr_stage1_success_is_two_arg_direct_call &success selfhost_check_expr_stage1_success_has_pipe_suffix_nested_argument_order &success
+                            let ok %bool and order_ok selfhost_check_expr_stage1_pipe_suffix_nested_call_root_links_child_direct_call &success "add"
                             selfhost_expression_line_check_success_free success
                             v::free candidates
                             v::free tokens
@@ -5040,6 +5154,40 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_i32 
             v::free tokens
             1
 
+//: selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_i32: 同名 nested suffix success smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - primitive `i32` を使って `add : fn i32 i32` と `add : fn i32 fn i32 i32` を構築し、`1 |> add add 2 3` の outer/inner 両方が同じ overload set から解決されることを確認します。
+//: - inner overload は expected result だけでなく `add 2 3` の完全消費幅で一意化されます。
+//:
+//: [契約/けいやく]:
+//: - setup 成功後の arena owner と token owner は下位 helper へ移動します。
+//: - function type allocation に失敗した場合だけ、この helper が token owner を閉じます。arena owner は allocation helper 側で閉じられます。
+//: - 候補ごとの source-backed owner reducer 総当たりは行わず、borrowed complete-match が一意にした候補だけを source-backed finisher へ渡します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: 同名 nested suffix が期待通り checked tree 付き direct call へ正規化されました。
+//: - `1`: setup、候補選択、nested call check、または checked tree topology が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - type fixture setup は固定個数なので O(1) です。下位 reducer は outer/inner の候補数と parameter 数に従います。
+fn selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_i32 %impure fn Vec SelfhostToken impure fn SelfhostTypeArena impure fn SelfhostTypeId i32 \tokens\arena\i32_type:
+    match selfhost_check_expr_stage1_add_one_i32_function arena i32_type:
+        Result::Ok one_alloc:
+            let one_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &one_alloc
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena one_alloc
+            match selfhost_check_expr_stage1_add_two_i32_function arena1 i32_type:
+                Result::Ok two_alloc:
+                    let two_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &two_alloc
+                    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena two_alloc
+                    if selfhost_check_expr_stage1_pipe_unascribed_target_same_name_nested_suffix_succeeds_with_scope tokens arena2 one_type two_type 0 1
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
 //: selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_tokens: token owner から nested suffix smoke を[起動/きどう]する
 //:
 //: [目的/もくてき]:
@@ -5063,6 +5211,36 @@ fn selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_toke
                     let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
                     selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_i32 tokens arena1 i32_type
+                Result::Err _e:
+                    v::free tokens
+                    1
+        Result::Err _e:
+            v::free tokens
+            1
+
+//: selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_tokens: token owner から同名 nested suffix smoke を[起動/きどう]する
+//:
+//: [目的/もくてき]:
+//: - `1 |> add add 2 3` 用 token buffer に primitive `i32` arena fixture を付け、same-name nested suffix の i32-level helper へ渡します。
+//:
+//: [契約/けいやく]:
+//: - arena setup 失敗時は token owner をこの helper が閉じます。
+//: - setup 成功後は token owner と arena owner を下位 helper へ移動します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `0`: same-name nested suffix smoke が通りました。
+//: - `1`: setup または下位 helper が失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - primitive fixture setup は O(1) です。下位 reducer の計算量は outer/inner 候補数、prefix item 数、nested argument check に従います。
+fn selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_tokens %impure fn Vec SelfhostToken i32 \tokens:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_i32 tokens arena1 i32_type
                 Result::Err _e:
                     v::free tokens
                     1
@@ -6399,17 +6577,18 @@ fn selfhost_check_expr_stage1_pipe_failclosed_body_line %impure fn void i32 \voi
 //: - `1 |> add %i32 2` では、source-backed checker が必要な suffix argument を、他候補がすべて `NoMatch` のときだけ一意の success path へ渡すことを確認します。
 //: - `1 |> add x` では、source-backed checker が value evidence table を使って named suffix を `NamedValue` payload にできることを確認します。
 //: - `1 |> add sum 2 3` では、source-backed checker が suffix nested call を `CheckedExpr` payload として checked tree に接続できることを確認します。
+//: - `1 |> add add 2 3` では、inner head も同名 overload になった場合に expected result と consume-width で一意候補だけを選ぶことを確認します。
 //:
 //: [契約/けいやく]:
 //: - 各 token buffer owner は対応する runner へ移動し、runner が cleanup を担当します。
 //: - success case が通った後だけ negative case を実行します。success path が壊れている状態で error 分類だけを見て green にしないためです。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `0`: argument-based narrowing success、no-applicable rejection、duplicate-match rejection、ascribed suffix success、named suffix success、nested suffix success がすべて期待通りでした。
+//: - `0`: argument-based narrowing success、no-applicable rejection、duplicate-match rejection、ascribed suffix success、named suffix success、nested suffix success、same-name nested suffix success がすべて期待通りでした。
 //: - `1`: token setup、probe narrowing、error 分類、または cleanup 境界のいずれかが失敗しました。
 //:
 //: [計算量/けいさんりょう]:
-//: - 固定 token fixture を最大 6 回作るため setup は O(1) です。各 reducer は候補数と argument probe cost に従います。
+//: - 固定 token fixture を最大 7 回作るため setup は O(1) です。各 reducer は候補数と argument probe cost に従います。
 fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_line %impure fn void i32 \void:
     match selfhost_check_expr_stage1_make_pipe_tokens:
         Result::Ok success_tokens:
@@ -6443,7 +6622,17 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
                                                                                 then:
                                                                                     match selfhost_check_expr_stage1_make_pipe_suffix_nested_call_tokens:
                                                                                         Result::Ok nested_tokens:
-                                                                                            selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_tokens nested_tokens
+                                                                                            let nested %i32 selfhost_check_expr_stage1_run_pipe_unascribed_target_nested_suffix_with_tokens nested_tokens
+                                                                                            if:
+                                                                                                eq nested 0
+                                                                                                then:
+                                                                                                    match selfhost_check_expr_stage1_make_pipe_suffix_same_name_nested_call_tokens:
+                                                                                                        Result::Ok same_name_tokens:
+                                                                                                            selfhost_check_expr_stage1_run_pipe_unascribed_target_same_name_nested_suffix_with_tokens same_name_tokens
+                                                                                                        Result::Err _e:
+                                                                                                            1
+                                                                                                else:
+                                                                                                    1
                                                                                         Result::Err _e:
                                                                                             1
                                                                                 else:
@@ -6473,7 +6662,7 @@ fn selfhost_check_expr_stage1_pipe_unascribed_target_argument_narrowing_body_lin
 //: - public body-line smoke から `1 |> add 2`、`1 |> %fn i32 fn i32 i32 add 2`、`1 |> add 2 |> add 3` の source-backed pipe 正規化を確認します。
 //: - 同名 function overload が複数ある場合でも、明示 target ascription が callable type と一致する1候補へ探索空間を狭めることを確認します。
 //: - target ascription が無い場合でも、pipe 左辺と RHS suffix の引数列から同名 overload を一意化できる最小 case、source-backed suffix success case、その 0 件 / 複数件 fail-closed case を確認します。
-//: - suffix が nested direct call の場合は、outer call の argument を legacy summary ではなく `CheckedExpr` として checked tree へ接続することを確認します。
+//: - suffix が nested direct call の場合は、outer call の argument を legacy summary ではなく `CheckedExpr` として checked tree へ接続することを確認します。同名 overloaded inner call は、expected result と consume-width で一意に確認できる範囲だけ成功させます。
 //: - pipe は部分適用ではなく、右辺 callable の第1引数に左辺 checked argument を差し込む syntax sugar として扱うことを固定します。
 //: - success case が通った後、不正な形や target ascription mismatch が typed pipe error として fail-closed になる negative smoke 群も実行します。
 //:

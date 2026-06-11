@@ -10,7 +10,7 @@
 //: [契約/けいやく]:
 //: - 先頭 item が `NamedValue` で、候補が 1 つだけで、候補型が function type で、実引数式が parameter count ぶんだけ消費され、各引数の型証拠が parameter type と一致し、expected result が一致する場合だけ `DirectCall` を返します。
 //: - 引数不足は partial application として扱わず、`PartialApplicationRejected` を返します。
-//: - 候補が複数ある場合、この slice では expected type による ambiguity narrowing を行わず `OverloadAmbiguous` を返します。
+//: - source-less 入口では候補が複数ある場合に `OverloadAmbiguous` を返します。source / token backed の nested argument 入口だけは、expected result と消費幅で一意に確認できる候補を選びます。
 //: - generic inference が `EvidenceMissing` / `Conflict` / `Unsupported` の候補は fail-closed にします。
 //: - full expression checker が未実装の引数式は、型が一致したものとして通さず `UnsupportedArgumentExpression` として拒否します。
 //: - `%T literal` や nested named call のような可変幅引数式は、source / token 付き argument checker が接続された入口だけで成功扱いします。raw item 数を arity として数える旧挙動へ戻してはいけません。
@@ -683,15 +683,184 @@ fn selfhost_call_reduce_nested_single_named_candidate_with_source %impure fn &Ve
             selfhost_checked_expr_tree_free checked_tree
             Result::Err e
 
+//: selfhost_call_reduce_nested_candidate_error_is_no_match: nested 候補固有の不一致か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 複数候補の nested named call を絞り込むとき、candidate 固有の不一致だけを「この候補は違う」として扱います。
+//: - generic 未解決、内部 invariant、OOM、source-backed checker が必要な未対応式を no-match に丸めると、将来の solver や検査結果を隠すため、この helper は false を返します。
+//:
+//: [契約/けいやく]:
+//: - `ArgumentTypeMismatch`、`PartialApplicationRejected`、`OverloadNoCandidate`、`ExpectedTypeMismatch` は候補固有の不一致です。
+//: - `UnsupportedArgumentExpression`、`GenericInference*`、`InternalInvariant`、`OutOfMemory` などは no-match ではありません。caller はそれらを fail-closed error として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - error kind の enum match だけなので O(1) です。
+fn selfhost_call_reduce_nested_candidate_error_is_no_match %fn SelfhostCallReduceError bool \error:
+    match error.kind:
+        SelfhostCallReduceErrorKind::ArgumentTypeMismatch:
+            true
+        SelfhostCallReduceErrorKind::PartialApplicationRejected:
+            true
+        SelfhostCallReduceErrorKind::OverloadNoCandidate:
+            true
+        SelfhostCallReduceErrorKind::ExpectedTypeMismatch:
+            true
+        _:
+            false
+
+//: selfhost_call_reduce_nested_candidate_complete_borrowed_matches: 1 nested 候補を借用 probe で[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - source-backed nested argument の候補が複数ある場合に、owner reducer を候補ごとに投機実行せず、借用 matcher だけで一意にできるかを調べます。
+//: - `1 |> add add 2 3` では、inner `add : fn i32 i32` は suffix を余らせるため不一致になり、inner `add : fn i32 fn i32 i32` だけが `add 2 3` を完全消費して一致します。
+//:
+//: [契約/けいやく]:
+//: - `item_index` は nested callee head です。実引数 probe は `item_index + 1` から開始し、candidate の parameter をすべて消費したあとにちょうど `item_count` へ到達した場合だけ一致です。
+//: - candidate の result type は外側 argument の `expected_type` と一致しなければなりません。result type だけで候補を選ばず、必ず argument consumption も見る必要があります。
+//: - この helper は arena、checked tree、checked argument owner を受け取らず、checked payload を作りません。候補確定後だけ `selfhost_call_reduce_nested_single_named_candidate_with_source` が source-backed finisher として 1 回実行されます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(true)`: 候補は引数消費幅と result expectation の両方に一致しました。
+//: - `Ok(false)`: 候補固有の型・arity・result 不一致でした。
+//: - `Err(error)`: generic 未解決、内部境界、source-backed 専用式など、候補選択へ no-match として使ってはいけない失敗です。
+//:
+//: [計算量/けいさんりょう]:
+//: - candidate の parameter 数を p とすると、borrowed argument matcher を最大 p 回実行します。source-backed owner reducer は実行しません。
+fn selfhost_call_reduce_nested_candidate_complete_borrowed_matches %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn SelfhostCallableCandidate fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem Result bool SelfhostCallReduceError \arena\prefix\candidate\item_index\item_count\expected_type\head:
+    match selfhost_call_reduce_generic_state_error candidate:
+        Result::Ok _unit:
+            match selfhost_type_arena_function_arg_count arena candidate.callable_type:
+                Option::Some param_count:
+                    match selfhost_call_reduce_argument_type_check_loop arena prefix candidate param_count 0 add item_index 1 item_count head:
+                        Result::Ok _ok:
+                            let expected %SelfhostTypeExpectation selfhost_type_expectation_new expected_type SelfhostTypeExpectationSource::OuterConsumerArgument head.span
+                            match selfhost_call_reduce_expected_result arena candidate some expected:
+                                Result::Ok _result_type:
+                                    Result::Ok true
+                                Result::Err e:
+                                    if:
+                                        selfhost_call_reduce_nested_candidate_error_is_no_match e
+                                        then:
+                                            Result::Ok false
+                                        else:
+                                            Result::Err e
+                        Result::Err e:
+                            if:
+                                selfhost_call_reduce_nested_candidate_error_is_no_match e
+                                then:
+                                    Result::Ok false
+                                else:
+                                    Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::NotCallable candidate.span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_call_reduce_nested_candidate_match_count_loop: 完全消費できる nested 候補数を[数/かぞ]える
+//:
+//: [目的/もくてき]:
+//: - 複数候補の nested named call を、expected result と consume-width で 0 / 1 / 複数に分類します。
+//: - 最初に合った候補を採用せず、候補列全体を数えることで overload 解決の tie-break を fixture 順に依存させません。
+//:
+//: [契約/けいやく]:
+//: - candidate vector owner は caller が保持します。この helper は借用だけを行います。
+//: - 候補取得に失敗した場合は vector length と実体の不整合として `InternalInvariant` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数を c、1候補の parameter 数を p として O(c * p) です。
+fn selfhost_call_reduce_nested_candidate_match_count_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 fn i32 Result i32 SelfhostCallReduceError \arena\prefix\candidates\item_index\item_count\expected_type\head\idx\candidate_count:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Ok 0
+        else:
+            match v::get candidates idx:
+                Option::Some candidate:
+                    match selfhost_call_reduce_nested_candidate_match_count_loop arena prefix candidates item_index item_count expected_type head add idx 1 candidate_count:
+                        Result::Ok rest:
+                            match selfhost_call_reduce_nested_candidate_complete_borrowed_matches arena prefix candidate item_index item_count expected_type head:
+                                Result::Ok matched:
+                                    if:
+                                        matched
+                                        then:
+                                            Result::Ok add rest 1
+                                        else:
+                                            Result::Ok rest
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+//: selfhost_call_reduce_nested_candidate_first_match_loop: 一意に一致した nested 候補を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - match count が 1 件であることを確認した後、同じ borrowed match 規則で候補 payload を復元します。
+//: - count 時と selection 時で異なる条件を使わないため、候補選択の規則が分裂しません。
+//:
+//: [契約/けいやく]:
+//: - caller は `match_count == 1` を先に確認してから呼びます。
+//: - 一致候補が見つからない場合は、事前集計との不整合として `InternalInvariant` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 候補数を c、1候補の parameter 数を p として最悪 O(c * p) です。
+fn selfhost_call_reduce_nested_candidate_first_match_loop %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\candidates\item_index\item_count\expected_type\head\idx\candidate_count:
+    if:
+        ge idx candidate_count
+        then:
+            Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+        else:
+            match v::get candidates idx:
+                Option::Some candidate:
+                    match selfhost_call_reduce_nested_candidate_complete_borrowed_matches arena prefix candidate item_index item_count expected_type head:
+                        Result::Ok matched:
+                            if:
+                                matched
+                                then:
+                                    Result::Ok candidate
+                                else:
+                                    selfhost_call_reduce_nested_candidate_first_match_loop arena prefix candidates item_index item_count expected_type head add idx 1 candidate_count
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::InternalInvariant head.span
+
+//: selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match: 複数 nested 候補を完全消費で[選別/せんべつ]する
+//:
+//: [目的/もくてき]:
+//: - 同名 overloaded nested call を、expected result と argument consumption の両方で安全に一意化します。
+//: - source-backed finisher を候補ごとに総当たりせず、borrowed matcher で一意候補が分かった場合だけ、その候補を返します。
+//:
+//: [場合分/ばあいわ]け:
+//: - 一致候補が 1 件なら `Ok(candidate)` です。
+//: - 一致候補が 0 件または 2 件以上なら `OverloadAmbiguous` です。source-backed owner を候補ごとに試行する材料が無いため、値 fallback や first-match には進みません。
+//: - no-match にできない未対応・内部失敗は、その typed error をそのまま返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 一致数確認と候補取得で候補列を最大 2 回見るため、候補数 c、1候補の parameter 数 p として O(c * p) です。
+fn selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match %fn &SelfhostTypeArena fn &SelfhostExprPrefixList fn &Vec SelfhostCallableCandidate fn i32 fn i32 fn SelfhostTypeId fn SelfhostExprPrefixItem fn i32 Result SelfhostCallableCandidate SelfhostCallReduceError \arena\prefix\candidates\item_index\item_count\expected_type\head\candidate_count:
+    match selfhost_call_reduce_nested_candidate_match_count_loop arena prefix candidates item_index item_count expected_type head 0 candidate_count:
+        Result::Ok match_count:
+            if:
+                eq match_count 1
+                then:
+                    selfhost_call_reduce_nested_candidate_first_match_loop arena prefix candidates item_index item_count expected_type head 0 candidate_count
+                else:
+                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_call_reduce_nested_named_candidates_with_source: named item の候補数で nested/direct の[分岐/ぶんき]を[決/き]める
 //:
 //: [目的/もくてき]:
 //: - argument position の named item について、callable candidate が 0/1/複数のどれかを判定します。
 //: - candidate がない場合は通常の値式として direct argument reducer に委譲し、1 つだけなら nested direct call として縮約します。
+//: - 複数 candidate の場合は、source-backed owner reducer を投機実行せず、borrowed matcher で完全消費と result expectation を満たす一意候補だけを採用します。
 //:
 //: [契約/けいやく]:
 //: - `candidates` Vec はこの関数が必ず解放します。
-//: - 複数 candidate は曖昧な nested call として `OverloadAmbiguous` を返し、探索を広げません。
+//: - 複数 candidate で borrowed match が 0 件または複数件の場合は `OverloadAmbiguous` です。first-match、値 fallback、候補ごとの source-backed 総当たりには進みません。
 //: - 0 candidate の場合も、named value が通常の値である可能性を残すため、direct argument check を実行します。
 //:
 //: [戻/もど]り[値/ち]:
@@ -699,7 +868,7 @@ fn selfhost_call_reduce_nested_single_named_candidate_with_source %impure fn &Ve
 //: - `Err(error)`: ambiguity、candidate vector 不整合、または委譲先 reducer の失敗です。
 //:
 //: [計算量/けいさんりょう]:
-//: - candidate 数判定と 0/1/>1 分岐は O(1) です。実際の検査コストは direct reducer または single-candidate reducer に従います。
+//: - 複数 candidate の場合は、候補数 c と各候補の parameter 数 p に対して O(c * p) の borrowed probe を行い、一意候補の source-backed finisher だけを 1 回実行します。
 fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn Vec SelfhostCallableCandidate impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\candidates\item_index\item_count\expected_type\head:
     let candidate_count %i32 v::len &candidates
     if:
@@ -711,10 +880,16 @@ fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec Self
             if:
                 gt candidate_count 1
                 then:
-                    v::free candidates
-                    selfhost_type_arena_free arena
-                    selfhost_checked_expr_tree_free checked_tree
-                    Result::Err selfhost_call_reduce_error_new SelfhostCallReduceErrorKind::OverloadAmbiguous head.span
+                    match selfhost_call_reduce_nested_candidate_select_by_complete_borrowed_match &arena prefix &candidates item_index item_count expected_type head candidate_count:
+                        Result::Ok candidate:
+                            let reduced %Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError selfhost_call_reduce_nested_single_named_candidate_with_source tokens source arena checked_tree prefix scope value_types signatures candidate item_index item_count expected_type head
+                            v::free candidates
+                            reduced
+                        Result::Err e:
+                            v::free candidates
+                            selfhost_type_arena_free arena
+                            selfhost_checked_expr_tree_free checked_tree
+                            Result::Err e
                 else:
                     match v::get &candidates 0:
                         Option::Some candidate:
@@ -736,14 +911,15 @@ fn selfhost_call_reduce_nested_named_candidates_with_source %impure fn &Vec Self
 //: [契約/けいやく]:
 //: - candidate 収集が失敗した場合は、arena owner を閉じたうえで candidate collect error を call reduction error へ写像します。
 //: - `item_index` が prefix 範囲外なら internal invariant として fail-closed します。
-//: - nested/direct の選択は source token と signature table に基づき、曖昧な複数候補を勝手に選びません。
+//: - nested/direct の選択は source token と signature table に基づきます。複数候補は、source-backed argument 範囲の末尾までを完全消費でき、かつ outer expected type と result type が一致する候補が 1 件だけである場合に限って選択します。
+//: - これは pipe 専用の規則ではなく、source-backed nested argument の final-range narrowing です。候補ごとに source-backed owner reducer を投機実行せず、borrowed matcher で一意性を確認できる範囲だけを成功扱いします。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Ok(owned_match)`: item 位置から始まる 1 実引数が検査済みです。
 //: - `Err(error)`: 候補収集失敗、曖昧候補、範囲外、または委譲先 reducer の失敗です。
 //:
 //: [計算量/けいさんりょう]:
-//: - named value では candidate 収集コストに加えて nested/direct reducer のコストがかかります。named value 以外では direct reducer のコストだけです。
+//: - named value では candidate 収集コストに加えて nested/direct reducer のコストがかかります。複数 nested 候補では候補数 c と parameter 数 p に対して O(c * p) の borrowed final-range probe を行います。named value 以外では direct reducer のコストだけです。
 fn selfhost_call_reduce_argument_match_at_with_source_or_nested %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostTypeArena impure fn SelfhostCheckedExprTree impure fn &SelfhostExprPrefixList impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn i32 impure fn i32 impure fn SelfhostTypeId impure fn SelfhostExprPrefixItem Result SelfhostCallReduceArgumentMatchState SelfhostCallReduceError \tokens\source\arena\checked_tree\prefix\scope\value_types\signatures\item_index\item_count\expected_type\head:
     match selfhost_expr_prefix_list_get prefix item_index:
         Option::Some item:
