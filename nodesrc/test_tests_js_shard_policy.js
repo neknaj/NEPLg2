@@ -57,7 +57,17 @@ const emptyShard = spawnSync(process.execPath, [
 });
 assert.equal(emptyShard.status, 0, `empty shard must be a successful zero-result report\nstdout:\n${emptyShard.stdout}\nstderr:\n${emptyShard.stderr}`);
 const emptyJson = JSON.parse(fs.readFileSync(outPath, "utf8"));
-assert.deepEqual(emptyJson.summary, { total: 0, passed: 0, failed: 0, errored: 0 });
+assert.deepEqual(emptyJson.summary, {
+    total: 0,
+    passed: 0,
+    failed: 0,
+    errored: 0,
+    timed_out: 0,
+    timeout_failed: 0,
+    timeout_errored: 0,
+    non_timeout_failed: 0,
+    non_timeout_errored: 0,
+});
 assert.equal(emptyJson.scan.shard.cases_before, 1);
 assert.equal(emptyJson.scan.shard.cases_after, 0);
 

@@ -54,6 +54,25 @@ const signaled = buildLlvmRunResult(
 assert.equal(signaled.return_value, null);
 assert.equal(signaled.ok, false);
 
+const timedOut = buildLlvmRunResult(
+    testCase,
+    1,
+    'out.ll',
+    'out.exe',
+    {
+        code: -1,
+        signal: 'SIGKILL',
+        stdout: '',
+        stderr: 'command timeout after 10ms',
+        timeout: { after_ms: 10, elapsed_ms: 11, command: ['out.exe'] },
+    },
+    Date.now(),
+);
+assert.equal(timedOut.ok, false);
+assert.equal(timedOut.status, 'error');
+assert.equal(timedOut.timeout.after_ms, 10);
+assert.equal(timedOut.timeout.last_phase, 'run_llvm_cli');
+
 const diagSpans = extractDiagSpansFromCompileError(
     'Error: failed to typecheck module for llvm lowering: [resolve.identifier.undefined] undefined identifier (file=0, start=38, end=50)',
     {

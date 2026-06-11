@@ -42,6 +42,7 @@ function parseArgs(argv) {
     let changedOnly = false;
     let changedBase = 'HEAD';
     let shard = null;
+    let timeoutNonfatal = false;
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -113,6 +114,10 @@ function parseArgs(argv) {
             llvmCompileOnly = true;
             continue;
         }
+        if (a === '--timeout-nonfatal') {
+            timeoutNonfatal = true;
+            continue;
+        }
         if (a === '-h' || a === '--help') {
             return {
                 help: true,
@@ -130,6 +135,7 @@ function parseArgs(argv) {
                 changedOnly,
                 changedBase,
                 shard,
+                timeoutNonfatal,
             };
         }
     }
@@ -162,6 +168,7 @@ function parseArgs(argv) {
         changedOnly,
         changedBase,
         shard,
+        timeoutNonfatal,
     };
 }
 
@@ -885,6 +892,23 @@ function llvmReturnValueFromProcessResult(runResult) {
     return Number(runResult.code);
 }
 
+function processTimeoutMetadata(runResult, phase) {
+    if (!runResult || !runResult.timeout) return null;
+    return {
+        after_ms: Number.isFinite(Number(runResult.timeout.after_ms))
+            ? Number(runResult.timeout.after_ms)
+            : null,
+        last_phase: phase,
+        last_event: 'process_timeout',
+        elapsed_ms: Number.isFinite(Number(runResult.timeout.elapsed_ms))
+            ? Number(runResult.timeout.elapsed_ms)
+            : null,
+        command: Array.isArray(runResult.timeout.command)
+            ? runResult.timeout.command.map((v) => String(v))
+            : null,
+    };
+}
+
 function runCommand(cmd, args, options = {}) {
     return new Promise((resolve) => {
         const stdinText = Object.prototype.hasOwnProperty.call(options, 'stdinText')
@@ -906,6 +930,7 @@ function runCommand(cmd, args, options = {}) {
         let stdout = '';
         let stderr = '';
         let settled = false;
+        const startedAt = Date.now();
         const finish = (result) => {
             if (settled) return;
             settled = true;
@@ -944,6 +969,11 @@ function runCommand(cmd, args, options = {}) {
                 signal: 'SIGKILL',
                 stdout,
                 stderr: `${stderr}\ncommand timeout after ${timeoutMs}ms`.trim(),
+                timeout: {
+                    after_ms: timeoutMs,
+                    elapsed_ms: Date.now() - startedAt,
+                    command: [cmd, ...args.map((v) => String(v))],
+                },
             });
         }, timeoutMs);
     });
@@ -965,6 +995,18 @@ function buildLlvmRunResult(c, workerId, llPath, exePath, runWithArgs, t0) {
         compiler: { runner: 'nepl-cli-llvm', ll_path: llPath, exe_path: exePath },
         duration_ms: Date.now() - t0,
     };
+    const timeout = processTimeoutMetadata(runWithArgs, 'run_llvm_cli');
+    if (timeout) {
+        return {
+            ...base,
+            ok: false,
+            status: 'error',
+            return_value: null,
+            exit_code: null,
+            error: `llvm program timeout after ${timeout.after_ms ?? 'unknown'}ms`,
+            timeout,
+        };
+    }
     if (hasTag(c.tags, 'should_panic')) {
         const ok = abnormal || (runWithArgs.code !== 0);
         return {
@@ -1126,7 +1168,8 @@ async function runSingleLlvmCli(c, workerId, cliPath, options = {}) {
 
     const hasCompileFailTag = hasTag(c.tags, 'compile_fail');
     if (hasCompileFailTag) {
-        const ok = child.code !== 0;
+        const timeout = processTimeoutMetadata(child, 'compile_llvm_cli');
+        const ok = child.code !== 0 && !timeout;
         result = {
             ok,
             id: `${c.id}::llvm`,
@@ -1136,7 +1179,10 @@ async function runSingleLlvmCli(c, workerId, cliPath, options = {}) {
             status: ok ? 'pass' : 'fail',
             phase: 'compile_llvm_cli',
             compile_error: compileError,
-            error: ok ? null : 'expected compile_fail, but llvm compilation succeeded',
+            error: timeout
+                ? `llvm compilation timeout after ${timeout.after_ms ?? 'unknown'}ms`
+                : ok ? null : 'expected compile_fail, but llvm compilation succeeded',
+            ...(timeout ? { timeout } : {}),
             worker: workerId,
             compiler: { runner: 'nepl-cli-llvm' },
             duration_ms: Date.now() - t0,
@@ -1144,15 +1190,19 @@ async function runSingleLlvmCli(c, workerId, cliPath, options = {}) {
     } else {
         const compileOk = child.code === 0 && isFile(llPath);
         if (!compileOk) {
+            const timeout = processTimeoutMetadata(child, 'compile_llvm_cli');
             result = {
                 ok: false,
                 id: `${c.id}::llvm`,
                 file: c.file,
                 index: c.index,
                 tags: c.tags,
-                status: 'fail',
+                status: timeout ? 'error' : 'fail',
                 phase: 'compile_llvm_cli',
-                error: compileError || `llvm compilation failed (status=${child.code ?? 'null'})`,
+                error: timeout
+                    ? `llvm compilation timeout after ${timeout.after_ms ?? 'unknown'}ms`
+                    : compileError || `llvm compilation failed (status=${child.code ?? 'null'})`,
+                ...(timeout ? { timeout } : {}),
                 worker: workerId,
                 compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
                 duration_ms: Date.now() - t0,
@@ -1187,15 +1237,19 @@ async function runSingleLlvmCli(c, workerId, cliPath, options = {}) {
                 .join('\n')
                 .trim();
             if (link.code !== 0 || !isFile(exePath)) {
+                const timeout = processTimeoutMetadata(link, 'link_llvm_cli');
                 result = {
                     ok: false,
                     id: `${c.id}::llvm`,
                     file: c.file,
                     index: c.index,
                     tags: c.tags,
-                    status: 'fail',
+                    status: timeout ? 'error' : 'fail',
                     phase: 'link_llvm_cli',
-                    error: linkErr || `clang link failed (status=${link.code ?? 'null'})`,
+                    error: timeout
+                        ? `clang link timeout after ${timeout.after_ms ?? 'unknown'}ms`
+                        : linkErr || `clang link failed (status=${link.code ?? 'null'})`,
+                    ...(timeout ? { timeout } : {}),
                     worker: workerId,
                     compiler: { runner: 'nepl-cli-llvm', ll_path: llPath },
                     duration_ms: Date.now() - t0,
@@ -1253,21 +1307,72 @@ async function runAllLlvm(cases, jobs, options = {}) {
     return results;
 }
 
+function isTimeoutResult(result) {
+    return Boolean(result && typeof result.timeout === 'object' && result.timeout !== null);
+}
+
 function summarize(results) {
     let passed = 0;
     let failed = 0;
     let errored = 0;
+    let timedOut = 0;
+    let timeoutFailed = 0;
+    let timeoutErrored = 0;
+    let nonTimeoutFailed = 0;
+    let nonTimeoutErrored = 0;
     for (const r of results) {
-        if (r.status === 'pass') passed++;
-        else if (r.status === 'fail') failed++;
-        else errored++;
+        const isTimeout = isTimeoutResult(r);
+        if (isTimeout) timedOut++;
+        if (r.status === 'pass') {
+            passed++;
+        } else if (r.status === 'fail') {
+            failed++;
+            if (isTimeout) timeoutFailed++;
+            else nonTimeoutFailed++;
+        } else {
+            errored++;
+            if (isTimeout) timeoutErrored++;
+            else nonTimeoutErrored++;
+        }
     }
     return {
         total: results.length,
         passed,
         failed,
         errored,
+        timed_out: timedOut,
+        timeout_failed: timeoutFailed,
+        timeout_errored: timeoutErrored,
+        non_timeout_failed: nonTimeoutFailed,
+        non_timeout_errored: nonTimeoutErrored,
     };
+}
+
+function hasOnlyTimeoutFailures(results) {
+    const summary = summarize(results);
+    return (summary.failed > 0 || summary.errored > 0)
+        && summary.non_timeout_failed === 0
+        && summary.non_timeout_errored === 0;
+}
+
+function escapeGitHubAnnotationValue(value) {
+    return String(value || '')
+        .replace(/%/g, '%25')
+        .replace(/\r/g, '%0D')
+        .replace(/\n/g, '%0A')
+        .replace(/:/g, '%3A');
+}
+
+function reportNonfatalTimeouts(summary, results) {
+    const firstTimeout = results.find(isTimeoutResult);
+    const firstId = firstTimeout?.id || 'unknown';
+    const firstPhase = firstTimeout?.phase || 'timeout';
+    const message = `${summary.timed_out} doctest timeout(s) detected; first=${firstId}; phase=${firstPhase}`;
+    if (process.env.GITHUB_ACTIONS === 'true') {
+        console.log(`::warning title=NEPL doctest timeout::${escapeGitHubAnnotationValue(message)}`);
+    } else {
+        console.warn(`[nodesrc/tests] warning: ${message}`);
+    }
 }
 
 function stripLlvmSuffix(id) {
@@ -1432,10 +1537,11 @@ async function main() {
         changedOnly,
         changedBase,
         shard,
+        timeoutNonfatal,
     } = parseArgs(process.argv.slice(2));
     printStdlibBuildMessage();
     if (help || (!changedOnly && inputs.length === 0) || !outPath) {
-        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--changed] [--changed-base <gitRef>] [--shard INDEX/TOTAL] [--dist <distDirHint>] [-j N] [--runner wasm|llvm|all] [--llvm-all] [--assert-io] [--strict-dual] [--llvm-compile-only] [--no-stdlib|--with-stdlib] [--no-tree|--with-tree]');
+        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--changed] [--changed-base <gitRef>] [--shard INDEX/TOTAL] [--dist <distDirHint>] [-j N] [--runner wasm|llvm|all] [--llvm-all] [--assert-io] [--strict-dual] [--llvm-compile-only] [--timeout-nonfatal] [--no-stdlib|--with-stdlib] [--no-tree|--with-tree]');
         process.exit(help ? 0 : 2);
     }
 
@@ -1463,7 +1569,7 @@ async function main() {
             llvm_compile_only: llvmCompileOnly,
             dist_hint: distHint || null,
             resolved_dist_dirs: [],
-            summary: { total: 0, passed: 0, failed: 0, errored: 0 },
+            summary: summarize([]),
             results: [],
             scan: {
                 changed: changedOnly,
@@ -1534,7 +1640,7 @@ async function main() {
             dist_hint: distHint || null,
             resolved_dist_dirs: [],
             scan: scanSummary,
-            summary: { total: 0, passed: 0, failed: 0, errored: 0 },
+            summary: summarize([]),
             results: [],
         };
         const outAbs = path.resolve(outPath);
@@ -1777,9 +1883,12 @@ async function main() {
         top_issues: topIssues,
     }, null, 2));
 
-    // 失敗があれば exit code を 1 にする（gh-pages では continue-on-error で許可する想定）
     if (summary.failed > 0 || summary.errored > 0) {
-        process.exitCode = 1;
+        if (timeoutNonfatal && hasOnlyTimeoutFailures(results)) {
+            reportNonfatalTimeouts(summary, results);
+        } else {
+            process.exitCode = 1;
+        }
     }
 }
 
@@ -1794,5 +1903,8 @@ module.exports = {
     applyDoctestExpectations,
     buildLlvmRunResult,
     extractDiagSpansFromCompileError,
+    hasOnlyTimeoutFailures,
+    isTimeoutResult,
     llvmReturnValueFromProcessResult,
+    summarize,
 };

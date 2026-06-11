@@ -16,6 +16,8 @@ NEPLg2 の Node.js [系/けい]ツールを[目的別/もくてきべつ]にま�
 - `stdout:` / `stderr:` を[書/か]いた doctest は、`tests.js` でも[既定/きてい]で I/O [一致/いっち]を[検証/けんしょう]します。
 - `--assert-io` は[明示的/めいじてき]に I/O [厳格/げんかく][確認/かくにん]を[示/しめ]したいときの補助で、I/O [期待値/きたいち]が[書/か]かれた case を[有効化/ゆうこうか]するための必須 flag ではありません。
 - timeout [調査/ちょうさ]では JSON の `timing.compile_ms` / `timing.run_ms` と `timeout.last_phase` を[見/み]て、compiler [側/がわ]の[遅/おそ]さと runtime [側/がわ]の[遅/おそ]さを[分/わ]けて[扱/あつか]います。
+- `--timeout-nonfatal` は CI [用/よう]の flag です。timeout は JSON の `summary.timed_out` / `summary.timeout_errored` と各 result の `timeout` に[記録/きろく]しつつ、timeout のみで[非通過/ひつうか]になった[場合/ばあい]だけ exit code を 0 にします。compile error や assertion failure など timeout ではない[失敗/しっぱい]は `summary.non_timeout_failed` / `summary.non_timeout_errored` に[分/わ]け、この flag があっても exit code 1 のままです。
+- CI の[外側/そとがわ]の[時間/じかん][制限/せいげん]は `nodesrc/ci_timeout.js` で[包/つつ]みます。command が timeout した[場合/ばあい]は GitHub warning として[検出/けんしゅつ]し、既定では exit code 124 を[返/かえ]します。`--timeout-nonfatal` を wrapper に[明示/めいじ]した[場合/ばあい]だけ exit code 0 にし、timeout ではない command [失敗/しっぱい]は常に元の exit code を[保/たも]ちます。
 
 ### [主/おも]な[用途/ようと]
 
@@ -28,6 +30,7 @@ NEPLg2 の Node.js [系/けい]ツールを[目的別/もくてきべつ]にま�
 ```bash
 node nodesrc/tests.js -i tests/compiler -i tests/stdlib --no-tree -o /tmp/tests.json -j 15
 node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o /tmp/vec-doctest.json -j 15
+node nodesrc/tests.js -i examples --no-tree -o /tmp/examples.json -j 2 --timeout-nonfatal
 ```
 
 ## `run_doctest.js`

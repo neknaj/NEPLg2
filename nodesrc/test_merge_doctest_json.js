@@ -31,10 +31,10 @@ const shard2 = writeReport("shard-2.json", {
     partial: true,
     resolved_dist_dirs: ["dist-b", "dist-a"],
     scan: { shard: { spec: "2/2", index: 2, total: 2, cases_before: 2, cases_after: 1 } },
-    summary: { total: 2, passed: 0, failed: 1, errored: 1 },
+    summary: { total: 2, passed: 0, failed: 1, errored: 1, timed_out: 1 },
     results: [
         { id: "a::doctest#1", file: "a", index: 1, status: "fail" },
-        { id: "a::doctest#2", file: "a", index: 2, status: "error" },
+        { id: "a::doctest#2", file: "a", index: 2, status: "error", timeout: { after_ms: 1 } },
     ],
 });
 const outPath = path.join(tmpDir, "merged.json");
@@ -52,7 +52,17 @@ assert.equal(result.status, 0, `merge_doctest_json.js failed\nstdout:\n${result.
 const merged = JSON.parse(fs.readFileSync(outPath, "utf8"));
 assert.equal(merged.merged, true);
 assert.equal(merged.partial, true);
-assert.deepEqual(merged.summary, { total: 3, passed: 1, failed: 1, errored: 1 });
+assert.deepEqual(merged.summary, {
+    total: 3,
+    passed: 1,
+    failed: 1,
+    errored: 1,
+    timed_out: 1,
+    timeout_failed: 0,
+    timeout_errored: 1,
+    non_timeout_failed: 1,
+    non_timeout_errored: 0,
+});
 assert.deepEqual(merged.resolved_dist_dirs, ["dist-a", "dist-b"]);
 assert.deepEqual(merged.results.map((r) => r.id), ["a::doctest#1", "a::doctest#2", "b::doctest#2"]);
 assert.equal(merged.shards.length, 2);

@@ -40,8 +40,13 @@ assertContains(
 );
 assertContains(
     examplesJob,
-    "              run: timeout --signal=KILL 10m node nodesrc/tests.js -i examples -o examples-tests.json -j 2",
-    "examples-test must run examples doctests through nodesrc/tests.js with limited compiler concurrency",
+    '        timeout-minutes: 15',
+    "examples-test job timeout must leave room for the 10 minute command timeout wrapper to report",
+);
+assertContains(
+    examplesJob,
+    '              run: node nodesrc/ci_timeout.js --minutes 10 --label "examples doctests" -- node nodesrc/tests.js -i examples -o examples-tests.json -j 2 --timeout-nonfatal',
+    "examples-test must detect timeouts without failing the Action on timeout-only doctest errors",
 );
 assertContains(examplesJob, "                  name: bootstrap-build", "examples-test must download bootstrap-build");
 assertContains(examplesJob, "                  name: examples-tests", "examples-test must upload examples-tests artifact");

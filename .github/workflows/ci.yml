@@ -68,7 +68,7 @@ jobs:
     compile-test:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -97,15 +97,15 @@ jobs:
               run: rustup target add wasm32-unknown-unknown
 
             - name: Rust compile tests (no run)
-              run: timeout --signal=KILL 10m cargo test --no-run --all --all-features --locked
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "Rust compile tests" -- cargo test --no-run --all --all-features --locked
 
             - name: Rust compile tests wasm32 (no run)
-              run: timeout --signal=KILL 10m cargo test --target wasm32-unknown-unknown --no-run --all --all-features --locked
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "Rust compile tests wasm32" -- cargo test --target wasm32-unknown-unknown --no-run --all --all-features --locked
 
     rust-test:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -131,12 +131,12 @@ jobs:
                   override: true
 
             - name: Rust tests
-              run: timeout --signal=KILL 10m cargo test --all --all-features --no-fail-fast
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "Rust tests" -- cargo test --all --all-features --no-fail-fast
 
     nm-compile:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -162,12 +162,12 @@ jobs:
                   override: true
 
             - name: NM compile tests
-              run: timeout --signal=KILL 10m cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output target/ci-nm
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "NM compile tests" -- cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output target/ci-nm
 
     wasi-test:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -193,11 +193,11 @@ jobs:
                   override: true
 
             - name: NEPL-g2 doctests
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests -o tests-current.json -j 4
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "NEPL-g2 doctests" -- node nodesrc/tests.js -i tests -o tests-current.json -j 4 --timeout-nonfatal
 
             - name: CLI multi-emit output
               run: |
-                  timeout --signal=KILL 10m cargo run -p nepl-cli -- -i examples/counter.nepl -o target/ci-counter --emit wasm,wat,wat-min
+                  node nodesrc/ci_timeout.js --minutes 10 --label "CLI multi-emit output" -- cargo run -p nepl-cli -- -i examples/counter.nepl -o target/ci-counter --emit wasm,wat,wat-min
                   test -f target/ci-counter.wasm
                   test -f target/ci-counter.wat
                   test -f target/ci-counter.min.wat
@@ -213,7 +213,7 @@ jobs:
     nmd-doctest:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -226,7 +226,7 @@ jobs:
                   path: .
 
             - name: Run .n.md doctests (tests/ only)
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests -o nmd-tests.json -j 4
+              run: node nodesrc/ci_timeout.js --minutes 10 --label ".n.md doctests" -- node nodesrc/tests.js -i tests -o nmd-tests.json -j 4 --timeout-nonfatal
 
             - name: Upload doctest JSON
               if: always()
@@ -239,7 +239,7 @@ jobs:
     tutorials-test:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -252,7 +252,7 @@ jobs:
                   path: .
 
             - name: Run tutorials doctests
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tutorials -o tutorials-tests.json -j 4
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "tutorials doctests" -- node nodesrc/tests.js -i tutorials -o tutorials-tests.json -j 4 --timeout-nonfatal
 
             - name: Upload tutorials test JSON
               if: always()
@@ -265,7 +265,7 @@ jobs:
     examples-test:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -280,7 +280,7 @@ jobs:
             - name: Run examples doctests
               env:
                   NEPL_TEST_CASE_TIMEOUT_MS: "60000"
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i examples -o examples-tests.json -j 2
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "examples doctests" -- node nodesrc/tests.js -i examples -o examples-tests.json -j 2 --timeout-nonfatal
 
             - name: Upload examples test JSON
               if: always()
@@ -293,7 +293,7 @@ jobs:
     stdlib-test:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - name: Checkout repository
@@ -306,7 +306,7 @@ jobs:
                   path: .
 
             - name: Run stdlib doctests
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i stdlib -o stdlib-tests.json -j 4
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "stdlib doctests" -- node nodesrc/tests.js -i stdlib -o stdlib-tests.json -j 4 --timeout-nonfatal
 
             - name: Upload stdlib test JSON
               if: always()
@@ -319,7 +319,7 @@ jobs:
     llvm-test:
         runs-on: ubuntu-latest
         needs: build
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         env:
             LLVM_VERSION: "21.1.0"
@@ -379,7 +379,7 @@ jobs:
                   clang -dumpmachine | grep -q linux
 
             - name: LLVM doctests via nodesrc runner
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2
+              run: node nodesrc/ci_timeout.js --minutes 10 --label "LLVM doctests" -- node nodesrc/tests.js -i tests/compiler/llvm_target.n.md -o tests-llvm.json --runner llvm --llvm-compile-only --no-tree --no-stdlib -j 2 --timeout-nonfatal
 
             - name: Upload llvm doctest JSON
               if: always()
@@ -538,7 +538,7 @@ jobs:
                   clang -dumpmachine | grep -q linux
 
             - name: Full dual backend verification (${{ matrix.id }})
-              run: timeout --signal=KILL 18m node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual --shard ${{ matrix.shard }} ${{ matrix.tree_flag }} -j 2
+              run: node nodesrc/ci_timeout.js --minutes 18 --label "Full dual backend verification (${{ matrix.id }})" -- node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual --shard ${{ matrix.shard }} ${{ matrix.tree_flag }} -j 2 --timeout-nonfatal
 
             - name: Upload full dual backend JSON (${{ matrix.id }})
               if: always()

@@ -32,16 +32,45 @@ function readReport(p) {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
+function isTimeoutResult(result) {
+    return Boolean(result && typeof result.timeout === 'object' && result.timeout !== null);
+}
+
 function summarize(results) {
     let passed = 0;
     let failed = 0;
     let errored = 0;
+    let timedOut = 0;
+    let timeoutFailed = 0;
+    let timeoutErrored = 0;
+    let nonTimeoutFailed = 0;
+    let nonTimeoutErrored = 0;
     for (const r of results) {
-        if (r.status === 'pass') passed++;
-        else if (r.status === 'fail') failed++;
-        else errored++;
+        const isTimeout = isTimeoutResult(r);
+        if (isTimeout) timedOut++;
+        if (r.status === 'pass') {
+            passed++;
+        } else if (r.status === 'fail') {
+            failed++;
+            if (isTimeout) timeoutFailed++;
+            else nonTimeoutFailed++;
+        } else {
+            errored++;
+            if (isTimeout) timeoutErrored++;
+            else nonTimeoutErrored++;
+        }
     }
-    return { total: results.length, passed, failed, errored };
+    return {
+        total: results.length,
+        passed,
+        failed,
+        errored,
+        timed_out: timedOut,
+        timeout_failed: timeoutFailed,
+        timeout_errored: timeoutErrored,
+        non_timeout_failed: nonTimeoutFailed,
+        non_timeout_errored: nonTimeoutErrored,
+    };
 }
 
 function uniqueSortedStrings(values) {
