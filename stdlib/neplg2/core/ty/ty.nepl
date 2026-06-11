@@ -50,6 +50,7 @@ pub #import "./ty/arena" as *
 pub #import "./ty/eq" as *
 pub #import "./ty/key" as *
 pub #import "./ty/memo_trait" as *
+pub #import "./ty/memo_trait_layout" as *
 pub #import "./ty/memo_trait_producer" as *
 pub #import "./ty/memo_trait_policy" as *
 pub #import "./ty/memo_trait_source" as *

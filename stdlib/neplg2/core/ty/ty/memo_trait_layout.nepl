@@ -1,0 +1,843 @@
+#indent 4
+
+//: # ty/memo_trait_layout
+//: `MemoKey` / `MemoValue` aggregate proof の入力になる type constructor layout evidence を置くモジュールです。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_producer.nepl` は field layout summary を受け取りますが、field table の整合性そのものは計算しません。この module は、その前段で constructor identity と field type id の対応を検査します。
+//: - `SelfhostTypeRecord::Named` / `SelfhostTypeRecord::Applied` は constructor identity だけを持ち、field layout を arena record に混ぜません。layout evidence は `SelfhostNamedTypeId` と concrete applied `SelfhostTypeId` の組を使う table として別に持ちます。
+//: - layout が存在し、field range が table 内で、各 field が同じ constructor owner を指し、field type が arena に存在し、generic parameter が未代入でない場合だけ `Known(range)` を返します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitLayoutEvidenceTable` は session-local です。source spelling、display name、diagnostic string、module path suffix を layout authority にしてはいけません。
+//: - substitution 済み field type を持つ `Applied` layout は constructor identity だけで再利用してはいけません。必ず concrete applied `SelfhostTypeId` に対応する record を使います。
+//: - `Named` type は arity 0 の constructor layout だけを使えます。type parameter を持つ constructor は `Applied` type として具体引数を持つ必要があります。
+//: - `Applied` type は constructor identity と型引数数が layout record の arity と一致し、さらに型引数が未解決 parameter でない場合だけ layout を使えます。
+//: - この module は Copy / Drop / Eq / Hash / hazard proof を計算しません。戻り値の field evidence は producer gate の 1 入力に過ぎず、aggregate を単独で受理しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では struct / product layout だけを扱います。enum variant layout、recursive aggregate cycle boundary、field type の trait proof 再帰計算は後続 slice で接続します。
+//: - field type id は「substitution 済み」の table 入力として扱います。substitution されていない generic parameter が残っている場合は fail-closed に拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - layout lookup は layout record 数 n に対する O(n) の線形探索です。
+//: - field validation は対象 field 数 m に対する O(m) です。
+//: - applied argument validation は型引数数 k に対する O(k) です。stable map / constructor index 化は後続の高速化 slice で扱います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_layout" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_layout_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_layout_evidence_result_is_accept summary.named_layout
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_layout_evidence_result_is_accept summary.applied_layout
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_layout_error_kind_eq (unwrap_err summary.missing_layout) SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_layout_error_kind_eq (unwrap_err summary.invalid_range) SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_layout_error_kind_eq (unwrap_err summary.owner_mismatch) SelfhostMemoTraitLayoutEvidenceErrorKind::FieldOwnerMismatch
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_layout_error_kind_eq (unwrap_err summary.generic_field) SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_layout_error_kind_eq (unwrap_err summary.named_type_parameters) SelfhostMemoTraitLayoutEvidenceErrorKind::NamedConstructorHasTypeParameters
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_layout_error_kind_eq (unwrap_err summary.applied_arity_mismatch) SelfhostMemoTraitLayoutEvidenceErrorKind::AppliedArgumentArityMismatch
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait layout stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./kind/model" as *
+#import "./memo_trait_producer" as *
+#import "./record" as *
+
+//: SelfhostMemoTraitLayoutFieldRecord: aggregate field table の 1 field
+//:
+//: [目的/もくてき]:
+//: - field type を source name ではなく arena-local `SelfhostTypeId` として保持します。
+//: - `owner` は field が属する constructor identity です。layout range と field table が食い違う場合、validator が `FieldOwnerMismatch` として拒否します。
+//: - `field_index` は同じ owner 内での宣言順です。range の局所 index と一致しない場合は `FieldIndexMismatch` として拒否します。
+pub struct SelfhostMemoTraitLayoutFieldRecord:
+    owner %SelfhostNamedTypeId
+    field_index %i32
+    field_type %SelfhostTypeId
+
+//: SelfhostMemoTraitLayoutRecord: constructor layout の product field range
+//:
+//: [目的/もくてき]:
+//: - `nominal_id` で constructor を指定し、`arity` で必要な type argument 数を固定します。
+//: - `target_type` が `none` の record は arity 0 の `Named` type 用です。`some(type_id)` の record は substitution 済み field range を持つ concrete `Applied` type 用です。
+//: - `fields` はこの module が所有する field table 上の連続範囲です。field type は substitution 済みの `SelfhostTypeId` として登録します。
+pub struct SelfhostMemoTraitLayoutRecord:
+    nominal_id %SelfhostNamedTypeId
+    target_type %Option SelfhostTypeId
+    arity %i32
+    fields %SelfhostMemoTraitAggregateFieldRange
+
+//: SelfhostMemoTraitLayoutEvidenceTable: constructor layout evidence の session-local table
+//:
+//: [契約/けいやく]:
+//: - `layouts` は `SelfhostNamedTypeId` と `target_type` の組で照合する record です。
+//: - `Named` type 用 layout は `target_type = none`、concrete `Applied` type 用 layout は `target_type = some(type_id)` として区別します。
+//: - `fields` は layout record が参照する field type record table です。
+//: - table は owner であり、caller は使用後に `selfhost_memo_trait_layout_evidence_table_free` で閉じます。
+pub struct SelfhostMemoTraitLayoutEvidenceTable:
+    layouts %Vec SelfhostMemoTraitLayoutRecord
+    fields %Vec SelfhostMemoTraitLayoutFieldRecord
+
+//: SelfhostMemoTraitLayoutEvidenceErrorKind: layout evidence 生成の失敗分類
+//:
+//: [目的/もくてき]:
+//: - layout 欠落、range 破損、constructor identity の不一致、generic 未代入、applied arity mismatch を enum として分けます。
+//: - diagnostic はこの enum を表示へ変換し、layout validator は文字列を返しません。
+pub enum SelfhostMemoTraitLayoutEvidenceErrorKind:
+    MissingTypeRecord
+    TargetNotAggregate
+    MissingLayout
+    UnsupportedLayoutKind
+    InvalidConstructorArity
+    InvalidFieldRange
+    FieldOwnerMismatch
+    FieldIndexMismatch
+    MissingFieldType
+    GenericArgumentUnsubstituted
+    NamedConstructorHasTypeParameters
+    AppliedArgumentArityMismatch
+    CycleLimitReached
+
+//: SelfhostMemoTraitLayoutStage0Summary: layout evidence focused smoke summary
+//:
+//: [目的/もくてき]:
+//: - module doctest が、成功 path と fail-closed path の代表 Result を同時に確認できるようにします。
+pub struct SelfhostMemoTraitLayoutStage0Summary:
+    named_layout %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+    applied_layout %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+    missing_layout %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+    invalid_range %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+    owner_mismatch %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+    generic_field %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+    named_type_parameters %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+    applied_arity_mismatch %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind
+
+impl Clone for SelfhostMemoTraitLayoutFieldRecord:
+    fn clone %fn &SelfhostMemoTraitLayoutFieldRecord SelfhostMemoTraitLayoutFieldRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitLayoutFieldRecord:
+    fn copy_mark %fn SelfhostMemoTraitLayoutFieldRecord SelfhostMemoTraitLayoutFieldRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitLayoutRecord:
+    fn clone %fn &SelfhostMemoTraitLayoutRecord SelfhostMemoTraitLayoutRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitLayoutRecord:
+    fn copy_mark %fn SelfhostMemoTraitLayoutRecord SelfhostMemoTraitLayoutRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitLayoutEvidenceErrorKind:
+    fn clone %fn &SelfhostMemoTraitLayoutEvidenceErrorKind SelfhostMemoTraitLayoutEvidenceErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitLayoutEvidenceErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitLayoutEvidenceErrorKind SelfhostMemoTraitLayoutEvidenceErrorKind \self:
+        self
+
+//: selfhost_memo_trait_layout_field_record_new: field layout record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `field_type` は substitution 済みの TypeId を渡します。generic parameter が残っている場合は validator が拒否します。
+pub fn selfhost_memo_trait_layout_field_record_new %fn SelfhostNamedTypeId fn i32 fn SelfhostTypeId SelfhostMemoTraitLayoutFieldRecord \owner\field_index\field_type:
+    SelfhostMemoTraitLayoutFieldRecord owner field_index field_type
+
+//: selfhost_memo_trait_layout_record_new: constructor layout record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `arity` は constructor の型引数数です。`Named` type で使う layout は `arity = 0` でなければなりません。
+//: - substitution 済み field type を持つ applied layout では、`target_type` に concrete applied TypeId を入れます。constructor identity だけでは別 instantiation の field range と混同するためです。
+pub fn selfhost_memo_trait_layout_record_new %fn SelfhostNamedTypeId fn Option SelfhostTypeId fn i32 fn SelfhostMemoTraitAggregateFieldRange SelfhostMemoTraitLayoutRecord \nominal_id\target_type\arity\fields:
+    SelfhostMemoTraitLayoutRecord nominal_id target_type arity fields
+
+//: selfhost_memo_trait_layout_record_product_named: arity 0 named type 用 product layout record を[作/つく]る
+pub fn selfhost_memo_trait_layout_record_product_named %fn SelfhostNamedTypeId fn i32 fn i32 SelfhostMemoTraitLayoutRecord \nominal_id\first_field\field_count:
+    selfhost_memo_trait_layout_record_new nominal_id none 0 selfhost_memo_trait_aggregate_field_range_new first_field field_count
+
+//: selfhost_memo_trait_layout_record_product_applied: concrete applied type 用 product layout record を[作/つく]る
+pub fn selfhost_memo_trait_layout_record_product_applied %fn SelfhostNamedTypeId fn SelfhostTypeId fn i32 fn i32 fn i32 SelfhostMemoTraitLayoutRecord \nominal_id\type_id\arity\first_field\field_count:
+    selfhost_memo_trait_layout_record_new nominal_id (some type_id) arity selfhost_memo_trait_aggregate_field_range_new first_field field_count
+
+//: selfhost_memo_trait_layout_evidence_table_new: [空/から]の layout evidence table を[作/つく]る
+pub fn selfhost_memo_trait_layout_evidence_table_new %impure fn void Result SelfhostMemoTraitLayoutEvidenceTable StdErrorKind \void:
+    let layouts_result %Result Vec SelfhostMemoTraitLayoutRecord StdErrorKind v::new
+    match layouts_result:
+        Result::Ok layouts:
+            let fields_result %Result Vec SelfhostMemoTraitLayoutFieldRecord StdErrorKind v::new
+            match fields_result:
+                Result::Ok fields:
+                    Result::Ok SelfhostMemoTraitLayoutEvidenceTable layouts fields
+                Result::Err e:
+                    v::free layouts
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_evidence_table_free: layout evidence table の owner buffer を[解放/かいほう]する
+pub fn selfhost_memo_trait_layout_evidence_table_free %impure fn SelfhostMemoTraitLayoutEvidenceTable unit \table:
+    v::free field::get table "layouts"
+    v::free field::get table "fields"
+
+//: selfhost_memo_trait_layout_evidence_table_layout_len: layout record 数を[返/かえ]す
+pub fn selfhost_memo_trait_layout_evidence_table_layout_len %fn &SelfhostMemoTraitLayoutEvidenceTable i32 \table:
+    let layouts %&Vec SelfhostMemoTraitLayoutRecord field::get_ref table "layouts"
+    v::len layouts
+
+//: selfhost_memo_trait_layout_evidence_table_field_len: field record 数を[返/かえ]す
+pub fn selfhost_memo_trait_layout_evidence_table_field_len %fn &SelfhostMemoTraitLayoutEvidenceTable i32 \table:
+    let fields %&Vec SelfhostMemoTraitLayoutFieldRecord field::get_ref table "fields"
+    v::len fields
+
+//: selfhost_memo_trait_layout_evidence_table_push_layout: layout record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - 失敗時は入力 table の owner buffer をこの関数が閉じ、`StdErrorKind` をそのまま返します。
+pub fn selfhost_memo_trait_layout_evidence_table_push_layout %impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostMemoTraitLayoutRecord Result SelfhostMemoTraitLayoutEvidenceTable StdErrorKind \table\record:
+    let layouts %Vec SelfhostMemoTraitLayoutRecord field::get table "layouts"
+    let fields %Vec SelfhostMemoTraitLayoutFieldRecord field::get table "fields"
+    match v::push layouts record:
+        Result::Ok next_layouts:
+            Result::Ok SelfhostMemoTraitLayoutEvidenceTable next_layouts fields
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free fields
+            Result::Err error
+
+//: selfhost_memo_trait_layout_evidence_table_push_field: field record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - 失敗時は入力 table の owner buffer をこの関数が閉じ、`StdErrorKind` をそのまま返します。
+pub fn selfhost_memo_trait_layout_evidence_table_push_field %impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostMemoTraitLayoutFieldRecord Result SelfhostMemoTraitLayoutEvidenceTable StdErrorKind \table\record:
+    let layouts %Vec SelfhostMemoTraitLayoutRecord field::get table "layouts"
+    let fields %Vec SelfhostMemoTraitLayoutFieldRecord field::get table "fields"
+    match v::push fields record:
+        Result::Ok next_fields:
+            Result::Ok SelfhostMemoTraitLayoutEvidenceTable layouts next_fields
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free layouts
+            Result::Err error
+
+//: selfhost_memo_trait_layout_error_kind_code: layout error を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。新しい error variant を追加した場合、この関数も明示的に更新します。
+fn selfhost_memo_trait_layout_error_kind_code %fn SelfhostMemoTraitLayoutEvidenceErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitLayoutEvidenceErrorKind::MissingTypeRecord:
+            0
+        SelfhostMemoTraitLayoutEvidenceErrorKind::TargetNotAggregate:
+            1
+        SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout:
+            2
+        SelfhostMemoTraitLayoutEvidenceErrorKind::UnsupportedLayoutKind:
+            3
+        SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidConstructorArity:
+            4
+        SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange:
+            5
+        SelfhostMemoTraitLayoutEvidenceErrorKind::FieldOwnerMismatch:
+            6
+        SelfhostMemoTraitLayoutEvidenceErrorKind::FieldIndexMismatch:
+            7
+        SelfhostMemoTraitLayoutEvidenceErrorKind::MissingFieldType:
+            8
+        SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted:
+            9
+        SelfhostMemoTraitLayoutEvidenceErrorKind::NamedConstructorHasTypeParameters:
+            10
+        SelfhostMemoTraitLayoutEvidenceErrorKind::AppliedArgumentArityMismatch:
+            11
+        SelfhostMemoTraitLayoutEvidenceErrorKind::CycleLimitReached:
+            12
+
+//: selfhost_memo_trait_layout_error_kind_eq: layout error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_layout_error_kind_eq %fn SelfhostMemoTraitLayoutEvidenceErrorKind fn SelfhostMemoTraitLayoutEvidenceErrorKind bool \a\b:
+    eq selfhost_memo_trait_layout_error_kind_code a selfhost_memo_trait_layout_error_kind_code b
+
+//: selfhost_memo_trait_layout_evidence_result_is_accept: layout evidence result が成功か[返/かえ]す
+pub fn selfhost_memo_trait_layout_evidence_result_is_accept %fn Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind bool \result:
+    match result:
+        Result::Ok _evidence:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_layout_record_target_eq: layout record の concrete target が一致するか[返/かえ]す
+fn selfhost_memo_trait_layout_record_target_eq %fn Option SelfhostTypeId fn Option SelfhostTypeId bool \a\b:
+    match a:
+        Option::Some left:
+            match b:
+                Option::Some right:
+                    selfhost_type_id_eq left right
+                Option::None:
+                    false
+        Option::None:
+            match b:
+                Option::Some _right:
+                    false
+                Option::None:
+                    true
+
+//: selfhost_memo_trait_layout_table_find_loop: constructor identity と concrete target に対応する layout record を[探/さが]す
+fn selfhost_memo_trait_layout_table_find_loop %fn &SelfhostMemoTraitLayoutEvidenceTable fn SelfhostNamedTypeId fn Option SelfhostTypeId fn i32 Option SelfhostMemoTraitLayoutRecord \table\nominal_id\target\idx:
+    if:
+        ge idx selfhost_memo_trait_layout_evidence_table_layout_len table
+        then:
+            none
+        else:
+            let layouts %&Vec SelfhostMemoTraitLayoutRecord field::get_ref table "layouts"
+            match v::get layouts idx:
+                Option::Some record:
+                    if:
+                        and selfhost_named_type_id_eq record.nominal_id nominal_id selfhost_memo_trait_layout_record_target_eq record.target_type target
+                        then:
+                            some record
+                        else:
+                            selfhost_memo_trait_layout_table_find_loop table nominal_id target add idx 1
+                Option::None:
+                    none
+
+//: selfhost_memo_trait_layout_table_find_named: arity 0 named type 用 layout record を[返/かえ]す
+pub fn selfhost_memo_trait_layout_table_find_named %fn &SelfhostMemoTraitLayoutEvidenceTable fn SelfhostNamedTypeId Option SelfhostMemoTraitLayoutRecord \table\nominal_id:
+    selfhost_memo_trait_layout_table_find_loop table nominal_id none 0
+
+//: selfhost_memo_trait_layout_table_find_applied: concrete applied type 用 layout record を[返/かえ]す
+pub fn selfhost_memo_trait_layout_table_find_applied %fn &SelfhostMemoTraitLayoutEvidenceTable fn SelfhostNamedTypeId fn SelfhostTypeId Option SelfhostMemoTraitLayoutRecord \table\nominal_id\type_id:
+    selfhost_memo_trait_layout_table_find_loop table nominal_id (some type_id) 0
+
+//: selfhost_memo_trait_layout_range_in_table: field range が table 内に収まるか[返/かえ]す
+fn selfhost_memo_trait_layout_range_in_table %fn &SelfhostMemoTraitLayoutEvidenceTable fn SelfhostMemoTraitAggregateFieldRange bool \table\range:
+    let field_len %i32 selfhost_memo_trait_layout_evidence_table_field_len table
+    if:
+        not selfhost_memo_trait_aggregate_field_range_is_valid range
+        then:
+            false
+        else:
+            if:
+                eq range.field_count 0
+                then:
+                    eq range.first_field 0
+                else:
+                    if:
+                        gt range.first_field field_len
+                        then:
+                            false
+                        else:
+                            le range.field_count sub field_len range.first_field
+
+//: selfhost_memo_trait_layout_validate_field_type: field type が layout evidence に使える状態か[返/かえ]す
+fn selfhost_memo_trait_layout_validate_field_type %fn &SelfhostTypeArena fn SelfhostTypeId Result unit SelfhostMemoTraitLayoutEvidenceErrorKind \types\field_type:
+    match selfhost_type_arena_get_record types field_type:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    Result::Ok unit
+                SelfhostTypeRecord::Named _named:
+                    Result::Ok unit
+                SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                SelfhostTypeRecord::Applied _applied:
+                    Result::Ok unit
+                SelfhostTypeRecord::Function _function:
+                    Result::Ok unit
+        Option::None:
+            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::MissingFieldType
+
+//: selfhost_memo_trait_layout_validate_fields_loop: layout range 内の field record を[検査/けんさ]する
+fn selfhost_memo_trait_layout_validate_fields_loop %fn &SelfhostMemoTraitLayoutEvidenceTable fn &SelfhostTypeArena fn SelfhostNamedTypeId fn SelfhostMemoTraitAggregateFieldRange fn i32 Result unit SelfhostMemoTraitLayoutEvidenceErrorKind \table\types\nominal_id\range\idx:
+    if:
+        ge idx range.field_count
+        then:
+            Result::Ok unit
+        else:
+            let fields %&Vec SelfhostMemoTraitLayoutFieldRecord field::get_ref table "fields"
+            match v::get fields add range.first_field idx:
+                Option::Some record:
+                    if:
+                        not selfhost_named_type_id_eq record.owner nominal_id
+                        then:
+                            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::FieldOwnerMismatch
+                        else:
+                            if:
+                                not eq record.field_index idx
+                                then:
+                                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::FieldIndexMismatch
+                                else:
+                                    match selfhost_memo_trait_layout_validate_field_type types record.field_type:
+                                        Result::Ok _unit:
+                                            selfhost_memo_trait_layout_validate_fields_loop table types nominal_id range add idx 1
+                                        Result::Err e:
+                                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange
+
+//: selfhost_memo_trait_layout_record_field_evidence: layout record を field evidence へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - 成功しても Copy / Drop / Eq / Hash / hazard は証明されません。caller は producer gate の他の proof status を別に用意します。
+pub fn selfhost_memo_trait_layout_record_field_evidence %fn &SelfhostMemoTraitLayoutEvidenceTable fn &SelfhostTypeArena fn SelfhostMemoTraitLayoutRecord Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind \table\types\layout:
+    if:
+        lt layout.arity 0
+        then:
+            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidConstructorArity
+        else:
+            if:
+                not selfhost_memo_trait_layout_range_in_table table layout.fields
+                then:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange
+                else:
+                    match selfhost_memo_trait_layout_validate_fields_loop table types layout.nominal_id layout.fields 0:
+                        Result::Ok _unit:
+                            Result::Ok SelfhostMemoTraitAggregateFieldEvidence::Known layout.fields
+                        Result::Err e:
+                            Result::Err e
+
+//: selfhost_memo_trait_layout_validate_applied_args_loop: applied type argument が解決済みか[検査/けんさ]する
+fn selfhost_memo_trait_layout_validate_applied_args_loop %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 fn i32 Result unit SelfhostMemoTraitLayoutEvidenceErrorKind \types\type_id\arg_count\idx:
+    if:
+        ge idx arg_count
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_type_arena_applied_arg types type_id idx:
+                Option::Some arg_type:
+                    match selfhost_type_arena_get_record types arg_type:
+                        Option::Some record:
+                            match record:
+                                SelfhostTypeRecord::Primitive _kind:
+                                    selfhost_memo_trait_layout_validate_applied_args_loop types type_id arg_count add idx 1
+                                SelfhostTypeRecord::Named _named:
+                                    selfhost_memo_trait_layout_validate_applied_args_loop types type_id arg_count add idx 1
+                                SelfhostTypeRecord::Parameter _parameter:
+                                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                                SelfhostTypeRecord::Applied _applied:
+                                    selfhost_memo_trait_layout_validate_applied_args_loop types type_id arg_count add idx 1
+                                SelfhostTypeRecord::Function _function:
+                                    selfhost_memo_trait_layout_validate_applied_args_loop types type_id arg_count add idx 1
+                        Option::None:
+                            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::MissingTypeRecord
+                Option::None:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::AppliedArgumentArityMismatch
+
+//: selfhost_memo_trait_layout_named_result: named type の layout evidence を[返/かえ]す
+fn selfhost_memo_trait_layout_named_result %fn &SelfhostMemoTraitLayoutEvidenceTable fn &SelfhostTypeArena fn SelfhostNamedTypeId Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind \table\types\nominal_id:
+    match selfhost_memo_trait_layout_table_find_named table nominal_id:
+        Option::Some layout:
+            if:
+                not eq layout.arity 0
+                then:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::NamedConstructorHasTypeParameters
+                else:
+                    selfhost_memo_trait_layout_record_field_evidence table types layout
+        Option::None:
+            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout
+
+//: selfhost_memo_trait_layout_applied_result: applied type の layout evidence を[返/かえ]す
+fn selfhost_memo_trait_layout_applied_result %fn &SelfhostMemoTraitLayoutEvidenceTable fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostAppliedTypeRecord Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind \table\types\type_id\applied:
+    let nominal_id %SelfhostNamedTypeId selfhost_applied_type_record_id applied
+    match selfhost_memo_trait_layout_table_find_applied table nominal_id type_id:
+        Option::Some layout:
+            let arg_count %i32 selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied
+            if:
+                not eq layout.arity arg_count
+                then:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::AppliedArgumentArityMismatch
+                else:
+                    match selfhost_memo_trait_layout_validate_applied_args_loop types type_id arg_count 0:
+                        Result::Ok _unit:
+                            selfhost_memo_trait_layout_record_field_evidence table types layout
+                        Result::Err e:
+                            Result::Err e
+        Option::None:
+            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout
+
+//: selfhost_memo_trait_layout_evidence_for_type_result: TypeId から aggregate field evidence を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` aggregate solver が、type record variant と constructor layout table の整合性を 1 箇所で確認できるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(Known(range))`: constructor layout と field table は producer gate の field evidence として使えます。
+//: - `Err(kind)`: layout 欠落、型 record 欠落、未解決 parameter、arity mismatch などのため fail-closed に拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - named は layout lookup O(n) と field validation O(m) です。
+//: - applied は layout lookup O(n)、type argument validation O(k)、field validation O(m) です。
+pub fn selfhost_memo_trait_layout_evidence_for_type_result %fn &SelfhostMemoTraitLayoutEvidenceTable fn &SelfhostTypeArena fn SelfhostTypeId Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind \table\types\type_id:
+    match selfhost_type_arena_get_record types type_id:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::TargetNotAggregate
+                SelfhostTypeRecord::Named named:
+                    selfhost_memo_trait_layout_named_result table types selfhost_named_type_record_id named
+                SelfhostTypeRecord::Parameter _parameter:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                SelfhostTypeRecord::Applied applied:
+                    selfhost_memo_trait_layout_applied_result table types type_id applied
+                SelfhostTypeRecord::Function _function:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::TargetNotAggregate
+        Option::None:
+            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::MissingTypeRecord
+
+//: selfhost_memo_trait_layout_stage0_named_layout: Named layout の最小実行 smoke を[返/かえ]す
+fn selfhost_memo_trait_layout_stage0_named_layout %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 nominal_id:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match selfhost_memo_trait_layout_evidence_table_new:
+                        Result::Ok table0:
+                            match selfhost_memo_trait_layout_evidence_table_push_layout table0 selfhost_memo_trait_layout_record_product_named nominal_id 0 0:
+                                Result::Ok table1:
+                                    let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table1 &arena1 type_id
+                                    selfhost_memo_trait_layout_evidence_table_free table1
+                                    selfhost_type_arena_free arena1
+                                    Result::Ok result
+                                Result::Err e:
+                                    selfhost_type_arena_free arena1
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_type_arena_free arena1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_add_single_applied: layout smoke 用 applied type を[追加/ついか]する
+fn selfhost_memo_trait_layout_stage0_add_single_applied %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id\arg:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 arg:
+                Result::Ok params1:
+                    selfhost_type_arena_add_applied_named arena nominal_id params1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_applied_layout: Applied layout の最小実行 smoke を[返/かえ]す
+fn selfhost_memo_trait_layout_stage0_applied_layout %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 11
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok allocated_unit:
+                    let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_unit
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_unit
+                    match selfhost_memo_trait_layout_stage0_add_single_applied arena1 nominal_id unit_id:
+                        Result::Ok allocated_applied:
+                            let applied_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_applied
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_applied
+                            match selfhost_memo_trait_layout_evidence_table_new:
+                                Result::Ok table0:
+                                    match selfhost_memo_trait_layout_evidence_table_push_field table0 selfhost_memo_trait_layout_field_record_new nominal_id 0 unit_id:
+                                        Result::Ok table1:
+                                            match selfhost_memo_trait_layout_evidence_table_push_layout table1 selfhost_memo_trait_layout_record_product_applied nominal_id applied_id 1 0 1:
+                                                Result::Ok table2:
+                                                    let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table2 &arena2 applied_id
+                                                    selfhost_memo_trait_layout_evidence_table_free table2
+                                                    selfhost_type_arena_free arena2
+                                                    Result::Ok result
+                                                Result::Err e:
+                                                    selfhost_type_arena_free arena2
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena2
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_type_arena_free arena2
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_missing_layout: layout 欠落を public validator で[確認/かくにん]する
+fn selfhost_memo_trait_layout_stage0_missing_layout %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 12
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 nominal_id:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match selfhost_memo_trait_layout_evidence_table_new:
+                        Result::Ok table:
+                            let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table &arena1 type_id
+                            selfhost_memo_trait_layout_evidence_table_free table
+                            selfhost_type_arena_free arena1
+                            Result::Ok result
+                        Result::Err e:
+                            selfhost_type_arena_free arena1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_invalid_range: field table 外の range を public validator で[確認/かくにん]する
+fn selfhost_memo_trait_layout_stage0_invalid_range %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 13
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 nominal_id:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match selfhost_memo_trait_layout_evidence_table_new:
+                        Result::Ok table0:
+                            match selfhost_memo_trait_layout_evidence_table_push_layout table0 selfhost_memo_trait_layout_record_product_named nominal_id 1 1:
+                                Result::Ok table1:
+                                    let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table1 &arena1 type_id
+                                    selfhost_memo_trait_layout_evidence_table_free table1
+                                    selfhost_type_arena_free arena1
+                                    Result::Ok result
+                                Result::Err e:
+                                    selfhost_type_arena_free arena1
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_type_arena_free arena1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_owner_mismatch: field owner mismatch を public validator で[確認/かくにん]する
+fn selfhost_memo_trait_layout_stage0_owner_mismatch %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 14
+    let wrong_owner %SelfhostNamedTypeId selfhost_named_type_id_new 15
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 nominal_id:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::Unit:
+                        Result::Ok allocated_unit:
+                            let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_unit
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_unit
+                            match selfhost_memo_trait_layout_evidence_table_new:
+                                Result::Ok table0:
+                                    match selfhost_memo_trait_layout_evidence_table_push_field table0 selfhost_memo_trait_layout_field_record_new wrong_owner 0 unit_id:
+                                        Result::Ok table1:
+                                            match selfhost_memo_trait_layout_evidence_table_push_layout table1 selfhost_memo_trait_layout_record_product_named nominal_id 0 1:
+                                                Result::Ok table2:
+                                                    let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table2 &arena2 type_id
+                                                    selfhost_memo_trait_layout_evidence_table_free table2
+                                                    selfhost_type_arena_free arena2
+                                                    Result::Ok result
+                                                Result::Err e:
+                                                    selfhost_type_arena_free arena2
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena2
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_type_arena_free arena2
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_generic_field: unsubstituted generic field を public validator で[確認/かくにん]する
+fn selfhost_memo_trait_layout_stage0_generic_field %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 16
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 nominal_id:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match selfhost_type_arena_add_type_parameter arena1 selfhost_type_parameter_binding_new_unchecked 0 0:
+                        Result::Ok allocated_param:
+                            let param_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_param
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_param
+                            match selfhost_memo_trait_layout_evidence_table_new:
+                                Result::Ok table0:
+                                    match selfhost_memo_trait_layout_evidence_table_push_field table0 selfhost_memo_trait_layout_field_record_new nominal_id 0 param_id:
+                                        Result::Ok table1:
+                                            match selfhost_memo_trait_layout_evidence_table_push_layout table1 selfhost_memo_trait_layout_record_product_named nominal_id 0 1:
+                                                Result::Ok table2:
+                                                    let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table2 &arena2 type_id
+                                                    selfhost_memo_trait_layout_evidence_table_free table2
+                                                    selfhost_type_arena_free arena2
+                                                    Result::Ok result
+                                                Result::Err e:
+                                                    selfhost_type_arena_free arena2
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena2
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_type_arena_free arena2
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_named_type_parameters: Named に generic constructor layout を使った失敗を public validator で[確認/かくにん]する
+fn selfhost_memo_trait_layout_stage0_named_type_parameters %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 17
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 nominal_id:
+                Result::Ok allocated:
+                    let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match selfhost_memo_trait_layout_evidence_table_new:
+                        Result::Ok table0:
+                            let layout %SelfhostMemoTraitLayoutRecord selfhost_memo_trait_layout_record_new nominal_id none 1 selfhost_memo_trait_aggregate_field_range_new 0 0
+                            match selfhost_memo_trait_layout_evidence_table_push_layout table0 layout:
+                                Result::Ok table1:
+                                    let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table1 &arena1 type_id
+                                    selfhost_memo_trait_layout_evidence_table_free table1
+                                    selfhost_type_arena_free arena1
+                                    Result::Ok result
+                                Result::Err e:
+                                    selfhost_type_arena_free arena1
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_type_arena_free arena1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0_applied_arity_mismatch: applied arity mismatch を public validator で[確認/かくにん]する
+fn selfhost_memo_trait_layout_stage0_applied_arity_mismatch %impure fn void Result Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 18
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok allocated_unit:
+                    let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_unit
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_unit
+                    match selfhost_memo_trait_layout_stage0_add_single_applied arena1 nominal_id unit_id:
+                        Result::Ok allocated_applied:
+                            let applied_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_applied
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_applied
+                            match selfhost_memo_trait_layout_evidence_table_new:
+                                Result::Ok table0:
+                                    match selfhost_memo_trait_layout_evidence_table_push_layout table0 selfhost_memo_trait_layout_record_product_applied nominal_id applied_id 2 0 0:
+                                        Result::Ok table1:
+                                            let result %Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitLayoutEvidenceErrorKind selfhost_memo_trait_layout_evidence_for_type_result &table1 &arena2 applied_id
+                                            selfhost_memo_trait_layout_evidence_table_free table1
+                                            selfhost_type_arena_free arena2
+                                            Result::Ok result
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena2
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_type_arena_free arena2
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_layout_stage0: layout evidence result domain の focused smoke
+//:
+//: [目的/もくてき]:
+//: - module doctest が Named / Applied の public layout evidence entry を実際に通し、accepted field evidence と fail-closed error domain を短い expression で確認できるようにします。
+//: - fail-closed 側も public validator から返った `Result::Err` を summary に入れ、手書きの error payload で検査経路を迂回しないようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: 成功 evidence と代表 error の `Result` を返します。
+pub fn selfhost_memo_trait_layout_stage0 %impure fn void Result SelfhostMemoTraitLayoutStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_layout_stage0_named_layout:
+        Result::Ok named_layout:
+            match selfhost_memo_trait_layout_stage0_applied_layout:
+                Result::Ok applied_layout:
+                    match selfhost_memo_trait_layout_stage0_missing_layout:
+                        Result::Ok missing_layout:
+                            match selfhost_memo_trait_layout_stage0_invalid_range:
+                                Result::Ok invalid_range:
+                                    match selfhost_memo_trait_layout_stage0_owner_mismatch:
+                                        Result::Ok owner_mismatch:
+                                            match selfhost_memo_trait_layout_stage0_generic_field:
+                                                Result::Ok generic_field:
+                                                    match selfhost_memo_trait_layout_stage0_named_type_parameters:
+                                                        Result::Ok named_type_parameters:
+                                                            match selfhost_memo_trait_layout_stage0_applied_arity_mismatch:
+                                                                Result::Ok applied_arity_mismatch:
+                                                                    Result::Ok SelfhostMemoTraitLayoutStage0Summary:
+                                                                        named_layout
+                                                                        applied_layout
+                                                                        missing_layout
+                                                                        invalid_range
+                                                                        owner_mismatch
+                                                                        generic_field
+                                                                        named_type_parameters
+                                                                        applied_arity_mismatch
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

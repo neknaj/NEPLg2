@@ -54872,3 +54872,59 @@ MERGE_APPROVED
 - field layout summary の実生成、trait source identity、Copy / Drop / Eq / Hash pure evidence の実計算、cycle / recursive aggregate の visited set または fuel、canonical type key indexed proof store は未実装。
 - `memo_call` private cache proof、Resource IR `PrivateCache` non-escape proof、sealed backend representation は未実装。
 - `SelfhostTypeId` は session-local の consumer lookup だけに使い、永続 artifact は canonical type key と solver policy hash で索引する必要がある。
+
+## 2026-06-12 Agent selfhost memo trait layout evidence checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-layout-evidence-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- related_issue: `ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941`
+- zenn_policy_checked: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- subagent_review_ids: `019eb6ba-39dc-71e2-81ff-07eaeac1c305`, `019eb6c6-cec9-7000-8696-c18d8b800ee0`
+
+### implementation
+
+- `stdlib/neplg2/core/ty/ty/memo_trait_layout.nepl` を追加し、`MemoKey` / `MemoValue` aggregate proof の入力になる type constructor layout evidence を `core/ty` 内の独立 module として切り出した。
+- `SelfhostMemoTraitLayoutEvidenceTable` は constructor layout record と field record を所有し、source spelling、display name、diagnostic string、module path suffix を accepted path の authority にしない。
+- `SelfhostMemoTraitLayoutRecord.target_type %Option SelfhostTypeId` を持たせ、`Named` は `none`、concrete `Applied` は `some(type_id)` で検索する。これにより substitution 済み field range を constructor identity だけで別 instantiation へ誤再利用しない。
+- `selfhost_memo_trait_layout_evidence_for_type_result` は `Named` / `Applied` / primitive / function / parameter / missing record を明示的に分け、layout 欠落、arity mismatch、field range 破損、owner mismatch、field index mismatch、missing field type、generic field leakage を `SelfhostMemoTraitLayoutEvidenceErrorKind` で fail-closed に返す。
+- stage0 smoke は success path と代表 fail-closed path の両方を public validator 経由で作り、手書きの `Result::Err` payload で検査経路を迂回しないようにした。
+- `ty.nepl` facade、`nodesrc/selfhost_ty_sources.js`、source policy regression、関連 doc / issue / todo を更新した。
+
+### zenn_policy
+
+- Result / enum: layout evidence failure は文字列や bool に潰さず、`Result` と enum variant で保持する。
+- static check: error-kind equality は wildcard ではなく variant projection の明示 match にして、新 variant 追加時に更新漏れが見えるようにした。
+- DAG / responsibility: `memo_trait_layout` は `core/ty` に閉じ、checker、HIR、Resource IR、backend、private cache backend へ依存していない。
+- fail-closed: aggregate acceptance はまだ完了扱いにせず、layout evidence は producer gate に渡す field evidence 入力だけを検査する。
+- doc comment: module / public type / public function に日本語の目的、契約、現状、計算量、doctest、未実装境界を書いた。コメント行数や file size を抑制する検査は追加していない。
+
+### subagent_review
+
+- initial_review: `019eb6ba-39dc-71e2-81ff-07eaeac1c305` は、Applied layout が `SelfhostNamedTypeId` だけで keyed されると `Box<i32>` 用の substitution 済み field range を `Box<f32>` へ誤再利用し得る点を blocker として指摘した。
+- response: `target_type %Option SelfhostTypeId` を layout record に追加し、Named と Applied の lookup を分けた。source policy でも concrete applied target TypeId 比較を固定した。
+- initial_review: `019eb6c6-cec9-7000-8696-c18d8b800ee0` は、stage0 smoke が手書き sample result で public validator を実行していない点を required として指摘した。
+- response: success path と fail-closed path の helper を public validator 経由に変更し、source policy で validator-backed helper と summary collection を固定した。
+- re_review: blocker / required なし。suggestion の table doc comment 明確化を反映した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_layout_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_layout.nepl -o "$env:TEMP\neplg2-selfhost-memo-trait-layout.json" --dist web/dist -j 1 --assert-io --no-tree` total=1 passed=1
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty -o "$env:TEMP\neplg2-selfhost-ty-layout.json" --dist web/dist -j 1 --assert-io --no-tree` total=10 passed=10
+- pass_with_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の documentation sample gaps と Node WASI ExperimentalWarning のみ。
+- pass: `node nodesrc/issues.js index --dir issues`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- actual type declaration table から layout evidence を生成する producer は未実装。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、enum / sum layout、hazard proof は未実装。
+- `memo_trait_layout` は現時点で `SelfhostMemoTraitAggregateFieldRange` / `SelfhostMemoTraitAggregateFieldEvidence` を `memo_trait_producer` から import している。後続で producer が layout validator を呼ぶ段階では、小さな共有 model module への分離を検討する。
