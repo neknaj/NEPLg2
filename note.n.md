@@ -57393,3 +57393,45 @@ MERGE_APPROVED
 - generic memoized function identity は、typed type-argument identity payload と pure monomorphic / generic identity gate が揃うまで `GenericUnsupported` を維持する。
 - re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
+
+## 2026-06-13 Agent selfhost memo trait operation proof table checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-operation-proof-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-13 に `https://zenn.dev/bem130/articles/1b352797de94e7` を確認済み。静的検査、typed enum error、Result API、pure core / boundary 分離、DAG、探索範囲削減、丁寧な doc comment、行数制限によるコメント抑制禁止、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_operation_proof.nepl` を追加し、Copy / Drop / Eq / Hash の operation proof status を session-local table から `SelfhostMemoTraitAggregateProof` へ渡す境界を作った。
+- `SelfhostMemoTraitOperationProofRecord` は `SelfhostTypeId` と 4 種類の `SelfhostMemoTraitAggregateProofStatus` を持つ。status は bool や文字列へ潰さず、`Proven` / `Missing` / `Impure` / `Unknown` のまま producer gate に渡す。
+- `SelfhostMemoTraitOperationProofTable` は現在の type arena session 内だけの一時 table であり、`.neplmeta`、`.neplproof`、cross-arena cache、serialized canonical key の authority にはしない。
+- table record 欠落は accepted proof にせず、Copy / Drop / Eq / Hash がすべて `Missing` の record として aggregate proof に渡す。`selfhost_memo_trait_operation_proof_record_for_type_or_missing_result` は `RecordMissing` だけを all-missing record に畳み、`DuplicateRecord` / `MissingTypeRecord` / `RecordPushFailed` は typed error のまま返す。
+- 同じ TypeId の record が複数ある場合は first-wins ではなく `DuplicateRecord` で fail-closed にする。arena に存在しない fake TypeId は、operation table に all-proven record があっても `MissingTypeRecord` になる。
+- `ty.nepl` facade、`nodesrc/selfhost_ty_sources.js`、source policy regression list、design doc、issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Tesla は次 slice として recursive aggregate / cycle boundary を推奨した。Copy / Drop / Eq / Hash pure evidence 実計算は、その cycle-safe aggregate traversal の後に置くべきという整理だった。
+- Bohr 初回 review: Blocker として duplicate TypeId record の first-wins 問題を指摘した。Required として、`RecordMissing` 以外を all-missing に畳まないこと、fake TypeId all-proven record の regression を追加することを求めた。
+- Required 対応として、`DuplicateRecord`、明示的な `RecordMissing` 専用 missing conversion、duplicate / fake TypeId stage0 checks、source policy を追加した。
+- Bohr 再レビュー: Blocker / Required なし。duplicate record、non-missing error preservation、fake TypeId regression が fail-closed になっていることを確認した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`。既存 documentation gap sample は表示されるが baseline check は pass。
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_proof.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-proof.json` total=1 passed=1 failed=0
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行ではない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+### residual
+
+- Copy / Drop / Eq / Hash proof status の実計算は未実装であり、この table へ status を供給する trait impl / method body purity / Drop なし proof solver が必要である。
+- recursive aggregate traversal と cycle boundary は未実装であり、Tesla の提案どおり次の候補 slice として扱う。
+- re-export / import graph / public non-trait declaration を含む full public surface hash、generic instantiation identity の HIR / monomorphize / artifact 接続、PrivateCache proof / backend representation は未完了である。

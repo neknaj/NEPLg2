@@ -1282,6 +1282,12 @@ source policy は `nodesrc/test_selfhost_memo_trait_type_argument_identity_contr
 
 この checkpoint 後も、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+2026-06-13 MemoKey / MemoValue operation proof table checkpoint では、`stdlib/neplg2/core/ty/ty/memo_trait_operation_proof.nepl` を追加し、Copy / Drop / Eq / Hash の operation proof status を session-local `SelfhostTypeId` table から `SelfhostMemoTraitAggregateProof` へ渡す境界を作った。この module は `SelfhostMemoTraitAggregateProofStatus` を bool や文字列に潰さず、`Proven`、`Missing`、`Impure`、`Unknown` のまま producer gate へ運ぶ。
+
+`SelfhostMemoTraitOperationProofTable` は永続 artifact authority ではない。`.neplmeta`、`.neplproof`、cross-arena cache、serialized canonical key の代わりにはならず、現在の type arena session の中だけで使う。record 欠落は accepted proof にせず、Copy / Drop / Eq / Hash がすべて `Missing` の record として aggregate proof に渡す。producer gate はこの status を `CopyProofMissing`、`EqProofImpure`、`HashProofUnknown` などの typed rejection へ変換する。同じ TypeId の record が複数ある場合は first-wins で続行せず、`DuplicateRecord` として aggregate proof construction の前で拒否する。
+
+この checkpoint は proof status の運搬と producer 接続であり、trait impl table、method body purity、Drop なし proof、Eq / Hash の純粋性検査、recursive field traversal、cycle boundary はまだ実装しない。型が `SelfhostTypeArena` に存在しない場合は `MissingTypeRecord` で拒否し、fake TypeId の operation proof record だけで accepted aggregate proof を作らない。source policy と doctest は duplicate record rejection、fake TypeId rejection、missing record fail-closed を実行経路として固定する。source policy はさらに facade re-export、source list 登録、checker / HIR / Resource IR / backend への逆依存禁止、proof store / artifact / codec への依存禁止、wildcard arm 禁止、line count / doc comment length cap 禁止を固定する。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

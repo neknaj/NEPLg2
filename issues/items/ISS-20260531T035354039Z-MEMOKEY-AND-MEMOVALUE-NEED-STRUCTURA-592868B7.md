@@ -399,6 +399,30 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost memo trait operation proof table checkpoint
+
+`memo_trait_operation_proof.nepl` を追加し、Copy / Drop / Eq / Hash の operation proof status を session-local table から aggregate proof producer へ渡す境界を固定した。
+
+`SelfhostMemoTraitOperationProofRecord` は `SelfhostTypeId` と 4 種類の `SelfhostMemoTraitAggregateProofStatus` を保持する。`SelfhostMemoTraitOperationProofTable` は `Vec SelfhostMemoTraitOperationProofRecord` を所有し、lookup は `selfhost_type_id_eq` だけで行う。source text、span、path suffix、display name、diagnostic text、lexeme は proof authority にしない。
+
+同じ TypeId の record が複数ある場合は、first-wins や後勝ちで続行しない。`selfhost_memo_trait_operation_proof_find_loop` は 2 件目の一致を見た時点で `DuplicateRecord` を返し、`selfhost_memo_trait_operation_proof_record_for_type_or_missing_result` は `RecordMissing` だけを all-missing record に畳む。`DuplicateRecord`、`MissingTypeRecord`、`RecordPushFailed` は Missing status に潰さず typed error のまま返す。
+
+`selfhost_memo_trait_aggregate_proof_from_operation_table_result` は、まず `SelfhostTypeArena` に type record が存在するかを確認する。存在しない場合は `MissingTypeRecord` で拒否するため、fake TypeId の operation proof record だけで aggregate proof は作れない。table に record が無い場合は accepted proof にせず、Copy / Drop / Eq / Hash がすべて `Missing` の record として producer gate に渡す。
+
+この checkpoint は operation proof status の運搬と producer 接続であり、trait impl table、method body purity、Drop なし proof、Eq / Hash の純粋性検査、recursive aggregate traversal、cycle boundary はまだ実装しない。既存 producer gate の rejection taxonomy を再実装せず、`SelfhostMemoTraitAggregateProof` を作った後は `selfhost_memo_trait_aggregate_proof_to_record` を通す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_proof_contract.js` で、facade re-export、source list 登録、session-local table の契約、missing record fail-closed、duplicate record rejection、fake TypeId rejection、typed operation status、typed error equality、push failure owner cleanup、checker / HIR / Resource IR / backend への逆依存禁止、proof store / artifact / codec への依存禁止、line count / doc comment length cap 禁止を固定する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_proof.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-proof.json`
+
+subagent review では Bohr が Blocker として duplicate TypeId record の first-wins 問題を指摘し、Required として `RecordMissing` 以外を all-missing に畳まないこと、fake TypeId all-proven record の regression を追加することを求めた。対応として `DuplicateRecord`、明示的な `RecordMissing` 専用 missing conversion、duplicate / fake TypeId stage0 checks、source policy を追加した。再レビューでは Blocker / Required なしとなり、duplicate record、non-missing error preservation、fake TypeId regression が意図どおり fail-closed になっていることを確認した。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation identity の HIR / monomorphize / artifact 接続である。
+
 ## 2026-06-13 selfhost generic type argument identity checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_type_argument_identity.nepl` を追加し、generic instantiation の型引数列を `SelfhostTypeId` vector のまま永続 key material にしない stable identity boundary として分離した。
