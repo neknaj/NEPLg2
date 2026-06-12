@@ -55501,6 +55501,37 @@ MERGE_APPROVED
 - pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の変更範囲では退行なし。
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-definition-navigation-after-trunk.json` total=13 passed=13 failed=0
+
+## 2026-06-12 Agent selfhost memo trait marker signature shape checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-signature-normalization-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result/enum、純粋関数、DAG、丁寧なdoc comment、試作段階でも品質を落とさない方針に従う。
+- subagent_review: Fermat / Goodall に設計レビューを依頼し、full method signature normalization ではなく marker signature shape evidence として命名・責務を調整した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_signature_shape.nepl` を追加した。
+- 現 selfhost AST は trait body を method declaration list として持たず、body envelope / first expression の `SelfhostSyntaxRange` だけを持つため、この module は public marker trait shape だけを accepted evidence にする。
+- `SelfhostMemoTraitSignatureShapeErrorKind` で item kind mismatch、header kind mismatch、private visibility、header type annotation、header lambda、body envelope、body first expression、body evidence missing を分ける。
+- accepted marker signature hash は source text / span / syntax range / lexeme / path suffix / diagnostic text を材料にせず、domain と `SelfhostMemoTraitSourceKind` だけから作る。
+- `memo_trait_public_surface_seed.nepl` は header/body を直接判定せず、`selfhost_memo_trait_signature_shape_result` を経由して `normalized_signature_hash` を取り出すようにした。
+- `nodesrc/test_selfhost_memo_trait_signature_shape_contract.js` を追加し、source/span/lexeme/path/diagnostic を authority にしないこと、fake method parser を入れないこと、proof store から checker-layer module へ逆依存しないこと、line/comment length 制限を入れないことを固定した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_signature_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_signature_shape.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -i stdlib/neplg2/core/check/module.nepl --no-tree --dist web/dist -o tmp/selfhost-memo-trait-signature-shape-focused.json -j 1 --assert-io` total=4 passed=4
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
 - pass: `node nodesrc/issues.js index --dir issues`
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `git diff --check`
+
+### residual
+
+- 実 stdlib の `MemoKey` / `MemoValue` は method-bearing trait なので、次は body range を method declaration list へ分割する body segmenter と、method name / type annotation / default body の stable signature normalization が必要である。
+- re-export / import graph を含む full public surface hash、stable trait definition key producer、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未完了である。

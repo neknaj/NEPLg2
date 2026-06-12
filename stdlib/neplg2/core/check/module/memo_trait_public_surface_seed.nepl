@@ -5,6 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - parser が作った typed module item stream から、`MemoKey` / `MemoValue` の public marker trait definition だけを stable source seed table へ投影します。
+//: - trait header / body が marker trait として stable signature にできるかは `memo_trait_signature_shape` に委譲し、seed 側で source range を直接 semantic hash に変換しません。
 //: - scanner candidate table、public surface seed、stable evidence producer、fingerprint gate、trusted registry validator の順に通し、どの段階でも source spelling や span から trusted source identity を直接作らないようにします。
 //: - `core/ty` と proof store が syntax AST を読む逆依存を作らないよう、AST 走査は `core/check/module` 側に閉じます。
 //:
@@ -64,6 +65,7 @@
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/ty/memo_trait_policy" as *
 #import "neplg2/core/ty/ty/memo_trait_source" as *
+#import "./memo_trait_signature_shape" as *
 #import "./memo_trait_source_scan" as *
 #import "./memo_trait_source_evidence_producer" as *
 
@@ -257,22 +259,38 @@ fn selfhost_memo_trait_public_surface_seed_kind_code %fn SelfhostMemoTraitSource
         SelfhostMemoTraitSourceKind::MemoValueTrait:
             702
 
-//: selfhost_memo_trait_public_surface_seed_signature_result: marker trait signature seed を[作/つく]る
+//: selfhost_memo_trait_public_surface_seed_normalization_error_result: signature normalization error を public surface seed error へ[写/うつ]す
 //:
 //: [契約/けいやく]:
-//: - source span、syntax range、source name は混ぜません。Phase 1 marker trait の public signature を、domain/version と memo trait kind だけで表します。
-fn selfhost_memo_trait_public_surface_seed_signature_result %fn SelfhostMemoTraitSourceKind Result i32 SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind:
-    let seed %i32 mix xor selfhost_memo_trait_public_surface_seed_kind_code kind 19088743
-    if:
-        eq seed 0
-        then:
+//: - public surface seed の外部 contract は、現段階では key/value ごとの「trait body / method signature normalization unsupported」です。
+//: - 詳細な header/body reason は `memo_trait_signature_shape` 側の stage0 と source policy で固定し、ここでは既存 seed error surface を保ちます。
+fn selfhost_memo_trait_public_surface_seed_normalization_error_result %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitSignatureShapeErrorKind SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\_normalization_error:
+    selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind
+
+//: selfhost_memo_trait_public_surface_seed_signature_from_normalization_result: normalization evidence から signature seed を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - accepted signature seed は normalization module が作った `normalized_signature_hash` だけです。source span、syntax range、source name は混ぜません。
+//: - `none` や `some 0` は signature seed として扱わず、kind 別 placeholder error にします。
+fn selfhost_memo_trait_public_surface_seed_signature_from_normalization_result %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitSignatureShapeEvidence Result i32 SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\evidence:
+    match evidence.normalized_signature_hash:
+        Option::Some signature_seed:
+            if:
+                eq signature_seed 0
+                then:
+                    match kind:
+                        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder
+                        SelfhostMemoTraitSourceKind::MemoValueTrait:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder
+                else:
+                    Result::Ok signature_seed
+        Option::None:
             match kind:
                 SelfhostMemoTraitSourceKind::MemoKeyTrait:
                     Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder
                 SelfhostMemoTraitSourceKind::MemoValueTrait:
                     Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder
-        else:
-            Result::Ok seed
 
 //: selfhost_memo_trait_public_surface_seed_declaration_ordinal: well-known trait key を ordinal seed へ[写/うつ]す
 //:
@@ -321,32 +339,6 @@ fn selfhost_memo_trait_public_surface_marker_trait_unsupported_result %fn Selfho
         SelfhostMemoTraitSourceKind::MemoValueTrait:
             SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported
 
-//: selfhost_memo_trait_public_surface_marker_header_result: marker trait header か[検査/けんさ]する
-//:
-//: [契約/けいやく]:
-//: - `trait MemoKey` / `trait MemoValue` の名前以外の header range は accepted fingerprint seed にしません。
-//: - type annotation や lambda header が非空なら、trait signature normalization が未実装の surface として fail-closed にします。
-fn selfhost_memo_trait_public_surface_marker_header_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationHeader Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\header:
-    if:
-        or selfhost_syntax_range_is_nonempty header.type_annotation selfhost_syntax_range_is_nonempty header.lambda_header
-        then:
-            Result::Err selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind
-        else:
-            Result::Ok unit
-
-//: selfhost_memo_trait_public_surface_marker_body_result: marker trait body か[検査/けんさ]する
-fn selfhost_memo_trait_public_surface_marker_body_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleItem Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\item:
-    match item.declaration_body:
-        Option::Some body:
-            if:
-                or selfhost_syntax_range_is_nonempty body.envelope selfhost_syntax_range_is_nonempty body.first_expression
-                then:
-                    Result::Err selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind
-                else:
-                    Result::Ok unit
-        Option::None:
-            Result::Ok unit
-
 //: selfhost_memo_trait_public_surface_visibility_result: public marker trait か[検査/けんさ]する
 fn selfhost_memo_trait_public_surface_visibility_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationVisibility Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\visibility:
     match visibility:
@@ -365,24 +357,20 @@ fn selfhost_memo_trait_public_surface_trait_seed_result %fn SelfhostMemoTraitSou
         Result::Ok _visibility_ok:
             match item.declaration:
                 Option::Some header:
-                    match selfhost_memo_trait_public_surface_marker_header_result kind header:
-                        Result::Ok _header_ok:
-                            match selfhost_memo_trait_public_surface_marker_body_result kind item:
-                                Result::Ok _body_ok:
-                                    match selfhost_memo_trait_public_surface_seed_signature_result kind:
-                                        Result::Ok signature_seed:
-                                            Result::Ok:
-                                                selfhost_memo_trait_stable_source_trait_seed_new:
-                                                    kind
-                                                    visibility
-                                                    some selfhost_memo_trait_public_surface_seed_declaration_ordinal kind
-                                                    some signature_seed
-                                        Result::Err signature_error:
-                                            Result::Err signature_error
-                                Result::Err body_error:
-                                    Result::Err body_error
-                        Result::Err header_error:
-                            Result::Err header_error
+                    match selfhost_memo_trait_signature_shape_result kind header item:
+                        Result::Ok signature_evidence:
+                            match selfhost_memo_trait_public_surface_seed_signature_from_normalization_result kind signature_evidence:
+                                Result::Ok signature_seed:
+                                    Result::Ok:
+                                        selfhost_memo_trait_stable_source_trait_seed_new:
+                                            kind
+                                            visibility
+                                            some selfhost_memo_trait_public_surface_seed_declaration_ordinal kind
+                                            some signature_seed
+                                Result::Err signature_error:
+                                    Result::Err signature_error
+                        Result::Err normalization_error:
+                            Result::Err selfhost_memo_trait_public_surface_seed_normalization_error_result kind normalization_error
                 Option::None:
                     Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
         Result::Err visibility_error:

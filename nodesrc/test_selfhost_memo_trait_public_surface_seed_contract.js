@@ -55,6 +55,11 @@ assert.match(
 );
 assert.match(
     source,
+    /trait header \/ body が marker trait として stable signature にできるかは `memo_trait_signature_shape` に委譲/,
+    "public surface seed must delegate marker signature normalization to the dedicated normalization boundary",
+);
+assert.match(
+    source,
     /module identity seed と public surface seed は caller が `SelfhostMemoTraitStableSourceModuleSeed` として渡します[\s\S]*module path や file path から identity を作りません/,
     "module identity must be provided as typed seed rather than derived from path text",
 );
@@ -100,7 +105,7 @@ assert.match(
 );
 const signatureSection = sectionBetween(
     source,
-    "selfhost_memo_trait_public_surface_seed_signature_result",
+    "selfhost_memo_trait_public_surface_seed_signature_from_normalization_result",
     "selfhost_memo_trait_public_surface_seed_declaration_ordinal",
 );
 const signatureCode = signatureSection
@@ -114,18 +119,13 @@ assert.doesNotMatch(
 );
 assert.match(
     signatureSection,
-    /domain\/version と memo trait kind だけで表します[\s\S]*selfhost_memo_trait_public_surface_seed_kind_code/,
-    "signature seed must be documented as a marker-trait Phase 1 domain/kind seed",
+    /normalization module が作った `normalized_signature_hash` だけ[\s\S]*evidence\.normalized_signature_hash/,
+    "signature seed extraction must consume normalized signature evidence rather than local source ranges",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_marker_trait_unsupported_result[\s\S]*MemoKeyTraitBodyNormalizationUnsupported[\s\S]*MemoValueTraitBodyNormalizationUnsupported[\s\S]*selfhost_memo_trait_public_surface_marker_body_result[\s\S]*selfhost_syntax_range_is_nonempty body\.envelope[\s\S]*selfhost_syntax_range_is_nonempty body\.first_expression[\s\S]*selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind/,
-    "trait bodies must be rejected until method signature normalization exists",
-);
-assert.match(
-    source,
-    /selfhost_memo_trait_public_surface_marker_header_result[\s\S]*selfhost_syntax_range_is_nonempty header\.type_annotation[\s\S]*selfhost_syntax_range_is_nonempty header\.lambda_header[\s\S]*selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind/,
-    "trait type annotations and lambda headers must be rejected until signature normalization exists",
+    /#import "\.\/memo_trait_signature_shape" as \*[\s\S]*selfhost_memo_trait_public_surface_trait_seed_result[\s\S]*selfhost_memo_trait_signature_shape_result[\s\S]*selfhost_memo_trait_public_surface_seed_signature_from_normalization_result[\s\S]*selfhost_memo_trait_public_surface_seed_normalization_error_result/,
+    "public surface seed must call signature normalization before creating stable source trait seeds",
 );
 assert.match(
     source,

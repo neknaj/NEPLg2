@@ -603,6 +603,7 @@ assert.match(
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/summary" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_public_surface_hash" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_public_surface_seed" as \*/);
+assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_signature_shape" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_evidence_producer" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_fingerprint" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
@@ -613,6 +614,7 @@ assert.deepEqual(
     [
         "./module/memo_trait_public_surface_hash as *",
         "./module/memo_trait_public_surface_seed as *",
+        "./module/memo_trait_signature_shape as *",
         "./module/memo_trait_source_evidence_producer as *",
         "./module/memo_trait_source_fingerprint as *",
         "./module/memo_trait_source_scan as *",

@@ -211,6 +211,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_predicate_contract.js",
     "nodesrc/test_selfhost_memo_trait_layout_contract.js",
     "nodesrc/test_selfhost_memo_trait_policy_contract.js",
+    "nodesrc/test_selfhost_memo_trait_signature_shape_contract.js",
     "nodesrc/test_selfhost_memo_trait_source_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js",

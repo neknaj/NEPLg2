@@ -1,0 +1,433 @@
+#indent 4
+
+//: # check/module/memo_trait_signature_shape
+//: `MemoKey` / `MemoValue` trait declaration の signature normalization が、現 selfhost AST でどこまで[可能/かのう]かを typed evidence として[表/あらわ]す接続層です。
+//:
+//: [目的/もくてき]:
+//: - public surface seed や proof store が、未正規化の trait body / method signature を accepted source identity として扱わないようにします。
+//: - 現在の `SelfhostModuleDeclarationBody` は body 全体と先頭 expression の `SelfhostSyntaxRange` だけを持ち、trait method declaration list や method signature AST をまだ持ちません。そのため、この module は marker trait だけを normalized marker evidence として受理します。
+//: - body や header range が存在する場合は、source text を再走査して仮の hash を作らず、method signature normalization が必要な surface として typed error で拒否します。
+//:
+//: [契約/けいやく]:
+//: - 成功時の `normalized_signature_hash` は marker trait signature の Phase 1 fingerprint です。source text、source span、syntax range、lexeme、path suffix、diagnostic text は hash material に入りません。
+//: - `SelfhostModuleItemKind::TraitDecl`、`SelfhostModuleDeclarationKind::Trait`、`SelfhostModuleDeclarationVisibility::Public` の組だけを対象にします。違う item / header kind や private visibility は parser または caller の接続誤りとして fail-closed にします。
+//: - type annotation、lambda header、body envelope、first expression が非空の trait は、現段階では method-bearing trait signature normalization required として拒否します。これは marker trait と同一視できません。
+//: - この module は trusted source registry や proof store を構築しません。signature shape の evidence を作るだけで、registry validator への昇格は既存の public surface seed / evidence producer が担当します。
+//:
+//: [現状/げんじょう]:
+//: - 実 stdlib の `MemoKey` / `MemoValue` は method-bearing trait です。この module の marker accepted path は、source identity pipeline の最小閉路と fail-closed 境界を固定するための Phase 1 です。
+//: - 実 stdlib definition へ接続するには、body range を method declaration list へ分割する body segmenter と、method name / type annotation / default body の signature normalization が次 slice で必要です。
+//:
+//: [計算量/けいさんりょう]:
+//: - header と body の range payload を定数個確認するだけなので O(1) 時間です。
+//: - evidence payload も固定 field の struct 1 個だけなので O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_signature_shape" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_policy" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_signature_shape_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.marker_key
+//:     let checks2 checks_push checks1 check is_ok summary.marker_value
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_signature_shape_error_kind_eq (unwrap_err summary.header_type_rejected) SelfhostMemoTraitSignatureShapeErrorKind::HeaderTypeAnnotationPresent SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_signature_shape_error_kind_eq (unwrap_err summary.header_lambda_rejected) SelfhostMemoTraitSignatureShapeErrorKind::HeaderLambdaHeaderPresent SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_signature_shape_error_kind_eq (unwrap_err summary.body_envelope_rejected) SelfhostMemoTraitSignatureShapeErrorKind::BodyEnvelopePresent SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_signature_shape_error_kind_eq (unwrap_err summary.body_first_expression_rejected) SelfhostMemoTraitSignatureShapeErrorKind::BodyFirstExpressionPresent SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_signature_shape_error_kind_eq (unwrap_err summary.item_kind_rejected) SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_signature_shape_error_kind_eq (unwrap_err summary.private_visibility_rejected) SelfhostMemoTraitSignatureShapeErrorKind::PrivateVisibilityRejected SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let shown checks_print_report checks8
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+
+//: SelfhostMemoTraitSignatureShape: normalized signature evidence の[形/かたち]
+//:
+//: [目的/もくてき]:
+//: - Phase 1 で受理できる marker trait signature と、将来追加される method-bearing trait signature を bool ではなく enum で分ける入口です。
+//: - 現段階では `Marker` だけを accepted evidence にします。method-bearing trait は成功 variant にせず、typed error として返します。
+pub enum SelfhostMemoTraitSignatureShape:
+    Marker
+
+//: SelfhostMemoTraitSignatureShapeEvidence: marker trait signature normalization の成功 payload
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` のどちらの trait source に対する evidence か、どの signature shape か、後続 seed が使える normalized signature fingerprint があるかをまとめます。
+//:
+//: [契約/けいやく]:
+//: - `normalized_signature_hash` は `Option` で持ちます。Phase 1 marker path では `some(nonzero)` ですが、将来の段階で normalization が未完了の shape を表す場合に `none` を accepted path へ流さないためです。
+pub struct SelfhostMemoTraitSignatureShapeEvidence:
+    kind %SelfhostMemoTraitSourceKind
+    shape %SelfhostMemoTraitSignatureShape
+    normalized_signature_hash %Option i32
+
+//: SelfhostMemoTraitSignatureShapeErrorKind: signature normalization の拒否理由
+//:
+//: [目的/もくてき]:
+//: - AST 接続誤り、未正規化 header、未正規化 body、placeholder fingerprint を enum として分けます。
+//: - caller は `HeaderTypeAnnotationPresent` と `BodyEnvelopePresent` を区別できるため、次に実装するべき parser / segmenter boundary を取り違えません。
+pub enum SelfhostMemoTraitSignatureShapeErrorKind:
+    ItemKindMismatch
+    HeaderKindMismatch
+    PrivateVisibilityRejected %SelfhostMemoTraitSourceKind
+    BodyEvidenceMissing %SelfhostMemoTraitSourceKind
+    HeaderTypeAnnotationPresent %SelfhostMemoTraitSourceKind
+    HeaderLambdaHeaderPresent %SelfhostMemoTraitSourceKind
+    BodyEnvelopePresent %SelfhostMemoTraitSourceKind
+    BodyFirstExpressionPresent %SelfhostMemoTraitSourceKind
+    MemoKeyMarkerSignaturePlaceholder
+    MemoValueMarkerSignaturePlaceholder
+
+//: SelfhostMemoTraitSignatureShapeStage0Summary: signature normalization smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - marker trait の accepted path と、header / body / item kind の fail-closed path を 1 つの値にまとめます。
+pub struct SelfhostMemoTraitSignatureShapeStage0Summary:
+    marker_key %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+    marker_value %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+    header_type_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+    header_lambda_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+    body_envelope_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+    body_first_expression_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+    item_kind_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+    private_visibility_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind
+
+impl Clone for SelfhostMemoTraitSignatureShape:
+    fn clone %fn &SelfhostMemoTraitSignatureShape SelfhostMemoTraitSignatureShape \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSignatureShape:
+    fn copy_mark %fn SelfhostMemoTraitSignatureShape SelfhostMemoTraitSignatureShape \self:
+        self
+
+impl Clone for SelfhostMemoTraitSignatureShapeEvidence:
+    fn clone %fn &SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSignatureShapeEvidence:
+    fn copy_mark %fn SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitSignatureShapeErrorKind:
+    fn clone %fn &SelfhostMemoTraitSignatureShapeErrorKind SelfhostMemoTraitSignatureShapeErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSignatureShapeErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitSignatureShapeErrorKind SelfhostMemoTraitSignatureShapeErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitSignatureShapeStage0Summary:
+    fn clone %fn &SelfhostMemoTraitSignatureShapeStage0Summary SelfhostMemoTraitSignatureShapeStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitSignatureShapeStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitSignatureShapeStage0Summary SelfhostMemoTraitSignatureShapeStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_signature_shape_eq: signature shape が同じか[返/かえ]す
+pub fn selfhost_memo_trait_signature_shape_eq %fn SelfhostMemoTraitSignatureShape fn SelfhostMemoTraitSignatureShape bool \a\b:
+    match a:
+        SelfhostMemoTraitSignatureShape::Marker:
+            match b:
+                SelfhostMemoTraitSignatureShape::Marker:
+                    true
+
+//: selfhost_memo_trait_signature_shape_evidence_is_marker_for: evidence が指定 trait の marker evidence か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nonzero fingerprint を持つ場合だけ true です。`none` や `some 0` を「marker evidence がある」とは扱いません。
+pub fn selfhost_memo_trait_signature_shape_evidence_is_marker_for %fn SelfhostMemoTraitSignatureShapeEvidence fn SelfhostMemoTraitSourceKind bool \evidence\kind:
+    and:
+        selfhost_memo_trait_source_kind_eq evidence.kind kind
+        and:
+            selfhost_memo_trait_signature_shape_eq evidence.shape SelfhostMemoTraitSignatureShape::Marker
+            match evidence.normalized_signature_hash:
+                Option::Some value:
+                    not eq value 0
+                Option::None:
+                    false
+
+//: selfhost_memo_trait_signature_kind_code: memo trait kind を marker signature code へ[写/うつ]す
+fn selfhost_memo_trait_signature_kind_code %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            811
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            812
+
+//: selfhost_memo_trait_signature_marker_hash_result: marker signature fingerprint を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - hash material は domain/version と memo trait kind だけです。source text、span、range、lexeme、path、diagnostic text は使いません。
+fn selfhost_memo_trait_signature_marker_hash_result %fn SelfhostMemoTraitSourceKind Result i32 SelfhostMemoTraitSignatureShapeErrorKind \kind:
+    let hash %i32 mix xor selfhost_memo_trait_signature_kind_code kind 270544960
+    if:
+        eq hash 0
+        then:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    Result::Err SelfhostMemoTraitSignatureShapeErrorKind::MemoKeyMarkerSignaturePlaceholder
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    Result::Err SelfhostMemoTraitSignatureShapeErrorKind::MemoValueMarkerSignaturePlaceholder
+        else:
+            Result::Ok hash
+
+//: selfhost_memo_trait_signature_shape_evidence_new: marker signature evidence を[作/つく]る
+fn selfhost_memo_trait_signature_shape_evidence_new %fn SelfhostMemoTraitSourceKind fn i32 SelfhostMemoTraitSignatureShapeEvidence \kind\hash:
+    SelfhostMemoTraitSignatureShapeEvidence kind SelfhostMemoTraitSignatureShape::Marker (some hash)
+
+//: selfhost_memo_trait_signature_header_result: trait header が marker signature に使えるか[検査/けんさ]する
+fn selfhost_memo_trait_signature_header_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationHeader Result unit SelfhostMemoTraitSignatureShapeErrorKind \kind\header:
+    match header.kind:
+        SelfhostModuleDeclarationKind::Trait:
+            match header.visibility:
+                SelfhostModuleDeclarationVisibility::Public:
+                    if:
+                        selfhost_syntax_range_is_nonempty header.type_annotation
+                        then:
+                            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::HeaderTypeAnnotationPresent kind
+                        else:
+                            if:
+                                selfhost_syntax_range_is_nonempty header.lambda_header
+                                then:
+                                    Result::Err SelfhostMemoTraitSignatureShapeErrorKind::HeaderLambdaHeaderPresent kind
+                                else:
+                                    Result::Ok unit
+                SelfhostModuleDeclarationVisibility::Private:
+                    Result::Err SelfhostMemoTraitSignatureShapeErrorKind::PrivateVisibilityRejected kind
+        SelfhostModuleDeclarationKind::Function:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::HeaderKindMismatch
+        SelfhostModuleDeclarationKind::Struct:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::HeaderKindMismatch
+        SelfhostModuleDeclarationKind::Enum:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::HeaderKindMismatch
+        SelfhostModuleDeclarationKind::Impl:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::HeaderKindMismatch
+
+//: selfhost_memo_trait_signature_body_result: declaration body が marker signature に使えるか[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - `envelope` または `first_expression` が非空なら、body の中に method signature または default method body が存在する可能性があります。現段階では source text 再走査で仮受理せず、次の body segmenter へ送るために拒否します。
+fn selfhost_memo_trait_signature_body_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationBody Result unit SelfhostMemoTraitSignatureShapeErrorKind \kind\body:
+    if:
+        selfhost_syntax_range_is_nonempty body.envelope
+        then:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::BodyEnvelopePresent kind
+        else:
+            if:
+                selfhost_syntax_range_is_nonempty body.first_expression
+                then:
+                    Result::Err SelfhostMemoTraitSignatureShapeErrorKind::BodyFirstExpressionPresent kind
+                else:
+                    Result::Ok unit
+
+//: selfhost_memo_trait_signature_shape_result: marker trait signature evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - caller が分類済みの `MemoKey` / `MemoValue` trait item について、現ASTだけで stable marker signature として扱えるかを検査します。
+//:
+//: [契約/けいやく]:
+//: - この API は trait name の source slicing を行いません。名前分類は scanner / public surface seed の責務です。
+//: - 成功するのは header と body がどちらも marker trait として空で、nonzero marker signature fingerprint を作れた場合だけです。
+pub fn selfhost_memo_trait_signature_shape_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationHeader fn SelfhostModuleItem Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind \kind\header\item:
+    match item.kind:
+        SelfhostModuleItemKind::TraitDecl:
+            match selfhost_memo_trait_signature_header_result kind header:
+                Result::Ok _header_ok:
+                    match item.declaration_body:
+                        Option::Some body:
+                            match selfhost_memo_trait_signature_body_result kind body:
+                                Result::Ok _body_ok:
+                                    match selfhost_memo_trait_signature_marker_hash_result kind:
+                                        Result::Ok hash:
+                                            Result::Ok selfhost_memo_trait_signature_shape_evidence_new kind hash
+                                        Result::Err hash_error:
+                                            Result::Err hash_error
+                                Result::Err body_error:
+                                    Result::Err body_error
+                        Option::None:
+                            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::BodyEvidenceMissing kind
+                Result::Err header_error:
+                    Result::Err header_error
+        SelfhostModuleItemKind::DocComment:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::MlstrLine:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::EntryDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::TargetDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::ImportDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::UseDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::TestDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::IfTargetDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::IfProfileDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::CapabilityDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::PreludeDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::NoPreludeDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::IntrinsicDirective:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::WasmBlock:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::LlvmIrBlock:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::WasmText:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::LlvmIrText:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::FunctionDecl:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::StructDecl:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::EnumDecl:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+        SelfhostModuleItemKind::ImplDecl:
+            Result::Err SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch
+
+//: selfhost_memo_trait_signature_error_kind_code: error kind を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。variant 追加時はこの関数が更新対象になります。
+fn selfhost_memo_trait_signature_error_kind_code %fn SelfhostMemoTraitSignatureShapeErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch:
+            1
+        SelfhostMemoTraitSignatureShapeErrorKind::HeaderKindMismatch:
+            2
+        SelfhostMemoTraitSignatureShapeErrorKind::PrivateVisibilityRejected source_kind:
+            add 50 selfhost_memo_trait_signature_kind_code source_kind
+        SelfhostMemoTraitSignatureShapeErrorKind::BodyEvidenceMissing source_kind:
+            add 100 selfhost_memo_trait_signature_kind_code source_kind
+        SelfhostMemoTraitSignatureShapeErrorKind::HeaderTypeAnnotationPresent source_kind:
+            add 200 selfhost_memo_trait_signature_kind_code source_kind
+        SelfhostMemoTraitSignatureShapeErrorKind::HeaderLambdaHeaderPresent source_kind:
+            add 300 selfhost_memo_trait_signature_kind_code source_kind
+        SelfhostMemoTraitSignatureShapeErrorKind::BodyEnvelopePresent source_kind:
+            add 400 selfhost_memo_trait_signature_kind_code source_kind
+        SelfhostMemoTraitSignatureShapeErrorKind::BodyFirstExpressionPresent source_kind:
+            add 500 selfhost_memo_trait_signature_kind_code source_kind
+        SelfhostMemoTraitSignatureShapeErrorKind::MemoKeyMarkerSignaturePlaceholder:
+            901
+        SelfhostMemoTraitSignatureShapeErrorKind::MemoValueMarkerSignaturePlaceholder:
+            902
+
+//: selfhost_memo_trait_signature_shape_error_kind_eq: signature normalization error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_signature_shape_error_kind_eq %fn SelfhostMemoTraitSignatureShapeErrorKind fn SelfhostMemoTraitSignatureShapeErrorKind bool \a\b:
+    eq selfhost_memo_trait_signature_error_kind_code a selfhost_memo_trait_signature_error_kind_code b
+
+//: selfhost_memo_trait_signature_stage0_header: stage0 用 declaration header を[作/つく]る
+fn selfhost_memo_trait_signature_stage0_header %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn SelfhostSyntaxRange fn SelfhostSyntaxRange SelfhostModuleDeclarationHeader \kind\visibility\type_annotation\lambda_header:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 15
+    let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name span
+    selfhost_module_declaration_header_new:
+        kind
+        visibility
+        span
+        source_span_new_unchecked 0 0 5
+        some head
+        type_annotation
+        lambda_header
+
+//: selfhost_memo_trait_signature_stage0_trait_item: stage0 用 trait item を[作/つく]る
+fn selfhost_memo_trait_signature_stage0_trait_item %fn SelfhostModuleItemKind fn SelfhostModuleDeclarationHeader fn SelfhostModuleDeclarationBody SelfhostModuleItem \item_kind\header\body:
+    selfhost_module_item_new_with_declaration_and_body item_kind "trait MemoKey:" header body
+
+//: selfhost_memo_trait_signature_shape_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_signature_shape_stage0_summary_new %fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind fn Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind SelfhostMemoTraitSignatureShapeStage0Summary \marker_key\marker_value\header_type_rejected\header_lambda_rejected\body_envelope_rejected\body_first_expression_rejected\item_kind_rejected\private_visibility_rejected:
+    SelfhostMemoTraitSignatureShapeStage0Summary marker_key marker_value header_type_rejected header_lambda_rejected body_envelope_rejected body_first_expression_rejected item_kind_rejected private_visibility_rejected
+
+//: selfhost_memo_trait_signature_shape_stage0: signature normalization の代表結果を[返/かえ]す
+pub fn selfhost_memo_trait_signature_shape_stage0 %fn void SelfhostMemoTraitSignatureShapeStage0Summary \void:
+    let empty_body %SelfhostModuleDeclarationBody selfhost_module_declaration_body_empty
+    let empty_header %SelfhostModuleDeclarationHeader:
+        selfhost_memo_trait_signature_stage0_header:
+            SelfhostModuleDeclarationKind::Trait
+            SelfhostModuleDeclarationVisibility::Public
+            selfhost_syntax_range_empty
+            selfhost_syntax_range_empty
+    let marker_item %SelfhostModuleItem selfhost_memo_trait_signature_stage0_trait_item SelfhostModuleItemKind::TraitDecl empty_header empty_body
+    let marker_key %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoKeyTrait empty_header marker_item
+    let marker_value %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoValueTrait empty_header marker_item
+    let range_span %SelfhostSourceSpan source_span_new_unchecked 0 16 25
+    let nonempty_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 3 2 range_span
+    let type_header %SelfhostModuleDeclarationHeader:
+        selfhost_memo_trait_signature_stage0_header:
+            SelfhostModuleDeclarationKind::Trait
+            SelfhostModuleDeclarationVisibility::Public
+            nonempty_range
+            selfhost_syntax_range_empty
+    let type_item %SelfhostModuleItem selfhost_memo_trait_signature_stage0_trait_item SelfhostModuleItemKind::TraitDecl type_header empty_body
+    let header_type_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoKeyTrait type_header type_item
+    let lambda_header %SelfhostModuleDeclarationHeader:
+        selfhost_memo_trait_signature_stage0_header:
+            SelfhostModuleDeclarationKind::Trait
+            SelfhostModuleDeclarationVisibility::Public
+            selfhost_syntax_range_empty
+            nonempty_range
+    let lambda_item %SelfhostModuleItem selfhost_memo_trait_signature_stage0_trait_item SelfhostModuleItemKind::TraitDecl lambda_header empty_body
+    let header_lambda_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoKeyTrait lambda_header lambda_item
+    let envelope_body %SelfhostModuleDeclarationBody selfhost_module_declaration_body_new nonempty_range selfhost_syntax_range_empty
+    let envelope_item %SelfhostModuleItem selfhost_memo_trait_signature_stage0_trait_item SelfhostModuleItemKind::TraitDecl empty_header envelope_body
+    let body_envelope_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoKeyTrait empty_header envelope_item
+    let first_expression_body %SelfhostModuleDeclarationBody selfhost_module_declaration_body_new selfhost_syntax_range_empty nonempty_range
+    let first_expression_item %SelfhostModuleItem selfhost_memo_trait_signature_stage0_trait_item SelfhostModuleItemKind::TraitDecl empty_header first_expression_body
+    let body_first_expression_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoKeyTrait empty_header first_expression_item
+    let wrong_item %SelfhostModuleItem selfhost_memo_trait_signature_stage0_trait_item SelfhostModuleItemKind::FunctionDecl empty_header empty_body
+    let item_kind_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoKeyTrait empty_header wrong_item
+    let private_header %SelfhostModuleDeclarationHeader:
+        selfhost_memo_trait_signature_stage0_header:
+            SelfhostModuleDeclarationKind::Trait
+            SelfhostModuleDeclarationVisibility::Private
+            selfhost_syntax_range_empty
+            selfhost_syntax_range_empty
+    let private_item %SelfhostModuleItem selfhost_memo_trait_signature_stage0_trait_item SelfhostModuleItemKind::TraitDecl private_header empty_body
+    let private_visibility_rejected %Result SelfhostMemoTraitSignatureShapeEvidence SelfhostMemoTraitSignatureShapeErrorKind:
+        selfhost_memo_trait_signature_shape_result SelfhostMemoTraitSourceKind::MemoKeyTrait private_header private_item
+    selfhost_memo_trait_signature_shape_stage0_summary_new:
+        marker_key
+        marker_value
+        header_type_rejected
+        header_lambda_rejected
+        body_envelope_rejected
+        body_first_expression_rejected
+        item_kind_rejected
+        private_visibility_rejected

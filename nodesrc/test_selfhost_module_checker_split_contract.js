@@ -45,6 +45,7 @@ const implementation = [
 assert.match(facade, /pub #import "\.\/module\/summary" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_public_surface_hash" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_public_surface_seed" as \*/);
+assert.match(facade, /pub #import "\.\/module\/memo_trait_signature_shape" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_evidence_producer" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_fingerprint" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
@@ -55,13 +56,14 @@ assert.deepEqual(
     [
         "./module/memo_trait_public_surface_hash as *",
         "./module/memo_trait_public_surface_seed as *",
+        "./module/memo_trait_signature_shape as *",
         "./module/memo_trait_source_evidence_producer as *",
         "./module/memo_trait_source_fingerprint as *",
         "./module/memo_trait_source_scan as *",
         "./module/orchestrate as *",
         "./module/summary as *",
     ],
-    "module facade must re-export only the public summary, memo trait source evidence, memo trait source scanner, and orchestration surfaces",
+    "module facade must re-export only the public summary, memo trait source evidence, memo trait signature shape, memo trait source scanner, and orchestration surfaces",
 );
 assert.doesNotMatch(facade, /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/m, "module facade must not own implementation");
 assert.doesNotMatch(facade, /#import "neplg2\/core\/proof"/, "module facade must not import proof internals");
