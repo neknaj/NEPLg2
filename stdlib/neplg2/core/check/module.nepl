@@ -10,6 +10,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - ここで行うのは module item stream の整合性検査と集計です。source span のような汎用 property は `core/proof/` の typed query を通し、型推論、trait coherence、effect、owner / borrow / initialized の証明も後続 stage が同じ proof boundary と Resource IR を通して行います。
+//: - `MemoKey` / `MemoValue` の public surface seed materializer は scanner と stable evidence producer の間に置く Phase 1 接続層です。marker trait だけを受理し、未正規化の trait body / method signature を accepted source identity へ流しません。
 //: - `MemoKey` / `MemoValue` の source evidence producer は scanner 候補と typed public surface evidence を突き合わせる checker-layer の入口です。`core/ty` の trusted source identity constructor を直接呼ばず、既存 registry validator へ委譲します。
 //: - raw backend text は対応する `#wasm:` / `#llvmir:` item の直後の raw block 内にあることだけを確認します。
 //:
@@ -57,6 +58,7 @@
 //: ```
 
 pub #import "./module/summary" as *
+pub #import "./module/memo_trait_public_surface_seed" as *
 pub #import "./module/memo_trait_source_evidence_producer" as *
 pub #import "./module/memo_trait_source_fingerprint" as *
 pub #import "./module/memo_trait_source_scan" as *

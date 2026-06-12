@@ -22,6 +22,7 @@ const summaryUpdate = read("stdlib/neplg2/core/check/module/summary_update.nepl"
 const diagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
 const rawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const declarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
+const memoTraitPublicSurfaceSeed = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl");
 const memoTraitSourceEvidenceProducer = read("stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl");
 const memoTraitSourceFingerprint = read("stdlib/neplg2/core/check/module/memo_trait_source_fingerprint.nepl");
 const memoTraitSourceScan = read("stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl");
@@ -32,6 +33,7 @@ const implementation = [
     diagnostic,
     rawAdapter,
     declarationAdapter,
+    memoTraitPublicSurfaceSeed,
     memoTraitSourceEvidenceProducer,
     memoTraitSourceFingerprint,
     memoTraitSourceScan,
@@ -39,6 +41,7 @@ const implementation = [
 ].join("\n");
 
 assert.match(facade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(facade, /pub #import "\.\/module\/memo_trait_public_surface_seed" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_evidence_producer" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_fingerprint" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_scan" as \*/);
@@ -47,6 +50,7 @@ assert.deepEqual(
     Array.from(facade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
         .sort(),
     [
+        "./module/memo_trait_public_surface_seed as *",
         "./module/memo_trait_source_evidence_producer as *",
         "./module/memo_trait_source_fingerprint as *",
         "./module/memo_trait_source_scan as *",
@@ -134,6 +138,9 @@ const publicSurface = new Set(publicFunctions(`${summary}\n${orchestrate}`));
 for (const publicName of publicFunctions(memoTraitSourceScan)) {
     publicSurface.add(publicName);
 }
+for (const publicName of publicFunctions(memoTraitPublicSurfaceSeed)) {
+    publicSurface.add(publicName);
+}
 for (const publicName of publicFunctions(memoTraitSourceEvidenceProducer)) {
     publicSurface.add(publicName);
 }
@@ -150,6 +157,11 @@ const expectedPublicSurface = [
     "selfhost_module_check_summary_impl_count",
     "selfhost_module_check_summary_raw_block_count",
     "selfhost_module_check_summary_raw_text_count",
+    "selfhost_memo_trait_public_surface_seed_error_kind_eq",
+    "selfhost_memo_trait_public_surface_seed_registry_error_kind_eq",
+    "selfhost_memo_trait_public_surface_seed_scan_module_result",
+    "selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_result",
+    "selfhost_memo_trait_public_surface_seed_stage0",
     "selfhost_memo_trait_definition_scan_error_kind_eq",
     "selfhost_memo_trait_definition_scan_registry_error_kind_eq",
     "selfhost_memo_trait_definition_source_table_scan_module_result",

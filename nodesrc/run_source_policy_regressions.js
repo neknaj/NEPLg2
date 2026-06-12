@@ -212,6 +212,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_layout_contract.js",
     "nodesrc/test_selfhost_memo_trait_policy_contract.js",
     "nodesrc/test_selfhost_memo_trait_source_contract.js",
+    "nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js",
     "nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js",
     "nodesrc/test_selfhost_memo_trait_source_fingerprint_contract.js",
     "nodesrc/test_selfhost_memo_trait_source_scan_contract.js",

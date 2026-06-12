@@ -1,0 +1,726 @@
+#indent 4
+
+//: # check/module/memo_trait_public_surface_seed
+//: `MemoKey` / `MemoValue` trait declaration の public surface seed を `SelfhostModuleAst` から[作/つく]る Phase 1 接続層です。
+//:
+//: [目的/もくてき]:
+//: - parser が作った typed module item stream から、`MemoKey` / `MemoValue` の public marker trait definition だけを stable source seed table へ投影します。
+//: - scanner candidate table、public surface seed、stable evidence producer、fingerprint gate、trusted registry validator の順に通し、どの段階でも source spelling や span から trusted source identity を直接作らないようにします。
+//: - `core/ty` と proof store が syntax AST を読む逆依存を作らないよう、AST 走査は `core/check/module` 側に閉じます。
+//:
+//: [契約/けいやく]:
+//: - source text slicing は `MemoKey` / `MemoValue` の候補分類にだけ使います。slice 結果、display name、path suffix、diagnostic text、source span、syntax range は accepted fingerprint payload に混ぜません。
+//: - module identity seed と public surface seed は caller が `SelfhostMemoTraitStableSourceModuleSeed` として渡します。この module は module path や file path から identity を作りません。
+//: - Phase 1 accepted path は public marker trait だけです。trait body / method signature normalization が必要な trait は typed error で拒否し、未正規化 signature を accepted path に流しません。
+//: - 成功時も registry を直接組み立てず、既存 `selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result` を経由します。
+//:
+//: [現状/げんじょう]:
+//: - これは full public surface materializer ではありません。re-export、trait body、method signature、bound list、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
+//: - 現在の `MemoKey` / `MemoValue` stdlib trait は method を持つため、この Phase 1 materializer は marker trait smoke と責務境界の固定を目的にしています。実 stdlib definition へ接続するには trait body / method signature normalization を先に実装します。
+//:
+//: [計算量/けいさんりょう]:
+//: - module item stream を 1 回走査するため、item 数 n に対して O(n) 時間です。
+//: - seed table は `MemoKey` / `MemoValue` の固定 2 slot なので O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_surface_seed" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_surface_seed_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted_registry
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.private_visibility_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.trait_body_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.duplicate_key_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateDuplicate
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.missing_value_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.malformed_header_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.trait_header_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
+//:     let shown checks_print_report checks7
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/string/slice" as string_slice
+#import "alloc/string/search" as string_search
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+#import "neplg2/core/ty/ty/memo_trait_source" as *
+#import "./memo_trait_source_scan" as *
+#import "./memo_trait_source_evidence_producer" as *
+
+//: SelfhostMemoTraitPublicSurfaceSeedScan: public surface seed scan の成功 payload
+//:
+//: [目的/もくてき]:
+//: - AST 走査から得た `MemoKey` / `MemoValue` seed table を、module seed や registry validator と混ぜずに保持します。
+pub struct SelfhostMemoTraitPublicSurfaceSeedScan:
+    seed_table %SelfhostMemoTraitStableSourceSeedTable
+
+//: SelfhostMemoTraitPublicSurfaceSeedErrorKind: public surface seed 生成の拒否理由
+//:
+//: [目的/もくてき]:
+//: - AST 不整合、候補欠落、重複、未対応 surface、module seed 欠落を bool や文字列に潰さず enum として保持します。
+//:
+//: [現状/げんじょう]:
+//: - `StableNominalKeyMissing` と `ReExportUnsupported` は、後続 slice で stable trait definition key と re-export public surface を接続するときの fail-closed variant です。
+//: - Phase 1 accepted path は local public marker trait に限定するため、この 2 variant はまだ実装経路から返しません。未使用 variant として残す理由を enum 上に明示し、次 slice で削除ではなく実経路へ接続します。
+pub enum SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+    ItemUnavailable
+    TraitHeaderMissing
+    TraitHeaderKindMismatch
+    TraitHeadMissing
+    TraitHeadKindMismatch
+    TraitNameUnavailable
+    MemoKeyCandidateMissing
+    MemoValueCandidateMissing
+    MemoKeyCandidateDuplicate
+    MemoValueCandidateDuplicate
+    ModuleIdentitySeedMissing
+    ModuleIdentitySeedPlaceholder
+    PublicSurfaceSeedMissing
+    PublicSurfaceSeedPlaceholder
+    MemoKeyPrivateVisibility
+    MemoValuePrivateVisibility
+    MemoKeyTraitBodyNormalizationUnsupported
+    MemoValueTraitBodyNormalizationUnsupported
+    MemoKeySignatureSeedPlaceholder
+    MemoValueSignatureSeedPlaceholder
+    StableNominalKeyMissing
+    ReExportUnsupported
+
+//: SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind: public surface seed から registry までの拒否理由
+//:
+//: [目的/もくてき]:
+//: - public surface seed の拒否、candidate scanner の拒否、既存 seed / stable source gate の拒否を別 variant として保持します。
+pub enum SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+    PublicSurfaceRejected %SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    CandidateScanRejected %SelfhostMemoTraitDefinitionScanErrorKind
+    SeedRegistryRejected %SelfhostMemoTraitStableSourceSeedRegistryErrorKind
+
+//: SelfhostMemoTraitPublicSurfaceSeedStage0Summary: public surface seed smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted marker trait path と、private visibility、trait body unsupported、trait header unsupported、duplicate、missing、malformed header の fail-closed path をまとめます。
+pub struct SelfhostMemoTraitPublicSurfaceSeedStage0Summary:
+    accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind
+    private_visibility_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    trait_body_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    trait_header_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    duplicate_key_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    missing_value_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    malformed_header_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
+
+impl Clone for SelfhostMemoTraitPublicSurfaceSeedScan:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedScan \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceSeedScan:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedScan \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceSeedErrorKind SelfhostMemoTraitPublicSurfaceSeedErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceSeedErrorKind SelfhostMemoTraitPublicSurfaceSeedErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceSeedStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceSeedStage0Summary SelfhostMemoTraitPublicSurfaceSeedStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceSeedStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceSeedStage0Summary SelfhostMemoTraitPublicSurfaceSeedStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_surface_seed_scan_new: scan payload を[作/つく]る
+fn selfhost_memo_trait_public_surface_seed_scan_new %fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedScan \seed_table:
+    SelfhostMemoTraitPublicSurfaceSeedScan seed_table
+
+//: selfhost_memo_trait_public_surface_seed_error_kind_code: seed error を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。variant 追加時はこの関数が更新対象になります。
+fn selfhost_memo_trait_public_surface_seed_error_kind_code %fn SelfhostMemoTraitPublicSurfaceSeedErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable:
+            1
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing:
+            2
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch:
+            3
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadMissing:
+            4
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadKindMismatch:
+            5
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable:
+            6
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateMissing:
+            7
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing:
+            8
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateDuplicate:
+            9
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateDuplicate:
+            10
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedMissing:
+            11
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedPlaceholder:
+            12
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedMissing:
+            13
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedPlaceholder:
+            14
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility:
+            15
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValuePrivateVisibility:
+            16
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported:
+            17
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported:
+            18
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder:
+            19
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder:
+            20
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::StableNominalKeyMissing:
+            21
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
+            22
+
+//: selfhost_memo_trait_public_surface_seed_error_kind_eq: public surface seed error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_surface_seed_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceSeedErrorKind fn SelfhostMemoTraitPublicSurfaceSeedErrorKind bool \a\b:
+    eq:
+        selfhost_memo_trait_public_surface_seed_error_kind_code a
+        selfhost_memo_trait_public_surface_seed_error_kind_code b
+
+//: selfhost_memo_trait_public_surface_seed_registry_error_kind_eq: registry path error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_surface_seed_registry_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind fn SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected public_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected other_public_error:
+                    selfhost_memo_trait_public_surface_seed_error_kind_eq public_error other_public_error
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::CandidateScanRejected _candidate_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::SeedRegistryRejected _seed_error:
+                    false
+        SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::CandidateScanRejected candidate_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected _public_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::CandidateScanRejected other_candidate_error:
+                    selfhost_memo_trait_definition_scan_error_kind_eq candidate_error other_candidate_error
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::SeedRegistryRejected _seed_error:
+                    false
+        SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::SeedRegistryRejected seed_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected _public_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::CandidateScanRejected _candidate_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::SeedRegistryRejected other_seed_error:
+                    selfhost_memo_trait_stable_source_seed_registry_error_kind_eq seed_error other_seed_error
+
+//: selfhost_memo_trait_public_surface_seed_kind_code: memo trait kind を Phase 1 signature seed code へ[写/うつ]す
+fn selfhost_memo_trait_public_surface_seed_kind_code %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            701
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            702
+
+//: selfhost_memo_trait_public_surface_seed_signature_result: marker trait signature seed を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source span、syntax range、source name は混ぜません。Phase 1 marker trait の public signature を、domain/version と memo trait kind だけで表します。
+fn selfhost_memo_trait_public_surface_seed_signature_result %fn SelfhostMemoTraitSourceKind Result i32 SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind:
+    let seed %i32 mix xor selfhost_memo_trait_public_surface_seed_kind_code kind 19088743
+    if:
+        eq seed 0
+        then:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder
+        else:
+            Result::Ok seed
+
+//: selfhost_memo_trait_public_surface_seed_declaration_ordinal: well-known trait key を ordinal seed へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - source order や byte position は使いません。Phase 1 では compiler-known memo trait kind から固定 ordinal seed を作ります。
+fn selfhost_memo_trait_public_surface_seed_declaration_ordinal %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            1
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            2
+
+//: selfhost_memo_trait_public_surface_seed_module_seed_value_result: module seed input を[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_seed_module_seed_value_result %fn Option i32 fn SelfhostMemoTraitPublicSurfaceSeedErrorKind fn SelfhostMemoTraitPublicSurfaceSeedErrorKind Result i32 SelfhostMemoTraitPublicSurfaceSeedErrorKind \fingerprint\missing_error\placeholder_error:
+    match fingerprint:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err placeholder_error
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err missing_error
+
+//: selfhost_memo_trait_public_surface_seed_module_seed_ready_result: external module seed が使えるか[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_seed_module_seed_ready_result %fn SelfhostMemoTraitStableSourceModuleSeed Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \module_seed:
+    match selfhost_memo_trait_public_surface_seed_module_seed_value_result module_seed.module_identity_hash SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedMissing SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedPlaceholder:
+        Result::Ok _module_identity:
+            match selfhost_memo_trait_public_surface_seed_module_seed_value_result module_seed.public_surface_hash SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedMissing SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedPlaceholder:
+                Result::Ok _public_surface:
+                    Result::Ok unit
+                Result::Err public_error:
+                    Result::Err public_error
+        Result::Err module_error:
+            Result::Err module_error
+
+//: selfhost_memo_trait_public_surface_marker_trait_unsupported_result: marker trait ではない trait surface を[拒否/きょひ]する
+//:
+//: [契約/けいやく]:
+//: - Phase 1 では marker trait だけを accepted path に通します。type annotation、lambda header、body がある trait は method signature normalization の対象なので、kind 別 error にします。
+fn selfhost_memo_trait_public_surface_marker_trait_unsupported_result %fn SelfhostMemoTraitSourceKind SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported
+
+//: selfhost_memo_trait_public_surface_marker_header_result: marker trait header か[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - `trait MemoKey` / `trait MemoValue` の名前以外の header range は accepted fingerprint seed にしません。
+//: - type annotation や lambda header が非空なら、trait signature normalization が未実装の surface として fail-closed にします。
+fn selfhost_memo_trait_public_surface_marker_header_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationHeader Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\header:
+    if:
+        or selfhost_syntax_range_is_nonempty header.type_annotation selfhost_syntax_range_is_nonempty header.lambda_header
+        then:
+            Result::Err selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind
+        else:
+            Result::Ok unit
+
+//: selfhost_memo_trait_public_surface_marker_body_result: marker trait body か[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_marker_body_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleItem Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\item:
+    match item.declaration_body:
+        Option::Some body:
+            if:
+                or selfhost_syntax_range_is_nonempty body.envelope selfhost_syntax_range_is_nonempty body.first_expression
+                then:
+                    Result::Err selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind
+                else:
+                    Result::Ok unit
+        Option::None:
+            Result::Ok unit
+
+//: selfhost_memo_trait_public_surface_visibility_result: public marker trait か[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_visibility_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationVisibility Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\visibility:
+    match visibility:
+        SelfhostModuleDeclarationVisibility::Public:
+            Result::Ok unit
+        SelfhostModuleDeclarationVisibility::Private:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValuePrivateVisibility
+
+//: selfhost_memo_trait_public_surface_trait_seed_result: marker trait seed を[作/つく]る
+fn selfhost_memo_trait_public_surface_trait_seed_result %fn SelfhostMemoTraitSourceKind fn SelfhostModuleDeclarationVisibility fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\visibility\item:
+    match selfhost_memo_trait_public_surface_visibility_result kind visibility:
+        Result::Ok _visibility_ok:
+            match item.declaration:
+                Option::Some header:
+                    match selfhost_memo_trait_public_surface_marker_header_result kind header:
+                        Result::Ok _header_ok:
+                            match selfhost_memo_trait_public_surface_marker_body_result kind item:
+                                Result::Ok _body_ok:
+                                    match selfhost_memo_trait_public_surface_seed_signature_result kind:
+                                        Result::Ok signature_seed:
+                                            Result::Ok:
+                                                selfhost_memo_trait_stable_source_trait_seed_new:
+                                                    kind
+                                                    visibility
+                                                    some selfhost_memo_trait_public_surface_seed_declaration_ordinal kind
+                                                    some signature_seed
+                                        Result::Err signature_error:
+                                            Result::Err signature_error
+                                Result::Err body_error:
+                                    Result::Err body_error
+                        Result::Err header_error:
+                            Result::Err header_error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
+        Result::Err visibility_error:
+            Result::Err visibility_error
+
+//: selfhost_memo_trait_public_surface_seed_table_add_name_result: classified trait name を seed table へ[反映/はんえい]する
+fn selfhost_memo_trait_public_surface_seed_table_add_name_result %fn SelfhostMemoTraitStableSourceSeedTable fn str fn SelfhostModuleDeclarationVisibility fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \table\name\visibility\item:
+    if:
+        string_search::str_eq name "MemoKey"
+        then:
+            let key_seed_result %Result SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+                selfhost_memo_trait_public_surface_trait_seed_result:
+                    SelfhostMemoTraitSourceKind::MemoKeyTrait
+                    visibility
+                    item
+            match key_seed_result:
+                Result::Ok seed:
+                    Result::Ok selfhost_memo_trait_stable_source_seed_table_add_record table seed
+                Result::Err seed_error:
+                    Result::Err seed_error
+        else:
+            if:
+                string_search::str_eq name "MemoValue"
+                then:
+                    let value_seed_result %Result SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+                        selfhost_memo_trait_public_surface_trait_seed_result:
+                            SelfhostMemoTraitSourceKind::MemoValueTrait
+                            visibility
+                            item
+                    match value_seed_result:
+                        Result::Ok seed:
+                            Result::Ok selfhost_memo_trait_stable_source_seed_table_add_record table seed
+                        Result::Err seed_error:
+                            Result::Err seed_error
+                else:
+                    Result::Ok table
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_trait_name_result: trait head 名を分類して seed table へ[追加/ついか]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_trait_name_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleDeclarationVisibility fn SelfhostModuleItem fn SelfhostSourceSpan Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\visibility\item\span:
+    if:
+        not source_span_is_valid span
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable
+        else:
+            match string_slice::str_slice_result source span.start span.end:
+                Result::Ok name:
+                    selfhost_memo_trait_public_surface_seed_table_add_name_result table name visibility item
+                Result::Err _slice_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_trait_header_result: trait header を[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_trait_header_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItem fn SelfhostModuleDeclarationHeader Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\item\header:
+    match header.head:
+        Option::Some head:
+            match head.kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    selfhost_memo_trait_public_surface_seed_table_scan_trait_name_result source table header.visibility item head.span
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadKindMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadMissing
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_trait_item_result: trait item を seed table へ[反映/はんえい]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_trait_item_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\item:
+    match item.declaration:
+        Option::Some header:
+            match header.kind:
+                SelfhostModuleDeclarationKind::Trait:
+                    selfhost_memo_trait_public_surface_seed_table_scan_trait_header_result source table item header
+                SelfhostModuleDeclarationKind::Function:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Struct:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Enum:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Impl:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_item_result: item 1 件を seed table へ[反映/はんえい]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\item:
+    match item.kind:
+        SelfhostModuleItemKind::TraitDecl:
+            selfhost_memo_trait_public_surface_seed_table_scan_trait_item_result source table item
+        SelfhostModuleItemKind::DocComment:
+            Result::Ok table
+        SelfhostModuleItemKind::MlstrLine:
+            Result::Ok table
+        SelfhostModuleItemKind::EntryDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::TargetDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::ImportDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::UseDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::TestDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IfTargetDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IfProfileDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::CapabilityDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::PreludeDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::NoPreludeDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IntrinsicDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::WasmBlock:
+            Result::Ok table
+        SelfhostModuleItemKind::LlvmIrBlock:
+            Result::Ok table
+        SelfhostModuleItemKind::WasmText:
+            Result::Ok table
+        SelfhostModuleItemKind::LlvmIrText:
+            Result::Ok table
+        SelfhostModuleItemKind::FunctionDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::StructDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::EnumDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::ImplDecl:
+            Result::Ok table
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_module_loop: module item stream を[走査/そうさ]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_module_loop %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitStableSourceSeedTable fn i32 fn i32 Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\ast\table\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok table
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_memo_trait_public_surface_seed_table_scan_item_result source table item:
+                        Result::Ok next_table:
+                            selfhost_memo_trait_public_surface_seed_table_scan_module_loop source ast next_table add idx 1 n
+                        Result::Err error:
+                            Result::Err error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_public_surface_seed_table_complete_result: seed table の必須 slot を[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_seed_table_complete_result %fn SelfhostMemoTraitStableSourceSeedTable Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \table:
+    if:
+        table.duplicate_memo_key
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateDuplicate
+        else:
+            if:
+                table.duplicate_memo_value
+                then:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateDuplicate
+                else:
+                    match table.memo_key:
+                        Option::Some _key_seed:
+                            match table.memo_value:
+                                Option::Some _value_seed:
+                                    Result::Ok table
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing
+                        Option::None:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateMissing
+
+//: selfhost_memo_trait_public_surface_seed_scan_module_result: module AST から public marker trait seed table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `MemoKey` / `MemoValue` の public marker trait declaration を seed table に集めます。
+//:
+//: [契約/けいやく]:
+//: - この API は registry へ進みません。candidate scanner や module seed とは分離した scan payload を返します。
+pub fn selfhost_memo_trait_public_surface_seed_scan_module_result %fn str fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\ast:
+    match selfhost_memo_trait_public_surface_seed_table_scan_module_loop source ast selfhost_memo_trait_stable_source_seed_table_empty 0 selfhost_module_ast_len ast:
+        Result::Ok table:
+            match selfhost_memo_trait_public_surface_seed_table_complete_result table:
+                Result::Ok complete_table:
+                    Result::Ok selfhost_memo_trait_public_surface_seed_scan_new complete_table
+                Result::Err complete_error:
+                    Result::Err complete_error
+        Result::Err scan_error:
+            Result::Err scan_error
+
+//: selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_result: public surface seed 経由で registry を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - scanner candidate、public surface seed、stable evidence producer、fingerprint gate、registry validator を順に接続します。
+//:
+//: [契約/けいやく]:
+//: - accepted registry はこの関数では構築しません。既存 seed evidence API と registry validator の結果を返します。
+pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_result %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitStableSourceModuleSeed Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind \source\ast\module_seed:
+    match selfhost_memo_trait_public_surface_seed_module_seed_ready_result module_seed:
+        Result::Ok _module_seed_ok:
+            match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
+                Result::Ok candidates:
+                    match selfhost_memo_trait_public_surface_seed_scan_module_result source ast:
+                        Result::Ok scan:
+                            match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates module_seed scan.seed_table:
+                                Result::Ok registry:
+                                    Result::Ok registry
+                                Result::Err seed_error:
+                                    Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::SeedRegistryRejected seed_error
+                        Result::Err public_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected public_error
+                Result::Err candidate_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::CandidateScanRejected candidate_error
+        Result::Err module_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected module_error
+
+//: selfhost_memo_trait_public_surface_stage0_module_seed: stage0 用 external module seed を[作/つく]る
+fn selfhost_memo_trait_public_surface_stage0_module_seed %fn void SelfhostMemoTraitStableSourceModuleSeed \void:
+    selfhost_memo_trait_stable_source_module_seed_new (some 301) (some 401)
+
+//: selfhost_memo_trait_public_surface_stage0_header_named: stage0 用 declaration header を[作/つく]る
+fn selfhost_memo_trait_public_surface_stage0_header_named %fn SelfhostModuleDeclarationVisibility fn i32 fn i32 SelfhostModuleDeclarationHeader \visibility\start\end:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 start end
+    let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name span
+    selfhost_module_declaration_header_new:
+        SelfhostModuleDeclarationKind::Trait
+        visibility
+        source_span_new_unchecked 0 start end
+        source_span_new_unchecked 0 start start
+        some head
+        selfhost_syntax_range_empty
+        selfhost_syntax_range_empty
+
+//: selfhost_memo_trait_public_surface_stage0_trait_item_named: stage0 用 marker trait item を[作/つく]る
+fn selfhost_memo_trait_public_surface_stage0_trait_item_named %fn SelfhostModuleDeclarationVisibility fn i32 fn i32 fn str SelfhostModuleItem \visibility\start\end\lexeme:
+    selfhost_module_item_new_with_declaration:
+        SelfhostModuleItemKind::TraitDecl
+        lexeme
+        selfhost_memo_trait_public_surface_stage0_header_named visibility start end
+
+//: selfhost_memo_trait_public_surface_stage0_trait_item_with_body: stage0 用 body 付き trait item を[作/つく]る
+fn selfhost_memo_trait_public_surface_stage0_trait_item_with_body %fn i32 fn i32 fn str SelfhostModuleItem \start\end\lexeme:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 start end
+    let body_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 1 1 span
+    let body %SelfhostModuleDeclarationBody selfhost_module_declaration_body_new body_range selfhost_syntax_range_empty
+    selfhost_module_item_new_with_declaration_and_body:
+        SelfhostModuleItemKind::TraitDecl
+        lexeme
+        selfhost_memo_trait_public_surface_stage0_header_named SelfhostModuleDeclarationVisibility::Public start end
+        body
+
+//: selfhost_memo_trait_public_surface_stage0_trait_item_with_type_annotation: type annotation 付き trait item を[作/つく]る
+fn selfhost_memo_trait_public_surface_stage0_trait_item_with_type_annotation %fn i32 fn i32 fn str SelfhostModuleItem \start\end\lexeme:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 start end
+    let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name span
+    let annotation_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 1 1 span
+    let header %SelfhostModuleDeclarationHeader:
+        selfhost_module_declaration_header_new:
+            SelfhostModuleDeclarationKind::Trait
+            SelfhostModuleDeclarationVisibility::Public
+            source_span_new_unchecked 0 start end
+            source_span_new_unchecked 0 start start
+            some head
+            annotation_range
+            selfhost_syntax_range_empty
+    selfhost_module_item_new_with_declaration:
+        SelfhostModuleItemKind::TraitDecl
+        lexeme
+        header
+
+//: selfhost_memo_trait_public_surface_stage0_two_item_registry_result: 2 item AST で registry result を[返/かえ]す
+fn selfhost_memo_trait_public_surface_stage0_two_item_registry_result %impure fn str impure fn SelfhostModuleItem impure fn SelfhostModuleItem Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind \source\first\second:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            match selfhost_module_ast_push ast0 first:
+                Result::Ok ast1:
+                    match selfhost_module_ast_push ast1 second:
+                        Result::Ok ast2:
+                            let result %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+                                selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_result source &ast2 selfhost_memo_trait_public_surface_stage0_module_seed
+                            selfhost_module_ast_free ast2
+                            result
+                        Result::Err _push_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+                Result::Err _push_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_public_surface_stage0_two_item_scan_result: 2 item AST で seed scan result を[返/かえ]す
+fn selfhost_memo_trait_public_surface_stage0_two_item_scan_result %impure fn str impure fn SelfhostModuleItem impure fn SelfhostModuleItem Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\first\second:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            match selfhost_module_ast_push ast0 first:
+                Result::Ok ast1:
+                    match selfhost_module_ast_push ast1 second:
+                        Result::Ok ast2:
+                            let result %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+                                selfhost_memo_trait_public_surface_seed_scan_module_result source &ast2
+                            selfhost_module_ast_free ast2
+                            result
+                        Result::Err _push_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+                Result::Err _push_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_public_surface_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_surface_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind SelfhostMemoTraitPublicSurfaceSeedStage0Summary \accepted_registry\private_visibility_rejected\trait_body_rejected\trait_header_rejected\duplicate_key_rejected\missing_value_rejected\malformed_header_rejected:
+    SelfhostMemoTraitPublicSurfaceSeedStage0Summary accepted_registry private_visibility_rejected trait_body_rejected trait_header_rejected duplicate_key_rejected missing_value_rejected malformed_header_rejected
+
+//: selfhost_memo_trait_public_surface_seed_stage0: public surface seed の代表結果を[返/かえ]す
+pub fn selfhost_memo_trait_public_surface_seed_stage0 %impure fn void SelfhostMemoTraitPublicSurfaceSeedStage0Summary \void:
+    let source %str "MemoKeyMemoValue"
+    let key_item %SelfhostModuleItem selfhost_memo_trait_public_surface_stage0_trait_item_named SelfhostModuleDeclarationVisibility::Public 0 7 "trait MemoKey:"
+    let value_item %SelfhostModuleItem selfhost_memo_trait_public_surface_stage0_trait_item_named SelfhostModuleDeclarationVisibility::Public 7 16 "trait MemoValue:"
+    let accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+        selfhost_memo_trait_public_surface_stage0_two_item_registry_result source key_item value_item
+    let private_key_item %SelfhostModuleItem selfhost_memo_trait_public_surface_stage0_trait_item_named SelfhostModuleDeclarationVisibility::Private 0 7 "trait MemoKey:"
+    let private_visibility_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+        selfhost_memo_trait_public_surface_stage0_two_item_scan_result source private_key_item value_item
+    let body_key_item %SelfhostModuleItem selfhost_memo_trait_public_surface_stage0_trait_item_with_body 0 7 "trait MemoKey:"
+    let trait_body_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+        selfhost_memo_trait_public_surface_stage0_two_item_scan_result source body_key_item value_item
+    let header_key_item %SelfhostModuleItem selfhost_memo_trait_public_surface_stage0_trait_item_with_type_annotation 0 7 "trait MemoKey %fn void unit:"
+    let trait_header_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+        selfhost_memo_trait_public_surface_stage0_two_item_scan_result source header_key_item value_item
+    let duplicate_key_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+        selfhost_memo_trait_public_surface_stage0_two_item_scan_result source key_item key_item
+    let doc_span %SelfhostSourceSpan source_span_new_unchecked 0 0 0
+    let doc_item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::DocComment doc_span "// doc"
+    let missing_value_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+        selfhost_memo_trait_public_surface_stage0_two_item_scan_result source key_item doc_item
+    let malformed_span %SelfhostSourceSpan source_span_new_unchecked 0 0 7
+    let malformed_item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::TraitDecl malformed_span "trait"
+    let malformed_header_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+        selfhost_memo_trait_public_surface_stage0_two_item_scan_result source malformed_item value_item
+    selfhost_memo_trait_public_surface_stage0_summary_new:
+        accepted_registry
+        private_visibility_rejected
+        trait_body_rejected
+        trait_header_rejected
+        duplicate_key_rejected
+        missing_value_rejected
+        malformed_header_rejected

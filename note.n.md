@@ -1,3 +1,62 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue public surface seed materializer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `selfhost/memo-trait-public-surface-seed-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` public surface seed materializer
+- classification: selfhost implementation slice review
+- decision: actual public surface hash / trait signature normalization の本体へ進む前に、`SelfhostModuleAst` の local public marker trait だけを typed seed table に投影し、scanner candidate table、public surface seed scan、stable evidence producer、fingerprint gate、trusted registry validator の順序を固定する。
+- implementation:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` を追加し、`SelfhostMemoTraitPublicSurfaceSeedScan`、`SelfhostMemoTraitPublicSurfaceSeedErrorKind`、`SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind`、stage0 smoke を定義した。
+  - `selfhost_memo_trait_public_surface_seed_scan_module_result` は `SelfhostModuleAst` を一度走査し、`MemoKey` / `MemoValue` の local public marker trait を `SelfhostMemoTraitStableSourceSeedTable` へ投影する。
+  - `selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_result` は candidate scanner、public surface seed scan、seed evidence producer、既存 stable source gate、trusted registry validator を順に通す。trusted source identity や `signature_available=true` record はこの module で直接作らない。
+  - module identity seed と public surface seed は caller が `SelfhostMemoTraitStableSourceModuleSeed` として渡す。module path、file path、display name、diagnostic text、source span、syntax range、source text slice から accepted fingerprint authority を作らない。
+  - source slicing は `MemoKey` / `MemoValue` 候補分類だけに使う。accepted signature seed は Phase 1 marker trait の domain / version と kind だけで作る。
+  - private visibility、candidate missing / duplicate、malformed header、trait body、trait header type annotation、trait lambda header は typed error で fail-closed にした。
+  - `StableNominalKeyMissing` と `ReExportUnsupported` は後続 slice 用の未到達 variant として enum doc comment に理由を明記し、次 slice で実経路へ接続する。
+  - `stdlib/neplg2/core/check/module.nepl` facade から public surface seed materializer を re-export した。
+  - `nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js` を追加し、DAG、typed seed、source/span非authority、marker trait限定、header/body normalization未接続の拒否、proof store非直結、行数制限・doc comment長制限禁止を固定した。
+  - `nodesrc/test_selfhost_module_checker_split_contract.js`、`nodesrc/test_selfhost_proof_entry_contract.js`、`nodesrc/run_source_policy_regressions.js` を更新した。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - Fermat の初回 review は Blocker として、trait body だけでなく `header.type_annotation` / `header.lambda_header` 非空も marker trait ではないため reject すべきと指摘した。`selfhost_memo_trait_public_surface_marker_header_result` を追加し、stage0 と source policy に header rejection を追加して修正した。
+  - Goodall の review は Blocker なし。Required として `StableNominalKeyMissing` / `ReExportUnsupported` が Phase 1 で未到達である理由を doc / contract に明示するよう指摘した。enum doc comment と contract に後続 slice 用 fail-closed variant であることを追記した。
+  - 再 review では Fermat / Goodall とも Blocker なし。残 Required は commit 前 staging と note 更新の実務確認だけになった。
+- policy/spec:
+  - Blocker: header type annotation / lambda header が accepted marker trait path に流れる穴を同じ slice 内で修正した。
+  - Required: typed seed、Result enum、DAG、existing gate 経由、proof store 非直結、source policy による退行検出、未到達 variant のdoc明示を実装した。
+  - Non-blocker: header unsupported と body unsupported は現時点で同じ `MemoKeyTraitBodyNormalizationUnsupported` / `MemoValueTraitBodyNormalizationUnsupported` に寄せている。将来は診断精度向上として header normalization unsupported variant へ分離できる。
+  - Question: actual public surface hash、stable trait definition key、trait body / method signature normalization はこの slice では計算しない。typed seed input / fail-closed boundary を先に固定した。
+  - Approve: 最終 subagent review では implementation Blocker なし。
+- implementation/test:
+  - Blocker: none after header rejection fix.
+  - Required: new public surface seed materializer は source identity authority ではなく checker-layer connector として扱う。`core/ty` はこの module を import せず、proof store も直接依存しない。
+  - Non-blocker: full stdlib `MemoKey` / `MemoValue` trait body への接続は未実装のため、実 stdlib definition は次 slice の normalization evidence 後に扱う。
+  - Question: none.
+  - Approve: focused contract、focused doctest、facade doctest、関連 memo trait source contracts、source policy、issues check、diff check は pass。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: public surface seed は trusted source registry に近い境界なので、source spelling / span / path / diagnostic text の authority 化、raw source identity constructor、`signature_available=true` record の直生成、proof store 直結、`core/ty` 逆依存を検出する必要がある。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: live subagent review response は Blocker / Required / Non-blocker / Question / Approve の分類で記録し、この checkpoint と `nodesrc/test_selfhost_zenn_review_gate_contract.js` で確認する。
+  - source policy: updated and rerun.
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl --no-tree -o tmp/selfhost-memo-trait-public-surface-seed.json -j 1 --dist web/dist --assert-io`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module.nepl --no-tree -o tmp/selfhost-check-module-public-surface-seed.json -j 1 --dist web/dist --assert-io`
+  - 検証済み: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_scan_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_fingerprint_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js`
+  - 既存 warning: Node の WASI experimental warning が doctest 実行中に表示される。
+  - 今回差分由来 warning: none in focused checks.
+- residual:
+  - actual public surface hash、stable trait definition key、trait body / method signature normalization evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未実装で、次 slice 以降に残す。
+  - 次 slice: actual public surface hash / stable trait definition key producer と trait signature normalization evidence を seed input 側へ接続し、`StableNominalKeyMissing` / `ReExportUnsupported` を実経路へ接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue stable source seed producer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、DAG、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
