@@ -18,6 +18,7 @@ const TY_ROOT_REEXPORT_FILES = [
     "stdlib/neplg2/core/ty/ty/memo_trait_source.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_canonical_key.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload.nepl",
+    "stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl",
     "stdlib/neplg2/core/ty/ty/stage0.nepl",
 ];
@@ -38,6 +39,7 @@ const TY_SPLIT_FILES = [
     "stdlib/neplg2/core/ty/ty/memo_trait_source.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_canonical_key.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload.nepl",
+    "stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl",
     "stdlib/neplg2/core/ty/ty/stage0.nepl",
 ];

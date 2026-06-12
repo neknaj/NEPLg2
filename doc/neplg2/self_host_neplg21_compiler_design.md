@@ -1030,6 +1030,20 @@ subagent review では、初期実装で public preseed API が `materialized_ca
 
 この checkpoint 後も、binary reader / serializer、serialized canonical key tree bytes、decoded record から proof store へ append する永続 preseed loop、persistent stable map / serialized index は未実装である。
 
+### 2026-06-12 memo trait canonical key payload bytes codec checkpoint
+
+`.neplproof` reader / serializer 全体へ進む前段として、serialized canonical key tree payload の bytes codec を `memo_trait_canonical_key_payload_codec.nepl` に分離した。
+
+codec は bytes を直接 proof store へ渡さない。header、fixed-width node table、argument table を decode し、stable nominal key material を `SelfhostMemoTraitStableNominalKeyTable` に照合して、現在の session 内の `SelfhostCanonicalTypeKeyArena` と root key を再構築する。serialized payload は payload schema、node kind、primitive stable code、stable nominal key material、argument order だけを authority とし、`SelfhostCanonicalTypeKeyId`、`SelfhostNamedTypeId`、`SelfhostTypeId`、proof store record index、source text、span、path、display name、diagnostic text、lexeme を永続 authority にしない。
+
+decode は `SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind` を返す。schema mismatch、unexpected end、trailing bytes、unknown node tag、unknown primitive code、negative count、count limit、root / argument target out of range、invalid argument range、unsupported parameter / function node、missing / duplicate / invalid nominal key、word high-bit、allocation failure、hash projection failure を typed enum として分ける。bool や display string へ潰さず、source policy でも enum error と `Result` API を固定した。
+
+`selfhost_memo_trait_canonical_key_payload_decode_and_hash_result` は convenience API として、decoded arena/root を既存の `selfhost_memo_trait_canonical_key_payload_hash_result` へ渡して hash を再計算する。bytes 内または record key 内の hash を信用する受理経路は持たない。preseed の acceptance authority は引き続き materialized arena/root と typed policy / proof payload を照合する bridge 側に置く。
+
+subagent review では、codec を「hash を読む境界」にせず「typed decoded canonical key payload から materialized arena/root へ戻す境界」にすること、artifact / preseed / proof store と責務を混ぜないこと、source text や store-local id を authority にしないことが Required として確認された。実装はこの指摘に従い、codec module は proof store、artifact、preseed、checker、HIR、Resource IR、backend を import しない。
+
+この checkpoint 後も、`.neplproof` record reader / serializer、decoded record から proof store へ append する preseed loop、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

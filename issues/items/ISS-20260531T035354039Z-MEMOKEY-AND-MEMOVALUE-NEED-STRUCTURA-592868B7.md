@@ -56,6 +56,20 @@ Accepted tests should cover primitive scalar/unit/structural Copy values; reject
 
 Current Phase 1 regression is covered by `cargo test -p nepl-core function_memo_call --test functions -- --nocapture`.
 
+## 2026-06-12 selfhost canonical key payload bytes codec checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl` を追加し、`.neplproof` reader / serializer 全体の前段として serialized canonical key tree payload の bytes codec を分離した。
+
+codec は header、fixed-width node table、argument table を decode し、stable nominal key material を `SelfhostMemoTraitStableNominalKeyTable` に照合して、現在の session 内の `SelfhostCanonicalTypeKeyArena` と root key を再構築する。serialized payload は payload schema、node kind、primitive stable code、stable nominal key material、argument order だけを authority とし、`SelfhostCanonicalTypeKeyId`、`SelfhostNamedTypeId`、`SelfhostTypeId`、proof store record index、source text、span、path、display name、diagnostic text、lexeme を永続 authority にしない。
+
+decode error は `SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind` として typed enum にした。schema mismatch、unexpected end、trailing bytes、unknown tag/code、negative count、count limit、root / arg target out of range、invalid arg range、unsupported parameter / function node、missing / duplicate / invalid nominal key、word high-bit、allocation failure、hash projection failure を bool や表示文字列に潰さず返す。
+
+`selfhost_memo_trait_canonical_key_payload_decode_and_hash_result` は convenience API として decoded arena/root から既存 `selfhost_memo_trait_canonical_key_payload_hash_result` を呼び、hash を再計算する。bytes 内や record key 内の hash を信用して acceptance する経路は持たない。preseed 側の authority は引き続き materialized arena/root と typed policy / proof payload の照合に置く。
+
+source policy は `nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js` で固定した。facade re-export、`nodesrc/selfhost_ty_sources.js` 登録、DAG、forbidden authority、typed error、existing hash producer delegation、stage0 smoke、line count / doc comment length cap 禁止を確認する。
+
+残件は、`.neplproof` record reader / serializer、decoded record から proof store へ append する preseed loop、persistent stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary である。
+
 ## 2026-06-12 selfhost predicate checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait.nepl` を追加し、selfhost compiler 側でも `MemoKey` / `MemoValue` の Phase 1 predicate を持つようにした。主 API は `Result unit SelfhostMemoTraitRejectKind` であり、`bool` helper はこの typed result から派生する補助に留めた。

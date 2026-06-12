@@ -56194,3 +56194,45 @@ MERGE_APPROVED
 ### residual
 
 - `.neplproof` reader / serializer、serialized canonical key tree bytes codec、decoded record から proof store へ append する preseed loop、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。
+
+## 2026-06-12 Agent selfhost canonical key payload bytes codec checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-key-payload-codec-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result / enum、純粋 core、DAG、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl` を追加した。
+- `.neplproof` reader / serializer 全体ではなく、その前段である serialized canonical key tree payload bytes codec を分離した。
+- codec は header、fixed-width node table、argument table を decode し、stable nominal key material を `SelfhostMemoTraitStableNominalKeyTable` に照合して、現在の session 内の `SelfhostCanonicalTypeKeyArena` と root key を再構築する。
+- serialized payload の authority は payload schema、node kind、primitive stable code、stable nominal key material、argument order に限定した。`SelfhostCanonicalTypeKeyId`、`SelfhostNamedTypeId`、`SelfhostTypeId`、proof store record index、source text、span、path、display name、diagnostic text、lexeme は永続 payload に入れない。
+- decode failure は `SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind` に集約した。schema mismatch、unexpected end、trailing bytes、unknown node tag、unknown primitive code、negative count、count limit、root / argument target out of range、invalid argument range、unsupported parameter / function node、missing / duplicate / invalid nominal key、word high-bit、allocation failure、hash projection failure を typed enum で返す。
+- `selfhost_memo_trait_canonical_key_payload_decode_and_hash_result` は decoded arena/root から既存 `selfhost_memo_trait_canonical_key_payload_hash_result` を呼ぶ convenience API にした。bytes や record key に入った hash を信用して受理する経路は持たない。
+- `ty.nepl` facade と `nodesrc/selfhost_ty_sources.js` に codec module を登録した。
+- `nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js` を追加し、source policy regression runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と該当 issue に checkpoint を追記し、`todo.md` の残件から serialized canonical key tree bytes codec を外した。
+
+### subagent_review
+
+- Volta review: 次 slice を serialized canonical key tree bytes codec に絞る方針は妥当。codec を hash reader にせず、typed decoded canonical key payload から materialized canonical key arena/root へ戻す境界にすべきと指摘した。
+- review の Required に従い、codec module は proof store / artifact / preseed / checker / HIR / Resource IR / backend を import しない。stable nominal key は bytes 内の derived hash ではなく、stable material を table へ照合して session-local named id へ戻す。
+- source policy では forbidden authority、typed error、existing hash producer delegation、line count / doc comment length cap 禁止を固定した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl --no-tree -o tmp/selfhost-canonical-key-payload-codec.json -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/selfhost-canonical-key-payload-codec-and-ty.json -j 1 --dist web/dist --assert-io` total=2 passed=2 failed=0
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- `.neplproof` record reader / serializer、decoded record から proof store へ append する preseed loop、persistent stable map / serialized index は未完了である。
+- generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。
+- stable nominal key reverse lookup は Phase 1 では線形探索である。後続で stable map 化する。

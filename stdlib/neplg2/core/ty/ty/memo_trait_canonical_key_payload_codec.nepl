@@ -1,0 +1,1171 @@
+#indent 4
+
+//: # ty/memo_trait_canonical_key_payload_codec
+//: `.neplproof` が保存する canonical key tree payload の byte codec です。
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が bytes から `SelfhostCanonicalTypeKeyArena` を再構築するための境界を提供します。
+//: - serialized payload には、payload schema、node kind、primitive stable code、stable nominal key material、argument order だけを入れます。
+//: - serialized payload には、`SelfhostCanonicalTypeKeyId`、`SelfhostNamedTypeId`、`SelfhostTypeId`、proof store record index、source text、span、path、display name、diagnostic text、lexeme を入れません。
+//: - named / applied node は stable nominal key material を decode した後、caller が渡した `SelfhostMemoTraitStableNominalKeyTable` へ照合し、現在の session 内の `SelfhostNamedTypeId` へ再対応付けします。
+//:
+//: [契約/けいやく]:
+//: - byte format は header、fixed-width node table、argument table の順です。node table と argument table は count で境界を決め、末尾 bytes は `TrailingBytes` として拒否します。
+//: - decoded payload は必ず materialized canonical key arena と root key になります。record key 内の payload hash や bytes 内の hash 値を信用して受理する経路は持ちません。
+//: - `Parameter` と `Function` は Phase 1 の `.neplproof` canonical key payload では受理しません。generic type argument identity と higher-order function identity が入るまで fail-closed にします。
+//: - stable nominal key table に同じ stable nominal key が 2 件ある場合は `NominalKeyDuplicate` として拒否し、first wins にはしません。
+//: - `selfhost_memo_trait_canonical_key_payload_decode_and_hash_result` は convenience API です。preseed の acceptance authority は引き続き materialized arena/root を `memo_trait_canonical_key_payload.nepl` の hash producer へ渡す側に置きます。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 codec は 31-bit nonnegative little-endian words だけを受理します。負値や high bit を持つ word は永続形式の互換性を曖昧にしないため拒否します。
+//: - writer 全体、persistent `.neplproof` record reader、proof store append preseed loop は後続 slice で接続します。この module は canonical key payload bytes の typed decode と hash 再計算境界だけを固定します。
+//:
+//: [計算量/けいさんりょう]:
+//: - decode は node 数 n と argument 数 a に対して O(n + a) です。
+//: - stable nominal key の逆引きは table record 数 m に対して各 named/applied node ごとに O(m) です。Phase 1 では正しさ境界を優先し、後続で stable map 化します。
+//: - source-wide scan、path lookup、diagnostic formatting、file I/O は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_canonical_key_payload_codec_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_canonical_key_payload_codec_hash_result_is_ok summary.named_payload
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_canonical_key_payload_codec_hash_result_is_ok summary.applied_payload
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq (unwrap_err summary.schema_mismatch) SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadSchemaMismatch
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq (unwrap_err summary.trailing_bytes) SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::TrailingBytes
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq (unwrap_err summary.unknown_primitive) SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnknownPrimitiveCode
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq (unwrap_err summary.unsupported_function) SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::FunctionTypeUnsupported
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq (unwrap_err summary.arg_target_out_of_range) SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgTargetOutOfRange
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq (unwrap_err summary.invalid_argument_range) SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::InvalidArgumentRange
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq (unwrap_err summary.nominal_missing) SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyMissing
+//:             let shown checks_print_report checks9
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "canonical key payload codec stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./id" as *
+#import "./key" as *
+#import "./kind/model" as *
+#import "./memo_trait_canonical_key" as *
+#import "./memo_trait_canonical_key_payload" as *
+
+//: SelfhostMemoTraitCanonicalKeyPayloadDecoded: decoded canonical key tree payload
+//:
+//: [目的/もくてき]:
+//: - bytes から復元した canonical key arena と root key を 1 つの owner record として扱います。
+//: - decoded payload は store-local id ではなく、現在の session 内で再構築された arena-local key id だけを保持します。
+pub struct SelfhostMemoTraitCanonicalKeyPayloadDecoded:
+    schema_version %i32
+    arena %SelfhostCanonicalTypeKeyArena
+    root %SelfhostCanonicalTypeKeyId
+
+//: SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind: canonical key payload bytes decode の拒否理由
+//:
+//: [目的/もくてき]:
+//: - bytes の破損、schema 不一致、範囲外参照、unsupported node、stable nominal key の照合失敗、hash 再計算失敗を enum で返します。
+pub enum SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind:
+    PayloadSchemaMismatch
+    UnexpectedEnd
+    TrailingBytes
+    UnknownNodeTag
+    UnknownPrimitiveCode
+    NodeCountNegative
+    ArgCountNegative
+    NodeCountLimitExceeded
+    ArgCountLimitExceeded
+    RootOutOfRange
+    ArgTargetOutOfRange
+    InvalidArgumentRange
+    TypeParameterUnsupported
+    FunctionTypeUnsupported
+    NominalKeyMissing
+    NominalKeyDuplicate
+    NominalKeyInvalid %SelfhostMemoTraitStableNominalKeyErrorKind
+    WordHighBitUnsupported
+    OutOfMemory
+    PayloadHashInvalid %SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+
+//: SelfhostMemoTraitCanonicalKeyPayloadCodecHeader: decode 済み header
+struct SelfhostMemoTraitCanonicalKeyPayloadCodecHeader:
+    schema_version %i32
+    node_count %i32
+    arg_count %i32
+    root_index %i32
+
+//: SelfhostMemoTraitCanonicalKeyPayloadCodecProjection: stage0 decode projection
+struct SelfhostMemoTraitCanonicalKeyPayloadCodecProjection:
+    result %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+
+//: SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary: codec の代表 smoke
+pub struct SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary:
+    named_payload %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    applied_payload %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    schema_mismatch %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    trailing_bytes %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    unknown_primitive %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    unsupported_function %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    arg_target_out_of_range %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    invalid_argument_range %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    nominal_missing %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+
+impl Clone for SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind:
+    fn clone %fn &SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitCanonicalKeyPayloadCodecHeader:
+    fn clone %fn &SelfhostMemoTraitCanonicalKeyPayloadCodecHeader SelfhostMemoTraitCanonicalKeyPayloadCodecHeader \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalKeyPayloadCodecHeader:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader SelfhostMemoTraitCanonicalKeyPayloadCodecHeader \self:
+        self
+
+impl Clone for SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary:
+    fn clone %fn &SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_canonical_key_payload_codec_magic: canonical key payload codec magic word
+//:
+//: [契約/けいやく]:
+//: - header の先頭 word です。schema version と別に、別 artifact payload を誤って canonical key payload として decode しないために使います。
+pub fn selfhost_memo_trait_canonical_key_payload_codec_magic %fn void i32 \void:
+    791211
+
+//: selfhost_memo_trait_canonical_key_payload_codec_node_limit: Phase 1 decode の node 数上限
+pub fn selfhost_memo_trait_canonical_key_payload_codec_node_limit %fn void i32 \void:
+    4096
+
+//: selfhost_memo_trait_canonical_key_payload_codec_arg_limit: Phase 1 decode の argument 数上限
+pub fn selfhost_memo_trait_canonical_key_payload_codec_arg_limit %fn void i32 \void:
+    8192
+
+//: selfhost_memo_trait_canonical_key_payload_codec_node_width: node record の word 幅
+fn selfhost_memo_trait_canonical_key_payload_codec_node_width %fn void i32 \void:
+    8
+
+//: selfhost_memo_trait_canonical_key_payload_codec_header_words: header の word 数
+fn selfhost_memo_trait_canonical_key_payload_codec_header_words %fn void i32 \void:
+    5
+
+//: selfhost_memo_trait_canonical_key_payload_codec_error_from_std: Vec 操作の失敗を decode error へ[写/うつ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_error_from_std %fn StdErrorKind SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \kind:
+    match kind:
+        StdErrorKind::OutOfMemory:
+            SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::OutOfMemory
+        _:
+            SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::OutOfMemory
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_eq: stable nominal key が同じか[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_eq %fn SelfhostMemoTraitStableNominalKey fn SelfhostMemoTraitStableNominalKey bool \a\b:
+    and:
+        eq a.schema_version b.schema_version
+        and:
+            eq a.module_fingerprint b.module_fingerprint
+            and:
+                eq a.definition_fingerprint b.definition_fingerprint
+                and:
+                    eq a.constructor_ordinal b.constructor_ordinal
+                    and:
+                        eq a.type_arity b.type_arity
+                        eq a.nominal_key_hash b.nominal_key_hash
+
+//: selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_loop: stable key から session-local named id を[探/さが]す
+fn selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_loop %fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostMemoTraitStableNominalKey fn i32 fn Option SelfhostNamedTypeId Result SelfhostNamedTypeId SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\key\idx\found:
+    let records %&Vec SelfhostMemoTraitStableNominalKeyRecord field::get_ref table "records"
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            match found:
+                Option::Some nominal_id:
+                    Result::Ok nominal_id
+                Option::None:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyMissing
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_eq record.key key
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyDuplicate
+                                Option::None:
+                                    selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_loop table key add idx 1 some record.nominal_id
+                        else:
+                            selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_loop table key add idx 1 found
+                Option::None:
+                    match found:
+                        Option::Some nominal_id:
+                            Result::Ok nominal_id
+                        Option::None:
+                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyMissing
+
+//: selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_result: stable nominal key を session-local named id へ[戻/もど]す
+fn selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_result %fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostMemoTraitStableNominalKey Result SelfhostNamedTypeId SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\key:
+    selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_loop table key 0 none
+
+//: selfhost_memo_trait_canonical_key_payload_codec_primitive_kind_result: stable primitive code を primitive kind へ[戻/もど]す
+fn selfhost_memo_trait_canonical_key_payload_codec_primitive_kind_result %fn i32 Result SelfhostPrimitiveTypeKind SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \code:
+    if:
+        eq code 101
+        then:
+            Result::Ok SelfhostPrimitiveTypeKind::Error
+        else:
+            if:
+                eq code 102
+                then:
+                    Result::Ok SelfhostPrimitiveTypeKind::Unit
+                else:
+                    if:
+                        eq code 103
+                        then:
+                            Result::Ok SelfhostPrimitiveTypeKind::Bool
+                        else:
+                            if:
+                                eq code 104
+                                then:
+                                    Result::Ok SelfhostPrimitiveTypeKind::I32
+                                else:
+                                    if:
+                                        eq code 105
+                                        then:
+                                            Result::Ok SelfhostPrimitiveTypeKind::I64
+                                        else:
+                                            if:
+                                                eq code 106
+                                                then:
+                                                    Result::Ok SelfhostPrimitiveTypeKind::U8
+                                                else:
+                                                    if:
+                                                        eq code 107
+                                                        then:
+                                                            Result::Ok SelfhostPrimitiveTypeKind::Char
+                                                        else:
+                                                            if:
+                                                                eq code 108
+                                                                then:
+                                                                    Result::Ok SelfhostPrimitiveTypeKind::Str
+                                                                else:
+                                                                    if:
+                                                                        eq code 109
+                                                                        then:
+                                                                            Result::Ok SelfhostPrimitiveTypeKind::F32
+                                                                        else:
+                                                                            if:
+                                                                                eq code 110
+                                                                                then:
+                                                                                    Result::Ok SelfhostPrimitiveTypeKind::F64
+                                                                                else:
+                                                                                    if:
+                                                                                        eq code 111
+                                                                                        then:
+                                                                                            Result::Ok SelfhostPrimitiveTypeKind::Never
+                                                                                        else:
+                                                                                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnknownPrimitiveCode
+
+//: selfhost_memo_trait_canonical_key_payload_codec_word_at_byte_result: little-endian word を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - Phase 1 は 31-bit nonnegative word だけを受理します。4 byte 目の high bit が立つ場合は負値または将来拡張値として拒否します。
+fn selfhost_memo_trait_canonical_key_payload_codec_word_at_byte_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \bytes\byte_offset:
+    let byte_len %i32 v::len bytes
+    if:
+        or lt byte_offset 0 ge add byte_offset 3 byte_len
+        then:
+            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+        else:
+            match v::get bytes byte_offset:
+                Option::Some b0_raw:
+                    match v::get bytes add byte_offset 1:
+                        Option::Some b1_raw:
+                            match v::get bytes add byte_offset 2:
+                                Option::Some b2_raw:
+                                    match v::get bytes add byte_offset 3:
+                                        Option::Some b3_raw:
+                                            let b3 %i32 cast b3_raw
+                                            if:
+                                                gt b3 127
+                                                then:
+                                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::WordHighBitUnsupported
+                                                else:
+                                                    let b0 %i32 cast b0_raw
+                                                    let b1 %i32 cast b1_raw
+                                                    let b2 %i32 cast b2_raw
+                                                    let lo %i32 add b0 mul b1 256
+                                                    let hi %i32 add mul b2 65536 mul b3 16777216
+                                                    Result::Ok add lo hi
+                                        Option::None:
+                                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+                        Option::None:
+                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+                Option::None:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+
+//: selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result: word index から little-endian word を[読/よ]む
+fn selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \bytes\word_index:
+    if:
+        lt word_index 0
+        then:
+            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+        else:
+            selfhost_memo_trait_canonical_key_payload_codec_word_at_byte_result bytes mul word_index 4
+
+//: selfhost_memo_trait_canonical_key_payload_codec_node_word_index: node field の word index を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_node_word_index %fn i32 fn i32 i32 \node_index\field_index:
+    add selfhost_memo_trait_canonical_key_payload_codec_header_words add mul node_index selfhost_memo_trait_canonical_key_payload_codec_node_width field_index
+
+//: selfhost_memo_trait_canonical_key_payload_codec_arg_word_index: argument slot の word index を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_arg_word_index %fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader fn i32 i32 \header\arg_index:
+    add selfhost_memo_trait_canonical_key_payload_codec_header_words add mul header.node_count selfhost_memo_trait_canonical_key_payload_codec_node_width arg_index
+
+//: selfhost_memo_trait_canonical_key_payload_codec_expected_word_count: payload 全体の word 数を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_expected_word_count %fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader i32 \header:
+    add selfhost_memo_trait_canonical_key_payload_codec_header_words add mul header.node_count selfhost_memo_trait_canonical_key_payload_codec_node_width header.arg_count
+
+//: selfhost_memo_trait_canonical_key_payload_codec_header_checked_result: header count と byte 長を[検査/けんさ]する
+fn selfhost_memo_trait_canonical_key_payload_codec_header_checked_result %fn &Vec u8 fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoTraitCanonicalKeyPayloadCodecHeader SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \bytes\schema_version\node_count\arg_count\root_index:
+    if:
+        ne schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+        then:
+            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadSchemaMismatch
+        else:
+            if:
+                lt node_count 0
+                then:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NodeCountNegative
+                else:
+                    if:
+                        lt arg_count 0
+                        then:
+                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgCountNegative
+                        else:
+                            if:
+                                gt node_count selfhost_memo_trait_canonical_key_payload_codec_node_limit
+                                then:
+                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NodeCountLimitExceeded
+                                else:
+                                    if:
+                                        gt arg_count selfhost_memo_trait_canonical_key_payload_codec_arg_limit
+                                        then:
+                                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgCountLimitExceeded
+                                        else:
+                                            if:
+                                                or lt root_index 0 ge root_index node_count
+                                                then:
+                                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::RootOutOfRange
+                                                else:
+                                                    let header %SelfhostMemoTraitCanonicalKeyPayloadCodecHeader SelfhostMemoTraitCanonicalKeyPayloadCodecHeader schema_version node_count arg_count root_index
+                                                    let expected_bytes %i32 mul selfhost_memo_trait_canonical_key_payload_codec_expected_word_count header 4
+                                                    let actual_bytes %i32 v::len bytes
+                                                    if:
+                                                        lt actual_bytes expected_bytes
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+                                                        else:
+                                                            if:
+                                                                gt actual_bytes expected_bytes
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::TrailingBytes
+                                                                else:
+                                                                    Result::Ok header
+
+//: selfhost_memo_trait_canonical_key_payload_codec_header_result: bytes header を[読/よ]む
+fn selfhost_memo_trait_canonical_key_payload_codec_header_result %fn &Vec u8 Result SelfhostMemoTraitCanonicalKeyPayloadCodecHeader SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \bytes:
+    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes 0:
+        Result::Ok magic:
+            if:
+                ne magic selfhost_memo_trait_canonical_key_payload_codec_magic
+                then:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadSchemaMismatch
+                else:
+                    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes 1:
+                        Result::Ok schema_version:
+                            match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes 2:
+                                Result::Ok node_count:
+                                    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes 3:
+                                        Result::Ok arg_count:
+                                            match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes 4:
+                                                Result::Ok root_index:
+                                                    selfhost_memo_trait_canonical_key_payload_codec_header_checked_result bytes schema_version node_count arg_count root_index
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_result: node field から stable nominal key を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_result %fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \schema_version\module_fingerprint\definition_fingerprint\constructor_ordinal\type_arity:
+    if:
+        ne schema_version selfhost_memo_trait_stable_nominal_key_schema_version
+        then:
+            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadSchemaMismatch
+        else:
+            match selfhost_memo_trait_stable_nominal_key_result (some module_fingerprint) (some definition_fingerprint) (some constructor_ordinal) type_arity:
+                Result::Ok key:
+                    Result::Ok key
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyInvalid e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_node_nominal_id_result: node field の stable key から named id を[得/え]る
+fn selfhost_memo_trait_canonical_key_payload_codec_node_nominal_id_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &Vec u8 fn i32 Result SelfhostNamedTypeId SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\bytes\node_index:
+    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 1:
+        Result::Ok schema_version:
+            match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 2:
+                Result::Ok module_fingerprint:
+                    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 3:
+                        Result::Ok definition_fingerprint:
+                            match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 4:
+                                Result::Ok constructor_ordinal:
+                                    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 5:
+                                        Result::Ok type_arity:
+                                            match selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_result schema_version module_fingerprint definition_fingerprint constructor_ordinal type_arity:
+                                                Result::Ok key:
+                                                    selfhost_memo_trait_canonical_key_payload_codec_find_nominal_id_result table key
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_arg_range_result: applied node の argument range を[読/よ]む
+fn selfhost_memo_trait_canonical_key_payload_codec_arg_range_result %fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader fn &Vec u8 fn i32 Result SelfhostCanonicalTypeKeyArgRange SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \header\bytes\node_index:
+    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 6:
+        Result::Ok first_arg:
+            match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 7:
+                Result::Ok arg_count:
+                    if:
+                        or lt first_arg 0 lt arg_count 0
+                        then:
+                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::InvalidArgumentRange
+                        else:
+                            if:
+                                or gt arg_count sub 2147483647 first_arg gt add first_arg arg_count header.arg_count
+                                then:
+                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::InvalidArgumentRange
+                                else:
+                                    Result::Ok selfhost_canonical_type_key_arg_range_new_unchecked first_arg arg_count
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_node_result: 1 node record を canonical key node へ[戻/もど]す
+fn selfhost_memo_trait_canonical_key_payload_codec_node_result %fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader fn &Vec u8 fn i32 Result SelfhostCanonicalTypeKeyNode SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\header\bytes\node_index:
+    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 0:
+        Result::Ok tag:
+            if:
+                eq tag 1
+                then:
+                    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_node_word_index node_index 1:
+                        Result::Ok primitive_code:
+                            match selfhost_memo_trait_canonical_key_payload_codec_primitive_kind_result primitive_code:
+                                Result::Ok kind:
+                                    Result::Ok SelfhostCanonicalTypeKeyNode::Primitive kind
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                else:
+                    if:
+                        eq tag 2
+                        then:
+                            match selfhost_memo_trait_canonical_key_payload_codec_node_nominal_id_result table bytes node_index:
+                                Result::Ok nominal_id:
+                                    Result::Ok SelfhostCanonicalTypeKeyNode::Named nominal_id
+                                Result::Err e:
+                                    Result::Err e
+                        else:
+                            if:
+                                eq tag 3
+                                then:
+                                    match selfhost_memo_trait_canonical_key_payload_codec_node_nominal_id_result table bytes node_index:
+                                        Result::Ok nominal_id:
+                                            match selfhost_memo_trait_canonical_key_payload_codec_arg_range_result header bytes node_index:
+                                                Result::Ok args:
+                                                    Result::Ok SelfhostCanonicalTypeKeyNode::Applied SelfhostCanonicalAppliedTypeKey nominal_id args
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                else:
+                                    if:
+                                        eq tag 4
+                                        then:
+                                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::TypeParameterUnsupported
+                                        else:
+                                            if:
+                                                eq tag 5
+                                                then:
+                                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::FunctionTypeUnsupported
+                                                else:
+                                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnknownNodeTag
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_decode_nodes_loop: node table を[復元/ふくげん]する
+fn selfhost_memo_trait_canonical_key_payload_codec_decode_nodes_loop %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader impure fn &Vec u8 impure fn i32 impure fn Vec SelfhostCanonicalTypeKeyNode Result Vec SelfhostCanonicalTypeKeyNode SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\header\bytes\idx\nodes:
+    if:
+        ge idx header.node_count
+        then:
+            Result::Ok nodes
+        else:
+            match selfhost_memo_trait_canonical_key_payload_codec_node_result table header bytes idx:
+                Result::Ok node:
+                    match v::push nodes node:
+                        Result::Ok next_nodes:
+                            selfhost_memo_trait_canonical_key_payload_codec_decode_nodes_loop table header bytes add idx 1 next_nodes
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err selfhost_memo_trait_canonical_key_payload_codec_error_from_std error
+                Result::Err e:
+                    v::free nodes
+                    Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_decode_nodes_result: node table owner を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_decode_nodes_result %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader impure fn &Vec u8 Result Vec SelfhostCanonicalTypeKeyNode SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\header\bytes:
+    let nodes_result %Result Vec SelfhostCanonicalTypeKeyNode StdErrorKind v::new
+    match nodes_result:
+        Result::Ok nodes:
+            selfhost_memo_trait_canonical_key_payload_codec_decode_nodes_loop table header bytes 0 nodes
+        Result::Err e:
+            Result::Err selfhost_memo_trait_canonical_key_payload_codec_error_from_std e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_arg_target_result: argument table の target node を[読/よ]む
+fn selfhost_memo_trait_canonical_key_payload_codec_arg_target_result %fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader fn &Vec u8 fn i32 Result SelfhostCanonicalTypeKeyId SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \header\bytes\arg_index:
+    match selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result bytes selfhost_memo_trait_canonical_key_payload_codec_arg_word_index header arg_index:
+        Result::Ok target_index:
+            if:
+                or lt target_index 0 ge target_index header.node_count
+                then:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgTargetOutOfRange
+                else:
+                    Result::Ok selfhost_canonical_type_key_id_new target_index
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_decode_args_loop: argument table を[復元/ふくげん]する
+fn selfhost_memo_trait_canonical_key_payload_codec_decode_args_loop %impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader impure fn &Vec u8 impure fn i32 impure fn Vec SelfhostCanonicalTypeKeyId Result Vec SelfhostCanonicalTypeKeyId SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \header\bytes\idx\args:
+    if:
+        ge idx header.arg_count
+        then:
+            Result::Ok args
+        else:
+            match selfhost_memo_trait_canonical_key_payload_codec_arg_target_result header bytes idx:
+                Result::Ok key_id:
+                    match v::push args key_id:
+                        Result::Ok next_args:
+                            selfhost_memo_trait_canonical_key_payload_codec_decode_args_loop header bytes add idx 1 next_args
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err selfhost_memo_trait_canonical_key_payload_codec_error_from_std error
+                Result::Err e:
+                    v::free args
+                    Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_decode_args_result: argument table owner を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_decode_args_result %impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecHeader impure fn &Vec u8 Result Vec SelfhostCanonicalTypeKeyId SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \header\bytes:
+    let args_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+    match args_result:
+        Result::Ok args:
+            selfhost_memo_trait_canonical_key_payload_codec_decode_args_loop header bytes 0 args
+        Result::Err e:
+            Result::Err selfhost_memo_trait_canonical_key_payload_codec_error_from_std e
+
+//: selfhost_memo_trait_canonical_key_payload_decoded_free: decoded payload owner を[解放/かいほう]する
+pub fn selfhost_memo_trait_canonical_key_payload_decoded_free %impure fn SelfhostMemoTraitCanonicalKeyPayloadDecoded unit \decoded:
+    selfhost_canonical_type_key_arena_free field::get decoded "arena"
+
+//: selfhost_memo_trait_canonical_key_payload_decode_result: bytes を decoded canonical key payload へ[戻/もど]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(decoded)`: stable nominal table に照合済みの canonical key arena と root key です。caller は `selfhost_memo_trait_canonical_key_payload_decoded_free` で解放します。
+//: - `Err(kind)`: bytes または stable nominal table が canonical key payload として不正です。
+pub fn selfhost_memo_trait_canonical_key_payload_decode_result %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 Result SelfhostMemoTraitCanonicalKeyPayloadDecoded SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\bytes:
+    match selfhost_memo_trait_canonical_key_payload_codec_header_result bytes:
+        Result::Ok header:
+            match selfhost_memo_trait_canonical_key_payload_codec_decode_nodes_result table header bytes:
+                Result::Ok nodes:
+                    match selfhost_memo_trait_canonical_key_payload_codec_decode_args_result header bytes:
+                        Result::Ok args:
+                            let arena %SelfhostCanonicalTypeKeyArena SelfhostCanonicalTypeKeyArena nodes args
+                            Result::Ok SelfhostMemoTraitCanonicalKeyPayloadDecoded header.schema_version arena (selfhost_canonical_type_key_id_new header.root_index)
+                        Result::Err e:
+                            v::free nodes
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_decoded_hash_result: decoded payload を既存 hash producer で[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - hash は decoded arena/root から再計算します。bytes に保存された hash 値や外部 caller が渡した raw hash は使いません。
+pub fn selfhost_memo_trait_canonical_key_payload_decoded_hash_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostMemoTraitCanonicalKeyPayloadDecoded Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind \table\decoded:
+    let arena %&SelfhostCanonicalTypeKeyArena field::get_ref decoded "arena"
+    let root %SelfhostCanonicalTypeKeyId *field::get_ref decoded "root"
+    selfhost_memo_trait_canonical_key_payload_hash_result table arena root
+
+//: selfhost_memo_trait_canonical_key_payload_decode_and_hash_result: bytes を decode し hash を再計算する
+//:
+//: [注意/ちゅうい]:
+//: - この関数は reader smoke や将来の `.neplproof` import の convenience boundary です。
+//: - preseed の受理判断は、この結果だけで行わず、materialized arena/root を proof store preseed 境界へ渡して既存規則で比較します。
+pub fn selfhost_memo_trait_canonical_key_payload_decode_and_hash_result %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \table\bytes:
+    match selfhost_memo_trait_canonical_key_payload_decode_result table bytes:
+        Result::Ok decoded:
+            let hash_result %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind selfhost_memo_trait_canonical_key_payload_decoded_hash_result table &decoded
+            selfhost_memo_trait_canonical_key_payload_decoded_free decoded
+            match hash_result:
+                Result::Ok hash:
+                    Result::Ok hash
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadHashInvalid e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_hash_result_is_ok: codec hash result が accepted か[返/かえ]す
+pub fn selfhost_memo_trait_canonical_key_payload_codec_hash_result_is_ok %fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind bool \result:
+    match result:
+        Result::Ok _value:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq: decode error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq %fn SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadSchemaMismatch:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadSchemaMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::TrailingBytes:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::TrailingBytes:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnknownNodeTag:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnknownNodeTag:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnknownPrimitiveCode:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnknownPrimitiveCode:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NodeCountNegative:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NodeCountNegative:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgCountNegative:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgCountNegative:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NodeCountLimitExceeded:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NodeCountLimitExceeded:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgCountLimitExceeded:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgCountLimitExceeded:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::RootOutOfRange:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::RootOutOfRange:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgTargetOutOfRange:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::ArgTargetOutOfRange:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::InvalidArgumentRange:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::InvalidArgumentRange:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::TypeParameterUnsupported:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::TypeParameterUnsupported:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::FunctionTypeUnsupported:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::FunctionTypeUnsupported:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyMissing:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyDuplicate:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyDuplicate:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyInvalid a_error:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::NominalKeyInvalid b_error:
+                    selfhost_memo_trait_stable_nominal_key_error_kind_eq a_error b_error
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::WordHighBitUnsupported:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::WordHighBitUnsupported:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::OutOfMemory:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadHashInvalid a_error:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::PayloadHashInvalid b_error:
+                    selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error
+                _:
+                    false
+
+//: selfhost_memo_trait_canonical_key_payload_codec_push_byte: stage0 bytes に 1 byte を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_push_byte %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\value:
+    match v::push bytes %u8 cast value:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_canonical_key_payload_codec_push_word: stage0 bytes に little-endian word を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_push_word %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\word:
+    if:
+        lt word 0
+        then:
+            v::free bytes
+            Result::Err StdErrorKind::InvalidOperation
+        else:
+            let b0 %i32 rem_s word 256
+            let q1 %i32 div_s word 256
+            let b1 %i32 rem_s q1 256
+            let q2 %i32 div_s q1 256
+            let b2 %i32 rem_s q2 256
+            let q3 %i32 div_s q2 256
+            let b3 %i32 rem_s q3 256
+            match selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes b0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes1 b1:
+                        Result::Ok bytes2:
+                            match selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes2 b2:
+                                Result::Ok bytes3:
+                                    selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes3 b3
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header_with_schema: stage0 header を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header_with_schema %impure fn Vec u8 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\schema_version\node_count\arg_count\root_index:
+    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes selfhost_memo_trait_canonical_key_payload_codec_magic:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes1 schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes2 node_count:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes3 arg_count:
+                                Result::Ok bytes4:
+                                    selfhost_memo_trait_canonical_key_payload_codec_push_word bytes4 root_index
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header: stage0 header を current schema で[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header %impure fn Vec u8 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\node_count\arg_count\root_index:
+    selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header_with_schema bytes selfhost_memo_trait_canonical_key_payload_schema_version node_count arg_count root_index
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_node_words: fixed-width node record を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_node_words %impure fn Vec u8 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\w0\w1\w2\w3\w4\w5\w6\w7:
+    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes w0:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes1 w1:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes2 w2:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes3 w3:
+                                Result::Ok bytes4:
+                                    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes4 w4:
+                                        Result::Ok bytes5:
+                                            match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes5 w5:
+                                                Result::Ok bytes6:
+                                                    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes6 w6:
+                                                        Result::Ok bytes7:
+                                                            selfhost_memo_trait_canonical_key_payload_codec_push_word bytes7 w7
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_primitive_node: primitive node record を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_primitive_node %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\primitive_code:
+    selfhost_memo_trait_canonical_key_payload_codec_stage0_push_node_words bytes 1 primitive_code 0 0 0 0 0 0
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_named_node: named node record を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_named_node %impure fn Vec u8 Result Vec u8 StdErrorKind \bytes:
+    selfhost_memo_trait_canonical_key_payload_codec_stage0_push_node_words bytes 2 selfhost_memo_trait_stable_nominal_key_schema_version 31 41 1 1 0 0
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_applied_node: applied node record を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_applied_node %impure fn Vec u8 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\first_arg\arg_count:
+    selfhost_memo_trait_canonical_key_payload_codec_stage0_push_node_words bytes 3 selfhost_memo_trait_stable_nominal_key_schema_version 31 41 1 1 first_arg arg_count
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_function_node: unsupported function tag record を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_function_node %impure fn Vec u8 Result Vec u8 StdErrorKind \bytes:
+    selfhost_memo_trait_canonical_key_payload_codec_stage0_push_node_words bytes 5 0 0 0 0 0 0 0
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned: bytes owner を decode/hash して[閉/と]じる
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn Vec u8 Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table\bytes:
+    let result %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind selfhost_memo_trait_canonical_key_payload_decode_and_hash_result table &bytes
+    v::free bytes
+    Result::Ok SelfhostMemoTraitCanonicalKeyPayloadCodecProjection result
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_named_projection: named payload bytes smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_named_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header bytes0 1 0 0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_named_node bytes1:
+                        Result::Ok bytes2:
+                            selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_applied_projection: applied payload bytes smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_applied_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header bytes0 2 1 1:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_primitive_node bytes1 104:
+                        Result::Ok bytes2:
+                            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_applied_node bytes2 0 1:
+                                Result::Ok bytes3:
+                                    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes3 0:
+                                        Result::Ok bytes4:
+                                            selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes4
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_schema_mismatch_projection: schema mismatch smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_schema_mismatch_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header_with_schema bytes0 add selfhost_memo_trait_canonical_key_payload_schema_version 1 1 0 0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_named_node bytes1:
+                        Result::Ok bytes2:
+                            selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_trailing_bytes_projection: trailing bytes smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_trailing_bytes_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header bytes0 1 0 0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_named_node bytes1:
+                        Result::Ok bytes2:
+                            match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes2 7:
+                                Result::Ok bytes3:
+                                    selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes3
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_unknown_primitive_projection: unknown primitive smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_unknown_primitive_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header bytes0 1 0 0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_primitive_node bytes1 999:
+                        Result::Ok bytes2:
+                            selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_unsupported_function_projection: function tag smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_unsupported_function_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header bytes0 1 0 0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_function_node bytes1:
+                        Result::Ok bytes2:
+                            selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_arg_target_projection: argument target out-of-range smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_arg_target_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header bytes0 2 1 1:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_primitive_node bytes1 104:
+                        Result::Ok bytes2:
+                            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_applied_node bytes2 0 1:
+                                Result::Ok bytes3:
+                                    match selfhost_memo_trait_canonical_key_payload_codec_push_word bytes3 9:
+                                        Result::Ok bytes4:
+                                            selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes4
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_invalid_range_projection: invalid argument range smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_invalid_range_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecProjection StdErrorKind \table:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header bytes0 1 0 0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_push_applied_node bytes1 0 1:
+                        Result::Ok bytes2:
+                            selfhost_memo_trait_canonical_key_payload_codec_stage0_decode_hash_owned table bytes2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_summary_new %fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary \named_payload\applied_payload\schema_mismatch\trailing_bytes\unknown_primitive\unsupported_function\arg_target_out_of_range\invalid_argument_range\nominal_missing:
+    SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary named_payload applied_payload schema_mismatch trailing_bytes unknown_primitive unsupported_function arg_target_out_of_range invalid_argument_range nominal_missing
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_build_table: stage0 用 stable nominal key table を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_build_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables: table owner を[閉/と]じて setup 失敗を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary StdErrorKind \table\empty_table:
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_finish: table owner を[閉/と]じて summary を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_finish %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary Result SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary StdErrorKind \table\empty_table\summary:
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    Result::Ok summary
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_collect: projection 結果を summary へ[集約/しゅうやく]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_collect %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection impure fn SelfhostMemoTraitCanonicalKeyPayloadCodecProjection Result SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary StdErrorKind \table\empty_table\named_projection\applied_projection\schema_projection\trailing_projection\unknown_primitive_projection\unsupported_function_projection\arg_target_projection\invalid_range_projection\nominal_missing_projection:
+    let summary %SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary selfhost_memo_trait_canonical_key_payload_codec_stage0_summary_new (field::get named_projection "result") (field::get applied_projection "result") (field::get schema_projection "result") (field::get trailing_projection "result") (field::get unknown_primitive_projection "result") (field::get unsupported_function_projection "result") (field::get arg_target_projection "result") (field::get invalid_range_projection "result") (field::get nominal_missing_projection "result")
+    selfhost_memo_trait_canonical_key_payload_codec_stage0_finish table empty_table summary
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0_after_tables: table setup 後に代表 decode を[実行/じっこう]する
+fn selfhost_memo_trait_canonical_key_payload_codec_stage0_after_tables %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary StdErrorKind \table\empty_table:
+    match selfhost_memo_trait_canonical_key_payload_codec_stage0_named_projection &table:
+        Result::Ok named_projection:
+            match selfhost_memo_trait_canonical_key_payload_codec_stage0_applied_projection &table:
+                Result::Ok applied_projection:
+                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_schema_mismatch_projection &table:
+                        Result::Ok schema_projection:
+                            match selfhost_memo_trait_canonical_key_payload_codec_stage0_trailing_bytes_projection &table:
+                                Result::Ok trailing_projection:
+                                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_unknown_primitive_projection &table:
+                                        Result::Ok unknown_primitive_projection:
+                                            match selfhost_memo_trait_canonical_key_payload_codec_stage0_unsupported_function_projection &table:
+                                                Result::Ok unsupported_function_projection:
+                                                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_arg_target_projection &table:
+                                                        Result::Ok arg_target_projection:
+                                                            match selfhost_memo_trait_canonical_key_payload_codec_stage0_invalid_range_projection &table:
+                                                                Result::Ok invalid_range_projection:
+                                                                    match selfhost_memo_trait_canonical_key_payload_codec_stage0_named_projection &empty_table:
+                                                                        Result::Ok nominal_missing_projection:
+                                                                            selfhost_memo_trait_canonical_key_payload_codec_stage0_collect table empty_table named_projection applied_projection schema_projection trailing_projection unknown_primitive_projection unsupported_function_projection arg_target_projection invalid_range_projection nominal_missing_projection
+                                                                        Result::Err _e:
+                                                                            selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+                                                                Result::Err _e:
+                                                                    selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+                                                        Result::Err _e:
+                                                            selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+                                                Result::Err _e:
+                                                    selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+                                        Result::Err _e:
+                                            selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+                                Result::Err _e:
+                                    selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+                        Result::Err _e:
+                            selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+                Result::Err _e:
+                    selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_canonical_key_payload_codec_stage0_abort_tables table empty_table
+
+//: selfhost_memo_trait_canonical_key_payload_codec_stage0: codec decode / hash の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_canonical_key_payload_codec_stage0 %impure fn void Result SelfhostMemoTraitCanonicalKeyPayloadCodecStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_canonical_key_payload_codec_stage0_build_table:
+        Result::Ok table:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok empty_table:
+                    selfhost_memo_trait_canonical_key_payload_codec_stage0_after_tables table empty_table
+                Result::Err e:
+                    selfhost_memo_trait_stable_nominal_key_table_free table
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
