@@ -16,6 +16,10 @@ const facade = readRepoFile(repoRoot, TY_FACADE);
 const source = readRepoFile(repoRoot, relPath);
 const proofStore = readRepoFile(repoRoot, proofStoreRelPath);
 const artifact = readRepoFile(repoRoot, artifactRelPath);
+const sourceCodeOnly = source
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("//:"))
+    .join("\n");
 const artifactCodeOnly = artifact
     .split("\n")
     .filter((line) => !line.trimStart().startsWith("//:"))
@@ -30,6 +34,11 @@ assert.match(
     source,
     /^#import "\.\/memo_trait_proof_artifact" as \*$/m,
     "preseed bridge must validate decoded records through the artifact schema boundary",
+);
+assert.match(
+    source,
+    /^#import "\.\/memo_trait_proof_decoded" as \*$/m,
+    "preseed bridge must consume validated decoded artifact owners before building batch input records",
 );
 assert.match(
     source,
@@ -68,6 +77,21 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostMemoTraitNeplProofDecodedBatchRecordError:[\s\S]*record_ordinal %i32[\s\S]*kind %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind/,
+    "decoded batch builder record errors must keep the artifact record ordinal and typed decoded-artifact error",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitNeplProofDecodedBatchStdError:[\s\S]*record_ordinal %i32[\s\S]*kind %StdErrorKind/,
+    "decoded batch builder standard errors must keep the failing record ordinal",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind:[\s\S]*ArtifactInvalid %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind[\s\S]*MaterializedKeyCountMismatch[\s\S]*MaterializedKeyMissing %i32[\s\S]*RecordInvalid %SelfhostMemoTraitNeplProofDecodedBatchRecordError[\s\S]*BatchRecordAllocInvalid %StdErrorKind[\s\S]*BatchRecordPushInvalid %SelfhostMemoTraitNeplProofDecodedBatchStdError/,
+    "decoded batch builder errors must separate artifact invalidity, key-id coverage, record access, and vector allocation/push failures",
+);
+assert.match(
+    source,
     /pub enum SelfhostMemoTraitNeplProofPreseedBatchErrorKind:[\s\S]*RecordMissing[\s\S]*RecordAppendInvalid %SelfhostMemoTraitNeplProofPreseedAppendErrorKind/,
     "batch preseed errors must distinguish missing vector entries from nested single-record append failures",
 );
@@ -95,6 +119,11 @@ assert.match(
     source,
     /pub fn selfhost_memo_trait_neplproof_preseed_batch_error_eq[\s\S]*eq a\.record_ordinal b\.record_ordinal[\s\S]*selfhost_memo_trait_neplproof_preseed_batch_error_kind_eq a\.kind b\.kind/,
     "preseed batch error equality must require both the failing ordinal and typed error kind to match",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq[\s\S]*ArtifactInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq a_error b_error[\s\S]*MaterializedKeyMissing a_ordinal[\s\S]*eq a_ordinal b_ordinal[\s\S]*RecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_record_error_eq a_error b_error[\s\S]*BatchRecordPushInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_std_error_eq a_error b_error/,
+    "decoded batch builder error equality must compare nested artifact, ordinal, and standard-error payloads",
 );
 assert.match(
     source,
@@ -158,6 +187,21 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result %impure fn &SelfhostMemoTraitNeplProofDecodedArtifact impure fn &SelfhostCanonicalTypeKeyArena impure fn &Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind/,
+    "preseed bridge must expose a decoded artifact plus materialized key arena to batch-record projector before the public batch append API",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact[\s\S]*let header %SelfhostMemoTraitNeplProofHeader \*field::get_ref artifact "header"[\s\S]*ne v::len materialized_key_ids header\.record_count[\s\S]*MaterializedKeyCountMismatch[\s\S]*let out_result %Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord StdErrorKind v::new[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop artifact materialized_key_arena materialized_key_ids expected_policy out 0 header\.record_count[\s\S]*ArtifactInvalid artifact_error/,
+    "decoded artifact projector must validate artifact invariants, check materialized-key count, type its output vector, pass the materialized arena into the loop, and fail closed on invalid artifacts",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop[\s\S]*v::get materialized_key_ids record_ordinal[\s\S]*selfhost_canonical_type_key_arena_get_node materialized_key_arena materialized_key_id[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_record_at_result artifact record_ordinal[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_record_new materialized_key_id expected_policy record[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_records_push out batch_record record_ordinal[\s\S]*v::free out[\s\S]*RecordInvalid build_error[\s\S]*v::free out[\s\S]*MaterializedKeyMissing record_ordinal/,
+    "decoded artifact projector loop must pair records and materialized key ids by ordinal, verify each id exists in the materialized arena, and close partial output on record/key failures",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_neplproof_decoded_record_batch_append_loop[\s\S]*let n %i32 v::len records[\s\S]*match v::get records idx:[\s\S]*selfhost_memo_trait_neplproof_decoded_record_batch_append_one store nominal_table materialized_key_arena batch_record idx[\s\S]*selfhost_memo_trait_neplproof_decoded_record_batch_append_loop next_store nominal_table materialized_key_arena records add idx 1[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*RecordMissing/,
     "batch append loop must process records in order, report the failing ordinal, and close the store if the vector read fails",
 );
@@ -198,6 +242,11 @@ assert.match(
 );
 assert.match(
     source,
+    /SelfhostMemoTraitNeplProofPreseedStage0Summary:[\s\S]*batch_from_artifact %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_from_artifact_count_mismatch %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind/,
+    "preseed stage0 summary must include decoded artifact projector success and key-count mismatch smoke cases",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_neplproof_preseed_stage0_payload_bytes[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store/,
     "preseed stage0 must build canonical payload bytes, classify an empty-store decoded record, and append it through the public decoded append API",
 );
@@ -210,6 +259,16 @@ assert.match(
     source,
     /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_empty &nominal_table &materialized_key_arena[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_same_record_skip &nominal_table &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_conflict &nominal_table &materialized_key_arena materialized_key_id policy valid_record conflict_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_invalid_record &nominal_table &materialized_key_arena materialized_key_id policy valid_record invalid_record/,
     "preseed stage0 must exercise the public batch API before returning its summary",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_from_artifact &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch &materialized_key_arena policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record batch_from_artifact batch_from_artifact_count_mismatch/,
+    "preseed stage0 must exercise decoded artifact projection before returning its summary",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch[\s\S]*let key_ids_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_from_record valid_record materialized_key_arena key_ids policy/,
+    "preseed stage0 must explicitly cover a decoded-artifact/key-id count mismatch",
 );
 assert.match(
     source,
@@ -255,6 +314,11 @@ assert.doesNotMatch(
     artifactCodeOnly,
     /SelfhostCanonicalTypeKeyId|SelfhostTypeId|SelfhostNamedTypeId|SelfhostMemoTraitProofStoreStableIdentity|SelfhostMemoTraitProofStoreRecord|SelfhostMemoTraitProofStoreStableIndexEntry/,
     "artifact schema code must continue to exclude store-local ids, type ids, store records, and store-local stable identities",
+);
+assert.doesNotMatch(
+    sourceCodeOnly,
+    /neplproof.*(?:reader|serializer)|(?:reader|serializer).*neplproof|read_bytes|write_bytes/,
+    "preseed bridge must not grow a binary reader or serializer in the decoded batch projector slice",
 );
 assert.doesNotMatch(
     source,

@@ -56725,6 +56725,50 @@ MERGE_APPROVED
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
 - `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未完了である。
 
+## 2026-06-12 Agent selfhost decoded neplproof batch projector checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-decoded-batch-builder-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に確認済み。静的検査、typed enum error、Result API、pure core / boundary 分離、探索範囲の明示、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_proof_preseed.nepl` に decoded artifact owner と materialized key id vector から `SelfhostMemoTraitNeplProofDecodedBatchRecord` vector を作る projector boundary を追加した。
+- `SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind` を追加し、artifact invalid、materialized key count mismatch、key id missing、record access failure、output vector allocation / push failure を typed enum として分けた。
+- public builder `selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result` は artifact invariant を再検査し、header record count と materialized key id vector length を照合してから、各 key id が caller-owned materialized key arena に実在することを確認し、ordinal ごとに record / key id を copy-out する。
+- projector は proof acceptance ではない。canonical payload hash、canonical fingerprint、policy、store relation、producer gate は後段の decoded batch append / proof store preseed が再検査する。
+- stage0 smoke に `batch_from_artifact` と `batch_from_artifact_count_mismatch` を追加し、正常な one-record projection と `MaterializedKeyCountMismatch` を実行で固定した。
+- `nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` を更新し、decoded module import、typed builder error、artifact validation、key-id count check、ordinal pairing、partial output cleanup、reader / serializer 未導入を source policy として固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新し、decoded artifact projector を完了済み境界として記録した。
+
+### subagent_review
+
+- Bacon に、decoded artifact + materialized key id vector から batch record vector へ投影する設計についてレビューを依頼した。
+- レビュー観点は、artifact validation、key id count mismatch、materialized key arena 内の id 実在確認、ordinal pairing、partial output cleanup、source text / span / path / diagnostic authority 禁止、reader / serializer をこの slice に入れない責務境界である。
+- Bacon review の Blocker として、key id vector の件数一致だけでは materialized arena 内の実在を証明できないため、builder に `&SelfhostCanonicalTypeKeyArena` を渡す必要があると指摘された。実装は public builder / loop / stage0 helper を `artifact, materialized_key_arena, materialized_key_ids, expected_policy` の形へ更新し、各 key id を `selfhost_canonical_type_key_arena_get_node` で確認してから batch record を作るよう修正した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-preseed-batch-builder.json`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- `.neplproof` record reader / serializer は未完了である。
+- persistent stable map / serialized index は未完了である。
+- generic instantiation 用 stable type argument identity は未完了である。
+- re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
+
 ## 2026-06-12 Agent selfhost public surface registry single-pass checkpoint
 
 ### scope

@@ -15,16 +15,17 @@
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では `.neplproof` artifact 全体の reader / serializer はまだこの module にありません。canonical payload bytes の codec は `memo_trait_canonical_key_payload_codec.nepl` に分離し、この module は codec の decoded owner を proof store 境界へ渡します。
-//: - batch preseed は、reader が materialized canonical key arena と typed record を作った後の copyable batch record だけを扱います。per-record bytes table、binary reader、serializer、persistent stable map は後続 slice の責務です。
+//: - batch preseed は、reader が materialized canonical key arena と typed record を作った後の copyable batch record だけを扱います。decoded artifact と materialized key id vector から batch record vector を作る projector はこの module に置きますが、per-record bytes table、binary reader、serializer、persistent stable map は後続 slice の責務です。
 //: - empty store に対する `AcceptMissing`、seed 済み store に対する `ExistingMatching` / `RejectedConflict`、hash / fingerprint / policy / invalid record の fail-closed 分類と、batch の empty / skip / conflict / invalid-record ordinal を stage0 で確認します。
 //:
 //: [計算量/けいさんりょう]:
 //: - artifact record validation と fingerprint / policy 照合は O(1) です。payload hash 再計算は materialized canonical key tree size k に対して O(k) です。
+//: - decoded artifact から batch record vector を作る projector は record 数 m に対して O(m) です。artifact invariant の検査と materialized key id vector の長さ検査を先に行い、record ordinal ごとの copy-out と push だけを行います。
 //: - store relation 判定は proof store の record 数 n と canonical key tree size k に対して O(n * k) です。batch record 数を m とすると、batch preseed は各 record の materialized key validation と store relation 判定を順に行うため O(m * n * k + materialization) です。後続の index 化でも、この module は照合順序と typed error 境界を保ちます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -37,6 +38,8 @@
 //: ##: [9] ok
 //: ##: [10] ok
 //: ##: [11] ok
+//: ##: [12] ok
+//: ##: [13] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -64,7 +67,9 @@
 //:             let expected_invalid_preseed %SelfhostMemoTraitNeplProofPreseedErrorKind SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
 //:             let expected_invalid_append %SelfhostMemoTraitNeplProofPreseedAppendErrorKind SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid expected_invalid_preseed
 //:             let checks12 checks_push checks11 check selfhost_memo_trait_neplproof_preseed_batch_error_is_append (unwrap_err summary.batch_invalid_record) 1 expected_invalid_append
-//:             let shown checks_print_report checks12
+//:             let checks13 checks_push checks12 check selfhost_memo_trait_neplproof_decoded_batch_build_result_is_ok summary.batch_from_artifact
+//:             let checks14 checks_push checks13 check selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq (unwrap_err summary.batch_from_artifact_count_mismatch) SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch
+//:             let shown checks_print_report checks14
 //:             checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "memo trait neplproof preseed stage0 setup failed"
@@ -87,6 +92,7 @@
 #import "./memo_trait_canonical_key_payload_codec" as *
 #import "./memo_trait_policy" as *
 #import "./memo_trait_proof_artifact" as *
+#import "./memo_trait_proof_decoded" as *
 #import "./memo_trait_proof_store" as *
 #import "./memo_trait_source" as *
 
@@ -144,6 +150,46 @@ pub enum SelfhostMemoTraitNeplProofPreseedBatchErrorKind:
     RecordMissing
     RecordAppendInvalid %SelfhostMemoTraitNeplProofPreseedAppendErrorKind
 
+//: SelfhostMemoTraitNeplProofDecodedBatchRecordError: decoded artifact record 由来の ordinal 付き error
+//:
+//: [目的/もくてき]:
+//: - decoded artifact から batch record を作る途中で、どの artifact record の copy-out / validation が失敗したかを typed payload として保持します。
+//:
+//: [契約/けいやく]:
+//: - `record_ordinal` は decoded artifact の record ordinal です。
+//: - `kind` は decoded artifact accessor が返した nested error であり、表示文字列へ潰しません。
+pub struct SelfhostMemoTraitNeplProofDecodedBatchRecordError:
+    record_ordinal %i32
+    kind %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+
+//: SelfhostMemoTraitNeplProofDecodedBatchStdError: decoded batch builder の ordinal 付き標準 error
+//:
+//: [目的/もくてき]:
+//: - materialized key id vector や builder output vector の defensive failure を、どの record ordinal で起きたかと一緒に返します。
+pub struct SelfhostMemoTraitNeplProofDecodedBatchStdError:
+    record_ordinal %i32
+    kind %StdErrorKind
+
+//: SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind: decoded artifact から batch input を作る拒否理由
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が decoded artifact と materialized canonical key id table を作った後、preseed batch input へ投影する段階の失敗を typed enum として返します。
+//:
+//: [契約/けいやく]:
+//: - `ArtifactInvalid` は decoded artifact owner の invariant が壊れていることを表します。
+//: - `MaterializedKeyCountMismatch` は decoded artifact の record count と materialized key id vector の長さが一致しないことを表します。
+//: - `MaterializedKeyMissing` は長さ検査後に対象 ordinal の key id を copy-out できない defensive error です。
+//: - `RecordInvalid` は decoded artifact record accessor が返した nested error と ordinal を保持します。
+//: - `BatchRecordAllocInvalid` と `BatchRecordPushInvalid` は output vector の allocation / push failure を保持します。
+//: - この error は proof acceptance ではありません。batch append は改めて fingerprint、payload hash、policy、store relation を検査します。
+pub enum SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind:
+    ArtifactInvalid %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    MaterializedKeyCountMismatch
+    MaterializedKeyMissing %i32
+    RecordInvalid %SelfhostMemoTraitNeplProofDecodedBatchRecordError
+    BatchRecordAllocInvalid %StdErrorKind
+    BatchRecordPushInvalid %SelfhostMemoTraitNeplProofDecodedBatchStdError
+
 //: SelfhostMemoTraitNeplProofPreseedBatchError: batch preseed の ordinal 付き error
 //:
 //: [目的/もくてき]:
@@ -170,6 +216,8 @@ pub struct SelfhostMemoTraitNeplProofPreseedStage0Summary:
     batch_existing_matching %Result unit SelfhostMemoTraitNeplProofPreseedBatchError
     batch_rejected_conflict %Result unit SelfhostMemoTraitNeplProofPreseedBatchError
     batch_invalid_record %Result unit SelfhostMemoTraitNeplProofPreseedBatchError
+    batch_from_artifact %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind
+    batch_from_artifact_count_mismatch %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind
 
 impl Clone for SelfhostMemoTraitNeplProofPreseedErrorKind:
     fn clone %fn &SelfhostMemoTraitNeplProofPreseedErrorKind SelfhostMemoTraitNeplProofPreseedErrorKind \self:
@@ -193,6 +241,30 @@ impl Clone for SelfhostMemoTraitNeplProofDecodedBatchRecord:
 
 impl Copy for SelfhostMemoTraitNeplProofDecodedBatchRecord:
     fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofDecodedBatchRecordError:
+    fn clone %fn &SelfhostMemoTraitNeplProofDecodedBatchRecordError SelfhostMemoTraitNeplProofDecodedBatchRecordError \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofDecodedBatchRecordError:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedBatchRecordError SelfhostMemoTraitNeplProofDecodedBatchRecordError \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofDecodedBatchStdError:
+    fn clone %fn &SelfhostMemoTraitNeplProofDecodedBatchStdError SelfhostMemoTraitNeplProofDecodedBatchStdError \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofDecodedBatchStdError:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedBatchStdError SelfhostMemoTraitNeplProofDecodedBatchStdError \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind \self:
         self
 
 impl Clone for SelfhostMemoTraitNeplProofPreseedBatchErrorKind:
@@ -375,6 +447,245 @@ pub fn selfhost_memo_trait_neplproof_preseed_append_error_kind_eq %fn SelfhostMe
 //: - stage0 や reader が、匿名 tuple ではなく名前付き field の payload として materialized key と proof record を渡せるようにします。
 pub fn selfhost_memo_trait_neplproof_decoded_batch_record_new %fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedBatchRecord \materialized_key_id\expected_policy\record:
     SelfhostMemoTraitNeplProofDecodedBatchRecord materialized_key_id expected_policy record
+
+//: selfhost_memo_trait_neplproof_decoded_batch_record_error_new: artifact record ordinal 付き error を[作/つく]る
+fn selfhost_memo_trait_neplproof_decoded_batch_record_error_new %fn i32 fn SelfhostMemoTraitNeplProofDecodedArtifactErrorKind SelfhostMemoTraitNeplProofDecodedBatchRecordError \record_ordinal\kind:
+    SelfhostMemoTraitNeplProofDecodedBatchRecordError record_ordinal kind
+
+//: selfhost_memo_trait_neplproof_decoded_batch_std_error_new: builder の ordinal 付き StdErrorKind を[作/つく]る
+fn selfhost_memo_trait_neplproof_decoded_batch_std_error_new %fn i32 fn StdErrorKind SelfhostMemoTraitNeplProofDecodedBatchStdError \record_ordinal\kind:
+    SelfhostMemoTraitNeplProofDecodedBatchStdError record_ordinal kind
+
+//: selfhost_memo_trait_neplproof_preseed_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `StdErrorKind` は payload を持たない enum なので、網羅 match で作った code を equality にだけ使います。
+//: - wildcard arm は使いません。variant が追加された場合はこの match の更新漏れが検出されます。
+fn selfhost_memo_trait_neplproof_preseed_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_neplproof_preseed_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_neplproof_preseed_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_neplproof_preseed_std_error_kind_code a selfhost_memo_trait_neplproof_preseed_std_error_kind_code b
+
+//: selfhost_memo_trait_neplproof_decoded_batch_record_error_eq: ordinal 付き artifact error が同じか[返/かえ]す
+fn selfhost_memo_trait_neplproof_decoded_batch_record_error_eq %fn SelfhostMemoTraitNeplProofDecodedBatchRecordError fn SelfhostMemoTraitNeplProofDecodedBatchRecordError bool \a\b:
+    and:
+        eq a.record_ordinal b.record_ordinal
+        selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq a.kind b.kind
+
+//: selfhost_memo_trait_neplproof_decoded_batch_std_error_eq: ordinal 付き StdErrorKind が同じか[返/かえ]す
+fn selfhost_memo_trait_neplproof_decoded_batch_std_error_eq %fn SelfhostMemoTraitNeplProofDecodedBatchStdError fn SelfhostMemoTraitNeplProofDecodedBatchStdError bool \a\b:
+    and:
+        eq a.record_ordinal b.record_ordinal
+        selfhost_memo_trait_neplproof_preseed_std_error_kind_eq a.kind b.kind
+
+//: selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq: decoded batch build error が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested artifact error、ordinal 付き record error、ordinal 付き StdErrorKind payload はそれぞれ payload まで比較します。
+//: - wildcard arm は使いません。variant 追加時に比較漏れが見える形にします。
+pub fn selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq %fn SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind fn SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid a_error:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid b_error:
+                    selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq a_error b_error
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing _b_ordinal:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid _b_error:
+                    false
+        SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch:
+                    true
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing _b_ordinal:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid _b_error:
+                    false
+        SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing a_ordinal:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing b_ordinal:
+                    eq a_ordinal b_ordinal
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid _b_error:
+                    false
+        SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid a_error:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing _b_ordinal:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid b_error:
+                    selfhost_memo_trait_neplproof_decoded_batch_record_error_eq a_error b_error
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid _b_error:
+                    false
+        SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid a_error:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing _b_ordinal:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid b_error:
+                    selfhost_memo_trait_neplproof_preseed_std_error_kind_eq a_error b_error
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid _b_error:
+                    false
+        SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid a_error:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing _b_ordinal:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid _b_error:
+                    false
+                SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid b_error:
+                    selfhost_memo_trait_neplproof_decoded_batch_std_error_eq a_error b_error
+
+//: selfhost_memo_trait_neplproof_decoded_batch_build_result_is_ok: decoded artifact からの batch build が成功したか[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_decoded_batch_build_result_is_ok %fn Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind bool \result:
+    match result:
+        Result::Ok _unit:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_decoded_batch_records_push: builder output へ batch record を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - push に失敗した場合、`Vec` owner は `v::vec_push_error_vec` から取り出してこの helper が閉じます。
+fn selfhost_memo_trait_neplproof_decoded_batch_records_push %impure fn Vec SelfhostMemoTraitNeplProofDecodedBatchRecord impure fn SelfhostMemoTraitNeplProofDecodedBatchRecord impure fn i32 Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind \records\record\record_ordinal:
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            let build_error %SelfhostMemoTraitNeplProofDecodedBatchStdError selfhost_memo_trait_neplproof_decoded_batch_std_error_new record_ordinal error
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordPushInvalid build_error
+
+//: selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop: decoded artifact から batch record を順に[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `record_ordinal` は artifact record と materialized key id vector の同じ index を対応させます。
+//: - `materialized_key_id` は vector に存在するだけでは不十分です。caller-owned materialized key arena でも読めることを確認してから batch record に入れます。
+//: - builder は batch append を実行しません。proof acceptance は後続の `selfhost_memo_trait_neplproof_decoded_record_batch_append` が再検査します。
+//: - 個別 record / key id の取得に失敗した場合、構築中の output vector を閉じます。
+fn selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop %impure fn &SelfhostMemoTraitNeplProofDecodedArtifact impure fn &SelfhostCanonicalTypeKeyArena impure fn &Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy impure fn Vec SelfhostMemoTraitNeplProofDecodedBatchRecord impure fn i32 impure fn i32 Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind \artifact\materialized_key_arena\materialized_key_ids\expected_policy\out\record_ordinal\record_count:
+    if:
+        ge record_ordinal record_count
+        then:
+            Result::Ok out
+        else:
+            match v::get materialized_key_ids record_ordinal:
+                Option::Some materialized_key_id:
+                    match selfhost_canonical_type_key_arena_get_node materialized_key_arena materialized_key_id:
+                        Option::Some _node:
+                            match selfhost_memo_trait_neplproof_decoded_artifact_record_at_result artifact record_ordinal:
+                                Result::Ok record:
+                                    let batch_record %SelfhostMemoTraitNeplProofDecodedBatchRecord selfhost_memo_trait_neplproof_decoded_batch_record_new materialized_key_id expected_policy record
+                                    match selfhost_memo_trait_neplproof_decoded_batch_records_push out batch_record record_ordinal:
+                                        Result::Ok next_out:
+                                            selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop artifact materialized_key_arena materialized_key_ids expected_policy next_out add record_ordinal 1 record_count
+                                        Result::Err push_error:
+                                            Result::Err push_error
+                                Result::Err artifact_error:
+                                    let build_error %SelfhostMemoTraitNeplProofDecodedBatchRecordError selfhost_memo_trait_neplproof_decoded_batch_record_error_new record_ordinal artifact_error
+                                    v::free out
+                                    Result::Err SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::RecordInvalid build_error
+                        Option::None:
+                            v::free out
+                            Result::Err SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing record_ordinal
+                Option::None:
+                    v::free out
+                    Result::Err SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyMissing record_ordinal
+
+//: selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result: decoded artifact と materialized key id 列から batch input を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が record bytes と canonical payload bytes を別々に decode した後、decoded artifact record ordinal と materialized canonical key id を 1 対 1 に対応付けます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(records)`: caller は返された `Vec SelfhostMemoTraitNeplProofDecodedBatchRecord` owner を batch append 後に閉じます。
+//: - `Err(kind)`: decoded artifact invariant、materialized key id coverage、record copy-out、output vector allocation / push のいずれかで fail-closed になりました。作成途中の output vector はこの関数内で閉じています。
+//:
+//: [契約/けいやく]:
+//: - `materialized_key_ids[i]` は `artifact.records[i]` の canonical payload bytes から materialized された key id でなければいけません。
+//: - `materialized_key_ids[i]` は caller-owned `materialized_key_arena` で実在する slot でなければいけません。存在しない id は `MaterializedKeyMissing(i)` として拒否します。
+//: - この関数は source text、span、path、diagnostic、lexeme、index hit を authority にしません。
+//: - `expected_policy` は現在の compiler policy から来る値です。record key 内の policy と一致するかは batch append 側が再検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 数 m に対して、artifact validate と長さ確認の後、record / key id を 1 回ずつ copy-out するため O(m) です。
+pub fn selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result %impure fn &SelfhostMemoTraitNeplProofDecodedArtifact impure fn &SelfhostCanonicalTypeKeyArena impure fn &Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind \artifact\materialized_key_arena\materialized_key_ids\expected_policy:
+    match selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact:
+        Result::Ok _unit:
+            let header %SelfhostMemoTraitNeplProofHeader *field::get_ref artifact "header"
+            if:
+                ne v::len materialized_key_ids header.record_count
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::MaterializedKeyCountMismatch
+                else:
+                    let out_result %Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord StdErrorKind v::new
+                    match out_result:
+                        Result::Ok out:
+                            selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop artifact materialized_key_arena materialized_key_ids expected_policy out 0 header.record_count
+                        Result::Err error:
+                            Result::Err SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::BatchRecordAllocInvalid error
+        Result::Err artifact_error:
+            Result::Err SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid artifact_error
 
 //: selfhost_memo_trait_neplproof_preseed_batch_error_new: ordinal 付き batch error を[作/つく]る
 fn selfhost_memo_trait_neplproof_preseed_batch_error_new %fn i32 fn SelfhostMemoTraitNeplProofPreseedBatchErrorKind SelfhostMemoTraitNeplProofPreseedBatchError \record_ordinal\kind:
@@ -672,8 +983,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_record_batch_append %impure fn Self
     selfhost_memo_trait_neplproof_decoded_record_batch_append_loop store nominal_table materialized_key_arena records 0
 
 //: selfhost_memo_trait_neplproof_preseed_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_neplproof_preseed_stage0_summary_new %fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError SelfhostMemoTraitNeplProofPreseedStage0Summary \accept_missing\existing_matching\rejected_conflict\missing_key\hash_mismatch\fingerprint_mismatch\policy_mismatch\invalid_record\batch_empty\batch_existing_matching\batch_rejected_conflict\batch_invalid_record:
-    SelfhostMemoTraitNeplProofPreseedStage0Summary accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_record batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record
+fn selfhost_memo_trait_neplproof_preseed_stage0_summary_new %fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError fn Result unit SelfhostMemoTraitNeplProofPreseedBatchError fn Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind fn Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind SelfhostMemoTraitNeplProofPreseedStage0Summary \accept_missing\existing_matching\rejected_conflict\missing_key\hash_mismatch\fingerprint_mismatch\policy_mismatch\invalid_record\batch_empty\batch_existing_matching\batch_rejected_conflict\batch_invalid_record\batch_from_artifact\batch_from_artifact_count_mismatch:
+    SelfhostMemoTraitNeplProofPreseedStage0Summary accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_record batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record batch_from_artifact batch_from_artifact_count_mismatch
 
 //: selfhost_memo_trait_neplproof_preseed_stage0_finish: owner を[閉/と]じて summary を[返/かえ]す
 fn selfhost_memo_trait_neplproof_preseed_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitNeplProofPreseedStage0Summary Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\store\summary:
@@ -947,6 +1258,123 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_batch_invalid_record %impure fn 
     let second %SelfhostMemoTraitNeplProofDecodedBatchRecord selfhost_memo_trait_neplproof_decoded_batch_record_new materialized_key_id policy invalid_record
     selfhost_memo_trait_neplproof_preseed_stage0_batch_two_records nominal_table materialized_key_arena first second
 
+//: selfhost_memo_trait_neplproof_preseed_stage0_artifact_record_push: stage0 artifact record vector へ record を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - decoded artifact builder smoke が、reader 由来の record vector owner を再現できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitNeplProofRecord` は Copy payload なので、push failure では rejected item を別途閉じる必要はありません。
+//: - push failure では `Vec` owner を `v::vec_push_error_vec` から取り出してこの helper が閉じます。
+fn selfhost_memo_trait_neplproof_preseed_stage0_artifact_record_push %impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \records\record:
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_artifact_records_one: decoded artifact smoke 用に 1 record vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_preseed_stage0_artifact_records_one %impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \record:
+    let records_result %Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            selfhost_memo_trait_neplproof_preseed_stage0_artifact_record_push records record
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_key_id_push: stage0 materialized key id vector へ key id を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - key id は caller-owned materialized key arena の slot id です。この helper は arena owner を閉じません。
+//: - push failure では key id vector owner だけを閉じます。
+fn selfhost_memo_trait_neplproof_preseed_stage0_key_id_push %impure fn Vec SelfhostCanonicalTypeKeyId impure fn SelfhostCanonicalTypeKeyId Result Vec SelfhostCanonicalTypeKeyId StdErrorKind \key_ids\key_id:
+    match v::push key_ids key_id:
+        Result::Ok next_key_ids:
+            Result::Ok next_key_ids
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_key_ids_one: decoded artifact record と対応する key id vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_preseed_stage0_key_ids_one %impure fn SelfhostCanonicalTypeKeyId Result Vec SelfhostCanonicalTypeKeyId StdErrorKind \key_id:
+    let key_ids_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+    match key_ids_result:
+        Result::Ok key_ids:
+            selfhost_memo_trait_neplproof_preseed_stage0_key_id_push key_ids key_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_unit_result: builder output owner を stage0 の unit result へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - 成功時は decoded batch builder が返した output vector owner をここで閉じます。
+//: - 失敗時は builder 側で途中 output vector が閉じられているため、この helper は error payload だけを返します。
+fn selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_unit_result %impure fn Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind \build_result:
+    match build_result:
+        Result::Ok records:
+            v::free records
+            Result::Ok unit
+        Result::Err error:
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_with_key_ids: artifact owner と key id vector owner を builder に[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - `artifact` と `key_ids` はこの helper が必ず閉じます。
+//: - builder は borrow だけを受け取るため、build result を unit 化した後に owner を閉じます。
+fn selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_with_key_ids %impure fn SelfhostMemoTraitNeplProofDecodedArtifact impure fn &SelfhostCanonicalTypeKeyArena impure fn Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy Result Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind StdErrorKind \artifact\materialized_key_arena\key_ids\policy:
+    let build_result %Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result &artifact materialized_key_arena &key_ids policy
+    let unit_result %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_unit_result build_result
+    v::free key_ids
+    selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+    Result::Ok unit_result
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_from_record: record と key id vector から decoded artifact builder を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - `key_ids` owner は artifact constructor の成否にかかわらずこの helper が閉じる、または `build_with_key_ids` へ移します。
+//: - artifact constructor が拒否した場合は decoded artifact error を `ArtifactInvalid` として stage0 result に残します。
+fn selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_from_record %impure fn SelfhostMemoTraitNeplProofRecord impure fn &SelfhostCanonicalTypeKeyArena impure fn Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy Result Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind StdErrorKind \record\materialized_key_arena\key_ids\policy:
+    match selfhost_memo_trait_neplproof_preseed_stage0_artifact_records_one record:
+        Result::Ok records:
+            match selfhost_memo_trait_neplproof_decoded_artifact_from_records records:
+                Result::Ok artifact:
+                    selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_with_key_ids artifact materialized_key_arena key_ids policy
+                Result::Err artifact_error:
+                    let build_error %SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind::ArtifactInvalid artifact_error
+                    let build_result %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind Result::Err build_error
+                    v::free key_ids
+                    Result::Ok build_result
+        Result::Err e:
+            v::free key_ids
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_from_artifact: decoded artifact から batch input を[作/つく]る正常系を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - reader が record と materialized key id を同数作った場合、builder が `SelfhostMemoTraitNeplProofDecodedBatchRecord` vector を作れることを確認します。
+fn selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_from_artifact %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitNeplProofRecord Result Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind StdErrorKind \materialized_key_arena\materialized_key_id\policy\valid_record:
+    match selfhost_memo_trait_neplproof_preseed_stage0_key_ids_one materialized_key_id:
+        Result::Ok key_ids:
+            selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_from_record valid_record materialized_key_arena key_ids policy
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch: decoded artifact と key id vector の件数不一致を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - record は 1 件あるが materialized key id vector は空、という reader 側の対応付け漏れを builder が fail-closed に分類することを確認します。
+fn selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitNeplProofRecord Result Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind StdErrorKind \materialized_key_arena\policy\valid_record:
+    let key_ids_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+    match key_ids_result:
+        Result::Ok key_ids:
+            selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_build_from_record valid_record materialized_key_arena key_ids policy
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store: decoded append 済み store で skip / conflict を[検査/けんさ]する
 //:
 //: [目的/もくてき]:
@@ -965,18 +1393,26 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store %impure fn 
                                 Result::Ok batch_rejected_conflict:
                                     match selfhost_memo_trait_neplproof_preseed_stage0_batch_invalid_record &nominal_table &materialized_key_arena materialized_key_id policy valid_record invalid_record:
                                         Result::Ok batch_invalid_record:
-                                            match selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes existing_store &nominal_table &canonical_payload_bytes policy conflict_record:
-                                                Result::Err append_error:
-                                                    match append_error:
-                                                        SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict:
-                                                            let rejected_conflict %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind Result::Ok SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
-                                                            let summary %SelfhostMemoTraitNeplProofPreseedStage0Summary selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record
-                                                            v::free canonical_payload_bytes
-                                                            selfhost_memo_trait_neplproof_preseed_stage0_finish_after_closed_store arena materialized_key_arena nominal_table summary
-                                                        _:
-                                                            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_nominal_table arena materialized_key_arena nominal_table canonical_payload_bytes
-                                                Result::Ok unexpected_store:
-                                                    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena unexpected_store nominal_table canonical_payload_bytes
+                                            match selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_from_artifact &materialized_key_arena materialized_key_id policy valid_record:
+                                                Result::Ok batch_from_artifact:
+                                                    match selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch &materialized_key_arena policy valid_record:
+                                                        Result::Ok batch_from_artifact_count_mismatch:
+                                                            match selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes existing_store &nominal_table &canonical_payload_bytes policy conflict_record:
+                                                                Result::Err append_error:
+                                                                    match append_error:
+                                                                        SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict:
+                                                                            let rejected_conflict %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind Result::Ok SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
+                                                                            let summary %SelfhostMemoTraitNeplProofPreseedStage0Summary selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record batch_from_artifact batch_from_artifact_count_mismatch
+                                                                            v::free canonical_payload_bytes
+                                                                            selfhost_memo_trait_neplproof_preseed_stage0_finish_after_closed_store arena materialized_key_arena nominal_table summary
+                                                                        _:
+                                                                            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_nominal_table arena materialized_key_arena nominal_table canonical_payload_bytes
+                                                                Result::Ok unexpected_store:
+                                                                    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena unexpected_store nominal_table canonical_payload_bytes
+                                                        Result::Err _batch_artifact_count_setup:
+                                                            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena existing_store nominal_table canonical_payload_bytes
+                                                Result::Err _batch_artifact_setup:
+                                                    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena existing_store nominal_table canonical_payload_bytes
                                         Result::Err _batch_invalid_setup:
                                             selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena existing_store nominal_table canonical_payload_bytes
                                 Result::Err _batch_conflict_setup:

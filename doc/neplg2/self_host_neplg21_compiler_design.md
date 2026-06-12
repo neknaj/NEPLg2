@@ -1056,6 +1056,20 @@ stage0 smoke は empty batch、同一 record 2 件による `ExistingMatching` s
 
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` decoded artifact batch projector checkpoint
+
+decoded artifact owner と decoded batch append boundary の間に、`SelfhostMemoTraitNeplProofDecodedArtifact` と materialized canonical key id vector から `SelfhostMemoTraitNeplProofDecodedBatchRecord` vector を作る projector boundary を追加した。
+
+この boundary は `.neplproof` reader / serializer 本体ではない。reader が record bytes を typed `SelfhostMemoTraitNeplProofRecord` vector へ decode し、canonical payload bytes を materialized key arena へ投影した後、record ordinal と materialized key id ordinal を 1 対 1 に対応付ける段階である。artifact owner の header / records / indexes invariant は `selfhost_memo_trait_neplproof_decoded_artifact_validate_result` で再検査し、`header.record_count` と materialized key id vector length が一致しなければ `MaterializedKeyCountMismatch` として fail-closed にする。件数が一致しても、各 `SelfhostCanonicalTypeKeyId` が caller-owned `SelfhostCanonicalTypeKeyArena` で読めなければ `MaterializedKeyMissing(record_ordinal)` として拒否する。
+
+projector は `selfhost_memo_trait_neplproof_decoded_artifact_record_at_result` を使って record を copy-out し、同じ ordinal の materialized key id と期待 policy を束ねて batch record を作る。materialized key id の vector 欠落、arena 内欠落、record copy-out 失敗、output vector allocation / push failure は `SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind` の typed variant として返し、部分構築した output vector は boundary 内で閉じる。成功時の output vector owner は caller が batch append 後に閉じる。
+
+この projector は proof acceptance authority ではない。artifact record key、materialized key id、expected policy を batch input へ束ねるだけであり、canonical payload hash、canonical fingerprint、policy、store relation、producer gate は後続の decoded batch append と proof store preseed decision が再検査する。source text、span、path、display name、diagnostic text、lexeme、store-local id、session-local `TypeId` はこの projector の authority にしない。
+
+stage0 smoke は、1 record artifact と 1 key id vector から batch record vector を作る成功経路と、1 record artifact に空 key id vector を渡す件数不一致を確認する。source policy は decoded module import、typed builder error、artifact validation、key id count check、record/key ordinal pairing、partial output cleanup、stage0 smoke、reader / serializer 未導入を固定する。
+
+この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### 2026-06-12 memo trait `.neplproof` decoded index table validation checkpoint
 
 decoded batch preseed の前段として、`.neplproof` reader が header / record vector / sidecar index vector を構築した直後に通す index table validation boundary を `memo_trait_proof_artifact.nepl` に追加した。
