@@ -1,3 +1,52 @@
+# 2026-06-12 Agent selfhost memo trait `.neplproof` candidate range preseed checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、owner cleanup、DAG に沿った責務分割、proof acceptance authority と candidate narrowing の分離、探索範囲削減、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-candidate-range-preseed-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` candidate range preseed boundary
+- classification: selfhost implementation slice review
+- decision: sorted sidecar index lookup が返した `SelfhostMemoTraitNeplProofIndexCandidateRange` を、working proof store へ投入する public boundary を `memo_trait_proof_preseed.nepl` に追加した。candidate range は探索範囲を狭めるだけで、proof acceptance は既存 append boundary に残す。
+- policy/spec:
+  - `selfhost_memo_trait_neplproof_decoded_candidate_range_preseed` は proof store owner を消費し、decoded artifact、materialized key id vector、stable nominal table、materialized canonical key arena、expected policy、target fingerprint、candidate range を受け取る。
+  - 各 candidate は `selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result` を通して batch record へ変換し、`selfhost_memo_trait_neplproof_record_append_materialized_checked` に渡す。
+  - `candidate_offset` は range-local offset であり、materialized key id vector ordinal、artifact record ordinal、sorted index absolute position として扱わない。key id lookup は single-candidate projector の `index_entry.record_ordinal` に閉じる。
+  - `expected_policy` は caller supplied の reuse boundary であり、record key から導出しない。
+  - build failure では range preseed helper が入力 store owner を閉じる。append failure では既存 append boundary が store owner を閉じるため、range preseed helper は二重 close しない。
+  - 既存 `SelfhostMemoTraitNeplProofPreseedStage0Summary` は大きいため、candidate range smoke は summary field に追加せず、専用 helper を既存 stage0 内で実行する。
+- implementation/test:
+  - `SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedErrorKind` と `SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedError` を追加した。
+  - candidate range preseed の public API、loop、one-candidate helper、build / append error mapping、typed equality、result helper を追加した。
+  - stage0 には `selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_smoke` を追加し、成功系と invalid range typed rejection を実行するようにした。
+  - `nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` は public API、append delegation、owner cleanup、candidate offset 誤用禁止、policy 導出禁止、summary block への candidate range field 混入禁止、smoke 実行を固定するように更新した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md` と issue に今回の境界と残件を記録した。
+- subagent review:
+  - subagent_review_ids: `019ebaf1-6a05-74c0-90a2-29f2e3c0080d`
+  - subagent_review_count: 1 implementation review, 1 re-review
+  - Bacon initial review: Blocker なし。Required として、summary 拡張禁止 regex が弱いこと、candidate range smoke helper が未到達であることを指摘した。
+  - Bacon re-review: Blocker / Required なし。summary block 単位の negative source policy、success / invalid range smoke 実行、proof acceptance authority 分離、owner cleanup、candidate offset の扱い、doc comment は妥当と確認した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: candidate range preseed が proof acceptance authority を持つ退行、candidate offset と key ordinal の混同、record policy から expected policy を導出する退行、巨大 stage0 summary の再拡張、line count / doc comment length cap 混入を防ぐため。
+  - 既存 warning: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: なし。focused contract、focused doctest、関連 proof contract、Zenn review gate、source policy regression、issues check、git diff check は今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - `.neplproof` reader / cache hit path が全 record ではなく sorted sidecar index lookup の candidate group だけを store preseed できる境界を作った。
+  - 現段階では candidate accessor が artifact validation を毎回再実行するため、計算量は `O(c * artifact_validation + c * n * k + materialization)` である。後続では shared validated artifact view と persistent stable map / serialized index へ分ける。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-preseed-candidate-range.json`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+- 次 slice: `.neplproof` reader / serializer、persistent stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を継続する。
+
 # 2026-06-12 Agent selfhost public surface token item dispatch checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査が効く enum / Result、match による網羅的分類、DAG を壊さない依存方向、source text / span / lexeme / diagnostic を accepted authority にしない境界、探索範囲削減、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

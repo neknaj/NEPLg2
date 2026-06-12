@@ -1120,6 +1120,20 @@ projection-local missing は既存の単体 accessor error である `RecordEntr
 
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` candidate range preseed checkpoint
+
+sorted sidecar index lookup が返した `SelfhostMemoTraitNeplProofIndexCandidateRange` を、working proof store へ流し込む preseed boundary を追加した。
+
+`selfhost_memo_trait_neplproof_decoded_candidate_range_preseed` は proof store owner を消費し、stable nominal key table、materialized canonical key arena、decoded artifact、materialized key id vector、期待 policy、lookup target fingerprint、candidate range を借用または Copy payload として受け取る。各 candidate は range-local `candidate_offset` で走査し、既存の `selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result` を通して `SelfhostMemoTraitNeplProofDecodedBatchRecord` へ変換する。その後、既存の `selfhost_memo_trait_neplproof_record_append_materialized_checked` へ渡し、canonical payload hash、canonical fingerprint、policy、store relation、proof store append の検査を再実行する。
+
+この boundary は proof acceptance authority ではない。candidate range は探索範囲を `c` 件へ狭めるだけであり、受理は append boundary と proof store / producer gate に残る。`candidate_offset` は range-local offset であり、materialized key id vector の ordinal、artifact record ordinal、sorted index の absolute position として扱わない。key id lookup は既存 single-candidate projector が candidate accessor から得た `index_entry.record_ordinal` だけを使う。`expected_policy` は caller supplied の reuse boundary として保ち、record key から導出しない。
+
+失敗は `SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedError` に閉じ込める。candidate build が失敗した場合は、append がまだ store owner を受け取っていないため、この boundary が入力 store owner を閉じて `BuildInvalid` を返す。append が失敗した場合は、既存 append boundary が store owner を閉じる contract なので、range preseed 側は二重 close せず `AppendInvalid` を返す。どちらの error も failing `candidate_offset` と nested typed error を保持し、bool や diagnostic string へ潰さない。
+
+既存の decoded preseed stage0 summary はすでに多くの結果 payload を持つため、この checkpoint では candidate range preseed の成功 / invalid range smoke を専用 helper として実行し、summary の field には追加しない。これにより、既存 smoke の戻り値契約を膨らませず、候補範囲 preseed が実行経路から外れないことだけを stage0 内で固定する。
+
+この boundary も `.neplproof` reader / serializer ではない。record bytes decode、persistent stable map、serialized index、artifact file I/O、generic type argument stable identity は引き続き後続 slice の責務である。計算量は現時点では candidate 数 `c` に対して、candidate accessor 側の artifact validation を毎回通すため `O(c * artifact_validation + c * n * k + materialization)` である。cache 設計に頼る前に探索範囲を candidate group へ狭める段階だが、artifact validation の再実行は後続で shared validated view へ分離する余地がある。
+
 ### 2026-06-12 memo trait `.neplproof` sorted index producer checkpoint
 
 sorted index lookup contract の次段として、decoded record vector から sorted sidecar index vector を作る producer boundary を同じ `memo_trait_proof_index.nepl` に追加した。

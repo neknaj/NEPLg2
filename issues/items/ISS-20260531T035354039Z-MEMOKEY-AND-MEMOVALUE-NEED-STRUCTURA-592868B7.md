@@ -775,6 +775,34 @@ candidate record の nested payload は `field::get_ref` で `index_entry` と `
 
 この checkpoint 後も、`.neplproof` reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+## 2026-06-12 selfhost memo trait `.neplproof` candidate range preseed checkpoint
+
+`memo_trait_proof_preseed.nepl` に、sorted sidecar index lookup が返した candidate range を working proof store へ投入する public preseed boundary を追加した。
+
+`selfhost_memo_trait_neplproof_decoded_candidate_range_preseed` は proof store owner を消費し、stable nominal key table、materialized canonical key arena、decoded artifact、materialized key id vector、期待 policy、lookup target fingerprint、candidate range を受け取る。各 candidate は range-local `candidate_offset` で走査し、既存の `selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result` で batch record へ変換した後、`selfhost_memo_trait_neplproof_record_append_materialized_checked` へ渡す。
+
+この API は proof acceptance authority ではない。candidate range は探索範囲を狭めるだけであり、canonical payload hash、canonical fingerprint、policy、store relation、proof store append は既存 append boundary が再検査する。`candidate_offset` は error payload の range-local offset であり、materialized key id vector ordinal、artifact record ordinal、sorted index absolute position として使わない。key id lookup は single-candidate projector が candidate accessor から得た `index_entry.record_ordinal` だけで行う。`expected_policy` は caller supplied の reuse boundary として渡し、record key から導出しない。
+
+失敗は `SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedError` と `SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedErrorKind` に閉じた。candidate build failure では append へ進む前なので range preseed helper が入力 store owner を閉じて `BuildInvalid` を返す。append failure では既存 append boundary が store owner を閉じるため、range preseed helper は二重 close せず `AppendInvalid` を返す。どちらも failing candidate offset と nested typed error を保持し、bool や diagnostic string へ潰さない。
+
+既存の `SelfhostMemoTraitNeplProofPreseedStage0Summary` はすでに大きいため、candidate range smoke は summary field として増やさず、`selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_smoke` で成功系と invalid range typed rejection を実行する形にした。source policy は summary block へ candidate range field / error 型が混入しないこと、smoke が既存 stage0 内で実行されること、candidate range public API が append boundary を迂回しないことを固定する。
+
+subagent review では Bacon が初回 Required として、summary 拡張禁止 regex が弱いこと、candidate range smoke helper が未到達なことを指摘した。同じ slice 内で summary block 単位の negative source policy と実行される smoke helper を追加した。再レビューでは Blocker / Required なしで approve され、proof acceptance authority、owner cleanup、candidate offset の扱い、doc comment、summary 非拡張方針に追加修正要求なしと確認された。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-preseed-candidate-range.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample、Node WASI ExperimentalWarning、Git の LF/CRLF working-copy warning が表示されたが、この slice の source policy 退行ではない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後も、`.neplproof` reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

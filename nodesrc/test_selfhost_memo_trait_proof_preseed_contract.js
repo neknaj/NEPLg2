@@ -25,13 +25,29 @@ const artifactCodeOnly = artifact
     .filter((line) => !line.trimStart().startsWith("//:"))
     .join("\n");
 const candidateProjectorMatch = sourceCodeOnly.match(
-    /pub fn selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result[\s\S]*?(?=\nfn selfhost_memo_trait_neplproof_preseed_batch_error_new)/,
+    /pub fn selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result[\s\S]*?(?=\nfn selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_build_error)/,
 );
 assert.ok(
     candidateProjectorMatch,
     "single-candidate projector body must remain inspectable by source policy",
 );
 const candidateProjector = candidateProjectorMatch[0];
+const candidateRangePreseedMatch = sourceCodeOnly.match(
+    /fn selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_build_error[\s\S]*?(?=\nfn selfhost_memo_trait_neplproof_preseed_batch_error_new)/,
+);
+assert.ok(
+    candidateRangePreseedMatch,
+    "candidate range preseed body must remain inspectable by source policy",
+);
+const candidateRangePreseed = candidateRangePreseedMatch[0];
+const stage0SummaryMatch = sourceCodeOnly.match(
+    /pub struct SelfhostMemoTraitNeplProofPreseedStage0Summary:[\s\S]*?(?=\nimpl Clone for SelfhostMemoTraitNeplProofPreseedErrorKind:)/,
+);
+assert.ok(
+    stage0SummaryMatch,
+    "decoded preseed stage0 summary struct must remain inspectable by source policy",
+);
+const stage0Summary = stage0SummaryMatch[0];
 
 assert.match(
     facade,
@@ -115,6 +131,16 @@ assert.match(
 );
 assert.match(
     source,
+    /pub enum SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedErrorKind:[\s\S]*BuildInvalid %SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*AppendInvalid %SelfhostMemoTraitNeplProofPreseedAppendErrorKind/,
+    "candidate range preseed errors must keep typed nested build and append failures",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedError:[\s\S]*candidate_offset %i32[\s\S]*kind %SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedErrorKind/,
+    "candidate range preseed errors must carry the range-local candidate offset and typed failure kind",
+);
+assert.match(
+    source,
     /pub fn selfhost_memo_trait_neplproof_preseed_error_kind_eq[\s\S]*ArtifactRecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadDecodeInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadMaterializationInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error[\s\S]*MaterializedFingerprintInvalid a_error[\s\S]*selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadHashMismatch/,
     "preseed error equality must compare nested artifact, decode, payload materialization, and fingerprint error payloads",
 );
@@ -137,6 +163,11 @@ assert.match(
     source,
     /pub fn selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq[\s\S]*ArtifactInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq a_error b_error[\s\S]*MaterializedKeyMissing a_ordinal[\s\S]*eq a_ordinal b_ordinal[\s\S]*RecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_record_error_eq a_error b_error[\s\S]*CandidateInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_candidate_error_eq a_error b_error[\s\S]*BatchRecordPushInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_std_error_eq a_error b_error/,
     "decoded batch builder error equality must compare nested artifact, ordinal, candidate, and standard-error payloads",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_error_kind_eq[\s\S]*BuildInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq a_error b_error[\s\S]*AppendInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_preseed_append_error_kind_eq a_error b_error/,
+    "candidate range preseed error equality must compare nested build and append payloads",
 );
 assert.match(
     source,
@@ -210,6 +241,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_memo_trait_neplproof_decoded_candidate_range_preseed %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &SelfhostCanonicalTypeKeyArena impure fn &SelfhostMemoTraitNeplProofDecodedArtifact impure fn &Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn SelfhostMemoTraitNeplProofIndexCandidateRange Result SelfhostMemoTraitProofStore SelfhostMemoTraitNeplProofDecodedCandidateRangePreseedError/,
+    "preseed bridge must expose a candidate range API that consumes and returns the proof store owner while borrowing decoded artifact and materialized key inputs",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact[\s\S]*let header %SelfhostMemoTraitNeplProofHeader \*field::get_ref artifact "header"[\s\S]*ne v::len materialized_key_ids header\.record_count[\s\S]*MaterializedKeyCountMismatch[\s\S]*let out_result %Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord StdErrorKind v::new[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop artifact materialized_key_arena materialized_key_ids expected_policy out 0 header\.record_count[\s\S]*ArtifactInvalid artifact_error/,
     "decoded artifact projector must validate artifact invariants, check materialized-key count, type its output vector, pass the materialized arena into the loop, and fail closed on invalid artifacts",
 );
@@ -234,9 +270,44 @@ assert.doesNotMatch(
     "single-candidate projector must not perform proof-store preseed decisions or append work",
 );
 assert.match(
+    candidateRangePreseed,
+    /selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result artifact materialized_key_arena materialized_key_ids expected_policy target candidate_range candidate_offset[\s\S]*selfhost_memo_trait_neplproof_record_append_materialized_checked store nominal_table materialized_key_arena batch_record\.materialized_key_id batch_record\.expected_policy batch_record\.record/,
+    "candidate range preseed must build each candidate through the single-candidate projector and delegate acceptance to the existing materialized append boundary",
+);
+assert.match(
+    candidateRangePreseed,
+    /selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_build_error[\s\S]*BuildInvalid build_error[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_append_error[\s\S]*AppendInvalid append_error/,
+    "candidate range preseed error constructors must preserve typed build and append error payloads",
+);
+assert.match(
+    candidateRangePreseed,
+    /Result::Err append_error:[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_append_error candidate_offset append_error[\s\S]*Result::Err build_error:[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_build_error candidate_offset build_error/,
+    "candidate range preseed must close the store on build failure and avoid double-closing on append failure",
+);
+assert.match(
+    candidateRangePreseed,
+    /ge candidate_offset candidate_range\.candidate_count[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_one store nominal_table materialized_key_arena artifact materialized_key_ids expected_policy target candidate_range candidate_offset[\s\S]*add candidate_offset 1/,
+    "candidate range preseed must use range candidate_count as the loop bound and advance only the range-local candidate offset",
+);
+assert.match(
+    candidateRangePreseed,
+    /le candidate_range\.candidate_count 0[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_one store nominal_table materialized_key_arena artifact materialized_key_ids expected_policy target candidate_range 0/,
+    "candidate range preseed must reject non-positive ranges through the same typed candidate build path",
+);
+assert.doesNotMatch(
+    candidateRangePreseed,
+    /v::get materialized_key_ids candidate_offset|v::get materialized_key_ids candidate_range\.start_index|v::get materialized_key_ids add candidate_range\.start_index candidate_offset|record\.key\.policy|selfhost_memo_trait_proof_store_push|selfhost_memo_trait_proof_store_preseed_decision/,
+    "candidate range preseed must not treat candidate offsets as key ordinals, derive policy from records, or bypass the append boundary",
+);
+assert.match(
     source,
     /selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result:[\s\S]*proof acceptance ではありません[\s\S]*selfhost_memo_trait_neplproof_record_append_materialized_checked[\s\S]*canonical payload hash[\s\S]*fingerprint[\s\S]*policy[\s\S]*store relation[\s\S]*candidate accessor は artifact validation、candidate range validation、target fingerprint check、index entry \/ record 対応検査を再実行します/,
     "single-candidate projector documentation must state validation cost and delegate proof acceptance to the later append boundary",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_candidate_range_preseed:[\s\S]*reader \/ serializer[\s\S]*persistent stable map[\s\S]*proof acceptance ではありません[\s\S]*canonical payload hash[\s\S]*fingerprint[\s\S]*policy[\s\S]*store relation[\s\S]*selfhost_memo_trait_neplproof_record_append_materialized_checked[\s\S]*\[計算量\/けいさんりょう\]/,
+    "candidate range preseed documentation must state delegation, non-reader scope, missing persistent-index work, and complexity",
 );
 assert.match(
     source,
@@ -283,6 +354,9 @@ assert.match(
     /SelfhostMemoTraitNeplProofPreseedStage0Summary:[\s\S]*batch_from_artifact %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_from_artifact_count_mismatch %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_candidate_from_artifact %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_candidate_offset_mismatch %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind/,
     "preseed stage0 summary must include decoded artifact projector and candidate projector smoke cases",
 );
+assert.doesNotMatch(stage0Summary, /candidate_range/i, "candidate range fields must not expand the already-large decoded preseed stage0 summary");
+assert.doesNotMatch(stage0Summary, /CandidateRange/i, "candidate range error types must not appear in the decoded preseed stage0 summary");
+assert.doesNotMatch(stage0Summary, /DecodedCandidateRangePreseedError/i, "candidate range preseed errors must stay out of the decoded preseed stage0 summary payload");
 assert.match(
     source,
     /selfhost_memo_trait_neplproof_preseed_stage0_payload_bytes[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store/,
@@ -301,7 +375,27 @@ assert.match(
 assert.match(
     source,
     /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_from_artifact &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch &materialized_key_arena policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_candidate_from_artifact &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_candidate_offset_mismatch &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record batch_from_artifact batch_from_artifact_count_mismatch batch_candidate_from_artifact batch_candidate_offset_mismatch/,
-    "preseed stage0 must exercise decoded artifact projection and candidate projection before returning its summary",
+    "preseed stage0 must keep decoded artifact projection and single-candidate projection in the existing summary without expanding that constructor",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_success[\s\S]*SelfhostMemoTraitNeplProofIndexCandidateRange 0 1[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_from_record/,
+    "candidate range preseed must keep a small helper-level success smoke path without wiring it into the large decoded preseed summary",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_smoke[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_success[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_result_is_ok success_result[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_invalid_range[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_range_preseed_result_is_ok invalid_range_result[\s\S]*StdErrorKind::InvalidOperation/,
+    "candidate range preseed smoke must execute success and invalid-range paths while keeping summary payload small",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_smoke &nominal_table &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes existing_store &nominal_table &canonical_payload_bytes policy conflict_record/,
+    "decoded preseed stage0 must execute candidate range preseed smoke before returning its existing summary",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_preseed_stage0_candidate_range_preseed_invalid_range[\s\S]*SelfhostMemoTraitNeplProofIndexCandidateRange -1 1/,
+    "preseed stage0 must keep an invalid range smoke case that returns a typed candidate build error",
 );
 assert.match(
     source,
