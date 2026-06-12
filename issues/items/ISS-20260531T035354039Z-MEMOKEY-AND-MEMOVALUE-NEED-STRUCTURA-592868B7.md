@@ -326,3 +326,27 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 - warning_checked: 初回 `node nodesrc/run_source_policy_regressions.js --warn-only` は実装前の `note.n.md` checkpoint 未記録を warning として検出した。`note.n.md` の selfhost checkpoint 追加後に再実行し、今回差分由来 warning が解消したことを確認した。
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
+## 2026-06-12 selfhost memo trait proof store stable duplicate checkpoint
+
+`memo_trait_proof_store.nepl` の stable proof push に duplicate rejection を追加した。
+
+stable proof artifact 由来の record は、session-local first-wins ではなく、永続入力として同じ proof identity が重複した時点で fail-closed にする。identity は stable fingerprint 単独ではなく、cross-arena canonical key equality、solver policy equality、record stable fingerprint equality の組で判定する。proof kind は duplicate identity に含めない。同じ key / policy / fingerprint に key-only proof と key-and-value proof が共存すると、lookup の first-wins により片方が隠れ、永続 artifact の意味が挿入順に依存するためである。
+
+`SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate` を追加し、stage0 smoke は同じ stable proof を2回 push した時に2回目が `StableDuplicate` になることを確認する。duplicate rejection は record / stable index append の前に実行し、失敗経路では `records`、`stable_index`、projection 済み `next_key_arena` を閉じる。session-only compatibility path は `stable_fingerprint = none` のままにして、既存の store 内 lookup 互換性を維持した。
+
+subagent review では Mencius が Blocker / Required なしで approve した。Mencius は、duplicate 判定が fingerprint-only ではなく canonical equality / policy / stable fingerprint を通すこと、proof kind を identity から外す判断が first-wins ambiguity を避けること、duplicate path の owner cleanup が complete であること、source policy が typed `StableDuplicate`、append 前拒否、cleanup、public stable push exercise を固定していることを確認した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、typed push error、stable duplicate helper の判定条件、stable push の append 前拒否、owner cleanup、stage0 duplicate exercise、line count / doc comment length cap の禁止を固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-stable-duplicate-focused.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。

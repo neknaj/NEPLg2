@@ -92,8 +92,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitProofStorePushErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*OutOfMemory[\s\S]*InternalInvariant/,
-    "stable proof store push must preserve canonical fingerprint projection rejection as a typed payload",
+    /pub enum SelfhostMemoTraitProofStorePushErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*StableDuplicate[\s\S]*OutOfMemory[\s\S]*InternalInvariant/,
+    "stable proof store push must preserve canonical fingerprint projection rejection and stable duplicate rejection as typed errors",
 );
 assert.match(
     source,
@@ -112,8 +112,28 @@ assert.match(
 );
 assert.match(
     source,
+    /fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop[\s\S]*selfhost_memo_trait_proof_store_canonical_key_equal_cross key_arena record\.key_id key_arena candidate_key[\s\S]*selfhost_memo_trait_proof_store_policy_eq record\.policy expected_policy[\s\S]*match record\.stable_fingerprint:[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint candidate_fingerprint/,
+    "stable duplicate detection must require canonical equality, policy equality, and stable fingerprint equality instead of trusting the fingerprint alone",
+);
+assert.match(
+    source,
+    /Result::Ok fingerprint:[\s\S]*selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records policy key_id fingerprint[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate[\s\S]*let record_index %i32 v::len &records/,
+    "stable push must reject duplicate stable proof identity before appending the record and sidecar index",
+);
+assert.match(
+    source,
+    /then:\s*v::free records\s*v::free stable_index\s*selfhost_canonical_type_key_arena_free next_key_arena\s*Result::Err SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate/,
+    "stable duplicate rejection must close records, stable index, and the projected key arena before returning the typed error",
+);
+assert.match(
+    source,
     /Result::Err fingerprint_error:[\s\S]*v::free records[\s\S]*v::free stable_index[\s\S]*selfhost_canonical_type_key_arena_free next_key_arena[\s\S]*StableFingerprintProjectionRejected fingerprint_error/,
     "stable push must free records, stable index, and the projected key arena if fingerprint projection fails",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:[\s\S]*true/,
+    "push error equality must compare StableDuplicate explicitly instead of relying on wildcard behavior",
 );
 assert.match(
     source,
@@ -202,8 +222,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.found[\s\S]*PolicyMismatch[\s\S]*MissingProof[\s\S]*ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate[\s\S]*ProofKindMismatch[\s\S]*selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.stable_found[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch/,
-    "stage0 must prove accepted lookup, stale policy rejection, missing key rejection, primitive fake proof rejection, unsupported proof kind rejection, stable lookup acceptance, legacy stable-fingerprint rejection, and stable mismatch rejection",
+    /selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.found[\s\S]*PolicyMismatch[\s\S]*MissingProof[\s\S]*ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate[\s\S]*ProofKindMismatch[\s\S]*selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.stable_found[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch[\s\S]*selfhost_memo_trait_proof_store_push_error_kind_eq \(unwrap_err summary\.stable_duplicate\) SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate/,
+    "stage0 must prove accepted lookup, stale policy rejection, missing key rejection, primitive fake proof rejection, unsupported proof kind rejection, stable lookup acceptance, legacy stable-fingerprint rejection, stable mismatch rejection, and stable duplicate rejection",
 );
 assert.doesNotMatch(
     source,
@@ -214,6 +234,11 @@ assert.match(
     source,
     /selfhost_memo_trait_proof_store_stage0_build_mismatched_nominal_table[\s\S]*selfhost_memo_trait_proof_store_stage0_build_nominal_table_with_definition 42[\s\S]*selfhost_memo_trait_proof_store_lookup_record_stable_key &arena &mismatched_nominal_table &store3 policy named_id/,
     "stage0 must exercise stable fingerprint mismatch with a typed mismatched nominal table",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_proof_store_stage0_duplicate_rejection[\s\S]*selfhost_memo_trait_proof_store_new[\s\S]*selfhost_memo_trait_proof_store_push_stable_key types nominal_table store0 policy type_id proof[\s\S]*selfhost_memo_trait_proof_store_push_stable_key types nominal_table store1 policy type_id proof[\s\S]*Result::Err kind/,
+    "stage0 must exercise duplicate stable proof insertion through the public stable push API",
 );
 const codeOnly = source
     .split("\n")
