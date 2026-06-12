@@ -16,6 +16,23 @@ const codeOnly = source
     .split("\n")
     .filter((line) => !line.trimStart().startsWith("//:"))
     .join("\n");
+function codeSliceBetween(startNeedle, endNeedle) {
+    const start = source.indexOf(startNeedle);
+    const end = source.indexOf(endNeedle);
+    assert.notEqual(start, -1, `missing source slice start: ${startNeedle}`);
+    assert.notEqual(end, -1, `missing source slice end: ${endNeedle}`);
+    assert.ok(start < end, `source slice must be ordered: ${startNeedle}`);
+    return source
+        .slice(start, end)
+        .split("\n")
+        .filter((line) => !line.trimStart().startsWith("//:"))
+        .join("\n");
+}
+
+const producerImplementation = codeSliceBetween(
+    "fn selfhost_memo_trait_neplproof_sorted_index_entry_lt",
+    "//: selfhost_memo_trait_neplproof_sorted_index_stage0_policy",
+);
 
 assert.match(
     facade,
@@ -44,6 +61,16 @@ assert.match(
 );
 assert.match(
     source,
+    /serializer \/ preseed writer[\s\S]*producer boundary[\s\S]*既存の table validation と sorted order validation/,
+    "sorted index documentation must describe the decoded-record producer boundary and its post-build validation",
+);
+assert.match(
+    source,
+    /producer は record 数 n に対して O\(n\^2\)[\s\S]*後続の serialized stable map \/ binary writer/,
+    "sorted index producer documentation must state the current O(n^2) implementation and the future faster artifact boundary",
+);
+assert.match(
+    source,
     /source text、span、path suffix、display name、diagnostic text、lexeme[\s\S]*lookup key、sort key、tie-break authority に入りません/,
     "sorted index documentation must exclude source text, spans, paths, names, diagnostics, and lexemes from lookup authority",
 );
@@ -61,6 +88,46 @@ assert.match(
     source,
     /pub enum SelfhostMemoTraitNeplProofSortedIndexErrorKind:[\s\S]*HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*TableValidationRejected %SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*IndexEntryMissing[\s\S]*FingerprintOrderInvalid[\s\S]*RecordOrdinalOrderInvalid[\s\S]*CandidateMissing/,
     "sorted index failures must use typed enum variants and preserve nested validation errors",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitNeplProofIndexProducerErrorKind:[\s\S]*HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*AllocFailed %StdErrorKind[\s\S]*PushFailed %StdErrorKind[\s\S]*RecordEntryMissing[\s\S]*IndexEntryMissing[\s\S]*RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*IndexEntryBuildRejected %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*ProducedTableRejected %SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*ProducedOrderRejected %SelfhostMemoTraitNeplProofSortedIndexErrorKind/,
+    "sorted index producer failures must use typed enum variants and preserve nested validation errors",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_sorted_index_build_result[\s\S]*&Vec SelfhostMemoTraitNeplProofRecord[\s\S]*Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexProducerErrorKind/,
+    "sorted index producer API must borrow decoded records and return an owned index vector wrapped in a typed Result",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_sorted_index_entry_from_record_result[\s\S]*selfhost_memo_trait_neplproof_record_key_result[\s\S]*selfhost_memo_trait_neplproof_record_result[\s\S]*selfhost_memo_trait_neplproof_index_entry_result/,
+    "sorted index producer must revalidate record keys, record payloads, and produced index entries",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_sorted_index_finish_build[\s\S]*selfhost_memo_trait_neplproof_header_result[\s\S]*selfhost_memo_trait_neplproof_index_table_result[\s\S]*selfhost_memo_trait_neplproof_sorted_index_order_result/,
+    "sorted index producer output must pass existing header, decoded table, and sorted-order validation before being returned",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_sorted_index_bubble_back_loop[\s\S]*v::replace[\s\S]*v::replace/,
+    "sorted index producer bubble-back helper must swap Copy index entries in place",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_sorted_index_bubble_back_loop[\s\S]*IndexEntryMissing[\s\S]*v::replace[\s\S]*v::replace/,
+    "sorted index producer bubble-back defensive reads must classify missing index slots as IndexEntryMissing",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_sorted_index_push_sorted[\s\S]*v::push[\s\S]*selfhost_memo_trait_neplproof_sorted_index_bubble_back_loop/,
+    "sorted index producer push helper must run the bounded bubble-back insertion step for Phase 1 ordering",
+);
+assert.doesNotMatch(
+    producerImplementation,
+    /selfhost_memo_trait_proof_store_(?:lookup|push|preseed|stable|materialized|new|free)|selfhost_memo_trait_neplproof_decoded_record_batch_append/,
+    "sorted index producer implementation must not call proof-store, preseed, or decoded-batch append APIs directly",
 );
 assert.match(
     source,
@@ -94,8 +161,23 @@ assert.match(
 );
 assert.match(
     source,
+    /producer_stage0[\s\S]*built_first_range[\s\S]*built_second_range[\s\S]*built_collision_range[\s\S]*invalid_record/,
+    "stage0 producer smoke must exercise unordered records, collision group lookup, and invalid-record rejection",
+);
+assert.match(
+    source,
+    /second_record first_record[\s\S]*selfhost_memo_trait_neplproof_sorted_index_stage0_run_producer_lookup[\s\S]*first_fingerprint[\s\S]*second_fingerprint/,
+    "stage0 producer smoke must build sorted indexes from intentionally unordered records",
+);
+assert.match(
+    source,
     /expected_collision_range SelfhostMemoTraitNeplProofIndexCandidateRange 0 2[\s\S]*accepted_collision_range[\s\S]*collision_second_index/,
     "stage0 runtime coverage must accept a same-fingerprint collision group as a two-entry candidate range",
+);
+assert.match(
+    source,
+    /built_collision_range[\s\S]*expected_collision_range[\s\S]*RecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder/,
+    "doctest must verify producer collision output and invalid-record rejection",
 );
 assert.doesNotMatch(
     codeOnly,

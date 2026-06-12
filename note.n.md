@@ -1,3 +1,56 @@
+# 2026-06-12 Agent selfhost memo trait neplproof sorted index producer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum / match による静的検査、fail-closed boundary、authority の分離、計算量の明記、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-index-producer-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` sorted sidecar index producer boundary
+- classification: selfhost implementation slice review
+- decision: sorted index lookup contract の後続として、decoded `SelfhostMemoTraitNeplProofRecord` vector から sorted `SelfhostMemoTraitNeplProofIndexEntry` vector を作る producer boundary を `memo_trait_proof_index.nepl` に追加した。これは reader / serializer 本体や persistent map ではなく、decoded record から serialized sidecar index payload を作るための前段 contract である。
+- policy/spec:
+  - producer output は proof acceptance ではない。返すのは canonical fingerprint、record ordinal、record payload hash だけを持つ candidate narrowing table であり、canonical key bytes decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続に残す。
+  - source text、span、path suffix、display name、diagnostic text、lexeme、`SelfhostTypeId`、`SelfhostNamedTypeId`、`SelfhostCanonicalTypeKeyId`、proof store stable identity は producer の sort key、lookup key、dedup key、error 分類に入れない。
+  - record key / record body / produced index entry は artifact validator へ再投入する。producer が「自分で作ったから正しい」とみなす経路は持たない。
+  - producer output は返却前に header validation、decoded table validation、sorted order validation を通す。
+  - 現 stage の sort は bubble-back insertion sort で O(n^2) である。これは Phase 1 の decoded artifact contract を固定するための実装であり、後続の binary writer / persistent stable map / serialized index では同じ Result contract を保って高速化する。
+- implementation/test:
+  - `SelfhostMemoTraitNeplProofIndexProducerErrorKind` を追加し、allocation / push failure、record missing、index slot missing、record invalid、index entry build rejection、produced table rejection、produced order rejection を typed nested payload として返すようにした。
+  - `selfhost_memo_trait_neplproof_sorted_index_build_result` を追加し、`&Vec SelfhostMemoTraitNeplProofRecord` から owned sorted `Vec SelfhostMemoTraitNeplProofIndexEntry` を返すようにした。
+  - `selfhost_memo_trait_neplproof_sorted_index_entry_from_record_result` は record key / body validator と index entry validator を必ず通す。
+  - `selfhost_memo_trait_neplproof_sorted_index_push_sorted` は push 後に bubble-back で sorted order へ戻す。swap は Copy entry の `v::replace` に限定する。bubble-back 中の defensive missing は record vector の missing ではないため、`IndexEntryMissing` として分類する。
+  - `selfhost_memo_trait_neplproof_sorted_index_finish_build` は produced index を既存 header / table / order validation へ通す。
+  - stage0 smoke は unordered records から first / second fingerprint lookup が通ること、same fingerprint collision が `candidate_count = 2` になること、invalid record が `RecordInvalid(RecordPayloadHashPlaceholder)` になることを確認する。
+  - `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` を更新し、producer doc、O(n^2) 現状説明、typed producer error、public producer API、record / index revalidation、post-build validation、bubble-back insertion、producer implementation から proof-store / preseed / decoded-batch append API への直接呼び出し禁止、unordered producer stage0、invalid record rejection、source/span/path/diagnostic authority 禁止、line count / doc comment length cap 禁止を固定した。
+- subagent review:
+  - subagent_review_ids: `019ebb25-2522-7990-b5f8-ece185dafe21`
+  - subagent_review_count: 1 design review, 1 implementation review, 1 implementation re-review
+  - Euclid design review: Phase 1 では `memo_trait_proof_index.nepl` に producer を置く判断を妥当とした。Required として、producer output を proof acceptance にしないこと、source text / span / path / display / diagnostic / lexeme と session-local id / proof store stable identity を authority にしないこと、record validation を省略しないこと、producer output を既存 table/order validator へ通すこと、O(n^2) 現状と将来置換可能性を doc comment に明記すること、source policy で退行を固定することを求めた。実装はこの指摘に従った。
+  - Euclid implementation review: Blocker なし。Required として、bubble-back 中の missing を `RecordEntryMissing` ではなく `IndexEntryMissing` に分けること、producer path から proof-store API へ直接結合しない source policy を追加すること、note / issue / design doc に durable record を残すことを求めた。同じ slice 内で反映した。
+  - Euclid re-review: Blocker なし。Required なし。Non-blocker として、将来 proof-store API 名が増える場合は source policy の禁止語を責務境界に合わせて更新する必要があるとした。Question なし。Approve。Result / enum、fail-closed、proof acceptance 非authority、proof-store 境界、source text / span / path / display / diagnostic / lexeme 排除、line count / doc comment length cap 禁止の観点で Blocker / Required は残っていないと評価した。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` は review response の形式と応答漏れを機械確認する gate として既存運用されている。今回の checkpoint は `Blocker` / `Required` / `Non-blocker` / `Question` / `Approve`、classification、decision、source_policy、verify、warning 分類を明示した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: sorted index producer が proof acceptance authority、proof-store / preseed / decoded-batch append API 直結、session-local id、source text / span / path / diagnostic / lexeme authority、line count / doc comment length cap へ退行しないようにするため。
+  - 既存 warning: Node WASI ExperimentalWarning、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: なし。focused source policy、focused doctest、focused runtime、ty split contract、issues check は今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - focused doctest の compile では `compile_ms=10583`、`resource_static_check=9447.526ms`、`resource_static_initialized_moves=8216.551ms`、`resource_static_owner_obligations=917.056ms` だった。この selfhost proof file でも Resource checker の探索範囲が支配的であり、RPN cold base 高速化と同じく cache だけでなく checker algorithm の探索範囲削減を継続する。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+  - pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl -n 1`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl --no-tree -o tmp/selfhost-memo-trait-proof-index-producer.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `git diff --check`
+  - warning_checked: focused doctest の初回失敗は `checked_record` の複数 field read が Resource IR initialized-state に引っかかったためであり、record validator 通過後に元の Copy record から index entry を作る形へ修正した。これは validator の迂回ではなく、owner / initialized-state の読み方を単純化する根本修正である。
+  - warning_checked: `node nodesrc/run_source_policy_regressions.js --warn-only` は既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning を出したが、対象 producer module の contract は pass しており今回差分由来 warning ではない。
+  - warning_checked: `git diff --check` は whitespace error なし。working-copy の LF/CRLF warning は表示されたが、今回差分の trailing whitespace ではない。
+- 次 slice: `.neplproof` record reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash を継続する。
+
 # 2026-06-12 Agent selfhost memo trait neplproof artifact schema checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、試作段階でも静的検査、Result / Option、enum error、match、pure core、authority boundary、探索範囲削減、事前検査済み artifact、丁寧な doc comment、fail-closed boundary を優先する方針に従った。

@@ -1088,6 +1088,24 @@ source text、span、path suffix、display name、diagnostic text、lexeme は l
 
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` sorted index producer checkpoint
+
+sorted index lookup contract の次段として、decoded record vector から sorted sidecar index vector を作る producer boundary を同じ `memo_trait_proof_index.nepl` に追加した。
+
+この checkpoint は `.neplproof` reader / serializer 本体ではない。reader または serializer がすでに decoded `SelfhostMemoTraitNeplProofRecord` vector を持っている状態から、record ordinal ごとに 1 つの `SelfhostMemoTraitNeplProofIndexEntry` を作り、既存の decoded table validation と sorted order validation を通した owner vector だけを返す。
+
+producer は各 record を `selfhost_memo_trait_neplproof_record_key_result` と `selfhost_memo_trait_neplproof_record_result` へ再投入する。そのうえで `selfhost_memo_trait_neplproof_index_entry_result` で sidecar entry を作る。不正 record、placeholder hash、schema mismatch、index entry build rejection は `SelfhostMemoTraitNeplProofIndexProducerErrorKind` の typed variant として返し、bool や diagnostic string へ潰さない。record vector の defensive missing は `RecordEntryMissing`、bubble-back 中の produced index slot missing は `IndexEntryMissing` として分け、どの入力 owner が壊れたかを error kind から追えるようにする。
+
+producer output は proof acceptance authority ではない。返す index は canonical fingerprint、record ordinal、record payload hash だけを持つ candidate narrowing table であり、canonical key bytes decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続の責務として残る。source text、span、path suffix、display name、diagnostic text、lexeme、`SelfhostTypeId`、`SelfhostNamedTypeId`、`SelfhostCanonicalTypeKeyId`、proof store stable identity は producer の sort key、lookup key、dedup key、error 分類に入れない。
+
+producer implementation は proof store lookup / push / preseed、store-local stable identity、decoded batch append API を直接呼ばない。producer の責務は decoded record から sidecar index を作って既存 validator へ通すことまでであり、proof store へ投入するかどうかは reader / preseed bridge と proof store / producer gate が別段階で決める。
+
+現 stage の producer は insertion sort 相当の bubble-back により `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, record_ordinal)` の昇順へ整列する。計算量は record 数 n に対して O(n^2) である。これは decoded artifact 上の Phase 1 contract を先に固定するための実装であり、後続の binary writer、persistent stable map、serialized index では同じ `Result` / enum contract を保ったまま O(n log n) または O(n) の構築へ置き換える。
+
+stage0 smoke は、意図的に unordered な record vector から first / second fingerprint の candidate range を作れること、same fingerprint の 2 record が collision group として `candidate_count = 2` になること、invalid record が `RecordInvalid(RecordPayloadHashPlaceholder)` として fail-closed に拒否されることを確認する。
+
+この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

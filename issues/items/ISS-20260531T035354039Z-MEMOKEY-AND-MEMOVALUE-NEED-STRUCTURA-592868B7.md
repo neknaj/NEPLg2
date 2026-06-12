@@ -513,6 +513,35 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` で
 
 この checkpoint 後の残件は、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` sorted index producer checkpoint
+
+`memo_trait_proof_index.nepl` に decoded record vector から sorted sidecar index vector を作る producer boundary を追加した。
+
+`selfhost_memo_trait_neplproof_sorted_index_build_result` は `&Vec SelfhostMemoTraitNeplProofRecord` を借用し、成功時だけ owned `Vec SelfhostMemoTraitNeplProofIndexEntry` を返す。各 record は `selfhost_memo_trait_neplproof_record_key_result` と `selfhost_memo_trait_neplproof_record_result` で再検査し、作った entry も `selfhost_memo_trait_neplproof_index_entry_result` へ通す。不正 record から sidecar entry を作らない。
+
+producer output は返却前に `selfhost_memo_trait_neplproof_header_result`、`selfhost_memo_trait_neplproof_index_table_result`、`selfhost_memo_trait_neplproof_sorted_index_order_result` を通す。これにより、producer 自身が「作るから正しい」と仮定せず、既存の decoded table aggregate validation と sorted order validation へ再投影する。
+
+`SelfhostMemoTraitNeplProofIndexProducerErrorKind` は allocation / push failure、record missing、index slot missing、record invalid、index entry build rejection、produced table rejection、produced order rejection を typed enum として返す。record vector の defensive missing は `RecordEntryMissing`、bubble-back 中の produced index vector missing は `IndexEntryMissing` に分ける。nested payload は `StdErrorKind`、`SelfhostMemoTraitNeplProofArtifactErrorKind`、`SelfhostMemoTraitNeplProofIndexValidationErrorKind`、`SelfhostMemoTraitNeplProofSortedIndexErrorKind` のまま保持する。
+
+現 stage の sort は bubble-back insertion sort で、record 数 n に対して O(n^2) である。これは Phase 1 の decoded artifact contract を固定するための実装であり、後続の binary writer / persistent stable map / serialized index では同じ Result contract を保ったまま O(n log n) または O(n) へ置き換える。
+
+producer output は proof acceptance authority ではない。返す sidecar index は canonical fingerprint、record ordinal、record payload hash による candidate narrowing table であり、canonical key bytes decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続に残る。source text、span、path suffix、display name、diagnostic text、lexeme、`SelfhostTypeId`、`SelfhostNamedTypeId`、`SelfhostCanonicalTypeKeyId`、proof store stable identity は producer の key や authority にしない。
+
+producer implementation は proof store lookup / push / preseed、store-local stable identity、decoded batch append API を直接呼ばない。source policy はこの禁止境界も固定し、producer が proof-store API と結合して proof acceptance を迂回しないようにする。
+
+stage0 smoke は unordered record vector から first / second fingerprint の candidate range を作れること、same fingerprint 2 件が collision group として `candidate_count = 2` になること、invalid record が `RecordInvalid(RecordPayloadHashPlaceholder)` として fail-closed に拒否されることを確認する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` を更新し、producer doc、O(n^2) 現状説明、typed producer error、public producer API、record / index revalidation、post-build table/order validation、bubble-back insertion、producer から proof-store / preseed / decoded-batch append API への直接呼び出し禁止、unordered stage0 smoke、invalid record rejection、source/span/path/diagnostic authority 禁止、line count / doc comment length cap 禁止を固定した。
+
+subagent review では Euclid が、Phase 1 では同 module へ producer を置く判断を妥当とした。Required として、producer output を proof acceptance にしないこと、source text / span / path / display / diagnostic / lexeme と session-local id / proof store stable identity を authority にしないこと、record validation を省略しないこと、producer output を既存 table/order validator へ通すこと、O(n^2) 現状と将来置換可能性を doc comment に明記すること、source policy で退行を固定することを求めた。実装はこの指摘に従った。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl -n 1`
+
+この checkpoint 後の残件は、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

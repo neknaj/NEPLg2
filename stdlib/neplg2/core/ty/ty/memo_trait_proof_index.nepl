@@ -5,39 +5,50 @@
 //:
 //: [目的/もくてき]:
 //: - `memo_trait_proof_artifact.nepl` は decoded record / index table 全体の整合性を検査します。この module は、その検査済み table に対して serialized index が満たすべき sorted order と lookup range の contract を固定します。
+//: - `.neplproof` serializer / preseed writer が decoded record vector から sidecar index を作るための producer boundary もここで定義します。producer は record ordinal ごとに 1 つの index entry を作り、既存の table validation と sorted order validation を通した owner だけを返します。
 //: - canonical fingerprint から index table 内の candidate range だけを返し、record payload、proof payload、policy、canonical payload hash の受理は後続の canonical payload decode、preseed decision、proof store lookup、producer gate に委譲します。
 //: - lookup failure や index order corruption を bool や表示文字列へ潰さず、typed enum error として返します。
 //:
 //: [契約/けいやく]:
 //: - `selfhost_memo_trait_neplproof_sorted_index_lookup_result` はまず header と decoded index table validation を再実行します。caller が「検査済み」と思っている table でも、この public boundary は fail-closed に同じ前提を確認します。
+//: - `selfhost_memo_trait_neplproof_sorted_index_build_result` は入力 record の key / body payload を artifact validator へ再投入してから index entry を作ります。不正 record から sidecar index を作りません。
+//: - producer output は proof acceptance ではありません。producer が返すのは artifact record ordinal candidate を絞る index vector だけであり、canonical key bytes decode、payload hash 再計算、policy、proof kind、preseed decision、proof store lookup、producer gate は後続が必ず行います。
 //: - sidecar index は canonical fingerprint、record ordinal、record payload hash だけを authority として持つ候補 index です。fingerprint hit は proof acceptance ではありません。
 //: - sorted order は `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, record_ordinal)` の昇順です。同じ fingerprint の entry は連続した collision group として扱い、canonical equality と policy equality は後続 proof store 側で絞ります。
 //: - source text、span、path suffix、display name、diagnostic text、lexeme は lookup key、sort key、tie-break authority に入りません。
 //: - proof store の stable sidecar index とは責務を混ぜません。この module は artifact record ordinal 候補を返すだけで、store-local canonical equality / policy / producer gate は proof store の責務です。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(range)` は、sorted index table 内で同じ canonical fingerprint を持つ candidate group の開始 index と件数だけを表します。
+//: - `selfhost_memo_trait_neplproof_sorted_index_build_result` の `Ok(indexes)` は、input record 数と同じ件数を持ち、record ordinal coverage と sorted order の検査を通過した owner vector です。caller は使い終わったら `v::free` で閉じます。
+//: - lookup の `Ok(range)` は、sorted index table 内で同じ canonical fingerprint を持つ candidate group の開始 index と件数だけを表します。
 //: - `Err(CandidateMissing)` は、table は有効だが対象 fingerprint group が存在しないことを表します。
-//: - `Err(HeaderInvalid(_))`、`Err(TableValidationRejected(_))`、`Err(FingerprintOrderInvalid)`、`Err(RecordOrdinalOrderInvalid)`、`Err(IndexEntryMissing)` は artifact を fail-closed に拒否すべき破損を表します。
+//: - producer の `Err(RecordInvalid(_))`、`Err(IndexEntryBuildRejected(_))`、`Err(ProducedTableRejected(_))`、`Err(ProducedOrderRejected(_))` は、writer / preseed が artifact を fail-closed に拒否すべき理由です。
+//: - lookup の `Err(HeaderInvalid(_))`、`Err(TableValidationRejected(_))`、`Err(FingerprintOrderInvalid)`、`Err(RecordOrdinalOrderInvalid)`、`Err(IndexEntryMissing)` は artifact を fail-closed に拒否すべき破損を表します。
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 は decoded `Vec` 上で sorted contract と range lookup を行います。binary reader、serializer、persistent map、binary search は後続 slice です。
 //: - 現実装の lookup は線形 scan です。ただし sorted order と candidate range の contract を先に固定することで、後続 serializer / reader は同じ Result 型を保ったまま binary search や persistent stable map へ置き換えられます。
+//: - 現実装の producer は insertion sort 相当の bubble-back で index entry を並べます。これは small decoded artifact を先に fail-closed に扱うための Phase 1 実装であり、後続の binary writer / persistent map では同じ contract を保ったまま O(n log n) または O(n) の構築へ置き換えます。
 //:
 //: [計算量/けいさんりょう]:
+//: - producer は record 数 n に対して O(n^2) です。各 record の validation と entry construction は O(1)、push は償却 O(1)、bubble-back の合計が O(n^2) です。
 //: - header / table validation は `memo_trait_proof_artifact.nepl` の既存検査に従います。現 stage では record 数 n と index 数 m に対して O(n * m + m * m) の coverage 検査を含みます。
 //: - sorted order check は index 数 m に対して O(m) です。
 //: - candidate range lookup は現 stage では O(m) です。sorted contract があるため、後続では O(log m + c) に置き換えられます。c は同じ fingerprint の collision candidate 数です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
 //: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -58,8 +69,19 @@
 //:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_sorted_index_error_kind_eq (unwrap_err summary.fingerprint_unsorted) SelfhostMemoTraitNeplProofSortedIndexErrorKind::FingerprintOrderInvalid
 //:             let checks5 checks_push checks4 check selfhost_memo_trait_neplproof_sorted_index_error_kind_eq (unwrap_err summary.ordinal_unsorted) SelfhostMemoTraitNeplProofSortedIndexErrorKind::RecordOrdinalOrderInvalid
 //:             let checks6 checks_push checks5 check selfhost_memo_trait_neplproof_sorted_index_error_kind_eq (unwrap_err summary.table_rejected) SelfhostMemoTraitNeplProofSortedIndexErrorKind::TableValidationRejected SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch
-//:             let shown checks_print_report checks6
-//:             checks_exit_code shown
+//:             match selfhost_memo_trait_neplproof_sorted_index_producer_stage0:
+//:                 Result::Ok producer_summary:
+//:                     let expected_second_range SelfhostMemoTraitNeplProofIndexCandidateRange 1 1
+//:                     let checks7 checks_push checks6 check selfhost_memo_trait_neplproof_index_candidate_range_eq (unwrap_ok producer_summary.built_first_range) expected_range
+//:                     let checks8 checks_push checks7 check selfhost_memo_trait_neplproof_index_candidate_range_eq (unwrap_ok producer_summary.built_second_range) expected_second_range
+//:                     let checks9 checks_push checks8 check selfhost_memo_trait_neplproof_index_candidate_range_eq (unwrap_ok producer_summary.built_collision_range) expected_collision_range
+//:                     let checks10 checks_push checks9 check selfhost_memo_trait_neplproof_index_producer_error_kind_eq (unwrap_err producer_summary.invalid_record) SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
+//:                     let shown checks_print_report checks10
+//:                     checks_exit_code shown
+//:                 Result::Err _producer_setup:
+//:                     let checks7 checks_push checks6 Result::Err "sorted neplproof index producer stage0 setup failed"
+//:                     let shown checks_print_report checks7
+//:                     checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "sorted neplproof index stage0 setup failed"
 //:             let shown checks_print_report checks1
@@ -112,6 +134,31 @@ pub enum SelfhostMemoTraitNeplProofSortedIndexErrorKind:
     RecordOrdinalOrderInvalid
     CandidateMissing
 
+//: SelfhostMemoTraitNeplProofIndexProducerErrorKind: sorted sidecar index producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - decoded record vector から sidecar index owner を作る時の失敗を、表示文字列ではなく typed enum として呼び出し側へ返します。
+//:
+//: [分類/ぶんるい]:
+//: - `HeaderInvalid`: producer が生成した header 境界が artifact schema validator に拒否されました。通常は schema constant の不整合を示します。
+//: - `AllocFailed` と `PushFailed`: index vector の確保または push に失敗しました。payload は `StdErrorKind` のまま保持し、表示や診断文とは分離します。
+//: - `RecordEntryMissing`: vector length 上は存在するはずの record を読み出せない defensive failure です。
+//: - `IndexEntryMissing`: bubble-back 中に vector length 上は存在するはずの produced index entry を読み出せない defensive failure です。
+//: - `RecordInvalid`: record key または record body が artifact record validator に拒否されました。
+//: - `IndexEntryBuildRejected`: record から作った index entry が artifact index entry validator に拒否されました。
+//: - `ProducedTableRejected`: producer output が decoded table aggregate validation に拒否されました。
+//: - `ProducedOrderRejected`: producer output が sorted order validation に拒否されました。
+pub enum SelfhostMemoTraitNeplProofIndexProducerErrorKind:
+    HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    AllocFailed %StdErrorKind
+    PushFailed %StdErrorKind
+    RecordEntryMissing
+    IndexEntryMissing
+    RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    IndexEntryBuildRejected %SelfhostMemoTraitNeplProofArtifactErrorKind
+    ProducedTableRejected %SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    ProducedOrderRejected %SelfhostMemoTraitNeplProofSortedIndexErrorKind
+
 //: SelfhostMemoTraitNeplProofSortedIndexStage0Summary: sorted index contract の代表 smoke
 pub struct SelfhostMemoTraitNeplProofSortedIndexStage0Summary:
     accepted_range %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind
@@ -120,6 +167,13 @@ pub struct SelfhostMemoTraitNeplProofSortedIndexStage0Summary:
     fingerprint_unsorted %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind
     ordinal_unsorted %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind
     table_rejected %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind
+
+//: SelfhostMemoTraitNeplProofIndexProducerStage0Summary: producer contract の代表 smoke
+pub struct SelfhostMemoTraitNeplProofIndexProducerStage0Summary:
+    built_first_range %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind
+    built_second_range %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind
+    built_collision_range %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind
+    invalid_record %Result unit SelfhostMemoTraitNeplProofIndexProducerErrorKind
 
 impl Clone for SelfhostMemoTraitNeplProofIndexCandidateRange:
     fn clone %fn &SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofIndexCandidateRange \self:
@@ -137,12 +191,28 @@ impl Copy for SelfhostMemoTraitNeplProofSortedIndexErrorKind:
     fn copy_mark %fn SelfhostMemoTraitNeplProofSortedIndexErrorKind SelfhostMemoTraitNeplProofSortedIndexErrorKind \self:
         self
 
+impl Clone for SelfhostMemoTraitNeplProofIndexProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofIndexProducerErrorKind SelfhostMemoTraitNeplProofIndexProducerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofIndexProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofIndexProducerErrorKind SelfhostMemoTraitNeplProofIndexProducerErrorKind \self:
+        self
+
 impl Clone for SelfhostMemoTraitNeplProofSortedIndexStage0Summary:
     fn clone %fn &SelfhostMemoTraitNeplProofSortedIndexStage0Summary SelfhostMemoTraitNeplProofSortedIndexStage0Summary \self:
         *self
 
 impl Copy for SelfhostMemoTraitNeplProofSortedIndexStage0Summary:
     fn copy_mark %fn SelfhostMemoTraitNeplProofSortedIndexStage0Summary SelfhostMemoTraitNeplProofSortedIndexStage0Summary \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofIndexProducerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofIndexProducerStage0Summary SelfhostMemoTraitNeplProofIndexProducerStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofIndexProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofIndexProducerStage0Summary SelfhostMemoTraitNeplProofIndexProducerStage0Summary \self:
         self
 
 //: selfhost_memo_trait_neplproof_index_candidate_range_eq: candidate range payload が同じか[返/かえ]す
@@ -245,6 +315,228 @@ pub fn selfhost_memo_trait_neplproof_sorted_index_error_kind_eq %fn SelfhostMemo
                     false
                 SelfhostMemoTraitNeplProofSortedIndexErrorKind::CandidateMissing:
                     true
+
+//: selfhost_memo_trait_neplproof_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `StdErrorKind` は payload を持たない enum なので、網羅 match で作った code を equality にだけ使います。
+//: - wildcard arm は使いません。variant 追加時はこの match が更新漏れを検出します。
+fn selfhost_memo_trait_neplproof_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_neplproof_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_neplproof_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_neplproof_std_error_kind_code a selfhost_memo_trait_neplproof_std_error_kind_code b
+
+//: selfhost_memo_trait_neplproof_index_producer_error_kind_eq: producer error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ variant は payload も比較します。
+//: - wildcard arm は使いません。error variant を追加した場合、この equality も明示的に更新します。
+pub fn selfhost_memo_trait_neplproof_index_producer_error_kind_eq %fn SelfhostMemoTraitNeplProofIndexProducerErrorKind fn SelfhostMemoTraitNeplProofIndexProducerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed b_kind:
+                    selfhost_memo_trait_neplproof_std_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed b_kind:
+                    selfhost_memo_trait_neplproof_std_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected b_kind:
+                    selfhost_memo_trait_neplproof_index_validation_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected b_kind:
+                    selfhost_memo_trait_neplproof_sorted_index_error_kind_eq a_kind b_kind
 
 //: selfhost_memo_trait_neplproof_fingerprint_lt: canonical fingerprint の stable order
 //:
@@ -398,6 +690,175 @@ pub fn selfhost_memo_trait_neplproof_sorted_index_result_is_ok %fn Result Selfho
         Result::Err _kind:
             false
 
+//: selfhost_memo_trait_neplproof_sorted_index_entry_lt: sidecar entry の producer sort order
+//:
+//: [契約/けいやく]:
+//: - 比較 key は lookup contract と同じ `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, record_ordinal)` だけです。
+//: - source text、span、path、display name、diagnostic text、lexeme、proof store stable identity は tie-break に使いません。
+fn selfhost_memo_trait_neplproof_sorted_index_entry_lt %fn SelfhostMemoTraitNeplProofIndexEntry fn SelfhostMemoTraitNeplProofIndexEntry bool \a\b:
+    if:
+        selfhost_memo_trait_neplproof_fingerprint_lt a.canonical_fingerprint b.canonical_fingerprint
+        then:
+            true
+        else:
+            if:
+                selfhost_memo_trait_canonical_type_fingerprint_eq a.canonical_fingerprint b.canonical_fingerprint
+                then:
+                    lt a.record_ordinal b.record_ordinal
+                else:
+                    false
+
+//: selfhost_memo_trait_neplproof_sorted_index_bubble_back_loop: push 済み entry を sorted order へ[戻/もど]す
+//:
+//: [目的/もくてき]:
+//: - Phase 1 producer が追加した末尾 entry を、隣接 swap だけで既存 sorted contract と同じ順序へ移します。
+//:
+//: [契約/けいやく]:
+//: - `indexes` の長さは変えません。
+//: - `v::replace` は Copy entry の slot swap にだけ使い、record payload や proof payload は変更しません。
+//: - 読み出しに失敗した場合は defensive failure として `IndexEntryMissing` を返します。ここで欠けているのは record ではなく、producer が作成中の index vector slot です。
+fn selfhost_memo_trait_neplproof_sorted_index_bubble_back_loop %impure fn &Vec SelfhostMemoTraitNeplProofIndexEntry impure fn i32 Result unit SelfhostMemoTraitNeplProofIndexProducerErrorKind \indexes\idx:
+    if:
+        le idx 0
+        then:
+            Result::Ok unit
+        else:
+            let previous_idx %i32 sub idx 1
+            match v::get indexes previous_idx:
+                Option::Some previous:
+                    match v::get indexes idx:
+                        Option::Some current:
+                            if:
+                                selfhost_memo_trait_neplproof_sorted_index_entry_lt current previous
+                                then:
+                                    v::replace indexes previous_idx current
+                                    v::replace indexes idx previous
+                                    selfhost_memo_trait_neplproof_sorted_index_bubble_back_loop indexes previous_idx
+                                else:
+                                    Result::Ok unit
+                        Option::None:
+                            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryMissing
+
+//: selfhost_memo_trait_neplproof_sorted_index_push_sorted: entry を[追加/ついか]し sorted order へ[整/ととの]える
+//:
+//: [契約/けいやく]:
+//: - 成功時だけ新しい `Vec` owner を返します。
+//: - `push` または bubble-back が失敗した場合、途中の `Vec` owner はこの helper が閉じます。
+fn selfhost_memo_trait_neplproof_sorted_index_push_sorted %impure fn Vec SelfhostMemoTraitNeplProofIndexEntry impure fn SelfhostMemoTraitNeplProofIndexEntry Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexProducerErrorKind \indexes\entry:
+    match v::push indexes entry:
+        Result::Ok next_indexes:
+            let next_len %i32 v::len &next_indexes
+            let pushed_index %i32 sub next_len 1
+            match selfhost_memo_trait_neplproof_sorted_index_bubble_back_loop &next_indexes pushed_index:
+                Result::Ok _sorted:
+                    Result::Ok next_indexes
+                Result::Err kind:
+                    v::free next_indexes
+                    Result::Err kind
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::PushFailed error
+
+//: selfhost_memo_trait_neplproof_sorted_index_entry_from_record_result: record から sidecar entry を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - record key と record body は必ず artifact validator へ再投入します。
+//: - 作った index entry も artifact index entry validator へ通します。
+//: - proof payload、policy、canonical payload hash は index entry へ複製しません。index entry は fingerprint、record ordinal、record payload hash だけを持ちます。
+fn selfhost_memo_trait_neplproof_sorted_index_entry_from_record_result %fn SelfhostMemoTraitNeplProofRecord fn i32 fn i32 Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexProducerErrorKind \record\record_ordinal\record_count:
+    match selfhost_memo_trait_neplproof_record_key_result record.key.canonical_fingerprint record.key.canonical_payload_schema_version record.key.canonical_payload_hash record.key.policy:
+        Result::Ok checked_key:
+            match selfhost_memo_trait_neplproof_record_result checked_key record.proof_kind record.proof record.record_payload_hash:
+                Result::Ok _checked_record:
+                    match selfhost_memo_trait_neplproof_index_entry_result record.key.canonical_fingerprint record_ordinal record.record_payload_hash record_count:
+                        Result::Ok entry:
+                            Result::Ok entry
+                        Result::Err kind:
+                            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::IndexEntryBuildRejected kind
+                Result::Err kind:
+                    Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid kind
+        Result::Err kind:
+            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid kind
+
+//: selfhost_memo_trait_neplproof_sorted_index_build_loop: decoded records から sorted sidecar index を[構築/こうちく]する
+//:
+//: [契約/けいやく]:
+//: - 成功時だけ index vector owner を返します。
+//: - record validation、index entry construction、push、sort のいずれかが失敗した場合、partial index vector を閉じます。
+fn selfhost_memo_trait_neplproof_sorted_index_build_loop %impure fn Vec SelfhostMemoTraitNeplProofIndexEntry impure fn &Vec SelfhostMemoTraitNeplProofRecord impure fn i32 impure fn i32 Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexProducerErrorKind \indexes\records\idx\record_count:
+    if:
+        ge idx record_count
+        then:
+            Result::Ok indexes
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_neplproof_sorted_index_entry_from_record_result record idx record_count:
+                        Result::Ok entry:
+                            match selfhost_memo_trait_neplproof_sorted_index_push_sorted indexes entry:
+                                Result::Ok next_indexes:
+                                    selfhost_memo_trait_neplproof_sorted_index_build_loop next_indexes records add idx 1 record_count
+                                Result::Err kind:
+                                    Result::Err kind
+                        Result::Err kind:
+                            v::free indexes
+                            Result::Err kind
+                Option::None:
+                    v::free indexes
+                    Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordEntryMissing
+
+//: selfhost_memo_trait_neplproof_sorted_index_finish_build: producer output を既存 validator へ[通/とお]す
+//:
+//: [契約/けいやく]:
+//: - producer が作った index vector は、返す前に header validation、decoded table validation、sorted order validation を通ります。
+//: - 検証に失敗した場合、index vector owner はこの helper が閉じます。
+fn selfhost_memo_trait_neplproof_sorted_index_finish_build %impure fn Vec SelfhostMemoTraitNeplProofIndexEntry impure fn &Vec SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexProducerErrorKind \indexes\records:
+    let record_count %i32 v::len records
+    match selfhost_memo_trait_neplproof_header_result selfhost_memo_trait_neplproof_artifact_schema_version selfhost_memo_trait_canonical_key_payload_schema_version selfhost_memo_trait_neplproof_policy_schema_version record_count record_count:
+        Result::Ok header:
+            match selfhost_memo_trait_neplproof_index_table_result header records &indexes:
+                Result::Ok _table_valid:
+                    match selfhost_memo_trait_neplproof_sorted_index_order_result &indexes:
+                        Result::Ok _order_valid:
+                            Result::Ok indexes
+                        Result::Err kind:
+                            v::free indexes
+                            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedOrderRejected kind
+                Result::Err kind:
+                    v::free indexes
+                    Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::ProducedTableRejected kind
+        Result::Err kind:
+            v::free indexes
+            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::HeaderInvalid kind
+
+//: selfhost_memo_trait_neplproof_sorted_index_build_result: decoded records から sorted sidecar index を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` serializer / preseed writer が decoded record vector から、既存 lookup contract に入れられる sorted sidecar index vector を作るための public producer API です。
+//:
+//: [契約/けいやく]:
+//: - 入力 record vector は借用し、成功時に index vector owner だけを返します。
+//: - record ごとに 1 つの index entry を作り、record ordinal coverage と sorted order を既存 validator へ通した owner だけを返します。
+//: - 返す index は proof acceptance ではありません。caller は lookup 後に canonical payload decode、payload hash 再計算、policy、proof kind、proof store preseed / lookup、producer gate を続けます。
+//:
+//: [計算量/けいさんりょう]:
+//: - Phase 1 実装は insertion sort 相当のため O(n^2) です。後続の serialized stable map / binary writer では同じ Result contract を保って構築を高速化します。
+pub fn selfhost_memo_trait_neplproof_sorted_index_build_result %impure fn &Vec SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexProducerErrorKind \records:
+    let indexes_result %Result Vec SelfhostMemoTraitNeplProofIndexEntry StdErrorKind v::new
+    match indexes_result:
+        Result::Ok indexes0:
+            let record_count %i32 v::len records
+            match selfhost_memo_trait_neplproof_sorted_index_build_loop indexes0 records 0 record_count:
+                Result::Ok built_indexes:
+                    selfhost_memo_trait_neplproof_sorted_index_finish_build built_indexes records
+                Result::Err kind:
+                    Result::Err kind
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed e
+
 //: selfhost_memo_trait_neplproof_sorted_index_stage0_policy: focused smoke 用 policy を[作/つく]る
 fn selfhost_memo_trait_neplproof_sorted_index_stage0_policy %fn i32 SelfhostMemoTraitProofStorePolicy \policy_schema:
     let key_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
@@ -472,9 +933,54 @@ fn selfhost_memo_trait_neplproof_sorted_index_stage0_run_two_indexes %impure fn 
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_trait_neplproof_sorted_index_stage0_producer_header: producer smoke 用 header を[作/つく]る
+fn selfhost_memo_trait_neplproof_sorted_index_stage0_producer_header %fn i32 SelfhostMemoTraitNeplProofHeader \record_count:
+    SelfhostMemoTraitNeplProofHeader selfhost_memo_trait_neplproof_artifact_schema_version selfhost_memo_trait_canonical_key_payload_schema_version selfhost_memo_trait_neplproof_policy_schema_version record_count record_count
+
+//: selfhost_memo_trait_neplproof_sorted_index_stage0_run_producer_lookup: producer output を lookup へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - `records` owner はこの helper が必ず閉じます。
+//: - producer が成功した場合は、生成した index owner も lookup 後に閉じます。
+fn selfhost_memo_trait_neplproof_sorted_index_stage0_run_producer_lookup %impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitCanonicalTypeFingerprint Result Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind SelfhostMemoTraitNeplProofIndexProducerErrorKind \records\target:
+    match selfhost_memo_trait_neplproof_sorted_index_build_result &records:
+        Result::Ok indexes:
+            let record_count %i32 v::len &records
+            let header %SelfhostMemoTraitNeplProofHeader selfhost_memo_trait_neplproof_sorted_index_stage0_producer_header record_count
+            let lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind selfhost_memo_trait_neplproof_sorted_index_lookup_result header &records &indexes target
+            v::free records
+            v::free indexes
+            Result::Ok lookup
+        Result::Err kind:
+            v::free records
+            Result::Err kind
+
+//: selfhost_memo_trait_neplproof_sorted_index_stage0_run_invalid_record: invalid record を producer error として[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - 成功値 `Ok unit` は「producer が予期せず invalid record を受理した」ことを表すため、doctest は `Err(RecordInvalid(_))` を期待します。
+//: - `records` owner と、予期せず作られた index owner はこの helper が閉じます。
+fn selfhost_memo_trait_neplproof_sorted_index_stage0_run_invalid_record %impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result unit SelfhostMemoTraitNeplProofIndexProducerErrorKind \invalid_record\second_record:
+    match selfhost_memo_trait_neplproof_sorted_index_stage0_records_two invalid_record second_record:
+        Result::Ok records:
+            match selfhost_memo_trait_neplproof_sorted_index_build_result &records:
+                Result::Ok indexes:
+                    v::free records
+                    v::free indexes
+                    Result::Ok unit
+                Result::Err kind:
+                    v::free records
+                    Result::Err kind
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed e
+
 //: selfhost_memo_trait_neplproof_sorted_index_stage0_summary_new: stage0 summary を[作/つく]る
 fn selfhost_memo_trait_neplproof_sorted_index_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind SelfhostMemoTraitNeplProofSortedIndexStage0Summary \accepted_range\accepted_collision_range\missing_candidate\fingerprint_unsorted\ordinal_unsorted\table_rejected:
     SelfhostMemoTraitNeplProofSortedIndexStage0Summary accepted_range accepted_collision_range missing_candidate fingerprint_unsorted ordinal_unsorted table_rejected
+
+//: selfhost_memo_trait_neplproof_sorted_index_producer_stage0_summary_new: producer summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_sorted_index_producer_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexProducerErrorKind SelfhostMemoTraitNeplProofIndexProducerStage0Summary \built_first_range\built_second_range\built_collision_range\invalid_record:
+    SelfhostMemoTraitNeplProofIndexProducerStage0Summary built_first_range built_second_range built_collision_range invalid_record
 
 //: selfhost_memo_trait_neplproof_sorted_index_stage0: sorted index lookup contract の代表結果を[返/かえ]す
 //:
@@ -529,5 +1035,55 @@ pub fn selfhost_memo_trait_neplproof_sorted_index_stage0 %impure fn void Result 
                             Result::Err e
                 Result::Err e:
                     Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_sorted_index_producer_stage0: sorted index producer contract の代表結果を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest が unordered decoded record vector から producer を通し、生成された sidecar index を既存 lookup boundary で確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - producer output は proof acceptance ではありません。この smoke も candidate range だけを確認し、proof payload の受理は行いません。
+//: - same fingerprint の 2 record は collision group として `candidate_count = 2` になります。
+//: - invalid record は `RecordInvalid` として producer が fail-closed に拒否します。
+pub fn selfhost_memo_trait_neplproof_sorted_index_producer_stage0 %impure fn void Result SelfhostMemoTraitNeplProofIndexProducerStage0Summary StdErrorKind \void:
+    let canonical_schema %i32 selfhost_memo_trait_canonical_key_payload_schema_version
+    let policy_schema %i32 selfhost_memo_trait_neplproof_policy_schema_version
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_sorted_index_stage0_policy policy_schema
+    let proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_neplproof_sorted_index_stage0_proof
+    let first_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 1001
+    let second_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 2002
+    let first_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey canonical_schema first_fingerprint 3003 policy
+    let second_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey canonical_schema second_fingerprint 3004 policy
+    let second_same_fingerprint_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey canonical_schema first_fingerprint 3005 policy
+    let first_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 4004
+    let second_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord second_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 5005
+    let second_same_fingerprint_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord second_same_fingerprint_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 5005
+    let invalid_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 0
+    match selfhost_memo_trait_neplproof_sorted_index_stage0_records_two second_record first_record:
+        Result::Ok unordered_records_for_first:
+            match selfhost_memo_trait_neplproof_sorted_index_stage0_run_producer_lookup unordered_records_for_first first_fingerprint:
+                Result::Ok built_first_range:
+                    match selfhost_memo_trait_neplproof_sorted_index_stage0_records_two second_record first_record:
+                        Result::Ok unordered_records_for_second:
+                            match selfhost_memo_trait_neplproof_sorted_index_stage0_run_producer_lookup unordered_records_for_second second_fingerprint:
+                                Result::Ok built_second_range:
+                                    match selfhost_memo_trait_neplproof_sorted_index_stage0_records_two second_same_fingerprint_record first_record:
+                                        Result::Ok collision_records:
+                                            match selfhost_memo_trait_neplproof_sorted_index_stage0_run_producer_lookup collision_records first_fingerprint:
+                                                Result::Ok built_collision_range:
+                                                    let invalid_record_result %Result unit SelfhostMemoTraitNeplProofIndexProducerErrorKind selfhost_memo_trait_neplproof_sorted_index_stage0_run_invalid_record invalid_record second_record
+                                                    Result::Ok selfhost_memo_trait_neplproof_sorted_index_producer_stage0_summary_new built_first_range built_second_range built_collision_range invalid_record_result
+                                                Result::Err _e:
+                                                    Result::Err StdErrorKind::InvalidOperation
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err _e:
+                                    Result::Err StdErrorKind::InvalidOperation
+                        Result::Err e:
+                            Result::Err e
+                Result::Err _e:
+                    Result::Err StdErrorKind::InvalidOperation
         Result::Err e:
             Result::Err e
