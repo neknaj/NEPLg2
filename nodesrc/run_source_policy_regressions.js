@@ -187,6 +187,7 @@ const checks = [
     "nodesrc/test_selfhost_expr_prefix_contract.js",
     "nodesrc/test_selfhost_function_body_prefix_range_contract.js",
     "nodesrc/test_selfhost_body_segmenter_contract.js",
+    "nodesrc/test_selfhost_trait_body_segmenter_contract.js",
     "nodesrc/test_selfhost_parser_report_contract.js",
     "nodesrc/test_selfhost_cliarg_parser_doctest_contract.js",
     "nodesrc/test_selfhost_checker_report_contract.js",

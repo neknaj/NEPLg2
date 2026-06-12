@@ -55535,3 +55535,39 @@ MERGE_APPROVED
 
 - 実 stdlib の `MemoKey` / `MemoValue` は method-bearing trait なので、次は body range を method declaration list へ分割する body segmenter と、method name / type annotation / default body の stable signature normalization が必要である。
 - re-export / import graph を含む full public surface hash、stable trait definition key producer、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未完了である。
+
+## 2026-06-12 Agent selfhost trait body method segmenter checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-body-segmenter-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result / enum、純粋関数、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `stdlib/neplg2/core/syntax/parser/trait_body_segmenter.nepl` を追加した。
+- trait body envelope から top-level `KwFn ... : body` method declaration を列挙し、method header range と default body range を分離した `SelfhostTraitBodyMethodSegment` として返す。
+- expression body 用の `body_segmenter` は `KwFn` を expression start として扱わないため、trait method declaration の token range evidence は parser utility として別 module に分離した。
+- 失敗は `SelfhostTraitBodyMethodSegmentErrorKind` と `Result` で返し、empty envelope、invalid envelope、token bounds、layout error、non-method item、colon 欠落、default body 欠落、allocation failure を区別する。
+- source text、lexeme、path suffix、diagnostic text、public surface hash、signature hash、stable source identity は作らず、後続 normalizer 用の range evidence だけを返す。
+- stage0 fixture は `Result Vec SelfhostToken StdErrorKind` で構築し、allocation failure を `OutOfMemory` へ写す。owner field の解放は `field::get` を使い、compiler memory boundary の直接 field access 制限を迂回しない。
+- `nodesrc/test_selfhost_trait_body_segmenter_contract.js` を追加し、source policy regression runner に登録した。
+
+### subagent_review
+
+- Galileo review: Blocker なし。method segment evidence までで止め、stable source identity / public surface hash / method signature normalization へ直結しないこと、`core/ty` / proof store へ逆依存させないことを Required として確認した。
+- Hypatia review: checker-layer wrapper 案も提示されたが、現 `body_segmenter` は `KwFn` を expression start として扱わないため、この checkpoint では parser-level trait method segmenter として分離した。review の Required だった source identity / signature hash / proof store 直結禁止は contract test に追加して固定した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_trait_body_segmenter_contract.js`
+- pass: `node nodesrc/test_selfhost_body_segmenter_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/trait_body_segmenter.nepl --no-tree --dist web/dist -o tmp/selfhost-trait-body-segmenter-focused.json -j 1 --assert-io` total=1 passed=1 failed=0
+
+### residual
+
+- method segment header から method name / type annotation / effect / default body shape を stable normalized signature evidence へ変換する normalizer は未実装である。
+- method-bearing `MemoKey` / `MemoValue` trait definition を public surface seed / stable source evidence へ接続する producer は未実装である。
+- re-export / import graph を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未完了である。

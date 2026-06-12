@@ -1,0 +1,702 @@
+#indent 4
+
+//: # parser/trait_body_segmenter
+//: trait body envelope を method declaration segment の列へ分解する parser utility です。
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleDeclarationBody.envelope` に入っている trait body token range から、top-level method declaration の header range と default body range を切り出します。
+//: - expression body 用の `body_segmenter` は `KwFn` を expression start として扱わないため、trait method declaration には使えません。この module は declaration body のうち trait method だけを扱う別境界です。
+//: - この段階では method name、type annotation、lambda header、default body の意味を正規化しません。返すのは後続 checker が stable signature normalization に使う token range evidence だけです。
+//:
+//: [契約/けいやく]:
+//: - method segment は `KwFn ... : body` の形で始まる top-level body item だけを受理します。
+//: - `header` は `KwFn` から colon の直前までの range です。`default_body` は colon 後の single-line body または indented nested body の envelope です。
+//: - default body が空の method は、現 NEPLg2.1 stdlib trait surface では accepted signature evidence に進めません。signature-only trait method を導入する場合は、この module の contract と後段 normalizer を同時に更新します。
+//: - source text、lexeme、path suffix、diagnostic text は読みません。token kind と parser-provided range/span だけを検査します。
+//:
+//: [現状/げんじょう]:
+//: - この module は method declaration list の segmentation までを担当します。method name / type annotation / default body fingerprint はまだ生成しません。
+//: - `#capability` など method 以外の trait body item は、この slice では `UnexpectedTraitBodyItem` として fail-closed にします。必要な trait surface が増えた場合は、source policy と typed enum を更新して明示的に扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - trait body envelope 内の token を左から 1 回走査します。nested body の終端探索も走査位置を戻さないため、対象 token 数を k として O(k) 時間です。
+//: - 出力は method 数 m に比例する `Vec SelfhostTraitBodyMethodSegment` なので O(m) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//:| #import "neplg2/core/syntax/parser/trait_body_segmenter" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_trait_body_method_segment_stage0
+//:     let checks0 checks_new
+//:     let accepted_count %Result i32 SelfhostTraitBodyMethodSegmentErrorKind *field::get_ref &summary "accepted_count"
+//:     let non_method_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind *field::get_ref &summary "non_method_rejected"
+//:     let missing_body_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind *field::get_ref &summary "missing_body_rejected"
+//:     let empty_envelope_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind *field::get_ref &summary "empty_envelope_rejected"
+//:     let checks1 checks_push checks0 assert_eq_i32 "accepted method count" 2 unwrap_ok accepted_count
+//:     let checks2 checks_push checks1 assert "non-method item is rejected" selfhost_trait_body_method_segment_error_kind_eq (unwrap_err non_method_rejected) SelfhostTraitBodyMethodSegmentErrorKind::UnexpectedTraitBodyItem
+//:     let checks3 checks_push checks2 assert "method without colon is rejected" selfhost_trait_body_method_segment_error_kind_eq (unwrap_err missing_body_rejected) SelfhostTraitBodyMethodSegmentErrorKind::MissingMethodBodyIntro
+//:     let checks4 checks_push checks3 assert "empty envelope is rejected" selfhost_trait_body_method_segment_error_kind_eq (unwrap_err empty_envelope_rejected) SelfhostTraitBodyMethodSegmentErrorKind::EmptyEnvelope
+//:     let shown checks_print_report checks4
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "./range" as *
+
+//: SelfhostTraitBodyMethodSegment: trait body 内の 1 method declaration segment
+//:
+//: [目的/もくてき]:
+//: - method header と default body を別 range として保持し、後段 normalizer が default body を header の一部として誤読しないようにします。
+//: - どちらも token range evidence であり、まだ method signature AST でも HIR でもありません。
+pub struct SelfhostTraitBodyMethodSegment:
+    header %SelfhostSyntaxRange
+    default_body %SelfhostSyntaxRange
+
+//: SelfhostTraitBodyMethodSegmentList: method segment buffer の owner
+//:
+//: [目的/もくてき]:
+//: - trait body segmenter が作った method segment vector を所有します。
+//: - caller は使用後に `selfhost_trait_body_method_segment_list_free` で閉じます。
+pub struct SelfhostTraitBodyMethodSegmentList:
+    methods %Vec SelfhostTraitBodyMethodSegment
+
+//: SelfhostTraitBodyMethodSegmentErrorKind: trait method segmentation の拒否理由
+//:
+//: [目的/もくてき]:
+//: - token range の破損、trait body item の未対応、method body 欠落、allocation failure を typed enum として分けます。
+//: - 後段は `UnexpectedTraitBodyItem` と `MissingMethodBodyIntro` を同じ「署名正規化失敗」に潰さず、どの surface を実装すべきか判断できます。
+pub enum SelfhostTraitBodyMethodSegmentErrorKind:
+    EmptyEnvelope
+    InvalidEnvelope
+    TokenOutOfBounds
+    InvalidLayout
+    UnexpectedTraitBodyItem
+    MissingMethodBodyIntro
+    MethodDefaultBodyMissing
+    MethodSegmentUnavailable
+    OutOfMemory
+
+//: SelfhostTraitBodyMethodSegmentError: segmentation error payload
+//:
+//: [目的/もくてき]:
+//: - error kind と span を持ち、diagnostic layer が必要に応じて失敗箇所を説明できるようにします。
+pub struct SelfhostTraitBodyMethodSegmentError:
+    kind %SelfhostTraitBodyMethodSegmentErrorKind
+    span %SelfhostSourceSpan
+
+//: SelfhostTraitBodyMethodSegmentStage0Summary: segmenter smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted path では owner を保持せず method count だけを残します。これにより stage0 summary 自体が method vector owner の寿命を持たずに済みます。
+pub struct SelfhostTraitBodyMethodSegmentStage0Summary:
+    accepted_count %Result i32 SelfhostTraitBodyMethodSegmentErrorKind
+    non_method_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind
+    missing_body_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind
+    empty_envelope_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind
+
+impl Clone for SelfhostTraitBodyMethodSegment:
+    fn clone %fn &SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegment \self:
+        *self
+
+impl Copy for SelfhostTraitBodyMethodSegment:
+    fn copy_mark %fn SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegment \self:
+        self
+
+impl Clone for SelfhostTraitBodyMethodSegmentErrorKind:
+    fn clone %fn &SelfhostTraitBodyMethodSegmentErrorKind SelfhostTraitBodyMethodSegmentErrorKind \self:
+        *self
+
+impl Copy for SelfhostTraitBodyMethodSegmentErrorKind:
+    fn copy_mark %fn SelfhostTraitBodyMethodSegmentErrorKind SelfhostTraitBodyMethodSegmentErrorKind \self:
+        self
+
+impl Clone for SelfhostTraitBodyMethodSegmentError:
+    fn clone %fn &SelfhostTraitBodyMethodSegmentError SelfhostTraitBodyMethodSegmentError \self:
+        *self
+
+impl Copy for SelfhostTraitBodyMethodSegmentError:
+    fn copy_mark %fn SelfhostTraitBodyMethodSegmentError SelfhostTraitBodyMethodSegmentError \self:
+        self
+
+impl Clone for SelfhostTraitBodyMethodSegmentStage0Summary:
+    fn clone %fn &SelfhostTraitBodyMethodSegmentStage0Summary SelfhostTraitBodyMethodSegmentStage0Summary \self:
+        *self
+
+impl Copy for SelfhostTraitBodyMethodSegmentStage0Summary:
+    fn copy_mark %fn SelfhostTraitBodyMethodSegmentStage0Summary SelfhostTraitBodyMethodSegmentStage0Summary \self:
+        self
+
+//: selfhost_trait_body_method_segment_error_kind_code: error kind を比較用 code へ[写/うつ]す
+fn selfhost_trait_body_method_segment_error_kind_code %fn SelfhostTraitBodyMethodSegmentErrorKind i32 \kind:
+    match kind:
+        SelfhostTraitBodyMethodSegmentErrorKind::EmptyEnvelope:
+            1
+        SelfhostTraitBodyMethodSegmentErrorKind::InvalidEnvelope:
+            2
+        SelfhostTraitBodyMethodSegmentErrorKind::TokenOutOfBounds:
+            3
+        SelfhostTraitBodyMethodSegmentErrorKind::InvalidLayout:
+            4
+        SelfhostTraitBodyMethodSegmentErrorKind::UnexpectedTraitBodyItem:
+            5
+        SelfhostTraitBodyMethodSegmentErrorKind::MissingMethodBodyIntro:
+            6
+        SelfhostTraitBodyMethodSegmentErrorKind::MethodDefaultBodyMissing:
+            7
+        SelfhostTraitBodyMethodSegmentErrorKind::MethodSegmentUnavailable:
+            8
+        SelfhostTraitBodyMethodSegmentErrorKind::OutOfMemory:
+            9
+
+//: selfhost_trait_body_method_segment_error_kind_eq: method segment error kind が同じか[返/かえ]す
+pub fn selfhost_trait_body_method_segment_error_kind_eq %fn SelfhostTraitBodyMethodSegmentErrorKind fn SelfhostTraitBodyMethodSegmentErrorKind bool \a\b:
+    eq selfhost_trait_body_method_segment_error_kind_code a selfhost_trait_body_method_segment_error_kind_code b
+
+//: selfhost_trait_body_method_segment_new: method segment payload を[作/つく]る
+pub fn selfhost_trait_body_method_segment_new %fn SelfhostSyntaxRange fn SelfhostSyntaxRange SelfhostTraitBodyMethodSegment \header\default_body:
+    SelfhostTraitBodyMethodSegment header default_body
+
+//: selfhost_trait_body_method_segment_error_new: error payload を[作/つく]る
+pub fn selfhost_trait_body_method_segment_error_new %fn SelfhostTraitBodyMethodSegmentErrorKind fn SelfhostSourceSpan SelfhostTraitBodyMethodSegmentError \kind\span:
+    SelfhostTraitBodyMethodSegmentError kind span
+
+//: selfhost_trait_body_method_segment_list_new: method segment list owner を[作/つく]る
+pub fn selfhost_trait_body_method_segment_list_new %impure fn Vec SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegmentList \methods:
+    SelfhostTraitBodyMethodSegmentList methods
+
+//: selfhost_trait_body_method_segment_list_len: method segment 数を[返/かえ]す
+pub fn selfhost_trait_body_method_segment_list_len %fn &SelfhostTraitBodyMethodSegmentList i32 \list:
+    let methods %&Vec SelfhostTraitBodyMethodSegment field::get_ref list "methods"
+    v::len methods
+
+//: selfhost_trait_body_method_segment_list_get: method segment を index で[返/かえ]す
+pub fn selfhost_trait_body_method_segment_list_get %fn &SelfhostTraitBodyMethodSegmentList fn i32 Option SelfhostTraitBodyMethodSegment \list\idx:
+    let methods %&Vec SelfhostTraitBodyMethodSegment field::get_ref list "methods"
+    v::get methods idx
+
+//: selfhost_trait_body_method_segment_list_free: method segment list owner を[解放/かいほう]する
+pub fn selfhost_trait_body_method_segment_list_free %impure fn SelfhostTraitBodyMethodSegmentList unit \list:
+    v::free field::get list "methods"
+
+//: selfhost_trait_body_method_segment_skip_separators: top-level separator を[読/よ]み[飛/と]ばす
+fn selfhost_trait_body_method_segment_skip_separators %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            selfhost_trait_body_method_segment_skip_separators tokens n add idx 1 end
+                        TokenKind::Semicolon:
+                            selfhost_trait_body_method_segment_skip_separators tokens n add idx 1 end
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_trait_body_method_segment_line_end_loop: method header line の終端を[探/さが]す
+fn selfhost_trait_body_method_segment_line_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            idx
+                        TokenKind::Semicolon:
+                            idx
+                        TokenKind::Dedent:
+                            idx
+                        TokenKind::Eof:
+                            idx
+                        _:
+                            selfhost_trait_body_method_segment_line_end_loop tokens n add idx 1 end
+                Option::None:
+                    idx
+
+//: selfhost_trait_body_method_segment_find_colon_loop: method header line の colon を[探/さが]す
+fn selfhost_trait_body_method_segment_find_colon_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            sub 0 1
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Colon:
+                            idx
+                        _:
+                            selfhost_trait_body_method_segment_find_colon_loop tokens n add idx 1 end
+                Option::None:
+                    sub 0 1
+
+//: selfhost_trait_body_method_segment_skip_newlines: colon 後の layout newline を[読/よ]み[飛/と]ばす
+fn selfhost_trait_body_method_segment_skip_newlines %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            selfhost_trait_body_method_segment_skip_newlines tokens n add idx 1 end
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_trait_body_method_segment_has_initial_indent: method default body が indented block か[返/かえ]す
+fn selfhost_trait_body_method_segment_has_initial_indent %fn &Vec SelfhostToken fn i32 fn i32 fn i32 bool \tokens\n\idx\end:
+    let after_newlines %i32 selfhost_trait_body_method_segment_skip_newlines tokens n idx end
+    if:
+        or ge after_newlines end ge after_newlines n
+        then:
+            false
+        else:
+            match v::get tokens after_newlines:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            true
+                        _:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_trait_body_method_segment_body_start: method default body の先頭 token index を[返/かえ]す
+fn selfhost_trait_body_method_segment_body_start %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    let after_newlines %i32 selfhost_trait_body_method_segment_skip_newlines tokens n idx end
+    if:
+        or ge after_newlines end ge after_newlines n
+        then:
+            after_newlines
+        else:
+            match v::get tokens after_newlines:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            add after_newlines 1
+                        _:
+                            after_newlines
+                Option::None:
+                    after_newlines
+
+//: selfhost_trait_body_method_segment_block_body_end_loop: indented default body の終端を[探/さが]す
+fn selfhost_trait_body_method_segment_block_body_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 i32 \tokens\n\idx\end\depth:
+    if:
+        or or ge idx end ge idx n le depth 0
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            selfhost_trait_body_method_segment_block_body_end_loop tokens n add idx 1 end add depth 1
+                        TokenKind::Dedent:
+                            if:
+                                le depth 1
+                                then:
+                                    idx
+                                else:
+                                    selfhost_trait_body_method_segment_block_body_end_loop tokens n add idx 1 end sub depth 1
+                        TokenKind::Eof:
+                            idx
+                        _:
+                            selfhost_trait_body_method_segment_block_body_end_loop tokens n add idx 1 end depth
+                Option::None:
+                    idx
+
+//: selfhost_trait_body_method_segment_after_closing_dedent: closing dedent 後へ[進/すす]む
+fn selfhost_trait_body_method_segment_after_closing_dedent %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Dedent:
+                            add idx 1
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_trait_body_method_segment_after_separator: line separator 後へ[進/すす]む
+fn selfhost_trait_body_method_segment_after_separator %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\end:
+    if:
+        or ge idx end ge idx n
+        then:
+            idx
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Newline:
+                            add idx 1
+                        TokenKind::Semicolon:
+                            add idx 1
+                        _:
+                            idx
+                Option::None:
+                    idx
+
+//: selfhost_trait_body_method_segment_range_or_empty: token index 区間を range evidence へ[変換/へんかん]する
+fn selfhost_trait_body_method_segment_range_or_empty %fn &Vec SelfhostToken fn i32 fn i32 fn i32 SelfhostSyntaxRange \tokens\n\first_token\after_token:
+    selfhost_parser_syntax_range_from_indices tokens n first_token after_token
+
+//: selfhost_trait_body_method_segment_error_for_token: token 位置付き error を[作/つく]る
+fn selfhost_trait_body_method_segment_error_for_token %fn &Vec SelfhostToken fn i32 fn SelfhostTraitBodyMethodSegmentErrorKind SelfhostTraitBodyMethodSegmentError \tokens\idx\kind:
+    match v::get tokens idx:
+        Option::Some token:
+            selfhost_trait_body_method_segment_error_new kind token.span
+        Option::None:
+            selfhost_trait_body_method_segment_error_new kind source_span_empty_unchecked 0 0
+
+//: selfhost_trait_body_method_segment_push: method segment を buffer へ[追加/ついか]する
+fn selfhost_trait_body_method_segment_push %impure fn Vec SelfhostTraitBodyMethodSegment impure fn SelfhostTraitBodyMethodSegment Result Vec SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegmentError \out\segment:
+    match v::push out segment:
+        Result::Ok next_out:
+            Result::Ok next_out
+        Result::Err e:
+            v::free v::vec_push_error_vec e
+            Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+
+//: selfhost_trait_body_method_segment_from_method_line_result: method header line から segment を[作/つく]る
+fn selfhost_trait_body_method_segment_from_method_line_result %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 Result SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegmentError \tokens\n\start\line_end\end:
+    let colon_idx %i32 selfhost_trait_body_method_segment_find_colon_loop tokens n start line_end
+    if:
+        lt colon_idx 0
+        then:
+            Result::Err selfhost_trait_body_method_segment_error_for_token tokens start SelfhostTraitBodyMethodSegmentErrorKind::MissingMethodBodyIntro
+        else:
+            let after_colon %i32 add colon_idx 1
+            let body_start %i32 selfhost_trait_body_method_segment_body_start tokens n after_colon end
+            let indented %bool selfhost_trait_body_method_segment_has_initial_indent tokens n after_colon end
+            let body_end %i32:
+                if:
+                    indented
+                    then:
+                        selfhost_trait_body_method_segment_block_body_end_loop tokens n body_start end 1
+                    else:
+                        line_end
+            if:
+                le body_end body_start
+                then:
+                    Result::Err selfhost_trait_body_method_segment_error_for_token tokens colon_idx SelfhostTraitBodyMethodSegmentErrorKind::MethodDefaultBodyMissing
+                else:
+                    let header %SelfhostSyntaxRange selfhost_trait_body_method_segment_range_or_empty tokens n start colon_idx
+                    let default_body %SelfhostSyntaxRange selfhost_trait_body_method_segment_range_or_empty tokens n body_start body_end
+                    Result::Ok selfhost_trait_body_method_segment_new header default_body
+
+//: selfhost_trait_body_method_segment_next_index: accepted method segment 後の scan index を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - indented default body の場合は default body を閉じる dedent の後、single-line body の場合は line separator の後へ進みます。
+//: - この helper は segment が成功した後だけ呼ばれるため、colon 欠落や空 default body の診断は `selfhost_trait_body_method_segment_from_method_line_result` 側に閉じます。
+fn selfhost_trait_body_method_segment_next_index %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 i32 \tokens\n\start\line_end\end:
+    let colon_idx %i32 selfhost_trait_body_method_segment_find_colon_loop tokens n start line_end
+    let after_colon %i32 add colon_idx 1
+    let body_start %i32 selfhost_trait_body_method_segment_body_start tokens n after_colon end
+    let indented %bool selfhost_trait_body_method_segment_has_initial_indent tokens n after_colon end
+    if:
+        indented
+        then:
+            let body_end %i32 selfhost_trait_body_method_segment_block_body_end_loop tokens n body_start end 1
+            selfhost_trait_body_method_segment_after_closing_dedent tokens n body_end end
+        else:
+            selfhost_trait_body_method_segment_after_separator tokens n line_end end
+
+//: selfhost_trait_body_method_segment_loop: trait body envelope から method segment を[列挙/れっきょ]する
+fn selfhost_trait_body_method_segment_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostTraitBodyMethodSegment Result Vec SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegmentError \tokens\n\idx\end\out:
+    let start %i32 selfhost_trait_body_method_segment_skip_separators tokens n idx end
+    if:
+        ge start end
+        then:
+            Result::Ok out
+        else:
+            match v::get tokens start:
+                Option::Some token:
+                    match token.kind:
+                        TokenKind::Indent:
+                            v::free out
+                            Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::InvalidLayout token.span
+                        TokenKind::Dedent:
+                            v::free out
+                            Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::InvalidLayout token.span
+                        TokenKind::KwFn:
+                            let line_end %i32 selfhost_trait_body_method_segment_line_end_loop tokens n start end
+                            match selfhost_trait_body_method_segment_from_method_line_result tokens n start line_end end:
+                                Result::Ok segment:
+                                    match selfhost_trait_body_method_segment_push out segment:
+                                        Result::Ok next_out:
+                                            let next_idx %i32 selfhost_trait_body_method_segment_next_index tokens n start line_end end
+                                            selfhost_trait_body_method_segment_loop tokens n next_idx end next_out
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    v::free out
+                                    Result::Err e
+                        _:
+                            v::free out
+                            Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::UnexpectedTraitBodyItem token.span
+                Option::None:
+                    v::free out
+                    Result::Err selfhost_trait_body_method_segment_error_for_token tokens start SelfhostTraitBodyMethodSegmentErrorKind::TokenOutOfBounds
+
+//: selfhost_trait_body_method_segment_list_from_envelope: trait body envelope から method segment list を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - trait body を method declaration segments へ分解します。
+//: - この関数は method signature を hash 化せず、default body を評価せず、source text も読みません。
+pub fn selfhost_trait_body_method_segment_list_from_envelope %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result SelfhostTraitBodyMethodSegmentList SelfhostTraitBodyMethodSegmentError \tokens\envelope:
+    match envelope:
+        SelfhostSyntaxRange::Empty:
+            Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::EmptyEnvelope source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range range:
+            if:
+                not selfhost_syntax_range_is_valid envelope
+                then:
+                    Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::InvalidEnvelope range.span
+                else:
+                    let token_len %i32 v::len tokens
+                    if:
+                        or gt range.first_token token_len gt range.token_count sub token_len range.first_token
+                        then:
+                            Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::TokenOutOfBounds range.span
+                        else:
+                            let methods_result %Result Vec SelfhostTraitBodyMethodSegment StdErrorKind v::new
+                            match methods_result:
+                                Result::Ok methods:
+                                    match selfhost_trait_body_method_segment_loop tokens token_len range.first_token add range.first_token range.token_count methods:
+                                        Result::Ok built_methods:
+                                            Result::Ok selfhost_trait_body_method_segment_list_new built_methods
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err _e:
+                                    Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::OutOfMemory range.span
+
+//: selfhost_trait_body_method_segment_count_result: segment list を count に畳んで owner を閉じる
+fn selfhost_trait_body_method_segment_count_result %impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result i32 SelfhostTraitBodyMethodSegmentErrorKind \tokens\envelope:
+    match selfhost_trait_body_method_segment_list_from_envelope tokens envelope:
+        Result::Ok list:
+            let count %i32 selfhost_trait_body_method_segment_list_len &list
+            selfhost_trait_body_method_segment_list_free list
+            Result::Ok count
+        Result::Err e:
+            Result::Err e.kind
+
+//: selfhost_trait_body_method_segment_stage0_span: stage0 用 span を[作/つく]る
+fn selfhost_trait_body_method_segment_stage0_span %fn i32 fn i32 SelfhostSourceSpan \start\end:
+    source_span_new_unchecked 0 start end
+
+//: selfhost_trait_body_method_segment_stage0_token: stage0 用 token を[作/つく]る
+fn selfhost_trait_body_method_segment_stage0_token %fn TokenKind fn i32 fn i32 SelfhostToken \kind\start\end:
+    selfhost_token_new kind selfhost_trait_body_method_segment_stage0_span start end
+
+//: selfhost_trait_body_method_segment_stage0_push: stage0 token を[追加/ついか]する
+fn selfhost_trait_body_method_segment_stage0_push %impure fn Vec SelfhostToken impure fn TokenKind impure fn i32 impure fn i32 Result Vec SelfhostToken StdErrorKind \tokens\kind\start\end:
+    let token %SelfhostToken selfhost_trait_body_method_segment_stage0_token kind start end
+    match v::push tokens token:
+        Result::Ok next_tokens:
+            Result::Ok next_tokens
+        Result::Err e:
+            let error %StdErrorKind v::vec_push_error_kind &e
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_trait_body_method_segment_stage0_fixture_kind: accepted fixture の token kind を[返/かえ]す
+fn selfhost_trait_body_method_segment_stage0_fixture_kind %fn TokenKind fn i32 TokenKind \first_kind\idx:
+    if:
+        eq idx 0
+        then:
+            first_kind
+        else:
+            if:
+                eq idx 1
+                then:
+                    TokenKind::Ident
+                else:
+                    if:
+                        eq idx 2
+                        then:
+                            TokenKind::Percent
+                        else:
+                            if:
+                                eq idx 3
+                                then:
+                                    TokenKind::KwFn
+                                else:
+                                    if:
+                                        eq idx 4
+                                        then:
+                                            TokenKind::Colon
+                                        else:
+                                            if:
+                                                eq idx 5
+                                                then:
+                                                    TokenKind::BoolLiteral
+                                                else:
+                                                    if:
+                                                        eq idx 6
+                                                        then:
+                                                            TokenKind::Newline
+                                                        else:
+                                                            if:
+                                                                eq idx 7
+                                                                then:
+                                                                    TokenKind::KwFn
+                                                                else:
+                                                                    if:
+                                                                        eq idx 8
+                                                                        then:
+                                                                            TokenKind::Ident
+                                                                        else:
+                                                                            if:
+                                                                                eq idx 9
+                                                                                then:
+                                                                                    TokenKind::Percent
+                                                                                else:
+                                                                                    if:
+                                                                                        eq idx 10
+                                                                                        then:
+                                                                                            TokenKind::KwFn
+                                                                                        else:
+                                                                                            if:
+                                                                                                eq idx 11
+                                                                                                then:
+                                                                                                    TokenKind::Colon
+                                                                                                else:
+                                                                                                    TokenKind::IntLiteral
+
+//: selfhost_trait_body_method_segment_stage0_fixture_start: accepted fixture の token start を[返/かえ]す
+fn selfhost_trait_body_method_segment_stage0_fixture_start %fn i32 i32 \idx:
+    if eq idx 0 0 if eq idx 1 3 if eq idx 2 15 if eq idx 3 16 if eq idx 4 19 if eq idx 5 21 if eq idx 6 26 if eq idx 7 28 if eq idx 8 31 if eq idx 9 49 if eq idx 10 50 if eq idx 11 53 55
+
+//: selfhost_trait_body_method_segment_stage0_fixture_end: accepted fixture の token end を[返/かえ]す
+fn selfhost_trait_body_method_segment_stage0_fixture_end %fn i32 i32 \idx:
+    if eq idx 0 2 if eq idx 1 14 if eq idx 2 16 if eq idx 3 18 if eq idx 4 20 if eq idx 5 26 if eq idx 6 27 if eq idx 7 30 if eq idx 8 48 if eq idx 9 50 if eq idx 10 52 if eq idx 11 54 56
+
+//: selfhost_trait_body_method_segment_stage0_tokens_loop: accepted fixture token を順に[積/つ]む
+fn selfhost_trait_body_method_segment_stage0_tokens_loop %impure fn Vec SelfhostToken impure fn TokenKind impure fn i32 Result Vec SelfhostToken StdErrorKind \tokens\first_kind\idx:
+    if:
+        ge idx 13
+        then:
+            Result::Ok tokens
+        else:
+            let kind %TokenKind selfhost_trait_body_method_segment_stage0_fixture_kind first_kind idx
+            let start %i32 selfhost_trait_body_method_segment_stage0_fixture_start idx
+            let end %i32 selfhost_trait_body_method_segment_stage0_fixture_end idx
+            match selfhost_trait_body_method_segment_stage0_push tokens kind start end:
+                Result::Ok next_tokens:
+                    selfhost_trait_body_method_segment_stage0_tokens_loop next_tokens first_kind add idx 1
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_trait_body_method_segment_stage0_tokens: 2 method body の token fixture を[作/つく]る
+fn selfhost_trait_body_method_segment_stage0_tokens %impure fn TokenKind Result Vec SelfhostToken StdErrorKind \first_kind:
+    let t0_result %Result Vec SelfhostToken StdErrorKind v::new
+    match t0_result:
+        Result::Ok t0:
+            selfhost_trait_body_method_segment_stage0_tokens_loop t0 first_kind 0
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_trait_body_method_segment_stage0_missing_body_tokens_loop: colon 欠落 fixture を[積/つ]む
+fn selfhost_trait_body_method_segment_stage0_missing_body_tokens_loop %impure fn Vec SelfhostToken impure fn i32 Result Vec SelfhostToken StdErrorKind \tokens\idx:
+    if:
+        ge idx 2
+        then:
+            Result::Ok tokens
+        else:
+            let kind %TokenKind if eq idx 0 TokenKind::KwFn TokenKind::Ident
+            let start %i32 if eq idx 0 0 3
+            let end %i32 if eq idx 0 2 14
+            match selfhost_trait_body_method_segment_stage0_push tokens kind start end:
+                Result::Ok next_tokens:
+                    selfhost_trait_body_method_segment_stage0_missing_body_tokens_loop next_tokens add idx 1
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_trait_body_method_segment_stage0_missing_body_tokens: colon を持たない method fixture を[作/つく]る
+fn selfhost_trait_body_method_segment_stage0_missing_body_tokens %impure fn void Result Vec SelfhostToken StdErrorKind \void:
+    let t0_result %Result Vec SelfhostToken StdErrorKind v::new
+    match t0_result:
+        Result::Ok t0:
+            selfhost_trait_body_method_segment_stage0_missing_body_tokens_loop t0 0
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_trait_body_method_segment_stage0_count_for: stage0 fixture を count result へ[写/うつ]す
+fn selfhost_trait_body_method_segment_stage0_count_for %impure fn Vec SelfhostToken Result i32 SelfhostTraitBodyMethodSegmentErrorKind \tokens:
+    let token_count %i32 v::len &tokens
+    let fixture_span %SelfhostSourceSpan selfhost_trait_body_method_segment_stage0_span 0 56
+    let envelope %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 0 token_count fixture_span
+    let result %Result i32 SelfhostTraitBodyMethodSegmentErrorKind selfhost_trait_body_method_segment_count_result &tokens envelope
+    v::free tokens
+    result
+
+//: selfhost_trait_body_method_segment_stage0_count_for_result: fixture allocation 失敗を segment error へ[写/うつ]す
+fn selfhost_trait_body_method_segment_stage0_count_for_result %impure fn Result Vec SelfhostToken StdErrorKind Result i32 SelfhostTraitBodyMethodSegmentErrorKind \tokens_result:
+    match tokens_result:
+        Result::Ok tokens:
+            selfhost_trait_body_method_segment_stage0_count_for tokens
+        Result::Err _e:
+            Result::Err SelfhostTraitBodyMethodSegmentErrorKind::OutOfMemory
+
+//: selfhost_trait_body_method_segment_stage0_empty_count: empty envelope の拒否結果を[作/つく]る
+fn selfhost_trait_body_method_segment_stage0_empty_count %impure fn void Result i32 SelfhostTraitBodyMethodSegmentErrorKind \void:
+    let empty_result %Result Vec SelfhostToken StdErrorKind v::new
+    match empty_result:
+        Result::Ok empty_tokens:
+            let result %Result i32 SelfhostTraitBodyMethodSegmentErrorKind selfhost_trait_body_method_segment_count_result &empty_tokens selfhost_syntax_range_empty
+            v::free empty_tokens
+            result
+        Result::Err _e:
+            Result::Err SelfhostTraitBodyMethodSegmentErrorKind::OutOfMemory
+
+//: selfhost_trait_body_method_segment_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_trait_body_method_segment_stage0_summary_new %fn Result i32 SelfhostTraitBodyMethodSegmentErrorKind fn Result i32 SelfhostTraitBodyMethodSegmentErrorKind fn Result i32 SelfhostTraitBodyMethodSegmentErrorKind fn Result i32 SelfhostTraitBodyMethodSegmentErrorKind SelfhostTraitBodyMethodSegmentStage0Summary \accepted_count\non_method_rejected\missing_body_rejected\empty_envelope_rejected:
+    SelfhostTraitBodyMethodSegmentStage0Summary accepted_count non_method_rejected missing_body_rejected empty_envelope_rejected
+
+//: selfhost_trait_body_method_segment_stage0: representative smoke を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - accepted 2 method、non-method top-level item、method body introducer 欠落、empty envelope の境界をまとめます。
+pub fn selfhost_trait_body_method_segment_stage0 %impure fn void SelfhostTraitBodyMethodSegmentStage0Summary \void:
+    let accepted_count %Result i32 SelfhostTraitBodyMethodSegmentErrorKind selfhost_trait_body_method_segment_stage0_count_for_result selfhost_trait_body_method_segment_stage0_tokens TokenKind::KwFn
+    let non_method_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind selfhost_trait_body_method_segment_stage0_count_for_result selfhost_trait_body_method_segment_stage0_tokens TokenKind::Ident
+    let missing_body_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind selfhost_trait_body_method_segment_stage0_count_for_result selfhost_trait_body_method_segment_stage0_missing_body_tokens
+    let empty_envelope_rejected %Result i32 SelfhostTraitBodyMethodSegmentErrorKind selfhost_trait_body_method_segment_stage0_empty_count
+    selfhost_trait_body_method_segment_stage0_summary_new accepted_count non_method_rejected missing_body_rejected empty_envelope_rejected

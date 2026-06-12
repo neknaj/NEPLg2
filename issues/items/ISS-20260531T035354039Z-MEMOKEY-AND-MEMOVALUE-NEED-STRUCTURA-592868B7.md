@@ -215,3 +215,17 @@ accepted marker signature hash は source text / span / syntax range / lexeme / 
 subagent review では「現ASTで method parser 風の source scan を作らない」「module 名と payload 名が full signature normalization 済みに見えないようにする」「private visibility と header/body nonempty を個別に fail-closed にする」ことが確認されたため、module 名を `memo_trait_signature_shape` にし、private visibility / header type annotation / header lambda / body envelope / body first expression / item kind mismatch を stage0 と source policy で固定した。
 
 残件は、body range を method declaration list へ分割する body segmenter、method name / type annotation / default body の stable signature normalization、re-export / import graph を含む full public surface hash、stable trait definition key producer、Copy / Drop / Eq / Hash pure evidence の実計算を接続し、実 stdlib の method-bearing `MemoKey` / `MemoValue` definition から stable source identity を生成することである。
+
+## 2026-06-12 selfhost trait body method segmenter checkpoint
+
+`stdlib/neplg2/core/syntax/parser/trait_body_segmenter.nepl` を追加し、trait body envelope を top-level method declaration segment の列へ分解する parser utility を実装した。
+
+この module は `KwFn ... : body` の method declaration だけを accepted segment とし、`header %SelfhostSyntaxRange` と `default_body %SelfhostSyntaxRange` を分けて返す。expression body 用の `body_segmenter` は `KwFn` を expression start として扱わないため、trait method declaration 用の token range evidence は別境界に分離した。
+
+失敗は `SelfhostTraitBodyMethodSegmentErrorKind` と `Result` で返し、empty envelope、invalid envelope、token bounds、layout error、non-method item、colon 欠落、empty default body、allocation failure を区別する。accepted path は source text、lexeme、path suffix、diagnostic text、stable fingerprint、public surface hash、source identity を authority にしない。`core/ty`、proof store、memo trait source / policy はこの parser-level evidence へ逆依存しないことを source policy で固定した。
+
+subagent review では、segment 分割を stable `MemoKey` / `MemoValue` source identity や fingerprint へ直結しないこと、method name / type annotation / default body normalization へ責務を飛ばさないこと、line count / doc comment length 制限を入れないことが確認された。実装では segmenter の doc comment と `nodesrc/test_selfhost_trait_body_segmenter_contract.js` で、現在の責務を method segment evidence までに限定し、signature normalization と stable identity 接続を後続 slice として残した。
+
+runtime doctest は accepted 2 method、non-method top-level item、method body introducer 欠落、empty envelope を確認する。fixture 構築は `Result Vec SelfhostToken StdErrorKind` を使い、allocation failure を `OutOfMemory` に写して fail-closed に扱う。owner-backed aggregate field の解放は `field::get` を使い、直接 field access で compiler memory boundary を迂回しない。
+
+残件は、method segment の header range から method name / type annotation / effect / default body shape を stable normalized signature evidence へ変換する normalizer、method-bearing `MemoKey` / `MemoValue` trait definition を public surface seed / stable source evidence へ接続する producer、re-export / import graph を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。
