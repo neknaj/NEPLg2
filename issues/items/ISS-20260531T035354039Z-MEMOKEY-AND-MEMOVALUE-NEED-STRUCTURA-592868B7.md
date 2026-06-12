@@ -299,3 +299,30 @@ source policy は `nodesrc/test_selfhost_memo_trait_canonical_key_contract.js` �
 stage0 smoke では、legacy record の stable lookup が `RecordStableFingerprintMissing` になること、stable push した record が stable lookup で成功すること、同じ session-local canonical key でも stable nominal key table の definition fingerprint が違う場合に `StableFingerprintMismatch` になることを実行で固定した。source policy は proof store が source text、span、path suffix、display name、diagnostic text、lexeme、checker-layer definition key producer を accepted proof authority にしないこと、stable fingerprint path でも canonical equality / policy / producer gate を維持することを確認する。
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、proof store の stable map / index、generic instantiation 用 stable type argument identity を接続することである。
+
+## 2026-06-12 selfhost memo trait proof store stable sidecar index checkpoint
+
+`memo_trait_proof_store.nepl` の stable fingerprint 付き lookup に `SelfhostMemoTraitProofStoreStableIndexEntry` と `stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry` を追加した。index entry は `stable_fingerprint` と `record_index` だけを保持し、proof、policy、canonical key は複製しない。これは accepted path の候補削減であり、proof reuse の authority ではない。
+
+`selfhost_memo_trait_proof_store_push_with_kind_stable_key` は stable record を `records` に追加した後、同じ owner transition 内で `stable_index` へ entry を追加する。record push 失敗、index push 失敗、fingerprint projection 失敗、type projection 失敗の各経路で `records`、`stable_index`、`next_key_arena` の owner を閉じる。index push だけが失敗した場合は、追加済み `next_records` と index push error 側の vector owner の両方を閉じてから typed push error に戻す。
+
+stable lookup はまず `selfhost_memo_trait_proof_store_find_projected_stable_index_loop` で fingerprint candidate を狭める。index hit 後も、record 側の stable fingerprint、cross-arena canonical equality、policy equality、proof kind、producer gate を必ず確認する。fingerprint 一致だけで `Ok` を返す経路は作っていない。index entry の `record_index` が壊れている、または entry が指す record に stable fingerprint が無い場合は `StableIndexMissing` で fail-closed にする。
+
+index fast path が accepted proof を返せなかった場合は、既存の full stable scan を失敗分類用 fallback として使う。legacy record の `RecordStableFingerprintMissing`、stable fingerprint mismatch、policy mismatch の診断優先順位は維持した。一方で、full stable scan が `Ok` になるのに index lookup が `Ok` にならなかった場合は、index invariant 破損として `StableIndexMissing` に変換し、silent fallback accept で不整合を隠さない。
+
+subagent review では Fermat と Goodall が、`HashMap` / `BTreeMap` へ進まず `Vec` sidecar index に閉じること、index は authority ではなく候補 narrowing に限定すること、producer gate まで維持すること、line count / doc comment length 制限を入れないことを Required とした。Fermat は index 欠落時の silent fallback accept を避ける typed error を Question / Required として挙げたため、`StableIndexMissing` を追加して fail-closed にした。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、store が stable sidecar index を所有すること、stable push が record index entry を追加すること、index lookup が fingerprint だけで受理しないこと、full scan accepted result を `StableIndexMissing` へ変換すること、source text / span / path suffix / display name / diagnostic text / lexeme / checker-layer definition key producer を authority にしないことを固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-stable-index-focused.json`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- warning_checked: 初回 `node nodesrc/run_source_policy_regressions.js --warn-only` は実装前の `note.n.md` checkpoint 未記録を warning として検出した。`note.n.md` の selfhost checkpoint 追加後に再実行し、今回差分由来 warning が解消したことを確認した。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。

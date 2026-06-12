@@ -1,3 +1,60 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue proof store stable index checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match、pure core、host / CLI boundary、DAG、探索範囲削減、cache key、事前検査済み artifact、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。AGENTS.md の root cause 修正、branch per task、checkpoint commit、note.n.md 更新、行数制限や doc comment 長制限で丁寧な説明を妨げない方針に従う。
+- 対象 branch: `selfhost/memo-proof-stable-index-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost proof store stable sidecar index
+- classification: selfhost implementation slice review
+- decision: proof store の stable fingerprint を acceptance authority ではなく候補 narrowing index として扱う。index hit 後も canonical equality、policy equality、record stable fingerprint equality、proof kind、producer gate を必ず通し、index が欠けているのに full scan なら受理できる場合は `StableIndexMissing` で fail-closed にする。
+- policy/spec:
+  - Blocker: なし。
+  - Required: Fermat / Goodall の Required だった `Vec` sidecar index、fingerprint-only acceptance 禁止、owner cleanup、producer gate 維持、source/span authority 禁止、line count / doc comment length 制限禁止を反映した。
+  - Non-blocker: `HashMap` / `BTreeMap` 化、duplicate stable key rejection、persistent `.neplproof` serialized index は後続 slice とする。
+  - Question: index miss で full scan が accepted proof を見つける場合の扱いは、silent fallback accept ではなく `StableIndexMissing` typed error にした。
+  - Approve: subagent 2 件とも、fingerprint を authority にせず候補集合を狭める index 化として approve。
+- implementation/test:
+  - `SelfhostMemoTraitProofStoreStableIndexEntry` を追加し、`stable_fingerprint` と `record_index` だけを持つ sidecar index entry にした。
+  - `SelfhostMemoTraitProofStore` に `stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry` を追加し、new / free / push の owner transition を更新した。
+  - stable push は record push 後に index entry を push し、record push failure、index push failure、fingerprint projection failure、type projection failure の各失敗経路で `records`、`stable_index`、`next_key_arena` を閉じる。
+  - `SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing` を追加し、equality も wildcard ではなく明示 arm で扱う。
+  - stable lookup は `selfhost_memo_trait_proof_store_find_projected_stable_index_loop` で index candidate を先に走査し、受理できない通常 miss / reject は full stable scan で既存診断分類へ戻す。
+  - full stable scan が `Ok` を返した場合は index invariant 破損として `StableIndexMissing` に変換し、証拠を返さない。
+  - fallback の full-scan 呼び出しは helper に集約し、error variant ごとに同じ長い式を複製して探索範囲を増やさないようにした。
+  - `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、stable index 所有、stable push index entry、index lookup の canonical / policy / producer gate 維持、full scan accepted result の `StableIndexMissing` 変換、fingerprint-only `Ok` 禁止を固定した。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - Fermat: Blocker なし。Required として `Vec` sidecar index、index hit 後の canonical equality / policy / producer gate、diagnostic 退行禁止、stable push owner cleanup、source policy contract を指摘。Question として index 欠落を typed error にするか確認。
+  - Goodall: Required として proof/policy/canonical key を index へ複製しないこと、index miss / stale 診断の fallback、owner cleanup、source policy で line/comment length cap を入れないことを指摘。Approve。
+  - response: `StableIndexMissing` を追加し、full scan accepted result を fail-closed に変換した。owner cleanup と source policy contract も実装済み。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` は review 形式の機械確認用 script として gate に明記されている。今回の review は Blocker / Required / Non-blocker / Question / Approve の分類で読み取り、Required と Question を同じ slice 内で反映した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: stable index が fingerprint-only acceptance、source_text / source_span / span / path_suffix / display_name / diagnostic / lexeme / checker-layer definition key producer authority、line count / doc comment length cap へ退行しないようにするため。
+  - 既存 warning: stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning は既存の warn-only 出力として確認した。
+  - 今回差分由来 warning: 初回 `node nodesrc/run_source_policy_regressions.js --warn-only` で latest selfhost note checkpoint の implementation/test 欠落が検出されたため、この checkpoint を追加した。再実行では `nodesrc/test_selfhost_zenn_review_gate_contract.js` が pass し、今回差分由来 warning は解消した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - stable accepted lookup は stable index entry 数 s と fingerprint candidate 数 c、canonical key tree size k に対して O(s + c * k) と文書化した。
+  - stable lookup failure は legacy missing / mismatch / policy mismatch の診断精度を保つため full scan O(n * k) へ戻す。
+  - focused doctest の compile_stage_timings では `resource_static_initialized_moves` と `resource_static_owner_obligations` が支配的であり、今回の index 化とは別に Resource checker 側の探索範囲削減 issue として継続する。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-stable-index-focused.json`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+- 次 slice:
+  - re-export / import graph / public non-trait declaration を含む full public surface hash。
+  - Copy / Drop / Eq / Hash pure evidence の実計算。
+  - recursive aggregate / cycle boundary。
+  - `.neplproof` reader / serializer と proof store preseed。
+  - 永続 artifact 用 stable map / serialized index。
+  - generic instantiation 用 stable type argument identity。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue proof store stable fingerprint checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、性能、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。

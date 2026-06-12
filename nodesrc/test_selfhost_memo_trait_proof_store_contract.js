@@ -77,8 +77,18 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitProofStoreLookupErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*MissingProof[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch[\s\S]*PolicyMismatch[\s\S]*ProofKindMismatch[\s\S]*ProducerRejected %SelfhostMemoTraitEvidenceProduceRejectKind/,
-    "proof store lookup must expose typed fail-closed errors for projection, stable fingerprint, key, policy, proof-kind, and producer rejection",
+    /pub struct SelfhostMemoTraitProofStoreStableIndexEntry:[\s\S]*stable_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint[\s\S]*record_index %i32/,
+    "stable proof store index entries must contain only the stable fingerprint and record index candidate pointer",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitProofStore:[\s\S]*key_arena %SelfhostCanonicalTypeKeyArena[\s\S]*records %Vec SelfhostMemoTraitProofStoreRecord[\s\S]*stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry/,
+    "proof store must own a stable sidecar index in addition to the canonical key arena and record vector",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitProofStoreLookupErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*MissingProof[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch[\s\S]*StableIndexMissing[\s\S]*PolicyMismatch[\s\S]*ProofKindMismatch[\s\S]*ProducerRejected %SelfhostMemoTraitEvidenceProduceRejectKind/,
+    "proof store lookup must expose typed fail-closed errors for projection, stable fingerprint, index invariant, key, policy, proof-kind, and producer rejection",
 );
 assert.match(
     source,
@@ -97,13 +107,18 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_proof_store_push_with_kind_stable_key[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &next_key_arena key_id[\s\S]*selfhost_memo_trait_proof_store_record_new key_id \(some fingerprint\) policy proof_kind proof[\s\S]*StableFingerprintProjectionRejected fingerprint_error/,
-    "stable push must compute canonical type fingerprint from the stored key arena and store it as some(fingerprint)",
+    /selfhost_memo_trait_proof_store_push_with_kind_stable_key[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &next_key_arena key_id[\s\S]*let record_index %i32 v::len &records[\s\S]*selfhost_memo_trait_proof_store_record_new key_id \(some fingerprint\) policy proof_kind proof[\s\S]*selfhost_memo_trait_proof_store_stable_index_entry_new fingerprint record_index[\s\S]*v::push stable_index index_entry[\s\S]*StableFingerprintProjectionRejected fingerprint_error/,
+    "stable push must compute canonical type fingerprint, store it on the record, and append a sidecar index entry for the record index",
 );
 assert.match(
     source,
-    /Result::Err fingerprint_error:[\s\S]*v::free records[\s\S]*selfhost_canonical_type_key_arena_free next_key_arena[\s\S]*StableFingerprintProjectionRejected fingerprint_error/,
-    "stable push must free records and the projected key arena if fingerprint projection fails",
+    /Result::Err fingerprint_error:[\s\S]*v::free records[\s\S]*v::free stable_index[\s\S]*selfhost_canonical_type_key_arena_free next_key_arena[\s\S]*StableFingerprintProjectionRejected fingerprint_error/,
+    "stable push must free records, stable index, and the projected key arena if fingerprint projection fails",
+);
+assert.match(
+    source,
+    /Result::Err index_error:[\s\S]*v::free v::vec_push_error_vec index_error[\s\S]*v::free next_records[\s\S]*selfhost_canonical_type_key_arena_free next_key_arena[\s\S]*selfhost_memo_trait_proof_store_push_error_from_std error/,
+    "stable push must clean up both records and key arena if the stable index append fails after the record append",
 );
 assert.match(
     source,
@@ -162,13 +177,38 @@ assert.match(
 );
 assert.match(
     source,
+    /fn selfhost_memo_trait_proof_store_find_projected_stable_index_loop[\s\S]*field::get_ref store "stable_index"[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq entry\.stable_fingerprint lookup_fingerprint[\s\S]*v::get records entry\.record_index[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint lookup_fingerprint[\s\S]*selfhost_memo_trait_proof_store_canonical_key_equal_cross[\s\S]*selfhost_memo_trait_proof_store_policy_eq record\.policy expected_policy[\s\S]*selfhost_memo_trait_proof_store_lookup_record_kind types record type_id/,
+    "stable index lookup must use fingerprint only to narrow candidates and must still validate record fingerprint, canonical equality, policy equality, and producer gate",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_proof_store_stable_full_scan_after_index[\s\S]*Result::Ok _record:[\s\S]*StableIndexMissing[\s\S]*Result::Err kind:[\s\S]*Result::Err kind/,
+    "stable lookup must fail closed with StableIndexMissing if full scan can accept a proof that the sidecar index did not expose",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_proof_store_find_projected_stable[\s\S]*selfhost_memo_trait_proof_store_find_projected_stable_index_loop[\s\S]*Result::Ok evidence:[\s\S]*Result::Ok evidence[\s\S]*Result::Err index_error:[\s\S]*selfhost_memo_trait_proof_store_stable_fallback_for_index_error/,
+    "stable lookup must try the stable sidecar index before the diagnostic-preserving full scan fallback",
+);
+assert.match(
+    source,
     /Option::None:[\s\S]*selfhost_memo_trait_proof_store_find_projected_stable_loop[\s\S]*true saw_stable_mismatch/,
     "stable lookup must fail closed on legacy records that do not carry a stable fingerprint",
 );
 assert.match(
     source,
+    /SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing:[\s\S]*SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing:[\s\S]*true/,
+    "lookup error equality must compare StableIndexMissing explicitly instead of relying on a wildcard branch",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.found[\s\S]*PolicyMismatch[\s\S]*MissingProof[\s\S]*ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate[\s\S]*ProofKindMismatch[\s\S]*selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.stable_found[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch/,
     "stage0 must prove accepted lookup, stale policy rejection, missing key rejection, primitive fake proof rejection, unsupported proof kind rejection, stable lookup acceptance, legacy stable-fingerprint rejection, and stable mismatch rejection",
+);
+assert.doesNotMatch(
+    source,
+    /selfhost_memo_trait_canonical_type_fingerprint_eq\s+(?:entry|record_fingerprint)[\s\S]{0,240}Result::Ok evidence/,
+    "stable lookup must not return Ok immediately after a fingerprint comparison without canonical equality, policy equality, and producer validation",
 );
 assert.match(
     source,

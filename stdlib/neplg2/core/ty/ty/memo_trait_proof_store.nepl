@@ -14,15 +14,17 @@
 //: - stale policy、missing proof、unsupported proof kind、projection failure、producer rejection はすべて typed error として返し、bool や表示文字列には潰しません。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 では `Vec` 線形探索です。後続で stable map / serialized `.neplproof` reader を追加する場合も、同じ policy identity と canonical equality を authority にします。
+//: - Phase 1 では canonical lookup は `Vec` 線形探索です。stable lookup は stable fingerprint の sidecar index で候補を狭めますが、index hit だけでは proof を受理しません。後続で serialized `.neplproof` reader や永続 map を追加する場合も、同じ policy identity と canonical equality を authority にします。
 //: - stored proof は field layout、Copy / Drop / Eq / Hash proof status、hazard、key/value result payload だけを持ち、TypeId や diagnostic span は持ちません。
 //: - solver policy identity は source identity と rule identity の typed payload であり、raw `trait_source_hash` や raw `rule_hash` を proof store record の authority にしません。
 //: - 既存の `selfhost_memo_trait_proof_store_push` / `selfhost_memo_trait_proof_store_lookup_record` は session-local compatibility path です。これらは `stable_fingerprint = none` の record を扱い、stable proof artifact としては再利用しません。
-//: - `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_lookup_record_stable_key` は stable nominal key table から canonical type fingerprint を作り、`stable_fingerprint = some(...)` の record だけを永続 key 入力として受理します。fingerprint が一致しても、cross-arena canonical equality、policy equality、proof kind、producer gate は必ず実行します。
+//: - `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_lookup_record_stable_key` は stable nominal key table から canonical type fingerprint を作り、`stable_fingerprint = some(...)` の record だけを永続 key 入力として受理します。stable index は fingerprint で候補を減らすための hint であり、fingerprint が一致しても cross-arena canonical equality、policy equality、proof kind、producer gate は必ず実行します。
+//: - stable index が候補を返せないにもかかわらず full stable scan では proof を受理できる場合、store の index invariant が壊れているため `StableIndexMissing` として fail-closed にします。
 //:
 //: [計算量/けいさんりょう]:
-//: - proof 追加は canonical key projection が O(k)、record push が償却 O(1) です。k は対象型から到達する型 node / argument edge 数です。
-//: - lookup は一時 canonical key projection O(k) と、store record 数 n に対する線形探索 O(n * k) です。現段階では proof store の正しさ境界を先に固定し、探索構造の高速化は後続の stable map 化に任せます。
+//: - proof 追加は canonical key projection が O(k)、record push が償却 O(1) です。stable proof 追加はさらに stable index push が償却 O(1) です。k は対象型から到達する型 node / argument edge 数です。
+//: - 通常 lookup は一時 canonical key projection O(k) と、store record 数 n に対する線形探索 O(n * k) です。
+//: - stable lookup の accepted fast path は stable index entry 数 s と fingerprint collision candidate 数 c に対して O(s + c * k) です。失敗時は legacy record missing / fingerprint mismatch / policy mismatch の診断精度を保つため full stable scan O(n * k) へ戻します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
@@ -119,14 +121,30 @@ pub struct SelfhostMemoTraitProofStoreRecord:
     proof_kind %SelfhostMemoTraitStoredProofKind
     proof %SelfhostMemoTraitStoredAggregateProof
 
+//: SelfhostMemoTraitProofStoreStableIndexEntry: stable fingerprint から record 候補を[指/さ]す sidecar index entry
+//:
+//: [目的/もくてき]:
+//: - stable lookup で全 record に対する canonical equality を毎回実行せず、同じ stable fingerprint を持つ候補だけへ narrowing します。
+//:
+//: [契約/けいやく]:
+//: - `record_index` は `records` 内の index です。index entry は proof、policy、canonical key を複製しません。
+//: - この entry は acceptance authority ではありません。lookup は entry から record を取り出した後も、record 側の stable fingerprint、cross-arena canonical equality、policy equality、proof kind、producer gate を必ず確認します。
+//: - stable proof push は record と index entry を同じ owner transition の中で追加します。index entry だけが欠ける状態が見つかった場合は、内部不整合として `StableIndexMissing` にします。
+pub struct SelfhostMemoTraitProofStoreStableIndexEntry:
+    stable_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    record_index %i32
+
 //: SelfhostMemoTraitProofStore: canonical key と proof record を所有する store
 //:
 //: [契約/けいやく]:
 //: - `key_arena` は store record の key を所有します。
+//: - `records` は session-local compatibility record と stable record の両方を挿入順に保持します。通常 lookup はこの順序で first-wins になります。
+//: - `stable_index` は stable push で追加された record だけを指します。legacy record の `stable_fingerprint = none` はここに入れず、stable lookup の失敗診断は full stable scan で分類します。
 //: - lookup 用の一時 canonical key arena はこの store に追加せず、cross-arena equality で比較してから解放します。
 pub struct SelfhostMemoTraitProofStore:
     key_arena %SelfhostCanonicalTypeKeyArena
     records %Vec SelfhostMemoTraitProofStoreRecord
+    stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry
 
 //: SelfhostMemoTraitProofStorePushErrorKind: store 追加失敗の分類
 pub enum SelfhostMemoTraitProofStorePushErrorKind:
@@ -145,6 +163,7 @@ pub enum SelfhostMemoTraitProofStoreLookupErrorKind:
     MissingProof
     RecordStableFingerprintMissing
     StableFingerprintMismatch
+    StableIndexMissing
     PolicyMismatch
     ProofKindMismatch
     ProducerRejected %SelfhostMemoTraitEvidenceProduceRejectKind
@@ -182,6 +201,14 @@ impl Clone for SelfhostMemoTraitProofStoreRecord:
 
 impl Copy for SelfhostMemoTraitProofStoreRecord:
     fn copy_mark %fn SelfhostMemoTraitProofStoreRecord SelfhostMemoTraitProofStoreRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitProofStoreStableIndexEntry:
+    fn clone %fn &SelfhostMemoTraitProofStoreStableIndexEntry SelfhostMemoTraitProofStoreStableIndexEntry \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStoreStableIndexEntry:
+    fn copy_mark %fn SelfhostMemoTraitProofStoreStableIndexEntry SelfhostMemoTraitProofStoreStableIndexEntry \self:
         self
 
 impl Clone for SelfhostMemoTraitProofStorePushErrorKind:
@@ -223,6 +250,14 @@ fn selfhost_memo_trait_stored_aggregate_proof_to_session %fn SelfhostMemoTraitSt
 fn selfhost_memo_trait_proof_store_record_new %fn SelfhostCanonicalTypeKeyId fn Option SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStoreRecord \key_id\stable_fingerprint\policy\proof_kind\proof:
     SelfhostMemoTraitProofStoreRecord key_id stable_fingerprint policy proof_kind proof
 
+//: selfhost_memo_trait_proof_store_stable_index_entry_new: stable index entry を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - caller は `record_index` が、同じ owner transition で追加済みまたは追加予定の stable record を指すことを保証します。
+//: - この helper は index の整合性を検査しません。整合性は stable push と stable lookup の typed fail-closed path で守ります。
+fn selfhost_memo_trait_proof_store_stable_index_entry_new %fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 SelfhostMemoTraitProofStoreStableIndexEntry \stable_fingerprint\record_index:
+    SelfhostMemoTraitProofStoreStableIndexEntry stable_fingerprint record_index
+
 //: selfhost_memo_trait_proof_store_new: [空/から]の proof store を[作/つく]る
 pub fn selfhost_memo_trait_proof_store_new %impure fn void Result SelfhostMemoTraitProofStore StdErrorKind \void:
     match selfhost_canonical_type_key_arena_new:
@@ -230,7 +265,14 @@ pub fn selfhost_memo_trait_proof_store_new %impure fn void Result SelfhostMemoTr
             let records_result %Result Vec SelfhostMemoTraitProofStoreRecord StdErrorKind v::new
             match records_result:
                 Result::Ok records:
-                    Result::Ok SelfhostMemoTraitProofStore key_arena records
+                    let stable_index_result %Result Vec SelfhostMemoTraitProofStoreStableIndexEntry StdErrorKind v::new
+                    match stable_index_result:
+                        Result::Ok stable_index:
+                            Result::Ok SelfhostMemoTraitProofStore key_arena records stable_index
+                        Result::Err e:
+                            v::free records
+                            selfhost_canonical_type_key_arena_free key_arena
+                            Result::Err e
                 Result::Err e:
                     selfhost_canonical_type_key_arena_free key_arena
                     Result::Err e
@@ -241,6 +283,7 @@ pub fn selfhost_memo_trait_proof_store_new %impure fn void Result SelfhostMemoTr
 pub fn selfhost_memo_trait_proof_store_free %impure fn SelfhostMemoTraitProofStore unit \store:
     selfhost_canonical_type_key_arena_free field::get store "key_arena"
     v::free field::get store "records"
+    v::free field::get store "stable_index"
 
 //: selfhost_memo_trait_proof_store_push_error_from_std: std error を store push error へ[写/うつ]す
 fn selfhost_memo_trait_proof_store_push_error_from_std %fn StdErrorKind SelfhostMemoTraitProofStorePushErrorKind \error:
@@ -276,6 +319,7 @@ fn selfhost_memo_trait_proof_store_push_error_from_std %fn StdErrorKind Selfhost
 pub fn selfhost_memo_trait_proof_store_push_with_kind %impure fn &SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredProofKind impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\store\policy\type_id\proof_kind\proof:
     let key_arena %SelfhostCanonicalTypeKeyArena field::get store "key_arena"
     let records %Vec SelfhostMemoTraitProofStoreRecord field::get store "records"
+    let stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry field::get store "stable_index"
     match selfhost_canonical_type_key_project_into_arena types key_arena type_id:
         Result::Ok allocated_key:
             let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &allocated_key
@@ -283,14 +327,16 @@ pub fn selfhost_memo_trait_proof_store_push_with_kind %impure fn &SelfhostTypeAr
             let record %SelfhostMemoTraitProofStoreRecord selfhost_memo_trait_proof_store_record_new key_id none policy proof_kind proof
             match v::push records record:
                 Result::Ok next_records:
-                    Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records
+                    Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records stable_index
                 Result::Err e:
                     let error %StdErrorKind field::get e "error"
                     v::free v::vec_push_error_vec e
+                    v::free stable_index
                     selfhost_canonical_type_key_arena_free next_key_arena
                     Result::Err selfhost_memo_trait_proof_store_push_error_from_std error
         Result::Err _e:
             v::free records
+            v::free stable_index
             Result::Err SelfhostMemoTraitProofStorePushErrorKind::TypeProjectionFailed
 
 //: selfhost_memo_trait_proof_store_push: key/value 両用 proof を store へ[追加/ついか]する
@@ -309,27 +355,41 @@ pub fn selfhost_memo_trait_proof_store_push %impure fn &SelfhostTypeArena impure
 pub fn selfhost_memo_trait_proof_store_push_with_kind_stable_key %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredProofKind impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\nominal_table\store\policy\type_id\proof_kind\proof:
     let key_arena %SelfhostCanonicalTypeKeyArena field::get store "key_arena"
     let records %Vec SelfhostMemoTraitProofStoreRecord field::get store "records"
+    let stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry field::get store "stable_index"
     match selfhost_canonical_type_key_project_into_arena types key_arena type_id:
         Result::Ok allocated_key:
             let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &allocated_key
             let next_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated_key
             match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &next_key_arena key_id:
                 Result::Ok fingerprint:
+                    let record_index %i32 v::len &records
                     let record %SelfhostMemoTraitProofStoreRecord selfhost_memo_trait_proof_store_record_new key_id (some fingerprint) policy proof_kind proof
                     match v::push records record:
                         Result::Ok next_records:
-                            Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records
+                            let index_entry %SelfhostMemoTraitProofStoreStableIndexEntry selfhost_memo_trait_proof_store_stable_index_entry_new fingerprint record_index
+                            match v::push stable_index index_entry:
+                                Result::Ok next_stable_index:
+                                    Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records next_stable_index
+                                Result::Err index_error:
+                                    let error %StdErrorKind field::get index_error "error"
+                                    v::free v::vec_push_error_vec index_error
+                                    v::free next_records
+                                    selfhost_canonical_type_key_arena_free next_key_arena
+                                    Result::Err selfhost_memo_trait_proof_store_push_error_from_std error
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
                             v::free v::vec_push_error_vec e
+                            v::free stable_index
                             selfhost_canonical_type_key_arena_free next_key_arena
                             Result::Err selfhost_memo_trait_proof_store_push_error_from_std error
                 Result::Err fingerprint_error:
                     v::free records
+                    v::free stable_index
                     selfhost_canonical_type_key_arena_free next_key_arena
                     Result::Err SelfhostMemoTraitProofStorePushErrorKind::StableFingerprintProjectionRejected fingerprint_error
         Result::Err _e:
             v::free records
+            v::free stable_index
             Result::Err SelfhostMemoTraitProofStorePushErrorKind::TypeProjectionFailed
 
 //: selfhost_memo_trait_proof_store_push_stable_key: stable fingerprint 付き key/value 両用 proof を store へ[追加/ついか]する
@@ -361,12 +421,14 @@ fn selfhost_memo_trait_proof_store_lookup_error_kind_code %fn SelfhostMemoTraitP
             3
         SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch:
             4
-        SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch:
+        SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing:
             5
-        SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch:
+        SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch:
             6
-        SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected _producer_kind:
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch:
             7
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected _producer_kind:
+            8
 
 //: selfhost_memo_trait_proof_store_lookup_error_kind_eq: lookup error の分類と payload が同じか[返/かえ]す
 //:
@@ -402,6 +464,12 @@ pub fn selfhost_memo_trait_proof_store_lookup_error_kind_eq %fn SelfhostMemoTrai
         SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch:
             match b:
                 SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing:
                     true
                 _:
                     false
@@ -648,17 +716,18 @@ fn selfhost_memo_trait_proof_store_find_projected_stable_end %fn bool fn bool fn
                         else:
                             Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof
 
-//: selfhost_memo_trait_proof_store_find_projected_stable_loop: stable fingerprint 付き record を[線形/せんけい][探索/たんさく]する
+//: selfhost_memo_trait_proof_store_find_projected_stable_loop: stable fingerprint 付き record を full scan で[線形/せんけい][探索/たんさく]する
 //:
 //: [目的/もくてき]:
-//: - lookup 時に作った canonical key と stable fingerprint の両方が、store record の key と一致する場合だけ producer gate へ進めます。
+//: - stable index が proof を受理できなかった場合に、lookup 時に作った canonical key と stable fingerprint の両方が store record の key と一致するか全 record を確認し、失敗理由を typed error へ分類します。
 //:
 //: [契約/けいやく]:
 //: - stable fingerprint は acceptance の十分条件ではありません。fingerprint が一致した record でも、cross-arena canonical equality、policy equality、proof kind、producer gate を必ず通します。
 //: - stable fingerprint の missing / mismatch は、canonical key と expected policy が一致した record に対してだけ記録します。無関係の record が診断を汚染しないようにします。
+//: - この full scan が `Ok` になるのに index lookup が `Ok` にならなかった場合、stable index invariant が破損しているため caller は `StableIndexMissing` に変換します。
 //:
 //: [計算量/けいさんりょう]:
-//: - 現段階では record 数 n と canonical key tree size k に対して O(n * k) です。stable map 化後は fingerprint を index にしますが、この slice では失敗分類と既存 authority の保持を優先します。
+//: - record 数 n と canonical key tree size k に対して O(n * k) です。この関数は失敗分類用の fallback なので、accepted fast path は stable index loop 側に置きます。
 fn selfhost_memo_trait_proof_store_find_projected_stable_loop %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn bool fn bool fn bool Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\lookup_fingerprint\idx\saw_policy_mismatch\saw_stable_missing\saw_stable_mismatch:
     let records %&Vec SelfhostMemoTraitProofStoreRecord field::get_ref store "records"
     let n %i32 v::len records
@@ -693,9 +762,118 @@ fn selfhost_memo_trait_proof_store_find_projected_stable_loop %fn &SelfhostTypeA
                 Option::None:
                     selfhost_memo_trait_proof_store_find_projected_stable_end saw_policy_mismatch saw_stable_missing saw_stable_mismatch
 
+//: selfhost_memo_trait_proof_store_find_projected_stable_index_loop: stable index から候補 record だけを[探索/たんさく]する
+//:
+//: [目的/もくてき]:
+//: - stable fingerprint が一致しない record について canonical key tree 比較を実行しないことで、stable lookup の accepted path の探索範囲を減らします。
+//:
+//: [契約/けいやく]:
+//: - `stable_index` は hint であり authority ではありません。index entry の fingerprint が lookup fingerprint と一致しても、record 側の fingerprint、cross-arena canonical equality、policy equality、proof kind、producer gate を確認します。
+//: - index entry が存在するのに `record_index` が `records` に存在しない場合、または entry が示す record が stable fingerprint を持たない場合は、store invariant の破損として `StableIndexMissing` を返します。
+//: - fingerprint collision などで index entry の fingerprint は一致したが canonical key が一致しない場合、その entry は候補ではなかったものとして次の index entry へ進みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - stable index entry 数 s と、fingerprint が一致した候補数 c、canonical key tree size k に対して O(s + c * k) です。
+fn selfhost_memo_trait_proof_store_find_projected_stable_index_loop %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn bool Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\lookup_fingerprint\idx\saw_policy_mismatch:
+    let stable_index %&Vec SelfhostMemoTraitProofStoreStableIndexEntry field::get_ref store "stable_index"
+    let records %&Vec SelfhostMemoTraitProofStoreRecord field::get_ref store "records"
+    let n %i32 v::len stable_index
+    if:
+        ge idx n
+        then:
+            if:
+                saw_policy_mismatch
+                then:
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch
+                else:
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof
+        else:
+            match v::get stable_index idx:
+                Option::Some entry:
+                    if:
+                        selfhost_memo_trait_canonical_type_fingerprint_eq entry.stable_fingerprint lookup_fingerprint
+                        then:
+                            match v::get records entry.record_index:
+                                Option::Some record:
+                                    match record.stable_fingerprint:
+                                        Option::Some record_fingerprint:
+                                            if:
+                                                selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint lookup_fingerprint
+                                                then:
+                                                    let store_key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref store "key_arena"
+                                                    if:
+                                                        selfhost_memo_trait_proof_store_canonical_key_equal_cross store_key_arena record.key_id lookup_arena lookup_key
+                                                        then:
+                                                            if:
+                                                                selfhost_memo_trait_proof_store_policy_eq record.policy expected_policy
+                                                                then:
+                                                                    selfhost_memo_trait_proof_store_lookup_record_kind types record type_id
+                                                                else:
+                                                                    selfhost_memo_trait_proof_store_find_projected_stable_index_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint add idx 1 true
+                                                        else:
+                                                            selfhost_memo_trait_proof_store_find_projected_stable_index_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint add idx 1 saw_policy_mismatch
+                                                else:
+                                                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing
+                                        Option::None:
+                                            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing
+                        else:
+                            selfhost_memo_trait_proof_store_find_projected_stable_index_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint add idx 1 saw_policy_mismatch
+                Option::None:
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing
+
+//: selfhost_memo_trait_proof_store_stable_full_scan_after_index: index miss 後の full scan 結果を[確定/かくてい]する
+//:
+//: [目的/もくてき]:
+//: - stable index で受理できなかった lookup について、full stable scan の失敗分類を利用します。
+//:
+//: [契約/けいやく]:
+//: - full stable scan が `Err(kind)` を返した場合、その kind が既存の精密な失敗理由です。
+//: - full stable scan が `Ok` を返した場合、受理可能な stable record が `records` 側にあるのに index に現れなかったことを意味するため、証拠を返さず `StableIndexMissing` で fail-closed にします。
+fn selfhost_memo_trait_proof_store_stable_full_scan_after_index %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \full_result:
+    match full_result:
+        Result::Ok _record:
+            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing
+        Result::Err kind:
+            Result::Err kind
+
+//: selfhost_memo_trait_proof_store_stable_full_scan_after_index_context: fallback full scan を1箇所で[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - index fast path の通常 miss / reject から full stable scan へ戻る処理を集約し、同じ長い呼び出し式を error variant ごとに複製しないようにします。
+//:
+//: [契約/けいやく]:
+//: - この helper は index invariant 破損かどうかを判定しません。caller が `StableIndexMissing` 以外の場合だけ呼びます。
+//: - full scan の `Ok` は index 欠落として fail-closed に変換し、`Err` は既存診断分類として保持します。
+fn selfhost_memo_trait_proof_store_stable_full_scan_after_index_context %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\lookup_fingerprint:
+    let full_result %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_find_projected_stable_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint 0 false false false
+    selfhost_memo_trait_proof_store_stable_full_scan_after_index full_result
+
+//: selfhost_memo_trait_proof_store_stable_fallback_for_index_error: index error から fallback 方針を[選/えら]ぶ
+//:
+//: [目的/もくてき]:
+//: - index fast path が受理できなかった時に、内部不整合と通常の miss / mismatch を分離します。
+//:
+//: [契約/けいやく]:
+//: - `StableIndexMissing` は store invariant の破損なので full scan による救済をしません。
+//: - それ以外の index miss / reject は full scan で既存 stable lookup の typed error へ分類します。
+fn selfhost_memo_trait_proof_store_stable_fallback_for_index_error %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitProofStoreLookupErrorKind Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\lookup_fingerprint\index_error:
+    if:
+        selfhost_memo_trait_proof_store_lookup_error_kind_eq index_error SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing
+        then:
+            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableIndexMissing
+        else:
+            selfhost_memo_trait_proof_store_stable_full_scan_after_index_context types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint
+
 //: selfhost_memo_trait_proof_store_find_projected_stable: stable lookup の loop を[開始/かいし]する
 fn selfhost_memo_trait_proof_store_find_projected_stable %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\lookup_fingerprint:
-    selfhost_memo_trait_proof_store_find_projected_stable_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint 0 false false false
+    let indexed_result %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_find_projected_stable_index_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint 0 false
+    match indexed_result:
+        Result::Ok evidence:
+            Result::Ok evidence
+        Result::Err index_error:
+            selfhost_memo_trait_proof_store_stable_fallback_for_index_error types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint index_error
 
 //: selfhost_memo_trait_proof_store_lookup_record: store から現在 TypeId 用の evidence record を[引/ひ]く
 //:
