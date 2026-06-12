@@ -1198,6 +1198,24 @@ accepted authority は従来どおり seed table、public surface hash materiali
 
 計算量は header prefix decode が固定 6 word の O(1)、word decode が O(1)、word append が償却 O(1) である。この checkpoint 後も、`.neplproof` record body reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` fixed-width record-only reader checkpoint
+
+`.neplproof` header reader の次段として、artifact schema version 1 の fixed-width record body を typed `SelfhostMemoTraitNeplProofRecord` vector へ decode し、`memo_trait_proof_decoded.nepl` の decoded artifact owner へ渡す record-only reader を追加した。
+
+この reader は 31 word の record layout を schema として doc comment に固定する。offset `0..3` は canonical payload schema / fingerprint schema / fingerprint root hash / canonical payload hash、`4..11` は `MemoKey` / `MemoValue` source identity、`12..16` は solver policy、`17` は stored proof kind、`18..20` は aggregate field evidence、`21..24` は Copy / Drop / Eq / Hash proof status、`25` は hazard evidence、`26..29` は key/value result、`30` は record payload hash である。
+
+reader は header の `record_count` を唯一の件数 authority とし、bytes length から record 件数を推定しない。`record_count` は外部入力なので `16384` 件を超えた場合は `RecordCountLimitExceeded` で拒否する。現 slice の public API は record-only stream を対象にするため、`index_count != record_count` を `IndexCountUnsupported` として拒否し、record table 直後に余分な word がある場合は `TrailingBytes` として fail-closed にする。serialized index section と canonical payload bytes section は後続の別 API と schema 境界で読む。
+
+raw tag は上位へ流さず reader 内の dedicated helper で typed enum へ戻す。source kind、stored proof kind、field evidence、proof status、hazard、`Result unit SelfhostMemoTraitRejectKind` の tag/payload は、それぞれ未知 tag、`Ok` に残った reject payload、field range 不整合を typed `SelfhostMemoTraitNeplProofReaderErrorKind` として返す。proof record 自体は `selfhost_memo_trait_neplproof_record_result` を必ず通し、decoded artifact owner は `selfhost_memo_trait_neplproof_decoded_artifact_from_records` で作る。
+
+binary reader は full canonical key producer を直接 import しない。serialized fingerprint parts は `memo_trait_proof_artifact.nepl` の `selfhost_memo_trait_neplproof_record_key_from_parts_result` へ委譲する。これにより、reader hot path は canonical key projection / source registry / proof store lookup へ広がらず、artifact schema validation boundary だけを使う。
+
+この reader は proof acceptance authority ではない。generated sidecar index は decoded artifact owner の lookup narrowing 用であり、index hit、record payload hash、fingerprint hit のいずれかだけで proof を受理しない。canonical payload decode、payload hash 再計算、materialized key existence、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続境界で再検査する。proof-store import は typed proof payload constructors のためだけに使い、lookup / push / preseed / stable materialization API は呼ばない。
+
+性能面では、当初の深い nested match chain を record word vector loop と stage0 field-value projection loop へ置き換えた。record decode は record 数 n、固定 word 幅 w=31 に対して O(n * w)、つまり schema version 1 では O(n) である。stage0 fixture writer も field ordinal から値を返す関数と線形 push loop に分け、selfhost compiler の prefix/typecheck 探索空間を広げる大きな分岐式を避ける。
+
+この checkpoint 後も、`.neplproof` serializer、canonical payload bytes section reader、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

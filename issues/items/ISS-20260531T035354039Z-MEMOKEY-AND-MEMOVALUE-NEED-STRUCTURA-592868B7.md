@@ -399,6 +399,26 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` fixed-width record-only reader checkpoint
+
+`memo_trait_proof_reader.nepl` に、header reader の次段として fixed-width record table を typed record vector へ decode し、decoded artifact owner を作る public reader boundary を追加した。
+
+この reader は artifact schema version 1 の record body を 31 word として扱う。word layout は reader doc comment に offset 単位で固定し、canonical payload schema / fingerprint schema / fingerprint root hash / canonical payload hash、`MemoKey` / `MemoValue` source identity、solver policy、stored proof kind、field evidence、Copy / Drop / Eq / Hash proof status、hazard evidence、key/value result、record payload hash を順に読む。
+
+reader は `header.record_count` を record 件数の唯一の authority とし、bytes length から件数を推測しない。`record_count` は外部入力なので `RecordCountLimitExceeded` で上限を持たせ、現 slice の record-only API では `index_count != record_count` を `IndexCountUnsupported` として拒否する。record table 後に余分な word がある場合は `TrailingBytes` として拒否する。serialized index table と canonical payload bytes section は後続 slice の別 API と schema 境界で扱う。
+
+tag 復元は reader 内の helper へ分けた。source kind、stored proof kind、field evidence、proof status、hazard、`Result unit SelfhostMemoTraitRejectKind` は raw `i32` のまま上位へ流さず、未知 tag、field range 不整合、`Ok` result に残った reject payload を `SelfhostMemoTraitNeplProofReaderErrorKind` の typed variant として fail-closed に返す。
+
+record key は `memo_trait_proof_artifact.nepl` に追加した `selfhost_memo_trait_neplproof_record_key_from_parts_result` へ委譲する。これにより、binary reader は full canonical key producer を直接 import せず、serialized fingerprint parts を artifact schema boundary で検査してから既存 record key validator へ渡す。
+
+decoded artifact owner は `selfhost_memo_trait_neplproof_decoded_artifact_from_records` で作る。この reader は proof acceptance authority ではない。index hit、record payload hash、fingerprint hit のいずれかだけで proof を受理しない。canonical payload decode、payload hash 再計算、materialized key existence、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続境界で再検査する。reader は typed proof payload constructors のために proof store module を import するが、lookup / push / preseed / stable materialization API は呼ばない。
+
+性能残件への対応として、record word decode と stage0 record fixture writer は深い nested match chain ではなく、fixed-width word vector loop と field ordinal projection loop にした。record decode は record 数 n、fixed width w=31 に対して O(n * w) であり、schema version 1 では O(n) である。これにより、selfhost compiler の prefix/typecheck 探索空間を広げる巨大分岐式を避ける。
+
+`record_word_push` は push failure 時に `VecPushError` 内の owner を閉じてから `RecordPushInvalid` を返す。source policy は `nodesrc/test_selfhost_memo_trait_proof_reader_contract.js` と artifact / decoded contract で固定した。検査内容は、decoded-before-reader source order、reader が full canonical key producer を import しないこと、31 word layout、record_count 上限、tag decoder 全体の unknown tag fail-closed、nonzero Ok payload rejection、record-only bounds、trailing bytes rejection、decoded artifact boundary delegation、proof-store typed payload constructor 限定、proof-store acceptance/preseed API 禁止、行数制限 / doc comment 長制限禁止を含む。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` serializer、canonical payload bytes section reader、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-12 selfhost memo trait `.neplproof` header reader codec checkpoint
 
 `.neplproof` record reader / serializer の前段として、`stdlib/neplg2/core/ty/ty/memo_trait_artifact_word_codec.nepl` と `stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl` を追加した。

@@ -109,6 +109,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_memo_trait_neplproof_record_key_from_parts_result[\s\S]*SelfhostMemoTraitCanonicalTypeFingerprint canonical_fingerprint_schema_version canonical_fingerprint_root_hash[\s\S]*selfhost_memo_trait_neplproof_record_key_result canonical_fingerprint canonical_payload_schema_version canonical_payload_hash policy/,
+    "artifact schema must expose a small serialized-parts record-key boundary for binary readers without making the reader import the full canonical-key producer",
+);
+assert.match(
+    source,
     /pub fn selfhost_memo_trait_neplproof_record_result[\s\S]*eq record_payload_hash 0[\s\S]*RecordPayloadHashPlaceholder[\s\S]*SelfhostMemoTraitNeplProofRecord/,
     "record validation must reject placeholder record payload hashes before accepting proof payloads",
 );

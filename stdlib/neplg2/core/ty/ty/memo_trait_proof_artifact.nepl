@@ -376,6 +376,23 @@ pub fn selfhost_memo_trait_neplproof_record_key_result %fn SelfhostMemoTraitCano
                         else:
                             Result::Ok selfhost_memo_trait_neplproof_record_key_new canonical_payload_schema_version canonical_fingerprint canonical_payload_hash policy
 
+//: selfhost_memo_trait_neplproof_record_key_from_parts_result: serialized record key fields を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - binary reader は canonical fingerprint を schema version と root hash の word pair として読みます。
+//: - reader が canonical key fingerprint producer module 全体へ直接依存しなくてよいように、この artifact schema 境界で typed fingerprint payload を組み立て、既存の record key validator へ委譲します。
+//:
+//: [契約/けいやく]:
+//: - この関数は proof acceptance authority ではありません。
+//: - fingerprint schema、canonical payload schema、canonical payload hash、policy schema の検査は `selfhost_memo_trait_neplproof_record_key_result` と同じです。
+//: - source text、span、path、diagnostic、lexeme、session-local id は入力に含めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の scalar field だけを確認するため O(1) です。
+pub fn selfhost_memo_trait_neplproof_record_key_from_parts_result %fn i32 fn i32 fn i32 fn i32 fn SelfhostMemoTraitProofStorePolicy Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind \canonical_payload_schema_version\canonical_fingerprint_schema_version\canonical_fingerprint_root_hash\canonical_payload_hash\policy:
+    let canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_fingerprint_schema_version canonical_fingerprint_root_hash
+    selfhost_memo_trait_neplproof_record_key_result canonical_fingerprint canonical_payload_schema_version canonical_payload_hash policy
+
 //: selfhost_memo_trait_neplproof_record_result: serialized proof record を[検査/けんさ]する
 //:
 //: [契約/けいやく]:

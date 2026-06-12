@@ -2339,9 +2339,79 @@ MERGE_APPROVED
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `git diff --check`
 
+## 2026-06-12 Agent selfhost `.neplproof` fixed-width record-only reader checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-record-reader-20260612`
+- 対象 branch: `selfhost/neplproof-record-reader-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- 対象 issue / slice: selfhost `MemoKey` / `MemoValue` structural purity rules の `.neplproof` fixed-width record-only reader slice
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- AGENTS.md: 確認済み。plan.md 非編集、note/todo/doc 更新、根本原因修正、丁寧な日本語 doc comment、行数制限 / doc comment 長制限禁止、checkpoint commit の方針に従う。
+- Zenn 記事: 2026-06-12 に `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。
+- zenn_policy: Result / Option、typed enum error、静的検査、純粋 core / facade 分離、DAG、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_proof_reader.nepl` に、header + fixed-width record table を bytes から typed `SelfhostMemoTraitNeplProofRecord` vector へ decode し、`SelfhostMemoTraitNeplProofDecodedArtifact` owner を作る public reader boundary を追加した。
+- record layout は artifact schema version 1 の 31 word として doc comment に固定した。canonical payload schema / fingerprint schema / fingerprint root hash / canonical payload hash、`MemoKey` / `MemoValue` source identity、solver policy、stored proof kind、field evidence、Copy / Drop / Eq / Hash proof status、hazard evidence、key/value result、record payload hash を offset 単位で明記した。
+- `record_count` は header だけを authority とし、bytes length から record 数を推測しない。外部入力による allocation blow-up を避けるため `record_count_limit = 16384` を置き、現 slice の record-only API は `index_count != record_count` と trailing bytes を typed error で拒否する。
+- source kind、stored proof kind、field evidence、proof status、hazard、`Result unit SelfhostMemoTraitRejectKind` は専用 helper で raw tag から typed enum へ復元する。未知 tag、field range 不整合、`Ok` result に残った reject payload は fail-closed にする。
+- reader が full canonical key producer を直接 import しないよう、`memo_trait_proof_artifact.nepl` に `selfhost_memo_trait_neplproof_record_key_from_parts_result` を追加し、serialized fingerprint parts を artifact schema boundary で検査して既存 record key validator へ委譲する。
+- decoded artifact owner は `selfhost_memo_trait_neplproof_decoded_artifact_from_records` で作る。この slice は proof acceptance ではなく、canonical payload decode、payload hash 再計算、materialized key existence、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続境界で再検査する。
+- proof store module import は typed proof payload constructors のためだけに許容した。`selfhost_memo_trait_proof_store_lookup`、`push`、`preseed`、`stable`、`materialized`、`new`、`free` などの acceptance / mutation API は reader から呼ばないことを source_policy に固定した。
+- 性能面では、record field を深い nested match chain で読む形を避け、fixed-width word vector loop と `record_word_or_zero` accessor に分けた。stage0 writer も field ordinal projection + linear push loop にし、selfhost compiler の prefix/typecheck 探索空間を増やす巨大分岐式を避けた。
+- `nodesrc/selfhost_ty_sources.js` と `stdlib/neplg2/core/ty/ty.nepl` は、decoded artifact owner が reader より先に読み込まれる順序へ更新した。
+- `todo.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、issue を更新し、record-only reader を完了済み境界として記録した。
+
+### subagent_review
+
+- subagent_review_ids: `019ebac4-5de8-7190-83ff-ef23338d24ac`
+- subagent_review_count: 1
+- subagent review: Hume に `.neplproof` record reader boundary の設計を依頼した。Blocker は無し。
+- Blocker: なし。
+- Required: 初回 review で、reader を bytes -> typed decoded record owner までに留めること、tag restore helper、record/body error enum、fixed-width word layout doc、`header.record_count` authority、proof store / preseed / candidate range preseed 非接続、line count / comment length / file size 制限禁止を求められた。
+- Required 対応: record body decoder、typed tag decoder、31 word layout、record_count limit、record-only bounds、decoded artifact boundary delegation、source policy の proof-store acceptance API 禁止を追加した。fixed-width layout は artifact schema version 1 の record body layout として扱う decision にした。
+- 再レビュー Required: `record_word_push` の `v::push` 失敗時に `VecPushError` 内の owner を閉じること、tag decoder 群すべての unknown tag fail-closed を source policy へ固定すること、proof store import は typed proof payload constructor 用であり relation API 禁止であることを source policy で明確化すること。
+- 再レビュー Required 対応: `field::get e "error"` で error kind を保持し、`v::free v::vec_push_error_vec e` で owner を閉じてから `RecordPushInvalid` を返すよう修正した。source policy は source kind / field evidence / proof status / hazard / Result / reject kind の decoder、nonzero Ok payload rejection、proof-store typed payload constructor 限定、proof-store acceptance API 禁止を固定した。
+- Non-blocker: proof store import については、typed proof payload constructors のためだけに使い、proof acceptance / preseed API を禁止する source_policy で境界を固定した。
+- Question: fixed-width layout を formal schema とするか reader-local layout とするかについては、schema version 1 の fixed record body layout として doc/source policy に固定する decision にした。
+- Approve: record reader が validation と decoded owner 構築まで、tag 復元が enum error で fail-closed、proof acceptance 非接続である条件を満たす方針として approve。
+- classification: review 指摘は Blocker なし、Required は実装済み、Non-blocker は source policy で監視する。
+- decision: この slice では serializer、serialized index、canonical payload bytes section、proof store preseed へ進まず、record-only decoded artifact readerで閉じる。
+
+### source_policy
+
+- `nodesrc/test_selfhost_memo_trait_proof_reader_contract.js` は、shared word codec、header validator delegation、decoded-before-reader source order、full canonical key producer import 禁止、31 word layout、record_count limit、record-only bounds、tag decoder、linear record word loop、linear stage0 writer、decoded artifact boundary delegationを固定する。
+- `nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js` は、serialized fingerprint parts から record key validator へ委譲する artifact helper を固定する。
+- `nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js` は、decoded owner が sidecar index producer の後、reader/preseed の前にある source order を固定する。
+- source policy は、source text、span、path suffix、display name、diagnostic text、lexeme、session-local `TypeId`、proof-store lookup / push / preseed / stable materialization を reader authority にしない。
+- 行数制限: 導入していない。
+- doc comment 長制限: 導入していない。
+- 既存 warning: source policy regression では stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が既存 warning として出る可能性がある。
+- 今回差分由来 warning: `node nodesrc/run_source_policy_regressions.js --warn-only` を再実行し、今回 slice 由来の warning は確認されていない。
+
+### verify
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/selfhost_zenn_review_response_check.js --input note.n.md --review-kind final --record note.n.md`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-reader.json`
+- pass: `cargo run -q -p nepl-cli -- --check -i tmp\selfhost_reader_import_only.nepl --target std`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- `nodesrc/selfhost_zenn_review_response_check.js`: note には Zenn 記事、AGENTS.md、対象 branch、対象 issue / slice、policy/spec、implementation/test、subagent review、classification、decision、source_policy、verify、既存 warning、今回差分由来 warning、行数制限、doc comment 長制限、次 slice を明示した。
+- policy/spec: record-only reader は artifact schema version 1 の fixed 31-word bodyを読む。serialized index / canonical payload bytes / serializer は別 schema boundary とする。
+- implementation/test: record decoder と stage0 fixture writer は loop化し、source policy と doctest で代表成功 / unknown tag / trailing bytes / invalid record を確認する。
+- 次 slice: `.neplproof` serializer、canonical payload bytes section reader、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash。
+
 ### residual
 
-- `.neplproof` reader / serializer、persistent stable map / serialized index の実体は未完了である。
+- `.neplproof` serializer、canonical payload bytes section reader、persistent stable map / serialized index の実体は未完了である。
 - generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。
 - re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
 
