@@ -1,3 +1,49 @@
+# 2026-06-12 Agent selfhost trait body segmenter scan cursor checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、parser utility と checker / proof / HIR / Resource / backend のDAG、source text / lexeme / path / diagnostic を authority にしないこと、探索範囲削減、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/trait-body-segmenter-cost-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost trait body method segmenter next-index recomputation reduction
+- classification: selfhost implementation slice review
+- decision: `trait_body_segmenter.nepl` の accepted method path で、method line parser が segment と continuation index を同時に返す private payload を作るようにした。これにより main loop は `colon_idx` / `body_start` / `indented` / `body_end` を成功後に再計算しない。
+- policy/spec:
+  - `SelfhostTraitBodyMethodSegment` の public shape は維持し、`next_index` は private `SelfhostTraitBodyMethodSegmentBuild` に閉じた。caller が continuation cursor を public API として観測する経路は増やしていない。
+  - `selfhost_trait_body_method_segment_from_method_line_result` は `Result SelfhostTraitBodyMethodSegmentBuild SelfhostTraitBodyMethodSegmentError` を返し、colon 欠落、空 default body、continuation index 非前進を typed error で fail-closed にする。
+  - `selfhost_trait_body_method_segment_next_index` helper は削除した。main loop は `built.segment` を push し、push 成功後に `built.next_index` だけで次の top-level item へ進む。
+  - source text、lexeme、path suffix、display name、diagnostic text、stable fingerprint、public surface hash、source identity はこの parser-level segmenter の accepted authority にしない。
+  - `core/ty`、proof store、memo trait source / policy、checker / HIR / Resource IR / backend への逆依存は追加していない。
+- implementation/test:
+  - `stdlib/neplg2/core/syntax/parser/trait_body_segmenter.nepl` に private `SelfhostTraitBodyMethodSegmentBuild` と constructor を追加した。
+  - method line conversion は、segment 作成と同じ計算結果から `next_idx` を作り、`next_idx <= start` を `InvalidLayout` として拒否する。
+  - `nodesrc/test_selfhost_trait_body_segmenter_contract.js` は private build payload、forward continuation、main loop の payload consumption、`selfhost_trait_body_method_segment_next_index` 禁止を固定するように更新した。
+- subagent review:
+  - subagent_review_ids: `019ebb25-2522-7990-b5f8-ece185dafe21`
+  - subagent_review_count: 1 design review, 1 implementation re-review
+  - Euclid initial review: Blocker なし。Required として、`next_index` は private payload に閉じること、`next_index` の計算失敗や非前進を typed enum error にすること、main loop は payload の `next_index` だけで進み next-index helper を呼ばないこと、source policy を payload 前提へ更新することを求めた。同じ slice 内で反映した。
+  - Euclid re-review: Blocker なし。Required なし。Non-blocker として、`next_idx <= start` の `InvalidLayout` fail-closed は妥当、source/span は range / error location に留まり accepted authority へ昇格していない、doc comment は計算量と再探索削減を更新済み、line-count / comment-length 制限は混入していないと評価した。Question なし。Approve。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` は review response の形式と応答漏れを確認する gate として既存運用されている。今回の checkpoint は `Blocker` / `Required` / `Non-blocker` / `Question` / `Approve`、classification、decision、source_policy、verify、既存 warning と今回差分由来 warning を明示した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: accepted method 後の continuation cursor を二度目の header/body scan で再計算する退行、public API への cursor 露出、source text / lexeme authority 化、line count / doc comment length cap 混入を防ぐため。
+  - 既存 warning: Node WASI ExperimentalWarning と Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: なし。focused contract、focused doctest、method signature contract / doctest、Zenn review gate、source policy regression、issues check、git diff check は今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - accepted method 1 件ごとに発生していた colon 探索、body start 判定、indented 判定、nested default body 終端探索の再実行を削除した。trait body envelope 全体は引き続き token 数 k に対して O(k) だが、同じ method line / nested body を成功後にもう一度読む固定費をなくした。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_trait_body_segmenter_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_method_signature_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/trait_body_segmenter.nepl -o target/selfhost_trait_body_segmenter_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_method_signature.nepl -o target/selfhost_memo_trait_method_signature_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - warning_checked: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。今回差分由来の warning / failure はない。
+- 次 slice: registry convenience path の candidate scanner + materializer 二重走査削減、facade-external token gate と seed module private token scan の重複整理、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を継続する。
+
 # 2026-06-12 Agent selfhost public surface hash scan cost checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / Option、enum error、match、sentinel 値の排除、pure core と host / CLI boundary の分離、parser、checker、HIR、Resource IR、backend のDAG、authority boundary、探索範囲削減、cache key / 事前検査済み artifact による再利用、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

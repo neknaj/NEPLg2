@@ -19,7 +19,8 @@
 //: - `#capability` など method 以外の trait body item は、この slice では `UnexpectedTraitBodyItem` として fail-closed にします。必要な trait surface が増えた場合は、source policy と typed enum を更新して明示的に扱います。
 //:
 //: [計算量/けいさんりょう]:
-//: - trait body envelope 内の token を左から 1 回走査します。nested body の終端探索も走査位置を戻さないため、対象 token 数を k として O(k) 時間です。
+//: - trait body envelope 内の token を左から 1 回走査します。method segment を作る時点で次の top-level item index も同時に決めるため、accepted method の colon や nested default body の終端を成功後に再探索しません。
+//: - nested body の終端探索も走査位置を戻さないため、対象 token 数を k として O(k) 時間です。
 //: - 出力は method 数 m に比例する `Vec SelfhostTraitBodyMethodSegment` なので O(m) 追加空間です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -71,6 +72,15 @@
 pub struct SelfhostTraitBodyMethodSegment:
     header %SelfhostSyntaxRange
     default_body %SelfhostSyntaxRange
+
+//: SelfhostTraitBodyMethodSegmentBuild: 1 method scan の segment と continuation index
+//:
+//: [目的/もくてき]:
+//: - method line の colon、default body start、default body end を一度だけ計算し、その結果から method segment と次の scan index を同時に渡します。
+//: - main loop が accepted method の同じ header / body を再走査しないようにする内部 payload です。
+struct SelfhostTraitBodyMethodSegmentBuild:
+    segment %SelfhostTraitBodyMethodSegment
+    next_index %i32
 
 //: SelfhostTraitBodyMethodSegmentList: method segment buffer の owner
 //:
@@ -175,6 +185,10 @@ pub fn selfhost_trait_body_method_segment_error_kind_eq %fn SelfhostTraitBodyMet
 //: selfhost_trait_body_method_segment_new: method segment payload を[作/つく]る
 pub fn selfhost_trait_body_method_segment_new %fn SelfhostSyntaxRange fn SelfhostSyntaxRange SelfhostTraitBodyMethodSegment \header\default_body:
     SelfhostTraitBodyMethodSegment header default_body
+
+//: selfhost_trait_body_method_segment_build_new: method segment と次の scan index をまとめる
+fn selfhost_trait_body_method_segment_build_new %fn SelfhostTraitBodyMethodSegment fn i32 SelfhostTraitBodyMethodSegmentBuild \segment\next_index:
+    SelfhostTraitBodyMethodSegmentBuild segment next_index
 
 //: selfhost_trait_body_method_segment_error_new: error payload を[作/つく]る
 pub fn selfhost_trait_body_method_segment_error_new %fn SelfhostTraitBodyMethodSegmentErrorKind fn SelfhostSourceSpan SelfhostTraitBodyMethodSegmentError \kind\span:
@@ -393,8 +407,8 @@ fn selfhost_trait_body_method_segment_push %impure fn Vec SelfhostTraitBodyMetho
             v::free v::vec_push_error_vec e
             Result::Err selfhost_trait_body_method_segment_error_new SelfhostTraitBodyMethodSegmentErrorKind::OutOfMemory source_span_empty_unchecked 0 0
 
-//: selfhost_trait_body_method_segment_from_method_line_result: method header line から segment を[作/つく]る
-fn selfhost_trait_body_method_segment_from_method_line_result %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 Result SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegmentError \tokens\n\start\line_end\end:
+//: selfhost_trait_body_method_segment_from_method_line_result: method header line から segment と次 index を[作/つく]る
+fn selfhost_trait_body_method_segment_from_method_line_result %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 Result SelfhostTraitBodyMethodSegmentBuild SelfhostTraitBodyMethodSegmentError \tokens\n\start\line_end\end:
     let colon_idx %i32 selfhost_trait_body_method_segment_find_colon_loop tokens n start line_end
     if:
         lt colon_idx 0
@@ -418,25 +432,20 @@ fn selfhost_trait_body_method_segment_from_method_line_result %fn &Vec SelfhostT
                 else:
                     let header %SelfhostSyntaxRange selfhost_trait_body_method_segment_range_or_empty tokens n start colon_idx
                     let default_body %SelfhostSyntaxRange selfhost_trait_body_method_segment_range_or_empty tokens n body_start body_end
-                    Result::Ok selfhost_trait_body_method_segment_new header default_body
-
-//: selfhost_trait_body_method_segment_next_index: accepted method segment 後の scan index を[返/かえ]す
-//:
-//: [目的/もくてき]:
-//: - indented default body の場合は default body を閉じる dedent の後、single-line body の場合は line separator の後へ進みます。
-//: - この helper は segment が成功した後だけ呼ばれるため、colon 欠落や空 default body の診断は `selfhost_trait_body_method_segment_from_method_line_result` 側に閉じます。
-fn selfhost_trait_body_method_segment_next_index %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 i32 \tokens\n\start\line_end\end:
-    let colon_idx %i32 selfhost_trait_body_method_segment_find_colon_loop tokens n start line_end
-    let after_colon %i32 add colon_idx 1
-    let body_start %i32 selfhost_trait_body_method_segment_body_start tokens n after_colon end
-    let indented %bool selfhost_trait_body_method_segment_has_initial_indent tokens n after_colon end
-    if:
-        indented
-        then:
-            let body_end %i32 selfhost_trait_body_method_segment_block_body_end_loop tokens n body_start end 1
-            selfhost_trait_body_method_segment_after_closing_dedent tokens n body_end end
-        else:
-            selfhost_trait_body_method_segment_after_separator tokens n line_end end
+                    let segment %SelfhostTraitBodyMethodSegment selfhost_trait_body_method_segment_new header default_body
+                    let next_idx %i32:
+                        if:
+                            indented
+                            then:
+                                selfhost_trait_body_method_segment_after_closing_dedent tokens n body_end end
+                            else:
+                                selfhost_trait_body_method_segment_after_separator tokens n line_end end
+                    if:
+                        le next_idx start
+                        then:
+                            Result::Err selfhost_trait_body_method_segment_error_for_token tokens start SelfhostTraitBodyMethodSegmentErrorKind::InvalidLayout
+                        else:
+                            Result::Ok selfhost_trait_body_method_segment_build_new segment next_idx
 
 //: selfhost_trait_body_method_segment_loop: trait body envelope から method segment を[列挙/れっきょ]する
 fn selfhost_trait_body_method_segment_loop %impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostTraitBodyMethodSegment Result Vec SelfhostTraitBodyMethodSegment SelfhostTraitBodyMethodSegmentError \tokens\n\idx\end\out:
@@ -458,10 +467,11 @@ fn selfhost_trait_body_method_segment_loop %impure fn &Vec SelfhostToken impure 
                         TokenKind::KwFn:
                             let line_end %i32 selfhost_trait_body_method_segment_line_end_loop tokens n start end
                             match selfhost_trait_body_method_segment_from_method_line_result tokens n start line_end end:
-                                Result::Ok segment:
+                                Result::Ok built:
+                                    let segment %SelfhostTraitBodyMethodSegment *field::get_ref &built "segment"
                                     match selfhost_trait_body_method_segment_push out segment:
                                         Result::Ok next_out:
-                                            let next_idx %i32 selfhost_trait_body_method_segment_next_index tokens n start line_end end
+                                            let next_idx %i32 *field::get_ref &built "next_index"
                                             selfhost_trait_body_method_segment_loop tokens n next_idx end next_out
                                         Result::Err e:
                                             Result::Err e

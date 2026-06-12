@@ -271,6 +271,27 @@ runtime doctest は accepted 2 method、non-method top-level item、method body 
 
 残件は、method segment の header range から method name / type annotation / effect / default body shape を stable normalized signature evidence へ変換する normalizer、method-bearing `MemoKey` / `MemoValue` trait definition を public surface seed / stable source evidence へ接続する producer、re-export / import graph を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。
 
+## 2026-06-12 selfhost trait body method segmenter scan cursor checkpoint
+
+`trait_body_segmenter.nepl` の accepted method path から next-index recomputation を削除した。従来は `selfhost_trait_body_method_segment_from_method_line_result` が colon、body start、indented body 判定、nested body 終端を計算して segment を作った後、main loop が `selfhost_trait_body_method_segment_next_index` で同じ method line と default body をもう一度見て continuation index を計算していた。
+
+この checkpoint では private `SelfhostTraitBodyMethodSegmentBuild` を追加し、method line parser が `segment` と `next_index` を同時に返すようにした。public `SelfhostTraitBodyMethodSegment` の shape は変えず、continuation cursor は parser 内部 payload に閉じる。`next_index <= start` の壊れた layout は `InvalidLayout` として typed error にし、`-1` sentinel や bool-only success にはしない。`selfhost_trait_body_method_segment_next_index` helper は削除し、main loop は build payload の `next_index` だけで次の top-level item へ進む。
+
+source text、lexeme、path suffix、display name、diagnostic text、stable fingerprint、public surface hash、source identity は segmenter の accepted authority にしていない。`core/ty`、proof store、memo trait source / policy、checker / HIR / Resource IR / backend への逆依存も追加していない。
+
+source policy は `nodesrc/test_selfhost_trait_body_segmenter_contract.js` を更新し、private build payload、forward continuation、main loop の payload consumption、next-index helper 禁止、line count / doc comment length cap 禁止を固定した。subagent review では Euclid が、private payload、typed non-forward error、loop の payload-only continuation、source policy 更新を Required として指摘し、実装に反映した。実装後の re-review では Blocker / Required なし、Non-blocker として `InvalidLayout` fail-closed、authority boundary、doc comment、line-count / comment-length 制限なしが確認され、Approve と判断された。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_trait_body_segmenter_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/trait_body_segmenter.nepl -o target/selfhost_trait_body_segmenter_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_selfhost_memo_trait_method_signature_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_method_signature.nepl -o target/selfhost_memo_trait_method_signature_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
 ## 2026-06-12 selfhost memo trait method signature normalizer checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_method_signature.nepl` を追加し、`trait_body_segmenter` が返す method header / default body range から `MemoKey` / `MemoValue` の method-bearing trait signature evidence を作る checker-layer normalizer を実装した。

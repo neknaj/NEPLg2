@@ -59,6 +59,11 @@ assert.match(
 );
 assert.match(
     segmenter,
+    /struct SelfhostTraitBodyMethodSegmentBuild:[\s\S]*segment %SelfhostTraitBodyMethodSegment[\s\S]*next_index %i32/,
+    "method line scan must carry the accepted segment and continuation index in one private payload",
+);
+assert.match(
+    segmenter,
     /pub enum SelfhostTraitBodyMethodSegmentErrorKind:[\s\S]*EmptyEnvelope[\s\S]*InvalidEnvelope[\s\S]*TokenOutOfBounds[\s\S]*InvalidLayout[\s\S]*UnexpectedTraitBodyItem[\s\S]*MissingMethodBodyIntro[\s\S]*MethodDefaultBodyMissing[\s\S]*MethodSegmentUnavailable[\s\S]*OutOfMemory/,
     "trait method segmentation failures must be typed enum variants",
 );
@@ -69,13 +74,18 @@ assert.match(
 );
 assert.match(
     functionBlock(segmenter, "selfhost_trait_body_method_segment_from_method_line_result"),
-    /selfhost_trait_body_method_segment_find_colon_loop[\s\S]*MissingMethodBodyIntro[\s\S]*MethodDefaultBodyMissing[\s\S]*selfhost_trait_body_method_segment_new header default_body/,
-    "method line conversion must require a colon and a nonempty default body before producing segment evidence",
+    /selfhost_trait_body_method_segment_find_colon_loop[\s\S]*MissingMethodBodyIntro[\s\S]*MethodDefaultBodyMissing[\s\S]*selfhost_trait_body_method_segment_new header default_body[\s\S]*next_idx[\s\S]*le next_idx start[\s\S]*InvalidLayout[\s\S]*selfhost_trait_body_method_segment_build_new segment next_idx/,
+    "method line conversion must require a colon, nonempty default body, and forward continuation before producing segment evidence and its continuation index",
 );
 assert.match(
-    functionBlock(segmenter, "selfhost_trait_body_method_segment_next_index"),
-    /indented[\s\S]*selfhost_trait_body_method_segment_block_body_end_loop[\s\S]*selfhost_trait_body_method_segment_after_closing_dedent[\s\S]*selfhost_trait_body_method_segment_after_separator/,
-    "scan continuation must skip the full indented default body instead of re-reading nested body tokens as top-level methods",
+    functionBlock(segmenter, "selfhost_trait_body_method_segment_loop"),
+    /Result::Ok built:[\s\S]*field::get_ref &built "segment"[\s\S]*selfhost_trait_body_method_segment_push out segment[\s\S]*field::get_ref &built "next_index"[\s\S]*selfhost_trait_body_method_segment_loop tokens n next_idx end next_out/,
+    "main loop must consume the segment and continuation index computed by the method line scan",
+);
+assert.doesNotMatch(
+    code,
+    /fn selfhost_trait_body_method_segment_next_index\b/,
+    "accepted method continuation must not be recomputed by a second next-index helper",
 );
 assert.match(
     functionBlock(segmenter, "selfhost_trait_body_method_segment_block_body_end_loop"),
