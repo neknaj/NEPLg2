@@ -67,17 +67,19 @@ const moduleCheckerSummaryUpdate = read("stdlib/neplg2/core/check/module/summary
 const moduleCheckerDiagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
 const moduleCheckerRawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const moduleCheckerDeclarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
+const moduleCheckerMemoTraitPublicSurfaceHash = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl");
 const moduleCheckerMemoTraitPublicSurfaceSeed = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl");
 const moduleCheckerMemoTraitSourceEvidenceProducer = read("stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl");
 const moduleCheckerMemoTraitSourceScan = read("stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl");
 const moduleCheckerOrchestrate = read("stdlib/neplg2/core/check/module/orchestrate.nepl");
-const moduleCheckerPublicSurface = `${moduleCheckerSummary}\n${moduleCheckerMemoTraitPublicSurfaceSeed}\n${moduleCheckerMemoTraitSourceEvidenceProducer}\n${moduleCheckerMemoTraitSourceScan}\n${moduleCheckerOrchestrate}`;
+const moduleCheckerPublicSurface = `${moduleCheckerSummary}\n${moduleCheckerMemoTraitPublicSurfaceHash}\n${moduleCheckerMemoTraitPublicSurfaceSeed}\n${moduleCheckerMemoTraitSourceEvidenceProducer}\n${moduleCheckerMemoTraitSourceScan}\n${moduleCheckerOrchestrate}`;
 const moduleCheckerImplementation = [
     moduleCheckerSummary,
     moduleCheckerSummaryUpdate,
     moduleCheckerDiagnostic,
     moduleCheckerRawAdapter,
     moduleCheckerDeclarationAdapter,
+    moduleCheckerMemoTraitPublicSurfaceHash,
     moduleCheckerMemoTraitPublicSurfaceSeed,
     moduleCheckerMemoTraitSourceEvidenceProducer,
     moduleCheckerMemoTraitSourceScan,
@@ -599,6 +601,7 @@ assert.match(
 );
 
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/summary" as \*/);
+assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_public_surface_hash" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_public_surface_seed" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_evidence_producer" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_fingerprint" as \*/);
@@ -608,6 +611,7 @@ assert.deepEqual(
     Array.from(moduleCheckerFacade.matchAll(/^pub #import "([^"]+)" as ([^\n]+)$/gm), (match) => `${match[1]} as ${match[2]}`)
         .sort(),
     [
+        "./module/memo_trait_public_surface_hash as *",
         "./module/memo_trait_public_surface_seed as *",
         "./module/memo_trait_source_evidence_producer as *",
         "./module/memo_trait_source_fingerprint as *",
@@ -645,6 +649,11 @@ const allowedPublicModuleCheckerFunctions = new Set([
     "selfhost_module_check_summary_impl_count",
     "selfhost_module_check_summary_raw_block_count",
     "selfhost_module_check_summary_raw_text_count",
+    "selfhost_memo_trait_public_surface_hash_error_kind_eq",
+    "selfhost_memo_trait_public_surface_hash_registry_error_kind_eq",
+    "selfhost_memo_trait_public_surface_hash_materialize_result",
+    "selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result",
+    "selfhost_memo_trait_public_surface_hash_stage0",
     "selfhost_memo_trait_public_surface_seed_error_kind_eq",
     "selfhost_memo_trait_public_surface_seed_registry_error_kind_eq",
     "selfhost_memo_trait_public_surface_seed_scan_module_result",

@@ -1,0 +1,858 @@
+#indent 4
+
+//: # check/module/memo_trait_public_surface_hash
+//: `MemoKey` / `MemoValue` の stable source evidence に渡す module public surface hash を、typed seed から[作/つく]る接続層です。
+//:
+//: [目的/もくてき]:
+//: - `SelfhostModuleAst` の local public marker trait declaration から seed table を作り、その seed table の typed field だけを public surface hash へ fold します。
+//: - source text、span、display name、path suffix、diagnostic text を accepted fingerprint authority にせず、kind、visibility、declaration ordinal、normalized signature seed を使います。
+//: - scanner candidate、public surface hash materializer、stable evidence producer、fingerprint gate、trusted registry validator を順に通し、途中の未正規化 surface を成功扱いしないようにします。
+//:
+//: [契約/けいやく]:
+//: - `module_identity_hash` は caller が作った typed fingerprint です。`none` と `some 0` は typed error で拒否します。
+//: - この module が計算する public surface hash は、Phase 1 の local `MemoKey` / `MemoValue` marker trait pair に限定されます。import / use / prelude / public non-trait declaration は、full module public surface の正規化が未接続なので拒否します。
+//: - public surface hash は seed table の field を deterministic に fold した nonzero fingerprint です。source spelling や byte range は hash material に入りません。
+//: - 成功時も registry を直接構築しません。既存 seed evidence producer と stable source registry gate へ委譲します。
+//:
+//: [現状/げんじょう]:
+//: - これは full public surface materializer ではありません。re-export、import graph、public function / struct / enum / impl signature、trait body、method signature normalization、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
+//: - 現在の accepted path は marker trait smoke と source identity pipeline の境界固定を目的にしています。実 stdlib の method 付き `MemoKey` / `MemoValue` に接続するには、trait body / method signature normalization evidence を先に実装します。
+//:
+//: [計算量/けいさんりょう]:
+//: - unsupported public surface の確認と seed scan で module item stream を 2 回走査するため、item 数 n に対して O(n) 時間です。
+//: - seed table と hash materialization payload は固定 2 slot なので O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_surface_hash" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_surface_seed" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_surface_hash_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted_registry
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.module_identity_missing_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.import_surface_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.public_declaration_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.body_surface_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
+//:     let shown checks_print_report checks5
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+#import "neplg2/core/ty/ty/memo_trait_source" as *
+#import "./memo_trait_public_surface_seed" as *
+#import "./memo_trait_source_evidence_producer" as *
+#import "./memo_trait_source_scan" as *
+
+//: SelfhostMemoTraitPublicSurfaceHashMaterialization: public surface hash materializer の成功 payload
+//:
+//: [目的/もくてき]:
+//: - seed table と、それから導出した module seed を一緒に保持し、後続 gate が同じ材料を読むことを保証します。
+//:
+//: [契約/けいやく]:
+//: - `module_seed.public_surface_hash` は、この module が seed table から導出した nonzero fingerprint です。
+//: - `seed_table` は同じ AST 走査から得た `MemoKey` / `MemoValue` seed です。別 module の hash と混ぜて使ってはなりません。
+pub struct SelfhostMemoTraitPublicSurfaceHashMaterialization:
+    module_seed %SelfhostMemoTraitStableSourceModuleSeed
+    seed_table %SelfhostMemoTraitStableSourceSeedTable
+
+//: SelfhostMemoTraitPublicSurfaceHashErrorKind: public surface hash materialization の拒否理由
+//:
+//: [目的/もくてき]:
+//: - module identity、未正規化 public surface、seed scan、seed table field、derived hash のどこで拒否したかを enum で保持します。
+pub enum SelfhostMemoTraitPublicSurfaceHashErrorKind:
+    ModuleIdentityFingerprintMissing
+    ModuleIdentityFingerprintPlaceholder
+    ImportSurfaceUnsupported
+    UseSurfaceUnsupported
+    PreludeSurfaceUnsupported
+    NoPreludeSurfaceUnsupported
+    PublicFunctionSurfaceUnsupported
+    PublicStructSurfaceUnsupported
+    PublicEnumSurfaceUnsupported
+    PublicImplSurfaceUnsupported
+    DeclarationHeaderMissing
+    PublicSurfaceSeedRejected %SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    MemoKeySeedMissing
+    MemoValueSeedMissing
+    MemoKeySeedDuplicate
+    MemoValueSeedDuplicate
+    MemoKeySeedKindMismatch
+    MemoValueSeedKindMismatch
+    MemoKeyPrivateVisibility
+    MemoValuePrivateVisibility
+    MemoKeyDeclarationOrdinalMissing
+    MemoValueDeclarationOrdinalMissing
+    MemoKeyDeclarationOrdinalPlaceholder
+    MemoValueDeclarationOrdinalPlaceholder
+    MemoKeyNormalizedSignatureMissing
+    MemoValueNormalizedSignatureMissing
+    MemoKeyNormalizedSignaturePlaceholder
+    MemoValueNormalizedSignaturePlaceholder
+    MemoKeyDerivedSurfaceHashPlaceholder
+    MemoValueDerivedSurfaceHashPlaceholder
+    PublicSurfaceHashPlaceholder
+
+//: SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind: hash materializer から registry までの拒否理由
+//:
+//: [目的/もくてき]:
+//: - candidate scan、public surface hash materializer、stable seed producer / registry gate の失敗を分けて保持します。
+pub enum SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
+    CandidateScanRejected %SelfhostMemoTraitDefinitionScanErrorKind
+    PublicSurfaceHashRejected %SelfhostMemoTraitPublicSurfaceHashErrorKind
+    SeedRegistryRejected %SelfhostMemoTraitStableSourceSeedRegistryErrorKind
+
+//: SelfhostMemoTraitPublicSurfaceHashStage0Summary: public surface hash smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted registry path と、module identity 欠落、import surface、public non-trait declaration、trait body unsupported の fail-closed path をまとめます。
+pub struct SelfhostMemoTraitPublicSurfaceHashStage0Summary:
+    accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind
+    module_identity_missing_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
+    import_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
+    public_declaration_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
+    body_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
+
+impl Clone for SelfhostMemoTraitPublicSurfaceHashMaterialization:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashMaterialization \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashMaterialization:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashMaterialization \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceHashErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceHashStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashStage0Summary SelfhostMemoTraitPublicSurfaceHashStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashStage0Summary SelfhostMemoTraitPublicSurfaceHashStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_surface_hash_materialization_new: materialization payload を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_materialization_new %fn SelfhostMemoTraitStableSourceModuleSeed fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashMaterialization \module_seed\seed_table:
+    SelfhostMemoTraitPublicSurfaceHashMaterialization module_seed seed_table
+
+//: selfhost_memo_trait_public_surface_hash_error_kind_code: payload を持たない hash error を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `PublicSurfaceSeedRejected` の payload はこの code だけでは比較しません。`selfhost_memo_trait_public_surface_hash_error_kind_eq` で seed error eq を併用します。
+fn selfhost_memo_trait_public_surface_hash_error_kind_code %fn SelfhostMemoTraitPublicSurfaceHashErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing:
+            1
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintPlaceholder:
+            2
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported:
+            3
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::UseSurfaceUnsupported:
+            4
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PreludeSurfaceUnsupported:
+            5
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::NoPreludeSurfaceUnsupported:
+            6
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported:
+            7
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicStructSurfaceUnsupported:
+            8
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicEnumSurfaceUnsupported:
+            9
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicImplSurfaceUnsupported:
+            10
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing:
+            11
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected _seed_error:
+            12
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedMissing:
+            13
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedMissing:
+            14
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedDuplicate:
+            15
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedDuplicate:
+            16
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedKindMismatch:
+            17
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedKindMismatch:
+            18
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyPrivateVisibility:
+            19
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValuePrivateVisibility:
+            20
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalMissing:
+            21
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalMissing:
+            22
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalPlaceholder:
+            23
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalPlaceholder:
+            24
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignatureMissing:
+            25
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignatureMissing:
+            26
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignaturePlaceholder:
+            27
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
+            28
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder:
+            29
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder:
+            30
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
+            31
+
+//: selfhost_memo_trait_public_surface_hash_error_kind_eq: public surface hash error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_surface_hash_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceHashErrorKind fn SelfhostMemoTraitPublicSurfaceHashErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected seed_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected other_seed_error:
+                    selfhost_memo_trait_public_surface_seed_error_kind_eq seed_error other_seed_error
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::UseSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PreludeSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::NoPreludeSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicStructSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicEnumSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicImplSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedDuplicate:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedDuplicate:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedKindMismatch:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedKindMismatch:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyPrivateVisibility:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValuePrivateVisibility:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignatureMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignatureMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignaturePlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
+                    false
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::UseSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PreludeSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::NoPreludeSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicStructSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicEnumSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicImplSurfaceUnsupported:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedDuplicate:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedDuplicate:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedKindMismatch:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedKindMismatch:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyPrivateVisibility:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValuePrivateVisibility:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignatureMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignatureMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignaturePlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+
+//: selfhost_memo_trait_public_surface_hash_registry_error_kind_eq: registry path error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_surface_hash_registry_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind fn SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected candidate_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected other_candidate_error:
+                    selfhost_memo_trait_definition_scan_error_kind_eq candidate_error other_candidate_error
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected _hash_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected _seed_error:
+                    false
+        SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected hash_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected _candidate_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected other_hash_error:
+                    selfhost_memo_trait_public_surface_hash_error_kind_eq hash_error other_hash_error
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected _seed_error:
+                    false
+        SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected seed_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected _candidate_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected _hash_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected other_seed_error:
+                    selfhost_memo_trait_stable_source_seed_registry_error_kind_eq seed_error other_seed_error
+
+//: selfhost_memo_trait_public_surface_hash_option_result: Option fingerprint を[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_hash_option_result %fn Option i32 fn SelfhostMemoTraitPublicSurfaceHashErrorKind fn SelfhostMemoTraitPublicSurfaceHashErrorKind Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \fingerprint\missing_error\placeholder_error:
+    match fingerprint:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err placeholder_error
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err missing_error
+
+//: selfhost_memo_trait_public_surface_hash_nonzero_result: derived hash が nonzero か[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_hash_nonzero_result %fn i32 fn SelfhostMemoTraitPublicSurfaceHashErrorKind Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \fingerprint\placeholder_error:
+    if:
+        eq fingerprint 0
+        then:
+            Result::Err placeholder_error
+        else:
+            Result::Ok fingerprint
+
+//: selfhost_memo_trait_public_surface_hash_mix2: 2 つの typed seed を[混/ま]ぜる
+fn selfhost_memo_trait_public_surface_hash_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_surface_hash_mix3: 3 つの typed seed を[混/ま]ぜる
+fn selfhost_memo_trait_public_surface_hash_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_public_surface_hash_mix2 a b c
+
+//: selfhost_memo_trait_public_surface_hash_kind_code: source kind を hash domain code へ[写/うつ]す
+fn selfhost_memo_trait_public_surface_hash_kind_code %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            1301
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            1302
+
+//: selfhost_memo_trait_public_surface_hash_visibility_code: visibility を hash domain code へ[写/うつ]す
+fn selfhost_memo_trait_public_surface_hash_visibility_code %fn SelfhostModuleDeclarationVisibility i32 \visibility:
+    match visibility:
+        SelfhostModuleDeclarationVisibility::Public:
+            1401
+        SelfhostModuleDeclarationVisibility::Private:
+            1402
+
+//: selfhost_memo_trait_public_surface_hash_schema_code: Phase 1 hash schema の domain code を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - public surface hash の folding domain を固定します。hash 材料の構造を変える場合は、この schema code も更新して、別 schema の payload と衝突しないようにします。
+fn selfhost_memo_trait_public_surface_hash_schema_code %fn void i32 \void:
+    211777
+
+//: selfhost_memo_trait_public_surface_hash_key_seed_result: MemoKey seed を surface hash part へ[変換/へんかん]する
+fn selfhost_memo_trait_public_surface_hash_key_seed_result %fn SelfhostMemoTraitStableSourceTraitSeed Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
+    if:
+        selfhost_memo_trait_source_kind_eq seed.kind SelfhostMemoTraitSourceKind::MemoKeyTrait
+        then:
+            match seed.visibility:
+                SelfhostModuleDeclarationVisibility::Public:
+                    match selfhost_memo_trait_public_surface_hash_option_result seed.declaration_ordinal SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalMissing SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDeclarationOrdinalPlaceholder:
+                        Result::Ok declaration_ordinal:
+                            match selfhost_memo_trait_public_surface_hash_option_result seed.normalized_signature_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignatureMissing SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignaturePlaceholder:
+                                Result::Ok normalized_signature_hash:
+                                    let kind_hash %i32 selfhost_memo_trait_public_surface_hash_kind_code seed.kind
+                                    let visibility_hash %i32 selfhost_memo_trait_public_surface_hash_visibility_code seed.visibility
+                                    let header_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 kind_hash visibility_hash declaration_ordinal
+                                    let surface_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 211001 header_hash normalized_signature_hash
+                                    selfhost_memo_trait_public_surface_hash_nonzero_result surface_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder
+                                Result::Err signature_error:
+                                    Result::Err signature_error
+                        Result::Err ordinal_error:
+                            Result::Err ordinal_error
+                SelfhostModuleDeclarationVisibility::Private:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyPrivateVisibility
+        else:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedKindMismatch
+
+//: selfhost_memo_trait_public_surface_hash_value_seed_result: MemoValue seed を surface hash part へ[変換/へんかん]する
+fn selfhost_memo_trait_public_surface_hash_value_seed_result %fn SelfhostMemoTraitStableSourceTraitSeed Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
+    if:
+        selfhost_memo_trait_source_kind_eq seed.kind SelfhostMemoTraitSourceKind::MemoValueTrait
+        then:
+            match seed.visibility:
+                SelfhostModuleDeclarationVisibility::Public:
+                    match selfhost_memo_trait_public_surface_hash_option_result seed.declaration_ordinal SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalMissing SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDeclarationOrdinalPlaceholder:
+                        Result::Ok declaration_ordinal:
+                            match selfhost_memo_trait_public_surface_hash_option_result seed.normalized_signature_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignatureMissing SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
+                                Result::Ok normalized_signature_hash:
+                                    let kind_hash %i32 selfhost_memo_trait_public_surface_hash_kind_code seed.kind
+                                    let visibility_hash %i32 selfhost_memo_trait_public_surface_hash_visibility_code seed.visibility
+                                    let header_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 kind_hash visibility_hash declaration_ordinal
+                                    let surface_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 211002 header_hash normalized_signature_hash
+                                    selfhost_memo_trait_public_surface_hash_nonzero_result surface_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder
+                                Result::Err signature_error:
+                                    Result::Err signature_error
+                        Result::Err ordinal_error:
+                            Result::Err ordinal_error
+                SelfhostModuleDeclarationVisibility::Private:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValuePrivateVisibility
+        else:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedKindMismatch
+
+//: selfhost_memo_trait_public_surface_hash_from_seed_table_result: seed table から public surface hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source text と span は引数に取りません。この関数の hash authority は seed table の typed field だけです。
+fn selfhost_memo_trait_public_surface_hash_from_seed_table_result %fn SelfhostMemoTraitStableSourceSeedTable Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed_table:
+    if:
+        seed_table.duplicate_memo_key
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedDuplicate
+        else:
+            if:
+                seed_table.duplicate_memo_value
+                then:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedDuplicate
+                else:
+                    match seed_table.memo_key:
+                        Option::Some key_seed:
+                            match seed_table.memo_value:
+                                Option::Some value_seed:
+                                    match selfhost_memo_trait_public_surface_hash_key_seed_result key_seed:
+                                        Result::Ok key_hash:
+                                            match selfhost_memo_trait_public_surface_hash_value_seed_result value_seed:
+                                                Result::Ok value_hash:
+                                                    let public_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 selfhost_memo_trait_public_surface_hash_schema_code key_hash value_hash
+                                                    selfhost_memo_trait_public_surface_hash_nonzero_result public_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
+                                                Result::Err value_error:
+                                                    Result::Err value_error
+                                        Result::Err key_error:
+                                            Result::Err key_error
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedMissing
+                        Option::None:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedMissing
+
+//: selfhost_memo_trait_public_surface_hash_validate_module_identity_result: caller supplied module identity を[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_hash_validate_module_identity_result %fn Option i32 Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity_hash:
+    selfhost_memo_trait_public_surface_hash_option_result:
+        module_identity_hash
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintPlaceholder
+
+//: selfhost_memo_trait_public_surface_hash_public_decl_supported_result: non-trait declaration が public surface hash に含められるか[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - Phase 1 は marker trait pair 専用です。public function / struct / enum / impl がある module の public surface hash はここでは完全に作れないので拒否します。
+fn selfhost_memo_trait_public_surface_hash_public_decl_supported_result %fn SelfhostModuleItem fn SelfhostMemoTraitPublicSurfaceHashErrorKind Result unit SelfhostMemoTraitPublicSurfaceHashErrorKind \item\public_error:
+    match item.declaration:
+        Option::Some header:
+            match header.visibility:
+                SelfhostModuleDeclarationVisibility::Public:
+                    Result::Err public_error
+                SelfhostModuleDeclarationVisibility::Private:
+                    Result::Ok unit
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+
+//: selfhost_memo_trait_public_surface_hash_supported_item_result: public surface hash の対象外 item を fail-closed に[判定/はんてい]する
+fn selfhost_memo_trait_public_surface_hash_supported_item_result %fn SelfhostModuleItem Result unit SelfhostMemoTraitPublicSurfaceHashErrorKind \item:
+    match item.kind:
+        SelfhostModuleItemKind::TraitDecl:
+            Result::Ok unit
+        SelfhostModuleItemKind::FunctionDecl:
+            selfhost_memo_trait_public_surface_hash_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported
+        SelfhostModuleItemKind::StructDecl:
+            selfhost_memo_trait_public_surface_hash_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicStructSurfaceUnsupported
+        SelfhostModuleItemKind::EnumDecl:
+            selfhost_memo_trait_public_surface_hash_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicEnumSurfaceUnsupported
+        SelfhostModuleItemKind::ImplDecl:
+            selfhost_memo_trait_public_surface_hash_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicImplSurfaceUnsupported
+        SelfhostModuleItemKind::ImportDirective:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported
+        SelfhostModuleItemKind::UseDirective:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::UseSurfaceUnsupported
+        SelfhostModuleItemKind::PreludeDirective:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::PreludeSurfaceUnsupported
+        SelfhostModuleItemKind::NoPreludeDirective:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::NoPreludeSurfaceUnsupported
+        SelfhostModuleItemKind::DocComment:
+            Result::Ok unit
+        SelfhostModuleItemKind::MlstrLine:
+            Result::Ok unit
+        SelfhostModuleItemKind::EntryDirective:
+            Result::Ok unit
+        SelfhostModuleItemKind::TargetDirective:
+            Result::Ok unit
+        SelfhostModuleItemKind::TestDirective:
+            Result::Ok unit
+        SelfhostModuleItemKind::IfTargetDirective:
+            Result::Ok unit
+        SelfhostModuleItemKind::IfProfileDirective:
+            Result::Ok unit
+        SelfhostModuleItemKind::CapabilityDirective:
+            Result::Ok unit
+        SelfhostModuleItemKind::IntrinsicDirective:
+            Result::Ok unit
+        SelfhostModuleItemKind::WasmBlock:
+            Result::Ok unit
+        SelfhostModuleItemKind::LlvmIrBlock:
+            Result::Ok unit
+        SelfhostModuleItemKind::WasmText:
+            Result::Ok unit
+        SelfhostModuleItemKind::LlvmIrText:
+            Result::Ok unit
+
+//: selfhost_memo_trait_public_surface_hash_supported_module_loop: unsupported public surface item を[走査/そうさ]する
+fn selfhost_memo_trait_public_surface_hash_supported_module_loop %fn &SelfhostModuleAst fn i32 fn i32 Result unit SelfhostMemoTraitPublicSurfaceHashErrorKind \ast\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_memo_trait_public_surface_hash_supported_item_result item:
+                        Result::Ok _ok:
+                            selfhost_memo_trait_public_surface_hash_supported_module_loop ast add idx 1 n
+                        Result::Err error:
+                            Result::Err error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+
+//: selfhost_memo_trait_public_surface_hash_materialize_result: AST から module seed と seed table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - caller supplied module identity、local marker trait seed scan、typed seed table folding を結合します。
+//:
+//: [契約/けいやく]:
+//: - `source` は既存 seed scanner が candidate name を分類するためだけに渡します。public surface hash authority は `selfhost_memo_trait_public_surface_hash_from_seed_table_result` の seed table field です。
+pub fn selfhost_memo_trait_public_surface_hash_materialize_result %fn Option i32 fn str fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity_hash\source\ast:
+    match selfhost_memo_trait_public_surface_hash_validate_module_identity_result module_identity_hash:
+        Result::Ok accepted_module_identity:
+            match selfhost_memo_trait_public_surface_hash_supported_module_loop ast 0 selfhost_module_ast_len ast:
+                Result::Ok _surface_supported:
+                    match selfhost_memo_trait_public_surface_seed_scan_module_result source ast:
+                        Result::Ok scan:
+                            match selfhost_memo_trait_public_surface_hash_from_seed_table_result scan.seed_table:
+                                Result::Ok public_surface_hash:
+                                    let module_identity_option %Option i32 some accepted_module_identity
+                                    let public_surface_option %Option i32 some public_surface_hash
+                                    let module_seed %SelfhostMemoTraitStableSourceModuleSeed selfhost_memo_trait_stable_source_module_seed_new module_identity_option public_surface_option
+                                    Result::Ok selfhost_memo_trait_public_surface_hash_materialization_new module_seed scan.seed_table
+                                Result::Err hash_error:
+                                    Result::Err hash_error
+                        Result::Err public_seed_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected public_seed_error
+                Result::Err surface_error:
+                    Result::Err surface_error
+        Result::Err module_error:
+            Result::Err module_error
+
+//: selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result: public surface hash 経由で registry を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - candidate scanner、hash materializer、stable evidence producer、stable fingerprint gate、trusted registry validator を順に接続します。
+pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result %fn Option i32 fn str fn &SelfhostModuleAst Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity_hash\source\ast:
+    match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
+        Result::Ok candidates:
+            match selfhost_memo_trait_public_surface_hash_materialize_result module_identity_hash source ast:
+                Result::Ok materialization:
+                    match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates materialization.module_seed materialization.seed_table:
+                        Result::Ok registry:
+                            Result::Ok registry
+                        Result::Err seed_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected seed_error
+                Result::Err hash_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected hash_error
+        Result::Err candidate_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected candidate_error
+
+//: selfhost_memo_trait_public_surface_hash_stage0_header_named: stage0 用 declaration header を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_stage0_header_named %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn i32 fn i32 SelfhostModuleDeclarationHeader \kind\visibility\start\end:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 start end
+    let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name span
+    selfhost_module_declaration_header_new:
+        kind
+        visibility
+        source_span_new_unchecked 0 start end
+        source_span_new_unchecked 0 start start
+        some head
+        selfhost_syntax_range_empty
+        selfhost_syntax_range_empty
+
+//: selfhost_memo_trait_public_surface_hash_stage0_trait_item: stage0 用 marker trait item を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_stage0_trait_item %fn i32 fn i32 fn str SelfhostModuleItem \start\end\lexeme:
+    selfhost_module_item_new_with_declaration:
+        SelfhostModuleItemKind::TraitDecl
+        lexeme
+        selfhost_memo_trait_public_surface_hash_stage0_header_named SelfhostModuleDeclarationKind::Trait SelfhostModuleDeclarationVisibility::Public start end
+
+//: selfhost_memo_trait_public_surface_hash_stage0_function_item: stage0 用 public function item を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_stage0_function_item %fn i32 fn i32 fn str SelfhostModuleItem \start\end\lexeme:
+    selfhost_module_item_new_with_declaration:
+        SelfhostModuleItemKind::FunctionDecl
+        lexeme
+        selfhost_memo_trait_public_surface_hash_stage0_header_named SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Public start end
+
+//: selfhost_memo_trait_public_surface_hash_stage0_trait_item_with_body: stage0 用 body 付き trait item を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_stage0_trait_item_with_body %fn i32 fn i32 fn str SelfhostModuleItem \start\end\lexeme:
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 start end
+    let body_range %SelfhostSyntaxRange selfhost_syntax_range_new_unchecked 1 1 span
+    let body %SelfhostModuleDeclarationBody selfhost_module_declaration_body_new body_range selfhost_syntax_range_empty
+    selfhost_module_item_new_with_declaration_and_body:
+        SelfhostModuleItemKind::TraitDecl
+        lexeme
+        selfhost_memo_trait_public_surface_hash_stage0_header_named SelfhostModuleDeclarationKind::Trait SelfhostModuleDeclarationVisibility::Public start end
+        body
+
+//: selfhost_memo_trait_public_surface_hash_stage0_two_item_materialize_result: 2 item AST で materialization result を[返/かえ]す
+fn selfhost_memo_trait_public_surface_hash_stage0_two_item_materialize_result %impure fn Option i32 impure fn str impure fn SelfhostModuleItem impure fn SelfhostModuleItem Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity\source\first\second:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            match selfhost_module_ast_push ast0 first:
+                Result::Ok ast1:
+                    match selfhost_module_ast_push ast1 second:
+                        Result::Ok ast2:
+                            let result %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind:
+                                selfhost_memo_trait_public_surface_hash_materialize_result module_identity source &ast2
+                            selfhost_module_ast_free ast2
+                            result
+                        Result::Err _push_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+                Result::Err _push_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+
+//: selfhost_memo_trait_public_surface_hash_stage0_two_item_registry_result: 2 item AST で registry result を[返/かえ]す
+fn selfhost_memo_trait_public_surface_hash_stage0_two_item_registry_result %impure fn Option i32 impure fn str impure fn SelfhostModuleItem impure fn SelfhostModuleItem Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity\source\first\second:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            match selfhost_module_ast_push ast0 first:
+                Result::Ok ast1:
+                    match selfhost_module_ast_push ast1 second:
+                        Result::Ok ast2:
+                            let result %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
+                                selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result module_identity source &ast2
+                            selfhost_module_ast_free ast2
+                            result
+                        Result::Err _push_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+                Result::Err _push_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+
+//: selfhost_memo_trait_public_surface_hash_stage0_three_item_materialize_result: 3 item AST で materialization result を[返/かえ]す
+fn selfhost_memo_trait_public_surface_hash_stage0_three_item_materialize_result %impure fn Option i32 impure fn str impure fn SelfhostModuleItem impure fn SelfhostModuleItem impure fn SelfhostModuleItem Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity\source\first\second\third:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            match selfhost_module_ast_push ast0 first:
+                Result::Ok ast1:
+                    match selfhost_module_ast_push ast1 second:
+                        Result::Ok ast2:
+                            match selfhost_module_ast_push ast2 third:
+                                Result::Ok ast3:
+                                    let result %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind:
+                                        selfhost_memo_trait_public_surface_hash_materialize_result module_identity source &ast3
+                                    selfhost_module_ast_free ast3
+                                    result
+                                Result::Err _push_error:
+                                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+                        Result::Err _push_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+                Result::Err _push_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+
+//: selfhost_memo_trait_public_surface_hash_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashStage0Summary \accepted_registry\module_identity_missing_rejected\import_surface_rejected\public_declaration_rejected\body_surface_rejected:
+    SelfhostMemoTraitPublicSurfaceHashStage0Summary accepted_registry module_identity_missing_rejected import_surface_rejected public_declaration_rejected body_surface_rejected
+
+//: selfhost_memo_trait_public_surface_hash_stage0: public surface hash の代表結果を[返/かえ]す
+pub fn selfhost_memo_trait_public_surface_hash_stage0 %impure fn void SelfhostMemoTraitPublicSurfaceHashStage0Summary \void:
+    let source %str "MemoKeyMemoValue"
+    let module_identity %Option i32 some 301
+    let missing_module_identity %Option i32 none
+    let key_item %SelfhostModuleItem selfhost_memo_trait_public_surface_hash_stage0_trait_item 0 7 "trait MemoKey:"
+    let value_item %SelfhostModuleItem selfhost_memo_trait_public_surface_hash_stage0_trait_item 7 16 "trait MemoValue:"
+    let accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
+        selfhost_memo_trait_public_surface_hash_stage0_two_item_registry_result module_identity source key_item value_item
+    let module_identity_missing_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind:
+        selfhost_memo_trait_public_surface_hash_stage0_two_item_materialize_result missing_module_identity source key_item value_item
+    let import_span %SelfhostSourceSpan source_span_new_unchecked 0 0 7
+    let import_item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::ImportDirective import_span "#import"
+    let import_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind:
+        selfhost_memo_trait_public_surface_hash_stage0_three_item_materialize_result module_identity source key_item value_item import_item
+    let function_item %SelfhostModuleItem selfhost_memo_trait_public_surface_hash_stage0_function_item 16 24 "fn helper:"
+    let public_declaration_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind:
+        selfhost_memo_trait_public_surface_hash_stage0_three_item_materialize_result module_identity source key_item value_item function_item
+    let body_key_item %SelfhostModuleItem selfhost_memo_trait_public_surface_hash_stage0_trait_item_with_body 0 7 "trait MemoKey:"
+    let body_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind:
+        selfhost_memo_trait_public_surface_hash_stage0_two_item_materialize_result module_identity source body_key_item value_item
+    selfhost_memo_trait_public_surface_hash_stage0_summary_new:
+        accepted_registry
+        module_identity_missing_rejected
+        import_surface_rejected
+        public_declaration_rejected
+        body_surface_rejected

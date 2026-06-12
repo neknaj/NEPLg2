@@ -1,3 +1,56 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue local public surface hash materializer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `selfhost/memo-trait-public-surface-hash-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` local public surface hash materializer
+- classification: selfhost implementation slice review
+- decision: full module public surface hash へ進む前に、local `MemoKey` / `MemoValue` marker trait pair だけを accepted path にする Phase 1 public surface hash materializerを追加し、scanner candidate、seed materializer、typed hash materializer、stable evidence producer、fingerprint gate、trusted registry validator の順序を固定する。
+- implementation:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl` を追加し、`SelfhostMemoTraitPublicSurfaceHashMaterialization`、`SelfhostMemoTraitPublicSurfaceHashErrorKind`、`SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind`、stage0 smoke を定義した。
+  - `selfhost_memo_trait_public_surface_hash_materialize_result` は caller supplied module identity hash を検査し、unsupported public surface item を fail-closed に拒否し、`selfhost_memo_trait_public_surface_seed_scan_module_result` の seed table だけから public surface hash を作る。
+  - public surface hash の fold material は `MemoKey` / `MemoValue` の kind、visibility、declaration ordinal、normalized marker signature seed、schema domain code に限定した。source text、span、syntax range、lexeme、display name、path suffix、diagnostic text は accepted hash authority にしない。
+  - module identity hash の `none` / `some 0`、derived public surface hash `0`、seed missing / duplicate / kind mismatch / private visibility / signature missing は typed enum error で拒否する。
+  - `ImportDirective` / `UseDirective` / `PreludeDirective` / `NoPreludeDirective` は dependency public surface が未正規化なので、それぞれ `ImportSurfaceUnsupported` / `UseSurfaceUnsupported` / `PreludeSurfaceUnsupported` / `NoPreludeSurfaceUnsupported` として拒否する。
+  - public function / struct / enum / impl declaration は、local marker trait pair hash では full module public surface に含められないため `PublicFunctionSurfaceUnsupported` / `PublicStructSurfaceUnsupported` / `PublicEnumSurfaceUnsupported` / `PublicImplSurfaceUnsupported` として拒否する。private non-trait declaration は public surface に出ないのでこの slice では無視する。
+  - `selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result` は candidate scanner、hash materializer、seed evidence producer、stable fingerprint gate、trusted registry validator を順に通す。trusted source identity や `signature_available=true` record はこの module で直接作らない。
+  - `stdlib/neplg2/core/check/module.nepl` facade から public surface hash materializer を re-export した。
+  - `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` を追加し、DAG、typed materialization、source/span/path/diagnostic非authority、unsupported import/use/public declarationのfail-closed、proof store非直結、行数制限・doc comment長制限禁止を固定した。
+  - `nodesrc/test_selfhost_module_checker_split_contract.js`、`nodesrc/test_selfhost_proof_entry_contract.js`、`nodesrc/run_source_policy_regressions.js` を更新した。
+- implementation/test:
+  - 実装本体は checker-layer の `memo_trait_public_surface_hash.nepl` に閉じ、`core/ty` と proof store へ逆依存を作らない。
+  - テストは doctest、focused source policy、module checker split contract、proof entry contract、Zenn review gate、n.md metadata policy、issues check、diff check で確認する。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - Fermat は Blocker として、`actual public surface hash producer` という呼び方が過大であり、trait body / method signature normalization、re-export / import surface、stable nominal key が未実装なら local marker trait public surface hash seed に限定すべきと指摘した。また Required として unsupported item error の分離、schema domain code、private declaration と private memo trait の扱いの明記を求めた。
+  - Goodall は Blocker なし。Required として source / span / path / diagnostic の hash authority 禁止、module identity placeholder rejection、import / use fail-closed、既存 seed evidence / fingerprint gate 経由、full materializer ではない境界の検索可能な残件明記を指摘した。
+  - 対応: module doc、issue、todo、note で local marker trait pair 限定を明記し、unsupported item error を import / use / prelude / public declaration kind ごとに分け、hash schema domain code を fold へ入れた。
+- policy/spec:
+  - Blocker: full public surface hash と誤読される命名・説明を、local marker trait pair Phase 1 materializerとして明確化した。
+  - Required: typed seed、Result enum、unsupported surface fail-closed、schema domain code、DAG、existing gate 経由、proof store 非直結、source policy による退行検出を実装した。
+  - Non-blocker: 実 stdlib `MemoKey` / `MemoValue` の method signature normalization は未実装であり、method 付き trait を accepted path に通さない。
+  - Question: full public surface hash、stable trait definition key、trait body / method signature normalization はこの slice では計算しない。
+  - Approve: レビュー指摘の Required は実装と contract に反映済み。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: public surface hash は trusted source identity の手前にあるため、source spelling / span / path / diagnostic text の authority 化、raw source identity constructor、`signature_available=true` record の直生成、proof store 直結、`core/ty` 逆依存を検出する必要がある。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: subagent review response は Blocker / Required / Non-blocker / Question / Approve の分類で確認する。今回の実装ではその分類を note に記録し、Required を同じ slice 内で反映した。
+  - source policy: updated and rerun.
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- verify:
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -o tmp/selfhost-memo-trait-public-surface-hash.json -j 1 --dist web/dist --assert-io`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js`
+  - 既存 warning: Node の WASI experimental warning が doctest / source policy 実行中に表示される。
+  - 今回差分由来 warning: none in focused checks.
+- residual:
+  - re-export / import graph を含む full public surface hash、stable trait definition key、trait body / method signature normalization evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未実装で、次 slice 以降に残す。
+  - 次 slice: trait body / method signature normalization evidence を作り、実 stdlib の `MemoKey` / `MemoValue` trait source identity を accepted path に接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue public surface seed materializer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
