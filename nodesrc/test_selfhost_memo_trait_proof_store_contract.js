@@ -124,8 +124,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitProofStorePushErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*StableDuplicate[\s\S]*OutOfMemory[\s\S]*InternalInvariant/,
-    "stable proof store push must preserve canonical fingerprint projection rejection and stable duplicate rejection as typed errors",
+    /pub enum SelfhostMemoTraitProofStorePushErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*MaterializedKeyCopyRejected %SelfhostCanonicalTypeKeyCopyErrorKind[\s\S]*StableDuplicate[\s\S]*OutOfMemory[\s\S]*InternalInvariant/,
+    "stable proof store push must preserve canonical fingerprint projection rejection, materialized key copy rejection, and stable duplicate rejection as typed errors",
 );
 assert.match(
     source,
@@ -136,6 +136,26 @@ assert.match(
     source,
     /selfhost_memo_trait_proof_store_push_with_kind[\s\S]*selfhost_memo_trait_proof_store_record_new key_id none policy proof_kind proof/,
     "existing session-only push must create legacy records with stable_fingerprint = none",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_proof_store_push_materialized_key %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn SelfhostMemoTraitStoredProofKind impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind/,
+    "proof store must expose a decoded-artifact append API that accepts a materialized canonical key instead of TypeArena/TypeId",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_push_materialized_key[\s\S]*selfhost_canonical_type_key_copy_from_arena candidate_arena key_arena candidate_key[\s\S]*let copied_key %SelfhostCanonicalTypeKeyId[\s\S]*selfhost_memo_trait_proof_store_stable_identity_new copied_key policy candidate_fingerprint/,
+    "materialized proof append must copy the candidate key into the store-owned arena before building stable identity",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_push_materialized_key[\s\S]*selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records stable_identity[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate[\s\S]*selfhost_memo_trait_proof_store_record_new copied_key \(some candidate_fingerprint\) policy proof_kind proof[\s\S]*selfhost_memo_trait_proof_store_stable_index_entry_new candidate_fingerprint record_index/,
+    "materialized proof append must reject duplicate stable identity before appending record and sidecar index",
+);
+assert.match(
+    source,
+    /Result::Err copy_error:[\s\S]*v::free records[\s\S]*v::free stable_index[\s\S]*MaterializedKeyCopyRejected copy_error/,
+    "materialized proof append must close record/index owners and return typed copy error when decoded key copying fails",
 );
 assert.match(
     source,
@@ -209,8 +229,8 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:[\s\S]*true/,
-    "push error equality must compare StableDuplicate explicitly instead of relying on wildcard behavior",
+    /SelfhostMemoTraitProofStorePushErrorKind::MaterializedKeyCopyRejected a_kind:[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::MaterializedKeyCopyRejected b_kind:[\s\S]*selfhost_canonical_type_key_copy_error_kind_eq a_kind b_kind[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:[\s\S]*true/,
+    "push error equality must compare materialized key copy errors and StableDuplicate explicitly instead of relying on wildcard behavior",
 );
 assert.match(
     source,

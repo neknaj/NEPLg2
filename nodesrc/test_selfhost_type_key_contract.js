@@ -61,6 +61,19 @@ assert.deepEqual(
     ],
     "projection errors must be typed and exhaustive",
 );
+assert.deepEqual(
+    enumVariants(key, "SelfhostCanonicalTypeKeyCopyErrorKind"),
+    [
+        "MissingSourceNode",
+        "MissingSourceArgument",
+        "InvalidAppliedArgumentRange",
+        "InvalidFunctionArgumentRange",
+        "TraversalFuelExhausted",
+        "OutOfMemory",
+        "InternalInvariant",
+    ],
+    "canonical key arena copy errors must be typed and exhaustive",
+);
 
 const nodeBlock = topLevelBlock(key, "enum", "SelfhostCanonicalTypeKeyNode:");
 assert.doesNotMatch(nodeBlock, /\bSelfhostTypeId\b/, "canonical key nodes must not contain arena-local SelfhostTypeId");
@@ -111,6 +124,36 @@ assert.match(
     key,
     /\bselfhost_canonical_type_key_project_function_args_loop\b[\s\S]*selfhost_type_arena_function_arg\b[\s\S]*selfhost_canonical_type_key_project_node/,
     "function projection must recursively project each function argument once",
+);
+assert.match(
+    key,
+    /pub fn selfhost_canonical_type_key_copy_from_arena %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyCopyErrorKind/,
+    "canonical key module must expose a materialized-key copy boundary that does not require SelfhostTypeId",
+);
+assert.match(
+    key,
+    /selfhost_canonical_type_key_copy_from_arena[\s\S]*let fuel %i32[\s\S]*selfhost_canonical_type_key_copy_node_result source_arena target_arena source_root fuel/,
+    "canonical key copy must start from a bounded traversal instead of trusting decoded artifact structure blindly",
+);
+assert.match(
+    key,
+    /fn selfhost_canonical_type_key_copy_node_result[\s\S]*SelfhostCanonicalTypeKeyNode::Primitive[\s\S]*SelfhostCanonicalTypeKeyNode::Named[\s\S]*SelfhostCanonicalTypeKeyNode::Parameter[\s\S]*SelfhostCanonicalTypeKeyNode::Applied[\s\S]*SelfhostCanonicalTypeKeyNode::Function[\s\S]*MissingSourceNode/,
+    "canonical key copy must handle every canonical node kind and reject missing source nodes with a typed error",
+);
+assert.match(
+    key,
+    /fn selfhost_canonical_type_key_copy_args_loop[\s\S]*selfhost_canonical_type_key_arena_arg source_arena source_args idx[\s\S]*selfhost_canonical_type_key_copy_node_result source_arena target_arena source_arg[\s\S]*selfhost_canonical_type_key_copy_push_arg_id next_arena copied_arg[\s\S]*MissingSourceArgument/,
+    "canonical key copy must rebuild argument edges through copied target key ids and reject missing source arguments",
+);
+assert.match(
+    key,
+    /fn selfhost_canonical_type_key_copy_error_kind_code[\s\S]*MissingSourceNode[\s\S]*MissingSourceArgument[\s\S]*InvalidAppliedArgumentRange[\s\S]*InvalidFunctionArgumentRange[\s\S]*TraversalFuelExhausted[\s\S]*OutOfMemory[\s\S]*InternalInvariant/,
+    "canonical key copy errors must have an exhaustive typed code boundary for downstream equality checks",
+);
+assert.match(
+    key,
+    /pub fn selfhost_canonical_type_key_copy_error_kind_eq[\s\S]*selfhost_canonical_type_key_copy_error_kind_code a[\s\S]*selfhost_canonical_type_key_copy_error_kind_code b/,
+    "canonical key copy error equality must use the exhaustive typed code boundary",
 );
 
 console.log("selfhost canonical type key contract passed");

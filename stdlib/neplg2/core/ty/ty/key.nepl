@@ -62,6 +62,22 @@ pub enum SelfhostCanonicalTypeKeyProjectErrorKind:
     OutOfMemory
     InternalInvariant
 
+//: SelfhostCanonicalTypeKeyCopyErrorKind: canonical key arena 間 copy の拒否理由
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` decoded payload のように `TypeId` authority を持たない canonical key tree を store-local arena へ複製するとき、壊れた source arena、range、fuel、allocation failure を typed error として分けます。
+//:
+//: [契約/けいやく]:
+//: - copy failure は target arena owner を閉じた後に返します。caller は失敗した partial target arena を compile の authority として使ってはいけません。
+pub enum SelfhostCanonicalTypeKeyCopyErrorKind:
+    MissingSourceNode
+    MissingSourceArgument
+    InvalidAppliedArgumentRange
+    InvalidFunctionArgumentRange
+    TraversalFuelExhausted
+    OutOfMemory
+    InternalInvariant
+
 pub struct SelfhostCanonicalTypeKeyProjectError:
     kind %SelfhostCanonicalTypeKeyProjectErrorKind
     type_id %SelfhostTypeId
@@ -116,6 +132,14 @@ impl Clone for SelfhostCanonicalTypeKeyProjectErrorKind:
 
 impl Copy for SelfhostCanonicalTypeKeyProjectErrorKind:
     fn copy_mark %fn SelfhostCanonicalTypeKeyProjectErrorKind SelfhostCanonicalTypeKeyProjectErrorKind \self:
+        self
+
+impl Clone for SelfhostCanonicalTypeKeyCopyErrorKind:
+    fn clone %fn &SelfhostCanonicalTypeKeyCopyErrorKind SelfhostCanonicalTypeKeyCopyErrorKind \self:
+        *self
+
+impl Copy for SelfhostCanonicalTypeKeyCopyErrorKind:
+    fn copy_mark %fn SelfhostCanonicalTypeKeyCopyErrorKind SelfhostCanonicalTypeKeyCopyErrorKind \self:
         self
 
 impl Clone for SelfhostCanonicalTypeKeyProjectError:
@@ -359,6 +383,240 @@ pub fn selfhost_canonical_type_key_project_from_arena %impure fn &SelfhostTypeAr
             selfhost_canonical_type_key_project_into_arena types key_arena type_id
         Result::Err e:
             Result::Err selfhost_canonical_type_key_project_error_from_std e type_id
+
+//: selfhost_canonical_type_key_copy_error_kind_code: copy error kind の一次分類 code を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - この code は永続化 schema ではありません。同一 module 内の equality 実装だけが利用します。
+//: - wildcard arm は使いません。copy error variant が増えた場合、この match も明示的に更新します。
+fn selfhost_canonical_type_key_copy_error_kind_code %fn SelfhostCanonicalTypeKeyCopyErrorKind i32 \kind:
+    match kind:
+        SelfhostCanonicalTypeKeyCopyErrorKind::MissingSourceNode:
+            1
+        SelfhostCanonicalTypeKeyCopyErrorKind::MissingSourceArgument:
+            2
+        SelfhostCanonicalTypeKeyCopyErrorKind::InvalidAppliedArgumentRange:
+            3
+        SelfhostCanonicalTypeKeyCopyErrorKind::InvalidFunctionArgumentRange:
+            4
+        SelfhostCanonicalTypeKeyCopyErrorKind::TraversalFuelExhausted:
+            5
+        SelfhostCanonicalTypeKeyCopyErrorKind::OutOfMemory:
+            6
+        SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant:
+            7
+
+//: selfhost_canonical_type_key_copy_error_kind_eq: canonical key copy error が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - copy error variant は payload を持たないため、網羅 match で作った一次分類 code を比較します。
+//: - variant 追加時は `selfhost_canonical_type_key_copy_error_kind_code` の match が更新漏れを検出する境界になります。
+pub fn selfhost_canonical_type_key_copy_error_kind_eq %fn SelfhostCanonicalTypeKeyCopyErrorKind fn SelfhostCanonicalTypeKeyCopyErrorKind bool \a\b:
+    eq selfhost_canonical_type_key_copy_error_kind_code a selfhost_canonical_type_key_copy_error_kind_code b
+
+//: selfhost_canonical_type_key_copy_error_from_std: Vec allocation error を copy error へ[写像/しゃぞう]する
+//:
+//: [契約/けいやく]:
+//: - `OutOfMemory` と `CapacityExceeded` は copy を継続できない容量失敗として扱います。
+//: - それ以外の std error は copy 境界では想定外なので `InternalInvariant` へ畳み込みます。
+fn selfhost_canonical_type_key_copy_error_from_std %fn StdErrorKind SelfhostCanonicalTypeKeyCopyErrorKind \kind:
+    match kind:
+        StdErrorKind::Failure:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::OutOfMemory:
+            SelfhostCanonicalTypeKeyCopyErrorKind::OutOfMemory
+        StdErrorKind::EmptyCollection:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::IndexOutOfBounds:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::KeyNotFound:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::CapacityExceeded:
+            SelfhostCanonicalTypeKeyCopyErrorKind::OutOfMemory
+        StdErrorKind::InvalidOperation:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::InvalidUtf8:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::ParseError:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::IoError:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+        StdErrorKind::Other:
+            SelfhostCanonicalTypeKeyCopyErrorKind::InternalInvariant
+
+//: selfhost_canonical_type_key_copy_fail: target arena を閉じて copy error を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - subtree copy が失敗した場合、partial target arena を外へ返さないため、この helper が必ず owner を閉じます。
+fn selfhost_canonical_type_key_copy_fail %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyCopyErrorKind Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyCopyErrorKind \target_arena\kind:
+    selfhost_canonical_type_key_arena_free target_arena
+    Result::Err kind
+
+//: selfhost_canonical_type_key_copy_arg_fail: target arena を閉じて argument copy error を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - argument list の途中で source が壊れていた場合、部分的に複製した argument arena を成功値として返しません。
+fn selfhost_canonical_type_key_copy_arg_fail %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyCopyErrorKind Result SelfhostCanonicalTypeKeyArgBuild SelfhostCanonicalTypeKeyCopyErrorKind \target_arena\kind:
+    selfhost_canonical_type_key_arena_free target_arena
+    Result::Err kind
+
+//: selfhost_canonical_type_key_copy_push_node: copied node を target arena に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - 返す key id は push 前の target node length から作り、target arena 内だけで有効です。
+//: - node push に失敗した場合は argument vector を閉じ、typed copy error を返します。
+fn selfhost_canonical_type_key_copy_push_node %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyNode Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyCopyErrorKind \target_arena\node:
+    let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_id_new selfhost_canonical_type_key_arena_node_len &target_arena
+    let nodes %Vec SelfhostCanonicalTypeKeyNode field::get target_arena "nodes"
+    let args %Vec SelfhostCanonicalTypeKeyId field::get target_arena "args"
+    match v::push nodes node:
+        Result::Ok next_nodes:
+            let next_arena %SelfhostCanonicalTypeKeyArena SelfhostCanonicalTypeKeyArena next_nodes args
+            Result::Ok selfhost_canonical_type_key_arena_alloc_new next_arena key_id
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free args
+            Result::Err selfhost_canonical_type_key_copy_error_from_std error
+
+//: selfhost_canonical_type_key_copy_push_arg_id: copied argument key id を target arena に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - argument key id は既に target arena に複製済みの node を指していなければいけません。この helper は source arena の key id を直接受け取りません。
+//: - argument push に失敗した場合は node vector を閉じ、partial arena を外へ返しません。
+fn selfhost_canonical_type_key_copy_push_arg_id %impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId Result SelfhostCanonicalTypeKeyArena SelfhostCanonicalTypeKeyCopyErrorKind \target_arena\arg:
+    let nodes %Vec SelfhostCanonicalTypeKeyNode field::get target_arena "nodes"
+    let args %Vec SelfhostCanonicalTypeKeyId field::get target_arena "args"
+    match v::push args arg:
+        Result::Ok next_args:
+            Result::Ok SelfhostCanonicalTypeKeyArena nodes next_args
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free nodes
+            Result::Err selfhost_canonical_type_key_copy_error_from_std error
+
+//: selfhost_canonical_type_key_copy_args_loop: source argument range を target arena の key id 列へ[複製/ふくせい]する
+//:
+//: [目的/もくてき]:
+//: - source arena の argument range を順に読み、各 argument subtree を target arena へ複製してから target の argument vector に追加します。
+//:
+//: [契約/けいやく]:
+//: - source argument が欠けている場合は `MissingSourceArgument` で fail-closed にします。
+//: - fuel は循環や壊れた graph で再帰が止まらないことを防ぐために消費します。
+fn selfhost_canonical_type_key_copy_args_loop %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArgRange impure fn i32 impure fn i32 Result SelfhostCanonicalTypeKeyArgBuild SelfhostCanonicalTypeKeyCopyErrorKind \source_arena\target_arena\source_args\idx\fuel:
+    if:
+        ge idx source_args.arg_count
+        then:
+            let copied_args %SelfhostCanonicalTypeKeyArgRange selfhost_canonical_type_key_arg_range_new_unchecked sub selfhost_canonical_type_key_arena_arg_len &target_arena source_args.arg_count source_args.arg_count
+            Result::Ok selfhost_canonical_type_key_arg_build_new target_arena copied_args
+        else:
+            match selfhost_canonical_type_key_arena_arg source_arena source_args idx:
+                Option::Some source_arg:
+                    match selfhost_canonical_type_key_copy_node_result source_arena target_arena source_arg sub fuel 1:
+                        Result::Ok copied_arg_alloc:
+                            let copied_arg %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &copied_arg_alloc
+                            let next_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena copied_arg_alloc
+                            match selfhost_canonical_type_key_copy_push_arg_id next_arena copied_arg:
+                                Result::Ok pushed_arena:
+                                    selfhost_canonical_type_key_copy_args_loop source_arena pushed_arena source_args add idx 1 fuel
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_canonical_type_key_copy_arg_fail target_arena SelfhostCanonicalTypeKeyCopyErrorKind::MissingSourceArgument
+
+//: selfhost_canonical_type_key_copy_applied_result: applied type key を target arena へ[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - source applied key の argument range が壊れている場合は node を追加せず、target arena を閉じます。
+//: - nominal id は stable nominal key table 由来の値なのでそのまま複製し、argument key id だけ target arena local に作り直します。
+fn selfhost_canonical_type_key_copy_applied_result %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalAppliedTypeKey impure fn i32 Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyCopyErrorKind \source_arena\target_arena\applied\fuel:
+    if:
+        not selfhost_canonical_type_key_arg_range_is_valid applied.args
+        then:
+            selfhost_canonical_type_key_copy_fail target_arena SelfhostCanonicalTypeKeyCopyErrorKind::InvalidAppliedArgumentRange
+        else:
+            match selfhost_canonical_type_key_copy_args_loop source_arena target_arena applied.args 0 fuel:
+                Result::Ok build:
+                    let next_arena %SelfhostCanonicalTypeKeyArena field::get build "arena"
+                    let copied_args %SelfhostCanonicalTypeKeyArgRange field::get build "args"
+                    let copied_applied %SelfhostCanonicalAppliedTypeKey SelfhostCanonicalAppliedTypeKey applied.nominal_id copied_args
+                    selfhost_canonical_type_key_copy_push_node next_arena SelfhostCanonicalTypeKeyNode::Applied copied_applied
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_canonical_type_key_copy_function_result: function type key を target arena へ[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - function argument range と result subtree の両方を target arena local key id に作り直します。
+//: - source の result key が欠けている場合や fuel が尽きた場合は、partial target arena を成功値として返しません。
+fn selfhost_canonical_type_key_copy_function_result %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalFunctionTypeKey impure fn i32 Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyCopyErrorKind \source_arena\target_arena\function\fuel:
+    if:
+        not selfhost_canonical_type_key_arg_range_is_valid function.args
+        then:
+            selfhost_canonical_type_key_copy_fail target_arena SelfhostCanonicalTypeKeyCopyErrorKind::InvalidFunctionArgumentRange
+        else:
+            match selfhost_canonical_type_key_copy_args_loop source_arena target_arena function.args 0 fuel:
+                Result::Ok build:
+                    let arg_arena %SelfhostCanonicalTypeKeyArena field::get build "arena"
+                    let copied_args %SelfhostCanonicalTypeKeyArgRange field::get build "args"
+                    match selfhost_canonical_type_key_copy_node_result source_arena arg_arena function.result sub fuel 1:
+                        Result::Ok result_alloc:
+                            let result_key %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &result_alloc
+                            let next_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena result_alloc
+                            let copied_function %SelfhostCanonicalFunctionTypeKey SelfhostCanonicalFunctionTypeKey copied_args result_key
+                            selfhost_canonical_type_key_copy_push_node next_arena SelfhostCanonicalTypeKeyNode::Function copied_function
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_canonical_type_key_copy_node_result: source arena の canonical key subtree を target arena へ[複製/ふくせい]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader のように `TypeId` を authority として持たない入力から、materialized canonical key tree だけを proof store の owned arena へ移すための境界です。
+//:
+//: [契約/けいやく]:
+//: - 返される `SelfhostCanonicalTypeKeyId` は target arena 内だけで意味を持ちます。source arena の key id 数値を再利用しません。
+//: - source に壊れた argument range や循環がある場合は typed error で fail-closed にします。失敗時は target arena owner をこの関数が閉じます。
+fn selfhost_canonical_type_key_copy_node_result %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn i32 Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyCopyErrorKind \source_arena\target_arena\source_key\fuel:
+    if:
+        le fuel 0
+        then:
+            selfhost_canonical_type_key_copy_fail target_arena SelfhostCanonicalTypeKeyCopyErrorKind::TraversalFuelExhausted
+        else:
+            match selfhost_canonical_type_key_arena_get_node source_arena source_key:
+                Option::Some node:
+                    match node:
+                        SelfhostCanonicalTypeKeyNode::Primitive kind:
+                            selfhost_canonical_type_key_copy_push_node target_arena SelfhostCanonicalTypeKeyNode::Primitive kind
+                        SelfhostCanonicalTypeKeyNode::Named named:
+                            selfhost_canonical_type_key_copy_push_node target_arena SelfhostCanonicalTypeKeyNode::Named named
+                        SelfhostCanonicalTypeKeyNode::Parameter parameter:
+                            selfhost_canonical_type_key_copy_push_node target_arena SelfhostCanonicalTypeKeyNode::Parameter parameter
+                        SelfhostCanonicalTypeKeyNode::Applied applied:
+                            selfhost_canonical_type_key_copy_applied_result source_arena target_arena applied sub fuel 1
+                        SelfhostCanonicalTypeKeyNode::Function function:
+                            selfhost_canonical_type_key_copy_function_result source_arena target_arena function sub fuel 1
+                Option::None:
+                    selfhost_canonical_type_key_copy_fail target_arena SelfhostCanonicalTypeKeyCopyErrorKind::MissingSourceNode
+
+//: selfhost_canonical_type_key_copy_from_arena: canonical key subtree を別 arena に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - session-local `SelfhostTypeId` を持たない serialized / decoded artifact 入力を、既存の canonical key arena owner に安全に取り込めるようにします。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(alloc)`: target arena に source root から到達する canonical key subtree を追加しました。`alloc.key_id` がコピー後の root です。
+//: - `Err(kind)`: source arena が不正、または target arena への追加に失敗しました。target arena owner は閉じられており、呼び出し側は再利用してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - source root から到達する node / argument edge 数に比例します。共有 subtree は Phase 1 では参照先ごとに再コピーします。
+pub fn selfhost_canonical_type_key_copy_from_arena %impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId Result SelfhostCanonicalTypeKeyArenaAlloc SelfhostCanonicalTypeKeyCopyErrorKind \source_arena\target_arena\source_root:
+    let fuel %i32 add add selfhost_canonical_type_key_arena_node_len source_arena selfhost_canonical_type_key_arena_arg_len source_arena 8
+    selfhost_canonical_type_key_copy_node_result source_arena target_arena source_root fuel
 
 pub fn selfhost_canonical_type_key_arena_arg %fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn i32 Option SelfhostCanonicalTypeKeyId \arena\args\idx:
     if:

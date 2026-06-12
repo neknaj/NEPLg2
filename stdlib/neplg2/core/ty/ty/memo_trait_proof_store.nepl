@@ -19,6 +19,7 @@
 //: - solver policy identity は source identity と rule identity の typed payload であり、raw `trait_source_hash` や raw `rule_hash` を proof store record の authority にしません。
 //: - 既存の `selfhost_memo_trait_proof_store_push` / `selfhost_memo_trait_proof_store_lookup_record` は session-local compatibility path です。これらは `stable_fingerprint = none` の record を扱い、stable proof artifact としては再利用しません。
 //: - `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_lookup_record_stable_key` は stable nominal key table から canonical type fingerprint を作り、`stable_fingerprint = some(...)` の record だけを永続 key 入力として受理します。stable push は同じ canonical key、policy、stable fingerprint の duplicate を `StableDuplicate` として拒否します。stable index は fingerprint で候補を減らすための hint であり、fingerprint が一致しても cross-arena canonical equality、policy equality、proof kind、producer gate は必ず実行します。
+//: - `selfhost_memo_trait_proof_store_push_materialized_key` は `.neplproof` reader が materialize した canonical key subtree を store-owned arena へコピーし、`TypeId` を経由せずに stable proof record と sidecar index を追加します。
 //: - `SelfhostMemoTraitProofStorePreseedDecision` は `.neplproof` reader が store へ record を投入する前に、既存 record と同一 payload なら再投入不要、同じ identity で異なる payload なら conflict、未登録なら追加可能、という判断を typed enum として固定します。ここでも stable fingerprint 単独や表示文字列を authority にしません。
 //: - decoded `.neplproof` record は、artifact schema validation と canonical key materialization を済ませてから `selfhost_memo_trait_proof_store_preseed_decision_materialized_key` へ渡します。この公開 API は store-local identity struct を外へ出さず、caller が所有する canonical key arena と store の arena を cross-arena equality で比較します。
 //: - stable index が候補を返せないにもかかわらず full stable scan では proof を受理できる場合、store の index invariant が壊れているため `StableIndexMissing` として fail-closed にします。
@@ -197,6 +198,7 @@ pub enum SelfhostMemoTraitProofStorePreseedDecision:
 pub enum SelfhostMemoTraitProofStorePushErrorKind:
     TypeProjectionFailed
     StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind
+    MaterializedKeyCopyRejected %SelfhostCanonicalTypeKeyCopyErrorKind
     StableDuplicate
     OutOfMemory
     InternalInvariant
@@ -876,6 +878,12 @@ pub fn selfhost_memo_trait_proof_store_push_error_kind_eq %fn SelfhostMemoTraitP
                     selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_kind b_kind
                 _:
                     false
+        SelfhostMemoTraitProofStorePushErrorKind::MaterializedKeyCopyRejected a_kind:
+            match b:
+                SelfhostMemoTraitProofStorePushErrorKind::MaterializedKeyCopyRejected b_kind:
+                    selfhost_canonical_type_key_copy_error_kind_eq a_kind b_kind
+                _:
+                    false
         SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:
             match b:
                 SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate:
@@ -1041,6 +1049,61 @@ pub fn selfhost_memo_trait_proof_store_push_with_kind_stable_key %impure fn &Sel
 //: selfhost_memo_trait_proof_store_push_stable_key: stable fingerprint 付き key/value 両用 proof を store へ[追加/ついか]する
 pub fn selfhost_memo_trait_proof_store_push_stable_key %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\nominal_table\store\policy\type_id\proof:
     selfhost_memo_trait_proof_store_push_with_kind_stable_key types nominal_table store policy type_id SelfhostMemoTraitStoredProofKind::KeyAndValue proof
+
+//: selfhost_memo_trait_proof_store_push_materialized_key: decoded canonical key proof を store へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が decoded canonical key payload から復元した key を、`SelfhostTypeId` へ戻さず proof store に取り込みます。
+//:
+//: [契約/けいやく]:
+//: - `candidate_key` は `candidate_arena` 内だけで意味を持ちます。この関数は source key id の数値を保存せず、canonical key subtree を store-owned arena へコピーします。
+//: - `candidate_fingerprint` と `policy` は、preseed bridge で record key と decoded payload の照合を済ませた値を渡します。この関数は duplicate rejection、record append、stable index append の owner transition だけを担当します。
+//: - stable duplicate は append 前に `StableDuplicate` として拒否します。duplicate や index append failure の途中状態を caller が使える store として返しません。
+//: - 失敗時は入力 store owner から取り出した buffer を閉じます。成功時だけ、新しい store owner を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - key copy は candidate key tree size k、duplicate scan は既存 record 数 n と k に対して O(n * k)、record / index append は償却 O(1) です。
+pub fn selfhost_memo_trait_proof_store_push_materialized_key %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn SelfhostMemoTraitStoredProofKind impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \store\candidate_arena\candidate_key\policy\candidate_fingerprint\proof_kind\proof:
+    let key_arena %SelfhostCanonicalTypeKeyArena field::get store "key_arena"
+    let records %Vec SelfhostMemoTraitProofStoreRecord field::get store "records"
+    let stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry field::get store "stable_index"
+    match selfhost_canonical_type_key_copy_from_arena candidate_arena key_arena candidate_key:
+        Result::Ok copied_alloc:
+            let copied_key %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &copied_alloc
+            let next_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena copied_alloc
+            let stable_identity %SelfhostMemoTraitProofStoreStableIdentity selfhost_memo_trait_proof_store_stable_identity_new copied_key policy candidate_fingerprint
+            if:
+                selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records stable_identity
+                then:
+                    v::free records
+                    v::free stable_index
+                    selfhost_canonical_type_key_arena_free next_key_arena
+                    Result::Err SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate
+                else:
+                    let record_index %i32 v::len &records
+                    let record %SelfhostMemoTraitProofStoreRecord selfhost_memo_trait_proof_store_record_new copied_key (some candidate_fingerprint) policy proof_kind proof
+                    match v::push records record:
+                        Result::Ok next_records:
+                            let index_entry %SelfhostMemoTraitProofStoreStableIndexEntry selfhost_memo_trait_proof_store_stable_index_entry_new candidate_fingerprint record_index
+                            match v::push stable_index index_entry:
+                                Result::Ok next_stable_index:
+                                    Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records next_stable_index
+                                Result::Err index_error:
+                                    let error %StdErrorKind field::get index_error "error"
+                                    v::free v::vec_push_error_vec index_error
+                                    v::free next_records
+                                    selfhost_canonical_type_key_arena_free next_key_arena
+                                    Result::Err selfhost_memo_trait_proof_store_push_error_from_std error
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free stable_index
+                            selfhost_canonical_type_key_arena_free next_key_arena
+                            Result::Err selfhost_memo_trait_proof_store_push_error_from_std error
+        Result::Err copy_error:
+            v::free records
+            v::free stable_index
+            Result::Err SelfhostMemoTraitProofStorePushErrorKind::MaterializedKeyCopyRejected copy_error
 
 //: selfhost_memo_trait_proof_store_lookup_result_is_accept: lookup result が成功か[返/かえ]す
 pub fn selfhost_memo_trait_proof_store_lookup_result_is_accept %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind bool \result:

@@ -341,6 +341,41 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost decoded `.neplproof` single-record append checkpoint
+
+decoded canonical key payload bytes から proof store へ single record を投入する境界を接続した。
+
+`key.nepl` には `SelfhostCanonicalTypeKeyCopyErrorKind` と `selfhost_canonical_type_key_copy_from_arena` を追加した。この API は `SelfhostTypeId` を持たない decoded canonical key tree を、source arena の key id 数値を再利用せず store-local arena へ複製する。source node / argument 欠落、argument range 破損、fuel exhaustion、allocation failure は typed enum で返し、失敗時は target arena owner を閉じる。新規 equality は wildcard arm ではなく、網羅 match で作る private code helper を通す。
+
+`memo_trait_proof_store.nepl` には `selfhost_memo_trait_proof_store_push_materialized_key` を追加した。caller-owned materialized key arena と store-owned arena を cross-arena equality で比較し、duplicate / conflict 判定を append 前に行う。`SelfhostMemoTraitProofStorePushErrorKind::MaterializedKeyCopyRejected` は key copy の typed error payload を保持するため、copy failure を stable duplicate や bool へ潰さない。
+
+`memo_trait_proof_preseed.nepl` には bytes-level decision API と append API を追加した。`selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes` は codec で decoded owner を作り、fingerprint と payload hash を materialized arena から再計算してから preseed decision を返す。`selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes` は `AcceptMissing` の場合だけ store materialized append を呼び、`ExistingMatching` は store を変更せず返し、`RejectedConflict`、decision error、decode error、fingerprint error、store append error は fail-closed に分類する。失敗時には入力 store owner を閉じ、partial seeded store を成功値として返さない。
+
+`nodesrc/selfhost_ty_sources.js` に `memo_trait_proof_artifact.nepl` と `memo_trait_proof_preseed.nepl` を source-policy aggregate 対象として登録した。この登録で顕在化した documentation baseline 退行は、module doc の先頭位置と新規宣言コメントを直して baseline 以内へ戻した。`impl` 内の doc comment は現行 parser が受理しないため置かず、型 / module / public API の doc comment に contract を集約する。
+
+subagent review では Hume が、decoded payload append は `TypeArena` / `TypeId` authority を復元するのではなく、store-local arena copy API を作って materialized key を duplicate check 前に投入する方針を要求した。さらに `ExistingMatching` は skip、`AcceptMissing` は append、`RejectedConflict` は fail-closed とし、batch preseed loop では partial seeded store を compile に使わない atomicity が必要と指摘した。今回の slice では single-record append boundary までを実装し、batch reader / preseed loop と atomic working store は次の残件に残した。
+
+最終 review では Hume が Blocker / Required なしと判定した。stage0 は decoded payload bytes decision、empty-store append、same-record skip、conflict append を public decoded append API 経由で踏む。`missing_key` だけは decoded bytes では root 不正が decode 時点で拒否されるため、materialized decision API の欠落 key smoke として残す。
+
+source policy は `nodesrc/test_selfhost_type_key_contract.js`、`nodesrc/test_selfhost_memo_trait_proof_store_contract.js`、`nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` を更新した。canonical key copy boundary、store-local append、decoded bytes decision / append、typed append error、owner cleanup、codec import、aggregate registration、documentation baseline を固定している。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_type_key_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -o tmp/selfhost-memo-trait-proof-preseed-decoded-append.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -o tmp/selfhost-memo-trait-proof-store-materialized-append.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、`.neplproof` reader / serializer、複数 decoded record を atomic working store へ投入する batch preseed loop、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
+
 ## 2026-06-12 selfhost memo trait canonical key payload hash checkpoint
 
 `memo_trait_canonical_key_payload.nepl` を追加し、`.neplproof` record key 用の canonical payload hash を materialized canonical key arena から再計算する境界を作った。

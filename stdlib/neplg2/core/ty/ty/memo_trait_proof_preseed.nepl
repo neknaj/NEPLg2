@@ -6,7 +6,7 @@
 //: [目的/もくてき]:
 //: - `memo_trait_proof_artifact.nepl` は serialized record の schema と placeholder 検査だけを担当します。
 //: - `memo_trait_proof_store.nepl` は canonical key arena と proof record を所有し、既存 store との重複や conflict を判定します。
-//: - この module は、decoded canonical key payload が materialize された後に、artifact record key、materialized key fingerprint、solver policy を照合し、問題がない場合だけ proof store の materialized preseed API へ進めます。
+//: - この module は、decoded canonical key payload bytes を materialize し、artifact record key、materialized key fingerprint、solver policy を照合し、問題がない場合だけ proof store の materialized preseed / append API へ進めます。
 //:
 //: [契約/けいやく]:
 //: - `materialized_fingerprint` は、decoded canonical key payload から作られた値でなければいけません。payload hash は `memo_trait_canonical_key_payload.nepl` の producer で materialized canonical key tree からこの module が再計算し、caller から raw `i32` として受け取りません。
@@ -14,7 +14,7 @@
 //: - store-local `SelfhostCanonicalTypeKeyId` や `SelfhostMemoTraitProofStoreStableIdentity` は artifact schema に出しません。caller-owned materialized arena と store arena は proof store 側の cross-arena equality で比較します。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 では canonical payload の binary codec はまだこの module にありません。stage0 では materialized canonical key arena から payload hash producer を通して hash を作り、後続 reader が同じ boundary を使うことを固定します。
+//: - Phase 1 では `.neplproof` artifact 全体の reader / serializer はまだこの module にありません。canonical payload bytes の codec は `memo_trait_canonical_key_payload_codec.nepl` に分離し、この module は codec の decoded owner を proof store 境界へ渡します。
 //: - empty store に対する `AcceptMissing`、seed 済み store に対する `ExistingMatching` / `RejectedConflict`、hash / fingerprint / policy / invalid record の fail-closed 分類を stage0 で確認します。
 //:
 //: [計算量/けいさんりょう]:
@@ -62,14 +62,18 @@
 //: ```
 
 #import "core/math" as *
+#import "alloc/collections/vec" as v
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "core/cast" as *
+#import "core/field" as field
 #import "./arena" as *
 #import "./id" as *
 #import "./key" as *
 #import "./memo_trait_canonical_key" as *
 #import "./memo_trait_canonical_key_payload" as *
+#import "./memo_trait_canonical_key_payload_codec" as *
 #import "./memo_trait_policy" as *
 #import "./memo_trait_proof_artifact" as *
 #import "./memo_trait_proof_store" as *
@@ -81,11 +85,26 @@
 //: - artifact schema error、materialized key の欠落、payload hash / fingerprint / policy の不一致を同じ bool に潰さず、呼び出し側が根本原因に応じて artifact discard、通常検査への fallback、diagnostic を選べるようにします。
 pub enum SelfhostMemoTraitNeplProofPreseedErrorKind:
     ArtifactRecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    CanonicalPayloadDecodeInvalid %SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
     MaterializedCanonicalKeyMissing
     CanonicalPayloadMaterializationInvalid %SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    MaterializedFingerprintInvalid %SelfhostMemoTraitCanonicalFingerprintErrorKind
     MaterializedFingerprintMismatch
     MaterializedPolicyMismatch
     CanonicalPayloadHashMismatch
+
+//: SelfhostMemoTraitNeplProofPreseedAppendErrorKind: decoded proof append の拒否理由
+//:
+//: [目的/もくてき]:
+//: - preseed decision ではなく store への実投入まで行う API が、decision error、conflict、store append failure を同じ `bool` に潰さないようにします。
+//:
+//: [契約/けいやく]:
+//: - `RejectedConflict` は、同じ stable identity に違う payload が存在することを表します。warning や duplicate skip に落としてはいけません。
+//: - `StoreAppendInvalid` は proof store 側の typed push error を保持します。
+pub enum SelfhostMemoTraitNeplProofPreseedAppendErrorKind:
+    DecisionInvalid %SelfhostMemoTraitNeplProofPreseedErrorKind
+    RejectedConflict
+    StoreAppendInvalid %SelfhostMemoTraitProofStorePushErrorKind
 
 //: SelfhostMemoTraitNeplProofPreseedStage0Summary: decoded proof preseed の代表 smoke summary
 pub struct SelfhostMemoTraitNeplProofPreseedStage0Summary:
@@ -106,6 +125,14 @@ impl Copy for SelfhostMemoTraitNeplProofPreseedErrorKind:
     fn copy_mark %fn SelfhostMemoTraitNeplProofPreseedErrorKind SelfhostMemoTraitNeplProofPreseedErrorKind \self:
         self
 
+impl Clone for SelfhostMemoTraitNeplProofPreseedAppendErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofPreseedAppendErrorKind SelfhostMemoTraitNeplProofPreseedAppendErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofPreseedAppendErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofPreseedAppendErrorKind SelfhostMemoTraitNeplProofPreseedAppendErrorKind \self:
+        self
+
 impl Clone for SelfhostMemoTraitNeplProofPreseedStage0Summary:
     fn clone %fn &SelfhostMemoTraitNeplProofPreseedStage0Summary SelfhostMemoTraitNeplProofPreseedStage0Summary \self:
         *self
@@ -114,97 +141,155 @@ impl Copy for SelfhostMemoTraitNeplProofPreseedStage0Summary:
     fn copy_mark %fn SelfhostMemoTraitNeplProofPreseedStage0Summary SelfhostMemoTraitNeplProofPreseedStage0Summary \self:
         self
 
+//: selfhost_memo_trait_neplproof_preseed_error_kind_code: preseed error の一次分類 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - payload を持つ variant を code だけで一致させず、先に variant 種別が違う場合を高速に除外します。
+//:
+//: [契約/けいやく]:
+//: - この code は public artifact schema ではありません。表示や永続化ではなく、同一 module 内の equality 実装だけが利用します。
+fn selfhost_memo_trait_neplproof_preseed_error_kind_code %fn SelfhostMemoTraitNeplProofPreseedErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _error:
+            1
+        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid _error:
+            2
+        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+            3
+        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _error:
+            4
+        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid _error:
+            5
+        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
+            6
+        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
+            7
+        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
+            8
+
 //: selfhost_memo_trait_neplproof_preseed_error_kind_eq: decoded preseed error が同じか[返/かえ]す
 //:
 //: [契約/けいやく]:
-//: - artifact error payload は `memo_trait_proof_artifact.nepl` の typed equality へ委譲します。
-//: - wildcard arm は使いません。error variant を追加した場合、この関数も明示的に更新します。
+//: - artifact、payload decode、payload materialization、fingerprint error payload はそれぞれの typed equality へ委譲します。
+//: - payload を持たない variant は code equality で比較します。payload を持つ variant は code だけでは一致させません。
 pub fn selfhost_memo_trait_neplproof_preseed_error_kind_eq %fn SelfhostMemoTraitNeplProofPreseedErrorKind fn SelfhostMemoTraitNeplProofPreseedErrorKind bool \a\b:
+    if:
+        ne selfhost_memo_trait_neplproof_preseed_error_kind_code a selfhost_memo_trait_neplproof_preseed_error_kind_code b
+        then:
+            false
+        else:
+            match a:
+                SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid a_error:
+                    match b:
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid b_error:
+                            selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
+                            false
+                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid a_error:
+                    match b:
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid b_error:
+                            selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq a_error b_error
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
+                            false
+                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                    true
+                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid a_error:
+                    match b:
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid b_error:
+                            selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
+                            false
+                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid a_error:
+                    match b:
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid b_error:
+                            selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_error b_error
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
+                            false
+                        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
+                            false
+                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
+                    true
+                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
+                    true
+                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
+                    true
+
+//: selfhost_memo_trait_neplproof_preseed_append_error_kind_eq: append error が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - decision error と store push error は nested typed equality で比較します。`RejectedConflict` は singleton variant として比較します。
+pub fn selfhost_memo_trait_neplproof_preseed_append_error_kind_eq %fn SelfhostMemoTraitNeplProofPreseedAppendErrorKind fn SelfhostMemoTraitNeplProofPreseedAppendErrorKind bool \a\b:
     match a:
-        SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid a_error:
+        SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid a_error:
             match b:
-                SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid b_error:
-                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid b_error:
+                    selfhost_memo_trait_neplproof_preseed_error_kind_eq a_error b_error
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict:
                     false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::StoreAppendInvalid _b_error:
                     false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
-                    false
-        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+        SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict:
             match b:
-                SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid _b_error:
                     false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict:
                     true
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::StoreAppendInvalid _b_error:
                     false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
-                    false
-        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid a_error:
+        SelfhostMemoTraitNeplProofPreseedAppendErrorKind::StoreAppendInvalid a_error:
             match b:
-                SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid _b_error:
                     false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict:
                     false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid b_error:
-                    selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
-                    false
-        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
-            match b:
-                SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
-                    true
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
-                    false
-        SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
-            match b:
-                SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
-                    true
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
-                    false
-        SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
-            match b:
-                SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid _b_error:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedCanonicalKeyMissing:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid _b_error:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedPolicyMismatch:
-                    false
-                SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadHashMismatch:
-                    true
+                SelfhostMemoTraitNeplProofPreseedAppendErrorKind::StoreAppendInvalid b_error:
+                    selfhost_memo_trait_proof_store_push_error_kind_eq a_error b_error
 
 //: selfhost_memo_trait_neplproof_preseed_result_is_ok: decoded preseed 判定が成功したか[返/かえ]す
 pub fn selfhost_memo_trait_neplproof_preseed_result_is_ok %fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind bool \result:
@@ -271,6 +356,111 @@ pub fn selfhost_memo_trait_neplproof_record_preseed_decision_materialized %fn &S
         Result::Err artifact_error:
             Result::Err SelfhostMemoTraitNeplProofPreseedErrorKind::ArtifactRecordInvalid artifact_error
 
+//: selfhost_memo_trait_neplproof_record_preseed_decision_decoded_checked: decoded owner 参照を materialized 判定へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - codec が作った `SelfhostMemoTraitCanonicalKeyPayloadDecoded` から arena と root を取り出し、fingerprint を再計算してから既存の materialized preseed 判定へ進めます。
+//:
+//: [契約/けいやく]:
+//: - decoded owner の解放は caller が行います。この helper は借用だけを受け取り、owner を閉じません。
+//: - fingerprint 生成に失敗した場合は typed error へ畳み込み、raw hash や placeholder を authority として扱いません。
+fn selfhost_memo_trait_neplproof_record_preseed_decision_decoded_checked %fn &SelfhostMemoTraitProofStore fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostMemoTraitCanonicalKeyPayloadDecoded fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitNeplProofRecord Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind \store\nominal_table\decoded\expected_policy\record:
+    let materialized_key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref decoded "arena"
+    let materialized_key_id %SelfhostCanonicalTypeKeyId *field::get_ref decoded "root"
+    match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table materialized_key_arena materialized_key_id:
+        Result::Ok materialized_fingerprint:
+            selfhost_memo_trait_neplproof_record_preseed_decision_materialized store nominal_table materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record
+        Result::Err fingerprint_error:
+            Result::Err SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid fingerprint_error
+
+//: selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes: canonical payload bytes から preseed 判定を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が record key と canonical payload bytes を得た後、bytes decode、fingerprint 再計算、payload hash 再計算、policy 照合、store relation 判定を1つの入口で行います。
+//:
+//: [契約/けいやく]:
+//: - bytes 内や record key 内の hash だけを信用しません。decode した canonical key arena から fingerprint と payload hash を再計算します。
+//: - この関数は store を変更しません。`AcceptMissing` を受けて store に追加するかどうかは append API が担当します。
+//: - decode した canonical payload owner は、この関数内で必ず閉じます。
+pub fn selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes %impure fn &SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitNeplProofRecord Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind \store\nominal_table\canonical_payload_bytes\expected_policy\record:
+    match selfhost_memo_trait_canonical_key_payload_decode_result nominal_table canonical_payload_bytes:
+        Result::Ok decoded:
+            let result %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_decoded_checked store nominal_table &decoded expected_policy record
+            selfhost_memo_trait_canonical_key_payload_decoded_free decoded
+            result
+        Result::Err decode_error:
+            Result::Err SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid decode_error
+
+//: selfhost_memo_trait_neplproof_record_append_decoded_decision: preseed decision に従って store を[更新/こうしん]する
+//:
+//: [目的/もくてき]:
+//: - `AcceptMissing`、`ExistingMatching`、`RejectedConflict` を同じ bool に潰さず、decoded canonical key を store arena へコピーするか、skip するか、fail-closed で閉じるかを一箇所で決めます。
+//:
+//: [契約/けいやく]:
+//: - `AcceptMissing` では proof store 側の materialized append API だけを通し、caller-owned arena の key id を store-local id として再利用しません。
+//: - `RejectedConflict` では入力 store を閉じてから error を返します。caller は返らなかった store を compile に使ってはいけません。
+fn selfhost_memo_trait_neplproof_record_append_decoded_decision %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitCanonicalKeyPayloadDecoded impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitProofStorePreseedDecision Result SelfhostMemoTraitProofStore SelfhostMemoTraitNeplProofPreseedAppendErrorKind \store\decoded\expected_policy\materialized_fingerprint\record\decision:
+    match decision:
+        SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+            let materialized_key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref decoded "arena"
+            let materialized_key_id %SelfhostCanonicalTypeKeyId *field::get_ref decoded "root"
+            match selfhost_memo_trait_proof_store_push_materialized_key store materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record.proof_kind record.proof:
+                Result::Ok next_store:
+                    Result::Ok next_store
+                Result::Err push_error:
+                    Result::Err SelfhostMemoTraitNeplProofPreseedAppendErrorKind::StoreAppendInvalid push_error
+        SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:
+            Result::Ok store
+        SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:
+            selfhost_memo_trait_proof_store_free store
+            Result::Err SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict
+
+//: selfhost_memo_trait_neplproof_record_append_decoded_checked: decoded owner 参照から store append を[試/こころ]みる
+//:
+//: [目的/もくてき]:
+//: - decoded canonical key に対する fingerprint 再計算、record validation、preseed decision、store append を順に行う single-record bridge です。
+//:
+//: [契約/けいやく]:
+//: - この helper は decoded owner を解放しません。bytes-level public API が decode 成功後に必ず owner を閉じます。
+//: - decision error または fingerprint error では入力 store を閉じ、partial seeded store を成功値として返しません。
+fn selfhost_memo_trait_neplproof_record_append_decoded_checked %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &SelfhostMemoTraitCanonicalKeyPayloadDecoded impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitNeplProofRecord Result SelfhostMemoTraitProofStore SelfhostMemoTraitNeplProofPreseedAppendErrorKind \store\nominal_table\decoded\expected_policy\record:
+    let materialized_key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref decoded "arena"
+    let materialized_key_id %SelfhostCanonicalTypeKeyId *field::get_ref decoded "root"
+    match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table materialized_key_arena materialized_key_id:
+        Result::Ok materialized_fingerprint:
+            match selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store nominal_table materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record:
+                Result::Ok decision:
+                    selfhost_memo_trait_neplproof_record_append_decoded_decision store decoded expected_policy materialized_fingerprint record decision
+                Result::Err decision_error:
+                    selfhost_memo_trait_proof_store_free store
+                    Result::Err SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid decision_error
+        Result::Err fingerprint_error:
+            selfhost_memo_trait_proof_store_free store
+            Result::Err SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid SelfhostMemoTraitNeplProofPreseedErrorKind::MaterializedFingerprintInvalid fingerprint_error
+
+//: selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes: decoded record を proof store へ[投入/とうにゅう]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が1 record分の canonical payload bytes と typed record payload を得た後、store へ安全に preseed します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(store)`: `ExistingMatching` なら store は変更されず、`AcceptMissing` なら materialized canonical key と proof record が追加された store を返します。
+//: - `Err(kind)`: decode、fingerprint、record validation、conflict、store append のいずれかで fail-closed になりました。入力 store owner は閉じられており、caller はその store を compile に使ってはいけません。
+//:
+//: [契約/けいやく]:
+//: - `AcceptMissing` の場合だけ `selfhost_memo_trait_proof_store_push_materialized_key` を呼びます。
+//: - `ExistingMatching` は同じ artifact record の再投入なので skip します。
+//: - `RejectedConflict` は warning や duplicate skip ではなく `RejectedConflict` error として返します。
+pub fn selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitNeplProofRecord Result SelfhostMemoTraitProofStore SelfhostMemoTraitNeplProofPreseedAppendErrorKind \store\nominal_table\canonical_payload_bytes\expected_policy\record:
+    match selfhost_memo_trait_canonical_key_payload_decode_result nominal_table canonical_payload_bytes:
+        Result::Ok decoded:
+            let result %Result SelfhostMemoTraitProofStore SelfhostMemoTraitNeplProofPreseedAppendErrorKind selfhost_memo_trait_neplproof_record_append_decoded_checked store nominal_table &decoded expected_policy record
+            selfhost_memo_trait_canonical_key_payload_decoded_free decoded
+            result
+        Result::Err decode_error:
+            selfhost_memo_trait_proof_store_free store
+            Result::Err SelfhostMemoTraitNeplProofPreseedAppendErrorKind::DecisionInvalid SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadDecodeInvalid decode_error
+
 //: selfhost_memo_trait_neplproof_preseed_stage0_summary_new: stage0 summary を[作/つく]る
 fn selfhost_memo_trait_neplproof_preseed_stage0_summary_new %fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind SelfhostMemoTraitNeplProofPreseedStage0Summary \accept_missing\existing_matching\rejected_conflict\missing_key\hash_mismatch\fingerprint_mismatch\policy_mismatch\invalid_record:
     SelfhostMemoTraitNeplProofPreseedStage0Summary accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_record
@@ -286,6 +476,17 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_finish %impure fn SelfhostTypeAr
 fn selfhost_memo_trait_neplproof_preseed_stage0_finish_with_nominal_table %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitNeplProofPreseedStage0Summary Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\store\nominal_table\summary:
     selfhost_memo_trait_stable_nominal_key_table_free nominal_table
     selfhost_memo_trait_neplproof_preseed_stage0_finish arena materialized_key_arena store summary
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_finish_after_closed_store: store が append API に[閉/と]じられた後で summary を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `RejectedConflict` の append API は、失敗を返す前に入力 store owner を閉じます。
+//: - stage0 はその契約を尊重し、store を二重に解放せず、残った nominal table / canonical key arena / type arena だけを閉じます。
+fn selfhost_memo_trait_neplproof_preseed_stage0_finish_after_closed_store %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitNeplProofPreseedStage0Summary Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\nominal_table\summary:
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    selfhost_canonical_type_key_arena_free materialized_key_arena
+    selfhost_type_arena_free arena
+    Result::Ok summary
 
 //: selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_store: owner を[閉/と]じて setup 失敗を[返/かえ]す
 fn selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_store %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\store:
@@ -304,11 +505,129 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_nominal_table %im
     selfhost_memo_trait_stable_nominal_key_table_free nominal_table
     selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key arena materialized_key_arena
 
+//: selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table: payload bytes を[含/ふく]む setup 失敗 owner を[閉/と]じる
+fn selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable impure fn Vec u8 Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\store\nominal_table\bytes:
+    v::free bytes
+    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_store_nominal_table arena materialized_key_arena store nominal_table
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_nominal_table: store owner を append API に[渡/わた]した後の payload bytes を[閉/と]じる
+fn selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_nominal_table %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn Vec u8 Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\nominal_table\bytes:
+    v::free bytes
+    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_nominal_table arena materialized_key_arena nominal_table
+
 //: selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key: canonical key arena まで[閉/と]じて setup 失敗を[返/かえ]す
 fn selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena:
     selfhost_canonical_type_key_arena_free materialized_key_arena
     selfhost_type_arena_free arena
     Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_push_payload_byte: stage0 payload bytes に 1 byte を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_preseed_stage0_push_payload_byte %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\value:
+    match v::push bytes %u8 cast value:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word: stage0 payload bytes に little-endian word を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\word:
+    if:
+        lt word 0
+        then:
+            v::free bytes
+            Result::Err StdErrorKind::InvalidOperation
+        else:
+            let b0 %i32 rem_s word 256
+            let q1 %i32 div_s word 256
+            let b1 %i32 rem_s q1 256
+            let q2 %i32 div_s q1 256
+            let b2 %i32 rem_s q2 256
+            let q3 %i32 div_s q2 256
+            let b3 %i32 rem_s q3 256
+            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_byte bytes b0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_byte bytes1 b1:
+                        Result::Ok bytes2:
+                            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_byte bytes2 b2:
+                                Result::Ok bytes3:
+                                    selfhost_memo_trait_neplproof_preseed_stage0_push_payload_byte bytes3 b3
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_push_payload_header: decoded append smoke 用 payload header を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_preseed_stage0_push_payload_header %impure fn Vec u8 Result Vec u8 StdErrorKind \bytes:
+    match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes selfhost_memo_trait_canonical_key_payload_codec_magic:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes1 selfhost_memo_trait_canonical_key_payload_schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes2 1:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes3 0:
+                                Result::Ok bytes4:
+                                    selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes4 0
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_push_payload_node_words: fixed-width node record を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_preseed_stage0_push_payload_node_words %impure fn Vec u8 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\w0\w1\w2\w3\w4\w5\w6\w7:
+    match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes w0:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes1 w1:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes2 w2:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes3 w3:
+                                Result::Ok bytes4:
+                                    match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes4 w4:
+                                        Result::Ok bytes5:
+                                            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes5 w5:
+                                                Result::Ok bytes6:
+                                                    match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes6 w6:
+                                                        Result::Ok bytes7:
+                                                            selfhost_memo_trait_neplproof_preseed_stage0_push_payload_word bytes7 w7
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_preseed_stage0_payload_bytes: stage0 named type と同じ canonical payload bytes を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この helper は stage0 fixture 専用です。`SelfhostNamedTypeId 10` に対応する stable nominal key と同じ payload を作り、公開 decoded append API の実行経路を検査します。
+//: - 成功時は caller が `Vec u8` owner を閉じます。失敗時は途中までの `Vec` owner を閉じてから error を返します。
+fn selfhost_memo_trait_neplproof_preseed_stage0_payload_bytes %impure fn void Result Vec u8 StdErrorKind \void:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_neplproof_preseed_stage0_push_payload_header bytes0:
+                Result::Ok bytes1:
+                    selfhost_memo_trait_neplproof_preseed_stage0_push_payload_node_words bytes1 2 selfhost_memo_trait_stable_nominal_key_schema_version 31 41 1 1 0 0
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_trait_neplproof_preseed_stage0_build_nominal_table: stage0 用 stable nominal table を[作/つく]る
 //:
@@ -317,10 +636,10 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key %impure fn Selfho
 //:
 //: [契約/けいやく]:
 //: - `SelfhostNamedTypeId 10` は stage0 の named type fixture とだけ対応します。
-//: - source text や path suffix は使わず、typed stable nominal key API だけから table を作ります。
+//: - source text や path suffix は使わず、codec stage0 の named node payload と同じ stable nominal key material だけから table を作ります。
 fn selfhost_memo_trait_neplproof_preseed_stage0_build_nominal_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
     let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
-    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 0:
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
         Result::Ok key:
             match selfhost_memo_trait_stable_nominal_key_table_new:
                 Result::Ok table0:
@@ -330,16 +649,33 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_build_nominal_table %impure fn v
         Result::Err _e:
             Result::Err StdErrorKind::InvalidOperation
 
-//: selfhost_memo_trait_neplproof_preseed_stage0_after_seeded_store: seeded store で bridge API の skip / conflict を[検査/けんさ]する
-fn selfhost_memo_trait_neplproof_preseed_stage0_after_seeded_store %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn SelfhostMemoTraitStoredAggregateProof impure fn SelfhostMemoTraitNeplProofRecord impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\materialized_key_id\seeded_store\nominal_table\policy\fingerprint\proof\valid_record\accept_missing\missing_key\hash_mismatch\fingerprint_mismatch\policy_mismatch\invalid_result:
-    let existing_matching %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store &nominal_table &materialized_key_arena materialized_key_id policy fingerprint valid_record
-    let conflict_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord valid_record.key SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported proof valid_record.record_payload_hash
-    let rejected_conflict %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store &nominal_table &materialized_key_arena materialized_key_id policy fingerprint conflict_record
-    let summary %SelfhostMemoTraitNeplProofPreseedStage0Summary selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result
-    selfhost_memo_trait_neplproof_preseed_stage0_finish_with_nominal_table arena materialized_key_arena seeded_store nominal_table summary
+//: selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store: decoded append 済み store で skip / conflict を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - empty store への `AcceptMissing` append 後、同じ decoded payload bytes を再投入して `ExistingMatching` skip を確認します。
+//: - さらに同じ stable identity で proof payload だけを変え、append API が store を閉じて `RejectedConflict` を返すことを確認します。
+fn selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable impure fn Vec u8 impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitStoredAggregateProof impure fn SelfhostMemoTraitNeplProofRecord impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind impure fn Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\appended_store\nominal_table\canonical_payload_bytes\policy\proof\valid_record\accept_missing\missing_key\hash_mismatch\fingerprint_mismatch\policy_mismatch\invalid_result:
+    match selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes appended_store &nominal_table &canonical_payload_bytes policy valid_record:
+        Result::Ok existing_store:
+            let existing_matching %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind Result::Ok SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching
+            let conflict_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord valid_record.key SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported proof valid_record.record_payload_hash
+            match selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes existing_store &nominal_table &canonical_payload_bytes policy conflict_record:
+                Result::Err append_error:
+                    match append_error:
+                        SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict:
+                            let rejected_conflict %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind Result::Ok SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
+                            let summary %SelfhostMemoTraitNeplProofPreseedStage0Summary selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result
+                            v::free canonical_payload_bytes
+                            selfhost_memo_trait_neplproof_preseed_stage0_finish_after_closed_store arena materialized_key_arena nominal_table summary
+                        _:
+                            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_nominal_table arena materialized_key_arena nominal_table canonical_payload_bytes
+                Result::Ok unexpected_store:
+                    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena unexpected_store nominal_table canonical_payload_bytes
+        Result::Err _existing_error:
+            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_nominal_table arena materialized_key_arena nominal_table canonical_payload_bytes
 
 //: selfhost_memo_trait_neplproof_preseed_stage0_after_store: representative decoded record relation を[検査/けんさ]する
-fn selfhost_memo_trait_neplproof_preseed_stage0_after_store %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn SelfhostTypeId impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\materialized_key_id\type_id\store:
+fn selfhost_memo_trait_neplproof_preseed_stage0_after_store %impure fn SelfhostTypeArena impure fn SelfhostCanonicalTypeKeyArena impure fn SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitNeplProofPreseedStage0Summary StdErrorKind \arena\materialized_key_arena\materialized_key_id\store:
     match selfhost_memo_trait_trusted_source_identity_set_current_result:
         Result::Ok sources:
             match selfhost_memo_trait_neplproof_preseed_stage0_build_nominal_table:
@@ -360,17 +696,31 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_after_store %impure fn SelfhostT
                                     let invalid_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 0
                                     let mismatch_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey selfhost_memo_trait_canonical_key_payload_schema_version fingerprint add canonical_payload_hash 1 policy
                                     let mismatch_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord mismatch_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 4004
-                                    let accept_missing %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store &nominal_table &materialized_key_arena materialized_key_id policy fingerprint valid_record
-                                    let missing_key %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store &nominal_table &materialized_key_arena (selfhost_canonical_type_key_id_new 9999) policy fingerprint valid_record
-                                    let hash_mismatch %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store &nominal_table &materialized_key_arena materialized_key_id policy fingerprint mismatch_record
-                                    let fingerprint_mismatch %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store &nominal_table &materialized_key_arena materialized_key_id policy stale_fingerprint valid_record
-                                    let policy_mismatch %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store &nominal_table &materialized_key_arena materialized_key_id stale_policy fingerprint valid_record
-                                    let invalid_result %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store &nominal_table &materialized_key_arena materialized_key_id policy fingerprint invalid_record
-                                    match selfhost_memo_trait_proof_store_push_stable_key &arena &nominal_table store policy type_id proof:
-                                        Result::Ok seeded_store:
-                                            selfhost_memo_trait_neplproof_preseed_stage0_after_seeded_store arena materialized_key_arena materialized_key_id seeded_store nominal_table policy fingerprint proof valid_record accept_missing missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result
-                                        Result::Err _push_error:
-                                            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_nominal_table arena materialized_key_arena nominal_table
+                                    let stale_fingerprint_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey selfhost_memo_trait_canonical_key_payload_schema_version stale_fingerprint canonical_payload_hash policy
+                                    let stale_fingerprint_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord stale_fingerprint_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 4004
+                                    match selfhost_memo_trait_neplproof_preseed_stage0_payload_bytes:
+                                        Result::Ok canonical_payload_bytes:
+                                            let accept_missing %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy valid_record
+                                            let missing_key %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store &nominal_table &materialized_key_arena (selfhost_canonical_type_key_id_new 9999) policy fingerprint valid_record
+                                            let hash_mismatch %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy mismatch_record
+                                            let fingerprint_mismatch %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy stale_fingerprint_record
+                                            let policy_mismatch %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes stale_policy valid_record
+                                            let invalid_result %Result SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitNeplProofPreseedErrorKind selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy invalid_record
+                                            match accept_missing:
+                                                Result::Ok accept_decision:
+                                                    match accept_decision:
+                                                        SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+                                                            match selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes store &nominal_table &canonical_payload_bytes policy valid_record:
+                                                                Result::Ok appended_store:
+                                                                    selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store arena materialized_key_arena appended_store nominal_table canonical_payload_bytes policy proof valid_record accept_missing missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result
+                                                                Result::Err _append_error:
+                                                                    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_nominal_table arena materialized_key_arena nominal_table canonical_payload_bytes
+                                                        _:
+                                                            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena store nominal_table canonical_payload_bytes
+                                                Result::Err _decision_error:
+                                                    selfhost_memo_trait_neplproof_preseed_stage0_abort_with_bytes_key_store_nominal_table arena materialized_key_arena store nominal_table canonical_payload_bytes
+                                        Result::Err _payload_bytes_error:
+                                            selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_store_nominal_table arena materialized_key_arena store nominal_table
                                 Result::Err _payload_error:
                                     selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key_store_nominal_table arena materialized_key_arena store nominal_table
                         Result::Err _fingerprint_error:
@@ -386,7 +736,7 @@ fn selfhost_memo_trait_neplproof_preseed_stage0_after_key %impure fn SelfhostTyp
     let materialized_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena key_alloc
     match selfhost_memo_trait_proof_store_new:
         Result::Ok store:
-            selfhost_memo_trait_neplproof_preseed_stage0_after_store arena materialized_key_arena materialized_key_id type_id store
+            selfhost_memo_trait_neplproof_preseed_stage0_after_store arena materialized_key_arena materialized_key_id store
         Result::Err _store_error:
             selfhost_memo_trait_neplproof_preseed_stage0_abort_with_key arena materialized_key_arena
 

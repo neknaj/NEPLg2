@@ -38,6 +38,11 @@ assert.match(
 );
 assert.match(
     source,
+    /^#import "\.\/memo_trait_canonical_key_payload_codec" as \*$/m,
+    "preseed bridge must decode serialized canonical payload bytes through the dedicated codec module",
+);
+assert.match(
+    source,
     /# ty\/memo_trait_proof_preseed[\s\S]*\[目的\/もくてき\]:[\s\S]*\[契約\/けいやく\]:[\s\S]*\[現状\/げんじょう\]:[\s\S]*\[計算量\/けいさんりょう\]:[\s\S]*neplg2:test/,
     "preseed bridge documentation must record purpose, contract, current limitations, complexity, and a doctest",
 );
@@ -48,13 +53,23 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitNeplProofPreseedErrorKind:[\s\S]*ArtifactRecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*MaterializedCanonicalKeyMissing[\s\S]*CanonicalPayloadMaterializationInvalid %SelfhostMemoTraitCanonicalKeyPayloadErrorKind[\s\S]*MaterializedFingerprintMismatch[\s\S]*MaterializedPolicyMismatch[\s\S]*CanonicalPayloadHashMismatch/,
-    "preseed bridge errors must be typed enum variants for artifact, key materialization, fingerprint, policy, and payload-hash failures",
+    /pub enum SelfhostMemoTraitNeplProofPreseedErrorKind:[\s\S]*ArtifactRecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*CanonicalPayloadDecodeInvalid %SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind[\s\S]*MaterializedCanonicalKeyMissing[\s\S]*CanonicalPayloadMaterializationInvalid %SelfhostMemoTraitCanonicalKeyPayloadErrorKind[\s\S]*MaterializedFingerprintInvalid %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*MaterializedFingerprintMismatch[\s\S]*MaterializedPolicyMismatch[\s\S]*CanonicalPayloadHashMismatch/,
+    "preseed bridge errors must be typed enum variants for artifact, bytes decode, key materialization, fingerprint, policy, and payload-hash failures",
 );
 assert.match(
     source,
-    /pub fn selfhost_memo_trait_neplproof_preseed_error_kind_eq[\s\S]*ArtifactRecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadMaterializationInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadHashMismatch/,
-    "preseed error equality must compare nested artifact and payload materialization error payloads and every outer variant explicitly",
+    /pub enum SelfhostMemoTraitNeplProofPreseedAppendErrorKind:[\s\S]*DecisionInvalid %SelfhostMemoTraitNeplProofPreseedErrorKind[\s\S]*RejectedConflict[\s\S]*StoreAppendInvalid %SelfhostMemoTraitProofStorePushErrorKind/,
+    "preseed append errors must distinguish decision rejection, stable conflict, and proof-store append failure",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_preseed_error_kind_eq[\s\S]*ArtifactRecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadDecodeInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadMaterializationInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error[\s\S]*MaterializedFingerprintInvalid a_error[\s\S]*selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadHashMismatch/,
+    "preseed error equality must compare nested artifact, decode, payload materialization, and fingerprint error payloads",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_preseed_append_error_kind_eq[\s\S]*DecisionInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_preseed_error_kind_eq a_error b_error[\s\S]*RejectedConflict[\s\S]*StoreAppendInvalid a_error[\s\S]*selfhost_memo_trait_proof_store_push_error_kind_eq a_error b_error/,
+    "preseed append error equality must compare nested decision and store push payloads",
 );
 assert.match(
     source,
@@ -70,6 +85,36 @@ assert.match(
     source,
     /pub fn selfhost_memo_trait_neplproof_record_preseed_decision_materialized %fn &SelfhostMemoTraitProofStore fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitNeplProofRecord Result/,
     "preseed public API must take the stable nominal table and materialized key arena, not a caller-supplied payload hash",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes %impure fn &SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitNeplProofRecord Result/,
+    "preseed bridge must expose a bytes-decoding decision API for decoded .neplproof records",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes[\s\S]*selfhost_memo_trait_canonical_key_payload_decode_result nominal_table canonical_payload_bytes[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_decoded_checked store nominal_table &decoded expected_policy record[\s\S]*selfhost_memo_trait_canonical_key_payload_decoded_free decoded[\s\S]*CanonicalPayloadDecodeInvalid decode_error/,
+    "bytes decision API must decode through the codec, free decoded owners, and report typed decode errors",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_record_preseed_decision_decoded_checked[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_result nominal_table materialized_key_arena materialized_key_id[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized store nominal_table materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record[\s\S]*MaterializedFingerprintInvalid fingerprint_error/,
+    "decoded decision API must recompute stable fingerprint from decoded key material before delegating to materialized preseed",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitNeplProofRecord Result SelfhostMemoTraitProofStore SelfhostMemoTraitNeplProofPreseedAppendErrorKind/,
+    "preseed bridge must expose a single-record append API that consumes and returns the proof store owner",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_record_append_decoded_decision[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_proof_store_push_materialized_key store materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record\.proof_kind record\.proof[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:[\s\S]*Result::Ok store[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*RejectedConflict/,
+    "append API must append only on AcceptMissing, skip ExistingMatching, and fail-closed on RejectedConflict",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes[\s\S]*selfhost_memo_trait_canonical_key_payload_decode_result nominal_table canonical_payload_bytes[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_checked store nominal_table &decoded expected_policy record[\s\S]*selfhost_memo_trait_canonical_key_payload_decoded_free decoded[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*CanonicalPayloadDecodeInvalid decode_error/,
+    "append API must free decoded owners and close the input store on bytes decode failure",
 );
 assert.match(
     source,
@@ -93,13 +138,13 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_proof_store_push_stable_key &arena &nominal_table store policy type_id proof[\s\S]*Result::Ok seeded_store:[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_after_seeded_store/,
-    "preseed stage0 must create a real stable proof store record before testing decoded bridge skip and conflict decisions",
+    /selfhost_memo_trait_neplproof_preseed_stage0_payload_bytes[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store/,
+    "preseed stage0 must build canonical payload bytes, classify an empty-store decoded record, and append it through the public decoded append API",
 );
 assert.match(
     source,
-    /let existing_matching[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store &nominal_table[\s\S]*valid_record[\s\S]*let conflict_record[\s\S]*SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported[\s\S]*let rejected_conflict[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store &nominal_table[\s\S]*conflict_record/,
-    "preseed stage0 must exercise ExistingMatching and RejectedConflict through the decoded bridge public API",
+    /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes appended_store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*let existing_matching[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching[\s\S]*let conflict_record[\s\S]*SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes existing_store &nominal_table &canonical_payload_bytes policy conflict_record[\s\S]*SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict/,
+    "preseed stage0 must exercise ExistingMatching and RejectedConflict through the public decoded append API, not through direct materialized decisions",
 );
 assert.match(
     source,
@@ -120,6 +165,11 @@ assert.match(
     proofStore,
     /pub fn selfhost_memo_trait_proof_store_preseed_decision_materialized_key[\s\S]*&SelfhostMemoTraitProofStore[\s\S]*&SelfhostCanonicalTypeKeyArena[\s\S]*SelfhostCanonicalTypeKeyId[\s\S]*SelfhostMemoTraitProofStorePolicy[\s\S]*SelfhostMemoTraitCanonicalTypeFingerprint[\s\S]*SelfhostMemoTraitStoredProofKind[\s\S]*SelfhostMemoTraitStoredAggregateProof[\s\S]*SelfhostMemoTraitProofStorePreseedDecision/,
     "proof store must expose a public materialized-key preseed decision that does not expose the private stable identity struct",
+);
+assert.match(
+    proofStore,
+    /pub fn selfhost_memo_trait_proof_store_push_materialized_key[\s\S]*selfhost_canonical_type_key_copy_from_arena candidate_arena key_arena candidate_key[\s\S]*selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records stable_identity[\s\S]*selfhost_memo_trait_proof_store_record_new copied_key \(some candidate_fingerprint\) policy proof_kind proof/,
+    "proof store must append decoded artifact proof by copying materialized canonical keys into the store-owned arena",
 );
 assert.match(
     proofStore,
