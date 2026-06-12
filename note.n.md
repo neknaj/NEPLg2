@@ -56724,3 +56724,49 @@ MERGE_APPROVED
 - re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
 - `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未完了である。
+
+## 2026-06-12 Agent selfhost public surface registry single-pass checkpoint
+
+### scope
+
+- branch: `selfhost/public-surface-registry-single-pass-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に確認済み。静的検査、typed enum error、Result API、純粋 core / facade 分離、DAG、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_public_surface_hash.nepl` の registry convenience path を combined registry materializer へ切り替え、candidate scanner と public surface hash materializer の module item stream 二重走査を解消した。
+- 過去 checkpoint に記録されている「registry convenience path は 2 traversal が残る」という残件は、この slice で解消済みとして扱う。古い記述は当時の scope を示す履歴であり、最新の残件ではない。
+- `SelfhostMemoTraitPublicSurfaceHashRegistryScanState` は candidate table と seed table を同じ item pass で更新する。ただし、candidate table は source spelling 由来の候補分類だけに使い、public surface hash の authority は seed table の typed field に限定する。
+- 成功 payload は `SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization` として `candidates` と `materialization` を分け、source candidate と accepted hash materialization を混同しない。
+- AST-only registry API は `selfhost_memo_trait_public_surface_hash_registry_materialize_result`、token-aware registry API は `selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result` を通る。
+- standalone `selfhost_memo_trait_definition_source_table_scan_module_result`、`selfhost_memo_trait_public_surface_hash_materialize_result`、`selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result` は互換境界と単体検査用 API として維持した。
+- candidate error、public surface hash error、seed registry error は `CandidateScanRejected`、`PublicSurfaceHashRejected`、`SeedRegistryRejected` のまま分け、malformed trait header は candidate-first に `CandidateScanRejected` へ寄せる。
+- `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` は combined registry path、旧 scanner + materializer sequence への退行禁止、candidate-first error precedence、DAG / O(n+k)、line count / doc comment length cap 禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新し、registry convenience path の二重走査を完了済みとして残件から外した。
+
+### subagent_review
+
+- Hume review: Blocker なし。
+- Required として、candidate/source table failure、seed/hash failure、registry validation failure の error taxonomy 分離、既存 scanner / materializer API 維持、source policy 更新、combined payload の candidate / materialization 分離、DAG と O(n+k) の doc comment 明記を求めた。
+- Required 対応として、combined path でも error mapping を分け、standalone API を残し、source policy と doc comment に単一 module stream pass と candidate-first precedence を固定した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_source_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -o target/selfhost_hash_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
+- `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未完了である。

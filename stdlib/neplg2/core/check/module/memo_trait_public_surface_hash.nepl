@@ -22,7 +22,7 @@
 //: [計算量/けいさんりょう]:
 //: - materialize は hash module 内の scan loop が unsupported public surface の fail-closed 判定、`MemoKey` / `MemoValue` seed accumulation、seed table complete check を同じ pass で行うため、module item stream を 1 回走査します。
 //: - token-aware materialize も hash module 内の loop が module item stream を 1 回走査します。method-bearing trait の正規化だけは trait body token 数 k に比例するため、全体は O(n + k) です。
-//: - registry convenience path は現段階では candidate scanner と materializer を順に呼ぶため、module item stream を 2 回走査します。候補 table と seed table の同時生成は後続 slice で接続します。
+//: - registry convenience path は candidate table と seed table を同じ item loop で作るため、module item stream を 1 回だけ走査し、token-aware method 正規化を含めても全体は O(n + k) です。既存の scanner API と materialize API は単体検査と互換のため残します。
 //: - seed table と hash materialization payload は固定 2 slot なので O(1) 追加空間です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -87,6 +87,33 @@
 //: - `seed_table` は同じ AST 走査から得た `MemoKey` / `MemoValue` seed です。別 module の hash と混ぜて使ってはなりません。
 pub struct SelfhostMemoTraitPublicSurfaceHashMaterialization:
     module_seed %SelfhostMemoTraitStableSourceModuleSeed
+    seed_table %SelfhostMemoTraitStableSourceSeedTable
+
+//: SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization: registry convenience path の combined payload
+//:
+//: [目的/もくてき]:
+//: - candidate source table と hash materialization を同じ module item pass から返します。
+//: - registry convenience path が candidate scanner と hash materializer を別々に走査しないよう、後続の stable evidence producer に必要な 2 種類の payload をまとめます。
+//:
+//: [契約/けいやく]:
+//: - `candidates` は source spelling から分類した未trusted candidate table です。signature authority はまだ持たず、registry validator が `SignatureMissing` などを typed error として返します。
+//: - `materialization` は同じ pass で作った seed table と、その seed table から導出した public surface hash を保持します。
+//: - この struct 自体は trusted registry ではありません。必ず `selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result` を通します。
+pub struct SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization:
+    candidates %SelfhostMemoTraitDefinitionSourceTable
+    materialization %SelfhostMemoTraitPublicSurfaceHashMaterialization
+
+//: SelfhostMemoTraitPublicSurfaceHashRegistryScanState: single-pass registry scan の内部 state
+//:
+//: [目的/もくてき]:
+//: - module item stream を 1 回走査しながら、candidate source table と public surface seed table を同時に更新します。
+//:
+//: [契約/けいやく]:
+//: - candidate table は source spelling の分類にだけ使います。
+//: - seed table は public surface hash の authority になる typed seed field だけを保持します。
+//: - state を外へ公開せず、成功時は `SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization` へ畳みます。
+struct SelfhostMemoTraitPublicSurfaceHashRegistryScanState:
+    candidates %SelfhostMemoTraitDefinitionSourceTable
     seed_table %SelfhostMemoTraitStableSourceSeedTable
 
 //: SelfhostMemoTraitPublicSurfaceHashErrorKind: public surface hash materialization の拒否理由
@@ -155,6 +182,22 @@ impl Copy for SelfhostMemoTraitPublicSurfaceHashMaterialization:
     fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashMaterialization \self:
         self
 
+impl Clone for SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceHashRegistryScanState:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryScanState \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashRegistryScanState:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryScanState \self:
+        self
+
 impl Clone for SelfhostMemoTraitPublicSurfaceHashErrorKind:
     fn clone %fn &SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashErrorKind \self:
         *self
@@ -182,6 +225,33 @@ impl Copy for SelfhostMemoTraitPublicSurfaceHashStage0Summary:
 //: selfhost_memo_trait_public_surface_hash_materialization_new: materialization payload を[作/つく]る
 fn selfhost_memo_trait_public_surface_hash_materialization_new %fn SelfhostMemoTraitStableSourceModuleSeed fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashMaterialization \module_seed\seed_table:
     SelfhostMemoTraitPublicSurfaceHashMaterialization module_seed seed_table
+
+//: selfhost_memo_trait_public_surface_hash_registry_materialization_new: combined registry payload を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_registry_materialization_new %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization \candidates\materialization:
+    SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization candidates materialization
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_state_new: combined scan state を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_registry_scan_state_new %fn SelfhostMemoTraitDefinitionSourceTable fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashRegistryScanState \candidates\seed_table:
+    SelfhostMemoTraitPublicSurfaceHashRegistryScanState candidates seed_table
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_state_empty: combined scan state の初期値を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_registry_scan_state_empty %fn void SelfhostMemoTraitPublicSurfaceHashRegistryScanState \void:
+    selfhost_memo_trait_public_surface_hash_registry_scan_state_new selfhost_memo_trait_definition_source_table_empty selfhost_memo_trait_stable_source_seed_table_empty
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table: seed table 更新済み state を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table %fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashRegistryScanState \state\seed_table:
+    selfhost_memo_trait_public_surface_hash_registry_scan_state_new state.candidates seed_table
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_candidate_record: untrusted candidate record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source spelling から得た候補なので `signature_available` は必ず false です。
+//: - fingerprint payload は trusted source identity ではありません。stable source evidence producer が入るまで registry validator が fail-closed に拒否します。
+fn selfhost_memo_trait_public_surface_hash_registry_scan_candidate_record %fn SelfhostMemoTraitSourceKind SelfhostMemoTraitDefinitionSourceRecord \kind:
+    selfhost_memo_trait_definition_source_record_new:
+        kind
+        selfhost_memo_trait_definition_fingerprint_new 0 0 0
+        false
 
 //: selfhost_memo_trait_public_surface_hash_error_kind_code: payload を持たない hash error を比較用 code へ[写/うつ]す
 //:
@@ -995,6 +1065,165 @@ fn selfhost_memo_trait_public_surface_hash_scan_item_result %fn str fn SelfhostM
                 Result::Err error:
                     Result::Err error
 
+//: selfhost_memo_trait_public_surface_hash_registry_scan_state_add_candidate_name: candidate table へ trait name を[反映/はんえい]する
+//:
+//: [契約/けいやく]:
+//: - `name` は source spelling から切り出した候補分類用の文字列です。
+//: - 作る record は `signature_available=false` なので、この関数だけで trusted source identity は成立しません。
+fn selfhost_memo_trait_public_surface_hash_registry_scan_state_add_candidate_name %fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn str SelfhostMemoTraitPublicSurfaceHashRegistryScanState \state\name:
+    if:
+        string_search::str_eq name "MemoKey"
+        then:
+            selfhost_memo_trait_public_surface_hash_registry_scan_state_new:
+                selfhost_memo_trait_definition_source_table_add_record:
+                    state.candidates
+                    selfhost_memo_trait_public_surface_hash_registry_scan_candidate_record SelfhostMemoTraitSourceKind::MemoKeyTrait
+                state.seed_table
+        else:
+            if:
+                string_search::str_eq name "MemoValue"
+                then:
+                    selfhost_memo_trait_public_surface_hash_registry_scan_state_new:
+                        selfhost_memo_trait_definition_source_table_add_record:
+                            state.candidates
+                            selfhost_memo_trait_public_surface_hash_registry_scan_candidate_record SelfhostMemoTraitSourceKind::MemoValueTrait
+                        state.seed_table
+                else:
+                    state
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_candidate_name_result: trait name span から candidate table を[更新/こうしん]する
+//:
+//: [目的/もくてき]:
+//: - registry convenience path の single-pass loop 内で、candidate scanner が従来行っていた trait name 分類を行います。
+//:
+//: [契約/けいやく]:
+//: - source slice は candidate 分類だけに使います。public surface hash material は seed table 側の typed field だけです。
+fn selfhost_memo_trait_public_surface_hash_registry_scan_candidate_name_result %fn str fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn SelfhostSourceSpan Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\state\span:
+    if:
+        not source_span_is_valid span
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable
+        else:
+            match string_slice::str_slice_result source span.start span.end:
+                Result::Ok name:
+                    Result::Ok selfhost_memo_trait_public_surface_hash_registry_scan_state_add_candidate_name state name
+                Result::Err _slice_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitNameUnavailable
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_candidate_header_result: trait header から candidate table を[更新/こうしん]する
+fn selfhost_memo_trait_public_surface_hash_registry_scan_candidate_header_result %fn str fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn SelfhostModuleDeclarationHeader Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\state\header:
+    match header.head:
+        Option::Some head:
+            match head.kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    selfhost_memo_trait_public_surface_hash_registry_scan_candidate_name_result source state head.span
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadKindMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitHeadMissing
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_candidate_item_result: item 1 件から candidate table を[更新/こうしん]する
+//:
+//: [契約/けいやく]:
+//: - trait declaration だけが candidate table の対象です。
+//: - public non-trait declaration や import / use の fail-closed policy は、この後の public surface seed scan が担当します。
+fn selfhost_memo_trait_public_surface_hash_registry_scan_candidate_item_result %fn str fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn SelfhostModuleItem Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\state\item:
+    match item.kind:
+        SelfhostModuleItemKind::TraitDecl:
+            match item.declaration:
+                Option::Some header:
+                    match header.kind:
+                        SelfhostModuleDeclarationKind::Trait:
+                            selfhost_memo_trait_public_surface_hash_registry_scan_candidate_header_result source state header
+                        SelfhostModuleDeclarationKind::Function:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+                        SelfhostModuleDeclarationKind::Struct:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+                        SelfhostModuleDeclarationKind::Enum:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+                        SelfhostModuleDeclarationKind::Impl:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderKindMismatch
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::TraitHeaderMissing
+        SelfhostModuleItemKind::DocComment:
+            Result::Ok state
+        SelfhostModuleItemKind::MlstrLine:
+            Result::Ok state
+        SelfhostModuleItemKind::EntryDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::TargetDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::ImportDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::UseDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::TestDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::IfTargetDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::IfProfileDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::CapabilityDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::PreludeDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::NoPreludeDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::IntrinsicDirective:
+            Result::Ok state
+        SelfhostModuleItemKind::WasmBlock:
+            Result::Ok state
+        SelfhostModuleItemKind::LlvmIrBlock:
+            Result::Ok state
+        SelfhostModuleItemKind::WasmText:
+            Result::Ok state
+        SelfhostModuleItemKind::LlvmIrText:
+            Result::Ok state
+        SelfhostModuleItemKind::FunctionDecl:
+            Result::Ok state
+        SelfhostModuleItemKind::StructDecl:
+            Result::Ok state
+        SelfhostModuleItemKind::EnumDecl:
+            Result::Ok state
+        SelfhostModuleItemKind::ImplDecl:
+            Result::Ok state
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_item_result: registry path 用に candidate と seed を同時に[更新/こうしん]する
+//:
+//: [目的/もくてき]:
+//: - candidate scanner と hash materializer を別 pass にせず、同じ item から candidate table と seed table の両方を更新します。
+//:
+//: [契約/けいやく]:
+//: - candidate 更新の AST 不整合は `CandidateScanRejected` として返します。
+//: - public surface seed scan の拒否は `PublicSurfaceHashRejected` として返します。
+//: - 同じ trait item で candidate 分類と seed 分類の両方が失敗し得る場合は、candidate 分類を先に評価します。これにより malformed trait header は hash error ではなく `CandidateScanRejected` になります。
+fn selfhost_memo_trait_public_surface_hash_registry_scan_item_result %fn str fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn SelfhostModuleItem Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\state\item:
+    match selfhost_memo_trait_public_surface_hash_registry_scan_candidate_item_result source state item:
+        Result::Ok candidate_state:
+            match selfhost_memo_trait_public_surface_hash_scan_item_result source candidate_state.seed_table item:
+                Result::Ok next_seed_table:
+                    Result::Ok selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table candidate_state next_seed_table
+                Result::Err hash_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected hash_error
+        Result::Err candidate_error:
+            Result::Err candidate_error
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_item_with_tokens_result: token-aware registry path 用に candidate と seed を同時に[更新/こうしん]する
+//:
+//: [契約/けいやく]:
+//: - AST-only path と同じく candidate 分類を先に評価し、その後で shared token-aware seed scan core を呼びます。
+//: - candidate 分類の error と shared core 由来の public surface hash error を同一 variant に潰しません。
+fn selfhost_memo_trait_public_surface_hash_registry_scan_item_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState impure fn SelfhostModuleItem Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\tokens\state\item:
+    match selfhost_memo_trait_public_surface_hash_registry_scan_candidate_item_result source state item:
+        Result::Ok candidate_state:
+            match selfhost_memo_trait_public_surface_token_seed_scan_item_result source tokens candidate_state.seed_table item:
+                Result::Ok next_seed_table:
+                    Result::Ok selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table candidate_state next_seed_table
+                Result::Err token_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected selfhost_memo_trait_public_surface_hash_error_from_token_seed_scan_error token_error
+        Result::Err candidate_error:
+            Result::Err candidate_error
+
 //: selfhost_memo_trait_public_surface_hash_scan_module_loop: hash materializer 内部で module item stream を 1 pass [走査/そうさ]する
 fn selfhost_memo_trait_public_surface_hash_scan_module_loop %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitStableSourceSeedTable fn i32 fn i32 Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashErrorKind \source\ast\table\idx\n:
     if:
@@ -1067,6 +1296,106 @@ fn selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_result %impur
         Result::Err scan_error:
             Result::Err scan_error
 
+//: selfhost_memo_trait_public_surface_hash_registry_scan_module_loop: registry path 用に module item stream を 1 pass [走査/そうさ]する
+fn selfhost_memo_trait_public_surface_hash_registry_scan_module_loop %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn i32 fn i32 Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\ast\state\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok state
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_memo_trait_public_surface_hash_registry_scan_item_result source state item:
+                        Result::Ok next_state:
+                            selfhost_memo_trait_public_surface_hash_registry_scan_module_loop source ast next_state add idx 1 n
+                        Result::Err error:
+                            Result::Err error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_module_result: AST-only registry path 用 combined scan state を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_registry_scan_module_result %fn str fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\ast:
+    selfhost_memo_trait_public_surface_hash_registry_scan_module_loop:
+        source
+        ast
+        selfhost_memo_trait_public_surface_hash_registry_scan_state_empty
+        0
+        selfhost_module_ast_len ast
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_loop: token-aware registry path 用に module item stream を 1 pass [走査/そうさ]する
+fn selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_loop %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst impure fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState impure fn i32 impure fn i32 Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\tokens\ast\state\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok state
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_memo_trait_public_surface_hash_registry_scan_item_with_tokens_result source tokens state item:
+                        Result::Ok next_state:
+                            selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_loop source tokens ast next_state add idx 1 n
+                        Result::Err error:
+                            Result::Err error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected SelfhostMemoTraitDefinitionScanErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_result: token-aware registry path 用 combined scan state を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \source\tokens\ast:
+    selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_loop:
+        source
+        tokens
+        ast
+        selfhost_memo_trait_public_surface_hash_registry_scan_state_empty
+        0
+        selfhost_module_ast_len ast
+
+//: selfhost_memo_trait_public_surface_hash_registry_materialization_from_state_result: combined scan state から registry payload を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - seed table completion と public surface hash folding の失敗は `PublicSurfaceHashRejected` として返します。
+//: - candidate table validation はここでは行いません。次段の stable registry gate が missing / duplicate / signature missing を判定します。
+fn selfhost_memo_trait_public_surface_hash_registry_materialization_from_state_result %fn i32 fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState Result SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \accepted_module_identity\state:
+    match selfhost_memo_trait_public_surface_hash_seed_table_complete_result state.seed_table:
+        Result::Ok seed_table:
+            match selfhost_memo_trait_public_surface_hash_from_seed_table_result seed_table:
+                Result::Ok public_surface_hash:
+                    let module_identity_option %Option i32 some accepted_module_identity
+                    let public_surface_option %Option i32 some public_surface_hash
+                    let module_seed %SelfhostMemoTraitStableSourceModuleSeed selfhost_memo_trait_stable_source_module_seed_new module_identity_option public_surface_option
+                    let materialization %SelfhostMemoTraitPublicSurfaceHashMaterialization selfhost_memo_trait_public_surface_hash_materialization_new module_seed seed_table
+                    Result::Ok selfhost_memo_trait_public_surface_hash_registry_materialization_new state.candidates materialization
+                Result::Err hash_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected hash_error
+        Result::Err seed_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected seed_error
+
+//: selfhost_memo_trait_public_surface_hash_registry_materialize_result: AST-only registry path の combined payload を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - module identity validation、candidate table scan、seed table scan、public surface hash folding を、registry convenience path 専用の single-pass 境界としてまとめます。
+fn selfhost_memo_trait_public_surface_hash_registry_materialize_result %fn Option i32 fn str fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity_hash\source\ast:
+    match selfhost_memo_trait_public_surface_hash_validate_module_identity_result module_identity_hash:
+        Result::Ok accepted_module_identity:
+            match selfhost_memo_trait_public_surface_hash_registry_scan_module_result source ast:
+                Result::Ok state:
+                    selfhost_memo_trait_public_surface_hash_registry_materialization_from_state_result accepted_module_identity state
+                Result::Err scan_error:
+                    Result::Err scan_error
+        Result::Err module_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected module_error
+
+//: selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result: token-aware registry path の combined payload を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result %impure fn Option i32 impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity_hash\source\tokens\ast:
+    match selfhost_memo_trait_public_surface_hash_validate_module_identity_result module_identity_hash:
+        Result::Ok accepted_module_identity:
+            match selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_result source tokens ast:
+                Result::Ok state:
+                    selfhost_memo_trait_public_surface_hash_registry_materialization_from_state_result accepted_module_identity state
+                Result::Err scan_error:
+                    Result::Err scan_error
+        Result::Err module_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected module_error
+
 //: selfhost_memo_trait_public_surface_hash_materialize_result: AST から module seed と seed table を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -1121,40 +1450,32 @@ fn selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result %impur
 //: selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result: public surface hash 経由で registry を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - candidate scanner、hash materializer、stable evidence producer、stable fingerprint gate、trusted registry validator を順に接続します。
+//: - candidate table と public surface seed table を同じ item loop で作り、stable evidence producer、stable fingerprint gate、trusted registry validator へ接続します。
 pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result %fn Option i32 fn str fn &SelfhostModuleAst Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity_hash\source\ast:
-    match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
-        Result::Ok candidates:
-            match selfhost_memo_trait_public_surface_hash_materialize_result module_identity_hash source ast:
-                Result::Ok materialization:
-                    match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates materialization.module_seed materialization.seed_table:
-                        Result::Ok registry:
-                            Result::Ok registry
-                        Result::Err seed_error:
-                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected seed_error
-                Result::Err hash_error:
-                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected hash_error
-        Result::Err candidate_error:
-            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected candidate_error
+    match selfhost_memo_trait_public_surface_hash_registry_materialize_result module_identity_hash source ast:
+        Result::Ok registry_materialization:
+            match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result registry_materialization.candidates registry_materialization.materialization.module_seed registry_materialization.materialization.seed_table:
+                Result::Ok registry:
+                    Result::Ok registry
+                Result::Err seed_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected seed_error
+        Result::Err registry_error:
+            Result::Err registry_error
 
 //: selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result: token-aware public surface hash 経由で registry を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - 実 stdlib の method-bearing `MemoKey` / `MemoValue` trait definition を、candidate scanner、token-aware hash materializer、stable evidence producer、registry validator の順に通します。
+//: - 実 stdlib の method-bearing `MemoKey` / `MemoValue` trait definition を、single-pass token-aware registry materializer、stable evidence producer、registry validator の順に通します。
 fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result %impure fn Option i32 impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity_hash\source\tokens\ast:
-    match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
-        Result::Ok candidates:
-            match selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result module_identity_hash source tokens ast:
-                Result::Ok materialization:
-                    match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates materialization.module_seed materialization.seed_table:
-                        Result::Ok registry:
-                            Result::Ok registry
-                        Result::Err seed_error:
-                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected seed_error
-                Result::Err hash_error:
-                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected hash_error
-        Result::Err candidate_error:
-            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected candidate_error
+    match selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result module_identity_hash source tokens ast:
+        Result::Ok registry_materialization:
+            match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result registry_materialization.candidates registry_materialization.materialization.module_seed registry_materialization.materialization.seed_table:
+                Result::Ok registry:
+                    Result::Ok registry
+                Result::Err seed_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected seed_error
+        Result::Err registry_error:
+            Result::Err registry_error
 
 //: selfhost_memo_trait_public_surface_hash_stage0_header_named: stage0 用 declaration header を[作/つく]る
 fn selfhost_memo_trait_public_surface_hash_stage0_header_named %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn i32 fn i32 SelfhostModuleDeclarationHeader \kind\visibility\start\end:

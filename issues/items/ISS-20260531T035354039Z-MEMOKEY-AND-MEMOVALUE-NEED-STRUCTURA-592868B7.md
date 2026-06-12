@@ -399,6 +399,37 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost public surface registry single-pass checkpoint
+
+`memo_trait_public_surface_hash.nepl` の registry convenience path で残っていた candidate scanner と public surface hash materializer の module item stream 二重走査を、combined registry materializer へ移した。
+
+過去 checkpoint に記録されている「registry convenience path は 2 traversal が残る」という残件は、この checkpoint で解消済みとして扱う。履歴上の古い記述は当時の scope と残件を示すものであり、最新の実装境界では registry convenience path も single-pass path である。
+
+`SelfhostMemoTraitPublicSurfaceHashRegistryScanState` は candidate source table と public surface seed table を同じ item pass で更新する。ただし、candidate table は source spelling から `MemoKey` / `MemoValue` trait 候補を分類するためだけに使い、public surface hash の authority は seed table の typed field に限定する。成功 payload も `SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization` の `candidates` と `materialization` に分け、candidate classification と accepted hash materialization を混同しない。
+
+AST-only registry API は `selfhost_memo_trait_public_surface_hash_registry_materialize_result` を使い、token-aware registry API は `selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result` を使う。どちらも module identity validation の後、module item stream を 1 回だけ走査する。standalone `selfhost_memo_trait_definition_source_table_scan_module_result`、`selfhost_memo_trait_public_surface_hash_materialize_result`、`selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result` は、互換境界と単体検査用 API として残した。
+
+error taxonomy は combined path でも collapse しない。candidate 分類の AST 不整合は `CandidateScanRejected(SelfhostMemoTraitDefinitionScanErrorKind)`、public surface seed / hash 側の拒否は `PublicSurfaceHashRejected(SelfhostMemoTraitPublicSurfaceHashErrorKind)`、stable evidence / registry validator の拒否は `SeedRegistryRejected(SelfhostMemoTraitStableSourceSeedRegistryErrorKind)` として分ける。同じ trait item で candidate 分類と seed 分類の両方が失敗し得る場合は candidate 分類を先に評価し、malformed trait header は hash error ではなく `CandidateScanRejected` へ寄せる契約を doc comment と source policy で固定した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` を更新し、combined registry materializer、candidate / seed の同一 item pass、既存 standalone API の維持、registry API から旧 scanner + materializer sequence へ戻らないこと、candidate-first error precedence、line count / doc comment length cap 禁止を確認する。
+
+subagent review では Hume が Blocker なしと判断した。Required として、candidate/source table failure、seed/hash failure、registry validation failure の error taxonomy 分離、既存 scanner / materializer API の維持、source policy の combined path 期待への更新、combined payload で candidate table と materialization を分けること、doc comment に DAG と O(n+k) の探索範囲を明記することを求めた。今回の実装ではすべて同じ slice 内で対応した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_source_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -o target/selfhost_hash_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-12 selfhost token-aware public surface seed scan core checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_seed_scan.nepl` を追加し、method-bearing `MemoKey` / `MemoValue` trait definition を扱う token-aware public surface seed scan を seed / hash / token_gate から独立した shared core に分離した。

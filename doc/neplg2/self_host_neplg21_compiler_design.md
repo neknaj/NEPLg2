@@ -1122,6 +1122,22 @@ source policy は dedicated error enum、DAG、facade 非公開、method error p
 
 この checkpoint 後も、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未実装である。
 
+### 2026-06-12 memo trait public surface registry single-pass checkpoint
+
+registry convenience path に残っていた candidate scanner と public surface hash materializer の module item stream 二重走査を、`memo_trait_public_surface_hash.nepl` 内の combined registry materializer へ移した。
+
+`SelfhostMemoTraitPublicSurfaceHashRegistryScanState` は candidate source table と public surface seed table を別 field として保持する。candidate table は source spelling から `MemoKey` / `MemoValue` trait 候補を分類するためだけに使い、seed table は public surface hash の authority になる typed seed field だけを保持する。両者を同じ table に統合せず、成功時は `SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization` として `candidates` と `materialization` に分けて返す。
+
+AST-only registry path は `selfhost_memo_trait_public_surface_hash_registry_materialize_result` を通り、token-aware registry path は `selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result` を通る。どちらも module identity validation 後に module item stream を 1 回だけ走査し、candidate table と seed table を同じ item pass で更新する。standalone `selfhost_memo_trait_definition_source_table_scan_module_result`、`selfhost_memo_trait_public_surface_hash_materialize_result`、`selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result` は、単体検査と互換境界として残す。
+
+error taxonomy は combined path でも分けたままにした。candidate 分類の AST 不整合は `CandidateScanRejected(SelfhostMemoTraitDefinitionScanErrorKind)`、public surface seed / hash 側の拒否は `PublicSurfaceHashRejected(SelfhostMemoTraitPublicSurfaceHashErrorKind)`、stable evidence / registry validator の拒否は `SeedRegistryRejected(SelfhostMemoTraitStableSourceSeedRegistryErrorKind)` で返す。同じ trait item で candidate 分類と seed 分類の両方が失敗し得る場合は candidate 分類を先に評価し、malformed trait header は hash error ではなく `CandidateScanRejected` になる契約を doc comment と source policy で固定した。
+
+accepted authority は従来どおり seed table、public surface hash materializer、stable evidence producer、trusted registry validator に置く。source spelling は candidate classification にだけ使い、source text、span、syntax range、lexeme、path、display name、diagnostic text は hash fold や accepted source identity に入れない。token-aware combined path は shared token-aware seed scan core を直接使い、token_gate wrapper や facade re-export 経由の循環を作らない。
+
+計算量は registry convenience API 全体で module item 数 n と method-bearing trait body token 数 k に対して O(n + k) である。これにより、full public surface hash へ進む前の既知の探索範囲増加要因を 1 つ閉じた。
+
+この checkpoint 後も、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

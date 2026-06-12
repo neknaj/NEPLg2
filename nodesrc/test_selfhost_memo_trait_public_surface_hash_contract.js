@@ -59,8 +59,23 @@ assert.match(
 );
 assert.match(
     source,
+    /registry convenience path は candidate table と seed table を同じ item loop で作るため、module item stream を 1 回だけ走査し、token-aware method 正規化を含めても全体は O\(n \+ k\)[\s\S]*既存の scanner API と materialize API は単体検査と互換のため残します/,
+    "hash materializer must document that registry convenience paths are single-pass while standalone scanner/materializer APIs remain",
+);
+assert.match(
+    source,
     /pub struct SelfhostMemoTraitPublicSurfaceHashMaterialization:[\s\S]*module_seed %SelfhostMemoTraitStableSourceModuleSeed[\s\S]*seed_table %SelfhostMemoTraitStableSourceSeedTable/,
     "hash materialization output must carry both the derived module seed and the seed table that produced it",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization:[\s\S]*candidates %SelfhostMemoTraitDefinitionSourceTable[\s\S]*materialization %SelfhostMemoTraitPublicSurfaceHashMaterialization/,
+    "registry convenience path must carry candidate table and hash materialization from the same item pass",
+);
+assert.match(
+    source,
+    /struct SelfhostMemoTraitPublicSurfaceHashRegistryScanState:[\s\S]*candidates %SelfhostMemoTraitDefinitionSourceTable[\s\S]*seed_table %SelfhostMemoTraitStableSourceSeedTable/,
+    "single-pass registry scan state must keep candidate table and seed table together",
 );
 assert.match(
     source,
@@ -99,13 +114,43 @@ assert.doesNotMatch(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result[\s\S]*selfhost_memo_trait_definition_source_table_scan_module_result[\s\S]*selfhost_memo_trait_public_surface_hash_materialize_result[\s\S]*selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result/,
-    "registry path must go through scanner, hash materializer, seed evidence producer, and existing stable registry gate",
+    /selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_materialize_result[\s\S]*selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result/,
+    "registry path must go through the single-pass registry materializer, seed evidence producer, and existing stable registry gate",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result[\s\S]*selfhost_memo_trait_definition_source_table_scan_module_result[\s\S]*selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result[\s\S]*selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result/,
-    "token-aware registry path must go through scanner, token-aware hash materializer, seed evidence producer, and existing stable registry gate",
+    /selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result[\s\S]*selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result/,
+    "token-aware registry path must go through the single-pass token-aware registry materializer, seed evidence producer, and existing stable registry gate",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_registry_materialize_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_scan_module_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_materialization_from_state_result/,
+    "AST-only registry materializer must validate module identity and then use one combined module scan",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_scan_module_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_materialization_from_state_result/,
+    "token-aware registry materializer must validate module identity and then use one combined module scan",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_registry_scan_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_scan_candidate_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_scan_item_result/,
+    "AST-only registry item scan must update candidate table and seed table in the same item pass",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_registry_scan_item_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_registry_scan_candidate_item_result[\s\S]*selfhost_memo_trait_public_surface_token_seed_scan_item_result/,
+    "token-aware registry item scan must update candidate table and shared-core seed table in the same item pass",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_registry_scan_item_result[\s\S]*candidate 分類を先に評価[\s\S]*malformed trait header は hash error ではなく `CandidateScanRejected`/,
+    "AST-only combined registry scan must document candidate-first error precedence",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_registry_scan_item_with_tokens_result[\s\S]*candidate 分類を先に評価[\s\S]*shared core 由来の public surface hash error を同一 variant に潰しません/,
+    "token-aware combined registry scan must document candidate-first error precedence and payload separation",
 );
 assert.match(
     source,
@@ -206,6 +251,26 @@ assert.doesNotMatch(
     source,
     /selfhost_memo_trait_public_surface_seed_scan_module_result|selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result/,
     "hash materializer must not call whole-module seed scanners after owning the materialization loop",
+);
+const astRegistrySection = sectionBetween(
+    source,
+    "pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result",
+    "//: selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result",
+);
+assert.doesNotMatch(
+    astRegistrySection,
+    /selfhost_memo_trait_definition_source_table_scan_module_result|selfhost_memo_trait_public_surface_hash_materialize_result/,
+    "AST-only registry convenience API must not run candidate scanner and materializer as separate module passes",
+);
+const tokenRegistrySection = sectionBetween(
+    source,
+    "fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result",
+    "//: selfhost_memo_trait_public_surface_hash_stage0_header_named",
+);
+assert.doesNotMatch(
+    tokenRegistrySection,
+    /selfhost_memo_trait_definition_source_table_scan_module_result|selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result/,
+    "token-aware registry convenience API must not run candidate scanner and materializer as separate module passes",
 );
 assert.match(
     source,
