@@ -1,3 +1,57 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue method public surface gate checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `selfhost/memo-trait-method-surface-gate-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` method-bearing trait public surface gate
+- classification: selfhost implementation slice review
+- decision: method-bearing `MemoKey` / `MemoValue` trait definition を、token stream と `SelfhostModuleAst` を同時に受け取る public surface seed / hash path へ接続する。AST-only API は token authority がないため marker trait だけを受理する互換経路として残す。token-aware helper は module checker facade の安定公開面へ出さず、facade-external internal gate として扱う。
+- implementation:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` に token-aware scan / registry gate を追加し、marker normalizer が body presence だけで拒否した場合に限って `memo_trait_method_signature` へ fallback するようにした。
+  - method normalizer の失敗は `MemoKeyMethodSignatureRejected %SelfhostMemoTraitMethodSignatureErrorKind` / `MemoValueMethodSignatureRejected %SelfhostMemoTraitMethodSignatureErrorKind` として payload を保持する。`selfhost_memo_trait_public_surface_seed_error_kind_eq` も payload まで比較し、method count mismatch などを同一 unsupported に潰さない。
+  - `stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl` は marker / method-bearing public surface 用に schema domain code を更新し、token-aware materializer では seed table の typed field だけを hash fold する。source text、span、syntax range、method name spelling、path suffix、diagnostic text は accepted hash authority にしない。
+  - `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` を追加し、hash materializer が使う token-aware seed table scan を facade 外の internal connector に分離した。この file は `module.nepl` から re-export しない。
+  - token-aware seed/hash materialize / registry helper は `pub fn` にせず、`module.nepl` の `pub #import ... as *` から漏れないようにした。stable facade の公開 surface は既存 AST-only public API のまま維持する。
+  - `nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js` と `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` を更新し、token-aware gate の存在、method error payload、facade 非公開、hash 側の facade-external token gate import、source/span 非 authority を固定した。
+- implementation/test:
+  - 実装本体は checker-layer の `core/check/module` に閉じ、`core/ty` と proof store へ syntax/token 依存を逆流させない。
+  - `memo_trait_public_surface_token_gate.nepl` は direct import 用の internal connector であり、`module.nepl` facade の public surface には含めない。facade contract は `test_selfhost_module_checker_split_contract.js` と `test_selfhost_proof_entry_contract.js` で固定する。
+  - token-aware path の実行確認は focused doctest、public surface seed/hash contract、module checker split contract、proof entry contract、source policy regression、issues check、diff check で確認する。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - Goodall は Blocker なし。Required として `SelfhostMemoTraitPublicSurfaceSeedErrorKind` 周辺の古い「marker trait 限定」説明と hash helper doc の marker-only 説明を指摘した。対応として AST-only と token-aware の受理範囲をコメントと contract で明確化した。
+  - Fermat は Blocker として、token-aware API を `pub fn` にしたことで `module.nepl` facade へ premature export され、`test_selfhost_module_checker_split_contract.js` / `test_selfhost_proof_entry_contract.js` が失敗することを指摘した。対応として token-aware helper を private gate に戻し、hash 側には facade-external `memo_trait_public_surface_token_gate.nepl` を追加して direct import する構成にした。
+  - Fermat の Non-blocker として、production path が source を再 lex していないこと、method normalizer error payload が保持されていること、trusted registry gate を迂回していないことを確認した。
+- policy/spec:
+  - Blocker: facade premature export は `pub fn` を外し、facade-external internal gate へ分離して解消した。
+  - Required: AST-only API は marker-only、token-aware path は marker + normalized method-bearing trait、という仕様を doc comment と contract に明記した。
+  - Non-blocker: source re-lex なし、method error payload preservation、trusted registry gate 経由は維持できている。
+  - Question: 次 slice で full public surface materializer を作るとき、token-aware gate を orchestrator に昇格するか、`.neplmeta` surface producer の内部 helper に閉じるかを決める必要がある。
+  - Approve: review 指摘の Blocker / Required を反映後、focused contract と facade contract は pass。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: token-aware method-bearing surface は stable facade ではなく internal gate であり、facade premature export、method error payload loss、source / span / lexeme / path / display / diagnostic の authority 化、trusted source identity / `signature_available=true` record の直生成を検出する必要がある。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: subagent review response は Blocker / Required / Non-blocker / Question / Approve の分類で確認する。今回の実装ではその分類を note に記録し、Blocker / Required を同じ slice 内で反映した。
+  - source policy: updated and rerun.
+  - 今回差分由来 warning: `memo_trait_signature_shape_contract` の旧 seed 境界説明不足と、latest checkpoint の `policy/spec` 記録不足を修正した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - token-aware path は caller が保持する lexer/parser token stream を受け取るため、production path で source を再 lex しない。
+  - accepted path の hash fold は seed table の typed field だけに限定し、source-wide scan や探索的候補列挙を増やしていない。
+  - Residual: public surface seed の scanner / seed scan 二重走査、facade-external token gate と seed module private token scan の重複、`trait_body_segmenter` の next-index recomputation は後続の性能 cleanup 候補に残す。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_method_signature_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl -i stdlib/neplg2/core/check/module.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-surface-gate-final-token-gate2.json`
+  - 既存 warning: Node の WASI experimental warning が doctest 実行中に表示される。
+- residual:
+  - re-export / import graph / public non-trait declaration を含む full public surface hash、stable trait definition key producer、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue method signature normalizer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。

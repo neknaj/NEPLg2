@@ -1,23 +1,24 @@
 #indent 4
 
 //: # check/module/memo_trait_public_surface_seed
-//: `MemoKey` / `MemoValue` trait declaration の public surface seed を `SelfhostModuleAst` から[作/つく]る Phase 1 接続層です。
+//: `MemoKey` / `MemoValue` trait declaration の public surface seed を `SelfhostModuleAst` と parser token stream から[作/つく]る接続層です。
 //:
 //: [目的/もくてき]:
-//: - parser が作った typed module item stream から、`MemoKey` / `MemoValue` の public marker trait definition だけを stable source seed table へ投影します。
-//: - trait header / body が marker trait として stable signature にできるかは `memo_trait_signature_shape` に委譲し、seed 側で source range を直接 semantic hash に変換しません。
+//: - parser が作った typed module item stream から、`MemoKey` / `MemoValue` の public trait definition を stable source seed table へ投影します。
+//: - marker trait は `memo_trait_signature_shape` に委譲し、method-bearing trait は `memo_trait_method_signature` に委譲します。seed 側で source range を直接 semantic hash に変換しません。
 //: - scanner candidate table、public surface seed、stable evidence producer、fingerprint gate、trusted registry validator の順に通し、どの段階でも source spelling や span から trusted source identity を直接作らないようにします。
 //: - `core/ty` と proof store が syntax AST を読む逆依存を作らないよう、AST 走査は `core/check/module` 側に閉じます。
 //:
 //: [契約/けいやく]:
 //: - source text slicing は `MemoKey` / `MemoValue` の候補分類にだけ使います。slice 結果、display name、path suffix、diagnostic text、source span、syntax range は accepted fingerprint payload に混ぜません。
 //: - module identity seed と public surface seed は caller が `SelfhostMemoTraitStableSourceModuleSeed` として渡します。この module は module path や file path から identity を作りません。
-//: - Phase 1 accepted path は public marker trait だけです。trait body / method signature normalization が必要な trait は typed error で拒否し、未正規化 signature を accepted path に流しません。
+//: - token-aware accepted path は public marker trait と、正規化済み method-bearing trait だけです。AST-only 互換 API は token authority がないため marker trait だけを受理します。
+//: - AST-only 境界では trait body / method signature normalization が必要な trait は typed error で拒否します。method-bearing trait を受理する場合は token-aware gate を使います。
 //: - 成功時も registry を直接組み立てず、既存 `selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result` を経由します。
 //:
 //: [現状/げんじょう]:
-//: - これは full public surface materializer ではありません。re-export、trait body、method signature、bound list、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
-//: - 現在の `MemoKey` / `MemoValue` stdlib trait は method を持つため、この Phase 1 materializer は marker trait smoke と責務境界の固定を目的にしています。実 stdlib definition へ接続するには trait body / method signature normalization を先に実装します。
+//: - これは full public surface materializer ではありません。re-export、bound list、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
+//: - 現在の `MemoKey` / `MemoValue` stdlib trait は method を持つため、実 stdlib definition へ接続する経路は token-aware API を使います。AST-only API は過去 slice の marker trait smoke と互換確認のために残します。
 //:
 //: [計算量/けいさんりょう]:
 //: - module item stream を 1 回走査するため、item 数 n に対して O(n) 時間です。
@@ -25,7 +26,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -33,15 +34,21 @@
 //: ##: [4] ok
 //: ##: [5] ok
 //: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_method_signature" as *
 //:| #import "neplg2/core/check/module/memo_trait_public_surface_seed" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_policy" as *
 //:| #import "std/test" as *
 //: fn main %impure fn void i32 \void:
 //:     let summary selfhost_memo_trait_public_surface_seed_stage0
+//:     let expected_method_error %SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+//:         SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected SelfhostMemoTraitMethodSignatureErrorKind::MethodCountMismatch SelfhostMemoTraitSourceKind::MemoKeyTrait
 //:     let checks0 checks_new
 //:     let checks1 checks_push checks0 check is_ok summary.accepted_registry
 //:     let checks2 checks_push checks1 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.private_visibility_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility
@@ -50,10 +57,13 @@
 //:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.missing_value_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing
 //:     let checks6 checks_push checks5 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.malformed_header_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
 //:     let checks7 checks_push checks6 check selfhost_memo_trait_public_surface_seed_error_kind_eq (unwrap_err summary.trait_header_rejected) SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
-//:     let shown checks_print_report checks7
+//:     let checks8 checks_push checks7 check is_ok summary.method_surface_accepted_registry
+//:     let checks9 checks_push checks8 check selfhost_memo_trait_public_surface_seed_registry_error_kind_eq (unwrap_err summary.method_surface_rejected_registry) expected_method_error
+//:     let shown checks_print_report checks9
 //:     checks_exit_code shown
 //: ```
 
+#import "alloc/collections/vec" as v
 #import "alloc/string/slice" as string_slice
 #import "alloc/string/search" as string_search
 #import "alloc/hash/hash32" as *
@@ -63,8 +73,12 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/ty/memo_trait_policy" as *
 #import "neplg2/core/ty/ty/memo_trait_source" as *
+#import "./memo_trait_method_signature" as *
 #import "./memo_trait_signature_shape" as *
 #import "./memo_trait_source_scan" as *
 #import "./memo_trait_source_evidence_producer" as *
@@ -83,7 +97,8 @@ pub struct SelfhostMemoTraitPublicSurfaceSeedScan:
 //:
 //: [現状/げんじょう]:
 //: - `StableNominalKeyMissing` と `ReExportUnsupported` は、後続 slice で stable trait definition key と re-export public surface を接続するときの fail-closed variant です。
-//: - Phase 1 accepted path は local public marker trait に限定するため、この 2 variant はまだ実装経路から返しません。未使用 variant として残す理由を enum 上に明示し、次 slice で削除ではなく実経路へ接続します。
+//: - token-aware accepted path は local public marker trait と正規化済み method-bearing trait を扱います。AST-only accepted path は token authority がないため marker trait に限定します。
+//: - この 2 variant は local trait pair だけを扱う現段階ではまだ実装経路から返しません。未使用 variant として残す理由を enum 上に明示し、次 slice で削除ではなく実経路へ接続します。
 pub enum SelfhostMemoTraitPublicSurfaceSeedErrorKind:
     ItemUnavailable
     TraitHeaderMissing
@@ -103,6 +118,8 @@ pub enum SelfhostMemoTraitPublicSurfaceSeedErrorKind:
     MemoValuePrivateVisibility
     MemoKeyTraitBodyNormalizationUnsupported
     MemoValueTraitBodyNormalizationUnsupported
+    MemoKeyMethodSignatureRejected %SelfhostMemoTraitMethodSignatureErrorKind
+    MemoValueMethodSignatureRejected %SelfhostMemoTraitMethodSignatureErrorKind
     MemoKeySignatureSeedPlaceholder
     MemoValueSignatureSeedPlaceholder
     StableNominalKeyMissing
@@ -129,6 +146,8 @@ pub struct SelfhostMemoTraitPublicSurfaceSeedStage0Summary:
     duplicate_key_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
     missing_value_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
     malformed_header_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind
+    method_surface_accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind
+    method_surface_rejected_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind
 
 impl Clone for SelfhostMemoTraitPublicSurfaceSeedScan:
     fn clone %fn &SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedScan \self:
@@ -208,20 +227,166 @@ fn selfhost_memo_trait_public_surface_seed_error_kind_code %fn SelfhostMemoTrait
             17
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported:
             18
-        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder:
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected _method_error:
             19
-        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder:
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected _method_error:
             20
-        SelfhostMemoTraitPublicSurfaceSeedErrorKind::StableNominalKeyMissing:
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder:
             21
-        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder:
             22
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::StableNominalKeyMissing:
+            23
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
+            24
 
 //: selfhost_memo_trait_public_surface_seed_error_kind_eq: public surface seed error kind が同じか[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_seed_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceSeedErrorKind fn SelfhostMemoTraitPublicSurfaceSeedErrorKind bool \a\b:
-    eq:
-        selfhost_memo_trait_public_surface_seed_error_kind_code a
-        selfhost_memo_trait_public_surface_seed_error_kind_code b
+    match a:
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected method_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected other_method_error:
+                    selfhost_memo_trait_method_signature_error_kind_eq method_error other_method_error
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadKindMismatch:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateDuplicate:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateDuplicate:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValuePrivateVisibility:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected _other_method_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
+                    false
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected method_error:
+            match b:
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected other_method_error:
+                    selfhost_memo_trait_method_signature_error_kind_eq method_error other_method_error
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadKindMismatch:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateDuplicate:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateDuplicate:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValuePrivateVisibility:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected _other_method_error:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
+                    false
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadMissing:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadKindMismatch:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateMissing:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateDuplicate:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateDuplicate:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedMissing:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ModuleIdentitySeedPlaceholder:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedMissing:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicSurfaceSeedPlaceholder:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValuePrivateVisibility:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::StableNominalKeyMissing:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
 
 //: selfhost_memo_trait_public_surface_seed_registry_error_kind_eq: registry path error kind が同じか[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_seed_registry_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind fn SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind bool \a\b:
@@ -291,6 +456,109 @@ fn selfhost_memo_trait_public_surface_seed_signature_from_normalization_result %
                     Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder
                 SelfhostMemoTraitSourceKind::MemoValueTrait:
                     Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder
+
+//: selfhost_memo_trait_public_surface_seed_signature_from_method_result: method signature evidence から signature seed を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - accepted signature seed は `memo_trait_method_signature` が作った `normalized_signature_hash` だけです。
+//: - method name、default body、source span、syntax range は method normalizer の検査入力であり、この関数の hash authority にはしません。
+fn selfhost_memo_trait_public_surface_seed_signature_from_method_result %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitMethodSignatureEvidence Result i32 SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\evidence:
+    match evidence.normalized_signature_hash:
+        Option::Some signature_seed:
+            if:
+                eq signature_seed 0
+                then:
+                    match kind:
+                        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder
+                        SelfhostMemoTraitSourceKind::MemoValueTrait:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder
+                else:
+                    Result::Ok signature_seed
+        Option::None:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder
+
+//: selfhost_memo_trait_public_surface_seed_shape_error_allows_method_fallback: marker 正規化失敗を method 正規化へ送ってよいか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - marker normalizer が body の存在だけを理由に拒否した場合だけ、method-bearing trait の正規化へ進みます。
+//: - header type annotation、lambda header、private visibility、item kind mismatch は別の不正 surface なので fallback させません。
+fn selfhost_memo_trait_public_surface_seed_shape_error_allows_method_fallback %fn SelfhostMemoTraitSignatureShapeErrorKind bool \error:
+    match error:
+        SelfhostMemoTraitSignatureShapeErrorKind::ItemKindMismatch:
+            false
+        SelfhostMemoTraitSignatureShapeErrorKind::HeaderKindMismatch:
+            false
+        SelfhostMemoTraitSignatureShapeErrorKind::PrivateVisibilityRejected _kind:
+            false
+        SelfhostMemoTraitSignatureShapeErrorKind::BodyEvidenceMissing _kind:
+            false
+        SelfhostMemoTraitSignatureShapeErrorKind::HeaderTypeAnnotationPresent _kind:
+            false
+        SelfhostMemoTraitSignatureShapeErrorKind::HeaderLambdaHeaderPresent _kind:
+            false
+        SelfhostMemoTraitSignatureShapeErrorKind::BodyEnvelopePresent _kind:
+            true
+        SelfhostMemoTraitSignatureShapeErrorKind::BodyFirstExpressionPresent _kind:
+            true
+        SelfhostMemoTraitSignatureShapeErrorKind::MemoKeyMarkerSignaturePlaceholder:
+            false
+        SelfhostMemoTraitSignatureShapeErrorKind::MemoValueMarkerSignaturePlaceholder:
+            false
+
+//: selfhost_memo_trait_public_surface_seed_method_error_result: method normalizer error を public surface seed error へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - method normalizer が typed enum で返した原因を失わないよう、kind 別の payload variant へ包みます。
+//: - marker-only AST API の「body normalization unsupported」とは区別し、token-aware path の失敗を後続診断で追跡できるようにします。
+fn selfhost_memo_trait_public_surface_seed_method_error_result %fn SelfhostMemoTraitSourceKind fn SelfhostMemoTraitMethodSignatureErrorKind SelfhostMemoTraitPublicSurfaceSeedErrorKind \kind\method_error:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected method_error
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected method_error
+
+//: selfhost_memo_trait_public_surface_seed_method_signature_from_body_result: body range を method signature seed へ[正規化/せいきか]する
+//:
+//: [目的/もくてき]:
+//: - parser が持つ body envelope range と caller が保持している token stream を method normalizer へ渡します。
+//: - envelope が空なら、method list の authority がないため marker unsupported として拒否します。
+fn selfhost_memo_trait_public_surface_seed_method_signature_from_body_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitSourceKind impure fn SelfhostModuleDeclarationBody Result i32 SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\kind\body:
+    if:
+        selfhost_syntax_range_is_nonempty body.envelope
+        then:
+            match selfhost_memo_trait_method_signature_result source tokens kind body.envelope:
+                Result::Ok method_evidence:
+                    selfhost_memo_trait_public_surface_seed_signature_from_method_result kind method_evidence
+                Result::Err method_error:
+                    Result::Err selfhost_memo_trait_public_surface_seed_method_error_result kind method_error
+        else:
+            Result::Err selfhost_memo_trait_public_surface_marker_trait_unsupported_result kind
+
+//: selfhost_memo_trait_public_surface_seed_signature_with_tokens_result: marker / method-bearing trait の signature seed を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - まず marker normalizer を試し、body が存在する場合だけ method signature normalizer へ進みます。
+//: - method-bearing trait の accepted path は token stream がある場合だけ使います。AST-only API はこの helper を呼びません。
+fn selfhost_memo_trait_public_surface_seed_signature_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitSourceKind impure fn SelfhostModuleDeclarationHeader impure fn SelfhostModuleItem Result i32 SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\kind\header\item:
+    match selfhost_memo_trait_signature_shape_result kind header item:
+        Result::Ok signature_evidence:
+            selfhost_memo_trait_public_surface_seed_signature_from_normalization_result kind signature_evidence
+        Result::Err normalization_error:
+            if:
+                selfhost_memo_trait_public_surface_seed_shape_error_allows_method_fallback normalization_error
+                then:
+                    match item.declaration_body:
+                        Option::Some body:
+                            selfhost_memo_trait_public_surface_seed_method_signature_from_body_result source tokens kind body
+                        Option::None:
+                            Result::Err selfhost_memo_trait_public_surface_seed_normalization_error_result kind normalization_error
+                else:
+                    Result::Err selfhost_memo_trait_public_surface_seed_normalization_error_result kind normalization_error
 
 //: selfhost_memo_trait_public_surface_seed_declaration_ordinal: well-known trait key を ordinal seed へ[写/うつ]す
 //:
@@ -371,6 +639,31 @@ fn selfhost_memo_trait_public_surface_trait_seed_result %fn SelfhostMemoTraitSou
                                     Result::Err signature_error
                         Result::Err normalization_error:
                             Result::Err selfhost_memo_trait_public_surface_seed_normalization_error_result kind normalization_error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
+        Result::Err visibility_error:
+            Result::Err visibility_error
+
+//: selfhost_memo_trait_public_surface_trait_seed_with_tokens_result: token-aware trait seed を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - marker trait は従来の marker signature evidence を使い、method-bearing trait は body envelope と token stream から method signature evidence を作ります。
+//: - token stream は lexer/parser が作った authority であり、source text の再 lex や fake range では代替しません。
+fn selfhost_memo_trait_public_surface_trait_seed_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitSourceKind impure fn SelfhostModuleDeclarationVisibility impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\kind\visibility\item:
+    match selfhost_memo_trait_public_surface_visibility_result kind visibility:
+        Result::Ok _visibility_ok:
+            match item.declaration:
+                Option::Some header:
+                    match selfhost_memo_trait_public_surface_seed_signature_with_tokens_result source tokens kind header item:
+                        Result::Ok signature_seed:
+                            Result::Ok:
+                                selfhost_memo_trait_stable_source_trait_seed_new:
+                                    kind
+                                    visibility
+                                    some selfhost_memo_trait_public_surface_seed_declaration_ordinal kind
+                                    some signature_seed
+                        Result::Err signature_error:
+                            Result::Err signature_error
                 Option::None:
                     Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
         Result::Err visibility_error:
@@ -499,6 +792,133 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn Sel
         SelfhostModuleItemKind::ImplDecl:
             Result::Ok table
 
+//: selfhost_memo_trait_public_surface_seed_table_add_name_with_tokens_result: token-aware seed table へ classified trait name を[反映/はんえい]する
+fn selfhost_memo_trait_public_surface_seed_table_add_name_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn str impure fn SelfhostModuleDeclarationVisibility impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\name\visibility\item:
+    if:
+        string_search::str_eq name "MemoKey"
+        then:
+            let key_seed_result %Result SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+                selfhost_memo_trait_public_surface_trait_seed_with_tokens_result:
+                    source
+                    tokens
+                    SelfhostMemoTraitSourceKind::MemoKeyTrait
+                    visibility
+                    item
+            match key_seed_result:
+                Result::Ok seed:
+                    Result::Ok selfhost_memo_trait_stable_source_seed_table_add_record table seed
+                Result::Err seed_error:
+                    Result::Err seed_error
+        else:
+            if:
+                string_search::str_eq name "MemoValue"
+                then:
+                    let value_seed_result %Result SelfhostMemoTraitStableSourceTraitSeed SelfhostMemoTraitPublicSurfaceSeedErrorKind:
+                        selfhost_memo_trait_public_surface_trait_seed_with_tokens_result:
+                            source
+                            tokens
+                            SelfhostMemoTraitSourceKind::MemoValueTrait
+                            visibility
+                            item
+                    match value_seed_result:
+                        Result::Ok seed:
+                            Result::Ok selfhost_memo_trait_stable_source_seed_table_add_record table seed
+                        Result::Err seed_error:
+                            Result::Err seed_error
+                else:
+                    Result::Ok table
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_trait_name_with_tokens_result: token-aware trait head 名を分類して seed table へ[追加/ついか]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_trait_name_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleDeclarationVisibility impure fn SelfhostModuleItem impure fn SelfhostSourceSpan Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\visibility\item\span:
+    if:
+        not source_span_is_valid span
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable
+        else:
+            match string_slice::str_slice_result source span.start span.end:
+                Result::Ok name:
+                    selfhost_memo_trait_public_surface_seed_table_add_name_with_tokens_result source tokens table name visibility item
+                Result::Err _slice_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_trait_header_with_tokens_result: token-aware trait header を[検査/けんさ]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_trait_header_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem impure fn SelfhostModuleDeclarationHeader Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item\header:
+    match header.head:
+        Option::Some head:
+            match head.kind:
+                SelfhostModuleDeclarationHeadKind::Name:
+                    selfhost_memo_trait_public_surface_seed_table_scan_trait_name_with_tokens_result source tokens table header.visibility item head.span
+                SelfhostModuleDeclarationHeadKind::TypeLabel:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadKindMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadMissing
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_result: token-aware trait item を seed table へ[反映/はんえい]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item:
+    match item.declaration:
+        Option::Some header:
+            match header.kind:
+                SelfhostModuleDeclarationKind::Trait:
+                    selfhost_memo_trait_public_surface_seed_table_scan_trait_header_with_tokens_result source tokens table item header
+                SelfhostModuleDeclarationKind::Function:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Struct:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Enum:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+                SelfhostModuleDeclarationKind::Impl:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result: token-aware item scan を[行/おこな]う
+fn selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item:
+    match item.kind:
+        SelfhostModuleItemKind::TraitDecl:
+            selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_result source tokens table item
+        SelfhostModuleItemKind::DocComment:
+            Result::Ok table
+        SelfhostModuleItemKind::MlstrLine:
+            Result::Ok table
+        SelfhostModuleItemKind::EntryDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::TargetDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::ImportDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::UseDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::TestDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IfTargetDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IfProfileDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::CapabilityDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::PreludeDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::NoPreludeDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::IntrinsicDirective:
+            Result::Ok table
+        SelfhostModuleItemKind::WasmBlock:
+            Result::Ok table
+        SelfhostModuleItemKind::LlvmIrBlock:
+            Result::Ok table
+        SelfhostModuleItemKind::WasmText:
+            Result::Ok table
+        SelfhostModuleItemKind::LlvmIrText:
+            Result::Ok table
+        SelfhostModuleItemKind::FunctionDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::StructDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::EnumDecl:
+            Result::Ok table
+        SelfhostModuleItemKind::ImplDecl:
+            Result::Ok table
+
 //: selfhost_memo_trait_public_surface_seed_table_scan_module_loop: module item stream を[走査/そうさ]する
 fn selfhost_memo_trait_public_surface_seed_table_scan_module_loop %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitStableSourceSeedTable fn i32 fn i32 Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\ast\table\idx\n:
     if:
@@ -511,6 +931,23 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_module_loop %fn str fn &Se
                     match selfhost_memo_trait_public_surface_seed_table_scan_item_result source table item:
                         Result::Ok next_table:
                             selfhost_memo_trait_public_surface_seed_table_scan_module_loop source ast next_table add idx 1 n
+                        Result::Err error:
+                            Result::Err error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_module_with_tokens_loop: token-aware module item stream を[走査/そうさ]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_module_with_tokens_loop %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst impure fn SelfhostMemoTraitStableSourceSeedTable impure fn i32 impure fn i32 Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\ast\table\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok table
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result source tokens table item:
+                        Result::Ok next_table:
+                            selfhost_memo_trait_public_surface_seed_table_scan_module_with_tokens_loop source tokens ast next_table add idx 1 n
                         Result::Err error:
                             Result::Err error
                 Option::None:
@@ -556,6 +993,25 @@ pub fn selfhost_memo_trait_public_surface_seed_scan_module_result %fn str fn &Se
         Result::Err scan_error:
             Result::Err scan_error
 
+//: selfhost_memo_trait_public_surface_seed_scan_module_with_tokens_result: token-aware module AST から public trait seed table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - parser が作った token stream と AST を同時に受け取り、marker trait と method-bearing trait を同じ seed table へ正規化します。
+//:
+//: [契約/けいやく]:
+//: - token stream は `ast` と同じ parser input から来ている必要があります。この関数は source を再 lex せず、caller が保持している lexer/parser authority を使います。
+//: - accepted seed は normalizer evidence の `normalized_signature_hash` だけから取り出します。
+fn selfhost_memo_trait_public_surface_seed_scan_module_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\ast:
+    match selfhost_memo_trait_public_surface_seed_table_scan_module_with_tokens_loop source tokens ast selfhost_memo_trait_stable_source_seed_table_empty 0 selfhost_module_ast_len ast:
+        Result::Ok table:
+            match selfhost_memo_trait_public_surface_seed_table_complete_result table:
+                Result::Ok complete_table:
+                    Result::Ok selfhost_memo_trait_public_surface_seed_scan_new complete_table
+                Result::Err complete_error:
+                    Result::Err complete_error
+        Result::Err scan_error:
+            Result::Err scan_error
+
 //: selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_result: public surface seed 経由で registry を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -569,6 +1025,33 @@ pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_resu
             match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
                 Result::Ok candidates:
                     match selfhost_memo_trait_public_surface_seed_scan_module_result source ast:
+                        Result::Ok scan:
+                            match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates module_seed scan.seed_table:
+                                Result::Ok registry:
+                                    Result::Ok registry
+                                Result::Err seed_error:
+                                    Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::SeedRegistryRejected seed_error
+                        Result::Err public_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected public_error
+                Result::Err candidate_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::CandidateScanRejected candidate_error
+        Result::Err module_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected module_error
+
+//: selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_with_tokens_result: token-aware public surface seed 経由で registry を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 実 stdlib の method-bearing `MemoKey` / `MemoValue` trait definition を、candidate scanner、token-aware public surface seed、stable evidence producer、registry validator の順に通します。
+//:
+//: [契約/けいやく]:
+//: - AST-only wrapper と異なり、この関数は method body signature の正規化に必要な token stream を受け取ります。
+//: - candidate scanner は AST の公開名分類だけを行い、signature availability は token-aware seed evidence producer で与えます。
+fn selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst impure fn SelfhostMemoTraitStableSourceModuleSeed Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind \source\tokens\ast\module_seed:
+    match selfhost_memo_trait_public_surface_seed_module_seed_ready_result module_seed:
+        Result::Ok _module_seed_ok:
+            match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
+                Result::Ok candidates:
+                    match selfhost_memo_trait_public_surface_seed_scan_module_with_tokens_result source tokens ast:
                         Result::Ok scan:
                             match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates module_seed scan.seed_table:
                                 Result::Ok registry:
@@ -675,8 +1158,44 @@ fn selfhost_memo_trait_public_surface_stage0_two_item_scan_result %impure fn str
             Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
 
 //: selfhost_memo_trait_public_surface_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_public_surface_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind SelfhostMemoTraitPublicSurfaceSeedStage0Summary \accepted_registry\private_visibility_rejected\trait_body_rejected\trait_header_rejected\duplicate_key_rejected\missing_value_rejected\malformed_header_rejected:
-    SelfhostMemoTraitPublicSurfaceSeedStage0Summary accepted_registry private_visibility_rejected trait_body_rejected trait_header_rejected duplicate_key_rejected missing_value_rejected malformed_header_rejected
+fn selfhost_memo_trait_public_surface_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind SelfhostMemoTraitPublicSurfaceSeedStage0Summary \accepted_registry\private_visibility_rejected\trait_body_rejected\trait_header_rejected\duplicate_key_rejected\missing_value_rejected\malformed_header_rejected\method_surface_accepted_registry\method_surface_rejected_registry:
+    SelfhostMemoTraitPublicSurfaceSeedStage0Summary accepted_registry private_visibility_rejected trait_body_rejected trait_header_rejected duplicate_key_rejected missing_value_rejected malformed_header_rejected method_surface_accepted_registry method_surface_rejected_registry
+
+//: selfhost_memo_trait_public_surface_stage0_method_source: method-bearing memo trait fixture を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - stage0 で実 parser が作った token range を使うための source fixture です。
+//: - `MemoKey` と `MemoValue` の method signature は `memo_trait_method_signature` の canonical shape に合わせます。
+fn selfhost_memo_trait_public_surface_stage0_method_source %fn void str \void:
+    "pub trait MemoKey:\n    fn memo_key_eq %fn Self fn Self bool \\a\\b: false\n    fn memo_key_hash32 %fn Self i32 \\self: 0\npub trait MemoValue:\n    fn memo_value_mark %fn Self Self \\value: value\n"
+
+//: selfhost_memo_trait_public_surface_stage0_wrong_method_source: method-bearing rejection fixture を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - public seed registry path が method normalizer の typed error を payload として保持することを確認します。
+fn selfhost_memo_trait_public_surface_stage0_wrong_method_source %fn void str \void:
+    "pub trait MemoKey:\n    fn memo_key_eq %fn Self fn Self bool \\a\\b: false\npub trait MemoValue:\n    fn memo_value_mark %fn Self Self \\value: value\n"
+
+//: selfhost_memo_trait_public_surface_stage0_method_registry_from_source_result: token-aware method-bearing registry path を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - lexer token owner と AST owner は、この helper の成功・失敗分岐で必ず閉じます。
+//: - lex / parse diagnostic は stage0 の焦点ではないため、public surface rejected の typed sentinel に丸めます。parser/lexer 自体の詳細は各 module の stage0 が保持します。
+fn selfhost_memo_trait_public_surface_stage0_method_registry_from_source_result %impure fn str Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind \source:
+    match lex_all source:
+        Result::Ok tokens:
+            match selfhost_parse_module_tokens source &tokens:
+                Result::Ok ast:
+                    let result %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+                        selfhost_memo_trait_trusted_source_registry_from_public_surface_seed_with_tokens_result source &tokens &ast selfhost_memo_trait_public_surface_stage0_module_seed
+                    selfhost_module_ast_free ast
+                    v::free tokens
+                    result
+                Result::Err _parse_diag:
+                    v::free tokens
+                    Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+        Result::Err _lex_diag:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind::PublicSurfaceRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
 
 //: selfhost_memo_trait_public_surface_seed_stage0: public surface seed の代表結果を[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_seed_stage0 %impure fn void SelfhostMemoTraitPublicSurfaceSeedStage0Summary \void:
@@ -704,6 +1223,10 @@ pub fn selfhost_memo_trait_public_surface_seed_stage0 %impure fn void SelfhostMe
     let malformed_item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::TraitDecl malformed_span "trait"
     let malformed_header_rejected %Result SelfhostMemoTraitPublicSurfaceSeedScan SelfhostMemoTraitPublicSurfaceSeedErrorKind:
         selfhost_memo_trait_public_surface_stage0_two_item_scan_result source malformed_item value_item
+    let method_surface_accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+        selfhost_memo_trait_public_surface_stage0_method_registry_from_source_result selfhost_memo_trait_public_surface_stage0_method_source
+    let method_surface_rejected_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind:
+        selfhost_memo_trait_public_surface_stage0_method_registry_from_source_result selfhost_memo_trait_public_surface_stage0_wrong_method_source
     selfhost_memo_trait_public_surface_stage0_summary_new:
         accepted_registry
         private_visibility_rejected
@@ -712,3 +1235,5 @@ pub fn selfhost_memo_trait_public_surface_seed_stage0 %impure fn void SelfhostMe
         duplicate_key_rejected
         missing_value_rejected
         malformed_header_rejected
+        method_surface_accepted_registry
+        method_surface_rejected_registry

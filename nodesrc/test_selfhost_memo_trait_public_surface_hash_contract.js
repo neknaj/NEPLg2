@@ -50,8 +50,8 @@ assert.match(
 );
 assert.match(
     source,
-    /Phase 1 の local `MemoKey` \/ `MemoValue` marker trait pair に限定[\s\S]*import \/ use \/ prelude \/ public non-trait declaration は[\s\S]*拒否/,
-    "hash materializer must document that unsupported full public surface cases fail closed",
+    /token-aware API が計算する public surface hash は、local `MemoKey` \/ `MemoValue` marker trait pair と method-bearing trait pair に対応[\s\S]*AST-only 互換 API は token authority がないため marker trait pair だけに限定[\s\S]*import \/ use \/ prelude \/ public non-trait declaration は[\s\S]*拒否/,
+    "hash materializer must document token-aware method-bearing support and fail-closed unsupported full public surface cases",
 );
 assert.match(
     source,
@@ -75,8 +75,23 @@ assert.match(
 );
 assert.match(
     source,
+    /\nfn selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result %impure fn Option i32 impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind/,
+    "token-aware hash materialize gate must take parser tokens, AST, and a caller-supplied module identity option",
+);
+assert.match(
+    source,
     /pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result %fn Option i32 fn str fn &SelfhostModuleAst Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind/,
     "registry convenience API must expose typed hash path errors",
+);
+assert.match(
+    source,
+    /\nfn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result %impure fn Option i32 impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind/,
+    "token-aware registry gate must expose typed hash path errors",
+);
+assert.doesNotMatch(
+    source,
+    /pub fn selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result|pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result/,
+    "token-aware hash gates must not be exported through the module checker facade until a stable orchestration boundary is designed",
 );
 assert.match(
     source,
@@ -85,8 +100,23 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result[\s\S]*selfhost_memo_trait_definition_source_table_scan_module_result[\s\S]*selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result[\s\S]*selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result/,
+    "token-aware registry path must go through scanner, token-aware hash materializer, seed evidence producer, and existing stable registry gate",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_public_surface_hash_materialize_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_supported_module_loop[\s\S]*selfhost_memo_trait_public_surface_seed_scan_module_result[\s\S]*selfhost_memo_trait_public_surface_hash_from_seed_table_result/,
     "materializer must validate module identity, reject unsupported surfaces, scan marker seeds, and only then fold a public surface hash",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_supported_module_loop[\s\S]*selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_from_seed_table_result/,
+    "token-aware materializer must validate module identity, reject unsupported surfaces, scan marker or method-bearing seeds, and only then fold a public surface hash",
+);
+assert.match(
+    source,
+    /#import "\.\/memo_trait_public_surface_token_gate" as \*/,
+    "hash materializer must use the facade-external token-aware seed gate instead of reaching into private seed helpers",
 );
 assert.match(
     source,
@@ -127,6 +157,11 @@ assert.match(
     source,
     /selfhost_memo_trait_public_surface_hash_public_decl_supported_result[\s\S]*SelfhostModuleDeclarationVisibility::Public:[\s\S]*Result::Err public_error[\s\S]*SelfhostModuleDeclarationVisibility::Private:[\s\S]*Result::Ok unit/,
     "only private non-trait declarations may be ignored in this local marker-trait slice",
+);
+assert.match(
+    source,
+    /method_surface_accepted_registry[\s\S]*selfhost_memo_trait_public_surface_hash_stage0_method_registry_result[\s\S]*selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result/,
+    "stage0 smoke must cover token-aware method-bearing trait hash registry acceptance",
 );
 assert.match(
     source,

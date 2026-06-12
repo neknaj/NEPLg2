@@ -4,19 +4,20 @@
 //: `MemoKey` / `MemoValue` の stable source evidence に渡す module public surface hash を、typed seed から[作/つく]る接続層です。
 //:
 //: [目的/もくてき]:
-//: - `SelfhostModuleAst` の local public marker trait declaration から seed table を作り、その seed table の typed field だけを public surface hash へ fold します。
+//: - `SelfhostModuleAst` の local public memo trait declaration から seed table を作り、その seed table の typed field だけを public surface hash へ fold します。
 //: - source text、span、display name、path suffix、diagnostic text を accepted fingerprint authority にせず、kind、visibility、declaration ordinal、normalized signature seed を使います。
 //: - scanner candidate、public surface hash materializer、stable evidence producer、fingerprint gate、trusted registry validator を順に通し、途中の未正規化 surface を成功扱いしないようにします。
 //:
 //: [契約/けいやく]:
 //: - `module_identity_hash` は caller が作った typed fingerprint です。`none` と `some 0` は typed error で拒否します。
-//: - この module が計算する public surface hash は、Phase 1 の local `MemoKey` / `MemoValue` marker trait pair に限定されます。import / use / prelude / public non-trait declaration は、full module public surface の正規化が未接続なので拒否します。
+//: - token-aware API が計算する public surface hash は、local `MemoKey` / `MemoValue` marker trait pair と method-bearing trait pair に対応します。AST-only 互換 API は token authority がないため marker trait pair だけに限定されます。
+//: - import / use / prelude / public non-trait declaration は、full module public surface の正規化が未接続なので拒否します。
 //: - public surface hash は seed table の field を deterministic に fold した nonzero fingerprint です。source spelling や byte range は hash material に入りません。
 //: - 成功時も registry を直接構築しません。既存 seed evidence producer と stable source registry gate へ委譲します。
 //:
 //: [現状/げんじょう]:
-//: - これは full public surface materializer ではありません。re-export、import graph、public function / struct / enum / impl signature、trait body、method signature normalization、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
-//: - 現在の accepted path は marker trait smoke と source identity pipeline の境界固定を目的にしています。実 stdlib の method 付き `MemoKey` / `MemoValue` に接続するには、trait body / method signature normalization evidence を先に実装します。
+//: - これは full public surface materializer ではありません。re-export、import graph、public function / struct / enum / impl signature、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
+//: - 実 stdlib の method 付き `MemoKey` / `MemoValue` に接続する経路は token-aware API を使います。AST-only API は marker trait smoke と互換確認のために残します。
 //:
 //: [計算量/けいさんりょう]:
 //: - unsupported public surface の確認と seed scan で module item stream を 2 回走査するため、item 数 n に対して O(n) 時間です。
@@ -24,12 +25,13 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
+//: ##: [5] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -47,10 +49,12 @@
 //:     let checks3 checks_push checks2 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.import_surface_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported
 //:     let checks4 checks_push checks3 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.public_declaration_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported
 //:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.body_surface_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
-//:     let shown checks_print_report checks5
+//:     let checks6 checks_push checks5 check is_ok summary.method_surface_accepted_registry
+//:     let shown checks_print_report checks6
 //:     checks_exit_code shown
 //: ```
 
+#import "alloc/collections/vec" as v
 #import "alloc/hash/hash32" as *
 #import "core/math" as *
 #import "core/option" as *
@@ -58,9 +62,13 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/syntax/token" as *
 #import "neplg2/core/ty/ty/memo_trait_policy" as *
 #import "neplg2/core/ty/ty/memo_trait_source" as *
 #import "./memo_trait_public_surface_seed" as *
+#import "./memo_trait_public_surface_token_gate" as *
 #import "./memo_trait_source_evidence_producer" as *
 #import "./memo_trait_source_scan" as *
 
@@ -132,6 +140,7 @@ pub struct SelfhostMemoTraitPublicSurfaceHashStage0Summary:
     import_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
     public_declaration_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
     body_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
+    method_surface_accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind
 
 impl Clone for SelfhostMemoTraitPublicSurfaceHashMaterialization:
     fn clone %fn &SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashMaterialization \self:
@@ -500,12 +509,12 @@ fn selfhost_memo_trait_public_surface_hash_visibility_code %fn SelfhostModuleDec
         SelfhostModuleDeclarationVisibility::Private:
             1402
 
-//: selfhost_memo_trait_public_surface_hash_schema_code: Phase 1 hash schema の domain code を[返/かえ]す
+//: selfhost_memo_trait_public_surface_hash_schema_code: marker / method-bearing public surface hash schema の domain code を[返/かえ]す
 //:
 //: [契約/けいやく]:
 //: - public surface hash の folding domain を固定します。hash 材料の構造を変える場合は、この schema code も更新して、別 schema の payload と衝突しないようにします。
 fn selfhost_memo_trait_public_surface_hash_schema_code %fn void i32 \void:
-    211777
+    212103
 
 //: selfhost_memo_trait_public_surface_hash_key_seed_result: MemoKey seed を surface hash part へ[変換/へんかん]する
 fn selfhost_memo_trait_public_surface_hash_key_seed_result %fn SelfhostMemoTraitStableSourceTraitSeed Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
@@ -601,7 +610,8 @@ fn selfhost_memo_trait_public_surface_hash_validate_module_identity_result %fn O
 //: selfhost_memo_trait_public_surface_hash_public_decl_supported_result: non-trait declaration が public surface hash に含められるか[検査/けんさ]する
 //:
 //: [契約/けいやく]:
-//: - Phase 1 は marker trait pair 専用です。public function / struct / enum / impl がある module の public surface hash はここでは完全に作れないので拒否します。
+//: - 現段階の public surface hash は local `MemoKey` / `MemoValue` trait pair 専用です。public function / struct / enum / impl がある module の public surface hash はここでは完全に作れないので拒否します。
+//: - token-aware API は method-bearing trait pair も正規化できますが、non-trait public declaration は full public surface materializer が必要なので同じく拒否します。
 fn selfhost_memo_trait_public_surface_hash_public_decl_supported_result %fn SelfhostModuleItem fn SelfhostMemoTraitPublicSurfaceHashErrorKind Result unit SelfhostMemoTraitPublicSurfaceHashErrorKind \item\public_error:
     match item.declaration:
         Option::Some header:
@@ -707,6 +717,36 @@ pub fn selfhost_memo_trait_public_surface_hash_materialize_result %fn Option i32
         Result::Err module_error:
             Result::Err module_error
 
+//: selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result: token-aware AST から module seed と seed table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - caller supplied module identity、token-aware public surface seed scan、typed seed table folding を結合します。
+//:
+//: [契約/けいやく]:
+//: - `tokens` は `ast` と同じ parser input から来ている必要があります。この関数は source を再 lex しません。
+//: - hash folding は従来通り seed table の typed field だけを読み、source text や span を hash authority にしません。
+fn selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result %impure fn Option i32 impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity_hash\source\tokens\ast:
+    match selfhost_memo_trait_public_surface_hash_validate_module_identity_result module_identity_hash:
+        Result::Ok accepted_module_identity:
+            match selfhost_memo_trait_public_surface_hash_supported_module_loop ast 0 selfhost_module_ast_len ast:
+                Result::Ok _surface_supported:
+                    match selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result source tokens ast:
+                        Result::Ok seed_table:
+                            match selfhost_memo_trait_public_surface_hash_from_seed_table_result seed_table:
+                                Result::Ok public_surface_hash:
+                                    let module_identity_option %Option i32 some accepted_module_identity
+                                    let public_surface_option %Option i32 some public_surface_hash
+                                    let module_seed %SelfhostMemoTraitStableSourceModuleSeed selfhost_memo_trait_stable_source_module_seed_new module_identity_option public_surface_option
+                                    Result::Ok selfhost_memo_trait_public_surface_hash_materialization_new module_seed seed_table
+                                Result::Err hash_error:
+                                    Result::Err hash_error
+                        Result::Err public_seed_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected public_seed_error
+                Result::Err surface_error:
+                    Result::Err surface_error
+        Result::Err module_error:
+            Result::Err module_error
+
 //: selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result: public surface hash 経由で registry を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -715,6 +755,25 @@ pub fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_resu
     match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
         Result::Ok candidates:
             match selfhost_memo_trait_public_surface_hash_materialize_result module_identity_hash source ast:
+                Result::Ok materialization:
+                    match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates materialization.module_seed materialization.seed_table:
+                        Result::Ok registry:
+                            Result::Ok registry
+                        Result::Err seed_error:
+                            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::SeedRegistryRejected seed_error
+                Result::Err hash_error:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected hash_error
+        Result::Err candidate_error:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::CandidateScanRejected candidate_error
+
+//: selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result: token-aware public surface hash 経由で registry を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 実 stdlib の method-bearing `MemoKey` / `MemoValue` trait definition を、candidate scanner、token-aware hash materializer、stable evidence producer、registry validator の順に通します。
+fn selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result %impure fn Option i32 impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity_hash\source\tokens\ast:
+    match selfhost_memo_trait_definition_source_table_scan_module_result source ast:
+        Result::Ok candidates:
+            match selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result module_identity_hash source tokens ast:
                 Result::Ok materialization:
                     match selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result candidates materialization.module_seed materialization.seed_table:
                         Result::Ok registry:
@@ -826,8 +885,37 @@ fn selfhost_memo_trait_public_surface_hash_stage0_three_item_materialize_result 
             Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
 
 //: selfhost_memo_trait_public_surface_hash_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_public_surface_hash_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashStage0Summary \accepted_registry\module_identity_missing_rejected\import_surface_rejected\public_declaration_rejected\body_surface_rejected:
-    SelfhostMemoTraitPublicSurfaceHashStage0Summary accepted_registry module_identity_missing_rejected import_surface_rejected public_declaration_rejected body_surface_rejected
+fn selfhost_memo_trait_public_surface_hash_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind SelfhostMemoTraitPublicSurfaceHashStage0Summary \accepted_registry\module_identity_missing_rejected\import_surface_rejected\public_declaration_rejected\body_surface_rejected\method_surface_accepted_registry:
+    SelfhostMemoTraitPublicSurfaceHashStage0Summary accepted_registry module_identity_missing_rejected import_surface_rejected public_declaration_rejected body_surface_rejected method_surface_accepted_registry
+
+//: selfhost_memo_trait_public_surface_hash_stage0_method_source: method-bearing memo trait fixture を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - token-aware hash materializer が実 parser range を使って method-bearing trait seed を作れることを確認します。
+fn selfhost_memo_trait_public_surface_hash_stage0_method_source %fn void str \void:
+    "pub trait MemoKey:\n    fn memo_key_eq %fn Self fn Self bool \\a\\b: false\n    fn memo_key_hash32 %fn Self i32 \\self: 0\npub trait MemoValue:\n    fn memo_value_mark %fn Self Self \\value: value\n"
+
+//: selfhost_memo_trait_public_surface_hash_stage0_method_registry_result: token-aware method-bearing hash registry path を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - lexer token owner と AST owner は、この helper の成功・失敗分岐で必ず閉じます。
+//: - lex / parse diagnostic は hash materializer の焦点ではないため、typed sentinel に丸めます。
+fn selfhost_memo_trait_public_surface_hash_stage0_method_registry_result %impure fn Option i32 Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind \module_identity:
+    let source %str selfhost_memo_trait_public_surface_hash_stage0_method_source
+    match lex_all source:
+        Result::Ok tokens:
+            match selfhost_parse_module_tokens source &tokens:
+                Result::Ok ast:
+                    let result %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
+                        selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_with_tokens_result module_identity source &tokens &ast
+                    selfhost_module_ast_free ast
+                    v::free tokens
+                    result
+                Result::Err _parse_diag:
+                    v::free tokens
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
+        Result::Err _lex_diag:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind::PublicSurfaceHashRejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
 
 //: selfhost_memo_trait_public_surface_hash_stage0: public surface hash の代表結果を[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_hash_stage0 %impure fn void SelfhostMemoTraitPublicSurfaceHashStage0Summary \void:
@@ -850,9 +938,12 @@ pub fn selfhost_memo_trait_public_surface_hash_stage0 %impure fn void SelfhostMe
     let body_key_item %SelfhostModuleItem selfhost_memo_trait_public_surface_hash_stage0_trait_item_with_body 0 7 "trait MemoKey:"
     let body_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind:
         selfhost_memo_trait_public_surface_hash_stage0_two_item_materialize_result module_identity source body_key_item value_item
+    let method_surface_accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
+        selfhost_memo_trait_public_surface_hash_stage0_method_registry_result module_identity
     selfhost_memo_trait_public_surface_hash_stage0_summary_new:
         accepted_registry
         module_identity_missing_rejected
         import_surface_rejected
         public_declaration_rejected
         body_surface_rejected
+        method_surface_accepted_registry
